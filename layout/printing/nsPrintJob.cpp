@@ -221,7 +221,7 @@ static bool IsParentAFrameSet(nsIDocShell* aParent) {
 }
 
 static std::tuple<nsPageSequenceFrame*, int32_t>
-GetSeqFrameAndCountPagesInternal(const UniquePtr<nsPrintObject>& aPO) {
+GetSeqFrameAndCountSheetsInternal(const UniquePtr<nsPrintObject>& aPO) {
   if (!aPO) {
     return {nullptr, 0};
   }
@@ -231,7 +231,7 @@ GetSeqFrameAndCountPagesInternal(const UniquePtr<nsPrintObject>& aPO) {
   // Nightly/Aurora in case the other patch fixes this.
   if (!aPO->mPresShell) {
     MOZ_DIAGNOSTIC_ASSERT(
-        false, "GetSeqFrameAndCountPages needs a non-null pres shell");
+        false, "GetSeqFrameAndCountSheets needs a non-null pres shell");
     return {nullptr, 0};
   }
 
@@ -240,7 +240,7 @@ GetSeqFrameAndCountPagesInternal(const UniquePtr<nsPrintObject>& aPO) {
     return {nullptr, 0};
   }
 
-  // count the total number of pages
+  // count the total number of sheets
   return {seqFrame, seqFrame->PrincipalChildList().GetLength()};
 }
 
@@ -427,12 +427,12 @@ nsresult nsPrintJob::Cancel() {
 
 //-----------------------------------------------------------------
 std::tuple<nsPageSequenceFrame*, int32_t>
-nsPrintJob::GetSeqFrameAndCountPages() {
+nsPrintJob::GetSeqFrameAndCountSheets() {
   MOZ_ASSERT(mPrtPreview);
   // Guarantee that mPrintPreview->mPrintObject won't be deleted during a call
-  // of GetSeqFrameAndCountPagesInternal().
+  // of GetSeqFrameAndCountSheetsInternal().
   RefPtr<nsPrintData> printDataForPrintPreview = mPrtPreview;
-  return GetSeqFrameAndCountPagesInternal(
+  return GetSeqFrameAndCountSheetsInternal(
       printDataForPrintPreview->mPrintObject);
 }
 //---------------------------------------------------------------------------------
@@ -605,8 +605,7 @@ nsresult nsPrintJob::DoCommonPrint(bool aIsPrintPreview,
   }
 
   // Now determine how to set up the Frame print UI
-  printData->mPrintSettings->SetPrintOptions(
-      nsIPrintSettings::kEnableSelectionRB,
+  printData->mPrintSettings->SetIsPrintSelectionRBEnabled(
       !mDisallowSelectionPrint && printData->mSelectionRoot);
 
   bool printingViaParent =
@@ -872,23 +871,23 @@ int32_t nsPrintJob::GetRawNumPages() const {
   if (NS_WARN_IF(!printData)) {
     return 0;
   }
-  auto [seqFrame, numPages] =
-      GetSeqFrameAndCountPagesInternal(printData->mPrintObject);
+  auto [seqFrame, numSheets] =
+      GetSeqFrameAndCountSheetsInternal(printData->mPrintObject);
 
-  Unused << numPages;
+  Unused << numSheets;
   return seqFrame ? seqFrame->GetRawNumPages() : 0;
 }
 
 //----------------------------------------------------------------------------------
-int32_t nsPrintJob::GetPrintPreviewNumPages() {
+int32_t nsPrintJob::GetPrintPreviewNumSheets() {
   RefPtr<nsPrintData> printData = mPrtPreview ? mPrtPreview : mPrt;
   if (NS_WARN_IF(!printData)) {
     return 0;
   }
-  auto [seqFrame, numPages] =
-      GetSeqFrameAndCountPagesInternal(printData->mPrintObject);
+  auto [seqFrame, numSheets] =
+      GetSeqFrameAndCountSheetsInternal(printData->mPrintObject);
   Unused << seqFrame;
-  return numPages;
+  return numSheets;
 }
 
 //----------------------------------------------------------------------------------
@@ -1033,7 +1032,7 @@ nsresult nsPrintJob::DocumentReadyForPrinting() {
   if (NS_FAILED(rv)) {
     // The print job was canceled or there was a problem
     // So remove all other documents from the print list
-    DonePrintingPages(nullptr, rv);
+    DonePrintingSheets(nullptr, rv);
   }
   return rv;
 }
@@ -1413,7 +1412,7 @@ nsresult nsPrintJob::SetupToPrintContent() {
   }
 
   // This will print the docshell document
-  // when it completes asynchronously in the DonePrintingPages method
+  // when it completes asynchronously in the DonePrintingSheets method
   // it will check to see if there are more docshells to be printed and
   // then PrintDocContent will be called again.
 
@@ -2170,14 +2169,14 @@ void nsPrintJob::EllipseLongString(nsAString& aStr, const uint32_t aLen,
 }
 
 //-------------------------------------------------------
-bool nsPrintJob::PrePrintPage() {
+bool nsPrintJob::PrePrintSheet() {
   NS_ASSERTION(mPageSeqFrame.IsAlive(), "mPageSeqFrame is not alive!");
   NS_ASSERTION(mPrt, "mPrt is null!");
 
   // Although these should NEVER be nullptr
   // This is added insurance, to make sure we don't crash in optimized builds
   if (!mPrt || !mPageSeqFrame.IsAlive()) {
-    return true;  // means we are done preparing the page.
+    return true;  // means we are done preparing the sheet.
   }
 
   // Guarantee that mPrt won't be deleted during a call of
@@ -2189,13 +2188,13 @@ bool nsPrintJob::PrePrintPage() {
   printData->mPrintSettings->GetIsCancelled(&isCancelled);
   if (isCancelled) return true;
 
-  // Ask mPageSeqFrame if the page is ready to be printed.
-  // If the page doesn't get printed at all, the |done| will be |true|.
+  // Ask mPageSeqFrame if the sheet is ready to be printed.
+  // If the sheet doesn't get printed at all, the |done| will be |true|.
   bool done = false;
   nsPageSequenceFrame* pageSeqFrame = do_QueryFrame(mPageSeqFrame.GetFrame());
-  nsresult rv = pageSeqFrame->PrePrintNextPage(mPagePrintTimer, &done);
+  nsresult rv = pageSeqFrame->PrePrintNextSheet(mPagePrintTimer, &done);
   if (NS_FAILED(rv)) {
-    // ??? ::PrintPage doesn't set |printData->mIsAborted = true| if
+    // ??? ::PrintSheet doesn't set |printData->mIsAborted = true| if
     // rv != NS_ERROR_ABORT, but I don't really understand why this should be
     // the right thing to do?  Shouldn't |printData->mIsAborted| set to true
     // all the time if something went wrong?
@@ -2208,10 +2207,17 @@ bool nsPrintJob::PrePrintPage() {
   return done;
 }
 
-bool nsPrintJob::PrintPage(nsPrintObject* aPO, bool& aInRange) {
+bool nsPrintJob::PrintSheet(nsPrintObject* aPO, bool& aInRange) {
   NS_ASSERTION(aPO, "aPO is null!");
   NS_ASSERTION(mPageSeqFrame.IsAlive(), "mPageSeqFrame is not alive!");
   NS_ASSERTION(mPrt, "mPrt is null!");
+
+  // XXXdholbert Nowadays, this function doesn't need to concern itself with
+  // page ranges -- page-range handling is now handled when we reflow our
+  // PrintedSheetFrames, and all PrintedSheetFrames are "in-range" and should
+  // be printed. So this outparam is unconditionally true. Bug 1669815 is filed
+  // on removing it entirely.
+  aInRange = true;
 
   // Although these should NEVER be nullptr
   // This is added insurance, to make sure we don't crash in optimized builds
@@ -2226,7 +2232,7 @@ bool nsPrintJob::PrintPage(nsPrintObject* aPO, bool& aInRange) {
   RefPtr<nsPrintData> printData = mPrt;
 
   PR_PL(("-----------------------------------\n"));
-  PR_PL(("------ In DV::PrintPage PO: %p (%s)\n", aPO,
+  PR_PL(("------ In DV::PrintSheet PO: %p (%s)\n", aPO,
          gFrameTypesStr[aPO->mFrameType]));
 
   // Check setting to see if someone request it be cancelled
@@ -2236,41 +2242,17 @@ bool nsPrintJob::PrintPage(nsPrintObject* aPO, bool& aInRange) {
     return true;
   }
 
-  int32_t pageNum, numPages, endPage;
   nsPageSequenceFrame* pageSeqFrame = do_QueryFrame(mPageSeqFrame.GetFrame());
-  pageNum = pageSeqFrame->GetCurrentPageNum();
-  numPages = pageSeqFrame->GetRawNumPages();
+  const uint32_t sheetIdx = pageSeqFrame->GetCurrentSheetIdx();
+  const uint32_t numSheets = pageSeqFrame->PrincipalChildList().GetLength();
 
-  bool donePrinting;
-  bool isDoingPrintRange = pageSeqFrame->IsDoingPrintRange();
-  if (isDoingPrintRange) {
-    int32_t fromPage;
-    int32_t toPage;
-    pageSeqFrame->GetPrintRange(&fromPage, &toPage);
+  PR_PL(("****** Printing sheet index %d of %d sheets(s)\n", sheetIdx,
+         numSheets));
 
-    if (fromPage > numPages) {
-      return true;
-    }
-    if (toPage > numPages) {
-      toPage = numPages;
-    }
-
-    PR_PL(("****** Printing Page %d printing from %d to page %d\n", pageNum,
-           fromPage, toPage));
-
-    donePrinting = pageNum >= toPage;
-    aInRange = pageNum >= fromPage && pageNum <= toPage;
-    endPage = (toPage - fromPage) + 1;
-  } else {
-    PR_PL(("****** Printing Page %d of %d page(s)\n", pageNum, numPages));
-
-    donePrinting = pageNum >= numPages;
-    endPage = numPages;
-    aInRange = true;
-  }
-
-  printData->DoOnProgressChange(++printData->mNumPagesPrinted, endPage, false,
-                                0);
+  MOZ_ASSERT(numSheets > 0, "print operations must have at least 1 sheet");
+  MOZ_ASSERT(sheetIdx < numSheets,
+             "sheetIdx shouldn't be allowed to go out of bounds");
+  printData->DoOnProgressChange(sheetIdx, numSheets, false, 0);
   if (NS_WARN_IF(mPrt != printData)) {
     // If current printing is canceled or new print is started, let's return
     // true to notify the caller of current printing is done.
@@ -2281,14 +2263,14 @@ bool nsPrintJob::PrintPage(nsPrintObject* aPO, bool& aInRange) {
     mPagePrintTimer->WaitForRemotePrint();
   }
 
-  // Print the Page
+  // Print the sheet
   // if a print job was cancelled externally, an EndPage or BeginPage may
   // fail and the failure is passed back here.
   // Returning true means we are done printing.
   //
   // When rv == NS_ERROR_ABORT, it means we want out of the
   // print job without displaying any error messages
-  nsresult rv = pageSeqFrame->PrintNextPage();
+  nsresult rv = pageSeqFrame->PrintNextSheet();
   if (NS_FAILED(rv)) {
     if (rv != NS_ERROR_ABORT) {
       FirePrintingErrorEvent(rv);
@@ -2299,7 +2281,9 @@ bool nsPrintJob::PrintPage(nsPrintObject* aPO, bool& aInRange) {
 
   pageSeqFrame->DoPageEnd();
 
-  return donePrinting;
+  // If we just printed the final sheet (the one with index "numSheets-1"),
+  // then we're done!
+  return (sheetIdx == numSheets - 1);
 }
 
 void nsPrintJob::PageDone(nsresult aResult) {
@@ -2381,9 +2365,9 @@ bool nsPrintJob::IsWindowsInOurSubTree(nsPIDOMWindowOuter* window) const {
 }
 
 //-------------------------------------------------------
-bool nsPrintJob::DonePrintingPages(nsPrintObject* aPO, nsresult aResult) {
+bool nsPrintJob::DonePrintingSheets(nsPrintObject* aPO, nsresult aResult) {
   // NS_ASSERTION(aPO, "Pointer is null!");
-  PR_PL(("****** In DV::DonePrintingPages PO: %p (%s)\n", aPO,
+  PR_PL(("****** In DV::DonePrintingSheets PO: %p (%s)\n", aPO,
          aPO ? gFrameTypesStr[aPO->mFrameType] : ""));
 
   // If there is a pageSeqFrame, make sure there are no more printCanvas active
@@ -2404,7 +2388,7 @@ bool nsPrintJob::DonePrintingPages(nsPrintObject* aPO, nsresult aResult) {
     bool didPrint = PrintDocContent(printData->mPrintObject, rv);
     if (NS_SUCCEEDED(rv) && didPrint) {
       PR_PL(
-          ("****** In DV::DonePrintingPages PO: %p (%s) didPrint:%s (Not Done "
+          ("****** In DV::DonePrintingSheets PO: %p (%s) didPrint:%s (Not Done "
            "Printing)\n",
            aPO, gFrameTypesStr[aPO->mFrameType], PRT_YESNO(didPrint)));
       return false;
@@ -2552,7 +2536,7 @@ nsresult nsPrintJob::FinishPrintPreview() {
 
   if (mPrintPreviewCallback) {
     mPrintPreviewCallback(PrintPreviewResultInfo(
-        GetPrintPreviewNumPages(), GetRawNumPages(),
+        GetPrintPreviewNumSheets(), GetRawNumPages(),
         !mDisallowSelectionPrint && printData->mSelectionRoot));
     mPrintPreviewCallback = nullptr;
   }

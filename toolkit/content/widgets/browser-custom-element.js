@@ -942,6 +942,8 @@
     /**
      * Move the previously-tracked web progress listeners to this <browser>'s
      * current WebProgress.
+     *
+     * Invoked when manually switching remoteness, e.g. by GeckoView
      */
     restoreProgressListeners() {
       let listeners = this.progressListeners;
@@ -1069,7 +1071,6 @@
          * the <browser> element may not be initialized yet.
          */
 
-        let oldNavigation = this._remoteWebNavigation;
         this._remoteWebNavigation = new LazyModules.RemoteWebNavigation(this);
 
         // Initialize contentPrincipal to the about:blank principal for this loadcontext
@@ -1100,13 +1101,6 @@
         });
         this.webViewRequestId = 0;
         // End WebView additions.
-
-        if (!oldNavigation) {
-          // If we weren't remote, then we're transitioning from local to
-          // remote. Add all listeners from the previous <browser> to the new
-          // RemoteWebProgress.
-          this.restoreProgressListeners();
-        }
 
         this.messageManager.loadFrameScript(
           "chrome://global/content/browser-child.js",
@@ -1156,7 +1150,6 @@
 
       if (!this.isRemoteBrowser) {
         this._remoteWebNavigation = null;
-        this.restoreProgressListeners();
         this.addEventListener("pagehide", this.onPageHide, true);
       }
     }

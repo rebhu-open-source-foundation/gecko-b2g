@@ -53,14 +53,19 @@
 
   /* Match urlbar-background's border. */
   border-inline: 1px solid transparent;
+}
 
-  /* Offsets the toolbar overlap so the view's top border aligns with the
-     toolbar. */
+/* If the view is open, offset the toolbar overlap so the view's top border
+   aligns with the toolbar. */
+#urlbar[open] > .urlbarView {
   margin-block-start: -@urlbarBreakoutExtend@;
 }
 
 .urlbarView-body-inner {
   width: 100%;
+}
+
+#urlbar[open] > .urlbarView > .urlbarView-body-outer > .urlbarView-body-inner {
   border-top: 1px solid var(--urlbar-separator-color);
 }
 
@@ -415,6 +420,25 @@
 
 .urlbarView-title:not(:empty) ~ .urlbarView-action {
   color: var(--urlbar-popup-action-color);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes urlbarView-action-slide-in {
+    0% {
+      transform: translateX(200px);
+      opacity: 0;
+    }
+    100% {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+
+  .urlbarView-results:not([wrap]) > .urlbarView-row > .urlbarView-row-inner > .urlbarView-no-wrap > .urlbarView-title:not(:empty) ~ .urlbarView-action[slide-in] {
+    animation-name: urlbarView-action-slide-in;
+    animation-duration: 250ms;
+    animation-timing-function: var(--animation-easing-function);
+  }
 }
 
 .urlbarView-url {

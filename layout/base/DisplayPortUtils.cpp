@@ -23,6 +23,8 @@
 #include "nsSubDocumentFrame.h"
 #include "RetainedDisplayListBuilder.h"
 
+#include <ostream>
+
 namespace mozilla {
 
 using gfx::gfxVars;
@@ -37,6 +39,106 @@ using layers::ScrollableLayerGuid;
 typedef ScrollableLayerGuid::ViewID ViewID;
 
 static LazyLogModule sDisplayportLog("apz.displayport");
+
+/* static */
+DisplayPortMargins DisplayPortMargins::WithAdjustment(
+    const ScreenMargin& aMargins, const CSSPoint& aVisualOffset,
+    const CSSPoint& aLayoutOffset, const CSSToScreenScale2D& aScale) {
+  return DisplayPortMargins{aMargins, aVisualOffset, aLayoutOffset, aScale};
+}
+
+/* static */
+DisplayPortMargins DisplayPortMargins::WithNoAdjustment(
+    const ScreenMargin& aMargins) {
+  // Use values such that GetRelativeToLayoutViewport() will just return
+  // mMargins.
+  return WithAdjustment(aMargins, CSSPoint(), CSSPoint(),
+                        CSSToScreenScale2D(1.0, 1.0));
+}
+
+ScreenMargin DisplayPortMargins::GetRelativeToLayoutViewport(
+    ContentGeometryType aGeometryType,
+    nsIScrollableFrame* aScrollableFrame) const {
+  // APZ wants |mMargins| applied relative to the visual viewport.
+  // The main-thread painting code applies margins relative to
+  // the layout viewport. To get the main thread to paint the
+  // area APZ wants, apply a translation between the two. The
+  // magnitude of the translation depends on whether we are
+  // applying the displayport to scrolled or fixed content.
+  CSSPoint scrollDeltaCss =
+      ComputeAsyncTranslation(aGeometryType, aScrollableFrame);
+  ScreenPoint scrollDelta = scrollDeltaCss * mScale;
+  ScreenMargin margins = mMargins;
+  margins.left -= scrollDelta.x;
+  margins.right += scrollDelta.x;
+  margins.top -= scrollDelta.y;
+  margins.bottom += scrollDelta.y;
+  return margins;
+}
+
+std::ostream& operator<<(std::ostream& aOs,
+                         const DisplayPortMargins& aMargins) {
+  if (aMargins.mVisualOffset == CSSPoint() &&
+      aMargins.mLayoutOffset == CSSPoint()) {
+    aOs << aMargins.mMargins;
+  } else {
+    aOs << "{" << aMargins.mMargins << "," << aMargins.mVisualOffset << ","
+        << aMargins.mLayoutOffset << "}";
+  }
+  return aOs;
+}
+
+CSSPoint DisplayPortMargins::ComputeAsyncTranslation(
+    ContentGeometryType aGeometryType,
+    nsIScrollableFrame* aScrollableFrame) const {
+  // If we are applying the displayport to scrolled content, the
+  // translation is the entire difference between the visual and
+  // layout offsets.
+  if (aGeometryType == ContentGeometryType::Scrolled) {
+    return mVisualOffset - mLayoutOffset;
+  }
+
+  // If we are applying the displayport to fixed content, only
+  // part of the difference between the visual and layout offsets
+  // should be applied. This is because fixed content remains fixed
+  // to the layout viewport, and some of the async delta between
+  // the visual and layout offsets can drag the layout viewport
+  // with it. We want only the remaining delta, i.e. the offset of
+  // the visual viewport relative to the (async-scrolled) layout
+  // viewport.
+  if (!aScrollableFrame) {
+    // Displayport on a non-scrolling frame for some reason.
+    // There will be no divergence between the two viewports.
+    return CSSPoint();
+  }
+  // Fixed content is always fixed to an RSF.
+  MOZ_ASSERT(aScrollableFrame->IsRootScrollFrameOfDocument());
+  nsIFrame* scrollFrame = do_QueryFrame(aScrollableFrame);
+  if (!scrollFrame->PresShell()->IsVisualViewportSizeSet()) {
+    // Zooming is disabled, so the layout viewport tracks the
+    // visual viewport completely.
+    return CSSPoint();
+  }
+  // Use KeepLayoutViewportEnclosingViewportVisual() to compute
+  // an async layout viewport the way APZ would.
+  const CSSRect visualViewport{
+      mVisualOffset,
+      // TODO: There are probably some edge cases here around async zooming
+      // that are not currently being handled properly. For proper handling,
+      // we'd likely need to save APZ's async zoom when populating
+      // mVisualOffset, and using it to adjust the visual viewport size here.
+      // Note that any incorrectness caused by this will only occur transiently
+      // during async zooming.
+      CSSSize::FromAppUnits(scrollFrame->PresShell()->GetVisualViewportSize())};
+  const CSSRect scrollableRect = CSSRect::FromAppUnits(
+      nsLayoutUtils::CalculateExpandedScrollableRect(scrollFrame));
+  CSSRect asyncLayoutViewport{
+      mLayoutOffset,
+      CSSSize::FromAppUnits(aScrollableFrame->GetScrollPortRect().Size())};
+  FrameMetrics::KeepLayoutViewportEnclosingVisualViewport(
+      visualViewport, scrollableRect, /* out */ asyncLayoutViewport);
+  return mVisualOffset - asyncLayoutViewport.TopLeft();
+}
 
 // Return the maximum displayport size, based on the LayerManager's maximum
 // supported texture size. The result is in app units.
@@ -105,7 +207,7 @@ static nsRect GetDisplayPortFromRectData(nsIContent* aContent,
 
 static nsRect GetDisplayPortFromMarginsData(
     nsIContent* aContent, DisplayPortMarginsPropertyData* aMarginsData,
-    float aMultiplier) {
+    float aMultiplier, const DisplayPortOptions& aOptions) {
   // In the case where the displayport is set via margins, we apply the margins
   // to a base rect. Then we align the expanded rect based on the alignment
   // requested, further expand the rect by the multiplier, and finally, clamp it
@@ -137,8 +239,9 @@ static nsRect GetDisplayPortFromMarginsData(
     isRoot = true;
   }
 
+  nsIScrollableFrame* scrollableFrame = frame->GetScrollTargetFrame();
   nsPoint scrollPos;
-  if (nsIScrollableFrame* scrollableFrame = frame->GetScrollTargetFrame()) {
+  if (scrollableFrame) {
     scrollPos = scrollableFrame->GetScrollPosition();
   }
 
@@ -191,6 +294,9 @@ static nsRect GetDisplayPortFromMarginsData(
 
   bool useWebRender = gfxVars::UseWebRender();
 
+  ScreenMargin margins = aMarginsData->mMargins.GetRelativeToLayoutViewport(
+      aOptions.mGeometryType, scrollableFrame);
+
   if (presShell->IsDisplayportSuppressed()) {
     alignment = ScreenSize(1, 1);
   } else if (useWebRender) {
@@ -230,7 +336,7 @@ static nsRect GetDisplayPortFromMarginsData(
 
   if (StaticPrefs::layers_enable_tiles_AtStartup() || useWebRender) {
     // Expand the rect by the margins
-    screenRect.Inflate(aMarginsData->mMargins);
+    screenRect.Inflate(margins);
   } else {
     // Calculate the displayport to make sure we fit within the max texture size
     // when not tiling.
@@ -250,7 +356,6 @@ static nsRect GetDisplayPortFromMarginsData(
                                 MAX_ALIGN_ROUNDING * alignment.height;
 
     // For each axis, inflate the margins up to the maximum size.
-    const ScreenMargin& margins = aMarginsData->mMargins;
     if (screenRect.height < maxHeightScreenPx) {
       int32_t budget = maxHeightScreenPx - screenRect.height;
       // Scale the margins down to fit into the budget if necessary, maintaining
@@ -295,7 +400,7 @@ static nsRect GetDisplayPortFromMarginsData(
   // If we have non-zero margins, expand the displayport for the low-res buffer
   // if that's what we're drawing. If we have zero margins, we want the
   // displayport to reflect the scrollport.
-  if (aMarginsData->mMargins != ScreenMargin()) {
+  if (margins != ScreenMargin()) {
     result = ApplyRectMultiplier(result, aMultiplier);
   }
 
@@ -366,9 +471,9 @@ static void TranslateFromScrollPortToScrollFrame(nsIContent* aContent,
   }
 }
 
-static bool GetDisplayPortImpl(
-    nsIContent* aContent, nsRect* aResult, float aMultiplier,
-    const DisplayPortOptions& aOptions = DisplayPortOptions()) {
+static bool GetDisplayPortImpl(nsIContent* aContent, nsRect* aResult,
+                               float aMultiplier,
+                               const DisplayPortOptions& aOptions) {
   DisplayPortPropertyData* rectData = nullptr;
   DisplayPortMarginsPropertyData* marginsData = nullptr;
 
@@ -402,11 +507,13 @@ static bool GetDisplayPortImpl(
     result = GetDisplayPortFromRectData(aContent, rectData, aMultiplier);
   } else if (isDisplayportSuppressed ||
              nsLayoutUtils::ShouldDisableApzForElement(aContent)) {
-    DisplayPortMarginsPropertyData noMargins(ScreenMargin(), 1,
+    DisplayPortMarginsPropertyData noMargins(DisplayPortMargins::Empty(), 1,
                                              /*painted=*/false);
-    result = GetDisplayPortFromMarginsData(aContent, &noMargins, aMultiplier);
+    result = GetDisplayPortFromMarginsData(aContent, &noMargins, aMultiplier,
+                                           aOptions);
   } else {
-    result = GetDisplayPortFromMarginsData(aContent, marginsData, aMultiplier);
+    result = GetDisplayPortFromMarginsData(aContent, marginsData, aMultiplier,
+                                           aOptions);
   }
 
   if (!StaticPrefs::layers_enable_tiles_AtStartup()) {
@@ -546,7 +653,7 @@ void DisplayPortUtils::InvalidateForDisplayPortChange(
 
 bool DisplayPortUtils::SetDisplayPortMargins(nsIContent* aContent,
                                              PresShell* aPresShell,
-                                             const ScreenMargin& aMargins,
+                                             const DisplayPortMargins& aMargins,
                                              uint32_t aPriority,
                                              RepaintMode aRepaintMode) {
   MOZ_ASSERT(aContent);
@@ -670,12 +777,10 @@ void DisplayPortUtils::SetDisplayPortBaseIfNotSet(nsIContent* aContent,
   }
 }
 
-bool DisplayPortUtils::GetCriticalDisplayPort(nsIContent* aContent,
-                                              nsRect* aResult) {
+bool DisplayPortUtils::GetCriticalDisplayPort(
+    nsIContent* aContent, nsRect* aResult, const DisplayPortOptions& aOptions) {
   if (StaticPrefs::layers_low_precision_buffer()) {
-    return GetDisplayPortImpl(
-        aContent, aResult, 1.0f,
-        DisplayPortOptions().With(MaxSizeExceededBehaviour::Assert));
+    return GetDisplayPortImpl(aContent, aResult, 1.0f, aOptions);
   }
   return false;
 }
@@ -684,14 +789,12 @@ bool DisplayPortUtils::HasCriticalDisplayPort(nsIContent* aContent) {
   return GetCriticalDisplayPort(aContent, nullptr);
 }
 
-bool DisplayPortUtils::GetHighResolutionDisplayPort(nsIContent* aContent,
-                                                    nsRect* aResult) {
+bool DisplayPortUtils::GetHighResolutionDisplayPort(
+    nsIContent* aContent, nsRect* aResult, const DisplayPortOptions& aOptions) {
   if (StaticPrefs::layers_low_precision_buffer()) {
-    return GetCriticalDisplayPort(aContent, aResult);
+    return GetCriticalDisplayPort(aContent, aResult, aOptions);
   }
-  return GetDisplayPort(
-      aContent, aResult,
-      DisplayPortOptions().With(DisplayportRelativeTo::ScrollPort));
+  return GetDisplayPort(aContent, aResult, aOptions);
 }
 
 void DisplayPortUtils::RemoveDisplayPort(nsIContent* aContent) {
@@ -745,8 +848,10 @@ bool DisplayPortUtils::CalculateAndSetDisplayPortMargins(
   ScreenMargin displayportMargins = layers::apz::CalculatePendingDisplayPort(
       metrics, ParentLayerPoint(0.0f, 0.0f));
   PresShell* presShell = frame->PresContext()->GetPresShell();
-  return SetDisplayPortMargins(content, presShell, displayportMargins, 0,
-                               aRepaintMode);
+  return SetDisplayPortMargins(
+      content, presShell,
+      DisplayPortMargins::WithNoAdjustment(displayportMargins), 0,
+      aRepaintMode);
 }
 
 bool DisplayPortUtils::MaybeCreateDisplayPort(nsDisplayListBuilder* aBuilder,
@@ -813,7 +918,8 @@ void DisplayPortUtils::SetZeroMarginDisplayPortOnAsyncScrollableAncestors(
     if (nsLayoutUtils::AsyncPanZoomEnabled(frame) &&
         !HasDisplayPort(frame->GetContent())) {
       SetDisplayPortMargins(frame->GetContent(), frame->PresShell(),
-                            ScreenMargin(), 0, RepaintMode::Repaint);
+                            DisplayPortMargins::Empty(), 0,
+                            RepaintMode::Repaint);
     }
   }
 }
@@ -945,14 +1051,13 @@ static void UpdateDisplayPortMarginsForPendingMetrics(
 
   CSSPoint frameScrollOffset =
       CSSPoint::FromAppUnits(frame->GetScrollPosition());
-  CSSPoint scrollDelta = aMetrics.GetVisualScrollOffset() - frameScrollOffset;
-  ScreenMargin displayPortMargins =
-      APZCCallbackHelper::AdjustDisplayPortForScrollDelta(
-          aMetrics.GetDisplayPortMargins(),
-          scrollDelta * aMetrics.DisplayportPixelsPerCSSPixel());
 
-  DisplayPortUtils::SetDisplayPortMargins(content, presShell,
-                                          displayPortMargins, 0);
+  DisplayPortUtils::SetDisplayPortMargins(
+      content, presShell,
+      DisplayPortMargins::WithAdjustment(
+          aMetrics.GetDisplayPortMargins(), aMetrics.GetVisualScrollOffset(),
+          frameScrollOffset, aMetrics.DisplayportPixelsPerCSSPixel()),
+      0);
 }
 
 /* static */

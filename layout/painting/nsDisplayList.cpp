@@ -501,7 +501,7 @@ nsRect nsDisplayListBuilder::OutOfFlowDisplayData::ComputeVisibleRectForFrame(
     PresShell* presShell = aFrame->PresShell();
     if (presShell->IsVisualViewportSizeSet()) {
       dirtyRectRelativeToDirtyFrame =
-          nsRect(presShell->GetVisualViewportOffset(),
+          nsRect(presShell->GetVisualViewportOffsetRelativeToLayoutViewport(),
                  presShell->GetVisualViewportSize());
       // But if we have a displayport, expand it to the displayport, so
       // that async-scrolling the visual viewport within the layout viewport
@@ -513,7 +513,8 @@ nsRect nsDisplayListBuilder::OutOfFlowDisplayData::ComputeVisibleRectForFrame(
         // covers the visual viewport with some margins around it, which is
         // exactly what we want.
         if (DisplayPortUtils::GetHighResolutionDisplayPort(
-                rootScrollFrame->GetContent(), &displayport)) {
+                rootScrollFrame->GetContent(), &displayport,
+                DisplayPortOptions().With(ContentGeometryType::Fixed))) {
           dirtyRectRelativeToDirtyFrame = displayport;
         }
       }

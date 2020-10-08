@@ -2016,14 +2016,15 @@ class JSScript : public js::BaseScript {
   static bool fullyInitFromStencil(
       JSContext* cx, js::frontend::CompilationInfo& compilationInfo,
       js::frontend::CompilationGCOutput& gcOutput, js::HandleScript script,
-      js::frontend::ScriptStencil& scriptStencil, js::HandleFunction function);
+      const js::frontend::ScriptStencil& scriptStencil,
+      js::HandleFunction function);
 
   // Allocate a JSScript and initialize it with bytecode. This consumes
   // allocations within the stencil.
   static JSScript* fromStencil(JSContext* cx,
                                js::frontend::CompilationInfo& compilationInfo,
                                js::frontend::CompilationGCOutput& gcOutput,
-                               js::frontend::ScriptStencil& scriptStencil,
+                               const js::frontend::ScriptStencil& scriptStencil,
                                js::HandleFunction function);
 
 #ifdef DEBUG
@@ -2626,6 +2627,16 @@ JSScript* CloneScriptIntoFunction(JSContext* cx, HandleScope enclosingScope,
 
 JSScript* CloneGlobalScript(JSContext* cx, ScopeKind scopeKind,
                             HandleScript src);
+
+bool CheckCompileOptionsMatch(const JS::ReadOnlyCompileOptions& options,
+                              js::ImmutableScriptFlags flags,
+                              bool isMultiDecode);
+
+void FillImmutableFlagsFromCompileOptionsForTopLevel(
+    const JS::ReadOnlyCompileOptions& options, js::ImmutableScriptFlags& flags);
+
+void FillImmutableFlagsFromCompileOptionsForFunction(
+    const JS::ReadOnlyCompileOptions& options, js::ImmutableScriptFlags& flags);
 
 } /* namespace js */
 

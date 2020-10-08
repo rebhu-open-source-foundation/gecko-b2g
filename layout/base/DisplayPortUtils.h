@@ -12,6 +12,7 @@
 #include "nsRect.h"
 
 #include <cstdint>
+#include <iosfwd>
 
 class nsIContent;
 class nsIFrame;
@@ -21,24 +22,6 @@ class nsPresContext;
 namespace mozilla {
 
 class PresShell;
-
-struct DisplayPortPropertyData {
-  DisplayPortPropertyData(const nsRect& aRect, uint32_t aPriority,
-                          bool aPainted)
-      : mRect(aRect), mPriority(aPriority), mPainted(aPainted) {}
-  nsRect mRect;
-  uint32_t mPriority;
-  bool mPainted;
-};
-
-struct DisplayPortMarginsPropertyData {
-  DisplayPortMarginsPropertyData(const ScreenMargin& aMargins,
-                                 uint32_t aPriority, bool aPainted)
-      : mMargins(aMargins), mPriority(aPriority), mPainted(aPainted) {}
-  ScreenMargin mMargins;
-  uint32_t mPriority;
-  bool mPainted;
-};
 
 // For GetDisplayPort
 enum class DisplayportRelativeTo { ScrollPort, ScrollFrame };
@@ -52,11 +35,15 @@ enum class MaxSizeExceededBehaviour {
   Drop,
 };
 
+// Is the displayport being applied to scrolled content or fixed content?
+enum class ContentGeometryType { Scrolled, Fixed };
+
 struct DisplayPortOptions {
   // The default options.
   DisplayportRelativeTo mRelativeTo = DisplayportRelativeTo::ScrollPort;
   MaxSizeExceededBehaviour mMaxSizeExceededBehaviour =
       MaxSizeExceededBehaviour::Assert;
+  ContentGeometryType mGeometryType = ContentGeometryType::Scrolled;
 
   // Fluent interface for changing the defaults.
   DisplayPortOptions With(DisplayportRelativeTo aRelativeTo) const {
@@ -70,6 +57,75 @@ struct DisplayPortOptions {
     result.mMaxSizeExceededBehaviour = aMaxSizeExceededBehaviour;
     return result;
   }
+  DisplayPortOptions With(ContentGeometryType aGeometryType) const {
+    DisplayPortOptions result = *this;
+    result.mGeometryType = aGeometryType;
+    return result;
+  }
+};
+
+struct DisplayPortPropertyData {
+  DisplayPortPropertyData(const nsRect& aRect, uint32_t aPriority,
+                          bool aPainted)
+      : mRect(aRect), mPriority(aPriority), mPainted(aPainted) {}
+  nsRect mRect;
+  uint32_t mPriority;
+  bool mPainted;
+};
+
+struct DisplayPortMargins {
+  // The margins relative to the visual scroll offset.
+  ScreenMargin mMargins;
+
+  // Some information captured at the time the margins are stored.
+  // This ensures that we can express the margins as being relative to
+  // the correct scroll offset when applying them.
+
+  // APZ's visual scroll offset at the time it requested the margins.
+  CSSPoint mVisualOffset;
+
+  // The scroll frame's layout scroll offset at the time the margins
+  // were saved.
+  CSSPoint mLayoutOffset;
+
+  // The scale required to convert between the CSS cordinates of
+  // mVisualOffset and mLayoutOffset, and the Screen coordinates of mMargins.
+  CSSToScreenScale2D mScale;
+
+  static DisplayPortMargins WithAdjustment(const ScreenMargin& aMargins,
+                                           const CSSPoint& aVisualOffset,
+                                           const CSSPoint& aLayoutOffset,
+                                           const CSSToScreenScale2D& aScale);
+
+  static DisplayPortMargins WithNoAdjustment(const ScreenMargin& aMargins);
+
+  static DisplayPortMargins Empty() { return WithNoAdjustment(ScreenMargin()); }
+
+  // Get the margins relative to the layout viewport.
+  // |aGeometryType| tells us whether the margins are being queried for the
+  // purpose of being applied to scrolled content or fixed content.
+  // |aScrollableFrame| is the scroll frame whose content the margins will be
+  // applied to (or, in the case of fixed content), the scroll frame wrt. which
+  // the content is fixed.
+  ScreenMargin GetRelativeToLayoutViewport(
+      ContentGeometryType aGeometryType,
+      nsIScrollableFrame* aScrollableFrame) const;
+
+  friend std::ostream& operator<<(std::ostream& aOs,
+                                  const DisplayPortMargins& aMargins);
+
+ private:
+  CSSPoint ComputeAsyncTranslation(ContentGeometryType aGeometryType,
+                                   nsIScrollableFrame* aScrollableFrame) const;
+};
+
+struct DisplayPortMarginsPropertyData {
+  DisplayPortMarginsPropertyData(const DisplayPortMargins& aMargins,
+                                 uint32_t aPriority, bool aPainted)
+      : mMargins(aMargins), mPriority(aPriority), mPainted(aPainted) {}
+  DisplayPortMargins mMargins;
+  uint32_t mPriority;
+  bool mPainted;
 };
 
 class DisplayPortUtils {
@@ -159,8 +215,9 @@ class DisplayPortUtils {
    * @return true if the new margins were applied.
    */
   static bool SetDisplayPortMargins(
-      nsIContent* aContent, PresShell* aPresShell, const ScreenMargin& aMargins,
-      uint32_t aPriority = 0, RepaintMode aRepaintMode = RepaintMode::Repaint);
+      nsIContent* aContent, PresShell* aPresShell,
+      const DisplayPortMargins& aMargins, uint32_t aPriority = 0,
+      RepaintMode aRepaintMode = RepaintMode::Repaint);
 
   /**
    * Set the display port base rect for given element to be used with display
@@ -175,7 +232,9 @@ class DisplayPortUtils {
   /**
    * Get the critical display port for the given element.
    */
-  static bool GetCriticalDisplayPort(nsIContent* aContent, nsRect* aResult);
+  static bool GetCriticalDisplayPort(
+      nsIContent* aContent, nsRect* aResult,
+      const DisplayPortOptions& aOptions = DisplayPortOptions());
 
   /**
    * Check whether the given element has a critical display port.
@@ -186,8 +245,9 @@ class DisplayPortUtils {
    * If low-precision painting is turned on, delegates to
    * GetCriticalDisplayPort. Otherwise, delegates to GetDisplayPort.
    */
-  static bool GetHighResolutionDisplayPort(nsIContent* aContent,
-                                           nsRect* aResult);
+  static bool GetHighResolutionDisplayPort(
+      nsIContent* aContent, nsRect* aResult,
+      const DisplayPortOptions& aOptions = DisplayPortOptions());
 
   /**
    * Remove the displayport for the given element.
