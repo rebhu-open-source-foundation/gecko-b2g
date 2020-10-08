@@ -475,7 +475,12 @@ DownloadObject.prototype = {
         }.bind(this);
       }
 
-      this.error = new this._window.DOMError("DownloadError", result);
+      // DOMException cannot reflect all possible download nsresult error codes,
+      // so we store the error code within its [message] attribute.
+      this.error = new this._window.DOMException(
+        aDownload.error.result,
+        "NS_ERROR_UNEXPECTED"
+      );
     } else {
       this.error = null;
     }
@@ -489,7 +494,7 @@ DownloadObject.prototype = {
   },
 
   _updateWithError(aDownload, aError) {
-    this.error = new this._window.DOMError("DownloadError", aError);
+    this.error = new this._window.DOMException(aError, "NS_ERROR_UNEXPECTED");
     this._sendStateChange();
   },
 
