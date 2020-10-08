@@ -16,6 +16,7 @@
 #include "mozilla/Unused.h"
 #include "nsIMemoryReporter.h"
 #ifdef MOZ_WIDGET_GONK
+#include "GfxDebugger.h"
 #include "ui/PixelFormat.h"
 #endif
 #include "nsPrintfCString.h"
@@ -185,6 +186,10 @@ SharedBufferManagerParent::SharedBufferManagerParent(base::ProcessId aOwner, bas
   }
   mOwner = aOwner;
   sManagers[aOwner] = this;
+
+#ifdef MOZ_WIDGET_GONK
+  GfxDebugger::GetInstance();
+#endif
 }
 
 SharedBufferManagerParent::~SharedBufferManagerParent()
@@ -252,7 +257,6 @@ bool SharedBufferManagerParent::RecvAllocateGrallocBuffer(const IntSize& aSize, 
     MutexAutoLock lock(mLock);
     mBuffers[bufferKey] = outgoingBuffer;
   }
-
 #endif
   return true;
 }
@@ -379,6 +383,111 @@ SharedBufferManagerParent::GetGraphicBuffer(GrallocBufferRef aRef)
   }
   return parent->GetGraphicBuffer(aRef.mKey);
 }
+
+#ifdef MOZ_WIDGET_GONK
+
+/* static */
+int SharedBufferManagerParent::BufferTraversal(
+  const std::function<int(int64_t key, android::sp<android::GraphicBuffer>& gb)> aAction)
+{
+  int ret = 0;
+
+  if (SharedBufferManagerParent::sManagerMonitor) {
+    SharedBufferManagerParent::sManagerMonitor->Lock();
+  }
+
+  int mgrIndex = 0;
+  map<base::ProcessId, SharedBufferManagerParent*>::iterator it;
+
+  bool quitTraversal = false;
+  for (it = SharedBufferManagerParent::sManagers.begin();
+       it != SharedBufferManagerParent::sManagers.end() && quitTraversal != true;
+       it++) {
+    SharedBufferManagerParent *mgr = it->second;
+    if (!mgr) {
+      printf_stderr("SMBP: manager is nullptr");
+      continue;
+    }
+
+    std::map<int64_t, android::sp<android::GraphicBuffer> >::iterator buf_it;
+    for (buf_it = mgr->mBuffers.begin();
+         buf_it != mgr->mBuffers.end() && quitTraversal != true;
+         buf_it++) {
+      MutexAutoLock lock(mgr->mLock);
+      ret = aAction(buf_it->first, buf_it->second);
+      if (ret != BUFFER_TRAVERSAL_CONTINUE) {
+        quitTraversal = true;
+        }
+    }
+    mgrIndex++;
+  }
+
+  if (SharedBufferManagerParent::sManagerMonitor) {
+    SharedBufferManagerParent::sManagerMonitor->Unlock();
+  }
+
+  ret = BUFFER_TRAVERSAL_OK;
+  return ret;
+}
+
+/* static */
+void SharedBufferManagerParent::ListGrallocBuffers(std::vector<int64_t> &aGrallocIndices) {
+  BufferTraversal([&aGrallocIndices](int64_t key, android::sp<android::GraphicBuffer>& gb) -> int {
+    int width   = gb->getWidth(),
+        height  = gb->getHeight(),
+        stride  = gb->getStride(),
+        format  = gb->getPixelFormat(),
+        bpp     = android::bytesPerPixel(gb->getPixelFormat());
+
+    aGrallocIndices.push_back(key);
+    printf_stderr("SBMP: gralloc[%llu]: w=%d, h=%d, format=%d, bpp=%d, stride=%d",
+        key, width, height, format, bpp, stride);
+    return BUFFER_TRAVERSAL_CONTINUE;
+    });
+}
+
+/* static */
+int SharedBufferManagerParent::DumpGrallocBuffer(int64_t aKey, char *filename) {
+  int ret = 0;
+
+  ret = BufferTraversal([&aKey, &filename](int64_t key, android::sp<android::GraphicBuffer>& gb) -> int{
+    if (key != aKey) {
+      return BUFFER_TRAVERSAL_CONTINUE;
+    }
+
+    int height  = gb->getHeight(),
+        stride  = gb->getStride(),
+        format  = gb->getPixelFormat(),
+        bpp     = android::bytesPerPixel(gb->getPixelFormat());
+
+    snprintf(filename, PATH_MAX, "/data/gb-%llu-%dx%d-f%d.raw", key, stride, height, format);
+    printf_stderr("SBMP: dumping gralloc buffer as file %s", filename);
+
+    uint8_t* img = NULL;
+    gb->lock(GRALLOC_USAGE_SW_READ_OFTEN, (void**)(&img));
+    if (img == NULL) {
+      return BUFFER_TRAVERSAL_FAILURE;
+    }
+
+    int fd = creat(filename, O_WRONLY);
+    if (fd == -1) {
+      printf_stderr("SBMP: error on creating %s", filename);
+      gb->unlock();
+      return BUFFER_TRAVERSAL_FAILURE;
+    }
+    for (int i = 0; i < height; i++) {
+      write(fd, img + stride * i * bpp, stride * bpp);
+    }
+    gb->unlock();
+    close(fd);
+
+    return BUFFER_TRAVERSAL_STOP;
+  });
+
+  return ret;
+}
+#endif  // MOZ_WIDGET_GONK
+
 #endif
 
 } /* namespace layers */

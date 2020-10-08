@@ -67,6 +67,22 @@ public:
 
   MessageLoop* GetMessageLoop();
 
+#ifdef MOZ_WIDGET_GONK
+  enum {
+    BUFFER_TRAVERSAL_CONTINUE,
+    BUFFER_TRAVERSAL_STOP,
+    BUFFER_TRAVERSAL_OK,
+    BUFFER_TRAVERSAL_FAILURE,
+  };
+
+  static int BufferTraversal(const std::function<int(int64_t key, android::sp<android::GraphicBuffer>&)> aAction);
+
+  static void ListGrallocBuffers(std::vector<int64_t> &aGrallocIndices);
+
+  static int DumpGrallocBuffer(int64_t key, char *filename);
+
+#endif
+
 protected:
   virtual ~SharedBufferManagerParent();
 
