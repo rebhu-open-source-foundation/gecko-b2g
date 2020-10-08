@@ -1300,7 +1300,7 @@ TelephonyService.prototype = {
         callback
       );
     } else {
-      this._switchActiveCall(aClientId, callback.bind(this));
+      this._switchActiveCall(aClientId, callback);
     }
   },
 
