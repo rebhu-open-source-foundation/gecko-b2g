@@ -103,6 +103,10 @@ XPCOMUtils.defineLazyGetter(this, "gSmsSendingSchedulers", function() {
   };
 });
 
+XPCOMUtils.defineLazyGetter(this, "SIM", function() {
+  return ChromeUtils.import("resource://gre/modules/simIOHelper.js");
+});
+
 XPCOMUtils.defineLazyServiceGetter(
   this,
   "gCellBroadcastService",
@@ -166,7 +170,9 @@ function debug(s) {
 function SmsService() {
   this._updateDebugFlag();
   this._silentNumbers = [];
+  this._imsSmsProviders = [];
   this.smsDefaultServiceId = this._getDefaultServiceId();
+  this._initImsSms();
 
   this._portAddressedSmsApps = {};
 
@@ -191,6 +197,11 @@ SmsService.prototype = {
     Ci.nsIGonkSmsService,
     Ci.nsIObserver,
   ]),
+
+  // An array of silent numbers.
+  _silentNumbers: null,
+  //AN array of ImsSmsProviders
+  _imsSmsProviders: null,
 
   _updateDebugFlag() {
     try {
@@ -422,6 +433,80 @@ SmsService.prototype = {
     });
   },
 
+  _sendToImsAir(aServiceId, aDomMessage, aSilent, aOptions, aRequest) {
+    let sentMessage = aDomMessage;
+    let requestStatusReport = aOptions.requestStatusReport;
+    this._imsSmsProviders[aServiceId].sendSms(
+      sentMessage,
+      aOptions,
+      aResponse => {
+        // Failed to send SMS out.
+        if (aResponse.status != Ci.nsIImsMMTelFeature.STATUS_REPORT_STATUS_OK) {
+          if (
+            aResponse.status ===
+            Ci.nsIImsMMTelFeature.SEND_STATUS_ERROR_FALLBACK
+          ) {
+            //Fallback to CS
+            if (DEBUG) {
+              debug("_sendToTheAir: Resend and Fallback to CS ");
+            }
+            aOptions.retryFallback = true;
+            this._scheduleSending(
+              aServiceId,
+              aDomMessage,
+              aSilent,
+              aOptions,
+              aRequest
+            );
+            return;
+          } else if (
+            aResponse.status ===
+              Ci.nsIImsMMTelFeature.SEND_STATUS_ERROR_RETRY &&
+            aOptions.retryCount < RIL.SMS_RETRY_MAX
+          ) {
+            aOptions.retryCount++;
+            this._scheduleSending(
+              aServiceId,
+              aDomMessage,
+              aSilent,
+              aOptions,
+              aRequest
+            );
+            return;
+          }
+          let error = Ci.nsIMobileMessageCallback.UNKNOWN_ERROR;
+          this._notifySendingError(error, sentMessage, aSilent, aRequest);
+          return;
+        }
+        gMobileMessageDatabaseService.setMessageDeliveryByMessageId(
+          sentMessage.id,
+          null,
+          DOM_MOBILE_MESSAGE_DELIVERY_SENT,
+          sentMessage.deliveryStatus,
+          null,
+          (aRv, aDomMessage) => {
+            let smsMessage = null;
+            try {
+              smsMessage = aDomMessage.QueryInterface(Ci.nsISmsMessage);
+            } catch (e) {}
+            // TODO bug 832140 handle !Components.isSuccessCode(aRv)
+
+            if (requestStatusReport) {
+              // Update the sentMessage and wait for the status report.
+              sentMessage = smsMessage;
+            }
+
+            this._broadcastSmsSystemMessage(
+              Ci.nsISmsMessenger.NOTIFICATION_TYPE_SENT,
+              smsMessage
+            );
+            aRequest.notifyMessageSent(smsMessage);
+            Services.obs.notifyObservers(smsMessage, kSmsSentObserverTopic);
+          }
+        );
+      }
+    );
+  },
   /**
    * Send a SMS message to the modem.
    */
@@ -433,6 +518,15 @@ SmsService.prototype = {
     // Retry count for GECKO_ERROR_SMS_SEND_FAIL_RETRY
     if (!aOptions.retryCount) {
       aOptions.retryCount = 0;
+    }
+    if (DEBUG) {
+      debug("_sendToTheAir ");
+    }
+
+    //check if we send ims sms
+    if (this._isImsSms(aServiceId) && !aOptions.retryFallback) {
+      this._sendToImsAir(aServiceId, aDomMessage, aSilent, aOptions, aRequest);
+      return;
     }
 
     gRadioInterfaces[aServiceId].sendWorkerMessage(
@@ -1062,9 +1156,13 @@ SmsService.prototype = {
           : RIL.PDU_FCS_UNSPECIFIED;
     }
 
-    gRadioInterfaces[aServiceId].sendWorkerMessage("ackSMS", {
-      result,
-    });
+    if (this._isImsSms(aServiceId)) {
+      this._imsSmsProviders[aServiceId].acknowledgeSms(result);
+    } else {
+      gRadioInterfaces[aServiceId].sendWorkerMessage("ackSMS", {
+        result,
+      });
+    }
   },
 
   /**
@@ -1092,8 +1190,6 @@ SmsService.prototype = {
     }
   },
 
-  // An array of silent numbers.
-  _silentNumbers: null,
   _isSilentNumber(aNumber) {
     return this._silentNumbers.includes(aNumber);
   },
@@ -1137,7 +1233,9 @@ SmsService.prototype = {
     if (aServiceId > gRadioInterfaces.length - 1) {
       throw Components.Exception("", Cr.NS_ERROR_INVALID_ARG);
     }
-
+    if (DEBUG) {
+      debug("start to send sms");
+    }
     let strict7BitEncoding = Services.prefs.getBoolPref(
       "dom.sms.strict7BitEncoding",
       false
@@ -1439,6 +1537,36 @@ SmsService.prototype = {
         break;
     }
   },
+
+  _initImsSms() {
+    if (DEBUG) {
+      debug("_initImsSms");
+    }
+    this.imsSmsLinstensers = [];
+    for (let serviceId = 0; serviceId < gRadioInterfaces.length; serviceId++) {
+      let smsProvider = new ImsSmsProvider(this, serviceId);
+      this._imsSmsProviders.push(smsProvider);
+    }
+  },
+
+  _isImsSms(aServiceId) {
+    let imsHandler = gImsRegService.getHandlerByServiceId(aServiceId);
+    if (!imsHandler) {
+      if (DEBUG) {
+        debug("_isImsSms: no imsHandler ");
+      }
+      return false;
+    }
+    //TODO: check capabilities CAPABILITY_TYPE_SMS
+    let isIms =
+      imsHandler.enabled &&
+      imsHandler.capability > Ci.nsIImsRegHandler.IMS_CAPABILITY_UNKNOWN;
+
+    if (DEBUG) {
+      debug("_isImsSms: return isIms " + isIms);
+    }
+    return isIms;
+  },
 };
 
 /**
@@ -1574,11 +1702,19 @@ SmsSendingScheduler.prototype = {
 
   isVoWifiConnected() {
     //FIXME
-    //let imsService = gImsRegService.getHandlerByServiceId(this._serviceId);
-    //let capability = imsService && imsService.capability;
-    //return capability === Ci.nsIImsRegHandler.IMS_CAPABILITY_VOICE_OVER_WIFI ||
-    //       capability === Ci.nsIImsRegHandler.IMS_CAPABILITY_VIDEO_OVER_WIFI;
-    return false;
+    let imsHandler = gImsRegService.getHandlerByServiceId(this._serviceId);
+    if (!imsHandler) {
+      if (DEBUG) {
+        debug("isVoWifiConnected: no imsHandler ");
+      }
+      return false;
+    }
+
+    let capability = imsHandler.enabled && imsHandler.capability;
+    return (
+      capability === Ci.nsIImsRegHandler.IMS_CAPABILITY_VOICE_OVER_WIFI ||
+      capability === Ci.nsIImsRegHandler.IMS_CAPABILITY_VIDEO_OVER_WIFI
+    );
   },
 
   /**
@@ -1715,6 +1851,221 @@ SmsSendingScheduler.prototype = {
 
   // Unused nsIImsRegListener methods.
   notifyRttEnabledStateChanged(aEnabled) {},
+};
+
+function PendingOp(aSmsMessage, aCallback) {
+  this.smsMessage = aSmsMessage;
+  this.callback = aCallback;
+}
+PendingOp.prototype = {
+  smsMessage: null,
+  callback: null,
+};
+
+function ImsSmsProvider(aSmsService, aServiceId) {
+  if (DEBUG) {
+    debug("ImsSmsProvider constructor service id: " + aServiceId);
+  }
+  this._imsToken = 0;
+  this._serviceId = aServiceId;
+  this._smsService = aSmsService;
+  this._pendingOp = [];
+  // For sim io context.
+  //TODO: refine me.
+  this.simIOContext = new SIM.Context(this);
+
+  this._imsHandler = gImsRegService.getHandlerByServiceId(aServiceId);
+  if (this._imsHandler) {
+    if (this._imsHandler.imsMMTelFeature) {
+      if (DEBUG) {
+        debug("imsMMTelFeature setSmsListener");
+      }
+      this._imsHandler.imsMMTelFeature.setSmsListener(this);
+    }
+  }
+}
+
+ImsSmsProvider.prototype = {
+  QueryInterface: ChromeUtils.generateQI([Ci.nsIImsSmsListener]),
+
+  _imsToken: 0,
+  _serviceId: 0,
+  _smsService: null,
+  _imsHandler: null,
+  _pendingOp: null,
+  simIOContext: null,
+  _lastIncomingMsg: null,
+
+  getNextToken() {
+    return this._imsToken++;
+  },
+
+  getSmsFormat() {
+    return this._imsHandler.imsMMTelFeature.getSmsFormat();
+  },
+
+  sendSms(aSmsMessage, aOptions, aCallback) {
+    let newToken = this.getNextToken();
+    this._pendingOp[newToken] = new PendingOp(aSmsMessage, aCallback);
+
+    let isRetry = aOptions.retryCount > 0;
+    let gsmPduHelper = this.simIOContext.GsmPDUHelper;
+    gsmPduHelper.initWith();
+    gsmPduHelper.writeMessage(aOptions);
+
+    let length = gsmPduHelper.pduWriteIndex / 2;
+    let pdu = gsmPduHelper.readHexOctetArray(length);
+    let smsFormat = this.getSmsFormat();
+    //FIXME: check ref, smsc
+    if (DEBUG) {
+      debug("imsMMTelFeature.sendSms");
+    }
+    this._imsHandler.imsMMTelFeature.sendSms(
+      newToken,
+      0,
+      smsFormat,
+      aOptions.SMSC,
+      isRetry,
+      length,
+      pdu
+    );
+  },
+
+  acknowledgeSms(aStatus) {
+    //TODO: refine me
+    if (this._lastIncomingMsg) {
+      if (DEBUG) {
+        debug("acknowledgeSms token " + this._lastIncomingMsg.token);
+      }
+      this._imsHandler.imsMMTelFeature.acknowledgeSms(
+        this._lastIncomingMsg.token,
+        this._lastIncomingMsg.messageRef,
+        aStatus
+      );
+      this._lastIncomingMsg = null;
+    } else if (DEBUG) {
+      debug("acknowledgeSms: No Message could be ack");
+    }
+  },
+
+  _notifyNewSmsMessage(aMessage) {
+    let header = aMessage.header;
+    // Concatenation Info:
+    // - segmentRef: a modulo 256 counter indicating the reference number for a
+    //               particular concatenated short message. '0' is a valid number.
+    // - The concatenation info will not be available in |header| if
+    //   segmentSeq or segmentMaxSeq is 0.
+    // See 3GPP TS 23.040, 9.2.3.24.1 Concatenated Short Messages.
+    let segmentRef =
+      header && header.segmentRef !== undefined ? header.segmentRef : 1;
+    let segmentSeq = (header && header.segmentSeq) || 1;
+    let segmentMaxSeq = (header && header.segmentMaxSeq) || 1;
+    // Application Ports:
+    // The port number ranges from 0 to 49151.
+    // see 3GPP TS 23.040, 9.2.3.24.3/4 Application Port Addressing.
+    let originatorPort =
+      header && header.originatorPort !== undefined
+        ? header.originatorPort
+        : Ci.nsIGonkSmsService.SMS_APPLICATION_PORT_INVALID;
+    let destinationPort =
+      header && header.destinationPort !== undefined
+        ? header.destinationPort
+        : Ci.nsIGonkSmsService.SMS_APPLICATION_PORT_INVALID;
+
+    let gonkSms = {
+      QueryInterface: ChromeUtils.generateQI([Ci.nsIGonkSmsMessage]),
+      smsc: aMessage.SMSC || null,
+      sentTimestamp: aMessage.sentTimestamp,
+      sender: aMessage.sender,
+      pid: aMessage.pid,
+      encoding: aMessage.encoding,
+      messageClass: RIL.GECKO_SMS_MESSAGE_CLASSES.indexOf(
+        aMessage.messageClass
+      ),
+      language: aMessage.language || null,
+      segmentRef,
+      segmentSeq,
+      segmentMaxSeq,
+      originatorPort,
+      destinationPort,
+      // MWI info:
+      mwiPresent: !!aMessage.mwi,
+      mwiDiscard: aMessage.mwi ? aMessage.mwi.discard : false,
+      mwiMsgCount: aMessage.mwi ? aMessage.mwi.msgCount : 0,
+      mwiActive: aMessage.mwi ? aMessage.mwi.active : false,
+      // CDMA related attributes:
+      cdmaMessageType: aMessage.messageType || 0,
+      cdmaTeleservice: aMessage.teleservice || 0,
+      cdmaServiceCategory: aMessage.serviceCategory || 0,
+      body: aMessage.body || null,
+    };
+
+    this._smsService.notifyMessageReceived(
+      this.clientId,
+      gonkSms,
+      aMessage.data || [],
+      aMessage.data ? aMessage.data.length : 0
+    );
+  },
+
+  //nsIImsSmsListener implementation
+  onSendSmsResult(aToken, aMessageRef, aStatus, aReason, aNetworkErrorCode) {
+    if (aStatus === Ci.nsIImsMMTelFeature.SEND_STATUS_OK) {
+      if (DEBUG) {
+        debug("onSendSmsResult send success");
+      }
+      let pendOp = this._pendingOp[aToken];
+      pendOp.callback({ status: aStatus });
+    } else {
+      if (DEBUG) {
+        debug("onSendSmsResult send sms failed " + aStatus);
+      }
+      let pendOp = this._pendingOp[aToken];
+      pendOp.callback({ status: aStatus });
+    }
+  },
+
+  onSmsStatusReportReceived(aToken, aFormat, aLength, aPdu) {
+    if (DEBUG) {
+      debug("onSmsStatusReportReceived");
+    }
+    let gsmPduHelper =
+      gRadioInterfaces[this._serviceId].simIOcontext.GsmPDUHelper;
+    gsmPduHelper.initWIth(aPdu);
+    let [message, result] = gsmPduHelper.processReceivedSms(aLength);
+    if (DEBUG) {
+      debug(
+        "New IMS SMS status report: " +
+          JSON.stringify(message) +
+          ", result: " +
+          result
+      );
+    }
+
+    this._notifyNewSmsMessage(message);
+    this._imsHandler.imsMMTelFeature.acknowledgeSmsReport(
+      aToken,
+      message.messageRef,
+      Ci.nsIImsMMTelFeature.STATUS_REPORT_STATUS_OK
+    );
+  },
+
+  onSmsReceived(aToken, aFormat, aLength, aPdu) {
+    if (DEBUG) {
+      debug("onSmsReceived");
+    }
+    let gsmPduHelper =
+      gRadioInterfaces[this._serviceId].simIOcontext.GsmPDUHelper;
+    gsmPduHelper.initWIth(aPdu);
+    let [message, result] = gsmPduHelper.processReceivedSms(aLength);
+    if (DEBUG) {
+      debug("New IMS SMS: " + JSON.stringify(message) + ", result: " + result);
+    }
+
+    this._notifyNewSmsMessage(message);
+    this._lastIncomingMsg = message;
+    this._lastIncomingMsg.token = aToken;
+  },
 };
 
 var EXPORTED_SYMBOLS = ["SmsService"];

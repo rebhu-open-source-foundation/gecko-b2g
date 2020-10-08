@@ -124,7 +124,7 @@ class MobileMessageManager final : public DOMEventTargetHelper,
                                          const nsAString& aEventName,
                                          nsISupports* aMsg);
 
-  // nsresult DispatchTrustedDeletedEventToSelf(nsISupports* aDeletedInfo);
+  nsresult DispatchTrustedDeletedEventToSelf(nsISupports* aDeletedInfo);
 };
 
 }  // namespace dom

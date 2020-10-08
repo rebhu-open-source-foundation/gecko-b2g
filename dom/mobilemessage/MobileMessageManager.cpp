@@ -15,7 +15,7 @@
 #include "SmsMessage.h"
 #include "SmsMessageInternal.h"
 #include "mozilla/dom/mobilemessage/Constants.h"  // For kSms*ObserverTopic
-//#include "mozilla/dom/MozMessageDeletedEvent.h"
+#include "mozilla/dom/MessageDeletedEvent.h"
 #include "mozilla/dom/MmsEvent.h"
 #include "mozilla/dom/MobileMessageManagerBinding.h"
 #include "mozilla/dom/SmsEvent.h"
@@ -578,12 +578,11 @@ nsresult MobileMessageManager::DispatchTrustedSmsEventToSelf(
   return NS_OK;
 }
 
-/*
 nsresult MobileMessageManager::DispatchTrustedDeletedEventToSelf(
     nsISupports* aDeletedInfo) {
   nsCOMPtr<nsIDeletedMessageInfo> deletedInfo = do_QueryInterface(aDeletedInfo);
   if (deletedInfo) {
-    MozMessageDeletedEventInit init;
+    MessageDeletedEventInit init;
     init.mBubbles = false;
     init.mCancelable = false;
     DeletedMessageInfo* info =
@@ -607,8 +606,8 @@ nsresult MobileMessageManager::DispatchTrustedDeletedEventToSelf(
       }
     }
 
-    RefPtr<MozMessageDeletedEvent> event =
-        MozMessageDeletedEvent::Constructor(this, DELETED_EVENT_NAME, init);
+    RefPtr<MessageDeletedEvent> event =
+        MessageDeletedEvent::Constructor(this, DELETED_EVENT_NAME, init);
     return DispatchTrustedEvent(event);
   }
 
@@ -616,7 +615,6 @@ nsresult MobileMessageManager::DispatchTrustedDeletedEventToSelf(
 
   return NS_OK;
 }
-*/
 
 NS_IMETHODIMP
 MobileMessageManager::Observe(nsISupports* aSubject, const char* aTopic,
@@ -663,7 +661,7 @@ MobileMessageManager::Observe(nsISupports* aSubject, const char* aTopic,
   }
 
   if (!strcmp(aTopic, kSmsDeletedObserverTopic)) {
-    return NS_OK;  // DispatchTrustedDeletedEventToSelf(aSubject);//FIXME
+    return DispatchTrustedDeletedEventToSelf(aSubject);
   }
 
   return NS_OK;
