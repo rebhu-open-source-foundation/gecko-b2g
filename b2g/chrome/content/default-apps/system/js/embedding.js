@@ -110,9 +110,18 @@
     },
   };
 
+  const imeHandler = {
+    focusChanged(detail) {
+      window.dispatchEvent(
+        new CustomEvent("inputmethod-contextchange", { detail })
+      );
+    },
+  };
+
   const embedder = new WebEmbedder({
     windowProvider,
     processSelector,
+    imeHandler,
   });
   embedder.addEventListener("runtime-ready", e => {
     log(`Embedder event: ${e.type}`);

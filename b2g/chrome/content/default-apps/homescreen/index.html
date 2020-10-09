@@ -9,18 +9,32 @@
     <title>Home sweet home</title>
 
     <link rel="stylesheet" href="style/index.css" type="text/css" />
+    <script>
+      function keyboardTest() {
+        window.search.focus();
+        window.setTimeout(() => {
+          window.search.blur();
+        }, 3000);
+      }
+    </script>
   </head>
   <body>
-    <input id="search" placeholder="Search...">
+    <div id="top">
+      <input id="search" placeholder="Search..." />
+      <br />
+      <button onclick="keyboardTest()">
+        Open keyboard and close it after 3s
+      </button>
+    </div>
     <div id="links">
       <div></div>
       <div></div>
       <div></div>
       <div></div>
       <div class="link">
-        <a href="chrome://b2g/content/settings/index.html" target="_blank"
-          >Settings</a
-        >
+        <a href="chrome://b2g/content/settings/index.html" target="_blank">
+          Settings
+        </a>
       </div>
       <div class="link">
         <a href="https://mozilla.org/" target="_blank">Mozilla</a>
@@ -38,7 +52,9 @@
         <a href="https://appsco.pe/" target="_blank">Appscope</a>
       </div>
       <div class="link">
-        <a href="https://wieodiwedwoeiwmdoedmw.com/" target="_blank">Error Page</a>
+        <a href="https://wieodiwedwoeiwmdoedmw.com/" target="_blank">
+          Error Page
+        </a>
       </div>
     </div>
   </body>
