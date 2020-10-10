@@ -14,7 +14,6 @@ variables:
 .global_setup: &global_setup
   - echo -e "machine ${CI_SERVER_HOST}\nlogin gitlab-ci-token\npassword ${CI_JOB_TOKEN}" > ~/.netrc
   - git config --global url."${CI_SERVER_URL}/".insteadOf "git@${CI_SERVER_HOST}:"
-  - '[ "$(cat ${HOME}/.mozbuild/ver)" = "2" ] || curl https://packages.preprod.kaiostech.com/ndk/v2/mozbuild.tar.bz2 | tar -C ${HOME}/ -xj'
 
 .koost_setup: &koost_setup
   - |
@@ -87,6 +86,8 @@ build:desktop:
     MOZ_OBJDIR: 'objdir-desktop-gecko'
     MOZCONFIG: 'mozconfig-b2g-desktop'
   stage: build
+  before_script:
+    - '[ "$(cat ${HOME}/.mozbuild/ver)" = "3" ] || curl https://packages.preprod.kaiostech.com/ndk/v3/mozbuild.tar.bz2 | tar -C ${HOME}/ -xj'
   script:
     - ./mach build
     - ./mach package
