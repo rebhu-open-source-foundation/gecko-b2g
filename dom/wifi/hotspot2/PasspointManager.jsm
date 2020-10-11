@@ -6,6 +6,7 @@
 
 "use strict";
 
+/* eslint-disable no-unused-vars */
 const { AnqpCache, AnqpData } = ChromeUtils.import(
   "resource://gre/modules/AnqpUtils.jsm"
 );
@@ -25,11 +26,14 @@ const {
 
 this.EXPORTED_SYMBOLS = ["PasspointManager"];
 
+var gDebug = false;
+
 this.PasspointManager = (function() {
   var passpointManager = {};
   var mAnqpCache = new AnqpCache();
   var mProvidersMap = new Map();
 
+  passpointManager.setDebug = setDebug;
   passpointManager.onANQPResponse = onANQPResponse;
   passpointManager.sweepCache = sweepCache;
   passpointManager.hasCarrierProvider = hasCarrierProvider;
@@ -37,7 +41,13 @@ this.PasspointManager = (function() {
   passpointManager.getANQPElements = getANQPElements;
 
   function debug(aMsg) {
-    console.log("-*- PasspointManager: ", aMsg);
+    if (gDebug) {
+      console.log("-*- PasspointManager: ", aMsg);
+    }
+  }
+
+  function setDebug(aDebug) {
+    gDebug = aDebug;
   }
 
   function onANQPResponse(anqpNetworkKey, anqpElements) {
@@ -226,3 +236,4 @@ this.PasspointManager = (function() {
 
   return passpointManager;
 })();
+/* eslint-enable no-unused-vars */

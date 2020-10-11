@@ -14,17 +14,32 @@
 #include "mozilla/dom/WifiOptionsBinding.h"
 #include "hidl/HidlSupport.h"
 
+extern bool gWifiDebug;
+#define CONFIG_WIFI_DEBUG(x) (gWifiDebug = x)
+
 #if defined(MOZ_WIDGET_GONK)
 #  include <utils/Log.h>
 #  define WIFI_DEBUG 1
 
 #  if WIFI_DEBUG
-#    define WIFI_LOGD(tag, args...) \
-      __android_log_print(ANDROID_LOG_DEBUG, tag, ##args)
-#    define WIFI_LOGI(tag, args...) \
-      __android_log_print(ANDROID_LOG_INFO, tag, ##args)
-#    define WIFI_LOGW(tag, args...) \
-      __android_log_print(ANDROID_LOG_WARN, tag, ##args)
+#    define WIFI_LOGD(tag, args...)                            \
+      do {                                                     \
+        if (gWifiDebug) {                                      \
+          __android_log_print(ANDROID_LOG_DEBUG, tag, ##args); \
+        }                                                      \
+      } while (0)
+#    define WIFI_LOGI(tag, args...)                           \
+      do {                                                    \
+        if (gWifiDebug) {                                     \
+          __android_log_print(ANDROID_LOG_INFO, tag, ##args); \
+        }                                                     \
+      } while (0)
+#    define WIFI_LOGW(tag, args...)                           \
+      do {                                                    \
+        if (gWifiDebug) {                                     \
+          __android_log_print(ANDROID_LOG_WARN, tag, ##args); \
+        }                                                     \
+      } while (0)
 #    define WIFI_LOGE(tag, args...) \
       __android_log_print(ANDROID_LOG_ERROR, tag, ##args)
 #  else

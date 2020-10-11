@@ -12,6 +12,8 @@ const { WifiConstants, EAPConstants } = ChromeUtils.import(
 
 this.EXPORTED_SYMBOLS = ["ScanResult", "WifiNetwork", "WifiConfigUtils"];
 
+var gDebug = false;
+
 this.WifiConfigUtils = (function() {
   var wifiConfigUtils = {};
 
@@ -120,6 +122,17 @@ this.WifiConfigUtils = (function() {
   wifiConfigUtils.parseInformationElements = parseInformationElements;
   wifiConfigUtils.parseCapabilities = parseCapabilities;
   wifiConfigUtils.parsePasspointElements = parsePasspointElements;
+  wifiConfigUtils.setDebug = setDebug;
+
+  function debug(aMsg) {
+    if (gDebug) {
+      dump("-*- WifiConfigUtils: " + aMsg);
+    }
+  }
+
+  function setDebug(aDebug) {
+    gDebug = aDebug;
+  }
 
   function byte2Int(buf, pos, len, endian) {
     let result = 0;

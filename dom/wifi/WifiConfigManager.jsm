@@ -98,6 +98,10 @@ this.WifiConfigManager = (function() {
 
   function setDebug(aDebug) {
     gDebug = aDebug;
+
+    if (WifiConfigStore) {
+      WifiConfigStore.setDebug(gDebug);
+    }
   }
 
   function debug(aMsg) {

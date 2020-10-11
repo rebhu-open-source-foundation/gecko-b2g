@@ -4,6 +4,7 @@
 
 "use strict";
 
+/* eslint-disable no-unused-vars */
 const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
@@ -70,6 +71,10 @@ PasspointNetworkSelector.prototype = {
 
   setDebug(aDebug) {
     gDebug = aDebug;
+
+    if (PasspointManager) {
+      PasspointManager.setDebug(gDebug);
+    }
   },
 
   chooseNetwork(results, wifiInfo) {
@@ -210,3 +215,4 @@ PasspointNetworkSelector.prototype = {
     return score;
   },
 };
+/* eslint-enable no-unused-vars */

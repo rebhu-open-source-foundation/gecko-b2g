@@ -51,8 +51,11 @@ const { TetheringConfigStore } = ChromeUtils.import(
 const { BinderServices } = ChromeUtils.import(
   "resource://gre/modules/BinderServices.jsm"
 );
+const { PasspointManager } = ChromeUtils.import(
+  "resource://gre/modules/PasspointManager.jsm"
+);
 
-var DEBUG = true; // set to true to show debug messages.
+var gDebug = false;
 
 /* eslint-disable no-unused-vars */
 const FEATURE_APF = Ci.nsIWifiResult.FEATURE_APF;
@@ -269,6 +272,12 @@ ChromeUtils.defineModuleGetter(
 
 var wifiInfo = new WifiInfo();
 var lastNetwork = null;
+
+function debug(s) {
+  if (gDebug) {
+    dump("-*- WifiWorker component: " + s + "\n");
+  }
+}
 
 // A note about errors and error handling in this file:
 // The libraries that we use in this file are intended for C code. For
@@ -621,46 +630,41 @@ var WifiManager = (function() {
     delayScanId = setTimeout(manager.startDelayScan, delayScanInterval);
   };
 
-  var debugEnabled = false;
-  function syncDebug() {
-    if (debugEnabled !== DEBUG) {
-      let wanted = DEBUG;
-      let level = {
-        logLevel: wanted ? LEVEL_DEBUG : LEVEL_INFO,
-        showTimeStamp: true,
-        showKeys: false,
-      };
-      wifiCommand.setDebugLevel(level, function(result) {
-        if (result.status == SUCCESS) {
-          debugEnabled = wanted;
-        }
-      });
-      if (p2pSupported && p2pManager) {
-        p2pManager.setDebug(DEBUG);
-      }
-      if (WifiNetworkSelector) {
-        WifiNetworkSelector.setDebug(DEBUG);
-      }
-      if (WifiConfigManager) {
-        WifiConfigManager.setDebug(DEBUG);
-      }
-      if (OpenNetworkNotifier) {
-        OpenNetworkNotifier.setDebug(DEBUG);
-      }
-    }
+  function syncSupplicantDebug(enable, callback) {
+    let level = {
+      logLevel: enable ? LEVEL_DEBUG : LEVEL_INFO,
+      showTimeStamp: false,
+      showKeys: false,
+    };
+
+    wifiCommand.setDebugLevel(level, function(result) {
+      callback(result.status == SUCCESS);
+    });
   }
 
-  function getDebugEnabled(callback) {
-    wifiCommand.getDebugLevel(function(result) {
-      if (result.status != SUCCESS) {
-        debug("Unable to get wpa_supplicant's log level");
-        callback(false);
-        return;
-      }
-
-      let enabled = result.debugLevel <= LEVEL_DEBUG;
-      callback(enabled);
-    });
+  function syncDebug() {
+    let enable = gDebug;
+    if (p2pSupported && p2pManager) {
+      p2pManager.setDebug(enable);
+    }
+    if (WifiNetworkSelector) {
+      WifiNetworkSelector.setDebug(enable);
+    }
+    if (WifiConfigManager) {
+      WifiConfigManager.setDebug(enable);
+    }
+    if (OpenNetworkNotifier) {
+      OpenNetworkNotifier.setDebug(enable);
+    }
+    if (WifiConfigUtils) {
+      WifiConfigUtils.setDebug(enable);
+    }
+    if (PasspointManager) {
+      PasspointManager.setDebug(enable);
+    }
+    if (manager.supplicantStarted) {
+      syncSupplicantDebug(enable, function() {});
+    }
   }
 
   var httpProxyConfig = Object.create(null);
@@ -1932,10 +1936,8 @@ var WifiManager = (function() {
     // we are ready to accept dom request from applications.
     WifiManager.state = "DISCONNECTED";
 
-    // Load up the supplicant state.
-    getDebugEnabled(function(ok) {
-      syncDebug();
-    });
+    // Sync debug level to supplicant.
+    manager.syncDebug();
 
     notify("supplicantconnection");
 
@@ -3157,14 +3159,20 @@ function WifiWorker() {
     self._stopConnectionInfoTimer();
   };
 
+  // Update debug status
+  WifiManager.syncDebug();
+
   // Get settings value and initialize.
   this.getSettings(SETTINGS_WIFI_ENABLED);
   this.getSettings(SETTINGS_WIFI_DEBUG_ENABLED);
   this.getSettings(SETTINGS_WIFI_NOTIFICATION);
+  this.getSettings(SETTINGS_AIRPLANE_MODE);
 
   // Add settings observers.
   this.addSettingsObserver(SETTINGS_WIFI_DEBUG_ENABLED);
   this.addSettingsObserver(SETTINGS_WIFI_NOTIFICATION);
+  this.addSettingsObserver(SETTINGS_AIRPLANE_MODE);
+  this.addSettingsObserver(SETTINGS_AIRPLANE_MODE_STATUS);
 
   // Initialize configured network from config file.
   WifiConfigManager.loadFromStore();
@@ -3835,9 +3843,7 @@ WifiWorker.prototype = {
       try {
         handler.apply(listener, aArgs);
       } catch (e) {
-        if (DEBUG) {
-          this._debug("listener for " + aName + " threw an exception: " + e);
-        }
+        debug("listener for " + aName + " threw an exception: " + e);
       }
     }
   },
@@ -4579,8 +4585,11 @@ WifiWorker.prototype = {
   shutdown() {
     debug("shutting down ...");
 
+    this.handleWifiEnabled(false, function() {});
     this.removeSettingsObserver(SETTINGS_WIFI_DEBUG_ENABLED);
     this.removeSettingsObserver(SETTINGS_WIFI_NOTIFICATION);
+    this.removeSettingsObserver(SETTINGS_AIRPLANE_MODE);
+    this.removeSettingsObserver(SETTINGS_AIRPLANE_MODE_STATUS);
 
     Services.obs.removeObserver(this, kXpcomShutdownChangedTopic);
     Services.obs.removeObserver(this, kScreenStateChangedTopic);
@@ -4639,6 +4648,8 @@ WifiWorker.prototype = {
   observe(subject, topic, data) {
     switch (topic) {
       case kXpcomShutdownChangedTopic:
+        this.shutdown();
+
         // Ensure the supplicant is detached from B2G to avoid XPCOM shutdown
         // blocks forever.
         WifiManager.ensureSupplicantDetached(() => {
@@ -4651,8 +4662,6 @@ WifiWorker.prototype = {
           ].getService(Ci.nsIWifiCertService);
           wifiCertService.shutdown();
         });
-
-        this.shutdown();
 
         if (this.mobileConnectionRegistered) {
           gMobileConnectionService
@@ -4934,24 +4943,21 @@ WifiWorker.prototype = {
         break;
       case SETTINGS_WIFI_DEBUG_ENABLED:
         debug("'" + SETTINGS_WIFI_DEBUG_ENABLED + "' is now " + aValue);
-        DEBUG = aValue;
-        updateDebug();
+        gDebug = aValue;
+        WifiManager.syncDebug();
         break;
       case SETTINGS_WIFI_NOTIFICATION:
         debug("'" + SETTINGS_WIFI_NOTIFICATION + "' is now " + aValue);
         OpenNetworkNotifier.setOpenNetworkNotifyEnabled(aValue);
         break;
+      case SETTINGS_AIRPLANE_MODE:
+        debug("'" + SETTINGS_AIRPLANE_MODE + "' is now " + aValue);
+        this._airplaneMode = aValue === null ? false : aValue;
+        break;
+      case SETTINGS_AIRPLANE_MODE_STATUS:
+        debug("'" + SETTINGS_AIRPLANE_MODE_STATUS + "' is now " + aValue);
+        this._airplaneMode_status = aValue === null ? "" : aValue;
+        break;
     }
   },
 };
-
-function debug(s) {
-  if (DEBUG) {
-    dump("-*- WifiWorker component: " + s + "\n");
-  }
-}
-
-function updateDebug() {
-  //WifiManager.syncDebug();
-}
-updateDebug();
