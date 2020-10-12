@@ -145,7 +145,7 @@ partial interface B2G {
 #ifdef HAS_KOOST_MODULES
 [Exposed=(Window,Worker)]
 partial interface B2G {
-  [Throws]
+  [Throws, Func="B2G::HasAuthorizationManagerSupport"]
   readonly attribute AuthorizationManager authorizationManager;
 };
 #endif

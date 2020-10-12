@@ -146,6 +146,7 @@ class B2G final : public nsIDOMMozWakeLockListener, public nsWrapperCache {
 #endif
 #ifdef HAS_KOOST_MODULES
   AuthorizationManager* GetAuthorizationManager(ErrorResult& aRv);
+  static bool HasAuthorizationManagerSupport(JSContext* /* unused */, JSObject* aGlobal);
 #endif
 
   UsbManager* GetUsbManager(ErrorResult& aRv);

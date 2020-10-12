@@ -600,6 +600,18 @@ AuthorizationManager* B2G::GetAuthorizationManager(ErrorResult& aRv) {
   }
   return mAuthorizationManager;
 }
+
+/* static */
+bool B2G::HasAuthorizationManagerSupport(JSContext* /* unused */, JSObject* aGlobal) {
+  nsCOMPtr<nsPIDOMWindowInner> innerWindow = xpc::WindowOrNull(aGlobal);
+
+  if (NS_IsMainThread()) {
+    return innerWindow ? CheckPermission("cloud-authorization"_ns, innerWindow) : false;
+  } else {
+    // TODO: to limit the access from worker thread
+    return true;
+  }
+}
 #endif
 
 /* static */
