@@ -262,14 +262,15 @@ this.AlarmService = {
   },
 
   _fireSystemMessage: function _fireSystemMessage(aAlarm) {
-    debug("Fire system message: " + JSON.stringify(aAlarm));
-    let origin = Services.io.newURI(aAlarm.manifestURL).prePath;
-
-    debug(
-      "_fireSystemMessage origin: " +
-        Services.io.newURI(aAlarm.manifestURL).prePath
-    );
-    systemmessenger.sendMessage("alarm", this._publicAlarm(aAlarm), origin);
+    debug("_fireSystemMessage: " + JSON.stringify(aAlarm));
+    try {
+      // Use try here in case newURI fails on invalid url.
+      let origin = Services.io.newURI(aAlarm.manifestURL).prePath;
+      debug("sendMessage to " + origin);
+      systemmessenger.sendMessage("alarm", this._publicAlarm(aAlarm), origin);
+    } catch (err) {
+      debug("sendMessage failed. " + err);
+    }
   },
 
   _notifyAlarmObserver: function _notifyAlarmObserver(aAlarm) {

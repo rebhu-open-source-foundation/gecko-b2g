@@ -52,14 +52,6 @@ AlarmProxy.prototype = {
     // A <requestId, {cpuLock, timer}> map.
     this._cpuLockDict = new Map();
 
-    Services.obs.addObserver(
-      this,
-      "inner-window-destroyed",
-      /* weak-ref */ true
-    );
-
-    this._destroyed = false;
-
     this._listenedMessages = [
       "Alarm:Add:Return:OK",
       "Alarm:Add:Return:KO",
@@ -73,7 +65,7 @@ AlarmProxy.prototype = {
   },
 
   add: function add(aUrl, aOptions, aCallback) {
-    debug("add " + JSON.stringify(aOptions));
+    debug("add " + JSON.stringify(aOptions) + " " + aUrl);
     let date = aOptions.date;
     let ignoreTimezone = !!aOptions.ignoreTimezone;
     let data = aOptions.data;
@@ -92,12 +84,18 @@ AlarmProxy.prototype = {
       // web page to ensure no cross-origin object is involved. A "Permission
       // Denied" error will be thrown in case of privilege violation.
       // We used JSON.stringify in the past, but the toJSON privileged function is denied now.
-      // TODO: We used Cu.getWebIDLCallerPrincipal() to get principal, but there's
-      // no way to retrieve app's principal currently.
-      // let sandbox = new Cu.Sandbox(Cu.getWebIDLCallerPrincipal());
-      let sandbox = new Cu.Sandbox(aUrl);
-      sandbox.data = data;
-      data = Cu.evalInSandbox("eval(data)", sandbox);
+      try {
+        let sandbox = new Cu.Sandbox(aUrl);
+        sandbox.data = data;
+        data = Cu.evalInSandbox("eval(data)", sandbox);
+      } catch (e) {
+        debug(e);
+        aCallback.onAdd(
+          Cr.NS_ERROR_INVALID_ARG,
+          Cu.cloneInto("data examination in sandbox failed", {})
+        );
+        return;
+      }
     }
 
     debug("_alarmRequests.set Alarm:Add " + requestId + " " + aUrl);
@@ -118,8 +116,7 @@ AlarmProxy.prototype = {
   },
 
   remove: function remove(aUrl, aId) {
-    debug("remove " + aId);
-
+    debug("remove " + aId + " " + aUrl);
     Services.cpmm.sendAsyncMessage("Alarm:Remove", {
       id: aId,
       manifestURL: aUrl,
@@ -127,8 +124,7 @@ AlarmProxy.prototype = {
   },
 
   getAll: function getAll(aUrl, aCallback) {
-    debug("getAll");
-
+    debug("getAll " + aUrl);
     let requestId = Cc["@mozilla.org/uuid-generator;1"]
       .getService(Ci.nsIUUIDGenerator)
       .generateUUID()
@@ -218,25 +214,6 @@ AlarmProxy.prototype = {
     }
   },
 
-  observe(aSubject, aTopic, aData) {
-    debug("observe " + aTopic);
-    if (aTopic !== "inner-window-destroyed") {
-      return;
-    }
-
-    if (!this._destroyed) {
-      return;
-    }
-
-    this._destroyed = true;
-
-    this._listenedMessages.forEach(aName => {
-      Services.cpmm.removeMessageListener(aName, this);
-    });
-
-    Services.obs.removeObserver(this, "inner-window-destroyed");
-  },
-
   _lockCpuForRequest(aRequestId) {
     if (this._cpuLockDict.has(aRequestId)) {
       debug(
@@ -292,7 +269,6 @@ AlarmProxy.prototype = {
   QueryInterface: ChromeUtils.generateQI([
     Ci.nsIAlarmProxy,
     Ci.nsISupportsWeakReference,
-    Ci.nsIObserver,
   ]),
 };
 

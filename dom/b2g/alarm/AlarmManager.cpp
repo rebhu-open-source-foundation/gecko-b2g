@@ -54,8 +54,8 @@ class OnGetAllWorkerRunnable final : public WorkerRunnable,
     ErrorResult rv;
     Read(global, aCx, &result, rv);
     if (NS_WARN_IF(rv.Failed())) {
-      LOG("Read failed. rv[%u]", rv.ErrorCodeAsInt());
-      promise->MaybeReject(NS_ERROR_UNEXPECTED);
+      LOG("Read failed. rv:[%u]", rv.ErrorCodeAsInt());
+      promise->MaybeReject(NS_ERROR_DOM_OPERATION_ERR);
       return false;
     }
     JS_WrapValue(aCx, &result);
@@ -113,7 +113,7 @@ NS_IMETHODIMP
 AlarmGetAllCallback::OnGetAll(nsresult aStatus, JS::HandleValue aResult,
                               JSContext* aCx) {
   if (mPromise) {
-    LOG("OnGetAll mPromise. aCx[%p]", aCx);
+    LOG("OnGetAll mPromise. aCx:[%p]", aCx);
 
     if (NS_SUCCEEDED(aStatus)) {
       mPromise->MaybeResolveWithClone(aCx, aResult);
@@ -121,7 +121,7 @@ AlarmGetAllCallback::OnGetAll(nsresult aStatus, JS::HandleValue aResult,
       mPromise->MaybeRejectWithClone(aCx, aResult);
     }
   } else if (mPromiseWorkerProxy) {
-    LOG("OnGetAll mPromiseWorkerProxy. aCx[%p]", aCx);
+    LOG("OnGetAll mPromiseWorkerProxy. aCx:[%p]", aCx);
     MutexAutoLock lock(mPromiseWorkerProxy->Lock());
     if (mPromiseWorkerProxy->CleanedUp()) {
       LOG("mPromiseWorkerProxy->CleanedUp(), return NS_OK.");
@@ -133,7 +133,7 @@ AlarmGetAllCallback::OnGetAll(nsresult aStatus, JS::HandleValue aResult,
     ErrorResult rv;
     r->Write(aCx, aResult, rv);
     if (NS_WARN_IF(rv.Failed())) {
-      LOG("Write failed. rv[%u]", rv.ErrorCodeAsInt());
+      LOG("Write failed. rv:[%u]", rv.ErrorCodeAsInt());
     }
 
     MOZ_ALWAYS_TRUE(r->Dispatch());
@@ -149,7 +149,7 @@ class AlarmGetAllRunnable : public Runnable {
       : Runnable("dom::AlarmGetAllRunnable"),
         mPromiseWorkerProxy(aPromiseWorkerProxy),
         mUrl(aUrl) {
-    LOG("AlarmGetAllRunnable constructor. %s", mUrl.get());
+    LOG("AlarmGetAllRunnable constructor. mUrl:[%s]", mUrl.get());
   }
 
   NS_IMETHOD
@@ -205,7 +205,7 @@ class OnAddWorkerRunnable final : public WorkerRunnable,
     ErrorResult rv;
     Read(global, aCx, &result, rv);
     if (NS_WARN_IF(rv.Failed())) {
-      LOG("Read failed. rv[%u]", rv.ErrorCodeAsInt());
+      LOG("Read failed. rv:[%u]", rv.ErrorCodeAsInt());
       promise->MaybeReject(NS_ERROR_UNEXPECTED);
       return false;
     }
@@ -262,14 +262,14 @@ NS_IMETHODIMP
 AlarmAddCallback::OnAdd(nsresult aStatus, JS::HandleValue aResult,
                         JSContext* aCx) {
   if (mPromise) {
-    LOG("OnAdd mPromise aCx[%p]", aCx);
+    LOG("OnAdd mPromise aCx:[%p]", aCx);
     if (NS_SUCCEEDED(aStatus)) {
       mPromise->MaybeResolve(aResult);
     } else {
       mPromise->MaybeReject(aResult);
     }
   } else if (mPromiseWorkerProxy) {
-    LOG("OnAdd mPromiseWorkerProxy aCx[%p]", aCx);
+    LOG("OnAdd mPromiseWorkerProxy aCx:[%p]", aCx);
     MutexAutoLock lock(mPromiseWorkerProxy->Lock());
     if (mPromiseWorkerProxy->CleanedUp()) {
       LOG("mPromiseWorkerProxy->CleanedUp(), return NS_OK.");
@@ -281,7 +281,7 @@ AlarmAddCallback::OnAdd(nsresult aStatus, JS::HandleValue aResult,
     ErrorResult rv;
     r->Write(aCx, aResult, rv);
     if (NS_WARN_IF(rv.Failed())) {
-      LOG("Write failed. rv[%u]", rv.ErrorCodeAsInt());
+      LOG("Write failed. rv:[%u]", rv.ErrorCodeAsInt());
     }
     MOZ_ALWAYS_TRUE(r->Dispatch());
   }
@@ -300,7 +300,7 @@ class AlarmAddRunnable : public Runnable, public StructuredCloneHolder {
         mAlarmManager(aAlarmManager),
         mPromiseWorkerProxy(aPromiseWorkerProxy),
         mUrl(aUrl) {
-    LOG("AlarmAddRunnable constructor. %s", mUrl.get());
+    LOG("AlarmAddRunnable constructor. mUrl:[%s]", mUrl.get());
   }
   NS_IMETHOD
   Run() override {
@@ -311,7 +311,7 @@ class AlarmAddRunnable : public Runnable, public StructuredCloneHolder {
     JS::RootedValue options(cx);
     Read(mAlarmManager->GetParentObject(), cx, &options, rv);
     if (NS_WARN_IF(rv.Failed())) {
-      LOG("Read failed. rv[%u]", rv.ErrorCodeAsInt());
+      LOG("Read failed. rv:[%u]", rv.ErrorCodeAsInt());
       return rv.StealNSResult();
     }
     JS_WrapValue(cx, &options);
@@ -337,7 +337,7 @@ class AlarmRemoveRunnable : public Runnable {
  public:
   explicit AlarmRemoveRunnable(long aId, const nsACString& aUrl)
       : Runnable("dom::AlarmRemoveRunnable"), mId(aId), mUrl(aUrl) {
-    LOG("AlarmRemoveRunnable constructor. %s %d", mUrl.get(), mId);
+    LOG("AlarmRemoveRunnable constructor. mUrl:[%s] mId:[%d]", mUrl.get(), mId);
   }
 
   NS_IMETHOD
@@ -358,24 +358,40 @@ class AlarmRemoveRunnable : public Runnable {
 };
 
 AlarmManager::AlarmManager(nsIGlobalObject* aGlobal) : mGlobal(aGlobal) {
-  LOG("AlarmManager constructor. aGlobal[%p]", aGlobal);
+  LOG("AlarmManager constructor. aGlobal:[%p]", aGlobal);
   MOZ_ASSERT(aGlobal);
 
   Maybe<ClientInfo> clientInfo = mGlobal->GetClientInfo();
   if (clientInfo.isSome()) {
-    LOG("clientInfo->URL() %s", clientInfo->URL().get());
-    nsCOMPtr<nsIIOService> ios(do_GetIOService());
-    nsCOMPtr<nsIURI> uri;
-    nsresult rv =
-        ios->NewURI(clientInfo->URL(), nullptr, nullptr, getter_AddRefs(uri));
-    NS_ENSURE_SUCCESS_VOID(rv);
-    uri->GetPrePath(mUrl);
+    // System app might call AlarmManager from the system startup chrome url.
+    // To ensure proper system message receiver, replace the url with system
+    // app's origin.
+    // Other modules or services in Gecko of chrome origins should call
+    // AlarmService directly, not through AlarmManager or AlarmProxy.
+    LOG("clientInfo->URL() [%s]", clientInfo->URL().get());
+    if (nsContentUtils::IsCallerChrome()) {
+      nsAutoCString systemStartupUrl;
+      nsresult rv =
+          Preferences::GetCString("b2g.system_startup_url", systemStartupUrl);
+      if (NS_SUCCEEDED(rv) && clientInfo->URL().Equals(systemStartupUrl)) {
+        mUrl = "https://system.local"_ns;
+      }
+    } else {
+      nsCOMPtr<nsIIOService> ios(do_GetIOService());
+      nsCOMPtr<nsIURI> uri;
+      nsresult rv =
+          ios->NewURI(clientInfo->URL(), nullptr, nullptr, getter_AddRefs(uri));
+      NS_ENSURE_SUCCESS_VOID(rv);
+      uri->GetPrePath(mUrl);
+    }
   } else {
-    LOG("Error! !clientInfo.isSome()");
+    LOG("Error: !clientInfo.isSome()");
   }
 
-  LOG("mUrl %s", mUrl.get());
-  if (NS_IsMainThread()) {
+  LOG("mUrl:[%s]", mUrl.get());
+  // Alarms added by apps should be well-managed according to app urls.
+  // Empty urls may cause ambiguity.
+  if (NS_IsMainThread() && !mUrl.IsEmpty()) {
     mAlarmProxy = do_CreateInstance("@mozilla.org/dom/alarm/proxy;1");
     MOZ_ASSERT(mAlarmProxy);
     mAlarmProxy->Init();
@@ -390,13 +406,23 @@ already_AddRefed<Promise> AlarmManager::GetAll() {
   promise = Promise::Create(mGlobal, rv);
   ENSURE_SUCCESS(rv, nullptr);
 
+  if (NS_WARN_IF(mUrl.IsEmpty())) {
+    LOG("Empty url on GetAll");
+    promise->MaybeReject(NS_ERROR_DOM_ABORT_ERR);
+    return promise.forget();
+  }
+
   if (NS_IsMainThread()) {
     LOG("AlarmManager::GetAll NS_IsMainThread() %s", mUrl.get());
+    if (NS_WARN_IF(!mAlarmProxy)) {
+      LOG("!mAlarmProxy on GetAll");
+      promise->MaybeReject(NS_ERROR_DOM_ABORT_ERR);
+      return promise.forget();
+    }
     RefPtr<nsIAlarmGetAllCallback> callback = new AlarmGetAllCallback(promise);
-    MOZ_ASSERT(mAlarmProxy);
     mAlarmProxy->GetAll(mUrl, callback);
   } else {
-    LOG("AlarmManager::GetAll !NS_IsMainThread() %s", mUrl.get());
+    LOG("AlarmManager::GetAll !NS_IsMainThread() mUrl:[%s]", mUrl.get());
     WorkerPrivate* worker = GetCurrentThreadWorkerPrivate();
     MOZ_ASSERT(worker);
     worker->AssertIsOnWorkerThread();
@@ -423,8 +449,19 @@ already_AddRefed<Promise> AlarmManager::Add(JSContext* aCx,
   promise = Promise::Create(mGlobal, rv);
   ENSURE_SUCCESS(rv, nullptr);
 
+  if (NS_WARN_IF(mUrl.IsEmpty())) {
+    LOG("Empty url on Add");
+    promise->MaybeReject(NS_ERROR_DOM_ABORT_ERR);
+    return promise.forget();
+  }
+
   if (NS_IsMainThread()) {
-    LOG("AlarmManager::Add NS_IsMainThread() %s", mUrl.get());
+    LOG("AlarmManager::Add NS_IsMainThread() mUrl[%s]", mUrl.get());
+    if (NS_WARN_IF(!mAlarmProxy)) {
+      LOG("!mAlarmProxy on Add");
+      promise->MaybeReject(NS_ERROR_DOM_ABORT_ERR);
+      return promise.forget();
+    }
     // We're about to pass the dictionary to a JS-implemented component, so
     // rehydrate it in a system scode so that security wrappers don't get in the
     // way. See bug 1161748 comment 16.
@@ -445,10 +482,9 @@ already_AddRefed<Promise> AlarmManager::Add(JSContext* aCx,
     }
 
     RefPtr<nsIAlarmAddCallback> callback = new AlarmAddCallback(promise);
-    MOZ_ASSERT(mAlarmProxy);
     mAlarmProxy->Add(mUrl, optionsValue, callback);
   } else {
-    LOG("AlarmManager::Add !NS_IsMainThread() %s", mUrl.get());
+    LOG("AlarmManager::Add !NS_IsMainThread() mUrl:[%s]", mUrl.get());
     WorkerPrivate* worker = GetCurrentThreadWorkerPrivate();
     MOZ_ASSERT(worker);
     worker->AssertIsOnWorkerThread();
@@ -472,7 +508,7 @@ already_AddRefed<Promise> AlarmManager::Add(JSContext* aCx,
     RefPtr<AlarmAddRunnable> r = new AlarmAddRunnable(this, proxy, mUrl);
     r->Write(aCx, optionsValue, rv);
     if (NS_WARN_IF(rv.Failed())) {
-      LOG("Write failed. rv[%u]", rv.ErrorCodeAsInt());
+      LOG("Write failed. rv:[%u]", rv.ErrorCodeAsInt());
     }
     NS_DispatchToMainThread(r);
     if (NS_WARN_IF(rv.Failed())) {
@@ -485,12 +521,19 @@ already_AddRefed<Promise> AlarmManager::Add(JSContext* aCx,
 }
 
 void AlarmManager::Remove(long aId) {
+  if (NS_WARN_IF(mUrl.IsEmpty())) {
+    LOG("Empty url on Remove. aId:[%d]", aId);
+    return;
+  }
   if (NS_IsMainThread()) {
-    LOG("AlarmManager::Remove NS_IsMainThread() %s %d", mUrl.get(), aId);
-    MOZ_ASSERT(mAlarmProxy);
+    LOG("AlarmManager::Remove NS_IsMainThread() mUrl:[%s] aId:[%d]", mUrl.get(), aId);
+    if (NS_WARN_IF(!mAlarmProxy)) {
+      LOG("!mAlarmProxy on Remove");
+      return;
+    }
     mAlarmProxy->Remove(mUrl, aId);
   } else {
-    LOG("AlarmManager::Remove NS_IsMainThread() %s %d", mUrl.get(), aId);
+    LOG("AlarmManager::Remove !NS_IsMainThread() mUrl:[%s] aId:[%d]", mUrl.get(), aId);
     RefPtr<AlarmRemoveRunnable> r = new AlarmRemoveRunnable(aId, mUrl);
     NS_DispatchToMainThread(r);
   }
