@@ -284,7 +284,12 @@ GonkGPSGeolocationProvider::NetworkLocationUpdate::NotifyError(uint16_t error) {
 // While most methods of GonkGPSGeolocationProvider should only be
 // called from main thread, we deliberately put the Init and ShutdownGPS
 // methods off main thread to avoid blocking.
-NS_IMPL_ISUPPORTS(GonkGPSGeolocationProvider, nsIGeolocationProvider)
+NS_IMPL_ISUPPORTS(GonkGPSGeolocationProvider, nsIGeolocationProvider,
+#ifdef MOZ_B2G_RIL
+                  nsIObserver, nsITelephonyListener,
+#endif
+                  nsISettingsGetResponse, nsISettingsObserver,
+                  nsISidlDefaultResponse)
 
 /* static */ GonkGPSGeolocationProvider*
     GonkGPSGeolocationProvider::sSingleton = nullptr;
