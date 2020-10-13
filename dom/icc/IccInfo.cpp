@@ -267,17 +267,19 @@ NS_IMPL_RELEASE_INHERITED(GsmIccInfo, IccInfo)
 
 GsmIccInfo::GsmIccInfo(nsPIDOMWindowInner* aWindow) : IccInfo(aWindow) {
   mIccInfo = new nsGsmIccInfo();
+  mGsmIccInfo = static_cast<nsGsmIccInfo*>(mIccInfo.get());
 }
 
 GsmIccInfo::GsmIccInfo(const IccInfoData& aData) : IccInfo(aData) {
   mIccInfo = new nsGsmIccInfo(aData);
+  mGsmIccInfo = static_cast<nsGsmIccInfo*>(mIccInfo.get());
 }
 
 // WebIDL implementation
 
 void GsmIccInfo::Update(nsIGsmIccInfo* aInfo) {
   MOZ_ASSERT(aInfo);
-  mIccInfo->Update(aInfo);
+  mGsmIccInfo->Update(aInfo);
 }
 
 void GsmIccInfo::Update(GsmIccInfo* aInfo) {
@@ -285,7 +287,7 @@ void GsmIccInfo::Update(GsmIccInfo* aInfo) {
   nsIIccInfo* iccInfo;
   aInfo->GetIccInfo(&iccInfo);
   nsCOMPtr<nsIGsmIccInfo> gsmInfo = do_QueryInterface(iccInfo);
-  mIccInfo->Update(gsmInfo);
+  mGsmIccInfo->Update(gsmInfo);
 }
 
 JSObject* GsmIccInfo::WrapObject(JSContext* aCx,
@@ -295,9 +297,8 @@ JSObject* GsmIccInfo::WrapObject(JSContext* aCx,
 
 void GsmIccInfo::GetMsisdn(nsAString& aMsisdn) const {
   SetDOMStringToNull(aMsisdn);
-  nsCOMPtr<nsIGsmIccInfo> iccInfo = do_QueryInterface(mIccInfo);
-  if (iccInfo) {
-    iccInfo->GetMsisdn(aMsisdn);
+  if (mGsmIccInfo) {
+    mGsmIccInfo->GetMsisdn(aMsisdn);
   }
 }
 
@@ -318,10 +319,12 @@ NS_IMPL_RELEASE_INHERITED(CdmaIccInfo, IccInfo)
 
 CdmaIccInfo::CdmaIccInfo(nsPIDOMWindowInner* aWindow) : IccInfo(aWindow) {
   mIccInfo = new nsCdmaIccInfo();
+  mCdmaIccInfo = static_cast<nsCdmaIccInfo*>(mIccInfo.get());
 }
 
 CdmaIccInfo::CdmaIccInfo(const IccInfoData& aData) : IccInfo(aData) {
   mIccInfo = new nsCdmaIccInfo(aData);
+  mCdmaIccInfo = static_cast<nsCdmaIccInfo*>(mIccInfo.get());
 }
 
 // WebIDL implementation
@@ -333,24 +336,22 @@ JSObject* CdmaIccInfo::WrapObject(JSContext* aCx,
 
 void CdmaIccInfo::GetMdn(nsAString& aMdn) const {
   SetDOMStringToNull(aMdn);
-  nsCOMPtr<nsICdmaIccInfo> iccInfo = do_QueryInterface(mIccInfo);
-  if (iccInfo) {
-    iccInfo->GetMdn(aMdn);
+  if (mCdmaIccInfo) {
+    mCdmaIccInfo->GetMdn(aMdn);
   }
 }
 
 int32_t CdmaIccInfo::PrlVersion() const {
   int32_t version = 0;
-  nsCOMPtr<nsICdmaIccInfo> iccInfo = do_QueryInterface(mIccInfo);
-  if (iccInfo) {
-    iccInfo->GetPrlVersion(&version);
+  if (mCdmaIccInfo) {
+    mCdmaIccInfo->GetPrlVersion(&version);
   }
   return version;
 }
 
 void CdmaIccInfo::Update(nsICdmaIccInfo* aInfo) {
   MOZ_ASSERT(aInfo);
-  mIccInfo->Update(aInfo);
+  mCdmaIccInfo->Update(aInfo);
 }
 
 void CdmaIccInfo::Update(CdmaIccInfo* aInfo) {
@@ -358,5 +359,5 @@ void CdmaIccInfo::Update(CdmaIccInfo* aInfo) {
   nsIIccInfo* iccInfo;
   aInfo->GetIccInfo(&iccInfo);
   nsCOMPtr<nsICdmaIccInfo> cdmaInfo = do_QueryInterface(iccInfo);
-  mIccInfo->Update(cdmaInfo);
+  mCdmaIccInfo->Update(cdmaInfo);
 }

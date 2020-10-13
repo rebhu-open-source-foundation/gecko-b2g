@@ -141,6 +141,7 @@ class GsmIccInfo final : public IccInfo {
   void GetMsisdn(nsAString& aMsisdn) const;
 
  private:
+  RefPtr<nsGsmIccInfo> mGsmIccInfo;
   ~GsmIccInfo() {}
 };
 
@@ -161,10 +162,10 @@ class CdmaIccInfo final : public IccInfo {
 
   // CdmaIccInfo WebIDL
   void GetMdn(nsAString& aMdn) const;
-
   int32_t PrlVersion() const;
 
  private:
+  RefPtr<nsCdmaIccInfo> mCdmaIccInfo;
   ~CdmaIccInfo() {}
 };
 
