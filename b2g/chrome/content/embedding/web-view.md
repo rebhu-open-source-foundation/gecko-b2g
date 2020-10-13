@@ -34,6 +34,7 @@ The <web-view> element supports the following attributes:
 - `processid : int` : returns the process ID of its content process if there is, or -1 if there is not.
 - `visible : boolean`: currently similar to `active`.
 - `isVirtualCursorPanning : boolean` : query whether the panning simulation of virtual cursor is enabled.
+- `(readonly) currentURI : string` : returns the current URI loaded in the web-view, which can be different from the `src` attribute.
 
 ## Events
 
