@@ -24,7 +24,7 @@ impl From<ObjectRef> for TrackerId {
 }
 
 pub static SERVICE_FINGERPRINT: &str =
-    "2acb3816f658c1a2cb18c2cab713b253de46d993db2bd5d53c1191a8eac831f5";
+    "df567ff0a08482f3501f3597504b87a9144020e77f5be96059cc2531d17ec4e4";
 
 #[derive(Clone, PartialEq, Deserialize, Serialize, Debug)]
 pub enum CardInfoType {
@@ -102,20 +102,22 @@ pub enum GeckoBridgeFromClient {
     AppsServiceDelegateOnBootError,               // 10
     AppsServiceDelegateOnBootDoneSuccess,         // 11
     AppsServiceDelegateOnBootDoneError,           // 12
-    AppsServiceDelegateOnInstallSuccess,          // 13
-    AppsServiceDelegateOnInstallError,            // 14
-    AppsServiceDelegateOnUninstallSuccess,        // 15
-    AppsServiceDelegateOnUninstallError,          // 16
-    AppsServiceDelegateOnUpdateSuccess,           // 17
-    AppsServiceDelegateOnUpdateError,             // 18
-    MobileManagerDelegateGetCardInfoSuccess(String), // 19
-    MobileManagerDelegateGetCardInfoError,        // 20
-    MobileManagerDelegateGetMncMccSuccess(NetworkOperator), // 21
-    MobileManagerDelegateGetMncMccError,          // 22
-    NetworkManagerDelegateGetNetworkInfoSuccess(NetworkInfo), // 23
-    NetworkManagerDelegateGetNetworkInfoError,    // 24
-    PowerManagerDelegateSetScreenEnabledSuccess,  // 25
-    PowerManagerDelegateSetScreenEnabledError,    // 26
+    AppsServiceDelegateOnClearSuccess,            // 13
+    AppsServiceDelegateOnClearError,              // 14
+    AppsServiceDelegateOnInstallSuccess,          // 15
+    AppsServiceDelegateOnInstallError,            // 16
+    AppsServiceDelegateOnUninstallSuccess,        // 17
+    AppsServiceDelegateOnUninstallError,          // 18
+    AppsServiceDelegateOnUpdateSuccess,           // 19
+    AppsServiceDelegateOnUpdateError,             // 20
+    MobileManagerDelegateGetCardInfoSuccess(String), // 21
+    MobileManagerDelegateGetCardInfoError,        // 22
+    MobileManagerDelegateGetMncMccSuccess(NetworkOperator), // 23
+    MobileManagerDelegateGetMncMccError,          // 24
+    NetworkManagerDelegateGetNetworkInfoSuccess(NetworkInfo), // 25
+    NetworkManagerDelegateGetNetworkInfoError,    // 26
+    PowerManagerDelegateSetScreenEnabledSuccess,  // 27
+    PowerManagerDelegateSetScreenEnabledError,    // 28
 }
 
 #[derive(Debug, Deserialize)]
@@ -140,11 +142,12 @@ pub enum GeckoBridgeToClient {
     GeckoFeaturesSetPowerManagerDelegateError,           // 17
     AppsServiceDelegateOnBoot(String, JsonValue),        // 18
     AppsServiceDelegateOnBootDone,                       // 19
-    AppsServiceDelegateOnInstall(String, JsonValue),     // 20
-    AppsServiceDelegateOnUninstall(String),              // 21
-    AppsServiceDelegateOnUpdate(String, JsonValue),      // 22
-    MobileManagerDelegateGetCardInfo(i64, CardInfoType), // 23
-    MobileManagerDelegateGetMncMcc(i64, bool),           // 24
-    NetworkManagerDelegateGetNetworkInfo,                // 25
-    PowerManagerDelegateSetScreenEnabled(bool, bool),    // 26
+    AppsServiceDelegateOnClear(String, String),          // 20
+    AppsServiceDelegateOnInstall(String, JsonValue),     // 21
+    AppsServiceDelegateOnUninstall(String),              // 22
+    AppsServiceDelegateOnUpdate(String, JsonValue),      // 23
+    MobileManagerDelegateGetCardInfo(i64, CardInfoType), // 24
+    MobileManagerDelegateGetMncMcc(i64, bool),           // 25
+    NetworkManagerDelegateGetNetworkInfo,                // 26
+    PowerManagerDelegateSetScreenEnabled(bool, bool),    // 27
 }

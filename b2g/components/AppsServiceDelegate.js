@@ -14,6 +14,10 @@ const { ServiceWorkerAssistant } = ChromeUtils.import(
   "resource://gre/modules/ServiceWorkerAssistant.jsm"
 );
 
+const { AppsUtils } = ChromeUtils.import(
+  "resource://gre/modules/AppsUtils.jsm"
+);
+
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
 const DEBUG = 1;
@@ -78,6 +82,19 @@ AppsServiceDelegate.prototype = {
   onBootDone() {
     log(`onBootDone`);
     ServiceWorkerAssistant.waitForRegistrations();
+  },
+
+  onClear(aManifestUrl, aType) {
+    log(`onClear: ${aManifestUrl}: clear type: ${aType}`);
+    switch (aType) {
+      case "Browser":
+        AppsUtils.clearBrowserData(aManifestUrl);
+        break;
+      case "Storage":
+        AppsUtils.clearStorage(aManifestUrl);
+        break;
+      default:
+    }
   },
 
   onInstall(aManifestUrl, aFeatures) {

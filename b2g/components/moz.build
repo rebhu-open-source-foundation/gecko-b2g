@@ -49,6 +49,7 @@ if CONFIG["MOZ_UPDATER"]:
 EXTRA_JS_MODULES += [
     "ActivityChannel.jsm",
     "AlertsHelper.jsm",
+    "AppsUtils.jsm",
     "B2GProcessSelector.jsm",
     "ChromeNotifications.jsm",
     "ContentPermissionPrompt.jsm",

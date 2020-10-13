@@ -5,6 +5,7 @@
 interface nsIAppsServiceDelegate : nsISupports {
     void onBoot(in AString aManifestUrl, in AString value);
     void onBootDone();
+    void onClear(in AString aManifestUrl, in AString value);
     void onInstall(in AString aManifestUrl, in AString value);
     void onUpdate(in AString aManifestUrl, in AString value);
     void onUninstall(in AString aManifestUrl);

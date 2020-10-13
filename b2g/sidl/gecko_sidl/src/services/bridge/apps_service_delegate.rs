@@ -70,6 +70,12 @@ impl SessionObject for AppsServiceDelegate {
             Ok(GeckoBridgeToClient::AppsServiceDelegateOnBootDone) => {
                 Some(self.post_task(AppsServiceCommand::OnBootDone(), request_id))
             }
+            Ok(GeckoBridgeToClient::AppsServiceDelegateOnClear(manifest_url, value)) => {
+                Some(self.post_task(
+                    AppsServiceCommand::OnClear(manifest_url, value.into()),
+                    request_id,
+                ))
+            }
             Ok(GeckoBridgeToClient::AppsServiceDelegateOnInstall(manifest_url, value)) => {
                 Some(self.post_task(
                     AppsServiceCommand::OnInstall(manifest_url, value.into()),
@@ -116,6 +122,10 @@ enum AppsServiceCommand {
         String, // b2g_features
     ),
     OnBootDone(),
+    OnClear(
+        String, // manifest_url
+        String, // clear_type
+    ),
     OnInstall(
         String, // manifest_url
         String, // b2g_features
@@ -158,6 +168,13 @@ impl Task for AppsServiceDelegateTask {
                     debug!("AppsServiceDelegateTask OnBootDone");
                     unsafe {
                         object.OnBootDone();
+                    }
+                }
+                AppsServiceCommand::OnClear(manifest_url, value) => {
+                    let manifest_url = nsString::from(manifest_url);
+                    let value = nsString::from(value);
+                    unsafe {
+                        object.OnClear(&*manifest_url as &nsAString, &*value as &nsAString);
                     }
                 }
                 AppsServiceCommand::OnInstall(manifest_url, value) => {
