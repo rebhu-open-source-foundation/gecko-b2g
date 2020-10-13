@@ -49,13 +49,13 @@ static bool IsTypeValid(const MediaContainerType& aType) {
   // the web, as opposed to what we use internally (i.e. what our demuxers
   // etc output).
   return aType.Type() == MEDIAMIMETYPE("audio/mp4") ||
-         // On B2G, treat 3GPP as MP4 when Gonk PDM is available.
+  // On B2G, treat 3GPP as MP4 when Gonk PDM is available.
 #ifdef MOZ_WIDGET_GONK
          aType.Type() == MEDIAMIMETYPE("audio/3gpp") ||
 #endif
          aType.Type() == MEDIAMIMETYPE("audio/x-m4a") ||
          aType.Type() == MEDIAMIMETYPE("video/mp4") ||
-         // On B2G, treat 3GPP as MP4 when Gonk PDM is available.
+  // On B2G, treat 3GPP as MP4 when Gonk PDM is available.
 #ifdef MOZ_WIDGET_GONK
          aType.Type() == MEDIAMIMETYPE("video/3gpp") ||
 #endif
@@ -83,7 +83,7 @@ nsTArray<UniquePtr<TrackInfo>> MP4Decoder::GetTracksInfo(
   }
 
   const bool isVideo = aType.Type() == MEDIAMIMETYPE("video/mp4") ||
-                       // On B2G, treat 3GPP as MP4 when Gonk PDM is available.
+  // On B2G, treat 3GPP as MP4 when Gonk PDM is available.
 #ifdef MOZ_WIDGET_GONK
                        aType.Type() == MEDIAMIMETYPE("video/3gpp") ||
 #endif
@@ -195,6 +195,11 @@ bool MP4Decoder::IsSupportedType(const MediaContainerType& aType,
 bool MP4Decoder::IsH264(const nsACString& aMimeType) {
   return aMimeType.EqualsLiteral("video/mp4") ||
          aMimeType.EqualsLiteral("video/avc");
+}
+
+/* static */
+bool MP4Decoder::IsH263(const nsACString& aMimeType) {
+  return aMimeType.EqualsLiteral("video/3gpp");
 }
 
 /* static */

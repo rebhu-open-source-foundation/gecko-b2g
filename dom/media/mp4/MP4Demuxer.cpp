@@ -72,7 +72,7 @@ class MP4TrackDemuxer : public MediaTrackDemuxer,
   // Queued samples extracted by the demuxer, but not yet returned.
   RefPtr<MediaRawData> mQueuedSample;
   bool mNeedReIndex;
-  enum CodecType { kH264, kVP9, kOther } mType = kOther;
+  enum CodecType { kH264, kVP9, kH263, kOther } mType = kOther;
 };
 
 MP4Demuxer::MP4Demuxer(MediaResource* aResource)
@@ -327,6 +327,10 @@ MP4TrackDemuxer::MP4TrackDemuxer(MediaResource* aResource,
       videoInfo->mDisplay.width = spsdata.display_width;
       videoInfo->mDisplay.height = spsdata.display_height;
     }
+#ifdef MOZ_WIDGET_GONK
+  } else if (videoInfo && MP4Decoder::IsH263(mInfo->mMimeType)) {
+    mType = kH263;
+#endif
   } else {
     if (videoInfo && VPXDecoder::IsVP9(mInfo->mMimeType)) {
       mType = kVP9;

@@ -237,6 +237,8 @@ MediaResult MP4VideoInfo::Update(const Mp4parseTrackInfo* track,
     mMimeType = "video/av1"_ns;
   } else if (codecType == MP4PARSE_CODEC_MP4V) {
     mMimeType = "video/mp4v-es"_ns;
+  } else if (codecType == MP4PARSE_CODEC_H263) {
+    mMimeType = "video/3gpp"_ns;
   }
   mTrackId = track->track_id;
   mDuration = TimeUnit::FromMicroseconds(track->duration);
