@@ -19,6 +19,8 @@ namespace icc {
   aInInfo->GetMnc(aOutData.mnc());
   aInInfo->GetSpn(aOutData.spn());
   aInInfo->GetImsi(aOutData.imsi());
+  aInInfo->GetGid1(aOutData.gid1());
+  aInInfo->GetGid2(aOutData.gid2());
   aInInfo->GetIsDisplayNetworkNameRequired(
       &aOutData.isDisplayNetworkNameRequired());
   aInInfo->GetIsDisplaySpnRequired(&aOutData.isDisplaySpnRequired());

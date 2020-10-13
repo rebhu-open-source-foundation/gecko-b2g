@@ -40,6 +40,8 @@ class nsIccInfo : public nsIIccInfo {
   nsString mMnc;
   nsString mSpn;
   nsString mImsi;
+  nsString mGid1;
+  nsString mGid2;
   bool mIsDisplayNetworkNameRequired;
   bool mIsDisplaySpnRequired;
 };
@@ -108,6 +110,10 @@ class IccInfo : public nsISupports, public nsWrapperCache {
   void GetSpn(nsAString& aSpn) const;
 
   void GetImsi(nsAString& aImsi) const;
+
+  void GetGid1(nsAString& aGid1) const;
+
+  void GetGid2(nsAString& aGid2) const;
 
   bool IsDisplayNetworkNameRequired() const;
 

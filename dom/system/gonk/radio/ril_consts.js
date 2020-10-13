@@ -517,6 +517,7 @@ this.ICC_EF_ADN = 0x6f3a;
 this.ICC_EF_FDN = 0x6f3b;
 this.ICC_EF_SMS = 0x6f3c;
 this.ICC_EF_GID1 = 0x6f3e;
+this.ICC_EF_GID2 = 0x6f3f;
 this.ICC_EF_MSISDN = 0x6f40;
 this.ICC_EF_CBMI = 0x6f45;
 this.ICC_EF_SPN = 0x6f46;
@@ -1355,6 +1356,7 @@ this.GECKO_ICC_SERVICES = {
     EXT2: 11,
     CBMI: 14,
     GID1: 15,
+    GID2: 16,
     SPN: 17,
     SDN: 18,
     EXT3: 19,
@@ -1379,6 +1381,7 @@ this.GECKO_ICC_SERVICES = {
     CBMI: 15,
     CBMIR: 16,
     GID1: 17,
+    GID2: 18,
     SPN: 19,
     MSISDN: 21,
     IMG: 22,

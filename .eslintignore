@@ -27,6 +27,7 @@ obj*/
 b2g/app/b2g.js
 koost/koost.js
 dom/cellbroadcast/gonk/GonkCellBroadcastConfigService.jsm
+dom/system/gonk/radio/simIOHelper.js
 # Tests to fix:
 dom/cellbroadcast/tests/
 

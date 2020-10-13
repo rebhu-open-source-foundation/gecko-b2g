@@ -480,6 +480,7 @@ ICCFileHelperObject.prototype = {
       case ICC_EF_OPL:
       case ICC_EF_PNN:
       case ICC_EF_GID1:
+      case ICC_EF_GID2:
       case ICC_EF_CPHS_CFF:
       case ICC_EF_CPHS_INFO:
       case ICC_EF_CPHS_MBN:
@@ -512,6 +513,7 @@ ICCFileHelperObject.prototype = {
       case ICC_EF_PNN:
       case ICC_EF_SMS:
       case ICC_EF_GID1:
+      case ICC_EF_GID2:
       // CPHS spec was provided in 1997 based on SIM requirement, there is no
       // detailed info about how these ICC_EF_CPHS_XXX are allocated in USIM.
       // What we can do now is to follow what has been done in AOSP to have file
@@ -4288,6 +4290,13 @@ SimRecordHelperObject.prototype = {
         if (DEBUG) this.context.debug("GID1: GID1 is not available");
       }
 
+      if (ICCUtilsHelper.isICCServiceAvailable("GID2")) {
+        if (DEBUG) this.context.debug("GID2: GID2 is available");
+        this.readGID2();
+      } else {
+        if (DEBUG) this.context.debug("GID2: GID2 is not available");
+      }
+
       if (ICCUtilsHelper.isICCServiceAvailable("CFIS")) {
         if (DEBUG) this.context.debug("CFIS: CFIS is available");
         this.readCFIS();
@@ -4912,6 +4921,24 @@ SimRecordHelperObject.prototype = {
 
     this.context.ICCIOHelper.loadTransparentEF({
       fileId: ICC_EF_GID1,
+      aid: this.aid,
+      callback: callback.bind(this)
+    });
+  },
+
+  readGID2: function() {
+    function callback(options) {
+      let RIL = this.context.RIL;
+      let value = options.simResponse;
+
+      RIL.iccInfoPrivate.gid2 = value;
+      if (DEBUG) {
+        this.context.debug("GID2: " + RIL.iccInfoPrivate.gid2);
+      }
+    }
+
+    this.context.ICCIOHelper.loadTransparentEF({
+      fileId: ICC_EF_GID2,
       aid: this.aid,
       callback: callback.bind(this)
     });

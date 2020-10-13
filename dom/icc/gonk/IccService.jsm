@@ -70,6 +70,8 @@ IccInfo.prototype = {
   mnc: null,
   spn: null,
   imsi: null,
+  gid1: null,
+  gid2: null,
   isDisplayNetworkNameRequired: false,
   isDisplaySpnRequired: false,
 };

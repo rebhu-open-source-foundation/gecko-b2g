@@ -38,6 +38,16 @@ interface IccInfo {
    */
   readonly attribute DOMString? imsi;
 
+	/**
+   * Group Identifier Level 1.
+   */
+  readonly attribute DOMString? gid1;
+
+	/**
+   * Group Identifier Level 2.
+   */
+  readonly attribute DOMString? gid2;
+
   /**
    * Network name must be a part of displayed carrier name.
    */

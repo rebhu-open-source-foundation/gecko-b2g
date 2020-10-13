@@ -34,6 +34,8 @@ nsIccInfo::nsIccInfo() {
   mMnc.SetIsVoid(true);
   mSpn.SetIsVoid(true);
   mImsi.SetIsVoid(true);
+  mGid1.SetIsVoid(true);
+  mGid2.SetIsVoid(true);
 }
 
 nsIccInfo::nsIccInfo(const IccInfoData& aData) {
@@ -43,6 +45,8 @@ nsIccInfo::nsIccInfo(const IccInfoData& aData) {
   mMnc = aData.mnc();
   mSpn = aData.spn();
   mImsi = aData.imsi();
+  mGid1 = aData.gid1();
+  mGid2 = aData.gid2();
   mIsDisplayNetworkNameRequired = aData.isDisplayNetworkNameRequired();
   mIsDisplaySpnRequired = aData.isDisplaySpnRequired();
 }
@@ -56,6 +60,8 @@ void nsIccInfo::Update(nsIIccInfo* aInfo) {
   aInfo->GetMnc(mMnc);
   aInfo->GetSpn(mSpn);
   aInfo->GetImsi(mImsi);
+  aInfo->GetGid1(mGid1);
+  aInfo->GetGid2(mGid2);
   aInfo->GetIsDisplayNetworkNameRequired(&mIsDisplayNetworkNameRequired);
   aInfo->GetIsDisplaySpnRequired(&mIsDisplaySpnRequired);
 }
@@ -94,6 +100,18 @@ nsIccInfo::GetSpn(nsAString& aSpn) {
 NS_IMETHODIMP
 nsIccInfo::GetImsi(nsAString& aImsi) {
   aImsi = mImsi;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsIccInfo::GetGid1(nsAString& aGid1) {
+  aGid1 = mGid1;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsIccInfo::GetGid2(nsAString& aGid2) {
+  aGid2 = mGid2;
   return NS_OK;
 }
 
@@ -236,6 +254,16 @@ void IccInfo::GetSpn(nsAString& aSpn) const {
 void IccInfo::GetImsi(nsAString& aImsi) const {
   SetDOMStringToNull(aImsi);
   mIccInfo->GetImsi(aImsi);
+}
+
+void IccInfo::GetGid1(nsAString& aGid1) const {
+  SetDOMStringToNull(aGid1);
+  mIccInfo->GetGid1(aGid1);
+}
+
+void IccInfo::GetGid2(nsAString& aGid2) const {
+  SetDOMStringToNull(aGid2);
+  mIccInfo->GetGid2(aGid2);
 }
 
 bool IccInfo::IsDisplayNetworkNameRequired() const {

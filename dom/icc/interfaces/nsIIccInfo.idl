@@ -40,6 +40,16 @@ interface nsIIccInfo : nsISupports
   readonly attribute AString imsi;
 
   /**
+   * Group Identifier Level 1.
+   */
+  readonly attribute AString gid1;
+
+  /**
+   * Group Identifier Level 2.
+   */
+  readonly attribute AString gid2;
+
+  /**
    * Network name must be a part of displayed carrier name.
    */
   readonly attribute boolean isDisplayNetworkNameRequired;
