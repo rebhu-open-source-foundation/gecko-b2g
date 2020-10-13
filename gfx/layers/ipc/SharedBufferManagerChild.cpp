@@ -130,8 +130,9 @@ SharedBufferManagerChild::BindSameProcess(RefPtr<SharedBufferManagerParent> aPar
 
 bool SharedBufferManagerChild::InitForContent(Endpoint<PSharedBufferManagerChild>&& aEndpoint) {
   MOZ_ASSERT(NS_IsMainThread());
-
+#if defined(ANDROID)
   gfxPlatform::GetPlatform();
+#endif
 
   if (!sSharedBufferManagerChildThread) {
     sSharedBufferManagerChildThread = new base::Thread("SharedBufferManagerChild");
