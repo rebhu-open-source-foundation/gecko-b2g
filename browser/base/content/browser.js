@@ -2775,7 +2775,10 @@ function HandleAppCommandEvent(evt) {
       BrowserOpenFileWindow();
       break;
     case "Print":
-      PrintUtils.startPrintWindow(gBrowser.selectedBrowser.browsingContext);
+      PrintUtils.startPrintWindow(
+        "app_command",
+        gBrowser.selectedBrowser.browsingContext
+      );
       break;
     case "Save":
       saveBrowser(gBrowser.selectedBrowser);
@@ -4208,7 +4211,7 @@ const BrowserSearch = {
         "TabSelect",
         placeholderUpdateListener
       );
-    } else {
+    } else if (!gURLBar.searchMode) {
       this._setURLBarPlaceholder(engineName);
     }
   },
@@ -5083,6 +5086,7 @@ var XULBrowserWindow = {
     return (this._elementsForTextBasedTypes = [
       document.getElementById("pageStyleMenu"),
       document.getElementById("context-viewpartialsource-selection"),
+      document.getElementById("context-print-selection"),
     ]);
   },
   get _elementsForFind() {
@@ -6236,6 +6240,7 @@ nsBrowserAccess.prototype = {
       }
       case Ci.nsIBrowserDOMWindow.OPEN_PRINT_BROWSER: {
         let browser = PrintUtils.startPrintWindow(
+          "window_print",
           aOpenWindowInfo.parent,
           aOpenWindowInfo
         );
@@ -6319,6 +6324,7 @@ nsBrowserAccess.prototype = {
   ) {
     if (aWhere == Ci.nsIBrowserDOMWindow.OPEN_PRINT_BROWSER) {
       return PrintUtils.startPrintWindow(
+        "window_print",
         aParams.openWindowInfo.parent,
         aParams.openWindowInfo
       );

@@ -15,6 +15,8 @@
 #include "jit/BaselineIC.h"
 #include "jit/BytecodeAnalysis.h"
 #include "jit/IonScript.h"
+#include "jit/JitFrames.h"
+#include "jit/ScriptFromCalleeToken.h"
 #include "util/Memory.h"
 #include "vm/BytecodeIterator.h"
 #include "vm/BytecodeLocation.h"

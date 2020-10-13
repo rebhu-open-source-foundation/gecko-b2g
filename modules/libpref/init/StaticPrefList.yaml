@@ -3745,6 +3745,18 @@
   value: false
   mirror: never
 
+# Prefs used by normandy to orchestrate the fission experiment. For more
+# details, see the comments in nsAppRunner.cpp.
+- name: fission.experiment.enrollmentStatus
+  type: uint32_t
+  value: 0
+  mirror: never
+
+- name: fission.experiment.startupEnrollmentStatus
+  type: uint32_t
+  value: 0
+  mirror: never
+
 # This pref has no effect within fission windows, it only controls the
 # behaviour within non-fission windows. If true, preserve browsing contexts
 # between process swaps.
@@ -6104,7 +6116,7 @@
 # Is support for CSS conic-gradient enabled?
 - name: layout.css.conic-gradient.enabled
   type: RelaxedAtomicBool
-  value: false
+  value: true
   mirror: always
   rust: true
 
@@ -9342,16 +9354,6 @@
 - name: security.caps.allow_uri_is_ui_resource_in_checkloaduriflags
   type: bool
   value: false
-  mirror: always
-
-# TODO: Bug 1324406: Treat 'data:' documents as unique, opaque origins
-# If true, data: URIs will be treated as unique opaque origins, hence will use
-# a NullPrincipal as the security context.
-# Otherwise it will inherit the origin from parent node, this is the legacy
-# behavior of Firefox.
-- name: security.data_uri.unique_opaque_origin
-  type: RelaxedAtomicBool
-  value: true
   mirror: always
 
 # If true, all toplevel data: URI navigations will be blocked.

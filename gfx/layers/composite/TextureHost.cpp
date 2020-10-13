@@ -8,7 +8,6 @@
 
 #include "CompositableHost.h"  // for CompositableHost
 #include "LayerScope.h"
-#include "LayersLogging.h"   // for AppendToString
 #include "mozilla/gfx/2D.h"  // for DataSourceSurface, Factory
 #include "mozilla/gfx/gfxVars.h"
 #include "mozilla/ipc/Shmem.h"  // for Shmem
@@ -512,6 +511,10 @@ void TextureHost::EnsureRenderTexture(
         Some(AsyncImagePipelineManager::GetNextExternalImageId());
   } else {
     // TextureHost is wrapped by WebRenderTextureHost.
+    if (aExternalImageId == mExternalImageId) {
+      // The texture has already been created.
+      return;
+    }
     MOZ_ASSERT(mExternalImageId.isNothing());
     mExternalImageId = aExternalImageId;
   }
@@ -524,11 +527,11 @@ void TextureHost::PrintInfo(std::stringstream& aStream, const char* aPrefix) {
   // Note: the TextureHost needs to be locked before it is safe to call
   //       GetSize() and GetFormat() on it.
   if (Lock()) {
-    aStream << " [size=" << GetSize() << "]";
-    AppendToString(aStream, GetFormat(), " [format=", "]");
+    aStream << " [size=" << GetSize() << "]"
+            << " [format=" << GetFormat() << "]";
     Unlock();
   }
-  AppendToString(aStream, mFlags, " [flags=", "]");
+  aStream << " [flags=" << mFlags << "]";
 #ifdef MOZ_DUMP_PAINTING
   if (StaticPrefs::layers_dump_texture()) {
     nsAutoCString pfx(aPrefix);

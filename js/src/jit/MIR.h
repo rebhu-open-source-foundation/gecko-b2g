@@ -20,26 +20,37 @@
 #include <algorithm>
 #include <initializer_list>
 
-#include "builtin/ModuleObject.h"
+#include "NamespaceImports.h"
+
+#include "gc/Allocator.h"
 #include "jit/AtomicOp.h"
-#include "jit/BaselineIC.h"
-#include "jit/CompileInfo.h"
 #include "jit/FixedList.h"
 #include "jit/InlineList.h"
+#include "jit/InlineScriptTree.h"
 #include "jit/JitAllocPolicy.h"
+#include "jit/MacroAssembler.h"
 #include "jit/MOpcodesGenerated.h"
-#include "jit/TIOracle.h"
 #include "jit/TypePolicy.h"
 #include "js/experimental/JitInfo.h"  // JSJit{Getter,Setter}Op, JSJitInfo
 #include "js/HeapAPI.h"
+#include "js/Id.h"
 #include "js/ScalarType.h"  // js::Scalar::Type
+#include "js/Value.h"
+#include "js/Vector.h"
 #include "vm/ArrayObject.h"
 #include "vm/BuiltinObjectKind.h"
 #include "vm/EnvironmentObject.h"
 #include "vm/FunctionFlags.h"  // js::FunctionFlags
+#include "vm/JSContext.h"
+#include "vm/ReceiverGuard.h"
 #include "vm/RegExpObject.h"
 #include "vm/SharedMem.h"
 #include "vm/TypedArrayObject.h"
+#include "vm/TypeSet.h"
+
+namespace JS {
+struct ExpandoAndGeneration;
+}
 
 namespace js {
 
@@ -47,9 +58,12 @@ namespace wasm {
 class FuncExport;
 }
 
+class GenericPrinter;
 class StringObject;
 
 enum class UnaryMathFunction : uint8_t;
+
+bool CurrentThreadIsIonCompiling();
 
 namespace jit {
 
@@ -67,7 +81,8 @@ class MDefinitionVisitorDefaultNoop {
 #undef VISIT_INS
 };
 
-class BaselineInspector;
+class CompactBufferWriter;
+class IonBuilder;
 class Range;
 
 template <typename T>
@@ -378,10 +393,14 @@ class AliasSet {
     // frame during exception bailouts.)
     ExceptionState = 1 << 13,
 
-    Last = ExceptionState,
+    // Used for instructions that load the privateSlot of DOM proxies and
+    // the ExpandoAndGeneration.
+    DOMProxyExpando = 1 << 14,
+
+    Last = DOMProxyExpando,
     Any = Last | (Last - 1),
 
-    NumCategories = 14,
+    NumCategories = 15,
 
     // Indicates load or store.
     Store_ = 1 << 31
@@ -11257,6 +11276,132 @@ class MGetDOMMember : public MGetDOMPropertyBase {
     }
 
     return baseCongruentTo(ins->toGetDOMMember());
+  }
+};
+
+// Load the private value expando from a DOM proxy. The target is stored in the
+// proxy object's private slot.
+// This is either an UndefinedValue (no expando), ObjectValue (the expando
+// object), or PrivateValue(ExpandoAndGeneration*).
+class MLoadDOMExpandoValue : public MUnaryInstruction,
+                             public SingleObjectPolicy::Data {
+  explicit MLoadDOMExpandoValue(MDefinition* proxy)
+      : MUnaryInstruction(classOpcode, proxy) {
+    setMovable();
+    setResultType(MIRType::Value);
+  }
+
+ public:
+  INSTRUCTION_HEADER(LoadDOMExpandoValue)
+  TRIVIAL_NEW_WRAPPERS
+  NAMED_OPERANDS((0, proxy))
+
+  bool congruentTo(const MDefinition* ins) const override {
+    return congruentIfOperandsEqual(ins);
+  }
+  AliasSet getAliasSet() const override {
+    return AliasSet::Load(AliasSet::DOMProxyExpando);
+  }
+};
+
+class MLoadDOMExpandoValueGuardGeneration : public MUnaryInstruction,
+                                            public SingleObjectPolicy::Data {
+  JS::ExpandoAndGeneration* expandoAndGeneration_;
+  uint64_t generation_;
+
+  MLoadDOMExpandoValueGuardGeneration(
+      MDefinition* proxy, JS::ExpandoAndGeneration* expandoAndGeneration,
+      uint64_t generation)
+      : MUnaryInstruction(classOpcode, proxy),
+        expandoAndGeneration_(expandoAndGeneration),
+        generation_(generation) {
+    setGuard();
+    setMovable();
+    setResultType(MIRType::Value);
+  }
+
+ public:
+  INSTRUCTION_HEADER(LoadDOMExpandoValueGuardGeneration)
+  TRIVIAL_NEW_WRAPPERS
+  NAMED_OPERANDS((0, proxy))
+
+  JS::ExpandoAndGeneration* expandoAndGeneration() const {
+    return expandoAndGeneration_;
+  }
+  uint64_t generation() const { return generation_; }
+
+  bool congruentTo(const MDefinition* ins) const override {
+    if (!ins->isLoadDOMExpandoValueGuardGeneration()) {
+      return false;
+    }
+    const auto* other = ins->toLoadDOMExpandoValueGuardGeneration();
+    if (expandoAndGeneration() != other->expandoAndGeneration() ||
+        generation() != other->generation()) {
+      return false;
+    }
+    return congruentIfOperandsEqual(ins);
+  }
+  AliasSet getAliasSet() const override {
+    return AliasSet::Load(AliasSet::DOMProxyExpando);
+  }
+};
+
+class MLoadDOMExpandoValueIgnoreGeneration : public MUnaryInstruction,
+                                             public SingleObjectPolicy::Data {
+  explicit MLoadDOMExpandoValueIgnoreGeneration(MDefinition* proxy)
+      : MUnaryInstruction(classOpcode, proxy) {
+    setMovable();
+    setResultType(MIRType::Value);
+  }
+
+ public:
+  INSTRUCTION_HEADER(LoadDOMExpandoValueIgnoreGeneration)
+  TRIVIAL_NEW_WRAPPERS
+  NAMED_OPERANDS((0, proxy))
+
+  bool congruentTo(const MDefinition* ins) const override {
+    return congruentIfOperandsEqual(ins);
+  }
+  AliasSet getAliasSet() const override {
+    return AliasSet::Load(AliasSet::DOMProxyExpando);
+  }
+};
+
+// Takes an expando Value as input, then guards it's either UndefinedValue or
+// an object with the expected shape.
+class MGuardDOMExpandoMissingOrGuardShape : public MUnaryInstruction,
+                                            public BoxInputsPolicy::Data {
+  CompilerShape shape_;
+
+  MGuardDOMExpandoMissingOrGuardShape(MDefinition* obj, Shape* shape)
+      : MUnaryInstruction(classOpcode, obj), shape_(shape) {
+    setGuard();
+    setMovable();
+    setResultType(MIRType::Value);
+  }
+
+ public:
+  INSTRUCTION_HEADER(GuardDOMExpandoMissingOrGuardShape)
+  TRIVIAL_NEW_WRAPPERS
+  NAMED_OPERANDS((0, expando))
+
+  const Shape* shape() const { return shape_; }
+
+  bool congruentTo(const MDefinition* ins) const override {
+    if (!ins->isGuardDOMExpandoMissingOrGuardShape()) {
+      return false;
+    }
+    if (shape() != ins->toGuardDOMExpandoMissingOrGuardShape()->shape()) {
+      return false;
+    }
+    return congruentIfOperandsEqual(ins);
+  }
+  AliasSet getAliasSet() const override {
+    return AliasSet::Load(AliasSet::ObjectFields);
+  }
+
+  bool appendRoots(MRootList& roots) const override {
+    return roots.append(shape_);
   }
 };
 

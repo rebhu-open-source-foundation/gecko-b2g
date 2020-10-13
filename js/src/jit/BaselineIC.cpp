@@ -24,6 +24,7 @@
 #include "jit/BaselineDebugModeOSR.h"
 #include "jit/BaselineJIT.h"
 #include "jit/InlinableNatives.h"
+#include "jit/JitFrames.h"
 #include "jit/JitRealm.h"
 #include "jit/JitRuntime.h"
 #include "jit/JitSpewer.h"
@@ -51,7 +52,6 @@
 
 #include "builtin/Boolean-inl.h"
 
-#include "jit/JitFrames-inl.h"
 #include "jit/MacroAssembler-inl.h"
 #include "jit/shared/Lowering-shared-inl.h"
 #include "jit/SharedICHelpers-inl.h"
@@ -1612,24 +1612,16 @@ bool DoTypeUpdateFallback(JSContext* cx, BaselineFrame* frame,
     MOZ_ALWAYS_TRUE(structDescr->fieldIndex(id, &fieldIndex));
 
     TypeDescr* fieldDescr = &structDescr->fieldDescr(fieldIndex);
-    ReferenceType type = fieldDescr->as<ReferenceTypeDescr>().type();
-    if (type == ReferenceType::TYPE_ANY) {
-      // Ignore undefined values, which are included implicitly in type
-      // information for this property.
-      if (value.isUndefined()) {
-        addType = false;
-      }
-    } else {
-      MOZ_ASSERT(type == ReferenceType::TYPE_OBJECT ||
-                 type == ReferenceType::TYPE_WASM_ANYREF);
+    DebugOnly<ReferenceType> type = fieldDescr->as<ReferenceTypeDescr>().type();
+    MOZ_ASSERT(type == ReferenceType::TYPE_OBJECT ||
+               type == ReferenceType::TYPE_WASM_ANYREF);
 
-      // Ignore null values being written here. Null is included
-      // implicitly in type information for this property. Note that
-      // non-object, non-null values are not possible here, these
-      // should have been filtered out by the IR emitter.
-      if (value.isNull()) {
-        addType = false;
-      }
+    // Ignore null values being written here. Null is included
+    // implicitly in type information for this property. Note that
+    // non-object, non-null values are not possible here, these
+    // should have been filtered out by the IR emitter.
+    if (value.isNull()) {
+      addType = false;
     }
   }
 

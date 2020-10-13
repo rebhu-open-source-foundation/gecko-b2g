@@ -375,7 +375,6 @@ nsDocShell::nsDocShell(BrowsingContext* aBrowsingContext,
       mAppType(nsIDocShell::APP_TYPE_UNKNOWN),
       mLoadType(0),
       mFailedLoadType(0),
-      mDisplayMode(nsIDocShell::DISPLAY_MODE_BROWSER),
       mJSRunToCompletionDepth(0),
       mTouchEventsOverride(nsIDocShell::TOUCHEVENTS_OVERRIDE_NONE),
       mMetaViewportOverride(nsIDocShell::META_VIEWPORT_OVERRIDE_NONE),
@@ -3988,13 +3987,6 @@ nsresult nsDocShell::LoadErrorPage(nsIURI* aErrorURI, nsIURI* aFailedURI,
     // identifier, the error page won't persist.
     mLSHE->AbandonBFCacheEntry();
   }
-  if (mozilla::SessionHistoryInParent()) {
-    // Commit the loading entry for the real load here, Embed will not commit
-    // the loading entry for the error page. History will then contain an entry
-    // for the real load, and the error page won't persist if we try loading
-    // that entry again.
-    MoveLoadingToActiveEntry(true);
-  }
 
   RefPtr<nsDocShellLoadState> loadState = new nsDocShellLoadState(aErrorURI);
   loadState->SetTriggeringPrincipal(nsContentUtils::GetSystemPrincipal());
@@ -4004,6 +3996,12 @@ nsresult nsDocShell::LoadErrorPage(nsIURI* aErrorURI, nsIURI* aFailedURI,
   loadState->SetLoadType(LOAD_ERROR_PAGE);
   loadState->SetFirstParty(true);
   loadState->SetSourceBrowsingContext(mBrowsingContext);
+  if (mozilla::SessionHistoryInParent() && mLoadingEntry) {
+    // We keep the loading entry for the load that failed here. If the user
+    // reloads we want to try to reload the original load, not the error page.
+    loadState->SetLoadingSessionHistoryInfo(
+        MakeUnique<LoadingSessionHistoryInfo>(*mLoadingEntry));
+  }
   return InternalLoad(loadState);
 }
 
@@ -5706,7 +5704,7 @@ nsresult nsDocShell::Embed(nsIContentViewer* aContentViewer,
 
   if (!aIsTransientAboutBlank && mozilla::SessionHistoryInParent()) {
     MOZ_LOG(gSHLog, LogLevel::Debug, ("document %p Embed", this));
-    MoveLoadingToActiveEntry(mLoadType != LOAD_ERROR_PAGE);
+    MoveLoadingToActiveEntry();
   }
 
   bool updateHistory = true;
@@ -8956,12 +8954,16 @@ nsresult nsDocShell::HandleSameDocumentNavigation(
             scrollRestorationIsManual.value());
       }
 
-      // FIXME We should probably just compute mChildOffset in the parent
-      //       instead of passing it over IPC here.
-      mBrowsingContext->SetActiveSessionHistoryEntry(
-          Some(scrollPos), mActiveEntry.get(), mLoadType, mChildOffset,
-          cacheKey);
-      // FIXME Do we need to update mPreviousEntryIndex and mLoadedEntryIndex?
+      if (LOAD_TYPE_HAS_FLAGS(mLoadType, LOAD_FLAGS_REPLACE_HISTORY)) {
+        mBrowsingContext->ReplaceActiveSessionHistoryEntry(mActiveEntry.get());
+      } else {
+        // FIXME We should probably just compute mChildOffset in the parent
+        //       instead of passing it over IPC here.
+        mBrowsingContext->SetActiveSessionHistoryEntry(
+            Some(scrollPos), mActiveEntry.get(), mLoadType, mChildOffset,
+            cacheKey);
+        // FIXME Do we need to update mPreviousEntryIndex and mLoadedEntryIndex?
+      }
     }
   }
 
@@ -10117,10 +10119,7 @@ nsresult nsDocShell::DoURILoad(nsDocShellLoadState* aLoadState,
         true,  // aInheritForAboutBlank
         isSrcdoc);
 
-    bool isURIUniqueOrigin =
-        StaticPrefs::security_data_uri_unique_opaque_origin() &&
-        SchemeIsData(aLoadState->URI());
-    inheritPrincipal = inheritAttrs && !isURIUniqueOrigin;
+    inheritPrincipal = inheritAttrs && !SchemeIsData(aLoadState->URI());
   }
 
   uint32_t sandboxFlags = mBrowsingContext->GetSandboxFlags();
@@ -11167,13 +11166,19 @@ nsresult nsDocShell::UpdateURLAndHistory(Document* aDocument, nsIURI* aNewURI,
     }
   } else if (mozilla::SessionHistoryInParent()) {
     MOZ_LOG(gSHLog, LogLevel::Debug,
-            ("nsDocShell %p UpdateActiveEntry (replacing)", this));
+            ("nsDocShell %p UpdateActiveEntry (replacing) mActiveEntry %p",
+             this, mActiveEntry.get()));
     // Setting the resultPrincipalURI to nullptr is fine here: it will cause
     // NS_GetFinalChannelURI to use the originalURI as the URI, which is aNewURI
     // in our case.  We could also set it to aNewURI, with the same result.
+    // We don't use aTitle here, see bug 544535.
+    nsString title;
+    if (mActiveEntry) {
+      title = mActiveEntry->GetTitle();
+    }
     UpdateActiveEntry(
         true, /* aPreviousScrollPos = */ Nothing(), aNewURI, aNewURI,
-        aDocument->NodePrincipal(), aDocument->GetCsp(), u""_ns,
+        aDocument->NodePrincipal(), aDocument->GetCsp(), title,
         /* aScrollRestorationIsManual = */ Nothing(), aData, uriWasModified);
   } else {
     // Step 3.
@@ -13137,34 +13142,6 @@ nsresult nsIDocShell::SetHTMLEditor(HTMLEditor* aHTMLEditor) {
   return docShell->SetHTMLEditorInternal(aHTMLEditor);
 }
 
-NS_IMETHODIMP
-nsDocShell::GetDisplayMode(DisplayMode* aDisplayMode) {
-  *aDisplayMode = mDisplayMode;
-  return NS_OK;
-}
-
-NS_IMETHODIMP
-nsDocShell::SetDisplayMode(DisplayMode aDisplayMode) {
-  // We don't have a way to verify this coming from Javascript, so this check
-  // is still needed.
-  if (!(aDisplayMode == nsIDocShell::DISPLAY_MODE_BROWSER ||
-        aDisplayMode == nsIDocShell::DISPLAY_MODE_STANDALONE ||
-        aDisplayMode == nsIDocShell::DISPLAY_MODE_FULLSCREEN ||
-        aDisplayMode == nsIDocShell::DISPLAY_MODE_MINIMAL_UI)) {
-    return NS_ERROR_INVALID_ARG;
-  }
-
-  if (aDisplayMode != mDisplayMode) {
-    mDisplayMode = aDisplayMode;
-
-    RefPtr<nsPresContext> presContext = GetPresContext();
-    presContext->MediaFeatureValuesChangedAllDocuments(
-        {MediaFeatureChangeReason::DisplayModeChange});
-  }
-
-  return NS_OK;
-}
-
 #define MATRIX_LENGTH 20
 
 NS_IMETHODIMP
@@ -13279,7 +13256,7 @@ void nsDocShell::SetLoadingSessionHistoryInfo(
   mLoadingEntry = MakeUnique<LoadingSessionHistoryInfo>(aLoadingInfo);
 }
 
-void nsDocShell::MoveLoadingToActiveEntry(bool aCommit) {
+void nsDocShell::MoveLoadingToActiveEntry() {
   MOZ_ASSERT(mozilla::SessionHistoryInParent());
 
   MOZ_LOG(gSHLog, LogLevel::Debug,
@@ -13298,12 +13275,14 @@ void nsDocShell::MoveLoadingToActiveEntry(bool aCommit) {
     mLoadingEntry.swap(loadingEntry);
   }
 
-  if (mActiveEntry && aCommit) {
+  if (mActiveEntry) {
     MOZ_ASSERT(loadingEntry);
     nsID changeID = {};
+    uint32_t loadType =
+        mLoadType == LOAD_ERROR_PAGE ? mFailedLoadType : mLoadType;
     if (XRE_IsParentProcess()) {
       mBrowsingContext->Canonical()->SessionHistoryCommit(loadingEntry->mLoadId,
-                                                          changeID, mLoadType);
+                                                          changeID, loadType);
     } else {
       RefPtr<ChildSHistory> rootSH = GetRootSessionHistory();
       if (rootSH) {
@@ -13319,7 +13298,7 @@ void nsDocShell::MoveLoadingToActiveEntry(bool aCommit) {
       }
       ContentChild* cc = ContentChild::GetSingleton();
       mozilla::Unused << cc->SendHistoryCommit(
-          mBrowsingContext, loadingEntry->mLoadId, changeID, mLoadType);
+          mBrowsingContext, loadingEntry->mLoadId, changeID, loadType);
     }
   }
 }

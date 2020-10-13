@@ -29,12 +29,18 @@
 #else
 #  error "Unknown architecture!"
 #endif
+#include "jit/ABIFunctions.h"
 #include "jit/AtomicOp.h"
 #include "jit/AutoJitContextAlloc.h"
 #include "jit/IonTypes.h"
 #include "jit/VMFunctions.h"
 #include "js/ScalarType.h"  // js::Scalar::Type
 #include "util/Memory.h"
+#include "vm/BytecodeUtil.h"
+#include "vm/FunctionFlags.h"
+#include "vm/JSObject.h"
+#include "vm/ObjectGroup.h"
+#include "vm/StringType.h"
 
 // [SMDOC] MacroAssembler multi-platform overview
 //
@@ -201,9 +207,26 @@
 #  define IMM32_16ADJ(X) (X)
 #endif
 
+namespace JS {
+struct ExpandoAndGeneration;
+}
+
 namespace js {
 
 class TypedArrayObject;
+class TypeSet;
+
+namespace wasm {
+class CalleeDesc;
+class CallSiteDesc;
+class BytecodeOffset;
+class MemoryAccessDesc;
+
+enum class FailureMode : uint8_t;
+enum class SimdOp;
+enum class SymbolicAddress;
+enum class Trap;
+}
 
 namespace jit {
 
@@ -228,6 +251,12 @@ enum class CheckUnsafeCallWithABI {
   // that we can't change and/or that we know won't GC.
   DontCheckOther,
 };
+
+// This is a global function made to create the DynFn type in a controlled
+// environment which would check if the function signature has been registered
+// as an ABI function signature.
+template <typename Sig>
+static inline DynFn DynamicFunction(Sig fun);
 
 enum class CharEncoding { Latin1, TwoByte };
 
@@ -559,12 +588,14 @@ class MacroAssembler : public MacroAssemblerSpecific {
   //
   // 4) Make the call:
   //
-  //      masm.callWithABI(JS_FUNC_TO_DATA_PTR(void*, Callee));
+  //      using Fn = int32_t (*)(int32_t)
+  //      masm.callWithABI<Fn, Callee>();
   //
   //    In the case where the call returns a double, that needs to be
   //    indicated to the callWithABI like this:
   //
-  //      masm.callWithABI(JS_FUNC_TO_DATA_PTR(void*, ...), MoveOp::DOUBLE);
+  //      using Fn = double (*)(int32_t)
+  //      masm.callWithABI<Fn, Callee>(MoveOp::DOUBLE);
   //
   //    There are overloads to allow calls to registers and addresses.
   //
@@ -618,6 +649,13 @@ class MacroAssembler : public MacroAssemblerSpecific {
 
   inline void callWithABI(
       void* fun, MoveOp::Type result = MoveOp::GENERAL,
+      CheckUnsafeCallWithABI check = CheckUnsafeCallWithABI::Check);
+  inline void callWithABI(
+      DynFn fun, MoveOp::Type result = MoveOp::GENERAL,
+      CheckUnsafeCallWithABI check = CheckUnsafeCallWithABI::Check);
+  template <typename Sig, Sig fun>
+  inline void callWithABI(
+      MoveOp::Type result = MoveOp::GENERAL,
       CheckUnsafeCallWithABI check = CheckUnsafeCallWithABI::Check);
   inline void callWithABI(Register fun, MoveOp::Type result = MoveOp::GENERAL);
   inline void callWithABI(const Address& fun,
@@ -1518,8 +1556,6 @@ class MacroAssembler : public MacroAssemblerSpecific {
                                Label* label);
 
   void branchIfNonNativeObj(Register obj, Register scratch, Label* label);
-
-  void branchIfInlineTypedObject(Register obj, Register scratch, Label* label);
 
   inline void branchTestClassIsProxy(bool proxy, Register clasp, Label* label);
 
@@ -3858,6 +3894,11 @@ class MacroAssembler : public MacroAssemblerSpecific {
 
   void setIsDefinitelyTypedArrayConstructor(Register obj, Register output);
 
+  void loadDOMExpandoValueGuardGeneration(
+      Register obj, ValueOperand output,
+      JS::ExpandoAndGeneration* expandoAndGeneration, uint64_t generation,
+      Label* fail);
+
  private:
   void isCallableOrConstructor(bool isCallable, Register obj, Register output,
                                Label* isProxy);
@@ -4301,6 +4342,9 @@ static inline MIRType ToMIRType(ABIArgType argType) {
   }
   MOZ_CRASH("unexpected argType");
 }
+
+// Helper for generatePreBarrier.
+inline DynFn JitMarkFunction(MIRType type);
 
 template <class VecT>
 class ABIArgIter {

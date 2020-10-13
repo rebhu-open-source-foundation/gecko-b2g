@@ -22,6 +22,8 @@
 
 #include <algorithm>
 
+#include "jsmath.h"
+
 #include "jit/AtomicOperations.h"
 #include "jit/Disassemble.h"
 #include "jit/InlinableNatives.h"
@@ -1292,7 +1294,7 @@ bool Instance::initElems(uint32_t tableIndex, const ElemSegment& seg,
     }
     obj = &no->as<TypedObject>();
     Rooted<TypeDescr*> td(cx, &obj->typeDescr());
-    if (td->kind() != type::Struct) {
+    if (td->kind() != TypeKind::Struct) {
       return nullptr;
     }
     typeDescr = &td->as<StructTypeDescr>();

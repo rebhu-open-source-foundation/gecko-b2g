@@ -26,6 +26,7 @@
 #include "mozilla/StaticPrefs_editor.h"
 #include "mozilla/StyleSheet.h"
 #include "mozilla/StyleSheetInlines.h"
+#include "mozilla/Telemetry.h"
 #include "mozilla/TextEvents.h"
 #include "mozilla/TextServicesDocument.h"
 #include "mozilla/css/Loader.h"
@@ -130,6 +131,32 @@ HTMLEditor::HTMLEditor()
 }
 
 HTMLEditor::~HTMLEditor() {
+  // Collect the data of `beforeinput` event only when it's enabled because
+  // web apps should switch their behavior with feature detection with
+  // checking `onbeforeinput` or `getTargetRanges`.
+  if (StaticPrefs::dom_input_events_beforeinput_enabled()) {
+    Telemetry::Accumulate(
+        Telemetry::HTMLEDITORS_WITH_BEFOREINPUT_LISTENERS,
+        MayHaveBeforeInputEventListenersForTelemetry() ? 1 : 0);
+    Telemetry::Accumulate(
+        Telemetry::HTMLEDITORS_OVERRIDDEN_BY_BEFOREINPUT_LISTENERS,
+        mHasBeforeInputBeenCanceled ? 1 : 0);
+    Telemetry::Accumulate(
+        Telemetry::
+            HTMLEDITORS_WITH_MUTATION_LISTENERS_WITHOUT_BEFOREINPUT_LISTENERS,
+        !MayHaveBeforeInputEventListenersForTelemetry() &&
+                MayHaveMutationEventListeners()
+            ? 1
+            : 0);
+    Telemetry::Accumulate(
+        Telemetry::
+            HTMLEDITORS_WITH_MUTATION_OBSERVERS_WITHOUT_BEFOREINPUT_LISTENERS,
+        !MayHaveBeforeInputEventListenersForTelemetry() &&
+                MutationObserverHasObservedNodeForTelemetry()
+            ? 1
+            : 0);
+  }
+
   mTypeInState = nullptr;
 
   if (mDisabledLinkHandling) {
@@ -1805,11 +1832,8 @@ EditorDOMPoint HTMLEditor::InsertNodeIntoProperAncestorWithTransaction(
     if (!pointToInsert.IsInContentNode() ||
         !EditorUtils::IsEditableContent(*pointToInsert.ContainerAsContent(),
                                         EditorType::HTML)) {
-      // There's no suitable place to put the node in this editing host.  Maybe
-      // someone is trying to put block content in a span.  So just put it
-      // where we were originally asked.
-      pointToInsert = aPointToInsert;
-      break;
+      // There's no suitable place to put the node in this editing host.
+      return EditorDOMPoint();
     }
   }
 
@@ -3822,7 +3846,7 @@ nsresult HTMLEditor::SelectAllInternal() {
     return NS_ERROR_FAILURE;
   }
 
-  nsIContent* anchorContent = anchorNode->AsContent();
+  nsCOMPtr<nsIContent> anchorContent = anchorNode->AsContent();
   nsIContent* rootContent;
   if (anchorContent->HasIndependentSelection()) {
     SelectionRefPtr()->SetAncestorLimiter(nullptr);

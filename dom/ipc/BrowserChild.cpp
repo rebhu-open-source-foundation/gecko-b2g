@@ -21,7 +21,6 @@
 #include "EventStateManager.h"
 #include "FrameLayerBuilder.h"
 #include "Layers.h"
-#include "LayersLogging.h"
 #include "MMPrinter.h"
 #include "PermissionMessageUtils.h"
 #include "ProcessUtils.h"
@@ -2521,7 +2520,7 @@ mozilla::ipc::IPCResult BrowserChild::RecvPrintPreview(
   sourceWindow->Print(printSettings,
                       /* aListener = */ nullptr, docShellToCloneInto,
                       nsGlobalWindowOuter::IsPreview::Yes,
-                      nsGlobalWindowOuter::BlockUntilDone::No,
+                      nsGlobalWindowOuter::IsForWindowDotPrint::No,
                       std::move(aCallback), IgnoreErrors());
 #endif
   return IPC_OK();
@@ -2575,7 +2574,7 @@ mozilla::ipc::IPCResult BrowserChild::RecvPrint(const uint64_t& aOuterWindowID,
                        /* aListener = */ nullptr,
                        /* aWindowToCloneInto = */ nullptr,
                        nsGlobalWindowOuter::IsPreview::No,
-                       nsGlobalWindowOuter::BlockUntilDone::No,
+                       nsGlobalWindowOuter::IsForWindowDotPrint::No,
                        /* aPrintPreviewCallback = */ nullptr, rv);
     if (NS_WARN_IF(rv.Failed())) {
       return IPC_OK();
@@ -3184,6 +3183,12 @@ void BrowserChild::SetTabId(const TabId& aTabId) {
 
   mUniqueId = aTabId;
   NestedBrowserChildMap()[mUniqueId] = this;
+}
+
+NS_IMETHODIMP
+BrowserChild::GetChromeOuterWindowID(uint64_t* aId) {
+  *aId = ChromeOuterWindowID();
+  return NS_OK;
 }
 
 bool BrowserChild::DoSendBlockingMessage(
@@ -4215,13 +4220,6 @@ already_AddRefed<nsIEventTarget>
 BrowserChildMessageManager::GetTabEventTarget() {
   nsCOMPtr<nsIEventTarget> target = EventTargetFor(TaskCategory::Other);
   return target.forget();
-}
-
-uint64_t BrowserChildMessageManager::ChromeOuterWindowID() {
-  if (!mBrowserChild) {
-    return 0;
-  }
-  return mBrowserChild->ChromeOuterWindowID();
 }
 
 nsresult BrowserChildMessageManager::Dispatch(

@@ -5501,7 +5501,7 @@ mozilla::ipc::IPCResult ContentParent::CommonCreateWindow(
     PBrowserParent* aThisTab, BrowsingContext* aParent, bool aSetOpener,
     const uint32_t& aChromeFlags, const bool& aCalledFromJS,
     const bool& aWidthSpecified, const bool& aForPrinting,
-    const bool& aForPrintPreview, nsIURI* aURIToLoad,
+    const bool& aForWindowDotPrint, nsIURI* aURIToLoad,
     const nsCString& aFeatures, const float& aFullZoom,
     BrowserParent* aNextRemoteBrowser, const nsString& aName, nsresult& aResult,
     nsCOMPtr<nsIRemoteTab>& aNewRemoteTab, bool* aWindowIsNew,
@@ -5522,11 +5522,11 @@ mozilla::ipc::IPCResult ContentParent::CommonCreateWindow(
   openInfo->mParent = aParent;
   openInfo->mIsRemote = true;
   openInfo->mIsForPrinting = aForPrinting;
-  openInfo->mIsForPrintPreview = aForPrintPreview;
+  openInfo->mIsForWindowDotPrint = aForWindowDotPrint;
   openInfo->mNextRemoteBrowser = aNextRemoteBrowser;
   openInfo->mOriginAttributes = aOriginAttributes;
 
-  MOZ_ASSERT_IF(aForPrintPreview, aForPrinting);
+  MOZ_ASSERT_IF(aForWindowDotPrint, aForPrinting);
 
   RefPtr<BrowserParent> topParent = BrowserParent::GetFrom(aThisTab);
   while (topParent && topParent->GetBrowserBridgeParent()) {
@@ -5960,7 +5960,7 @@ mozilla::ipc::IPCResult ContentParent::RecvSetupFamilyCharMap(
 }
 
 mozilla::ipc::IPCResult ContentParent::RecvGetHyphDict(
-    nsIURI* aURI, mozilla::ipc::SharedMemoryBasic::Handle* aOutHandle,
+    nsIURI* aURI, base::SharedMemoryHandle* aOutHandle,
     uint32_t* aOutSize) {
   if (!aURI) {
     return IPC_FAIL_NO_REASON(this);

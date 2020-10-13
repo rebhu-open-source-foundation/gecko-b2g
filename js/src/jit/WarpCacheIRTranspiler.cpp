@@ -15,6 +15,7 @@
 #include "jit/CacheIR.h"
 #include "jit/CacheIRCompiler.h"
 #include "jit/CacheIROpsGenerated.h"
+#include "jit/CompileInfo.h"
 #include "jit/MIR.h"
 #include "jit/MIRBuilderShared.h"
 #include "jit/MIRGenerator.h"
@@ -24,6 +25,7 @@
 #include "jit/WarpSnapshot.h"
 #include "js/ScalarType.h"  // js::Scalar::Type
 #include "vm/ArgumentsObject.h"
+#include "vm/BytecodeLocation.h"
 
 #include "gc/ObjectKind-inl.h"
 
@@ -38,6 +40,7 @@ class MOZ_RAII WarpCacheIRTranspiler : public WarpBuilderShared {
   const uint8_t* stubData_;
 
   // Vector mapping OperandId to corresponding MDefinition.
+  using MDefinitionStackVector = Vector<MDefinition*, 8, SystemAllocPolicy>;
   MDefinitionStackVector operands_;
 
   CallInfo* callInfo_;
@@ -118,6 +121,9 @@ class MOZ_RAII WarpCacheIRTranspiler : public WarpBuilderShared {
   const JSJitInfo* jitInfoStubField(uint32_t offset) {
     return reinterpret_cast<const JSJitInfo*>(readStubWord(offset));
   }
+  JS::ExpandoAndGeneration* expandoAndGenerationField(uint32_t offset) {
+    return reinterpret_cast<JS::ExpandoAndGeneration*>(readStubWord(offset));
+  }
   const void* rawPointerField(uint32_t offset) {
     return reinterpret_cast<const void*>(readStubWord(offset));
   }
@@ -129,6 +135,9 @@ class MOZ_RAII WarpCacheIRTranspiler : public WarpBuilderShared {
   }
   uint32_t uint32StubField(uint32_t offset) {
     return static_cast<uint32_t>(readStubWord(offset));
+  }
+  uint64_t uint64StubField(uint32_t offset) {
+    return static_cast<uint64_t>(stubInfo_->getStubRawInt64(stubData_, offset));
   }
 
   // This must only be called when the caller knows the object is tenured and
@@ -217,11 +226,12 @@ class MOZ_RAII WarpCacheIRTranspiler : public WarpBuilderShared {
         stubData_(cacheIRSnapshot->stubData()),
         callInfo_(callInfo) {}
 
-  MOZ_MUST_USE bool transpile(const MDefinitionStackVector& inputs);
+  MOZ_MUST_USE bool transpile(std::initializer_list<MDefinition*> inputs);
 };
 
-bool WarpCacheIRTranspiler::transpile(const MDefinitionStackVector& inputs) {
-  if (!operands_.appendAll(inputs)) {
+bool WarpCacheIRTranspiler::transpile(
+    std::initializer_list<MDefinition*> inputs) {
+  if (!operands_.append(inputs.begin(), inputs.end())) {
     return false;
   }
 
@@ -513,6 +523,53 @@ bool WarpCacheIRTranspiler::emitCallDOMSetter(ObjOperandId objId,
                            (JS::Realm*)mirGen().realm->realmPtr(), obj, value);
   addEffectful(set);
   return resumeAfter(set);
+}
+
+bool WarpCacheIRTranspiler::emitLoadDOMExpandoValue(ObjOperandId objId,
+                                                    ValOperandId resultId) {
+  MDefinition* proxy = getOperand(objId);
+
+  auto* ins = MLoadDOMExpandoValue::New(alloc(), proxy);
+  add(ins);
+
+  return defineOperand(resultId, ins);
+}
+
+bool WarpCacheIRTranspiler::emitLoadDOMExpandoValueGuardGeneration(
+    ObjOperandId objId, uint32_t expandoAndGenerationOffset,
+    uint32_t generationOffset, ValOperandId resultId) {
+  MDefinition* proxy = getOperand(objId);
+  JS::ExpandoAndGeneration* expandoAndGeneration =
+      expandoAndGenerationField(expandoAndGenerationOffset);
+  uint64_t generation = uint64StubField(generationOffset);
+
+  auto* ins = MLoadDOMExpandoValueGuardGeneration::New(
+      alloc(), proxy, expandoAndGeneration, generation);
+  add(ins);
+
+  return defineOperand(resultId, ins);
+}
+
+bool WarpCacheIRTranspiler::emitLoadDOMExpandoValueIgnoreGeneration(
+    ObjOperandId objId, ValOperandId resultId) {
+  MDefinition* proxy = getOperand(objId);
+
+  auto* ins = MLoadDOMExpandoValueIgnoreGeneration::New(alloc(), proxy);
+  add(ins);
+
+  return defineOperand(resultId, ins);
+}
+
+bool WarpCacheIRTranspiler::emitGuardDOMExpandoMissingOrGuardShape(
+    ValOperandId expandoId, uint32_t shapeOffset) {
+  MDefinition* expando = getOperand(expandoId);
+  Shape* shape = shapeStubField(shapeOffset);
+
+  auto* ins = MGuardDOMExpandoMissingOrGuardShape::New(alloc(), expando, shape);
+  add(ins);
+
+  setOperand(expandoId, ins);
+  return true;
 }
 
 bool WarpCacheIRTranspiler::emitMegamorphicLoadSlotResult(ObjOperandId objId,
@@ -4000,7 +4057,7 @@ static void MaybeSetImplicitlyUsed(uint32_t numInstructionIdsBefore,
 
 bool jit::TranspileCacheIRToMIR(WarpBuilder* builder, BytecodeLocation loc,
                                 const WarpCacheIR* cacheIRSnapshot,
-                                const MDefinitionStackVector& inputs,
+                                std::initializer_list<MDefinition*> inputs,
                                 CallInfo* maybeCallInfo) {
   uint32_t numInstructionIdsBefore =
       builder->mirGen().graph().getNumInstructionIds();

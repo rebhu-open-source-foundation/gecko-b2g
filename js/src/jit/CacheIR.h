@@ -9,22 +9,29 @@
 
 #include "mozilla/Maybe.h"
 
-#include "jsmath.h"
-
 #include "NamespaceImports.h"
 
-#include "builtin/TypedObject.h"
 #include "gc/Rooting.h"
 #include "jit/CacheIROpsGenerated.h"
 #include "jit/CompactBuffer.h"
 #include "jit/ICState.h"
 #include "jit/Simulator.h"
+#include "js/experimental/JitInfo.h"
 #include "js/friend/XrayJitInfo.h"  // JS::XrayJitInfo
 #include "js/ScalarType.h"          // js::Scalar::Type
-#include "vm/Iteration.h"
+#include "vm/JSFunction.h"
 #include "vm/Shape.h"
+#include "wasm/TypedObject.h"
+
+enum class JSOp : uint8_t;
 
 namespace js {
+
+enum class ReferenceType;
+enum class UnaryMathFunction : uint8_t;
+
+bool IsTypedObjectClass(const JSClass* class_);
+
 namespace jit {
 
 enum class BaselineCacheIRStubKind;
@@ -34,6 +41,7 @@ class ICStub;
 class ICScript;
 class Label;
 class MacroAssembler;
+struct Register;
 
 // [SMDOC] CacheIR
 //
@@ -241,7 +249,6 @@ class StubField {
     // These fields take up 64 bits on all platforms.
     RawInt64,
     First64BitType = RawInt64,
-    DOMExpandoGeneration,
     Value,
 
     Limit
@@ -634,8 +641,8 @@ class MOZ_RAII CacheIRWriter : public JS::CustomAutoRooter {
   void writeValueField(const Value& val) {
     addStubField(val.asRawBits(), StubField::Type::Value);
   }
-  void writeDOMExpandoGenerationField(uint64_t generation) {
-    addStubField(generation, StubField::Type::DOMExpandoGeneration);
+  void writeRawInt64Field(uint64_t val) {
+    addStubField(val, StubField::Type::RawInt64);
   }
 
   void writeJSOpImm(JSOp op) {
@@ -740,7 +747,7 @@ class MOZ_RAII CacheIRWriter : public JS::CustomAutoRooter {
 
   size_t stubDataSize() const { return stubDataSize_; }
   void copyStubData(uint8_t* dest) const;
-  bool stubDataEqualsMaybeUpdate(uint8_t* stubData, bool* updated) const;
+  bool stubDataEquals(const uint8_t* stubData) const;
 
   bool operandIsDead(uint32_t operandId, uint32_t currentInstruction) const {
     if (operandId >= operandLastUsed_.length()) {
@@ -1224,7 +1231,7 @@ class MOZ_RAII CacheIRCloner {
   const void* getRawPointerField(uint32_t stubOffset);
   jsid getIdField(uint32_t stubOffset);
   const Value getValueField(uint32_t stubOffset);
-  uint64_t getDOMExpandoGenerationField(uint32_t stubOffset);
+  uint64_t getRawInt64Field(uint32_t stubOffset);
 };
 
 class MOZ_RAII IRGenerator {
@@ -2063,18 +2070,12 @@ class MOZ_RAII NewObjectIRGenerator : public IRGenerator {
   AttachDecision tryAttachStub();
 };
 
-static inline uint32_t SimpleTypeDescrKey(SimpleTypeDescr* descr) {
-  if (descr->is<ScalarTypeDescr>()) {
-    return uint32_t(descr->as<ScalarTypeDescr>().type()) << 1;
-  }
-  return (uint32_t(descr->as<ReferenceTypeDescr>().type()) << 1) | 1;
-}
-
+// |key| is a tagged integer, see |SimpleTypeDescrKey()|.
 inline bool SimpleTypeDescrKeyIsScalar(uint32_t key) { return !(key & 1); }
 
-inline ScalarTypeDescr::Type ScalarTypeFromSimpleTypeDescrKey(uint32_t key) {
+inline Scalar::Type ScalarTypeFromSimpleTypeDescrKey(uint32_t key) {
   MOZ_ASSERT(SimpleTypeDescrKeyIsScalar(key));
-  return ScalarTypeDescr::Type(key >> 1);
+  return Scalar::Type(key >> 1);
 }
 
 inline ReferenceType ReferenceTypeFromSimpleTypeDescrKey(uint32_t key) {

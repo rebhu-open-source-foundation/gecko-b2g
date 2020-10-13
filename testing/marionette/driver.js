@@ -1817,7 +1817,9 @@ GeckoDriver.prototype.switchToParentFrame = async function() {
     // Temporarily inform the framescript of the current browsing context to
     // allow sending the correct page load events. This has to be done until
     // the web progress listener is used (bug 1664165).
-    await this.listener.setBrowsingContextId(browsingContext.id);
+    if (this.context == Context.Content) {
+      await this.listener.setBrowsingContextId(browsingContext.id);
+    }
 
     return;
   }
@@ -1869,7 +1871,9 @@ GeckoDriver.prototype.switchToFrame = async function(cmd) {
     // Temporarily inform the framescript of the current browsing context to
     // allow sending the correct page load events. This has to be done until
     // the web progress listener is used (bug 1664165).
-    await this.listener.setBrowsingContextId(browsingContext.id);
+    if (this.context == Context.Content) {
+      await this.listener.setBrowsingContextId(browsingContext.id);
+    }
 
     return;
   }
@@ -2783,32 +2787,6 @@ GeckoDriver.prototype.clearElement = async function(cmd) {
 };
 
 /**
- * Switch to shadow root of the given host element.
- *
- * @param {string=} id
- *     Reference ID to the element.
- *
- * @throws {InvalidArgumentError}
- *     If <var>id</var> is not a string.
- * @throws {NoSuchElementError}
- *     If element represented by reference <var>id</var> is unknown.
- * @throws {NoSuchWindowError}
- *     Browsing context has been discarded.
- */
-GeckoDriver.prototype.switchToShadowRoot = async function(cmd) {
-  assert.content(this.context);
-  assert.open(this.getBrowsingContext());
-
-  let id = cmd.parameters.id;
-  let webEl = null;
-  if (id != null) {
-    assert.string(id);
-    webEl = WebElement.fromUUID(id, this.context);
-  }
-  await this.listener.switchToShadowRoot(webEl);
-};
-
-/**
  * Add a single cookie to the cookie store associated with the active
  * document's address.
  *
@@ -3171,6 +3149,10 @@ GeckoDriver.prototype.takeScreenshot = async function(cmd) {
 
   // Only consider full screenshot if no element has been specified
   full = webEl ? false : full;
+
+  if (MarionettePrefs.useActors) {
+    return this.getActor().takeScreenshot(webEl, format, full, scroll);
+  }
 
   const win = this.getCurrentWindow();
 
@@ -4077,7 +4059,6 @@ GeckoDriver.prototype.commands = {
   "WebDriver:SetWindowRect": GeckoDriver.prototype.setWindowRect,
   "WebDriver:SwitchToFrame": GeckoDriver.prototype.switchToFrame,
   "WebDriver:SwitchToParentFrame": GeckoDriver.prototype.switchToParentFrame,
-  "WebDriver:SwitchToShadowRoot": GeckoDriver.prototype.switchToShadowRoot,
   "WebDriver:SwitchToWindow": GeckoDriver.prototype.switchToWindow,
   "WebDriver:TakeScreenshot": GeckoDriver.prototype.takeScreenshot,
   "B2G:SwitchToSystemWindow": GeckoDriver.prototype.switchToSystemWindow,

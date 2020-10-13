@@ -532,7 +532,7 @@ class ContentParent final
       const MaybeDiscarded<BrowsingContext>& aParent, PBrowserParent* aNewTab,
       const uint32_t& aChromeFlags, const bool& aCalledFromJS,
       const bool& aWidthSpecified, const bool& aForPrinting,
-      const bool& aForPrintPreview, nsIURI* aURIToLoad,
+      const bool& aForWindowDotPrint, nsIURI* aURIToLoad,
       const nsCString& aFeatures, const float& aFullZoom,
       const IPC::Principal& aTriggeringPrincipal,
       nsIContentSecurityPolicy* aCsp, nsIReferrerInfo* aReferrerInfo,
@@ -766,7 +766,7 @@ class ContentParent final
       PBrowserParent* aThisTab, BrowsingContext* aParent, bool aSetOpener,
       const uint32_t& aChromeFlags, const bool& aCalledFromJS,
       const bool& aWidthSpecified, const bool& aForPrinting,
-      const bool& aForPrintPreview, nsIURI* aURIToLoad,
+      const bool& aForWindowDotPrint, nsIURI* aURIToLoad,
       const nsCString& aFeatures, const float& aFullZoom,
       BrowserParent* aNextRemoteBrowser, const nsString& aName,
       nsresult& aResult, nsCOMPtr<nsIRemoteTab>& aNewRemoteTab,
@@ -1320,7 +1320,7 @@ class ContentParent final
   mozilla::ipc::IPCResult RecvGetDeviceStorageLocations(
       DeviceStorageLocationInfo* info);
   mozilla::ipc::IPCResult RecvGetHyphDict(
-      nsIURI* aURIParams, mozilla::ipc::SharedMemoryBasic::Handle* aOutHandle,
+      nsIURI* aURIParams, base::SharedMemoryHandle* aOutHandle,
       uint32_t* aOutSize);
 
   mozilla::ipc::IPCResult RecvNotifyBenchmarkResult(const nsString& aCodecName,

@@ -12,6 +12,7 @@
 #include "jit/mips-shared/MacroAssembler-mips-shared.h"
 #include "jit/MoveResolver.h"
 #include "vm/BytecodeUtil.h"
+#include "wasm/WasmTypes.h"
 
 namespace js {
 namespace jit {
@@ -567,7 +568,7 @@ class MacroAssemblerMIPSCompat : public MacroAssemblerMIPS {
   void storeTypeTag(ImmTag tag, Address dest);
   void storeTypeTag(ImmTag tag, const BaseIndex& dest);
 
-  void handleFailureWithHandlerTail(void* handler, Label* profilerExitTail);
+  void handleFailureWithHandlerTail(Label* profilerExitTail);
 
   template <typename T>
   void wasmAtomicStore64(const wasm::MemoryAccessDesc& access, const T& mem,

@@ -1092,34 +1092,34 @@ def setup_browsertime(config, tasks):
 
         cd_fetches = {
             'android.*': [
-                'linux64-chromedriver-81',
                 'linux64-chromedriver-84',
-                'linux64-chromedriver-85'
+                'linux64-chromedriver-85',
+                'linux64-chromedriver-86',
             ],
             'linux.*': [
-                'linux64-chromedriver-81',
                 'linux64-chromedriver-84',
-                'linux64-chromedriver-85'
+                'linux64-chromedriver-85',
+                'linux64-chromedriver-86',
             ],
             'macosx.*': [
-                'mac64-chromedriver-81',
                 'mac64-chromedriver-84',
-                'mac64-chromedriver-85'
+                'mac64-chromedriver-85',
+                'mac64-chromedriver-86',
             ],
             'windows.*aarch64.*': [
-                'win32-chromedriver-81',
                 'win32-chromedriver-84',
-                'win32-chromedriver-85'
+                'win32-chromedriver-85',
+                'win32-chromedriver-86',
             ],
             'windows.*-32.*': [
-                'win32-chromedriver-81',
                 'win32-chromedriver-84',
-                'win32-chromedriver-85'
+                'win32-chromedriver-85',
+                'win32-chromedriver-86',
             ],
             'windows.*-64.*': [
-                'win32-chromedriver-81',
                 'win32-chromedriver-84',
-                'win32-chromedriver-85'
+                'win32-chromedriver-85',
+                'win32-chromedriver-86',
             ],
         }
 
@@ -1631,7 +1631,10 @@ def enable_webrender(config, tasks):
             extra_options = task['mozharness'].setdefault('extra-options', [])
             extra_options.append("--enable-webrender")
             # We only want to 'setpref' on tests that have a profile
-            if not task['attributes']['unittest_category'] in ['cppunittest', 'gtest', 'raptor']:
+            if not task['attributes']['unittest_category'] in ['cppunittest',
+                                                               'geckoview-junit',
+                                                               'gtest',
+                                                               'raptor']:
                 extra_options.append("--setpref=layers.d3d11.enable-blacklist=false")
 
             # run webrender variants on the projects specified on webrender-run-on-projects

@@ -158,19 +158,20 @@ static DisplayPortMargins ScrollFrame(nsIContent* aContent,
     sf->SetScrollableByAPZ(!aRequest.IsScrollInfoLayer());
     if (sf->IsRootScrollFrameOfDocument()) {
       if (!APZCCallbackHelper::IsScrollInProgress(sf)) {
-        if (RefPtr<PresShell> presShell = GetPresShell(aContent)) {
-          APZCCH_LOG("Setting VV offset to %s on presShell %p\n",
-                     ToString(aRequest.GetVisualScrollOffset()).c_str(),
-                     presShell.get());
-          if (presShell->SetVisualViewportOffset(
-                  CSSPoint::ToAppUnits(aRequest.GetVisualScrollOffset()),
-                  presShell->GetLayoutViewportOffset())) {
-            sf->MarkEverScrolled();
-          }
+        APZCCH_LOG("Setting VV offset to %s\n",
+                   ToString(aRequest.GetVisualScrollOffset()).c_str());
+        if (sf->SetVisualViewportOffset(
+                CSSPoint::ToAppUnits(aRequest.GetVisualScrollOffset()),
+                /* aRepaint = */ false)) {
+          // sf can't be destroyed if SetVisualViewportOffset returned true.
+          sf->MarkEverScrolled();
         }
       }
     }
   }
+  // sf might have been destroyed by the call to SetVisualViewportOffset, so
+  // re-get it.
+  sf = nsLayoutUtils::FindScrollableFrameFor(aRequest.GetScrollId());
   bool scrollUpdated = false;
   auto displayPortMargins =
       DisplayPortMargins::WithNoAdjustment(aRequest.GetDisplayPortMargins());
@@ -299,7 +300,8 @@ void APZCCallbackHelper::UpdateRootFrame(const RepaintRequest& aRequest) {
   if (aRequest.GetScrollId() == ScrollableLayerGuid::NULL_SCROLL_ID) {
     return;
   }
-  nsIContent* content = nsLayoutUtils::FindContentFor(aRequest.GetScrollId());
+  RefPtr<nsIContent> content =
+      nsLayoutUtils::FindContentFor(aRequest.GetScrollId());
   if (!content) {
     return;
   }
@@ -355,7 +357,8 @@ void APZCCallbackHelper::UpdateSubFrame(const RepaintRequest& aRequest) {
   if (aRequest.GetScrollId() == ScrollableLayerGuid::NULL_SCROLL_ID) {
     return;
   }
-  nsIContent* content = nsLayoutUtils::FindContentFor(aRequest.GetScrollId());
+  RefPtr<nsIContent> content =
+      nsLayoutUtils::FindContentFor(aRequest.GetScrollId());
   if (!content) {
     return;
   }

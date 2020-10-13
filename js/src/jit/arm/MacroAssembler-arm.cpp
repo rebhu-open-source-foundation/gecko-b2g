@@ -12,6 +12,8 @@
 #include "mozilla/MathAlgorithms.h"
 #include "mozilla/Maybe.h"
 
+#include "jsmath.h"
+
 #include "jit/arm/Simulator-arm.h"
 #include "jit/AtomicOp.h"
 #include "jit/AtomicOperations.h"
@@ -24,6 +26,7 @@
 #include "js/ScalarType.h"  // js::Scalar::Type
 #include "util/Memory.h"
 #include "vm/JitActivation.h"  // js::jit::JitActivation
+#include "vm/JSContext.h"
 
 #include "jit/MacroAssembler-inl.h"
 
@@ -3301,7 +3304,7 @@ void MacroAssemblerARMCompat::checkStackAlignment() {
 }
 
 void MacroAssemblerARMCompat::handleFailureWithHandlerTail(
-    void* handler, Label* profilerExitTail) {
+    Label* profilerExitTail) {
   // Reserve space for exception information.
   int size = (sizeof(ResumeFromException) + 7) & ~7;
 
@@ -3310,10 +3313,11 @@ void MacroAssemblerARMCompat::handleFailureWithHandlerTail(
   ma_mov(sp, r0);
 
   // Call the handler.
+  using Fn = void (*)(ResumeFromException * rfe);
   asMasm().setupUnalignedABICall(r1);
   asMasm().passABIArg(r0);
-  asMasm().callWithABI(handler, MoveOp::GENERAL,
-                       CheckUnsafeCallWithABI::DontCheckHasExitFrame);
+  asMasm().callWithABI<Fn, HandleException>(
+      MoveOp::GENERAL, CheckUnsafeCallWithABI::DontCheckHasExitFrame);
 
   Label entryFrame;
   Label catch_;
@@ -5677,16 +5681,16 @@ extern MOZ_EXPORT int64_t __aeabi_uidivmod(int, int);
 
 inline void EmitRemainderOrQuotient(bool isRemainder, MacroAssembler& masm,
                                     Register rhs, Register lhsOutput,
-                                    bool isSigned,
+                                    bool isUnsigned,
                                     const LiveRegisterSet& volatileLiveRegs) {
   // Currently this helper can't handle this situation.
   MOZ_ASSERT(lhsOutput != rhs);
 
   if (HasIDIV()) {
     if (isRemainder) {
-      masm.remainder32(rhs, lhsOutput, isSigned);
+      masm.remainder32(rhs, lhsOutput, isUnsigned);
     } else {
-      masm.quotient32(rhs, lhsOutput, isSigned);
+      masm.quotient32(rhs, lhsOutput, isUnsigned);
     }
   } else {
     // Ensure that the output registers are saved and restored properly,
@@ -5694,15 +5698,20 @@ inline void EmitRemainderOrQuotient(bool isRemainder, MacroAssembler& masm,
     MOZ_ASSERT(volatileLiveRegs.has(ReturnRegVal1));
 
     masm.PushRegsInMask(volatileLiveRegs);
+    using Fn = int64_t (*)(int, int);
     {
       ScratchRegisterScope scratch(masm);
       masm.setupUnalignedABICall(scratch);
     }
     masm.passABIArg(lhsOutput);
     masm.passABIArg(rhs);
-    masm.callWithABI(isSigned ? JS_FUNC_TO_DATA_PTR(void*, __aeabi_uidivmod)
-                              : JS_FUNC_TO_DATA_PTR(void*, __aeabi_idivmod),
-                     MoveOp::GENERAL, CheckUnsafeCallWithABI::DontCheckOther);
+    if (isUnsigned) {
+      masm.callWithABI<Fn, __aeabi_uidivmod>(
+          MoveOp::GENERAL, CheckUnsafeCallWithABI::DontCheckOther);
+    } else {
+      masm.callWithABI<Fn, __aeabi_idivmod>(
+          MoveOp::GENERAL, CheckUnsafeCallWithABI::DontCheckOther);
+    }
     if (isRemainder) {
       masm.mov(ReturnRegVal1, lhsOutput);
     } else {
@@ -5745,15 +5754,20 @@ void MacroAssembler::flexibleDivMod32(Register rhs, Register lhsOutput,
     MOZ_ASSERT(volatileLiveRegs.has(ReturnRegVal1));
     PushRegsInMask(volatileLiveRegs);
 
+    using Fn = int64_t (*)(int, int);
     {
       ScratchRegisterScope scratch(*this);
       setupUnalignedABICall(scratch);
     }
     passABIArg(lhsOutput);
     passABIArg(rhs);
-    callWithABI(isUnsigned ? JS_FUNC_TO_DATA_PTR(void*, __aeabi_uidivmod)
-                           : JS_FUNC_TO_DATA_PTR(void*, __aeabi_idivmod),
-                MoveOp::GENERAL, CheckUnsafeCallWithABI::DontCheckOther);
+    if (isUnsigned) {
+      callWithABI<Fn, __aeabi_uidivmod>(MoveOp::GENERAL,
+                                        CheckUnsafeCallWithABI::DontCheckOther);
+    } else {
+      callWithABI<Fn, __aeabi_idivmod>(MoveOp::GENERAL,
+                                       CheckUnsafeCallWithABI::DontCheckOther);
+    }
     moveRegPair(ReturnRegVal0, ReturnRegVal1, lhsOutput, remOutput);
 
     LiveRegisterSet ignore;

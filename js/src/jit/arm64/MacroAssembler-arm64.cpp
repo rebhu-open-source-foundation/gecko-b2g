@@ -6,6 +6,8 @@
 
 #include "jit/arm64/MacroAssembler-arm64.h"
 
+#include "jsmath.h"
+
 #include "jit/arm64/MoveEmitter-arm64.h"
 #include "jit/arm64/SharedICRegisters-arm64.h"
 #include "jit/Bailouts.h"
@@ -14,6 +16,7 @@
 #include "jit/MacroAssembler.h"
 #include "util/Memory.h"
 #include "vm/JitActivation.h"  // js::jit::JitActivation
+#include "vm/JSContext.h"
 
 #include "jit/MacroAssembler-inl.h"
 
@@ -144,7 +147,7 @@ void MacroAssemblerCompat::loadPrivate(const Address& src, Register dest) {
 }
 
 void MacroAssemblerCompat::handleFailureWithHandlerTail(
-    void* handler, Label* profilerExitTail) {
+    Label* profilerExitTail) {
   // Reserve space for exception information.
   int64_t size = (sizeof(ResumeFromException) + 7) & ~7;
   Sub(GetStackPointer64(), GetStackPointer64(), Operand(size));
@@ -155,10 +158,11 @@ void MacroAssemblerCompat::handleFailureWithHandlerTail(
   Mov(x0, GetStackPointer64());
 
   // Call the handler.
+  using Fn = void (*)(ResumeFromException * rfe);
   asMasm().setupUnalignedABICall(r1);
   asMasm().passABIArg(r0);
-  asMasm().callWithABI(handler, MoveOp::GENERAL,
-                       CheckUnsafeCallWithABI::DontCheckHasExitFrame);
+  asMasm().callWithABI<Fn, HandleException>(
+      MoveOp::GENERAL, CheckUnsafeCallWithABI::DontCheckHasExitFrame);
 
   Label entryFrame;
   Label catch_;

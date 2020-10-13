@@ -528,7 +528,6 @@ let JSWINDOWACTORS = {
     child: {
       moduleURI: "resource://pdf.js/PdfjsChild.jsm",
     },
-    enablePreference: PREF_PDFJS_ISDEFAULT_CACHE_STATE,
     allFrames: true,
   },
 
@@ -1810,6 +1809,7 @@ BrowserGlue.prototype = {
           // exists to expose prefs once we are confident of privacy implications)
           delete snapshotData.crashes;
           delete snapshotData.modifiedPreferences;
+          delete snapshotData.printingPreferences;
           channel.send(snapshotData, target);
         });
       }

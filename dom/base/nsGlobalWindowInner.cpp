@@ -1058,6 +1058,15 @@ void nsGlobalWindowInner::FreeInnerObjects() {
   }
   StartDying();
 
+  if (mDoc && mDoc->GetWindowContext()) {
+    // The document is about to lose its window, so this is a good time to send
+    // our page use counters.
+    //
+    // (We also do this in Document::SetScriptGlobalObject(nullptr), which
+    // catches most cases of documents losing their window, but not all.)
+    mDoc->SendPageUseCounters();
+  }
+
   // Make sure that this is called before we null out the document and
   // other members that the window destroyed observers could
   // re-create.
@@ -3621,7 +3630,7 @@ Nullable<WindowProxyHolder> nsGlobalWindowInner::PrintPreview(
   FORWARD_TO_OUTER_OR_THROW(Print,
                             (aSettings, aListener, aDocShellToCloneInto,
                              nsGlobalWindowOuter::IsPreview::Yes,
-                             nsGlobalWindowOuter::BlockUntilDone::No,
+                             nsGlobalWindowOuter::IsForWindowDotPrint::No,
                              /* aPrintPreviewCallback = */ nullptr, aError),
                             aError, nullptr);
 }
@@ -7487,6 +7496,8 @@ nsPIDOMWindowInner::nsPIDOMWindowInner(nsPIDOMWindowOuter* aOuterWindow,
       mMayHaveSelectionChangeEventListener(false),
       mMayHaveMouseEnterLeaveEventListener(false),
       mMayHavePointerEnterLeaveEventListener(false),
+      mMayHaveBeforeInputEventListenerForTelemetry(false),
+      mMutationObserverHasObservedNodeForTelemetry(false),
       mOuterWindow(aOuterWindow),
       mWindowID(0),
       mHasNotifiedGlobalCreated(false),

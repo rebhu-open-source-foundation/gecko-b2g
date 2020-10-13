@@ -25,7 +25,6 @@
 
 #include <algorithm>
 
-#include "builtin/TypedObject.h"
 #include "gc/FreeOp.h"
 #include "jit/AtomicOperations.h"
 #include "jit/JitOptions.h"
@@ -49,6 +48,7 @@
 #include "vm/PromiseObject.h"  // js::PromiseObject
 #include "vm/StringType.h"
 #include "vm/Warnings.h"  // js::WarnNumberASCII
+#include "wasm/TypedObject.h"
 #include "wasm/WasmBaselineCompile.h"
 #include "wasm/WasmCompile.h"
 #include "wasm/WasmCraneliftCompile.h"
@@ -4316,11 +4316,14 @@ static JSObject* CreateWebAssemblyObject(JSContext* cx, JSProtoKey key) {
   if (!proto) {
     return nullptr;
   }
-  return NewSingletonObjectWithGivenProto(cx, &WebAssemblyClass, proto);
+  return NewSingletonObjectWithGivenProto(cx, &WasmNamespaceObject::class_,
+                                          proto);
 }
 
-static bool WebAssemblyClassFinish(JSContext* cx, HandleObject wasm,
+static bool WebAssemblyClassFinish(JSContext* cx, HandleObject object,
                                    HandleObject proto) {
+  Handle<WasmNamespaceObject*> wasm = object.as<WasmNamespaceObject>();
+
   struct NameAndProtoKey {
     const char* const name;
     JSProtoKey key;
@@ -4360,6 +4363,10 @@ static bool WebAssemblyClassFinish(JSContext* cx, HandleObject wasm,
     }
   }
 
+  if (GcTypesAvailable(cx) && !InitTypedObjectSlots(cx, wasm)) {
+    return false;
+  }
+
   return true;
 }
 
@@ -4371,6 +4378,8 @@ static const ClassSpec WebAssemblyClassSpec = {CreateWebAssemblyObject,
                                                nullptr,
                                                WebAssemblyClassFinish};
 
-const JSClass js::WebAssemblyClass = {
-    js_WebAssembly_str, JSCLASS_HAS_CACHED_PROTO(JSProto_WebAssembly),
+const JSClass js::WasmNamespaceObject::class_ = {
+    js_WebAssembly_str,
+    JSCLASS_HAS_RESERVED_SLOTS(SlotCount) |
+        JSCLASS_HAS_CACHED_PROTO(JSProto_WebAssembly),
     JS_NULL_CLASS_OPS, &WebAssemblyClassSpec};

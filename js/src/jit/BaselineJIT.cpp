@@ -19,7 +19,6 @@
 #include "jit/BaselineCodeGen.h"
 #include "jit/BaselineIC.h"
 #include "jit/CalleeToken.h"
-#include "jit/CompileInfo.h"
 #include "jit/JitCommon.h"
 #include "jit/JitRuntime.h"
 #include "jit/JitSpewer.h"
@@ -31,7 +30,6 @@
 
 #include "debugger/DebugAPI-inl.h"
 #include "gc/GC-inl.h"
-#include "jit/JitFrames-inl.h"
 #include "jit/MacroAssembler-inl.h"
 #include "vm/BytecodeUtil-inl.h"
 #include "vm/GeckoProfiler-inl.h"

@@ -384,7 +384,11 @@ nsresult EditorBase::PostCreate() {
     // If the text control gets reframed during focus, Focus() would not be
     // called, so take a chance here to see if we need to spell check the text
     // control.
-    mEventListener->SpellCheckIfNeeded();
+    RefPtr<EditorEventListener> eventListener = mEventListener;
+    eventListener->SpellCheckIfNeeded();
+    if (NS_WARN_IF(Destroyed())) {
+      return EditorBase::ToGenericNSResult(NS_ERROR_EDITOR_DESTROYED);
+    }
 
     IMEState newState;
     nsresult rv = GetPreferredIMEState(&newState);
@@ -2479,7 +2483,7 @@ EditorBase::ComputeInsertedRange(const EditorDOMPointInText& aInsertedPoint,
   // The DOM was potentially modified during the transaction. This is possible
   // through mutation event listeners. That is, the node could've been removed
   // from the doc or otherwise modified.
-  if (!MaybeHasMutationEventListeners(
+  if (!MayHaveMutationEventListeners(
           NS_EVENT_BITS_MUTATION_CHARACTERDATAMODIFIED)) {
     EditorDOMPointInText endOfInsertion(
         aInsertedPoint.ContainerAsText(),
@@ -4344,12 +4348,12 @@ void EditorBase::ReinitializeSelection(Element& aElement) {
   // turn on it, spellcheck state is mismatched.  So we need to re-sync it.
   SyncRealTimeSpell();
 
-  nsPresContext* context = GetPresContext();
-  if (NS_WARN_IF(!context)) {
+  RefPtr<nsPresContext> presContext = GetPresContext();
+  if (NS_WARN_IF(!presContext)) {
     return;
   }
   nsCOMPtr<nsIContent> focusedContent = GetFocusedContentForIME();
-  IMEStateManager::OnFocusInEditor(context, focusedContent, *this);
+  IMEStateManager::OnFocusInEditor(presContext, focusedContent, *this);
 }
 
 Element* EditorBase::GetEditorRoot() const { return GetRoot(); }
@@ -5412,6 +5416,9 @@ nsresult EditorBase::AutoEditActionDataSetter::MaybeDispatchBeforeInputEvent(
     return rv;
   }
   mBeforeInputEventCanceled = status == nsEventStatus_eConsumeNoDefault;
+  if (mBeforeInputEventCanceled && mEditorBase.IsHTMLEditor()) {
+    mEditorBase.AsHTMLEditor()->mHasBeforeInputBeenCanceled = true;
+  }
   return mBeforeInputEventCanceled ? NS_ERROR_EDITOR_ACTION_CANCELED : NS_OK;
 }
 

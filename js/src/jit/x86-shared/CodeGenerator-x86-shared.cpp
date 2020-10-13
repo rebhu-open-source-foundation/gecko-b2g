@@ -12,7 +12,7 @@
 #include "jsmath.h"
 
 #include "jit/CodeGenerator.h"
-#include "jit/JitFrames.h"
+#include "jit/InlineScriptTree.h"
 #include "jit/JitRuntime.h"
 #include "jit/RangeAnalysis.h"
 #include "js/ScalarType.h"  // js::Scalar::Type

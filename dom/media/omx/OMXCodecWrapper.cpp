@@ -17,9 +17,9 @@
 
 #include "AudioChannelFormat.h"
 #include "GrallocImages.h"
-#include "LayersLogging.h"
 #include "libyuv.h"
 #include "mozilla/Monitor.h"
+#include "mozilla/ToString.h"
 #include "mozilla/gfx/2D.h"
 #include "mozilla/layers/GrallocTextureClient.h"
 
@@ -376,7 +376,7 @@ static nsresult ConvertSourceSurfaceToNV12(
 
   if (!aSurface) {
     CODEC_ERROR("Getting surface %s from image failed",
-                Stringify(format).c_str());
+                ToString(format).c_str());
     return NS_ERROR_FAILURE;
   }
 
@@ -384,8 +384,8 @@ static nsresult ConvertSourceSurfaceToNV12(
   if (!data) {
     CODEC_ERROR(
         "Getting data surface from %s image with %s (%s) surface failed",
-        Stringify(format).c_str(), Stringify(aSurface->GetType()).c_str(),
-        Stringify(aSurface->GetFormat()).c_str());
+        ToString(format).c_str(), ToString((int8_t) aSurface->GetType()).c_str(),
+        ToString(aSurface->GetFormat()).c_str());
     return NS_ERROR_FAILURE;
   }
 
@@ -393,8 +393,8 @@ static nsresult ConvertSourceSurfaceToNV12(
   if (!map.IsMapped()) {
     CODEC_ERROR(
         "Reading DataSourceSurface from %s image with %s (%s) surface failed",
-        Stringify(format).c_str(), Stringify(aSurface->GetType()).c_str(),
-        Stringify(aSurface->GetFormat()).c_str());
+        ToString(format).c_str(), ToString((int8_t) aSurface->GetType()).c_str(),
+        ToString(aSurface->GetFormat()).c_str());
     return NS_ERROR_FAILURE;
   }
 
@@ -408,14 +408,14 @@ static nsresult ConvertSourceSurfaceToNV12(
       break;
     default:
       CODEC_ERROR("Unsupported SourceSurface format %s",
-                  Stringify(aSurface->GetFormat()).c_str());
+                  ToString(aSurface->GetFormat()).c_str());
       NS_ASSERTION(false, "Unsupported SourceSurface format");
       return NS_ERROR_NOT_IMPLEMENTED;
   }
 
   if (rv != 0) {
     CODEC_ERROR("%s to I420 conversion failed",
-                Stringify(aSurface->GetFormat()).c_str());
+                ToString(aSurface->GetFormat()).c_str());
     return NS_ERROR_FAILURE;
   }
 
@@ -1021,7 +1021,6 @@ nsresult OMXCodecWrapper::GetNextEncodedFrame(nsTArray<uint8_t>* aOutputBuf,
     } else if ((mCodecType == AMR_NB_ENC || mCodecType == AMR_WB_ENC) &&
                !mAMRCSDProvided) {
       // OMX AMR codec won't provide csd data, need to generate a fake one.
-      RefPtr<EncodedFrame> audiodata = new EncodedFrame();
       // Decoder config descriptor
       const uint8_t decConfig[] = {
           0x0,  0x0,  0x0, 0x0,  // vendor: 4 bytes
@@ -1035,7 +1034,6 @@ nsresult OMXCodecWrapper::GetNextEncodedFrame(nsTArray<uint8_t>* aOutputBuf,
       mAMRCSDProvided = true;
     } else if ((mCodecType == EVRC_ENC) && !mEVRCCSDProvided) {
       // OMX EVRC codec won't provide csd data, need to generate a fake one.
-      RefPtr<EncodedFrame> audiodata = new EncodedFrame();
       // Decoder config descriptor
       const uint8_t decConfig[] = {
           0x0,  0x0, 0x0, 0x0,  // vendor: 4 bytes

@@ -10297,3 +10297,13 @@ nsContentUtils::GetSubresourceCacheValidationInfo(nsIRequest* aRequest) {
 
   return info;
 }
+
+nsCString nsContentUtils::TruncatedURLForDisplay(nsIURI* aURL,
+                                                 uint32_t aMaxLen) {
+  nsCString spec;
+  if (aURL) {
+    aURL->GetSpec(spec);
+    spec.Truncate(std::min(aMaxLen, spec.Length()));
+  }
+  return spec;
+}

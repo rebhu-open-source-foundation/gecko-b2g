@@ -5841,6 +5841,8 @@ void HTMLMediaElement::SeekAborted() {
 }
 
 void HTMLMediaElement::NotifySuspendedByCache(bool aSuspendedByCache) {
+  LOG(LogLevel::Debug,
+      ("%p, mDownloadSuspendedByCache=%d", this, aSuspendedByCache));
   mDownloadSuspendedByCache = aSuspendedByCache;
 }
 

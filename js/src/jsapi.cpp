@@ -39,9 +39,6 @@
 #include "builtin/Promise.h"
 #include "builtin/Stream.h"
 #include "builtin/Symbol.h"
-#ifdef JS_HAS_TYPED_OBJECTS
-#  include "builtin/TypedObject.h"
-#endif
 #include "frontend/BytecodeCompilation.h"  // frontend::CompileGlobalScriptToStencil, frontend::InstantiateStencils
 #include "frontend/BytecodeCompiler.h"
 #include "frontend/CompilationInfo.h"  // frontend::CompilationInfo, frontend::CompilationInfoVector, frontend::CompilationGCOutput
@@ -91,6 +88,7 @@
 #include "vm/Interpreter.h"
 #include "vm/Iteration.h"
 #include "vm/JSAtom.h"
+#include "vm/JSAtomState.h"
 #include "vm/JSContext.h"
 #include "vm/JSFunction.h"
 #include "vm/JSObject.h"
@@ -1323,7 +1321,7 @@ JS_PUBLIC_API void JS::AddAssociatedMemory(JSObject* obj, size_t nbytes,
   Zone* zone = obj->zone();
   MOZ_ASSERT(!IsInsideNursery(obj));
   zone->addCellMemory(obj, nbytes, js::MemoryUse(use));
-  zone->maybeMallocTriggerZoneGC();
+  zone->maybeTriggerGCOnMalloc();
 }
 
 JS_PUBLIC_API void JS::RemoveAssociatedMemory(JSObject* obj, size_t nbytes,
@@ -5949,6 +5947,10 @@ JS_PUBLIC_API void js::SetStackFormat(JSContext* cx, js::StackFormat format) {
 
 JS_PUBLIC_API js::StackFormat js::GetStackFormat(JSContext* cx) {
   return cx->runtime()->stackFormat();
+}
+
+JS_PUBLIC_API JS::JSTimers JS::GetJSTimers(JSContext* cx) {
+  return cx->realm()->timers;
 }
 
 namespace js {

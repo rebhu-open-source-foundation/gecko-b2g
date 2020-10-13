@@ -787,7 +787,7 @@
 # See CacheIR.cpp 'DOM proxies' comment.
 - name: LoadDOMExpandoValue
   shared: true
-  transpile: false
+  transpile: true
   cost_estimate: 1
   args:
     obj: ObjId
@@ -795,17 +795,17 @@
 
 - name: LoadDOMExpandoValueGuardGeneration
   shared: false
-  transpile: false
+  transpile: true
   cost_estimate: 2
   args:
     obj: ObjId
     expandoAndGeneration: RawPointerField
-    generation: DOMExpandoGenerationField
+    generation: RawInt64Field
     result: ValId
 
 - name: LoadDOMExpandoValueIgnoreGeneration
   shared: true
-  transpile: false
+  transpile: true
   cost_estimate: 1
   args:
     obj: ObjId
@@ -813,7 +813,7 @@
 
 - name: GuardDOMExpandoMissingOrGuardShape
   shared: false
-  transpile: false
+  transpile: true
   cost_estimate: 2
   args:
     expando: ValId

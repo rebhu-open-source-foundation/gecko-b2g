@@ -109,6 +109,8 @@ enum class SurfaceFormat : int8_t {
   OS_RGBX = X8R8G8B8_UINT32
 };
 
+std::ostream& operator<<(std::ostream& aOut, const SurfaceFormat& aFormat);
+
 // Represents the bit-shifts required to access color channels when the layout
 // is viewed as a uint32_t value.
 enum class SurfaceFormatBit : uint32_t {
@@ -413,6 +415,8 @@ enum class SamplingFilter : int8_t {
   POINT,
   SENTINEL  // one past the last valid value
 };
+
+std::ostream& operator<<(std::ostream& aOut, const SamplingFilter& aFilter);
 
 // clang-format off
 MOZ_DEFINE_ENUM_CLASS_WITH_BASE(PatternType, int8_t, (

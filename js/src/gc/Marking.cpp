@@ -179,10 +179,6 @@ void js::CheckTracedThing(JSTracer* trc, T* thing) {
   MOZ_ASSERT(trc);
   MOZ_ASSERT(thing);
 
-  if (!trc->checkEdges()) {
-    return;
-  }
-
   if (IsForwarded(thing)) {
     MOZ_ASSERT(IsTracerKind(trc, JS::TracerKind::Moving) ||
                trc->isTenuringTracer());
@@ -2455,7 +2451,9 @@ inline void MarkStackIter::nextArray() {
  * potential key.
  */
 GCMarker::GCMarker(JSRuntime* rt)
-    : JSTracer(rt, JS::TracerKind::Marking, JS::WeakMapTraceAction::Expand),
+    : JSTracer(rt, JS::TracerKind::Marking,
+               JS::TraceOptions(JS::WeakMapTraceAction::Expand,
+                                JS::WeakEdgeTraceAction::Skip)),
       stack(),
       auxStack(),
       mainStackColor(MarkColor::Black),
@@ -2473,7 +2471,6 @@ GCMarker::GCMarker(JSRuntime* rt)
 #endif
 {
   setMarkColorUnchecked(MarkColor::Black);
-  setTraceWeakEdges(false);
 }
 
 bool GCMarker::init(JSGCMode gcMode) {

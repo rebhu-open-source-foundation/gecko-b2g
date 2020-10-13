@@ -20,6 +20,7 @@
 #include <string.h>
 
 #include "jslibmath.h"
+#include "jsmath.h"
 #include "jsnum.h"
 
 #include "builtin/Array.h"
@@ -65,7 +66,6 @@
 
 #include "builtin/Boolean-inl.h"
 #include "debugger/DebugAPI-inl.h"
-#include "jit/JitFrames-inl.h"
 #include "vm/EnvironmentObject-inl.h"
 #include "vm/GeckoProfiler-inl.h"
 #include "vm/JSAtom-inl.h"
@@ -435,22 +435,31 @@ bool js::RunScript(JSContext* cx, RunState& state) {
   MOZ_DIAGNOSTIC_ASSERT(cx->realm()->isSystem() ||
                         cx->runtime()->allowContentJS());
 
-  MOZ_ASSERT(!cx->enableAccessValidation || cx->realm()->isAccessValid());
-
   if (!DebugAPI::checkNoExecute(cx, state.script())) {
     return false;
   }
 
   GeckoProfilerEntryMarker marker(cx, state.script());
 
-#ifdef ENABLE_SPIDERMONKEY_TELEMETRY
   bool measuringTime = !cx->isMeasuringExecutionTime();
-  int64_t startTime = 0;
+  mozilla::TimeStamp startTime;
   if (measuringTime) {
     cx->setIsMeasuringExecutionTime(true);
-    startTime = PRMJ_Now();
+    startTime = ReallyNow();
   }
+  auto timerEnd = mozilla::MakeScopeExit([&]() {
+    if (measuringTime) {
+      mozilla::TimeDuration delta = ReallyNow() - startTime;
+      cx->realm()->timers.executionTime += delta;
+
+#ifdef ENABLE_SPIDERMONKEY_TELEMETRY
+      int64_t runtimeMicros = delta.ToMicroseconds();
+      cx->runtime()->addTelemetry(JS_TELEMETRY_RUN_TIME_US, runtimeMicros);
 #endif
+
+      cx->setIsMeasuringExecutionTime(false);
+    }
+  });
 
   jit::EnterJitStatus status = jit::MaybeEnterJit(cx, state);
   switch (status) {
@@ -468,15 +477,6 @@ bool js::RunScript(JSContext* cx, RunState& state) {
   }
 
   bool ok = Interpret(cx, state);
-
-#ifdef ENABLE_SPIDERMONKEY_TELEMETRY
-  if (measuringTime) {
-    int64_t endTime = PRMJ_Now();
-    int64_t runtimeMicros = endTime - startTime;
-    cx->runtime()->addTelemetry(JS_TELEMETRY_RUN_TIME_US, runtimeMicros);
-    cx->setIsMeasuringExecutionTime(false);
-  }
-#endif
 
   return ok;
 }

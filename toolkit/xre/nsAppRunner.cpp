@@ -597,8 +597,31 @@ static void FissionExperimentDisqualify() {
 static void OnFissionEnrollmentStatusChanged(const char* aPref, void* aData) {
   Preferences::SetUint(
       kPrefFissionExperimentStartupEnrollmentStatus,
-      Preferences::GetUint(kPrefFissionExperimentEnrollmentStatus));
+      Preferences::GetUint(kPrefFissionExperimentEnrollmentStatus,
+                           nsIXULRuntime::eExperimentStatusUnenrolled));
 }
+
+namespace {
+// This observer is notified during `profile-before-change`, and ensures that
+// the experiment enrollment status is synced over before the browser shuts
+// down, even if it was not modified since FissionAutostart was initialized.
+class FissionEnrollmentStatusShutdownObserver final : public nsIObserver {
+ public:
+  NS_DECL_ISUPPORTS
+
+  NS_IMETHOD Observe(nsISupports* aSubject, const char* aTopic,
+                     const char16_t* aData) override {
+    MOZ_ASSERT(!strcmp("profile-before-change", aTopic));
+    OnFissionEnrollmentStatusChanged(kPrefFissionExperimentEnrollmentStatus,
+                                     nullptr);
+    return NS_OK;
+  }
+
+ private:
+  ~FissionEnrollmentStatusShutdownObserver() = default;
+};
+NS_IMPL_ISUPPORTS(FissionEnrollmentStatusShutdownObserver, nsIObserver)
+}  // namespace
 
 static void OnFissionAutostartChanged(const char* aPref, void* aData) {
   MOZ_ASSERT(FissionExperimentEnrolled());
@@ -631,6 +654,18 @@ static void EnsureFissionAutostartInitialized() {
       experimentRaw < nsIXULRuntime::eExperimentStatusCount
           ? nsIXULRuntime::ExperimentStatus(experimentRaw)
           : nsIXULRuntime::eExperimentStatusDisqualified;
+
+  // Watch the experiment enrollment status pref to detect experiment
+  // disqualification, and ensure it is propagated for the next restart.
+  Preferences::RegisterCallback(&OnFissionEnrollmentStatusChanged,
+                                kPrefFissionExperimentEnrollmentStatus);
+  if (nsCOMPtr<nsIObserverService> observerService =
+          mozilla::services::GetObserverService()) {
+    nsCOMPtr<nsIObserver> shutdownObserver =
+        new FissionEnrollmentStatusShutdownObserver();
+    observerService->AddObserver(shutdownObserver, "profile-before-change",
+                                 false);
+  }
 
   // If the user has overridden an active experiment by setting a user value for
   // "fission.autostart", disqualify the user from the experiment.
@@ -693,10 +728,8 @@ static void EnsureFissionAutostartInitialized() {
                        PrefValueKind::Default);
   Preferences::Lock(kPrefFissionAutostartSession);
 
-  // Watch prefs which may be modified at runtime to configure experiment
-  // enrollment status for the next launch.
-  Preferences::RegisterCallback(&OnFissionEnrollmentStatusChanged,
-                                kPrefFissionExperimentEnrollmentStatus);
+  // If we're actively enrolled in the fission experiment, disqualify the user
+  // from the experiment if the fission pref is modified.
   if (FissionExperimentEnrolled()) {
     Preferences::RegisterCallback(&OnFissionAutostartChanged,
                                   kPrefFissionAutostart);
@@ -1971,18 +2004,18 @@ static void OnLauncherPrefChanged(const char* aPref, void* aData) {
   bool prefVal = Preferences::GetBool(PREF_WIN_LAUNCHER_PROCESS_ENABLED, true);
 
   mozilla::LauncherRegistryInfo launcherRegInfo;
-  mozilla::LauncherVoidResult reflectResult =
+  mozilla::DebugOnly<mozilla::LauncherVoidResult> reflectResult =
       launcherRegInfo.ReflectPrefToRegistry(prefVal);
-  MOZ_ASSERT(reflectResult.isOk());
+  MOZ_ASSERT(reflectResult.inspect().isOk());
 }
 
 static void OnLauncherTelemetryPrefChanged(const char* aPref, void* aData) {
   bool prefVal = Preferences::GetBool(kPrefHealthReportUploadEnabled, true);
 
   mozilla::LauncherRegistryInfo launcherRegInfo;
-  mozilla::LauncherVoidResult reflectResult =
+  mozilla::DebugOnly<mozilla::LauncherVoidResult> reflectResult =
       launcherRegInfo.ReflectTelemetryPrefToRegistry(prefVal);
-  MOZ_ASSERT(reflectResult.isOk());
+  MOZ_ASSERT(reflectResult.inspect().isOk());
 }
 
 static void SetupLauncherProcessPref() {
@@ -2010,10 +2043,10 @@ static void SetupLauncherProcessPref() {
             mozilla::LauncherRegistryInfo::EnabledState::ForceDisabled);
   }
 
-  mozilla::LauncherVoidResult reflectResult =
+  mozilla::DebugOnly<mozilla::LauncherVoidResult> reflectResult =
       launcherRegInfo.ReflectTelemetryPrefToRegistry(
           Preferences::GetBool(kPrefHealthReportUploadEnabled, true));
-  MOZ_ASSERT(reflectResult.isOk());
+  MOZ_ASSERT(reflectResult.inspect().isOk());
 
   Preferences::RegisterCallback(&OnLauncherPrefChanged,
                                 PREF_WIN_LAUNCHER_PROCESS_ENABLED);

@@ -11,7 +11,6 @@
 #include "ImageContainer.h"    // for ImageContainer, etc
 #include "ImageLayers.h"       // for ImageLayer
 #include "LayerSorter.h"       // for SortLayersBy3DZOrder
-#include "LayersLogging.h"     // for AppendToString
 #include "LayerUserData.h"
 #include "ReadbackLayer.h"   // for ReadbackLayer
 #include "UnitTransforms.h"  // for ViewAs
@@ -1803,8 +1802,7 @@ void Layer::PrintInfo(std::stringstream& aStream, const char* aPrefix) {
   }
   for (uint32_t i = 0; i < mScrollMetadata.Length(); i++) {
     if (!mScrollMetadata[i].IsDefault()) {
-      aStream << nsPrintfCString(" [metrics%d=", i).get();
-      AppendToString(aStream, mScrollMetadata[i], "", "]");
+      aStream << " [metrics" << i << "=" << mScrollMetadata[i] << "]";
     }
   }
   // FIXME: On the compositor thread, we don't set mAnimationInfo::mAnimations,
@@ -2061,7 +2059,7 @@ CanvasLayer::~CanvasLayer() = default;
 void CanvasLayer::PrintInfo(std::stringstream& aStream, const char* aPrefix) {
   Layer::PrintInfo(aStream, aPrefix);
   if (mSamplingFilter != SamplingFilter::GOOD) {
-    AppendToString(aStream, mSamplingFilter, " [filter=", "]");
+    aStream << " [filter=" << mSamplingFilter << "]";
   }
 }
 
@@ -2108,7 +2106,7 @@ RefPtr<CanvasRenderer> CanvasLayer::CreateOrGetCanvasRenderer() {
 void ImageLayer::PrintInfo(std::stringstream& aStream, const char* aPrefix) {
   Layer::PrintInfo(aStream, aPrefix);
   if (mSamplingFilter != SamplingFilter::GOOD) {
-    AppendToString(aStream, mSamplingFilter, " [filter=", "]");
+    aStream << " [filter=" << mSamplingFilter << "]";
   }
 }
 

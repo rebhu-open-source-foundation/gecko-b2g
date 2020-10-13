@@ -7,6 +7,7 @@
 #include "jit/BaselineCacheIRCompiler.h"
 
 #include "jit/CacheIR.h"
+#include "jit/JitFrames.h"
 #include "jit/JitRuntime.h"
 #include "jit/JitZone.h"
 #include "jit/Linker.h"
@@ -416,11 +417,12 @@ bool BaselineCacheIRCompiler::emitGuardSpecificAtom(StringOperandId strId,
                                liveVolatileFloatRegs());
   masm.PushRegsInMask(volatileRegs);
 
+  using Fn = bool (*)(JSString * str1, JSString * str2);
   masm.setupUnalignedABICall(scratch);
   masm.loadPtr(atomAddr, scratch);
   masm.passABIArg(scratch);
   masm.passABIArg(str);
-  masm.callWithABI(JS_FUNC_TO_DATA_PTR(void*, EqualStringsHelperPure));
+  masm.callWithABI<Fn, EqualStringsHelperPure>();
   masm.mov(ReturnReg, scratch);
 
   LiveRegisterSet ignore;
@@ -1010,13 +1012,14 @@ bool BaselineCacheIRCompiler::emitAddAndStoreSlotShared(
                          liveVolatileFloatRegs());
     masm.PushRegsInMask(save);
 
+    using Fn = bool (*)(JSContext * cx, NativeObject * obj, uint32_t newCount);
     masm.setupUnalignedABICall(scratch1);
     masm.loadJSContext(scratch1);
     masm.passABIArg(scratch1);
     masm.passABIArg(obj);
     masm.load32(numNewSlotsAddr, scratch2);
     masm.passABIArg(scratch2);
-    masm.callWithABI(JS_FUNC_TO_DATA_PTR(void*, NativeObject::growSlotsPure));
+    masm.callWithABI<Fn, NativeObject::growSlotsPure>();
     masm.mov(ReturnReg, scratch1);
 
     LiveRegisterSet ignore;
@@ -1120,14 +1123,11 @@ bool BaselineCacheIRCompiler::emitStoreTypedObjectReferenceProperty(
   Register obj = allocator.useRegister(masm, objId);
   AutoScratchRegister scratch2(allocator, masm);
 
-  // We don't need a type update IC if the property is always a string.
-  if (type != ReferenceType::TYPE_STRING) {
-    LiveGeneralRegisterSet saveRegs;
-    saveRegs.add(obj);
-    saveRegs.add(val);
-    if (!callTypeUpdateIC(obj, val, scratch1, saveRegs)) {
-      return false;
-    }
+  LiveGeneralRegisterSet saveRegs;
+  saveRegs.add(obj);
+  saveRegs.add(val);
+  if (!callTypeUpdateIC(obj, val, scratch1, saveRegs)) {
+    return false;
   }
 
   // Compute the address being written to.
@@ -1309,12 +1309,12 @@ bool BaselineCacheIRCompiler::emitStoreDenseElementHole(ObjOperandId objId,
     save.takeUnchecked(scratch);
     masm.PushRegsInMask(save);
 
+    using Fn = bool (*)(JSContext * cx, NativeObject * obj);
     masm.setupUnalignedABICall(scratch);
     masm.loadJSContext(scratch);
     masm.passABIArg(scratch);
     masm.passABIArg(obj);
-    masm.callWithABI(
-        JS_FUNC_TO_DATA_PTR(void*, NativeObject::addDenseElementPure));
+    masm.callWithABI<Fn, NativeObject::addDenseElementPure>();
     masm.mov(ReturnReg, scratch);
 
     masm.PopRegsInMask(save);
@@ -1446,12 +1446,12 @@ bool BaselineCacheIRCompiler::emitArrayPush(ObjOperandId objId,
   save.takeUnchecked(scratch);
   masm.PushRegsInMask(save);
 
+  using Fn = bool (*)(JSContext * cx, NativeObject * obj);
   masm.setupUnalignedABICall(scratch);
   masm.loadJSContext(scratch);
   masm.passABIArg(scratch);
   masm.passABIArg(obj);
-  masm.callWithABI(
-      JS_FUNC_TO_DATA_PTR(void*, NativeObject::addDenseElementPure));
+  masm.callWithABI<Fn, NativeObject::addDenseElementPure>();
   masm.mov(ReturnReg, scratch);
 
   masm.PopRegsInMask(save);
@@ -2599,7 +2599,6 @@ ICStub* js::jit::AttachBaselineCacheIRStub(
   // conditions.
   for (ICStubConstIterator iter = stub->beginChainConst(); !iter.atEnd();
        iter++) {
-    bool updated = false;
     switch (stubKind) {
       case BaselineCacheIRStubKind::Regular: {
         if (!iter->isCacheIR_Regular()) {
@@ -2609,8 +2608,7 @@ ICStub* js::jit::AttachBaselineCacheIRStub(
         if (otherStub->stubInfo() != stubInfo) {
           continue;
         }
-        if (!writer.stubDataEqualsMaybeUpdate(otherStub->stubDataStart(),
-                                              &updated)) {
+        if (!writer.stubDataEquals(otherStub->stubDataStart())) {
           continue;
         }
         break;
@@ -2623,8 +2621,7 @@ ICStub* js::jit::AttachBaselineCacheIRStub(
         if (otherStub->stubInfo() != stubInfo) {
           continue;
         }
-        if (!writer.stubDataEqualsMaybeUpdate(otherStub->stubDataStart(),
-                                              &updated)) {
+        if (!writer.stubDataEquals(otherStub->stubDataStart())) {
           continue;
         }
         break;
@@ -2637,8 +2634,7 @@ ICStub* js::jit::AttachBaselineCacheIRStub(
         if (otherStub->stubInfo() != stubInfo) {
           continue;
         }
-        if (!writer.stubDataEqualsMaybeUpdate(otherStub->stubDataStart(),
-                                              &updated)) {
+        if (!writer.stubDataEquals(otherStub->stubDataStart())) {
           continue;
         }
         break;
@@ -2648,15 +2644,10 @@ ICStub* js::jit::AttachBaselineCacheIRStub(
     // We found a stub that's exactly the same as the stub we're about to
     // attach. Just return nullptr, the caller should do nothing in this
     // case.
-    if (updated) {
-      stub->maybeInvalidateWarp(cx, invalidationScript);
-      *attached = true;
-    } else {
-      JitSpew(JitSpew_BaselineICFallback,
-              "Tried attaching identical stub for (%s:%u:%u)",
-              outerScript->filename(), outerScript->lineno(),
-              outerScript->column());
-    }
+    JitSpew(JitSpew_BaselineICFallback,
+            "Tried attaching identical stub for (%s:%u:%u)",
+            outerScript->filename(), outerScript->lineno(),
+            outerScript->column());
     return nullptr;
   }
 

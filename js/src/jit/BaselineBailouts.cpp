@@ -13,9 +13,9 @@
 #include "jit/BaselineIC.h"
 #include "jit/BaselineJIT.h"
 #include "jit/CalleeToken.h"
-#include "jit/CompileInfo.h"
 #include "jit/Ion.h"
 #include "jit/IonScript.h"
+#include "jit/JitFrames.h"
 #include "jit/JitRuntime.h"
 #include "jit/JitSpewer.h"
 #include "jit/mips32/Simulator-mips32.h"
@@ -2163,6 +2163,8 @@ bool jit::FinishBailoutToBaseline(BaselineBailoutInfo* bailoutInfoArg) {
     case BailoutKind::FunctionScriptGuard:
     case BailoutKind::PackedArrayGuard:
     case BailoutKind::HasGetterSetterGuard:
+    case BailoutKind::DOMExpandoValueGenerationGuard:
+    case BailoutKind::DOMExpandoMissingOrShapeGuard:
       // Do nothing.
       break;
 

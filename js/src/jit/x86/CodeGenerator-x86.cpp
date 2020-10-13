@@ -17,6 +17,7 @@
 #include "jit/MIRGraph.h"
 #include "js/Conversions.h"
 #include "vm/Shape.h"
+#include "wasm/WasmTypes.h"
 
 #include "jit/MacroAssembler-inl.h"
 #include "jit/shared/CodeGenerator-shared-inl.h"
@@ -688,10 +689,11 @@ void CodeGeneratorX86::visitOutOfLineTruncate(OutOfLineTruncate* ool) {
       masm.callWithABI(ool->bytecodeOffset(), wasm::SymbolicAddress::ToInt32,
                        mozilla::Some(tlsOffset));
     } else {
+      using Fn = int32_t (*)(double);
       masm.setupUnalignedABICall(output);
       masm.passABIArg(input, MoveOp::DOUBLE);
-      masm.callWithABI(BitwiseCast<void*, int32_t (*)(double)>(JS::ToInt32),
-                       MoveOp::GENERAL, CheckUnsafeCallWithABI::DontCheckOther);
+      masm.callWithABI<Fn, JS::ToInt32>(MoveOp::GENERAL,
+                                        CheckUnsafeCallWithABI::DontCheckOther);
     }
     masm.storeCallInt32Result(output);
 
@@ -796,8 +798,9 @@ void CodeGeneratorX86::visitOutOfLineTruncateFloat32(
       masm.callWithABI(ool->bytecodeOffset(), wasm::SymbolicAddress::ToInt32,
                        mozilla::Some(tlsOffset));
     } else {
-      masm.callWithABI(BitwiseCast<void*, int32_t (*)(double)>(JS::ToInt32),
-                       MoveOp::GENERAL, CheckUnsafeCallWithABI::DontCheckOther);
+      using Fn = int32_t (*)(double);
+      masm.callWithABI<Fn, JS::ToInt32>(MoveOp::GENERAL,
+                                        CheckUnsafeCallWithABI::DontCheckOther);
     }
 
     masm.storeCallInt32Result(output);

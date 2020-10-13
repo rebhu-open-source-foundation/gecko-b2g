@@ -346,14 +346,12 @@ class EngineURL {
    *   The URL to which search queries should be sent. For GET requests,
    *   must contain the string "{searchTerms}", to indicate where the user
    *   entered search terms should be inserted.
-   * @param {string} [resultDomain]
-   *   The root domain for this URL.  Defaults to the template's host.
    *
    * @see http://opensearch.a9.com/spec/1.1/querysyntax/#urltag
    *
    * @throws NS_ERROR_NOT_IMPLEMENTED if aType is unsupported.
    */
-  constructor(mimeType, requestMethod, template, resultDomain) {
+  constructor(mimeType, requestMethod, template) {
     if (!mimeType || !requestMethod || !template) {
       throw Components.Exception(
         "missing mimeType, method or template for EngineURL!",
@@ -398,9 +396,6 @@ class EngineURL {
     }
 
     this.templateHost = templateURI.host;
-    // If no resultDomain was specified in the engine definition file, use the
-    // host from the template.
-    this.resultDomain = resultDomain || this.templateHost;
   }
 
   addParam(name, value, purpose) {
@@ -549,7 +544,6 @@ class EngineURL {
     var json = {
       params: this.params,
       rels: this.rels,
-      resultDomain: this.resultDomain,
       template: this.template,
     };
 
@@ -619,6 +613,9 @@ class SearchEngine {
   // The query parameter name of the search url, cached in memory to avoid
   // repeated look-ups.
   _searchUrlQueryParamName = null;
+  // The known public suffix of the search url, cached in memory to avoid
+  // repeated look-ups.
+  _searchUrlPublicSuffix = null;
 
   /**
    * Constructor.
@@ -1145,8 +1142,7 @@ class SearchEngine {
       let engineURL = new EngineURL(
         url.type || SearchUtils.URL_TYPE.SEARCH,
         url.method || "GET",
-        url.template,
-        url.resultDomain || undefined
+        url.template
       );
       engineURL._initWithJSON(url);
       this._urls.push(engineURL);
@@ -1473,6 +1469,20 @@ class SearchEngine {
     return (this._searchUrlQueryParamName = searchUrlQueryParamName);
   }
 
+  get searchUrlPublicSuffix() {
+    if (this._searchUrlPublicSuffix != null) {
+      return this._searchUrlPublicSuffix;
+    }
+    let submission = this.getSubmission(
+      "{searchTerms}",
+      SearchUtils.URL_TYPE.SEARCH
+    );
+    let searchURLPublicSuffix = Services.eTLD.getKnownPublicSuffix(
+      submission.uri
+    );
+    return (this._searchUrlPublicSuffix = searchURLPublicSuffix);
+  }
+
   // from nsISearchEngine
   supportsResponseType(type) {
     return this._getURLOfType(type) != null;
@@ -1489,7 +1499,7 @@ class SearchEngine {
 
     let url = this._getURLOfType(responseType);
     if (url) {
-      return url.resultDomain;
+      return url.templateHost;
     }
     return "";
   }

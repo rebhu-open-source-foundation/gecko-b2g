@@ -824,16 +824,17 @@ nsresult NS_CreateBackgroundTaskQueue(const char* aName,
   return NS_OK;
 }
 
-// Use InitCurrentThread() to properly setup an existing thread (eg. one created in Rust code)
-// to be used in Gecko.
+// Use InitCurrentThread() to properly setup an existing thread (eg. one created
+// in Rust code) to be used in Gecko.
 nsresult NS_AdoptCurrentThread(nsIThread** aResult) {
   // Note: can be called from arbitrary threads
-  RefPtr<ThreadEventQueue<EventQueue>> queue =
-      new ThreadEventQueue<EventQueue>(MakeUnique<EventQueue>());
+  RefPtr<ThreadEventQueue> queue =
+      new ThreadEventQueue(MakeUnique<EventQueue>());
   RefPtr<nsThread> thr =
-      new nsThread(WrapNotNull(queue), nsThread::NOT_MAIN_THREAD, nsIThreadManager::DEFAULT_STACK_SIZE);
-  nsresult rv =
-      thr->InitCurrentThread();  // Note: blocks until the new thread has been set up
+      new nsThread(WrapNotNull(queue), nsThread::NOT_MAIN_THREAD,
+                   nsIThreadManager::DEFAULT_STACK_SIZE);
+  nsresult rv = thr->InitCurrentThread();  // Note: blocks until the new thread
+                                           // has been set up
   if (NS_FAILED(rv)) {
     return rv;
   }

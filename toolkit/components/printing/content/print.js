@@ -24,6 +24,9 @@ const INPUT_DELAY_MS = 500;
 const MM_PER_POINT = 25.4 / 72;
 const INCHES_PER_POINT = 1 / 72;
 const ourBrowser = window.docShell.chromeEventHandler;
+const PSSVC = Cc["@mozilla.org/gfx/printsettings-service;1"].getService(
+  Ci.nsIPrintSettingsService
+);
 
 var logger = (function() {
   const getMaxLogLevel = () =>
@@ -65,6 +68,7 @@ function serializeSettings(settings, logPrefix) {
   return nameValues;
 }
 
+let printPending = false;
 let deferredTasks = [];
 function createDeferredTask(fn, timeout) {
   let task = new DeferredTask(fn, timeout);
@@ -76,7 +80,14 @@ function cancelDeferredTasks() {
   for (let task of deferredTasks) {
     task.disarm();
   }
+  PrintEventHandler._updatePrintPreviewTask?.disarm();
   deferredTasks = [];
+}
+
+async function finalizeDeferredTasks() {
+  await Promise.all(deferredTasks.map(task => task.finalize()));
+  printPending = true;
+  await PrintEventHandler._updatePrintPreviewTask.finalize();
 }
 
 document.addEventListener(
@@ -155,7 +166,9 @@ var PrintEventHandler = {
     // platform code to generate the static clone printing doc into if this
     // print is for a window.print() call.  In that case we steal the browser's
     // docshell to get the static clone, then discard it.
-    let existingBrowser = window.arguments[0].getProperty("previewBrowser");
+    let args = window.arguments[0];
+    this.printSelectionOnly = args.getProperty("printSelectionOnly");
+    let existingBrowser = args.getProperty("previewBrowser");
     if (existingBrowser) {
       sourceBrowsingContext = existingBrowser.browsingContext;
       this.previewBrowser.swapDocShells(existingBrowser);
@@ -258,7 +271,7 @@ var PrintEventHandler = {
 
     // Use a DeferredTask for updating the preview. This will ensure that we
     // only have one update running at a time.
-    this._updatePrintPreviewTask = createDeferredTask(async () => {
+    this._updatePrintPreviewTask = new DeferredTask(async () => {
       await initialPreviewDone;
       await this._updatePrintPreview();
       document.dispatchEvent(new CustomEvent("preview-updated"));
@@ -347,6 +360,8 @@ var PrintEventHandler = {
 
     await window._initialized;
 
+    await finalizeDeferredTasks();
+
     // This seems like it should be handled automatically but it isn't.
     Services.prefs.setStringPref("print_printer", settings.printerName);
 
@@ -374,6 +389,8 @@ var PrintEventHandler = {
     );
     this.settings = currentPrinter.settings;
     this.defaultSettings = currentPrinter.defaultSettings;
+
+    this.settings.printSelectionOnly = this.printSelectionOnly;
 
     logger.debug("currentPrinter name: ", printerName);
     logger.debug("settings:", serializeSettings(this.settings));
@@ -451,29 +468,25 @@ var PrintEventHandler = {
     if (
       parseFloat(this.viewSettings.customMargins.marginTop) +
         parseFloat(this.viewSettings.customMargins.marginBottom) >
-      paperHeight
+        paperHeight ||
+      this.viewSettings.customMargins.marginTop < 0 ||
+      this.viewSettings.customMargins.marginBottom < 0
     ) {
       let { marginTop, marginBottom } = this.viewSettings.defaultMargins;
-      settingsToUpdate.marginTop = marginTop;
-      settingsToUpdate.marginBottom = marginBottom;
-      if (settingsToUpdate.customMargins) {
-        settingsToUpdate.customMargins.marginTop = marginTop;
-        settingsToUpdate.customMargins.marginBottom = marginBottom;
-      }
+      settingsToUpdate.marginTop = settingsToUpdate.customMarginTop = marginTop;
+      settingsToUpdate.marginBottom = settingsToUpdate.customMarginTop = marginBottom;
     }
 
     if (
       parseFloat(this.viewSettings.customMargins.marginRight) +
         parseFloat(this.viewSettings.customMargins.marginLeft) >
-      paperWidth
+        paperWidth ||
+      this.viewSettings.customMargins.marginLeft < 0 ||
+      this.viewSettings.customMargins.marginRight < 0
     ) {
       let { marginLeft, marginRight } = this.viewSettings.defaultMargins;
-      settingsToUpdate.marginLeft = marginLeft;
-      settingsToUpdate.marginRight = marginRight;
-      if (settingsToUpdate.customMargins) {
-        settingsToUpdate.customMargins.marginLeft = marginLeft;
-        settingsToUpdate.customMargins.marginRight = marginRight;
-      }
+      settingsToUpdate.marginLeft = settingsToUpdate.customMarginLeft = marginLeft;
+      settingsToUpdate.marginRight = settingsToUpdate.customMarginRight = marginRight;
     }
 
     return settingsToUpdate;
@@ -506,7 +519,10 @@ var PrintEventHandler = {
       changedSettings,
       !!changedSettings.printerName
     );
-    if (shouldPreviewUpdate) {
+
+    if (shouldPreviewUpdate && !printPending) {
+      // We do not need to arm the preview task if the user has already printed
+      // and finalized any deferred tasks.
       this.updatePrintPreview();
     }
     document.dispatchEvent(
@@ -560,9 +576,6 @@ var PrintEventHandler = {
   },
 
   saveSettingsToPrefs(flags) {
-    let PSSVC = Cc["@mozilla.org/gfx/printsettings-service;1"].getService(
-      Ci.nsIPrintSettingsService
-    );
     PSSVC.savePrintSettingsToPrefs(this.settings, true, flags);
   },
 
@@ -692,7 +705,7 @@ var PrintEventHandler = {
     }
 
     const fallbackPaperList = await printerList.fallbackPaperList;
-    const lastUsedPrinterName = PrintUtils._getLastUsedPrinterName();
+    const lastUsedPrinterName = PSSVC.lastUsedPrinterName;
     const defaultPrinterName = printerList.systemDefaultPrinterName;
     const printersByName = {};
 
@@ -778,22 +791,18 @@ var PrintEventHandler = {
       default: {
         let minimum = this.getMarginPresets("minimum", paper);
         return {
-          marginTop: Math.max(
-            minimum.marginTop,
-            this.defaultSettings.marginTop
-          ),
-          marginRight: Math.max(
-            minimum.marginRight,
-            this.defaultSettings.marginRight
-          ),
-          marginBottom: Math.max(
-            minimum.marginBottom,
-            this.defaultSettings.marginBottom
-          ),
-          marginLeft: Math.max(
-            minimum.marginLeft,
-            this.defaultSettings.marginLeft
-          ),
+          marginTop: !isNaN(minimum.marginTop)
+            ? Math.max(minimum.marginTop, this.defaultSettings.marginTop)
+            : this.defaultSettings.marginTop,
+          marginRight: !isNaN(minimum.marginRight)
+            ? Math.max(minimum.marginRight, this.defaultSettings.marginRight)
+            : this.defaultSettings.marginRight,
+          marginBottom: !isNaN(minimum.marginBottom)
+            ? Math.max(minimum.marginBottom, this.defaultSettings.marginBottom)
+            : this.defaultSettings.marginBottom,
+          marginLeft: !isNaN(minimum.marginLeft)
+            ? Math.max(minimum.marginLeft, this.defaultSettings.marginLeft)
+            : this.defaultSettings.marginLeft,
         };
       }
     }
@@ -943,10 +952,6 @@ var PrintSettingsViewProxy = {
       this.availablePaperSizes = printerInfo.availablePaperSizes;
       return printerInfo;
     }
-
-    const PSSVC = Cc["@mozilla.org/gfx/printsettings-service;1"].getService(
-      Ci.nsIPrintSettingsService
-    );
 
     // Await the async printer data.
     if (printerInfo.printer) {
@@ -1218,6 +1223,20 @@ var PrintSettingsViewProxy = {
             this._lastCustomMarginValues[settingName] = newVal;
           }
         }
+        break;
+
+      case "customMarginTop":
+      case "customMarginBottom":
+      case "customMarginLeft":
+      case "customMarginRight":
+        let customMarginName = "margin" + name.substring(12);
+        this.set(
+          target,
+          "customMargins",
+          Object.assign({}, this.get(target, "customMargins"), {
+            [customMarginName]: value,
+          })
+        );
         break;
 
       default:
@@ -1561,6 +1580,17 @@ class ScaleInput extends PrintUIControlMixin(HTMLElement) {
     this._percentScale.addEventListener("keypress", this);
     this._percentScale.addEventListener("paste", this);
     this.addEventListener("input", this);
+
+    this._updateScaleTask = createDeferredTask(
+      () => this.updateScale(),
+      INPUT_DELAY_MS
+    );
+  }
+
+  updateScale() {
+    this.dispatchSettingsChange({
+      scaling: Number(this._percentScale.value / 100),
+    });
   }
 
   update(settings) {
@@ -1582,6 +1612,11 @@ class ScaleInput extends PrintUIControlMixin(HTMLElement) {
   }
 
   handleEvent(e) {
+    if (e.type == "change") {
+      // We listen to input events, no need for change too.
+      return;
+    }
+
     if (e.type == "keypress") {
       this.handleKeypress(e);
       return;
@@ -1590,6 +1625,8 @@ class ScaleInput extends PrintUIControlMixin(HTMLElement) {
     if (e.type === "paste") {
       this.handlePaste(e);
     }
+
+    this._updateScaleTask.disarm();
 
     if (e.target == this._shrinkToFitChoice || e.target == this._scaleChoice) {
       if (!this._percentScale.checkValidity()) {
@@ -1605,14 +1642,8 @@ class ScaleInput extends PrintUIControlMixin(HTMLElement) {
       });
       this._scaleError.hidden = true;
     } else if (e.type == "input") {
-      window.clearTimeout(this.updateSettingsTimeoutId);
-
       if (this._percentScale.checkValidity()) {
-        this.updateSettingsTimeoutId = window.setTimeout(() => {
-          this.dispatchSettingsChange({
-            scaling: Number(this._percentScale.value / 100),
-          });
-        }, INPUT_DELAY_MS);
+        this._updateScaleTask.arm();
       }
     }
 

@@ -1104,7 +1104,7 @@ class nsDocShell final : public nsDocLoader,
   // Sets the active entry to the current loading entry. If aCommit is true then
   // SessionHistoryCommit will be called on the CanonicalBrowsingContext
   // (directly or over IPC).
-  void MoveLoadingToActiveEntry(bool aCommit);
+  void MoveLoadingToActiveEntry();
 
  private:  // data members
   nsString mTitle;
@@ -1235,10 +1235,6 @@ class nsDocShell final : public nsDocLoader,
   AppType mAppType;
   uint32_t mLoadType;
   uint32_t mFailedLoadType;
-
-  // This represents the CSS display-mode we are currently using. This is mostly
-  // used for media queries.
-  DisplayMode mDisplayMode;
 
   // A depth count of how many times NotifyRunToCompletionStart
   // has been called without a matching NotifyRunToCompletionStop.

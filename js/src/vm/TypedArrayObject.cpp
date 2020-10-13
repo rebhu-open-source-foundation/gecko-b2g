@@ -25,7 +25,7 @@
 
 #include "builtin/Array.h"
 #include "builtin/DataViewObject.h"
-#include "builtin/TypedObjectConstants.h"
+#include "builtin/TypedArrayConstants.h"
 #include "gc/Barrier.h"
 #include "gc/Marking.h"
 #include "gc/MaybeRooted.h"
@@ -47,6 +47,7 @@
 #include "vm/PIC.h"
 #include "vm/SelfHosting.h"
 #include "vm/SharedMem.h"
+#include "vm/Uint8Clamped.h"
 #include "vm/WrapperObject.h"
 
 #include "gc/Nursery-inl.h"
@@ -1919,9 +1920,6 @@ bool TypedArrayObject::set(JSContext* cx, unsigned argc, Value* vp) {
     JS_SELF_HOSTED_FN("includes", "TypedArrayIncludes", 2, 0),
     JS_SELF_HOSTED_FN("toString", "ArrayToString", 0, 0),
     JS_SELF_HOSTED_FN("toLocaleString", "TypedArrayToLocaleString", 2, 0),
-#ifdef NIGHTLY_BUILD
-    JS_SELF_HOSTED_FN("item", "TypedArrayItem", 1, 0),
-#endif
     JS_FS_END};
 
 /* static */ const JSFunctionSpec TypedArrayObject::staticFunctions[] = {

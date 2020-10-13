@@ -40,6 +40,7 @@
 #include "mozilla/Components.h"
 #include "mozilla/HashTable.h"
 #include "mozilla/Logging.h"
+#include "mozilla/MediaFeatureChange.h"
 #include "mozilla/ResultExtensions.h"
 #include "mozilla/Services.h"
 #include "mozilla/StaticPrefs_fission.h"
@@ -73,10 +74,16 @@ namespace IPC {
 // Allow serialization and deserialization of OrientationType over IPC
 template <>
 struct ParamTraits<mozilla::dom::OrientationType>
-    : public ContiguousEnumSerializerInclusive<
+    : public ContiguousEnumSerializer<
           mozilla::dom::OrientationType,
           mozilla::dom::OrientationType::Portrait_primary,
-          mozilla::dom::OrientationType::Landscape_secondary> {};
+          mozilla::dom::OrientationType::EndGuard_> {};
+
+template <>
+struct ParamTraits<mozilla::dom::DisplayMode>
+    : public ContiguousEnumSerializer<mozilla::dom::DisplayMode,
+                                      mozilla::dom::DisplayMode::Browser,
+                                      mozilla::dom::DisplayMode::EndGuard_> {};
 
 }  // namespace IPC
 
@@ -2170,6 +2177,33 @@ void BrowsingContext::DidSet(FieldIndex<IDX_IsActive>, bool aOldValue) {
   }
 }
 
+bool BrowsingContext::CanSet(FieldIndex<IDX_DisplayMode>,
+                             const enum DisplayMode& aDisplayMOde,
+                             ContentParent* aSource) {
+  return IsTop();
+}
+
+void BrowsingContext::DidSet(FieldIndex<IDX_DisplayMode>,
+                             enum DisplayMode aOldValue) {
+  MOZ_ASSERT(IsTop());
+
+  if (GetDisplayMode() == aOldValue) {
+    return;
+  }
+
+  PreOrderWalk([&](BrowsingContext* aContext) {
+    if (nsIDocShell* shell = aContext->GetDocShell()) {
+      if (nsPresContext* pc = shell->GetPresContext()) {
+        pc->MediaFeatureValuesChangedAllDocuments(
+            {MediaFeatureChangeReason::DisplayModeChange},
+            // We're already iterating through sub documents
+            // so no need to do it again.
+            nsPresContext::RecurseIntoInProcessSubDocuments::No);
+      }
+    }
+  });
+}
+
 void BrowsingContext::DidSet(FieldIndex<IDX_Muted>) {
   MOZ_ASSERT(!GetParent(), "Set muted flag on non top-level context!");
   USER_ACTIVATION_LOG("Set audio muted %d for %s browsing context 0x%08" PRIx64,
@@ -2696,6 +2730,7 @@ void BrowsingContext::SetActiveSessionHistoryEntry(
     const Maybe<nsPoint>& aPreviousScrollPos, SessionHistoryInfo* aInfo,
     uint32_t aLoadType, int32_t aChildOffset, uint32_t aUpdatedCacheKey) {
   if (XRE_IsContentProcess()) {
+    // XXX Why we update cache key only in content process case?
     if (aUpdatedCacheKey != 0) {
       aInfo->SetCacheKey(aUpdatedCacheKey);
     }

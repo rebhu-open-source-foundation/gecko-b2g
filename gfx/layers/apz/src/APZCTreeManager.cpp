@@ -49,7 +49,6 @@
 #include "nsThreadUtils.h"           // for NS_IsMainThread
 #include "OverscrollHandoffState.h"  // for OverscrollHandoffState
 #include "TreeTraversal.h"           // for ForEachNode, BreadthFirstSearch, etc
-#include "LayersLogging.h"           // for Stringify
 #include "Units.h"                   // for ParentlayerPixel
 #include "GestureEventListener.h"  // for GestureEventListener::setLongTapEnabled
 #include "UnitTransforms.h"        // for ViewAs
@@ -1589,6 +1588,8 @@ APZEventResult APZCTreeManager::ReceiveInputEvent(InputData& aEvent) {
         return result;
       }
 
+      mOvershootDetector.Update(wheelInput);
+
       if (hit.mTargetApzc) {
         MOZ_ASSERT(hitResult != CompositorHitTestInvisibleToHit);
 
@@ -2433,8 +2434,7 @@ void APZCTreeManager::UpdateZoomConstraints(
   // which have their own zoom constraints or are in a different layers id.
   if (aConstraints) {
     APZCTM_LOG("Recording constraints %s for guid %s\n",
-               Stringify(aConstraints.value()).c_str(),
-               ToString(aGuid).c_str());
+               ToString(aConstraints.value()).c_str(), ToString(aGuid).c_str());
     mZoomConstraints[aGuid] = aConstraints.ref();
   } else {
     APZCTM_LOG("Removing constraints for guid %s\n", ToString(aGuid).c_str());
