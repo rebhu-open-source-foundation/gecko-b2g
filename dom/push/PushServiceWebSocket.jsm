@@ -57,6 +57,8 @@ const kPUSHWSDB_STORE_NAME = "pushapi";
 // not automatically reconnect.
 const kBACKOFF_WS_STATUS_CODE = 4774;
 
+const kMinRequestTimeOut = 1000; // 1s
+
 // Maps ack statuses, unsubscribe reasons, and delivery error reasons to codes
 // included in request payloads.
 const kACK_STATUS_TO_CODE = {
@@ -304,6 +306,7 @@ var PushServiceWebSocket = {
       // Cancel the repeating timer and exit early if we aren't waiting for
       // pongs or requests.
       this._requestTimeoutTimer.cancel();
+      this._requestTimeout = this._requestTimeoutBase;
       return;
     }
 
@@ -363,6 +366,7 @@ var PushServiceWebSocket = {
   _currentState: STATE_SHUT_DOWN,
   _requestTimeout: 0,
   _requestTimeoutTimer: null,
+  _requestTimeoutBase: 0,
   _retryFailCount: 0,
 
   /**
@@ -473,7 +477,12 @@ var PushServiceWebSocket = {
       this._networkInfo = PushNetworkInfo;
     }
 
-    this._requestTimeout = prefs.getIntPref("requestTimeout");
+    this._requestTimeoutBase = prefs.getIntPref("requestTimeout");
+    if (this._requestTimeoutBase < kMinRequestTimeOut) {
+      this._requestTimeoutBase = kMinRequestTimeOut;
+      console.warn("requestTimeout smaller than min, set it as default");
+    }
+    this._requestTimeout = this._requestTimeoutBase;
     this._adaptiveEnabled = prefs.getBoolPref("adaptive.enabled");
     this._upperLimit = prefs.getIntPref("adaptive.upperLimit");
 
@@ -550,6 +559,7 @@ var PushServiceWebSocket = {
     }
     if (this._requestTimeoutTimer) {
       this._requestTimeoutTimer.cancel();
+      this._requestTimeout = this._requestTimeoutBase;
     }
 
     this._mainPushService = null;
@@ -651,6 +661,17 @@ var PushServiceWebSocket = {
         Ci.nsITimer
       );
     }
+
+    let extendTimeout = 0;
+    if (!this._ws) {
+      if (this.credential && this.credential.isExpired) {
+        extendTimeout += prefs.getIntPref("extendTimeout.token", 0);
+      }
+    }
+    if (extendTimeout > 0) {
+      this._requestTimeout = this._requestTimeoutBase + extendTimeout;
+    }
+
     this._requestTimeoutTimer.init(
       this,
       this._requestTimeout,
@@ -960,7 +981,7 @@ var PushServiceWebSocket = {
         // Grab a wakelock before we open the socket to ensure we don't go to
         // sleep before connection the is opened.
         this._ws.asyncOpen(uri, uri.spec, 0, this._wsListener, null);
-        this._acquireWakeLock("WebSocketSetup");
+        this._acquireWakeLock("WebSocketSetup", this._requestTimeout);
         this._currentState = STATE_WAITING_FOR_WS_START;
       } catch (e) {
         console.error(
@@ -1010,7 +1031,7 @@ var PushServiceWebSocket = {
     return !!this._ws;
   },
 
-  _acquireWakeLock(reason) {
+  _acquireWakeLock(reason, duration) {
     if (!AppConstants.MOZ_B2G) {
       return;
     }
@@ -1046,6 +1067,10 @@ var PushServiceWebSocket = {
       }
     }
 
+    let timeout = this._requestTimeoutBase;
+    if (typeof duration === "number" && duration > 0) {
+      timeout = duration;
+    }
     console.debug("acquireWakeLock: Setting  " + reason + "  WakeLock Timer");
     this._socketWakeLock[reason].timer.initWithCallback(
       this._releaseWakeLock.bind(this, reason),
@@ -1053,7 +1078,7 @@ var PushServiceWebSocket = {
       // requests after the setup. Fudge it a bit since
       // timers can be a little off and we don't want to go
       // to sleep just as the socket connected.
-      this._requestTimeout + 1000,
+      timeout + 1000,
       Ci.nsITimer.TYPE_ONE_SHOT
     );
   },
@@ -1846,6 +1871,7 @@ var PushServiceWebSocket = {
     this._pendingRequests.delete(key);
     if (!this._hasPendingRequests()) {
       this._requestTimeoutTimer.cancel();
+      this._requestTimeout = this._requestTimeoutBase;
     }
     return request;
   },

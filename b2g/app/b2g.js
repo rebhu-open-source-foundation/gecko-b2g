@@ -973,6 +973,8 @@ pref("dom.webnotifications.serviceworker.maxActions", 2);
 pref("dom.push.enabled", true);
 // TODO: KaiOS Bug 74955.
 pref("dom.push.quota.disabled", true);
+// extend request timeout if fetching token is required
+pref("dom.push.extendTimeout.token", 3000);
 
 // Adaptive ping
 pref("dom.push.adaptive.enabled", false);
