@@ -508,12 +508,12 @@ var PushServiceWebSocket = {
       this._wsListener._pushService = null;
     }
 
-    if (this._ws) {
+    if (this._ws && this._currentState >= STATE_WAITING_FOR_WS_START) {
       try {
         this._ws.close(0, null);
       } catch (e) {}
-      this._ws = null;
     }
+    this._ws = null;
 
     this._lastPingTime = 0;
 
@@ -979,21 +979,20 @@ var PushServiceWebSocket = {
           return tryOpenWS.bind(this)();
         },
         errorStatus => {
-          if (errorStatus > 0) {
-            return this._mainPushService.getAllUnexpired().then(records => {
-              this._ws = null;
-              this._wsListener = null;
-              if (records.length > 0) {
-                this._reconnect();
-              } else {
-                this._shutdownWS();
-              }
-              return Promise.resolve();
-            });
+          if (!this._hasPendingRequests()) {
+            if (errorStatus > 0) {
+              return this._mainPushService.getAllUnexpired().then(records => {
+                if (records.length > 0) {
+                  this._reconnect();
+                } else {
+                  this._shutdownWS();
+                }
+                return Promise.resolve();
+              });
+            }
+            this._shutdownWS();
+            return Promise.resolve();
           }
-          this._ws = null;
-          this._wsListener = null;
-          this._shutdownWS();
           return Promise.resolve();
         }
       );
