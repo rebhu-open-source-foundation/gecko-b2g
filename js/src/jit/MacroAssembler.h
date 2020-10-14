@@ -1448,6 +1448,10 @@ class MacroAssembler : public MacroAssemblerSpecific {
   inline void branchTestFunctionFlags(Register fun, uint32_t flags,
                                       Condition cond, Label* label);
 
+  inline void branchIfNotFunctionIsNonBuiltinCtor(Register fun,
+                                                  Register scratch,
+                                                  Label* label);
+
   inline void branchIfFunctionHasNoJitEntry(Register fun, bool isConstructing,
                                             Label* label);
   inline void branchIfFunctionHasJitEntry(Register fun, bool isConstructing,
@@ -2653,8 +2657,7 @@ class MacroAssembler : public MacroAssemblerSpecific {
   inline void unsignedWidenLowInt32x4(FloatRegister src, FloatRegister dest)
       DEFINED_ON(x86_shared, arm64);
 
-  // Compare-based minimum/maximum (experimental as of August, 2020)
-  // https://github.com/WebAssembly/simd/pull/122
+  // Compare-based minimum/maximum
 
   inline void pseudoMinFloat32x4(FloatRegister rhs, FloatRegister lhsDest)
       DEFINED_ON(x86_shared, arm64);
@@ -2668,14 +2671,12 @@ class MacroAssembler : public MacroAssemblerSpecific {
   inline void pseudoMaxFloat64x2(FloatRegister rhs, FloatRegister lhsDest)
       DEFINED_ON(x86_shared, arm64);
 
-  // Widening/pairwise integer dot product (experimental as of August, 2020)
-  // https://github.com/WebAssembly/simd/pull/127
+  // Widening/pairwise integer dot product
 
   inline void widenDotInt16x8(FloatRegister rhs, FloatRegister lhsDest)
       DEFINED_ON(x86_shared, arm64);
 
-  // Floating point rounding (experimental as of August, 2020)
-  // https://github.com/WebAssembly/simd/pull/232
+  // Floating point rounding
 
   inline void ceilFloat32x4(FloatRegister src, FloatRegister dest)
       DEFINED_ON(x86_shared, arm64);

@@ -5527,12 +5527,14 @@ nsresult QuotaManager::UpgradeStorage(const int32_t aOldVersion,
     QM_TRY(helper->ProcessRepository());
   }
 
+#ifdef DEBUG
   {
-    QM_DEBUG_TRY_UNWRAP(const int32_t storageVersion,
-                        MOZ_TO_RESULT_INVOKE(aConnection, GetSchemaVersion));
+    QM_TRY_INSPECT(const int32_t& storageVersion,
+                   MOZ_TO_RESULT_INVOKE(aConnection, GetSchemaVersion));
 
     MOZ_ASSERT(storageVersion == aOldVersion);
   }
+#endif
 
   QM_TRY(aConnection->SetSchemaVersion(aNewVersion));
 
@@ -5700,12 +5702,14 @@ nsresult QuotaManager::UpgradeStorageFrom2_2To2_3(
         nsLiteralCString("INSERT INTO database (cache_version) "
                          "VALUES (0)")));
 
+#ifdef DEBUG
     {
-      QM_DEBUG_TRY_UNWRAP(const int32_t storageVersion,
-                          MOZ_TO_RESULT_INVOKE(aConnection, GetSchemaVersion));
+      QM_TRY_INSPECT(const int32_t& storageVersion,
+                     MOZ_TO_RESULT_INVOKE(aConnection, GetSchemaVersion));
 
       MOZ_ASSERT(storageVersion == MakeStorageVersion(2, 2));
     }
+#endif
 
     QM_TRY(aConnection->SetSchemaVersion(MakeStorageVersion(2, 3)));
 
@@ -6424,11 +6428,14 @@ nsresult QuotaManager::EnsureStorageIsInitialized() {
     if (newDatabase && newDirectory) {
       QM_TRY(CreateTables(connection));
 
+#ifdef DEBUG
       {
-        QM_DEBUG_TRY_UNWRAP(const auto storageVersion,
-                            MOZ_TO_RESULT_INVOKE(connection, GetSchemaVersion));
+        QM_TRY_INSPECT(const int32_t& storageVersion,
+                       MOZ_TO_RESULT_INVOKE(connection, GetSchemaVersion),
+                       QM_ASSERT_UNREACHABLE);
         MOZ_ASSERT(storageVersion == kStorageVersion);
       }
+#endif
 
       QM_TRY(connection->ExecuteSimpleSQL(
           nsLiteralCString("INSERT INTO database (cache_version) "
@@ -11074,9 +11081,13 @@ void OriginParser::HandleTrailingSeparator() {
 nsresult RepositoryOperationBase::ProcessRepository() {
   AssertIsOnIOThread();
 
-  QM_DEBUG_TRY_UNWRAP(const bool exists,
-                      MOZ_TO_RESULT_INVOKE(mDirectory, Exists));
-  MOZ_ASSERT(exists);
+#ifdef DEBUG
+  {
+    QM_TRY_INSPECT(const bool& exists, MOZ_TO_RESULT_INVOKE(mDirectory, Exists),
+                   QM_ASSERT_UNREACHABLE);
+    MOZ_ASSERT(exists);
+  }
+#endif
 
   QM_TRY(CollectEachFileEntry(
       *mDirectory,

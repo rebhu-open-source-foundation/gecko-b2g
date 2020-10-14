@@ -41,6 +41,7 @@ class JSONPrinter;
 namespace frontend {
 
 struct CompilationInfo;
+struct CompilationAtomCache;
 struct CompilationStencil;
 struct CompilationGCOutput;
 class ScriptStencil;
@@ -245,6 +246,8 @@ class ScopeStencil {
                                  ScopeIndex* index);
 
   AbstractScopePtr enclosing(CompilationInfo& compilationInfo) const;
+  js::Scope* enclosingExistingScope(const CompilationInput& input,
+                                    const CompilationGCOutput& gcOutput) const;
 
   ScopeKind kind() const { return kind_; }
 
@@ -257,7 +260,7 @@ class ScopeStencil {
 
   bool isArrow() const { return isArrow_; }
 
-  Scope* createScope(JSContext* cx, CompilationInfo& compilationInfo,
+  Scope* createScope(JSContext* cx, CompilationInput& input,
                      CompilationGCOutput& gcOutput) const;
 
   uint32_t nextFrameSlot() const;
@@ -283,7 +286,7 @@ class ScopeStencil {
   // Transfer ownership into a new UniquePtr.
   template <typename SpecificScopeType>
   UniquePtr<typename SpecificScopeType::Data> createSpecificScopeData(
-      JSContext* cx, CompilationInfo& compilationInfo,
+      JSContext* cx, CompilationAtomCache& atomCache,
       CompilationGCOutput& gcOutput) const;
 
   template <typename SpecificScopeType>
@@ -299,7 +302,7 @@ class ScopeStencil {
                                         MutableHandleShape shape) const;
 
   template <typename SpecificScopeType, typename SpecificEnvironmentType>
-  Scope* createSpecificScope(JSContext* cx, CompilationInfo& compilationInfo,
+  Scope* createSpecificScope(JSContext* cx, CompilationInput& input,
                              CompilationGCOutput& gcOutput) const;
 };
 
@@ -408,7 +411,7 @@ class StencilModuleMetadata {
 
   StencilModuleMetadata() = default;
 
-  bool initModule(JSContext* cx, CompilationInfo& compilationInfo,
+  bool initModule(JSContext* cx, CompilationAtomCache& atomCache,
                   JS::Handle<ModuleObject*> module) const;
 
 #if defined(DEBUG) || defined(JS_JITSPEW)

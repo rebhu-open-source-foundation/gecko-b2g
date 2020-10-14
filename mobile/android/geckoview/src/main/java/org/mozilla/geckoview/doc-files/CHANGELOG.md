@@ -29,11 +29,14 @@ exclude: true
 - Added [`GeckoRuntime.ActivityDelegate`][83.4] which allows applications to handle
   starting external Activities on behalf of GeckoView. Currently this is used to integrate
   FIDO support for WebAuthn.
+- Added ['GeckoWebExecutor#FETCH_FLAG_PRIVATE'][83.5]. This new flag allows for private browsing downloads using WebExecutor.
+  ([bug 1665426]({{bugzilla}}1665426))
 
 [83.1]: {{javadoc_uri}}/WebExtension.MetaData.html#temporary
 [83.2]: {{javadoc_uri}}/MediaSession.Delegate.html#onMetadata-org.mozilla.geckoview.GeckoSession-org.mozilla.geckoview.MediaSession-org.mozilla.geckoview.MediaSession.Metadata-
 [83.3]: {{javadoc_uri}}/ContentBlocking.SafeBrowsingProvider.html
 [83.4]: {{javadoc_uri}}/GeckoRuntime.ActivityDelegate.html
+[83.5]: {{javadoc_uri}}/GeckoWebExecutor.html#FETCH_FLAG_PRIVATE
 
 ## v82
 - ⚠️  [`WebNotification.source`][79.2] is now `@Nullable` to account for
@@ -56,7 +59,7 @@ exclude: true
   ([bug 1650108]({{bugzilla}}1650108))
 - ⚠️ Use AndroidX instead of the Android support library. For the public API this only changes
   the thread and nullable annotation types.
-- Added [`REPLACED_UNSAFE_CONTENT`][82.6] to content blocking API to indicate when unsafe content is shimmed.
+- Added [`REPLACED_TRACKING_CONTENT`][82.6] to content blocking API to indicate when unsafe content is shimmed.
   ([bug 1663756]({{bugzilla}}1663756))
   
 [82.1]: {{javadoc_uri}}/GeckoSession.ContentDelegate.html#onExternalResponse-org.mozilla.geckoview.GeckoSession-org.mozilla.geckoview.GeckoSession.WebResponseInfo-
@@ -64,7 +67,7 @@ exclude: true
 [82.3]: {{javadoc_uri}}/Image.html
 [82.4]: {{javadoc_uri}}/GeckoSession.PromptDelegate.RepostConfirmPrompt.html
 [82.5]: {{javadoc_uri}}/GeckoSession.html#restoreState-org.mozilla.geckoview.GeckoSession.SessionState-
-[82.6]: {{javadoc_uri}}/ContentBlockingController.Event.html#REPLACED_UNSAFE_CONTENT
+[82.6]: {{javadoc_uri}}/ContentBlockingController.Event.html#REPLACED_TRACKING_CONTENT
 
 ## v81
 - Added `cookiePurging` to [`ContentBlocking.Settings.Builder`][81.1] and `getCookiePurging` and `setCookiePurging`
@@ -823,4 +826,4 @@ to allow adding gecko profiler markers.
 [65.24]: {{javadoc_uri}}/CrashReporter.html#sendCrashReport-android.content.Context-android.os.Bundle-java.lang.String-
 [65.25]: {{javadoc_uri}}/GeckoResult.html
 
-[api-version]: d3186b70503f71a6476c765f76c6d49f9a1fb282
+[api-version]: a2b63f41870a698bfe884cc415427dfb8c6fb471

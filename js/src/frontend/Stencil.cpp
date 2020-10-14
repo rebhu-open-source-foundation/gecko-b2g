@@ -46,14 +46,24 @@ AbstractScopePtr ScopeStencil::enclosing(
   return AbstractScopePtr(compilationInfo.input.enclosingScope);
 }
 
-Scope* ScopeStencil::createScope(JSContext* cx,
-                                 CompilationInfo& compilationInfo,
+Scope* ScopeStencil::enclosingExistingScope(
+    const CompilationInput& input, const CompilationGCOutput& gcOutput) const {
+  if (enclosing_) {
+    Scope* result = gcOutput.scopes[*enclosing_];
+    MOZ_ASSERT(result, "Scope must already exist to use this method");
+    return result;
+  }
+
+  return input.enclosingScope;
+}
+
+Scope* ScopeStencil::createScope(JSContext* cx, CompilationInput& input,
                                  CompilationGCOutput& gcOutput) const {
   Scope* scope = nullptr;
   switch (kind()) {
     case ScopeKind::Function: {
-      scope = createSpecificScope<FunctionScope, CallObject>(
-          cx, compilationInfo, gcOutput);
+      scope =
+          createSpecificScope<FunctionScope, CallObject>(cx, input, gcOutput);
       break;
     }
     case ScopeKind::Lexical:
@@ -64,34 +74,34 @@ Scope* ScopeStencil::createScope(JSContext* cx,
     case ScopeKind::FunctionLexical:
     case ScopeKind::ClassBody: {
       scope = createSpecificScope<LexicalScope, LexicalEnvironmentObject>(
-          cx, compilationInfo, gcOutput);
+          cx, input, gcOutput);
       break;
     }
     case ScopeKind::FunctionBodyVar: {
-      scope = createSpecificScope<VarScope, VarEnvironmentObject>(
-          cx, compilationInfo, gcOutput);
+      scope = createSpecificScope<VarScope, VarEnvironmentObject>(cx, input,
+                                                                  gcOutput);
       break;
     }
     case ScopeKind::Global:
     case ScopeKind::NonSyntactic: {
-      scope = createSpecificScope<GlobalScope, std::nullptr_t>(
-          cx, compilationInfo, gcOutput);
+      scope =
+          createSpecificScope<GlobalScope, std::nullptr_t>(cx, input, gcOutput);
       break;
     }
     case ScopeKind::Eval:
     case ScopeKind::StrictEval: {
-      scope = createSpecificScope<EvalScope, VarEnvironmentObject>(
-          cx, compilationInfo, gcOutput);
+      scope = createSpecificScope<EvalScope, VarEnvironmentObject>(cx, input,
+                                                                   gcOutput);
       break;
     }
     case ScopeKind::Module: {
       scope = createSpecificScope<ModuleScope, ModuleEnvironmentObject>(
-          cx, compilationInfo, gcOutput);
+          cx, input, gcOutput);
       break;
     }
     case ScopeKind::With: {
-      scope = createSpecificScope<WithScope, std::nullptr_t>(
-          cx, compilationInfo, gcOutput);
+      scope =
+          createSpecificScope<WithScope, std::nullptr_t>(cx, input, gcOutput);
       break;
     }
     case ScopeKind::WasmFunction:
@@ -191,7 +201,7 @@ static JSFunction* CreateFunction(JSContext* cx,
   RootedAtom displayAtom(cx);
   if (script.functionAtom) {
     displayAtom.set(
-        compilationInfo.liftParserAtomToJSAtom(cx, script.functionAtom));
+        script.functionAtom->toJSAtom(cx, compilationInfo.input.atomCache));
     if (!displayAtom) {
       return nullptr;
     }
@@ -261,8 +271,8 @@ static bool MaybeInstantiateModule(JSContext* cx,
       return false;
     }
 
-    if (!compilationInfo.stencil.moduleMetadata.initModule(cx, compilationInfo,
-                                                           gcOutput.module)) {
+    if (!compilationInfo.stencil.moduleMetadata.initModule(
+            cx, compilationInfo.input.atomCache, gcOutput.module)) {
       return false;
     }
   }
@@ -302,18 +312,20 @@ static bool InstantiateScopes(JSContext* cx, CompilationInfo& compilationInfo,
   // enclosing Scope should already be allocated.
   //
   // Enclosing scope of ScopeStencil can be either ScopeStencil or Scope*
-  // pointer, capsulated by AbstractScopePtr.
+  // pointer.
   //
   // If the enclosing scope is ScopeStencil, it's guaranteed to be earlier
-  // element in compilationInfo.scopeData, because AbstractScopePtr holds index
+  // element in compilationInfo.scopeData, because enclosing_ field holds index
   // into it, and newly created ScopeStencil is pushed back to the vector.
+  //
+  // If the enclosing scope is Scope*, it's CompilationInput.enclosingScope.
 
   if (!gcOutput.scopes.reserve(compilationInfo.stencil.scopeData.length())) {
     return false;
   }
 
   for (const ScopeStencil& scd : compilationInfo.stencil.scopeData) {
-    Scope* scope = scd.createScope(cx, compilationInfo, gcOutput);
+    Scope* scope = scd.createScope(cx, compilationInfo.input, gcOutput);
     if (!scope) {
       return false;
     }
@@ -359,8 +371,8 @@ static bool SetTypeAndNameForExposedFunctions(JSContext* cx,
       JSAtom* funcAtom = nullptr;
       if (scriptStencil.functionFlags.hasInferredName() ||
           scriptStencil.functionFlags.hasGuessedAtom()) {
-        funcAtom = compilationInfo.liftParserAtomToJSAtom(
-            cx, scriptStencil.functionAtom);
+        funcAtom = scriptStencil.functionAtom->toJSAtom(
+            cx, compilationInfo.input.atomCache);
         if (!funcAtom) {
           return false;
         }
@@ -384,6 +396,8 @@ static bool SetTypeAndNameForExposedFunctions(JSContext* cx,
 static bool InstantiateScriptStencils(JSContext* cx,
                                       CompilationInfo& compilationInfo,
                                       CompilationGCOutput& gcOutput) {
+  MOZ_ASSERT(compilationInfo.input.lazy == nullptr);
+
   for (auto item : compilationInfo.functionScriptStencils(gcOutput)) {
     auto& scriptStencil = item.script;
     auto& fun = item.function;
@@ -391,8 +405,8 @@ static bool InstantiateScriptStencils(JSContext* cx,
       // If the function was not referenced by enclosing script's bytecode, we
       // do not generate a BaseScript for it. For example, `(function(){});`.
       //
-      // `wasFunctionEmitted` is false also for standalone functions and
-      // functions being delazified. they are handled in InstantiateTopLevel.
+      // `wasFunctionEmitted` is false also for standalone functions. They are
+      // handled in InstantiateTopLevel.
       if (!scriptStencil.wasFunctionEmitted) {
         continue;
       }
@@ -412,10 +426,8 @@ static bool InstantiateScriptStencils(JSContext* cx,
       }
     } else if (scriptStencil.functionFlags.isAsmJSNative()) {
       MOZ_ASSERT(fun->isAsmJSNative());
-    } else if (fun->isIncomplete()) {
-      // Lazy functions are generally only allocated in the initial parse.
-      MOZ_ASSERT(compilationInfo.input.lazy == nullptr);
-
+    } else {
+      MOZ_ASSERT(fun->isIncomplete());
       if (!CreateLazyScript(cx, compilationInfo, gcOutput, scriptStencil,
                             fun)) {
         return false;
@@ -596,6 +608,10 @@ static void AssertDelazificationFieldsMatch(CompilationInfo& compilationInfo,
                (scriptStencil.functionFlags.toRaw() |
                 acceptableDifferenceForFunction));
 
+    // Delazification shouldn't delazify inner scripts.
+    MOZ_ASSERT_IF(item.functionIndex == 0, scriptStencil.sharedData);
+    MOZ_ASSERT_IF(item.functionIndex > 0, !scriptStencil.sharedData);
+
     // FIXME: If this function is lazily parsed again, nargs isn't set to
     //        correct value (bug 1666978).
     MOZ_ASSERT_IF(scriptStencil.sharedData,
@@ -630,20 +646,22 @@ bool CompilationInfo::instantiateStencils(JSContext* cx,
     return false;
   }
 
-  if (stencil.scriptData[CompilationInfo::TopLevelIndex].isModule()) {
-    MOZ_ASSERT(input.enclosingScope == nullptr);
-    input.enclosingScope = &cx->global()->emptyGlobalScope();
-    MOZ_ASSERT(input.enclosingScope->environmentChainLength() ==
-               ModuleScope::EnclosingEnvironmentChainLength);
-  }
-
   if (input.lazy) {
+    MOZ_ASSERT(!stencil.scriptData[CompilationInfo::TopLevelIndex].isModule());
+
     FunctionsFromExistingLazy(*this, gcOutput);
 
 #ifdef DEBUG
     AssertDelazificationFieldsMatch(*this, gcOutput);
 #endif
   } else {
+    if (stencil.scriptData[CompilationInfo::TopLevelIndex].isModule()) {
+      MOZ_ASSERT(input.enclosingScope == nullptr);
+      input.enclosingScope = &cx->global()->emptyGlobalScope();
+      MOZ_ASSERT(input.enclosingScope->environmentChainLength() ==
+                 ModuleScope::EnclosingEnvironmentChainLength);
+    }
+
     if (!InstantiateScriptSourceObject(cx, *this, gcOutput)) {
       return false;
     }
@@ -665,8 +683,10 @@ bool CompilationInfo::instantiateStencils(JSContext* cx,
     return false;
   }
 
-  if (!InstantiateScriptStencils(cx, *this, gcOutput)) {
-    return false;
+  if (!input.lazy) {
+    if (!InstantiateScriptStencils(cx, *this, gcOutput)) {
+      return false;
+    }
   }
 
   if (!InstantiateTopLevel(cx, *this, gcOutput)) {
@@ -677,7 +697,7 @@ bool CompilationInfo::instantiateStencils(JSContext* cx,
 
   UpdateEmittedInnerFunctions(*this, gcOutput);
 
-  if (input.lazy == nullptr) {
+  if (!input.lazy) {
     LinkEnclosingLazyScript(*this, gcOutput);
   }
 

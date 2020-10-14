@@ -147,6 +147,14 @@ gfx::YUVColorSpace GPUVideoTextureHost::GetYUVColorSpace() const {
   return mWrappedTextureHost->GetYUVColorSpace();
 }
 
+gfx::ColorDepth GPUVideoTextureHost::GetColorDepth() const {
+  MOZ_ASSERT(mWrappedTextureHost, "Image isn't valid yet");
+  if (!mWrappedTextureHost) {
+    return TextureHost::GetColorDepth();
+  }
+  return mWrappedTextureHost->GetColorDepth();
+}
+
 gfx::ColorRange GPUVideoTextureHost::GetColorRange() const {
   MOZ_ASSERT(mWrappedTextureHost, "Image isn't valid yet");
   if (!mWrappedTextureHost) {
@@ -245,23 +253,22 @@ void GPUVideoTextureHost::PushResourceUpdates(
 void GPUVideoTextureHost::PushDisplayItems(
     wr::DisplayListBuilder& aBuilder, const wr::LayoutRect& aBounds,
     const wr::LayoutRect& aClip, wr::ImageRendering aFilter,
-    const Range<wr::ImageKey>& aImageKeys,
-    const bool aPreferCompositorSurface) {
+    const Range<wr::ImageKey>& aImageKeys, PushDisplayItemFlagSet aFlags) {
   MOZ_ASSERT(EnsureWrappedTextureHost(), "Image isn't valid yet");
   MOZ_ASSERT(aImageKeys.length() > 0);
   if (!EnsureWrappedTextureHost()) {
     return;
   }
 
-  EnsureWrappedTextureHost()->PushDisplayItems(
-      aBuilder, aBounds, aClip, aFilter, aImageKeys, aPreferCompositorSurface);
+  EnsureWrappedTextureHost()->PushDisplayItems(aBuilder, aBounds, aClip,
+                                               aFilter, aImageKeys, aFlags);
 }
 
 void GPUVideoTextureHost::UnbindTextureSource() {
   if (EnsureWrappedTextureHost()) {
     EnsureWrappedTextureHost()->UnbindTextureSource();
   }
-   // Handle read unlock
+  // Handle read unlock
   TextureHost::UnbindTextureSource();
 }
 

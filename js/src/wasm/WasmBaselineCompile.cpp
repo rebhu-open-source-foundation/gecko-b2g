@@ -14970,20 +14970,15 @@ bool BaseCompiler::emitBody() {
             CHECK_NEXT(dispatchVectorBinary(NarrowUI32x4));
           case uint32_t(SimdOp::V8x16Swizzle):
             CHECK_NEXT(dispatchVectorBinary(Swizzle));
-          case uint32_t(SimdOp::F32x4PMaxExperimental):
-            CHECK_SIMD_EXPERIMENTAL();
+          case uint32_t(SimdOp::F32x4PMax):
             CHECK_NEXT(dispatchVectorBinary(PMaxF32x4));
-          case uint32_t(SimdOp::F32x4PMinExperimental):
-            CHECK_SIMD_EXPERIMENTAL();
+          case uint32_t(SimdOp::F32x4PMin):
             CHECK_NEXT(dispatchVectorBinary(PMinF32x4));
-          case uint32_t(SimdOp::F64x2PMaxExperimental):
-            CHECK_SIMD_EXPERIMENTAL();
+          case uint32_t(SimdOp::F64x2PMax):
             CHECK_NEXT(dispatchVectorBinary(PMaxF64x2));
-          case uint32_t(SimdOp::F64x2PMinExperimental):
-            CHECK_SIMD_EXPERIMENTAL();
+          case uint32_t(SimdOp::F64x2PMin):
             CHECK_NEXT(dispatchVectorBinary(PMinF64x2));
-          case uint32_t(SimdOp::I32x4DotSI16x8Experimental):
-            CHECK_SIMD_EXPERIMENTAL();
+          case uint32_t(SimdOp::I32x4DotSI16x8):
             CHECK_NEXT(dispatchVectorBinary(DotI16x8));
           case uint32_t(SimdOp::I8x16Neg):
             CHECK_NEXT(dispatchVectorUnary(NegI8x16));
@@ -15037,29 +15032,21 @@ bool BaseCompiler::emitBody() {
             CHECK_NEXT(dispatchVectorUnary(AbsI16x8));
           case uint32_t(SimdOp::I32x4Abs):
             CHECK_NEXT(dispatchVectorUnary(AbsI32x4));
-          case uint32_t(SimdOp::F32x4CeilExperimental):
-            CHECK_SIMD_EXPERIMENTAL();
+          case uint32_t(SimdOp::F32x4Ceil):
             CHECK_NEXT(dispatchVectorUnary(CeilF32x4));
-          case uint32_t(SimdOp::F32x4FloorExperimental):
-            CHECK_SIMD_EXPERIMENTAL();
+          case uint32_t(SimdOp::F32x4Floor):
             CHECK_NEXT(dispatchVectorUnary(FloorF32x4));
-          case uint32_t(SimdOp::F32x4TruncExperimental):
-            CHECK_SIMD_EXPERIMENTAL();
+          case uint32_t(SimdOp::F32x4Trunc):
             CHECK_NEXT(dispatchVectorUnary(TruncF32x4));
-          case uint32_t(SimdOp::F32x4NearestExperimental):
-            CHECK_SIMD_EXPERIMENTAL();
+          case uint32_t(SimdOp::F32x4Nearest):
             CHECK_NEXT(dispatchVectorUnary(NearestF32x4));
-          case uint32_t(SimdOp::F64x2CeilExperimental):
-            CHECK_SIMD_EXPERIMENTAL();
+          case uint32_t(SimdOp::F64x2Ceil):
             CHECK_NEXT(dispatchVectorUnary(CeilF64x2));
-          case uint32_t(SimdOp::F64x2FloorExperimental):
-            CHECK_SIMD_EXPERIMENTAL();
+          case uint32_t(SimdOp::F64x2Floor):
             CHECK_NEXT(dispatchVectorUnary(FloorF64x2));
-          case uint32_t(SimdOp::F64x2TruncExperimental):
-            CHECK_SIMD_EXPERIMENTAL();
+          case uint32_t(SimdOp::F64x2Trunc):
             CHECK_NEXT(dispatchVectorUnary(TruncF64x2));
-          case uint32_t(SimdOp::F64x2NearestExperimental):
-            CHECK_SIMD_EXPERIMENTAL();
+          case uint32_t(SimdOp::F64x2Nearest):
             CHECK_NEXT(dispatchVectorUnary(NearestF64x2));
           case uint32_t(SimdOp::I8x16Shl):
             CHECK_NEXT(dispatchVectorVariableShift(ShiftLeftI8x16));
