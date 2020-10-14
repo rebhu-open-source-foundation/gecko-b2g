@@ -84,7 +84,6 @@ void BluetoothGattService::AssignServiceHandle(
   MOZ_ASSERT(!mServiceHandle.mHandle);
 
   mServiceHandle = aServiceHandle;
-  mActive = true;
 }
 
 void BluetoothGattService::AssignCharacteristicHandle(
@@ -109,6 +108,40 @@ void BluetoothGattService::AssignDescriptorHandle(
   NS_ENSURE_TRUE_VOID(index != mCharacteristics.NoIndex);
   mCharacteristics[index]->AssignDescriptorHandle(aDescriptorUuid,
                                                   aDescriptorHandle);
+}
+
+void BluetoothGattService::UpdateAttributeHandles(
+    const nsTArray<BluetoothGattDbElement>& aDbElements) {
+  MOZ_ASSERT(mAttRole == ATT_SERVER_ROLE);
+
+  BluetoothAttributeHandle currCharacteristicHandle;
+  for (uint32_t i = 0; i < aDbElements.Length(); i++) {
+    switch (aDbElements[i].mType) {
+      case GATT_DB_TYPE_PRIMARY_SERVICE:
+      case GATT_DB_TYPE_SECONDARY_SERVICE:
+        AssignServiceHandle(aDbElements[i].mHandle);
+        break;
+      case GATT_DB_TYPE_CHARACTERISTIC:
+        currCharacteristicHandle = aDbElements[i].mHandle;
+        AssignCharacteristicHandle(aDbElements[i].mUuid,
+                                   aDbElements[i].mHandle);
+        break;
+      case GATT_DB_TYPE_DESCRIPTOR:
+        AssignDescriptorHandle(aDbElements[i].mUuid, currCharacteristicHandle,
+                               aDbElements[i].mHandle);
+        break;
+      case GATT_DB_TYPE_INCLUDED_SERVICE: {
+        // Do nothing, included service should be added first
+        break;
+      }
+      case GATT_DB_TYPE_END_GUARD:
+      default:
+        BT_WARNING("Unhandled GATT DB type: %d", aDbElements[i].mType);
+    }
+  }
+
+  // service is ready when attribute handles are assigned
+  mActive = true;
 }
 
 uint16_t BluetoothGattService::GetHandleCount() const {

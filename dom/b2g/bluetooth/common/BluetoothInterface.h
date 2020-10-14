@@ -791,27 +791,7 @@ class BluetoothGattNotificationHandler {
 
   virtual void ServiceAddedNotification(
       BluetoothGattStatus aStatus, int aServerIf,
-      const BluetoothGattServiceId& aServiceId,
-      const BluetoothAttributeHandle& aServiceHandle);
-
-  virtual void IncludedServiceAddedNotification(
-      BluetoothGattStatus aStatus, int aServerIf,
-      const BluetoothAttributeHandle& aServiceHandle,
-      const BluetoothAttributeHandle& aIncludedServiceHandle);
-
-  virtual void CharacteristicAddedNotification(
-      BluetoothGattStatus aStatus, int aServerIf, const BluetoothUuid& aCharId,
-      const BluetoothAttributeHandle& aServiceHandle,
-      const BluetoothAttributeHandle& aCharacteristicHandle);
-
-  virtual void DescriptorAddedNotification(
-      BluetoothGattStatus aStatus, int aServerIf, const BluetoothUuid& aCharId,
-      const BluetoothAttributeHandle& aServiceHandle,
-      const BluetoothAttributeHandle& aDescriptorHandle);
-
-  virtual void ServiceStartedNotification(
-      BluetoothGattStatus aStatus, int aServerIf,
-      const BluetoothAttributeHandle& aServiceHandle);
+      const nsTArray<BluetoothGattDbElement>& aDb);
 
   virtual void ServiceStoppedNotification(
       BluetoothGattStatus aStatus, int aServerIf,
@@ -898,11 +878,6 @@ class BluetoothGattResultHandler
   virtual void DisconnectPeripheral();
 
   virtual void AddService();
-  virtual void AddIncludedService();
-  virtual void AddCharacteristic();
-  virtual void AddDescriptor();
-
-  virtual void StartService();
   virtual void StopService();
   virtual void DeleteService();
 
@@ -1026,32 +1001,12 @@ class BluetoothGattInterface {
                                     int aConnId,
                                     BluetoothGattResultHandler* aRes) = 0;
 
-  /* Add a services / a characteristic / a descriptor */
+  /* Add a service */
   virtual void AddService(int aServerIf,
-                          const BluetoothGattServiceId& aServiceId,
-                          uint16_t aNumHandles,
+                          const nsTArray<BluetoothGattDbElement>& aDb,
                           BluetoothGattResultHandler* aRes) = 0;
-  virtual void AddIncludedService(
-      int aServerIf, const BluetoothAttributeHandle& aServiceHandle,
-      const BluetoothAttributeHandle& aIncludedServiceHandle,
-      BluetoothGattResultHandler* aRes) = 0;
-  virtual void AddCharacteristic(int aServerIf,
-                                 const BluetoothAttributeHandle& aServiceHandle,
-                                 const BluetoothUuid& aUuid,
-                                 BluetoothGattCharProp aProperties,
-                                 BluetoothGattAttrPerm aPermissions,
-                                 BluetoothGattResultHandler* aRes) = 0;
-  virtual void AddDescriptor(int aServerIf,
-                             const BluetoothAttributeHandle& aServiceHandle,
-                             const BluetoothUuid& aUuid,
-                             BluetoothGattAttrPerm aPermissions,
-                             BluetoothGattResultHandler* aRes) = 0;
 
-  /* Start / Stop / Delete a service */
-  virtual void StartService(int aServerIf,
-                            const BluetoothAttributeHandle& aServiceHandle,
-                            BluetoothTransport aTransport,
-                            BluetoothGattResultHandler* aRes) = 0;
+  /* Stop / Delete a service */
   virtual void StopService(int aServerIf,
                            const BluetoothAttributeHandle& aServiceHandle,
                            BluetoothGattResultHandler* aRes) = 0;

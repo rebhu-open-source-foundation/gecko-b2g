@@ -158,6 +158,14 @@ class BluetoothGattService final : public nsISupports, public nsWrapperCache {
       const BluetoothAttributeHandle& aDescriptorHandle);
 
   /**
+   * Update attribute handle of this service and its characteristics/descriptors
+   *
+   * @param dbElements [in] GATT DB of this service
+   */
+  void UpdateAttributeHandles(
+      const nsTArray<BluetoothGattDbElement>& aDbElements);
+
+  /**
    * Examine whether this GATT service can react with the Bluetooth backend.
    *
    * @return true if this service can react with the Bluetooth backend; false

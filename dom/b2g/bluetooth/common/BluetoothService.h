@@ -460,35 +460,11 @@ class BluetoothService : public nsIObserver,
       int aServerIf, BluetoothReplyRunnable* aRunnable) = 0;
 
   virtual void GattServerAddServiceInternal(
-      const BluetoothUuid& aAppUuid, const BluetoothGattServiceId& aServiceId,
-      uint16_t aHandleCount, BluetoothReplyRunnable* aRunnable) = 0;
-
-  virtual void GattServerAddIncludedServiceInternal(
       const BluetoothUuid& aAppUuid,
-      const BluetoothAttributeHandle& aServiceHandle,
-      const BluetoothAttributeHandle& aIncludedServiceHandle,
-      BluetoothReplyRunnable* aRunnable) = 0;
-
-  virtual void GattServerAddCharacteristicInternal(
-      const BluetoothUuid& aAppUuid,
-      const BluetoothAttributeHandle& aServiceHandle,
-      const BluetoothUuid& aCharacteristicUuid,
-      BluetoothGattAttrPerm aPermissions, BluetoothGattCharProp aProperties,
-      BluetoothReplyRunnable* aRunnable) = 0;
-
-  virtual void GattServerAddDescriptorInternal(
-      const BluetoothUuid& aAppUuid,
-      const BluetoothAttributeHandle& aServiceHandle,
-      const BluetoothAttributeHandle& aCharacteristicHandle,
-      const BluetoothUuid& aDescriptorUuid, BluetoothGattAttrPerm aPermissions,
+      const nsTArray<BluetoothGattDbElement>& aDb,
       BluetoothReplyRunnable* aRunnable) = 0;
 
   virtual void GattServerRemoveServiceInternal(
-      const BluetoothUuid& aAppUuid,
-      const BluetoothAttributeHandle& aServiceHandle,
-      BluetoothReplyRunnable* aRunnable) = 0;
-
-  virtual void GattServerStartServiceInternal(
       const BluetoothUuid& aAppUuid,
       const BluetoothAttributeHandle& aServiceHandle,
       BluetoothReplyRunnable* aRunnable) = 0;

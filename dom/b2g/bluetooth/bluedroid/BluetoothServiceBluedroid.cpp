@@ -562,22 +562,7 @@ void BluetoothServiceBluedroid::UnregisterGattServerInternal(
 }
 
 void BluetoothServiceBluedroid::GattServerAddServiceInternal(
-    const BluetoothUuid& aAppUuid, const BluetoothGattServiceId& aServiceId,
-    uint16_t aHandleCount, BluetoothReplyRunnable* aRunnable) {
-  MOZ_ASSERT(NS_IsMainThread());
-
-  ENSURE_BLUETOOTH_IS_ENABLED_VOID(aRunnable);
-
-  BluetoothGattManager* gatt = BluetoothGattManager::Get();
-  ENSURE_GATT_MGR_IS_READY_VOID(gatt, aRunnable);
-
-  gatt->ServerAddService(aAppUuid, aServiceId, aHandleCount, aRunnable);
-}
-
-void BluetoothServiceBluedroid::GattServerAddIncludedServiceInternal(
-    const BluetoothUuid& aAppUuid,
-    const BluetoothAttributeHandle& aServiceHandle,
-    const BluetoothAttributeHandle& aIncludedServiceHandle,
+    const BluetoothUuid& aAppUuid, const nsTArray<BluetoothGattDbElement>& aDb,
     BluetoothReplyRunnable* aRunnable) {
   MOZ_ASSERT(NS_IsMainThread());
 
@@ -586,42 +571,7 @@ void BluetoothServiceBluedroid::GattServerAddIncludedServiceInternal(
   BluetoothGattManager* gatt = BluetoothGattManager::Get();
   ENSURE_GATT_MGR_IS_READY_VOID(gatt, aRunnable);
 
-  gatt->ServerAddIncludedService(aAppUuid, aServiceHandle,
-                                 aIncludedServiceHandle, aRunnable);
-}
-
-void BluetoothServiceBluedroid::GattServerAddCharacteristicInternal(
-    const BluetoothUuid& aAppUuid,
-    const BluetoothAttributeHandle& aServiceHandle,
-    const BluetoothUuid& aCharacteristicUuid,
-    BluetoothGattAttrPerm aPermissions, BluetoothGattCharProp aProperties,
-    BluetoothReplyRunnable* aRunnable) {
-  MOZ_ASSERT(NS_IsMainThread());
-
-  ENSURE_BLUETOOTH_IS_ENABLED_VOID(aRunnable);
-
-  BluetoothGattManager* gatt = BluetoothGattManager::Get();
-  ENSURE_GATT_MGR_IS_READY_VOID(gatt, aRunnable);
-
-  gatt->ServerAddCharacteristic(aAppUuid, aServiceHandle, aCharacteristicUuid,
-                                aPermissions, aProperties, aRunnable);
-}
-
-void BluetoothServiceBluedroid::GattServerAddDescriptorInternal(
-    const BluetoothUuid& aAppUuid,
-    const BluetoothAttributeHandle& aServiceHandle,
-    const BluetoothAttributeHandle& aCharacteristicHandle,
-    const BluetoothUuid& aDescriptorUuid, BluetoothGattAttrPerm aPermissions,
-    BluetoothReplyRunnable* aRunnable) {
-  MOZ_ASSERT(NS_IsMainThread());
-
-  ENSURE_BLUETOOTH_IS_ENABLED_VOID(aRunnable);
-
-  BluetoothGattManager* gatt = BluetoothGattManager::Get();
-  ENSURE_GATT_MGR_IS_READY_VOID(gatt, aRunnable);
-
-  gatt->ServerAddDescriptor(aAppUuid, aServiceHandle, aCharacteristicHandle,
-                            aDescriptorUuid, aPermissions, aRunnable);
+  gatt->ServerAddService(aAppUuid, aDb, aRunnable);
 }
 
 void BluetoothServiceBluedroid::GattServerRemoveServiceInternal(
@@ -636,20 +586,6 @@ void BluetoothServiceBluedroid::GattServerRemoveServiceInternal(
   ENSURE_GATT_MGR_IS_READY_VOID(gatt, aRunnable);
 
   gatt->ServerRemoveService(aAppUuid, aServiceHandle, aRunnable);
-}
-
-void BluetoothServiceBluedroid::GattServerStartServiceInternal(
-    const BluetoothUuid& aAppUuid,
-    const BluetoothAttributeHandle& aServiceHandle,
-    BluetoothReplyRunnable* aRunnable) {
-  MOZ_ASSERT(NS_IsMainThread());
-
-  ENSURE_BLUETOOTH_IS_ENABLED_VOID(aRunnable);
-
-  BluetoothGattManager* gatt = BluetoothGattManager::Get();
-  ENSURE_GATT_MGR_IS_READY_VOID(gatt, aRunnable);
-
-  gatt->ServerStartService(aAppUuid, aServiceHandle, aRunnable);
 }
 
 void BluetoothServiceBluedroid::GattServerStopServiceInternal(

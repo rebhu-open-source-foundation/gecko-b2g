@@ -100,24 +100,14 @@ class BluetoothGattServer final : public DOMEventTargetHelper,
   class StartAdvertisingTask;
   class RegisterServerAndStartAdvertisingTask;
   class StopAdvertisingTask;
-  class AddIncludedServiceTask;
-  class AddCharacteristicTask;
-  class AddDescriptorTask;
-  class StartServiceTask;
   class CancelAddServiceTask;
-  class AddServiceTaskQueue;
   class AddServiceTask;
   class RemoveServiceTask;
 
   friend class StartAdvertisingTask;
   friend class RegisterServerAndStartAdvertisingTask;
   friend class StopAdvertisingTask;
-  friend class AddIncludedServiceTask;
-  friend class AddCharacteristicTask;
-  friend class AddDescriptorTask;
-  friend class StartServiceTask;
   friend class CancelAddServiceTask;
-  friend class AddServiceTaskQueue;
   friend class AddServiceTask;
   friend class RemoveServiceTask;
 
@@ -140,9 +130,8 @@ class BluetoothGattServer final : public DOMEventTargetHelper,
   void HandleServerRegistered(const BluetoothValue& aValue);
   void HandleServerUnregistered(const BluetoothValue& aValue);
   void HandleConnectionStateChanged(const BluetoothValue& aValue);
-  void HandleServiceHandleUpdated(const BluetoothValue& aValue);
-  void HandleCharacteristicHandleUpdated(const BluetoothValue& aValue);
-  void HandleDescriptorHandleUpdated(const BluetoothValue& aValue);
+  void HandleServiceUpdated(const BluetoothValue& aValue);
+  void HandleDescriptorHandleUpdated(const BluetoothGattDbElement& aDbEle);
   void HandleReadWriteRequest(const BluetoothValue& aValue,
                               const nsAString& aString);
 

@@ -33,10 +33,6 @@ class BluetoothServiceBluedroid : public BluetoothService,
   class SetAdapterPropertyDiscoverableResultHandler;
   class SspReplyResultHandler;
 
-  // class GetDeviceRequest;
-  // struct GetRemoteServiceRecordRequest;
-  // struct GetRemoteServicesRequest;
-
   class GetDeviceRequest final {
    public:
     GetDeviceRequest(int aDeviceCount, BluetoothReplyRunnable* aRunnable)
@@ -291,35 +287,11 @@ class BluetoothServiceBluedroid : public BluetoothService,
       int aServerIf, BluetoothReplyRunnable* aRunnable) override;
 
   virtual void GattServerAddServiceInternal(
-      const BluetoothUuid& aAppUuid, const BluetoothGattServiceId& aServiceId,
-      uint16_t aHandleCount, BluetoothReplyRunnable* aRunnable) override;
-
-  virtual void GattServerAddIncludedServiceInternal(
       const BluetoothUuid& aAppUuid,
-      const BluetoothAttributeHandle& aServiceHandle,
-      const BluetoothAttributeHandle& aIncludedServiceHandle,
-      BluetoothReplyRunnable* aRunnable) override;
-
-  virtual void GattServerAddCharacteristicInternal(
-      const BluetoothUuid& aAppUuid,
-      const BluetoothAttributeHandle& aServiceHandle,
-      const BluetoothUuid& aCharacteristicUuid,
-      BluetoothGattAttrPerm aPermissions, BluetoothGattCharProp aProperties,
-      BluetoothReplyRunnable* aRunnable) override;
-
-  virtual void GattServerAddDescriptorInternal(
-      const BluetoothUuid& aAppUuid,
-      const BluetoothAttributeHandle& aServiceHandle,
-      const BluetoothAttributeHandle& aCharacteristicHandle,
-      const BluetoothUuid& aDescriptorUuid, BluetoothGattAttrPerm aPermissions,
+      const nsTArray<BluetoothGattDbElement>& aDb,
       BluetoothReplyRunnable* aRunnable) override;
 
   virtual void GattServerRemoveServiceInternal(
-      const BluetoothUuid& aAppUuid,
-      const BluetoothAttributeHandle& aServiceHandle,
-      BluetoothReplyRunnable* aRunnable) override;
-
-  virtual void GattServerStartServiceInternal(
       const BluetoothUuid& aAppUuid,
       const BluetoothAttributeHandle& aServiceHandle,
       BluetoothReplyRunnable* aRunnable) override;

@@ -299,38 +299,10 @@ struct UnregisterGattServerRequest {
 
 struct GattServerAddServiceRequest {
   BluetoothUuid appUuid;
-  BluetoothGattServiceId serviceId;
-  uint16_t handleCount;
-};
-
-struct GattServerAddIncludedServiceRequest {
-  BluetoothUuid appUuid;
-  BluetoothAttributeHandle serviceHandle;
-  BluetoothAttributeHandle includedServiceHandle;
-};
-
-struct GattServerAddCharacteristicRequest {
-  BluetoothUuid appUuid;
-  BluetoothAttributeHandle serviceHandle;
-  BluetoothUuid characteristicUuid;
-  BluetoothGattAttrPerm permissions;
-  BluetoothGattCharProp properties;
-};
-
-struct GattServerAddDescriptorRequest {
-  BluetoothUuid appUuid;
-  BluetoothAttributeHandle serviceHandle;
-  BluetoothAttributeHandle characteristicHandle;
-  BluetoothUuid descriptorUuid;
-  BluetoothGattAttrPerm permissions;
+  BluetoothGattDbElement[] gattDb;
 };
 
 struct GattServerRemoveServiceRequest {
-  BluetoothUuid appUuid;
-  BluetoothAttributeHandle serviceHandle;
-};
-
-struct GattServerStartServiceRequest {
   BluetoothUuid appUuid;
   BluetoothAttributeHandle serviceHandle;
 };
@@ -419,11 +391,7 @@ union Request {
   GattServerDisconnectPeripheralRequest;
   UnregisterGattServerRequest;
   GattServerAddServiceRequest;
-  GattServerAddIncludedServiceRequest;
-  GattServerAddCharacteristicRequest;
-  GattServerAddDescriptorRequest;
   GattServerRemoveServiceRequest;
-  GattServerStartServiceRequest;
   GattServerStopServiceRequest;
   GattServerSendResponseRequest;
   GattServerSendIndicationRequest;

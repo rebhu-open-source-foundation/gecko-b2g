@@ -722,47 +722,8 @@ bool BluetoothRequestParent::DoRequest(
   MOZ_ASSERT(mService);
   MOZ_ASSERT(mRequestType == Request::TGattServerAddServiceRequest);
 
-  mService->GattServerAddServiceInternal(
-      aRequest.appUuid(), aRequest.serviceId(), aRequest.handleCount(),
-      mReplyRunnable.get());
-
-  return true;
-}
-
-bool BluetoothRequestParent::DoRequest(
-    const GattServerAddIncludedServiceRequest& aRequest) {
-  MOZ_ASSERT(mService);
-  MOZ_ASSERT(mRequestType == Request::TGattServerAddIncludedServiceRequest);
-
-  mService->GattServerAddIncludedServiceInternal(
-      aRequest.appUuid(), aRequest.serviceHandle(),
-      aRequest.includedServiceHandle(), mReplyRunnable.get());
-
-  return true;
-}
-
-bool BluetoothRequestParent::DoRequest(
-    const GattServerAddCharacteristicRequest& aRequest) {
-  MOZ_ASSERT(mService);
-  MOZ_ASSERT(mRequestType == Request::TGattServerAddCharacteristicRequest);
-
-  mService->GattServerAddCharacteristicInternal(
-      aRequest.appUuid(), aRequest.serviceHandle(),
-      aRequest.characteristicUuid(), aRequest.permissions(),
-      aRequest.properties(), mReplyRunnable.get());
-
-  return true;
-}
-
-bool BluetoothRequestParent::DoRequest(
-    const GattServerAddDescriptorRequest& aRequest) {
-  MOZ_ASSERT(mService);
-  MOZ_ASSERT(mRequestType == Request::TGattServerAddDescriptorRequest);
-
-  mService->GattServerAddDescriptorInternal(
-      aRequest.appUuid(), aRequest.serviceHandle(),
-      aRequest.characteristicHandle(), aRequest.descriptorUuid(),
-      aRequest.permissions(), mReplyRunnable.get());
+  mService->GattServerAddServiceInternal(aRequest.appUuid(), aRequest.gattDb(),
+                                         mReplyRunnable.get());
 
   return true;
 }
@@ -773,17 +734,6 @@ bool BluetoothRequestParent::DoRequest(
   MOZ_ASSERT(mRequestType == Request::TGattServerRemoveServiceRequest);
 
   mService->GattServerRemoveServiceInternal(
-      aRequest.appUuid(), aRequest.serviceHandle(), mReplyRunnable.get());
-
-  return true;
-}
-
-bool BluetoothRequestParent::DoRequest(
-    const GattServerStartServiceRequest& aRequest) {
-  MOZ_ASSERT(mService);
-  MOZ_ASSERT(mRequestType == Request::TGattServerStartServiceRequest);
-
-  mService->GattServerStartServiceInternal(
       aRequest.appUuid(), aRequest.serviceHandle(), mReplyRunnable.get());
 
   return true;

@@ -551,27 +551,7 @@ void BluetoothGattNotificationHandler::ConnectionNotification(
 
 void BluetoothGattNotificationHandler::ServiceAddedNotification(
     BluetoothGattStatus aStatus, int aServerIf,
-    const BluetoothGattServiceId& aServiceId,
-    const BluetoothAttributeHandle& aServiceHandle) {}
-
-void BluetoothGattNotificationHandler::IncludedServiceAddedNotification(
-    BluetoothGattStatus aStatus, int aServerIf,
-    const BluetoothAttributeHandle& aServiceHandle,
-    const BluetoothAttributeHandle& aIncludedServiceHandle) {}
-
-void BluetoothGattNotificationHandler::CharacteristicAddedNotification(
-    BluetoothGattStatus aStatus, int aServerIf, const BluetoothUuid& aCharId,
-    const BluetoothAttributeHandle& aServiceHandle,
-    const BluetoothAttributeHandle& aCharacteristicHandle) {}
-
-void BluetoothGattNotificationHandler::DescriptorAddedNotification(
-    BluetoothGattStatus aStatus, int aServerIf, const BluetoothUuid& aCharId,
-    const BluetoothAttributeHandle& aServiceHandle,
-    const BluetoothAttributeHandle& aDescriptorHandle) {}
-
-void BluetoothGattNotificationHandler::ServiceStartedNotification(
-    BluetoothGattStatus aStatus, int aServerIf,
-    const BluetoothAttributeHandle& aServiceHandle) {}
+    const nsTArray<BluetoothGattDbElement>& aDb) {}
 
 void BluetoothGattNotificationHandler::ServiceStoppedNotification(
     BluetoothGattStatus aStatus, int aServerIf,
@@ -670,14 +650,6 @@ void BluetoothGattResultHandler::ConnectPeripheral() {}
 void BluetoothGattResultHandler::DisconnectPeripheral() {}
 
 void BluetoothGattResultHandler::AddService() {}
-
-void BluetoothGattResultHandler::AddIncludedService() {}
-
-void BluetoothGattResultHandler::AddCharacteristic() {}
-
-void BluetoothGattResultHandler::AddDescriptor() {}
-
-void BluetoothGattResultHandler::StartService() {}
 
 void BluetoothGattResultHandler::StopService() {}
 

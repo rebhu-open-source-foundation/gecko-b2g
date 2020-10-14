@@ -288,33 +288,12 @@ class BluetoothDaemonGattModule {
   nsresult ServerDisconnectCmd(int aServerIf, const BluetoothAddress& aBdAddr,
                                int aConnId, BluetoothGattResultHandler* aRes);
 
-  /* Add a services / a characteristic / a descriptor */
+  /* Add a service */
   nsresult ServerAddServiceCmd(int aServerIf,
-                               const BluetoothGattServiceId& aServiceId,
-                               uint16_t aNumHandles,
+                               const nsTArray<BluetoothGattDbElement>& aDb,
                                BluetoothGattResultHandler* aRes);
 
-  nsresult ServerAddIncludedServiceCmd(
-      int aServerIf, const BluetoothAttributeHandle& aServiceHandle,
-      const BluetoothAttributeHandle& aIncludedServiceHandle,
-      BluetoothGattResultHandler* aRes);
-
-  nsresult ServerAddCharacteristicCmd(
-      int aServerIf, const BluetoothAttributeHandle& aServiceHandle,
-      const BluetoothUuid& aUuid, BluetoothGattCharProp aProperties,
-      BluetoothGattAttrPerm aPermissions, BluetoothGattResultHandler* aRes);
-
-  nsresult ServerAddDescriptorCmd(
-      int aServerIf, const BluetoothAttributeHandle& aServiceHandle,
-      const BluetoothUuid& aUuid, BluetoothGattAttrPerm aPermissions,
-      BluetoothGattResultHandler* aRes);
-
-  /* Start / Stop / Delete a service */
-  nsresult ServerStartServiceCmd(int aServerIf,
-                                 const BluetoothAttributeHandle& aServiceHandle,
-                                 BluetoothTransport aTransport,
-                                 BluetoothGattResultHandler* aRes);
-
+  /*  Stop / Delete a service */
   nsresult ServerStopServiceCmd(int aServerIf,
                                 const BluetoothAttributeHandle& aServiceHandle,
                                 BluetoothGattResultHandler* aRes);
@@ -469,22 +448,6 @@ class BluetoothDaemonGattModule {
                            DaemonSocketPDU& aPDU,
                            BluetoothGattResultHandler* aRes);
 
-  void ServerAddIncludedServiceRsp(const DaemonSocketPDUHeader& aHeader,
-                                   DaemonSocketPDU& aPDU,
-                                   BluetoothGattResultHandler* aRes);
-
-  void ServerAddCharacteristicRsp(const DaemonSocketPDUHeader& aHeader,
-                                  DaemonSocketPDU& aPDU,
-                                  BluetoothGattResultHandler* aRes);
-
-  void ServerAddDescriptorRsp(const DaemonSocketPDUHeader& aHeader,
-                              DaemonSocketPDU& aPDU,
-                              BluetoothGattResultHandler* aRes);
-
-  void ServerStartServiceRsp(const DaemonSocketPDUHeader& aHeader,
-                             DaemonSocketPDU& aPDU,
-                             BluetoothGattResultHandler* aRes);
-
   void ServerStopServiceRsp(const DaemonSocketPDUHeader& aHeader,
                             DaemonSocketPDU& aPDU,
                             BluetoothGattResultHandler* aRes);
@@ -610,37 +573,11 @@ class BluetoothDaemonGattModule {
       int, bool, const BluetoothAddress&>
       ServerConnectionNotification;
 
-  typedef mozilla::ipc::DaemonNotificationRunnable4<
-      NotificationHandlerWrapper, void, BluetoothGattStatus, int,
-      BluetoothGattServiceId, BluetoothAttributeHandle, BluetoothGattStatus,
-      int, const BluetoothGattServiceId&, const BluetoothAttributeHandle&>
-      ServerServiceAddedNotification;
-
-  typedef mozilla::ipc::DaemonNotificationRunnable4<
-      NotificationHandlerWrapper, void, BluetoothGattStatus, int,
-      BluetoothAttributeHandle, BluetoothAttributeHandle, BluetoothGattStatus,
-      int, const BluetoothAttributeHandle&, const BluetoothAttributeHandle&>
-      ServerIncludedServiceAddedNotification;
-
-  typedef mozilla::ipc::DaemonNotificationRunnable5<
-      NotificationHandlerWrapper, void, BluetoothGattStatus, int, BluetoothUuid,
-      BluetoothAttributeHandle, BluetoothAttributeHandle, BluetoothGattStatus,
-      int, const BluetoothUuid&, const BluetoothAttributeHandle&,
-      const BluetoothAttributeHandle&>
-      ServerCharacteristicAddedNotification;
-
-  typedef mozilla::ipc::DaemonNotificationRunnable5<
-      NotificationHandlerWrapper, void, BluetoothGattStatus, int, BluetoothUuid,
-      BluetoothAttributeHandle, BluetoothAttributeHandle, BluetoothGattStatus,
-      int, const BluetoothUuid&, const BluetoothAttributeHandle&,
-      const BluetoothAttributeHandle&>
-      ServerDescriptorAddedNotification;
-
   typedef mozilla::ipc::DaemonNotificationRunnable3<
       NotificationHandlerWrapper, void, BluetoothGattStatus, int,
-      BluetoothAttributeHandle, BluetoothGattStatus, int,
-      const BluetoothAttributeHandle&>
-      ServerServiceStartedNotification;
+      nsTArray<BluetoothGattDbElement>, BluetoothGattStatus, int,
+      const nsTArray<BluetoothGattDbElement>&>
+      ServerServiceAddedNotification;
 
   typedef mozilla::ipc::DaemonNotificationRunnable3<
       NotificationHandlerWrapper, void, BluetoothGattStatus, int,
@@ -743,27 +680,19 @@ class BluetoothDaemonGattModule {
   void ServerServiceAddedNtf(const DaemonSocketPDUHeader& aHeader,
                              DaemonSocketPDU& aPDU);
 
-  void ServerIncludedServiceAddedNtf(const DaemonSocketPDUHeader& aHeader,
-                                     DaemonSocketPDU& aPDU);
-
-  void ServerCharacteristicAddedNtf(const DaemonSocketPDUHeader& aHeader,
-                                    DaemonSocketPDU& aPDU);
-
-  void ServerDescriptorAddedNtf(const DaemonSocketPDUHeader& aHeader,
-                                DaemonSocketPDU& aPDU);
-
-  void ServerServiceStartedNtf(const DaemonSocketPDUHeader& aHeader,
-                               DaemonSocketPDU& aPDU);
-
   void ServerServiceStoppedNtf(const DaemonSocketPDUHeader& aHeader,
                                DaemonSocketPDU& aPDU);
 
   void ServerServiceDeletedNtf(const DaemonSocketPDUHeader& aHeader,
                                DaemonSocketPDU& aPDU);
 
+  // TODO: replaced by ServerRequestReadCharacteristicNtf and
+  //                   ServerRequestReadDescriptorNtf
   void ServerRequestReadNtf(const DaemonSocketPDUHeader& aHeader,
                             DaemonSocketPDU& aPDU);
 
+  // TODO: replaced by ServerRequestWriteCharacteristicNtf and
+  //                   ServerRequestWriteDescriptorNtf
   void ServerRequestWriteNtf(const DaemonSocketPDUHeader& aHeader,
                              DaemonSocketPDU& aPDU);
 
@@ -893,31 +822,11 @@ class BluetoothDaemonGattInterface final : public BluetoothGattInterface {
                             int aConnId,
                             BluetoothGattResultHandler* aRes) override;
 
-  /* Add a services / a characteristic / a descriptor */
-  void AddService(int aServerIf, const BluetoothGattServiceId& aServiceId,
-                  uint16_t aNumHandles,
+  /* Add a service */
+  void AddService(int aServerIf, const nsTArray<BluetoothGattDbElement>& aDb,
                   BluetoothGattResultHandler* aRes) override;
-  void AddIncludedService(
-      int aServerIf, const BluetoothAttributeHandle& aServiceHandle,
-      const BluetoothAttributeHandle& aIncludedServiceHandle,
-      BluetoothGattResultHandler* aRes) override;
-  void AddCharacteristic(int aServerIf,
-                         const BluetoothAttributeHandle& aServiceHandle,
-                         const BluetoothUuid& aUuid,
-                         BluetoothGattCharProp aProperties,
-                         BluetoothGattAttrPerm aPermissions,
-                         BluetoothGattResultHandler* aRes) override;
-  void AddDescriptor(int aServerIf,
-                     const BluetoothAttributeHandle& aServiceHandle,
-                     const BluetoothUuid& aUuid,
-                     BluetoothGattAttrPerm aPermissions,
-                     BluetoothGattResultHandler* aRes) override;
 
-  /* Start / Stop / Delete a service */
-  void StartService(int aServerIf,
-                    const BluetoothAttributeHandle& aServiceHandle,
-                    BluetoothTransport aTransport,
-                    BluetoothGattResultHandler* aRes) override;
+  /* Stop / Delete a service */
   void StopService(int aServerIf,
                    const BluetoothAttributeHandle& aServiceHandle,
                    BluetoothGattResultHandler* aRes) override;

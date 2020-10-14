@@ -105,37 +105,12 @@ class BluetoothGattManager final : public nsIObserver,
   void UnregisterServer(int aServerIf, BluetoothReplyRunnable* aRunnable);
 
   void ServerAddService(const BluetoothUuid& aAppUuid,
-                        const BluetoothGattServiceId& aServiceId,
-                        uint16_t aHandleCount,
+                        const nsTArray<BluetoothGattDbElement>& aDb,
                         BluetoothReplyRunnable* aRunnable);
-
-  void ServerAddIncludedService(
-      const BluetoothUuid& aAppUuid,
-      const BluetoothAttributeHandle& aServiceHandle,
-      const BluetoothAttributeHandle& aIncludedServiceHandle,
-      BluetoothReplyRunnable* aRunnable);
-
-  void ServerAddCharacteristic(const BluetoothUuid& aAppUuid,
-                               const BluetoothAttributeHandle& aServiceHandle,
-                               const BluetoothUuid& aCharacteristicUuid,
-                               BluetoothGattAttrPerm aPermissions,
-                               BluetoothGattCharProp aProperties,
-                               BluetoothReplyRunnable* aRunnable);
-
-  void ServerAddDescriptor(
-      const BluetoothUuid& aAppUuid,
-      const BluetoothAttributeHandle& aServiceHandle,
-      const BluetoothAttributeHandle& aCharacteristicHandle,
-      const BluetoothUuid& aDescriptorUuid, BluetoothGattAttrPerm aPermissions,
-      BluetoothReplyRunnable* aRunnable);
 
   void ServerRemoveService(const BluetoothUuid& aAppUuid,
                            const BluetoothAttributeHandle& aServiceHandle,
                            BluetoothReplyRunnable* aRunnable);
-
-  void ServerStartService(const BluetoothUuid& aAppUuid,
-                          const BluetoothAttributeHandle& aServiceHandle,
-                          BluetoothReplyRunnable* aRunnable);
 
   void ServerStopService(const BluetoothUuid& aAppUuid,
                          const BluetoothAttributeHandle& aServiceHandle,
@@ -185,11 +160,7 @@ class BluetoothGattManager final : public nsIObserver,
   class DisconnectPeripheralResultHandler;
   class UnregisterServerResultHandler;
   class ServerAddServiceResultHandler;
-  class ServerAddIncludedServiceResultHandler;
-  class ServerAddCharacteristicResultHandler;
-  class ServerAddDescriptorResultHandler;
   class ServerRemoveDescriptorResultHandler;
-  class ServerStartServiceResultHandler;
   class ServerStopServiceResultHandler;
   class ServerSendResponseResultHandler;
   class ServerSendIndicationResultHandler;
@@ -267,27 +238,7 @@ class BluetoothGattManager final : public nsIObserver,
 
   void ServiceAddedNotification(
       BluetoothGattStatus aStatus, int aServerIf,
-      const BluetoothGattServiceId& aServiceId,
-      const BluetoothAttributeHandle& aServiceHandle) override;
-
-  void IncludedServiceAddedNotification(
-      BluetoothGattStatus aStatus, int aServerIf,
-      const BluetoothAttributeHandle& aServiceHandle,
-      const BluetoothAttributeHandle& aIncludedServiceHandle) override;
-
-  void CharacteristicAddedNotification(
-      BluetoothGattStatus aStatus, int aServerIf, const BluetoothUuid& aCharId,
-      const BluetoothAttributeHandle& aServiceHandle,
-      const BluetoothAttributeHandle& aCharacteristicHandle) override;
-
-  void DescriptorAddedNotification(
-      BluetoothGattStatus aStatus, int aServerIf, const BluetoothUuid& aCharId,
-      const BluetoothAttributeHandle& aServiceHandle,
-      const BluetoothAttributeHandle& aDescriptorHandle) override;
-
-  void ServiceStartedNotification(
-      BluetoothGattStatus aStatus, int aServerIf,
-      const BluetoothAttributeHandle& aServiceHandle) override;
+      const nsTArray<BluetoothGattDbElement>& aDb) override;
 
   void ServiceStoppedNotification(
       BluetoothGattStatus aStatus, int aServerIf,

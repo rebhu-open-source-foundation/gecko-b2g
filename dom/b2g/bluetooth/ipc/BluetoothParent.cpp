@@ -358,25 +358,8 @@ mozilla::ipc::IPCResult BluetoothParent::RecvPBluetoothRequestConstructor(
       return actor->DoRequest(aRequest.get_GattServerAddServiceRequest())
                  ? IPC_OK()
                  : IPC_FAIL_NO_REASON(this);
-    case Request::TGattServerAddIncludedServiceRequest:
-      return actor->DoRequest(
-                 aRequest.get_GattServerAddIncludedServiceRequest())
-                 ? IPC_OK()
-                 : IPC_FAIL_NO_REASON(this);
-    case Request::TGattServerAddCharacteristicRequest:
-      return actor->DoRequest(aRequest.get_GattServerAddCharacteristicRequest())
-                 ? IPC_OK()
-                 : IPC_FAIL_NO_REASON(this);
-    case Request::TGattServerAddDescriptorRequest:
-      return actor->DoRequest(aRequest.get_GattServerAddDescriptorRequest())
-                 ? IPC_OK()
-                 : IPC_FAIL_NO_REASON(this);
     case Request::TGattServerRemoveServiceRequest:
       return actor->DoRequest(aRequest.get_GattServerRemoveServiceRequest())
-                 ? IPC_OK()
-                 : IPC_FAIL_NO_REASON(this);
-    case Request::TGattServerStartServiceRequest:
-      return actor->DoRequest(aRequest.get_GattServerStartServiceRequest())
                  ? IPC_OK()
                  : IPC_FAIL_NO_REASON(this);
     case Request::TGattServerStopServiceRequest:

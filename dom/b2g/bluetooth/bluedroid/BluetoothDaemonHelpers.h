@@ -285,7 +285,8 @@ nsresult PackPDU(const BluetoothUuid& aIn, DaemonSocketPDU& aPDU);
 
 nsresult PackPDU(const BluetoothGattId& aIn, DaemonSocketPDU& aPDU);
 
-nsresult PackPDU(const BluetoothGattServiceId& aIn, DaemonSocketPDU& aPDU);
+nsresult PackPDU(const nsTArray<BluetoothGattDbElement>& aIn,
+                 DaemonSocketPDU& aPDU);
 
 nsresult PackPDU(BluetoothGattAuthReq aIn, DaemonSocketPDU& aPDU);
 
@@ -403,8 +404,6 @@ inline nsresult UnpackPDU(DaemonSocketPDU& aPDU, BluetoothUuid& aOut) {
 }
 
 nsresult UnpackPDU(DaemonSocketPDU& aPDU, BluetoothGattId& aOut);
-
-nsresult UnpackPDU(DaemonSocketPDU& aPDU, BluetoothGattServiceId& aOut);
 
 nsresult UnpackPDU(DaemonSocketPDU& aPDU, BluetoothGattReadParam& aOut);
 
