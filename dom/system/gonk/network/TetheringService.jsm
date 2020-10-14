@@ -4,6 +4,8 @@
 
 "use strict";
 
+var EXPORTED_SYMBOLS = ["TetheringService"];
+
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 const { FileUtils } = ChromeUtils.import(
   "resource://gre/modules/FileUtils.jsm"
@@ -51,15 +53,12 @@ XPCOMUtils.defineLazyGetter(this, "ppmm", () => {
   return Cc["@mozilla.org/parentprocessmessagemanager;1"].getService();
 });
 
-// TODO: wait till mobileconnection
-/*
 XPCOMUtils.defineLazyServiceGetter(
   this,
   "gMobileConnectionService",
   "@mozilla.org/mobileconnection/mobileconnectionservice;1",
   "nsIMobileConnectionService"
 );
-*/
 
 XPCOMUtils.defineLazyGetter(this, "gRil", function() {
   try {
@@ -84,13 +83,6 @@ const KERNEL_NETWORK_ENTRY = "/sys/class/net";
 
 const TETHERING_TYPE_WIFI = "WiFi";
 const TETHERING_TYPE_USB = "USB";
-
-const WIFI_FIRMWARE_AP = "AP";
-const WIFI_FIRMWARE_STATION = "STA";
-const WIFI_SECURITY_TYPE_NONE = "open";
-const WIFI_SECURITY_TYPE_WPA_PSK = "wpa-psk";
-const WIFI_SECURITY_TYPE_WPA2_PSK = "wpa2-psk";
-const WIFI_CTRL_INTERFACE = "wl0.1";
 
 const NETWORK_INTERFACE_UP = "up";
 const NETWORK_INTERFACE_DOWN = "down";
@@ -123,28 +115,25 @@ const MOBILE_DUN_CONNECT_TIMEOUT = 15000;
 const MOBILE_DUN_RETRY_INTERVAL = 5000;
 const MOBILE_DUN_MAX_RETRIES = 2;
 
-var debug;
+var DEBUG = true;
 function updateDebug() {
   //TODO: always true for now.
   /*
   let debugPref = false; // set default value here.
   try {
-    debugPref =
-      debugPref || Services.prefs.getBoolPref(PREF_NETWORK_DEBUG_ENABLED);
+    DEBUG =
+      DEBUG || Services.prefs.getBoolPref(PREF_NETWORK_DEBUG_ENABLED);
   } catch (e) {}
 
-  if (debugPref) {
-    debug = function(s) {
-      dump("-*- TetheringService: " + s + "\n");
-    };
-  } else {
-    debug = function(s) {};
-  }
   */
-  debug = function(s) {
-    console.log("-*- TetheringService: ", s, "\n");
-  };
 }
+
+function debug(s) {
+  if (DEBUG) {
+    console.log("-*- TetheringService: ", s, "\n");
+  }
+}
+
 updateDebug();
 
 function TetheringService() {
@@ -164,13 +153,9 @@ function TetheringService() {
   Services.prefs.addObserver(PREF_NETWORK_DEBUG_ENABLED, this);
   Services.prefs.addObserver(PREF_MANAGE_OFFLINE_STATUS, this);
 
-  try {
-    this._manageOfflineStatus = Services.prefs.getBoolPref(
-      PREF_MANAGE_OFFLINE_STATUS
-    );
-  } catch (ex) {
-    // Ignore.
-  }
+  this._manageOfflineStatus = Services.prefs.getBoolPref(
+    PREF_MANAGE_OFFLINE_STATUS
+  );
 
   this._dataDefaultServiceId = 0;
 
@@ -195,21 +180,26 @@ function TetheringService() {
 
   // Read usb tethering configuration.
   this._usbTetheringConfig = TetheringConfigStore.read(
-    TetheringConfigStore.TETHERING_TYPE_USB);
+    TetheringConfigStore.TETHERING_TYPE_USB
+  );
   if (!this._usbTetheringConfig) {
     this._usbTetheringConfig = this.fillUSBTetheringConfiguration({});
     TetheringConfigStore.write(
-      TetheringConfigStore.TETHERING_TYPE_USB, this._usbTetheringConfig, null);
+      TetheringConfigStore.TETHERING_TYPE_USB,
+      this._usbTetheringConfig,
+      null
+    );
   }
-  this._fireEvent("tetheringconfigchange", { usbTetheringConfig: this._usbTetheringConfig });
+  this._fireEvent("tetheringconfigchange", {
+    usbTetheringConfig: this._usbTetheringConfig,
+  });
 
   this.getSettingValue(SETTINGS_DATA_DEFAULT_SERVICE_ID);
   this.addSettingObserver(SETTINGS_DATA_DEFAULT_SERVICE_ID);
 
   this.wantConnectionEvent = null;
 
-  this.dunRequired =
-    libcutils.property_get(DUN_REQUIRED_PROPERTY) === "1";
+  this.dunRequired = libcutils.property_get(DUN_REQUIRED_PROPERTY) === "1";
   this.dunConnectTimer = Cc["@mozilla.org/timer;1"].createInstance(Ci.nsITimer);
   this.dunRetryTimer = Cc["@mozilla.org/timer;1"].createInstance(Ci.nsITimer);
 
@@ -217,6 +207,7 @@ function TetheringService() {
 }
 TetheringService.prototype = {
   classID: TETHERINGSERVICE_CID,
+  contractID: TETHERINGSERVICE_CONTRACTID,
   QueryInterface: ChromeUtils.generateQI([
     Ci.nsITetheringService,
     Ci.nsISupportsWeakReference,
@@ -345,19 +336,15 @@ TetheringService.prototype = {
         this.dunRetryTimer.cancel();
         break;
       case PREF_MANAGE_OFFLINE_STATUS:
-        try {
-          this._manageOfflineStatus = Services.prefs.getBoolPref(
-            PREF_MANAGE_OFFLINE_STATUS
-          );
-        } catch (ex) {
-          // Ignore.
-        }
+        this._manageOfflineStatus = Services.prefs.getBoolPref(
+          PREF_MANAGE_OFFLINE_STATUS
+        );
         break;
     }
   },
 
   // nsISettingsObserver
-  observeSetting: function(aSettingInfo) {
+  observeSetting(aSettingInfo) {
     if (aSettingInfo) {
       let name = aSettingInfo.name;
       let result = aSettingInfo.value;
@@ -366,62 +353,59 @@ TetheringService.prototype = {
   },
 
   // Helper functions.
-  getSettingValue: function(aKey) {
+  getSettingValue(aKey) {
     if (!aKey) {
       return;
     }
 
     if (gSettingsManager) {
-      debug("get "+ aKey + " setting.");
+      debug("get " + aKey + " setting.");
       let self = this;
-      gSettingsManager.get(aKey,
-        {
-          "resolve": info => {
-            self.observeSetting(info);
-          },
-          "reject": () => {
-            debug("get "+ aKey +" failed.");
-          }
-        });
+      gSettingsManager.get(aKey, {
+        resolve: info => {
+          self.observeSetting(info);
+        },
+        reject: () => {
+          debug("get " + aKey + " failed.");
+        },
+      });
     }
   },
 
   //When the setting value change would be notify by the observe function.
-  addSettingObserver: function(aKey) {
+  addSettingObserver(aKey) {
     if (!aKey) {
       return;
     }
 
     if (gSettingsManager) {
-      debug("add "+ aKey + " setting observer.");
-      gSettingsManager.addObserver(aKey, this,
-        {
-          "resolve": () => {
-            debug("observed "+ aKey +" successed.");
-          },
-          "reject": () => {
-            debug("observed "+ aKey +" failed.");
-          }
-        });
+      debug("add " + aKey + " setting observer.");
+      gSettingsManager.addObserver(aKey, this, {
+        resolve: () => {
+          debug("observed " + aKey + " successed.");
+        },
+        reject: () => {
+          debug("observed " + aKey + " failed.");
+        },
+      });
     }
   },
 
-  removeSettingObserver: function(aKey) {
+  removeSettingObserver(aKey) {
     if (!aKey) {
       return;
     }
 
     if (gSettingsManager) {
-      debug("remove "+ aKey + " setting observer.");
-      gSettingsManager.removeObserver(aKey, this,
-        {
-          "resolve": () => {
-            debug("remove observer "+ aKey +" successed.");
-          },
-          "reject": () => {
-            debug("remove observer "+ aKey +" failed.");
-          }
-        });
+      debug("remove " + aKey + " setting observer.");
+      gSettingsManager.removeObserver(aKey, this, {
+        resolve: () => {
+          debug("remove observer " + aKey + " successed.");
+        },
+        reject: () => {
+          debug("remove observer " + aKey + " failed.");
+        },
+      });
     }
   },
 
@@ -667,8 +651,7 @@ TetheringService.prototype = {
     }
 
     // Re-check again, test cases set this property later.
-    this.dunRequired =
-      libcutils.property_get(DUN_REQUIRED_PROPERTY) === "1";
+    this.dunRequired = libcutils.property_get(DUN_REQUIRED_PROPERTY) === "1";
 
     this._internalInterface[TETHERING_TYPE_WIFI] = aInterfaceName;
 
@@ -751,17 +734,21 @@ TetheringService.prototype = {
     }
 
     this.checkPendingEvent();
-    this._fireEvent("tetheringstatuschange", { wifiTetheringState: this.wifiState,
-                                               usbTetheringState: this.usbState });
-    BinderServices.connectivity.onTetheringChanged(this.wifiState, this.usbState);
+    this._fireEvent("tetheringstatuschange", {
+      wifiTetheringState: this.wifiState,
+      usbTetheringState: this.usbState,
+    });
+    BinderServices.connectivity.onTetheringChanged(
+      this.wifiState,
+      this.usbState
+    );
     if (this._manageOfflineStatus) {
       Services.io.offline =
         !this.isAnyConnected() &&
-        (this.wifiState === Ci.nsITetheringService.TETHERING_STATE_INACTIVE &&
-        this.usbState === Ci.nsITetheringService.TETHERING_STATE_INACTIVE);
+        this.wifiState === Ci.nsITetheringService.TETHERING_STATE_INACTIVE &&
+        this.usbState === Ci.nsITetheringService.TETHERING_STATE_INACTIVE;
     }
 
-    let resetSettings = aError;
     debug("gNetworkService.setWifiTethering finished");
     this.notifyError(aCallback, aError);
     this.requestDone();
@@ -896,8 +883,6 @@ TetheringService.prototype = {
   },
 
   usbTetheringResult(aEnable, aError, aMsgCallback) {
-    let self = this;
-
     debug(
       "usbTetheringResult callback. enable: " + aEnable + ", error: " + aError
     );
@@ -937,15 +922,20 @@ TetheringService.prototype = {
       }
 
       this.checkPendingEvent();
-      this._fireEvent("tetheringstatuschange", { usbTetheringState: this.usbState,
-                                                 wifiTetheringState: this.wifiState });
-      BinderServices.connectivity.onTetheringChanged(this.wifiState, this.usbState);
+      this._fireEvent("tetheringstatuschange", {
+        usbTetheringState: this.usbState,
+        wifiTetheringState: this.wifiState,
+      });
+      BinderServices.connectivity.onTetheringChanged(
+        this.wifiState,
+        this.usbState
+      );
 
       if (this._manageOfflineStatus) {
         Services.io.offline =
           !this.isAnyConnected() &&
-          (this.usbState === Ci.nsITetheringService.TETHERING_STATE_INACTIVE &&
-          this.wifiState === Ci.nsITetheringService.TETHERING_STATE_INACTIVE);
+          this.usbState === Ci.nsITetheringService.TETHERING_STATE_INACTIVE &&
+          this.wifiState === Ci.nsITetheringService.TETHERING_STATE_INACTIVE;
       }
     }
 
@@ -958,7 +948,7 @@ TetheringService.prototype = {
   checkPendingEvent() {
     if (this.wantConnectionEvent) {
       if ((this._usbTetheringAction = TETHERING_STATE_ACTIVE)) {
-        this.wantConnectionEvent.call(this);
+        this.wantConnectionEvent(this);
       }
       this.wantConnectionEvent = null;
     }
@@ -1234,11 +1224,7 @@ TetheringService.prototype = {
       let localConfig = this._usbTetheringConfig;
       gNetworkManager.activeNetworkInfo.getAddresses(ips, prefixLengths);
 
-      if (
-        !localConfig.ip ||
-        !ips.value ||
-        !prefixLengths.value
-      ) {
+      if (!localConfig.ip || !ips.value || !prefixLengths.value) {
         debug("fail to compare subnet due to empty argument");
         return false;
       }
@@ -1286,6 +1272,7 @@ TetheringService.prototype = {
     if (this._usbTetheringConfig.ip == DEFAULT_USB_IP) {
       debug("setup backup tethering settings");
       this._usbTetheringConfig.ip = BACKUP_USB_IP;
+      this._usbTetheringConfig.prefix = BACKUP_USB_PREFIX;
       this._usbTetheringConfig.usbStartIp = BACKUP_USB_DHCPSERVER_STARTIP;
       this._usbTetheringConfig.usbEndIp = BACKUP_USB_DHCPSERVER_ENDIP;
     } else {
@@ -1295,14 +1282,20 @@ TetheringService.prototype = {
     }
 
     TetheringConfigStore.write(
-      TetheringConfigStore.TETHERING_TYPE_USB, this._usbTetheringConfig, null);
-    this._fireEvent("tetheringconfigchange", { usbTetheringConfig: this._usbTetheringConfig });
+      TetheringConfigStore.TETHERING_TYPE_USB,
+      this._usbTetheringConfig,
+      null
+    );
+    this._fireEvent("tetheringconfigchange", {
+      usbTetheringConfig: this._usbTetheringConfig,
+    });
 
     if (restartTether) {
-      debug("restart USB tethering due to subnet conflict with external interface");
+      debug(
+        "restart USB tethering due to subnet conflict with external interface"
+      );
       this._usbTetheringRequestRestart = restartTether;
       this.handleUsbRequest(false, null);
-
     }
   },
 
@@ -1317,7 +1310,7 @@ TetheringService.prototype = {
 
     for (let i = 0; i < length; i++) {
       // We only take care about Ipv6 address
-      if (ipv6s.value[i].indexOf(":") == -1) {
+      if (!ipv6s.value[i].includes(":")) {
         continue;
       }
 
@@ -1349,11 +1342,18 @@ TetheringService.prototype = {
       Object.entries(msg.data.config).length != 0
     ) {
       let newConfig = this.fillUSBTetheringConfiguration(msg.data.config);
-      if (JSON.stringify(this._usbTetheringConfig) != JSON.stringify(newConfig)) {
+      if (
+        JSON.stringify(this._usbTetheringConfig) != JSON.stringify(newConfig)
+      ) {
         this._usbTetheringConfig = newConfig;
         TetheringConfigStore.write(
-          TetheringConfigStore.TETHERING_TYPE_USB, this._usbTetheringConfig, null);
-        this._fireEvent("tetheringconfigchange", { usbTetheringConfig: this._usbTetheringConfig });
+          TetheringConfigStore.TETHERING_TYPE_USB,
+          this._usbTetheringConfig,
+          null
+        );
+        this._fireEvent("tetheringconfigchange", {
+          usbTetheringConfig: this._usbTetheringConfig,
+        });
       }
     }
 
@@ -1432,7 +1432,7 @@ TetheringService.prototype = {
           this._domRequest.splice(i, 1);
         }
       }
-      return;
+      return {};
     }
     // We are interested in DOMRequests only.
     if (aMessage.name != "TetheringService:getStatus") {
@@ -1443,16 +1443,18 @@ TetheringService.prototype = {
       case "TetheringService:setUsbTethering":
         this._setUsbTethering(message);
         break;
-      case "TetheringService:getStatus":
-        let i;
-        if ((i = this._domManagers.indexOf(message.manager)) === -1) {
+      case "TetheringService:getStatus": {
+        if (!this._domManagers.includes(message.manager)) {
           this._domManagers.push(message.manager);
         }
-        return { wifiTetheringState: this.wifiState,
-                 usbTetheringState: this.usbState,
-                 usbTetheringConfig: this._usbTetheringConfig };
+
+        return {
+          wifiTetheringState: this.wifiState,
+          usbTetheringState: this.usbState,
+          usbTetheringConfig: this._usbTetheringConfig,
+        };
+      }
     }
+    return {};
   },
 };
-
-var EXPORTED_SYMBOLS = ["TetheringService"];
