@@ -56,6 +56,16 @@ const kSettingsToObserve = {
   "browser.safebrowsing.malware.enabled": true,
   "privacy.donottrackheader.enabled": false,
   "privacy.trackingprotection.enabled": false,
+  "ui.prefers.color-theme": {
+    prefName: "ui.systemUsesDarkTheme",
+    defaultValue: 0,
+    valueMap: { dark: 1 },
+  },
+  "ui.prefers.text-size": {
+    prefName: "ui.prefersTextSizeId",
+    defaultValue: 0,
+    valueMap: { small: 1, large: 2 },
+  },
 };
 
 this.SettingsPrefsSync = {
@@ -405,6 +415,17 @@ this.SettingsPrefsSync = {
           break;
       }
 
+      // Map value of setting to of prefs.
+      let mapValue;
+      if (setting.hasOwnProperty("valueMap")) {
+        mapValue = v =>
+          setting.valueMap.hasOwnProperty(v)
+            ? setting.valueMap[v]
+            : defaultValue;
+      } else {
+        mapValue = v => v;
+      }
+
       // Add an observer for this setting.
       this.addSettingsObserver(
         key,
@@ -414,7 +435,7 @@ this.SettingsPrefsSync = {
               return;
             }
             let value = JSON.parse(info.value);
-            setPref(prefName, value);
+            setPref(prefName, mapValue(value));
           },
         },
         `Failed to add observer for ${key}`
