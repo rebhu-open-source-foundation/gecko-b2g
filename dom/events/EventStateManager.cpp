@@ -143,7 +143,11 @@ static UniquePtr<WidgetMouseEvent> CreateMouseOrPointerWidgetEvent(
     WidgetMouseEvent* aMouseEvent, EventMessage aMessage,
     EventTarget* aRelatedTarget);
 
-static bool DispatchKeyToContentFirst(uint32_t aKeyCode) {
+static bool DispatchKeyToContentFirst(WidgetKeyboardEvent* aKeyEvent) {
+  if (!aKeyEvent) {
+    return false;
+  }
+
   if (!StaticPrefs::
           dom_keyboardevent_dispatch_function_keys_to_content_first()) {
     return false;
@@ -166,8 +170,12 @@ static bool DispatchKeyToContentFirst(uint32_t aKeyCode) {
       functionalKeyCodes->insert(token.get());
     }
   }
-  return functionalKeyCodes->find(GetDOMKeyCodeName(aKeyCode).get()) !=
-         functionalKeyCodes->end();
+
+  nsAutoString eventNameU16;
+  aKeyEvent->GetDOMKeyName(eventNameU16);
+  nsAutoCString eventName;
+  CopyUTF16toUTF8(eventNameU16, eventName);
+  return functionalKeyCodes->find(eventName.get()) != functionalKeyCodes->end();
 }
 
 /******************************************************************/
@@ -806,7 +814,7 @@ nsresult EventStateManager::PreHandleEvent(nsPresContext* aPresContext,
 
       if (IsTopLevelRemoteTarget(content)) {
         WidgetKeyboardEvent* keyEvent = aEvent->AsKeyboardEvent();
-        if (DispatchKeyToContentFirst(keyEvent->mKeyCode)) {
+        if (DispatchKeyToContentFirst(keyEvent)) {
           keyEvent->StopPropagation();
           keyEvent->MarkAsWaitingReplyFromRemoteProcess();
         }

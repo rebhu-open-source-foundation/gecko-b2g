@@ -1044,9 +1044,15 @@ pref("dom.virtualcursor.pan_simulator.enabled", true);
 // A step offset in pixel when short click direction keys to move the cursor.
 pref("dom.virtualcursor.move.short_click_offset", "10.0");
 
+// Enable to simulate an microphonetoggle key event,
+// only when device do not have hardware key.
+pref("dom.microphonetoggle.supported", true);
+// Device has a dedicated microphonetoggle key or not.
+pref("dom.microphonetoggle.hardwareKey", false);
+
 // Dispatch the function key events to the content first.
 pref("dom.keyboardevent.dispatch_function_keys_to_content_first", true);
-pref("dom.keyboardevent.function_keys", "VK_BACK");
+pref("dom.keyboardevent.function_keys", "Backspace,MicrophoneToggle");
 
 // Enable keyboardEventGenerator on touch devices.
 pref("dom.keyboardEventGenerator.enabled", false);

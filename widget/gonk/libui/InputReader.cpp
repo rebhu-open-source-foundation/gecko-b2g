@@ -51,12 +51,16 @@
 #include <errno.h>
 #include <limits.h>
 #include <math.h>
+#include "mozilla/Preferences.h"
 
 #define INDENT "  "
 #define INDENT2 "    "
 #define INDENT3 "      "
 #define INDENT4 "        "
 #define INDENT5 "          "
+
+using namespace mozilla;
+using namespace mozilla::dom;
 
 namespace android {
 
@@ -1983,7 +1987,11 @@ void VibratorInputMapper::dump(String8& dump) {
 
 KeyboardInputMapper::KeyboardInputMapper(InputDevice* device, uint32_t source,
                                          int32_t keyboardType)
-    : InputMapper(device), mSource(source), mKeyboardType(keyboardType) {}
+    : InputMapper(device), mSource(source), mKeyboardType(keyboardType) {
+  mNeedMicrophoneToggleKey =
+      Preferences::GetBool("dom.microphonetoggle.supported") &&
+      !Preferences::GetBool("dom.microphonetoggle.hardwareKey");
+}
 
 KeyboardInputMapper::~KeyboardInputMapper() {}
 
@@ -2078,6 +2086,13 @@ void KeyboardInputMapper::process(const RawEvent* rawEvent) {
         }
         processKey(rawEvent->when, rawEvent->value != 0, keyCode, scanCode,
                    flags);
+        // Simulate an microphonetoggle key if it is enabled but no hardware
+        // key. If device have hardware it need to be mapped to
+        // KEY_PROG1(0x148).
+        if (keyCode == AKEYCODE_ENTER && mNeedMicrophoneToggleKey) {
+          processKey(rawEvent->when, rawEvent->value != 0,
+                     AKEYCODE_MICROPHONE_TOGGLE, KEY_PROG1, flags);
+        }
       }
       break;
     }

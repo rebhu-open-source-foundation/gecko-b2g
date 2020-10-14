@@ -1059,6 +1059,9 @@ class KeyboardInputMapper : public InputMapper {
   int32_t
       mCurrentHidUsage;  // most recent HID usage seen this packet, or 0 if none
 
+  // no dedicated speechinput, need to simulate one
+  bool mNeedMicrophoneToggleKey;
+
   struct LedState {
     bool avail;  // led is available
     bool on;     // we think the led is currently on
