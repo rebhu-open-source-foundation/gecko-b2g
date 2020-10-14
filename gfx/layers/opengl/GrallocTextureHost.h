@@ -55,7 +55,7 @@ public:
       const wr::LayoutRect& aBounds,
       const wr::LayoutRect& aClip, wr::ImageRendering aFilter,
       const Range<wr::ImageKey>& aImageKeys,
-      const bool aPreferCompositorSurface) override;
+      const bool aPreferCompositorSurface);
 
   virtual gfx::IntSize GetSize() const override { return mCropSize; }
 
