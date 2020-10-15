@@ -126,6 +126,7 @@ class B2G final : public nsIDOMMozWakeLockListener, public nsWrapperCache {
   static bool HasCameraSupport(JSContext* /* unused */, JSObject* aGlobal);
   static bool HasWifiManagerSupport(JSContext* /* unused */, JSObject* aGlobal);
   static bool HasTetheringManagerSupport(JSContext* /* unused */, JSObject* aGlobal);
+  static bool HasUsbManagerSupport(JSContext* /* unused */, JSObject* aGlobal);
 
   DownloadManager* GetDownloadManager(ErrorResult& aRv);
 

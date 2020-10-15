@@ -834,6 +834,12 @@ already_AddRefed<nsDOMDeviceStorage> B2G::GetDeviceStorageByNameAndType(
   return storage.forget();
 }
 
+/* static */
+bool B2G::HasUsbManagerSupport(JSContext* /* unused */, JSObject* aGlobal) {
+  nsCOMPtr<nsPIDOMWindowInner> innerWindow = xpc::WindowOrNull(aGlobal);
+  return innerWindow ? CheckPermission("usb"_ns, innerWindow) : false;
+}
+
 UsbManager* B2G::GetUsbManager(ErrorResult& aRv) {
   if (!mUsbManager) {
     if (!mOwner) {

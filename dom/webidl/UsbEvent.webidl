@@ -4,7 +4,7 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-[Exposed=Window, Pref="dom.usb.enabled"]
+[Exposed=Window, Pref="dom.usb.enabled", Func="B2G::HasUsbManagerSupport"]
 interface UsbEvent : Event
 {
   constructor(DOMString type,

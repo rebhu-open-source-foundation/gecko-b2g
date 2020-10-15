@@ -152,7 +152,7 @@ partial interface B2G {
 
 [Exposed=Window]
 partial interface B2G {
-  [Throws, Pref="dom.usb.enabled"]
+  [Throws, Pref="dom.usb.enabled", Func="B2G::HasUsbManagerSupport"]
   readonly attribute UsbManager usbManager;
 };
 
