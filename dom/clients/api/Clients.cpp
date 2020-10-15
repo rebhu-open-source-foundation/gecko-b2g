@@ -196,8 +196,9 @@ already_AddRefed<Promise> Clients::MatchAll(const ClientQueryOptions& aOptions,
   return outerPromise.forget();
 }
 
-already_AddRefed<Promise> Clients::OpenWindow(const nsAString& aURL,
-                                              ErrorResult& aRv) {
+already_AddRefed<Promise> Clients::OpenWindow(
+    const nsAString& aURL, const ClientWindowOptions& aOptions,
+    ErrorResult& aRv) {
   MOZ_ASSERT(!NS_IsMainThread());
   WorkerPrivate* workerPrivate = GetCurrentThreadWorkerPrivate();
   MOZ_DIAGNOSTIC_ASSERT(workerPrivate);
@@ -227,7 +228,8 @@ already_AddRefed<Promise> Clients::OpenWindow(const nsAString& aURL,
   nsCString baseURL = workerPrivate->GetLocationInfo().mHref;
 
   ClientOpenWindowArgs args(principalInfo, Some(cspInfo),
-                            NS_ConvertUTF16toUTF8(aURL), baseURL);
+                            NS_ConvertUTF16toUTF8(aURL), baseURL,
+                            aOptions.mDisposition);
 
   nsCOMPtr<nsIGlobalObject> global = mGlobal;
 

@@ -81,6 +81,15 @@ interface nsIBrowserDOMWindow : nsISupports
   const short OPEN_PRINT_BROWSER = 4;
 
   /**
+   * Open in a WebActivity window (disposition:inline).
+   */
+  const short OPEN_ACTIVITYWINDOW = 16;
+  /**
+   * Open in an attention window (disposition:attention).
+   */
+  const short OPEN_ATTENTIONWINDOW = 17;
+
+  /**
    * Values for createContentWindow's and openURI's aFlags parameter.
    * This is a bitflags field.
    *

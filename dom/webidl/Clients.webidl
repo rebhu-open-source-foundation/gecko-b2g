@@ -16,7 +16,7 @@ interface Clients {
   [NewObject]
   Promise<sequence<Client>> matchAll(optional ClientQueryOptions options = {});
   [NewObject]
-  Promise<WindowClient?> openWindow(USVString url);
+  Promise<WindowClient?> openWindow(USVString url, optional ClientWindowOptions options = {});
   [NewObject]
   Promise<void> claim();
 };
@@ -35,3 +35,18 @@ enum ClientType {
   "all"
 };
 
+dictionary ClientWindowOptions {
+  ClientDisposition disposition = "window";
+};
+
+/**
+ * Specify how target window should be opened.
+ * window: Open in a new window (default).
+ * inline: Open in an activity window.
+ * attention: Open in an attention window.
+ */
+enum ClientDisposition {
+  "window",
+  "inline",
+  "attention"
+};

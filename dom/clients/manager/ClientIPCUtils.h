@@ -39,6 +39,13 @@ struct ParamTraits<mozilla::StorageAccess>
           mozilla::StorageAccess,
           mozilla::StorageAccess::ePartitionForeignOrDeny,
           mozilla::StorageAccess::eNumValues> {};
+
+template <>
+struct ParamTraits<mozilla::dom::ClientDisposition>
+    : public ContiguousEnumSerializer<
+          mozilla::dom::ClientDisposition,
+          mozilla::dom::ClientDisposition::Window,
+          mozilla::dom::ClientDisposition::EndGuard_> {};
 }  // namespace IPC
 
 #endif  // _mozilla_dom_ClientIPCUtils_h

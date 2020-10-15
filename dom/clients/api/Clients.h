@@ -41,7 +41,9 @@ class Clients final : public nsISupports, public nsWrapperCache {
   already_AddRefed<Promise> MatchAll(const ClientQueryOptions& aOptions,
                                      ErrorResult& aRv);
 
-  already_AddRefed<Promise> OpenWindow(const nsAString& aURL, ErrorResult& aRv);
+  already_AddRefed<Promise> OpenWindow(const nsAString& aURL,
+                                       const ClientWindowOptions& aOptions,
+                                       ErrorResult& aRv);
 
   already_AddRefed<Promise> Claim(ErrorResult& aRv);
 

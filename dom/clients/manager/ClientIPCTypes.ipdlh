@@ -14,6 +14,7 @@ using mozilla::StorageAccess from "mozilla/dom/ClientIPCUtils.h";
 using VisibilityState from "mozilla/dom/ClientIPCUtils.h";
 using CallerType from "mozilla/dom/BindingIPCUtils.h";
 using mozilla::CopyableErrorResult from "ipc/ErrorIPCUtils.h";
+using ClientDisposition from "mozilla/dom/ClientIPCUtils.h";
 
 namespace mozilla {
 namespace dom {
@@ -118,6 +119,7 @@ struct ClientOpenWindowArgs
   CSPInfo? cspInfo;
   nsCString url;
   nsCString baseURL;
+  ClientDisposition disposition;
 };
 
 union ClientOpConstructorArgs

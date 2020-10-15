@@ -188,7 +188,19 @@ struct ClientOpenWindowArgsParsed {
   nsCOMPtr<nsIURI> baseURI;
   nsCOMPtr<nsIPrincipal> principal;
   nsCOMPtr<nsIContentSecurityPolicy> csp;
+  ClientDisposition disposition;
 };
+
+int16_t WhereTo(const ClientOpenWindowArgsParsed& aArgsValidated) {
+  switch (aArgsValidated.disposition) {
+    case ClientDisposition::Inline:
+      return nsIBrowserDOMWindow::OPEN_ACTIVITYWINDOW;
+    case ClientDisposition::Attention:
+      return nsIBrowserDOMWindow::OPEN_ATTENTIONWINDOW;
+  }
+
+  return nsIBrowserDOMWindow::OPEN_DEFAULTWINDOW;
+}
 
 void OpenWindow(const ClientOpenWindowArgsParsed& aArgsValidated,
                 nsOpenWindowInfo* aOpenInfo, BrowsingContext** aBC,
@@ -223,7 +235,7 @@ void OpenWindow(const ClientOpenWindowArgsParsed& aArgsValidated,
     return;
   }
   nsresult rv = bwin->CreateContentWindow(
-      nullptr, aOpenInfo, nsIBrowserDOMWindow::OPEN_DEFAULTWINDOW,
+      nullptr, aOpenInfo, WhereTo(aArgsValidated),
       nsIBrowserDOMWindow::OPEN_NEW, aArgsValidated.principal,
       aArgsValidated.csp, aBC);
   if (NS_WARN_IF(NS_FAILED(rv))) {
@@ -388,6 +400,7 @@ RefPtr<ClientOpPromise> ClientOpenWindow(const ClientOpenWindowArgs& aArgs) {
   argsValidated.baseURI = baseURI;
   argsValidated.principal = principal;
   argsValidated.csp = csp;
+  argsValidated.disposition = aArgs.disposition();
 
 #ifdef MOZ_WIDGET_ANDROID
   // If we are on Android we are GeckoView.
