@@ -672,6 +672,8 @@ GeckoEditableSupport::DoSendKey(const nsAString& aKey) {
   if (mDispatcher->DispatchKeyboardEvent(eKeyDown, event, status)) {
     mDispatcher->MaybeDispatchKeypressEvents(event, status);
   }
+  // If blur at keydown, we may lose mDispatcher before keyup.
+  if (!mDispatcher) return NS_OK;
   mDispatcher->DispatchKeyboardEvent(eKeyUp, event, status);
   return NS_OK;
 }
