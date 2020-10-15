@@ -91,6 +91,9 @@ extern "C" const char* __tsan_default_suppressions() {
          "deadlock:OCSPStaplingServer\n"
          // Bug 1643087 - permanent
          "deadlock:BadCertAndPinningServer\n"
+         // Bug 1606804 - permanent
+         "deadlock:cert_storage::SecurityState::open_db\n"
+         "deadlock:cert_storage::SecurityState::add_certs\n"
 
          // Bug 1153409
          "race:third_party/sqlite3/*\n"
@@ -114,14 +117,6 @@ extern "C" const char* __tsan_default_suppressions() {
          // Bug 1590423 - permanent
          "race:sync..Arc\n"
          "race:alloc::sync::Arc\n"
-
-         // Bug 1600572
-         "race:SchedulerGroup::CreateEventTargetFor\n"
-         "race:SystemGroupImpl::AddRef\n"
-         "race:SystemGroup::EventTargetFor\n"
-         "race:SchedulerEventTarget::AddRef\n"
-         "race:SchedulerEventTarget::Dispatch\n"
-         "race:MessageChannel::MessageTask::Post\n"
 
          // Bug 1600594
          "race:nsThread::SizeOfEventQueues\n"
@@ -216,6 +211,20 @@ extern "C" const char* __tsan_default_suppressions() {
 
          // Bug 1615569
          "race:mp_exptmod.max_window_bits\n"
+
+         // Bug 1664535
+         "race:setNeedsIncrementalBarrier\n"
+         "race:needsIncrementalBarrier\n"
+
+         // Bug 1664803
+         "race:Sampler::sSigHandlerCoordinator\n"
+
+         // Bug 1657739
+         "race:WebRtcAec_CreateAec\n"
+         "race:EchoSubtraction\n"
+
+         // Bug 1656068
+         "race:WebRtcAec_Create\n"
 
          // ~GLContextGLX unlocks a libGL mutex that cannot be seen
          // by TSan because libGL is not instrumented.

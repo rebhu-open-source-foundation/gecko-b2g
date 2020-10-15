@@ -292,21 +292,20 @@ AddrHostRecord::AddrHostRecord(const nsHostKey& key)
       mResolveAgain(false),
       mTrrAUsed(INIT),
       mTrrAAAAUsed(INIT),
-      mTrrLock("AddrHostRecord.mTrrLock"),
-      mBlacklistedCount(0) {}
+      mTrrLock("AddrHostRecord.mTrrLock") {}
 
 AddrHostRecord::~AddrHostRecord() {
   mCallbacks.clear();
-  Telemetry::Accumulate(Telemetry::DNS_BLACKLIST_COUNT, mBlacklistedCount);
+  Telemetry::Accumulate(Telemetry::DNS_BLACKLIST_COUNT, mUnusableCount);
 }
 
-bool AddrHostRecord::Blacklisted(const NetAddr* aQuery) {
-  // must call locked
-  LOG(("Checking blacklist for host [%s], host record [%p].\n", host.get(),
+bool AddrHostRecord::Blocklisted(const NetAddr* aQuery) {
+  addr_info_lock.AssertCurrentThreadOwns();
+  LOG(("Checking unusable list for host [%s], host record [%p].\n", host.get(),
        this));
 
-  // skip the string conversion for the common case of no blacklist
-  if (!mBlacklistedItems.Length()) {
+  // skip the string conversion for the common case of no blocklist
+  if (!mUnusableItems.Length()) {
     return false;
   }
 
@@ -316,9 +315,9 @@ bool AddrHostRecord::Blacklisted(const NetAddr* aQuery) {
   }
   nsDependentCString strQuery(buf);
 
-  for (uint32_t i = 0; i < mBlacklistedItems.Length(); i++) {
-    if (mBlacklistedItems.ElementAt(i).Equals(strQuery)) {
-      LOG(("Address [%s] is blacklisted for host [%s].\n", buf, host.get()));
+  for (uint32_t i = 0; i < mUnusableItems.Length(); i++) {
+    if (mUnusableItems.ElementAt(i).Equals(strQuery)) {
+      LOG(("Address [%s] is blocklisted for host [%s].\n", buf, host.get()));
       return true;
     }
   }
@@ -327,29 +326,29 @@ bool AddrHostRecord::Blacklisted(const NetAddr* aQuery) {
 }
 
 void AddrHostRecord::ReportUnusable(const NetAddr* aAddress) {
-  // must call locked
+  addr_info_lock.AssertCurrentThreadOwns();
   LOG(
-      ("Adding address to blacklist for host [%s], host record [%p]."
+      ("Adding address to blocklist for host [%s], host record [%p]."
        "used trr=%d\n",
        host.get(), this, mTRRSuccess));
 
-  ++mBlacklistedCount;
+  ++mUnusableCount;
 
   char buf[kIPv6CStrBufSize];
   if (aAddress->ToStringBuffer(buf, sizeof(buf))) {
     LOG(
-        ("Successfully adding address [%s] to blacklist for host "
+        ("Successfully adding address [%s] to blocklist for host "
          "[%s].\n",
          buf, host.get()));
-    mBlacklistedItems.AppendElement(nsCString(buf));
+    mUnusableItems.AppendElement(nsCString(buf));
   }
 }
 
-void AddrHostRecord::ResetBlacklist() {
-  // must call locked
-  LOG(("Resetting blacklist for host [%s], host record [%p].\n", host.get(),
+void AddrHostRecord::ResetBlocklist() {
+  addr_info_lock.AssertCurrentThreadOwns();
+  LOG(("Resetting blocklist for host [%s], host record [%p].\n", host.get(),
        this));
-  mBlacklistedItems.Clear();
+  mUnusableItems.Clear();
 }
 
 size_t AddrHostRecord::SizeOfIncludingThis(MallocSizeOf mallocSizeOf) const {
@@ -361,9 +360,9 @@ size_t AddrHostRecord::SizeOfIncludingThis(MallocSizeOf mallocSizeOf) const {
   n += addr_info ? addr_info->SizeOfIncludingThis(mallocSizeOf) : 0;
   n += mallocSizeOf(addr.get());
 
-  n += mBlacklistedItems.ShallowSizeOfExcludingThis(mallocSizeOf);
-  for (size_t i = 0; i < mBlacklistedItems.Length(); i++) {
-    n += mBlacklistedItems[i].SizeOfExcludingThisIfUnshared(mallocSizeOf);
+  n += mUnusableItems.ShallowSizeOfExcludingThis(mallocSizeOf);
+  for (size_t i = 0; i < mUnusableItems.Length(); i++) {
+    n += mUnusableItems[i].SizeOfExcludingThisIfUnshared(mallocSizeOf);
   }
   return n;
 }
@@ -1131,24 +1130,27 @@ nsresult nsHostResolver::ResolveHost(const nsACString& aHost,
             if (unspecRec->negative) {
               rec->negative = unspecRec->negative;
               rec->CopyExpirationTimesAndFlagsFrom(unspecRec);
-            } else if (addrUnspecRec->addr_info) {
-              // Search for any valid address in the AF_UNSPEC entry
-              // in the cache (not blacklisted and from the right
-              // family).
-              nsTArray<NetAddr> addresses;
-              for (const auto& addr : addrUnspecRec->addr_info->Addresses()) {
-                if ((af == addr.inet.family) &&
-                    !addrUnspecRec->Blacklisted(&addr)) {
-                  addresses.AppendElement(addr);
+            } else {
+              MutexAutoLock lock(addrUnspecRec->addr_info_lock);
+              if (addrUnspecRec->addr_info) {
+                // Search for any valid address in the AF_UNSPEC entry
+                // in the cache (not blocklisted and from the right
+                // family).
+                nsTArray<NetAddr> addresses;
+                for (const auto& addr : addrUnspecRec->addr_info->Addresses()) {
+                  if ((af == addr.inet.family) &&
+                      !addrUnspecRec->Blocklisted(&addr)) {
+                    addresses.AppendElement(addr);
+                  }
                 }
-              }
-              if (!addresses.IsEmpty()) {
-                addrRec->addr_info = new AddrInfo(
-                    addrUnspecRec->addr_info->Hostname(),
-                    addrUnspecRec->addr_info->CanonicalHostname(),
-                    addrUnspecRec->addr_info->IsTRR(), std::move(addresses));
-                addrRec->addr_info_gencnt++;
-                rec->CopyExpirationTimesAndFlagsFrom(unspecRec);
+                if (!addresses.IsEmpty()) {
+                  addrRec->addr_info = new AddrInfo(
+                      addrUnspecRec->addr_info->Hostname(),
+                      addrUnspecRec->addr_info->CanonicalHostname(),
+                      addrUnspecRec->addr_info->IsTRR(), std::move(addresses));
+                  addrRec->addr_info_gencnt++;
+                  rec->CopyExpirationTimesAndFlagsFrom(unspecRec);
+                }
               }
             }
             // Now check if we have a new record.

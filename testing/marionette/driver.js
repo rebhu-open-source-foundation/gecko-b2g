@@ -1963,6 +1963,11 @@ GeckoDriver.prototype.singleTap = async function(cmd) {
   let { id, x, y } = cmd.parameters;
   let webEl = WebElement.fromUUID(id, this.context);
 
+  if (MarionettePrefs.useActors) {
+    await this.getActor().singleTap(webEl, x, y, this.capabilities);
+    return;
+  }
+
   switch (this.context) {
     case Context.Chrome:
       throw new error.UnsupportedOperationError(
@@ -3856,7 +3861,7 @@ GeckoDriver.prototype.teardownReftest = function() {
     );
   }
 
-  this._reftest.abort();
+  this._reftest.teardown();
   this._reftest = null;
 };
 

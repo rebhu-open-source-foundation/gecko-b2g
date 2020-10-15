@@ -111,6 +111,7 @@ const REMOTE_SETTING_MIGRATION_ID_PREF =
   "browser.topsites.migratedToRemoteSetting.id";
 const DEFAULT_SITES_POLICY_PREF =
   "browser.newtabpage.activity-stream.default.sites";
+const DEFAULT_SITES_EXPERIMENTS_PREF_BRANCH = "browser.topsites.experiment.";
 
 function getShortURLForCurrentSearch() {
   const url = shortURL({ url: Services.search.defaultEngine.searchForm });
@@ -151,6 +152,7 @@ this.TopSitesFeed = class TopSitesFeed {
     }
     Services.prefs.addObserver(REMOTE_SETTING_DEFAULTS_PREF, this);
     Services.prefs.addObserver(DEFAULT_SITES_POLICY_PREF, this);
+    Services.prefs.addObserver(DEFAULT_SITES_EXPERIMENTS_PREF_BRANCH, this);
   }
 
   uninit() {
@@ -161,6 +163,7 @@ this.TopSitesFeed = class TopSitesFeed {
     }
     Services.prefs.removeObserver(REMOTE_SETTING_DEFAULTS_PREF, this);
     Services.prefs.removeObserver(DEFAULT_SITES_POLICY_PREF, this);
+    Services.prefs.removeObserver(DEFAULT_SITES_EXPERIMENTS_PREF_BRANCH, this);
   }
 
   observe(subj, topic, data) {
@@ -180,7 +183,8 @@ this.TopSitesFeed = class TopSitesFeed {
       case "nsPref:changed":
         if (
           data === REMOTE_SETTING_DEFAULTS_PREF ||
-          data === DEFAULT_SITES_POLICY_PREF
+          data === DEFAULT_SITES_POLICY_PREF ||
+          data.startsWith(DEFAULT_SITES_EXPERIMENTS_PREF_BRANCH)
         ) {
           this._readDefaults();
         } else if (SEARCH_TILE_OVERRIDE_PREFS.has(data)) {
@@ -322,39 +326,55 @@ this.TopSitesFeed = class TopSitesFeed {
     // Sort sites based on the "order" attribute.
     result.sort((a, b) => a.order - b.order);
 
-    // Filter by region.
     result = result.filter(topsite => {
-      if (
-        topsite.exclude_regions &&
-        topsite.exclude_regions.includes(Region.home)
-      ) {
+      // Filter by region.
+      if (topsite.exclude_regions?.includes(Region.home)) {
         return false;
       }
       if (
-        topsite.include_regions &&
-        topsite.include_regions.length &&
+        topsite.include_regions?.length &&
         !topsite.include_regions.includes(Region.home)
       ) {
         return false;
       }
-      return true;
-    });
 
-    // Filter by locale.
-    result = result.filter(topsite => {
-      if (
-        topsite.exclude_locales &&
-        topsite.exclude_locales.includes(Services.locale.appLocaleAsBCP47)
-      ) {
+      // Filter by locale.
+      if (topsite.exclude_locales?.includes(Services.locale.appLocaleAsBCP47)) {
         return false;
       }
       if (
-        topsite.include_locales &&
-        topsite.include_locales.length &&
+        topsite.include_locales?.length &&
         !topsite.include_locales.includes(Services.locale.appLocaleAsBCP47)
       ) {
         return false;
       }
+
+      // Filter by experiment.
+      // Exclude this top site if any of the specified experiments are running.
+      if (
+        topsite.exclude_experiments?.some(experimentID =>
+          Services.prefs.getBoolPref(
+            DEFAULT_SITES_EXPERIMENTS_PREF_BRANCH + experimentID,
+            false
+          )
+        )
+      ) {
+        return false;
+      }
+      // Exclude this top site if none of the specified experiments are running.
+      if (
+        topsite.include_experiments?.length &&
+        topsite.include_experiments.every(
+          experimentID =>
+            !Services.prefs.getBoolPref(
+              DEFAULT_SITES_EXPERIMENTS_PREF_BRANCH + experimentID,
+              false
+            )
+        )
+      ) {
+        return false;
+      }
+
       return true;
     });
 
@@ -655,10 +675,11 @@ this.TopSitesFeed = class TopSitesFeed {
     // Insert the original pinned sites into the deduped frecent and defaults.
     let withPinned = insertPinned(checkedAdult, pinned);
     // Insert sponsored sites at their desired position.
-    dedupedSponsored.forEach((link, index) => {
+    dedupedSponsored.forEach(link => {
       if (!link) {
         return;
       }
+      let index = link.sponsored_position - 1;
       if (index > withPinned.length) {
         withPinned[index] = link;
       } else {

@@ -897,8 +897,8 @@ nsresult SetShadowJournalMode(mozIStorageConnection* aConnection) {
 
     MOZ_ASSERT(pageSize >= 512 && pageSize <= 65536);
 
-    nsAutoCString pageCount;
-    pageCount.AppendInt(static_cast<int32_t>(kShadowMaxWALSize / pageSize));
+    const nsAutoCString pageCount =
+        IntToCString(static_cast<int32_t>(kShadowMaxWALSize / pageSize));
 
     rv = aConnection->ExecuteSimpleSQL("PRAGMA wal_autocheckpoint = "_ns +
                                        pageCount);
@@ -908,8 +908,7 @@ nsresult SetShadowJournalMode(mozIStorageConnection* aConnection) {
 
     // Set the maximum WAL log size to reduce footprint on mobile (large empty
     // WAL files will be truncated)
-    nsAutoCString sizeLimit;
-    sizeLimit.AppendInt(kShadowJournalSizeLimit);
+    const nsAutoCString sizeLimit = IntToCString(kShadowJournalSizeLimit);
 
     rv = aConnection->ExecuteSimpleSQL("PRAGMA journal_size_limit = "_ns +
                                        sizeLimit);
@@ -4617,15 +4616,12 @@ nsresult Connection::InitStorageAndOriginHelper::RunOnIOThread() {
   QuotaManager* quotaManager = QuotaManager::Get();
   MOZ_ASSERT(quotaManager);
 
-  nsCOMPtr<nsIFile> directoryEntry;
-  nsresult rv = quotaManager->EnsureStorageAndOriginIsInitialized(
-      PERSISTENCE_TYPE_DEFAULT, mSuffix, mGroup, mOrigin,
-      mozilla::dom::quota::Client::LS, getter_AddRefs(directoryEntry));
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
-  }
+  LS_TRY_INSPECT(const auto& directoryEntry,
+                 quotaManager->EnsureStorageAndOriginIsInitialized(
+                     PERSISTENCE_TYPE_DEFAULT, mSuffix, mGroup, mOrigin,
+                     mozilla::dom::quota::Client::LS));
 
-  rv = directoryEntry->GetPath(mOriginDirectoryPath);
+  nsresult rv = directoryEntry->GetPath(mOriginDirectoryPath);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
@@ -7344,21 +7340,25 @@ nsresult PrepareDatastoreOp::DatabaseWork() {
   // Connection::EnsureStorageConnection.
   // However, origin quota must be initialized, GetQuotaObject in GetResponse
   // would fail otherwise.
-  nsCOMPtr<nsIFile> directoryEntry;
-  if (hasDataForMigration) {
-    rv = quotaManager->EnsureStorageAndOriginIsInitialized(
-        PERSISTENCE_TYPE_DEFAULT, mSuffix, mGroup, mOrigin,
-        mozilla::dom::quota::Client::LS, getter_AddRefs(directoryEntry));
-    if (NS_WARN_IF(NS_FAILED(rv))) {
-      return rv;
-    }
-  } else {
-    LS_TRY_UNWRAP(directoryEntry, quotaManager->GetDirectoryForOrigin(
-                                      PERSISTENCE_TYPE_DEFAULT, mOrigin));
+  LS_TRY_INSPECT(
+      const auto& directoryEntry,
+      ([hasDataForMigration, &quotaManager,
+        this]() -> mozilla::Result<nsCOMPtr<nsIFile>, nsresult> {
+        if (hasDataForMigration) {
+          LS_TRY_RETURN(quotaManager->EnsureStorageAndOriginIsInitialized(
+              PERSISTENCE_TYPE_DEFAULT, mSuffix, mGroup, mOrigin,
+              mozilla::dom::quota::Client::LS));
+        } else {
+          LS_TRY_UNWRAP(auto directoryEntry,
+                        quotaManager->GetDirectoryForOrigin(
+                            PERSISTENCE_TYPE_DEFAULT, mOrigin));
 
-    quotaManager->EnsureQuotaForOrigin(PERSISTENCE_TYPE_DEFAULT, mGroup,
-                                       mOrigin);
-  }
+          quotaManager->EnsureQuotaForOrigin(PERSISTENCE_TYPE_DEFAULT, mGroup,
+                                             mOrigin);
+
+          return directoryEntry;
+        }
+      }()));
 
   rv =
       directoryEntry->Append(NS_LITERAL_STRING_FROM_CSTRING(LS_DIRECTORY_NAME));

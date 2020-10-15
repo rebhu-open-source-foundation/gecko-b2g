@@ -666,6 +666,16 @@ bool DisplayPortUtils::SetDisplayPortMargins(nsIContent* aContent,
     return false;
   }
 
+  if (currentData && currentData->mMargins.mVisualOffset != CSSPoint() &&
+      aMargins.mVisualOffset == CSSPoint()) {
+    // If we hit this, then it's possible that we're setting a displayport
+    // that is wrong because the old one had a layout/visual adjustment and
+    // the new one does not.
+    MOZ_LOG(sDisplayportLog, LogLevel::Warning,
+            ("Dropping visual offset %s",
+             ToString(currentData->mMargins.mVisualOffset).c_str()));
+  }
+
   nsIFrame* scrollFrame = nsLayoutUtils::GetScrollFrameFromContent(aContent);
 
   nsRect oldDisplayPort;
@@ -848,10 +858,27 @@ bool DisplayPortUtils::CalculateAndSetDisplayPortMargins(
   ScreenMargin displayportMargins = layers::apz::CalculatePendingDisplayPort(
       metrics, ParentLayerPoint(0.0f, 0.0f));
   PresShell* presShell = frame->PresContext()->GetPresShell();
-  return SetDisplayPortMargins(
-      content, presShell,
-      DisplayPortMargins::WithNoAdjustment(displayportMargins), 0,
-      aRepaintMode);
+
+  DisplayPortMargins margins;
+  if (metrics.IsRootContent()) {
+    // Make sure to preserve the layout vs visual adjustment because we
+    // just computed displayportMargins using the visual scroll offset above,
+    // and that may be different than the layout scroll offset.
+    margins = DisplayPortMargins::WithAdjustment(
+        displayportMargins, metrics.GetVisualScrollOffset(),
+        metrics.GetLayoutScrollOffset(),
+        metrics.DisplayportPixelsPerCSSPixel());
+  } else {
+    // For non-root content the visual scroll offset should always be
+    // the same as the layout scroll offset. We could just take the code
+    // path above, but there's some value in being able to distinguish
+    // the two cases when debugging.
+    MOZ_ASSERT(metrics.GetVisualScrollOffset() ==
+               metrics.GetLayoutScrollOffset());
+    margins = DisplayPortMargins::WithNoAdjustment(displayportMargins);
+  }
+
+  return SetDisplayPortMargins(content, presShell, margins, 0, aRepaintMode);
 }
 
 bool DisplayPortUtils::MaybeCreateDisplayPort(nsDisplayListBuilder* aBuilder,

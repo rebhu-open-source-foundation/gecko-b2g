@@ -161,10 +161,21 @@ static bool ToWebAssemblyValue_f64(JSContext* cx, HandleValue val,
   return ok;
 }
 template <typename Debug = NoDebug>
-static bool ToWebAssemblyValue_anyref(JSContext* cx, HandleValue val,
-                                      void** loc) {
+static bool ToWebAssemblyValue_externref(JSContext* cx, HandleValue val,
+                                         void** loc) {
   RootedAnyRef result(cx, AnyRef::null());
   if (!BoxAnyRef(cx, val, &result)) {
+    return false;
+  }
+  *loc = result.get().forCompiledCode();
+  Debug::print(*loc);
+  return true;
+}
+template <typename Debug = NoDebug>
+static bool ToWebAssemblyValue_eqref(JSContext* cx, HandleValue val,
+                                     void** loc) {
+  RootedAnyRef result(cx, AnyRef::null());
+  if (!CheckEqRefValue(cx, val, &result)) {
     return false;
   }
   *loc = result.get().forCompiledCode();
@@ -218,7 +229,9 @@ static bool ToWebAssemblyValue(JSContext* cx, HandleValue val, ValType type,
         case RefType::Func:
           return ToWebAssemblyValue_funcref<Debug>(cx, val, (void**)loc);
         case RefType::Extern:
-          return ToWebAssemblyValue_anyref<Debug>(cx, val, (void**)loc);
+          return ToWebAssemblyValue_externref<Debug>(cx, val, (void**)loc);
+        case RefType::Eq:
+          return ToWebAssemblyValue_eqref<Debug>(cx, val, (void**)loc);
         case RefType::TypeIndex:
           return ToWebAssemblyValue_typeref<Debug>(cx, val, (void**)loc);
       }
@@ -325,6 +338,9 @@ static bool ToJSValue(JSContext* cx, const void* src, ValType type,
           return ToJSValue_funcref<Debug>(
               cx, *reinterpret_cast<void* const*>(src), dst);
         case RefType::Extern:
+          return ToJSValue_anyref<Debug>(
+              cx, *reinterpret_cast<void* const*>(src), dst);
+        case RefType::Eq:
           return ToJSValue_anyref<Debug>(
               cx, *reinterpret_cast<void* const*>(src), dst);
         case RefType::TypeIndex:
@@ -581,6 +597,7 @@ bool Instance::callImport(JSContext* cx, uint32_t funcImportIndex,
               // dynamically in the callee.  Code in the stubs layer must box up
               // the FuncRef as a Value.
               break;
+            case RefType::Eq:
             case RefType::TypeIndex:
               // Guarded by temporarilyUnsupportedReftypeForExit()
               MOZ_CRASH("case guarded above");
@@ -1271,7 +1288,6 @@ bool Instance::initElems(uint32_t tableIndex, const ElemSegment& seg,
 }
 
 /* static */ void* Instance::structNarrow(Instance* instance,
-                                          uint32_t mustUnboxAnyref,
                                           uint32_t outputTypeIndex,
                                           void* maybeNullPtr) {
   MOZ_ASSERT(SASigStructNarrow.failureMode == FailureMode::Infallible);
@@ -1286,25 +1302,8 @@ bool Instance::initElems(uint32_t tableIndex, const ElemSegment& seg,
   }
 
   void* nonnullPtr = maybeNullPtr;
-  if (mustUnboxAnyref) {
-    // TODO/AnyRef-boxing: With boxed immediates and strings, unboxing
-    // AnyRef is not a no-op.
-    ASSERT_ANYREF_IS_JSOBJECT;
-
-    Rooted<NativeObject*> no(cx, static_cast<NativeObject*>(nonnullPtr));
-    if (!no->is<TypedObject>()) {
-      return nullptr;
-    }
-    obj = &no->as<TypedObject>();
-    Rooted<TypeDescr*> td(cx, &obj->typeDescr());
-    if (td->kind() != TypeKind::Struct) {
-      return nullptr;
-    }
-    typeDescr = &td->as<StructTypeDescr>();
-  } else {
-    obj = static_cast<TypedObject*>(nonnullPtr);
-    typeDescr = &obj->typeDescr().as<StructTypeDescr>();
-  }
+  obj = static_cast<TypedObject*>(nonnullPtr);
+  typeDescr = &obj->typeDescr().as<StructTypeDescr>();
 
   // Optimization opportunity: instead of this loop we could perhaps load an
   // index from `typeDescr` and use that to index into the structTypes table
@@ -2129,7 +2128,8 @@ bool Instance::callExport(JSContext* cx, uint32_t funcIndex, CallArgs args) {
           }
           break;
         }
-        case RefType::Extern: {
+        case RefType::Extern:
+        case RefType::Eq: {
           RootedAnyRef ref(cx, AnyRef::fromCompiledCode(ptr));
           ASSERT_ANYREF_IS_JSOBJECT;
           if (!refs.emplaceBack(ref.get().asJSObject())) {

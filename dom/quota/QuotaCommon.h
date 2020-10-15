@@ -791,6 +791,16 @@ auto CollectEach(const Step& aStep, const Body& aBody)
   return mozilla::Ok{};
 }
 
+template <typename Range, typename Body>
+auto CollectEachInRange(const Range& aRange, const Body& aBody)
+    -> Result<mozilla::Ok, nsresult> {
+  for (const auto& element : aRange) {
+    MOZ_TRY(aBody(element));
+  }
+
+  return mozilla::Ok{};
+}
+
 // Like Rust's collect with a while loop, not a generic iterator/range.
 //
 // Cond must be a function type accepting no parameters with a return type
@@ -907,22 +917,6 @@ void CacheUseDOSDevicePathSyntaxPrefValue();
 #endif
 
 Result<nsCOMPtr<nsIFile>, nsresult> QM_NewLocalFile(const nsAString& aPath);
-
-// IntString is deprecated, use GetIntString instead.
-class IntString : public nsAutoString {
- public:
-  explicit IntString(int64_t aInteger) { AppendInt(aInteger); }
-};
-
-// IntCString is deprecated, use GetIntCString instead.
-class IntCString : public nsAutoCString {
- public:
-  explicit IntCString(int64_t aInteger) { AppendInt(aInteger); }
-};
-
-nsAutoString GetIntString(const int64_t aInteger);
-
-nsAutoCString GetIntCString(const int64_t aInteger);
 
 nsDependentCSubstring GetLeafName(const nsACString& aPath);
 

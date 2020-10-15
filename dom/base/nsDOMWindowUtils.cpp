@@ -6,6 +6,7 @@
 
 #include "nsDOMWindowUtils.h"
 
+#include "MobileViewportManager.h"
 #include "mozilla/layers/CompositorBridgeChild.h"
 #include "mozilla/layers/LayerTransactionChild.h"
 #include "nsPresContext.h"
@@ -691,6 +692,15 @@ nsDOMWindowUtils::SendMouseEventCommon(
       presShell, aType, aX, aY, aButton, aButtons, aClickCount, aModifiers,
       aIgnoreRootScrollFrame, aPressure, aInputSourceArg, aPointerId, aToWindow,
       aPreventDefault, aIsDOMEventSynthesized, aIsWidgetEventSynthesized);
+}
+
+NS_IMETHODIMP
+nsDOMWindowUtils::IsCORSSafelistedRequestHeader(const nsACString& aName,
+                                                const nsACString& aValue,
+                                                bool* aRetVal) {
+  NS_ENSURE_ARG_POINTER(aRetVal);
+  *aRetVal = nsContentUtils::IsCORSSafelistedRequestHeader(aName, aValue);
+  return NS_OK;
 }
 
 NS_IMETHODIMP
@@ -4439,4 +4449,16 @@ nsDOMWindowUtils::GetEffectivelyThrottlesFrameRequests(bool* aResult) {
   *aResult = !doc->WouldScheduleFrameRequestCallbacks() ||
              doc->ShouldThrottleFrameRequests();
   return NS_OK;
+}
+
+NS_IMETHODIMP
+nsDOMWindowUtils::ResetMobileViewportManager() {
+  if (RefPtr<PresShell> presShell = GetPresShell()) {
+    if (auto mvm = presShell->GetMobileViewportManager()) {
+      mvm->SetInitialViewport();
+      return NS_OK;
+    }
+  }
+  // Unable to reset, so let's error out
+  return NS_ERROR_FAILURE;
 }

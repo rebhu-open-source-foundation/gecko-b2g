@@ -262,11 +262,7 @@
 
 - name: apz.allow_zooming
   type: RelaxedAtomicBool
-#if defined(ANDROID)
   value: true
-#else
-  value: @IS_NIGHTLY_BUILD@
-#endif
   mirror: always
 
 - name: apz.allow_zooming_out
@@ -636,7 +632,7 @@
 
 - name: apz.windows.use_direct_manipulation
   type: RelaxedAtomicBool
-  value: false
+  value: true
   mirror: always
 
 - name: apz.x_skate_highmem_adjust
@@ -4392,7 +4388,7 @@
 
 - name: gfx.e10s.font-list.shared
   type: bool
-  value: @IS_NIGHTLY_BUILD@
+  value: @IS_EARLY_BETA_OR_EARLIER@
   mirror: once
 
 - name: gfx.font_loader.delay
@@ -4670,11 +4666,6 @@
 - name: gfx.webrender.max-filter-ops-per-chain
   type: RelaxedAtomicUint32
   value: 64
-  mirror: always
-
-- name: gfx.webrender.picture-caching
-  type: RelaxedAtomicBool
-  value: true
   mirror: always
 
 - name: gfx.webrender.enable-multithreading
@@ -9706,11 +9697,7 @@
 #ifdef MOZ_CODE_COVERAGE
   value: 0
 #else
-  #ifdef NIGHTLY_BUILD
   value: 3
-  #else
-  value: 1
-  #endif
 #endif
   mirror: always
 

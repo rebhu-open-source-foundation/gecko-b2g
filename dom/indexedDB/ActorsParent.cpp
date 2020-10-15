@@ -548,12 +548,6 @@ nsresult ClampResultCode(nsresult aResultCode) {
   return NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR;
 }
 
-nsAutoCString ToAutoCString(const uint32_t aInt) {
-  nsAutoCString result;
-  result.AppendInt(aInt);
-  return result;
-}
-
 void GetDatabaseFilenameBase(const nsAString& aDatabaseName,
                              nsAutoString& aDatabaseFilenameBase) {
   MOZ_ASSERT(aDatabaseFilenameBase.IsEmpty());
@@ -607,7 +601,7 @@ Result<nsCOMPtr<nsIFileURL>, nsresult> GetDatabaseFileURL(
   // TelemetryVFS to get corresponding QuotaObject instances for SQLite files.
   const nsCString directoryLockIdClause =
       aDirectoryLockId >= 0
-          ? "&directoryLockId="_ns + IntCString(aDirectoryLockId)
+          ? "&directoryLockId="_ns + IntToCString(aDirectoryLockId)
           : EmptyCString();
 
   IDB_TRY_UNWRAP(
@@ -726,7 +720,7 @@ nsresult SetJournalMode(mozIStorageConnection& aConnection) {
     // WAL mode successfully enabled. Maybe set limits on its size here.
     if (kMaxWALPages >= 0) {
       rv = aConnection.ExecuteSimpleSQL("PRAGMA wal_autocheckpoint = "_ns +
-                                        ToAutoCString(kMaxWALPages));
+                                        IntToCString(kMaxWALPages));
       if (NS_WARN_IF(NS_FAILED(rv))) {
         return rv;
       }
@@ -759,7 +753,7 @@ struct StorageOpenTraits<nsIFileURL> {
       mozIStorageService& aStorageService, nsIFileURL& aFileURL,
       const uint32_t aTelemetryId = 0) {
     const nsAutoCString telemetryFilename =
-        aTelemetryId ? "indexedDB-"_ns + ToAutoCString(aTelemetryId) +
+        aTelemetryId ? "indexedDB-"_ns + IntToCString(aTelemetryId) +
                            NS_ConvertUTF16toUTF8(kSQLiteSuffix)
                      : nsAutoCString();
 
@@ -5213,14 +5207,39 @@ class QuotaClient final : public mozilla::dom::quota::Client {
   Result<nsCOMPtr<nsIFile>, nsresult> GetDirectory(
       PersistenceType aPersistenceType, const nsACString& aOrigin);
 
-  // The aObsoleteFiles will collect files based on the marker files. For now,
-  // InitOrigin() is the only consumer of this argument because it checks those
-  // unfinished deletion and clean them up after that.
-  nsresult GetDatabaseFilenames(
-      nsIFile* aDirectory, const AtomicBool& aCanceled,
-      nsTArray<nsString>& aSubdirsToProcess,
-      nsTHashtable<nsStringHashKey>& aDatabaseFilename,
-      nsTHashtable<nsStringHashKey>* aObsoleteFilenames = nullptr);
+  struct SubdirectoriesToProcessAndDatabaseFilenames {
+    AutoTArray<nsString, 20> subdirsToProcess;
+    nsTHashtable<nsStringHashKey> databaseFilenames{20};
+  };
+
+  struct SubdirectoriesToProcessAndDatabaseFilenamesAndObsoleteFilenames {
+    AutoTArray<nsString, 20> subdirsToProcess;
+    nsTHashtable<nsStringHashKey> databaseFilenames{20};
+    nsTHashtable<nsStringHashKey> obsoleteFilenames{20};
+  };
+
+  enum class ObsoleteFilenamesHandling { Include, Omit };
+
+  template <ObsoleteFilenamesHandling ObsoleteFilenames>
+  using GetDatabaseFilenamesResult = std::conditional_t<
+      ObsoleteFilenames == ObsoleteFilenamesHandling::Include,
+      SubdirectoriesToProcessAndDatabaseFilenamesAndObsoleteFilenames,
+      SubdirectoriesToProcessAndDatabaseFilenames>;
+
+  // Returns a two-part or three-part structure:
+  //
+  // The first part is an array of subdirectories to process.
+  //
+  // The second part is a hashtable of database filenames.
+  //
+  // When ObsoleteFilenames is ObsoleteFilenamesHandling::Include, will also
+  // collect files based on the marker files. For now,
+  // GetUsageForOriginInternal() is the only consumer of this result because it
+  // checks those unfinished deletion and clean them up after that.
+  template <ObsoleteFilenamesHandling ObsoleteFilenames =
+                ObsoleteFilenamesHandling::Omit>
+  Result<GetDatabaseFilenamesResult<ObsoleteFilenames>, nsresult>
+  GetDatabaseFilenames(nsIFile& aDirectory, const AtomicBool& aCanceled);
 
   nsresult GetUsageForOriginInternal(PersistenceType aPersistenceType,
                                      const nsACString& aGroup,
@@ -5730,18 +5749,15 @@ SerializeStructuredCloneFiles(PBackgroundParent* aBackgroundActor,
     return nsTArray<SerializedStructuredCloneFile>{};
   }
 
-  nsCOMPtr<nsIFile> directory =
+  const nsCOMPtr<nsIFile> directory =
       aDatabase->GetFileManager().GetCheckedDirectory();
-  if (NS_WARN_IF(!directory)) {
-    IDB_REPORT_INTERNAL_ERR();
-    return Err(NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR);
-  }
+  IDB_TRY(OkIf(directory), Err(NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR),
+          IDB_REPORT_INTERNAL_ERR_LAMBDA);
 
   nsTArray<SerializedStructuredCloneFile> serializedStructuredCloneFiles;
-  if (NS_WARN_IF(!serializedStructuredCloneFiles.SetCapacity(aFiles.Length(),
-                                                             fallible))) {
-    return Err(NS_ERROR_OUT_OF_MEMORY);
-  }
+  IDB_TRY(OkIf(serializedStructuredCloneFiles.SetCapacity(aFiles.Length(),
+                                                          fallible)),
+          Err(NS_ERROR_OUT_OF_MEMORY));
 
   IDB_TRY(TransformIfAbortOnErr(
       aFiles, MakeBackInserter(serializedStructuredCloneFiles),
@@ -5754,13 +5770,11 @@ SerializeStructuredCloneFiles(PBackgroundParent* aBackgroundActor,
         const int64_t fileId = file.FileInfo().Id();
         MOZ_ASSERT(fileId > 0);
 
-        nsCOMPtr<nsIFile> nativeFile =
+        const nsCOMPtr<nsIFile> nativeFile =
             mozilla::dom::indexedDB::FileManager::GetCheckedFileForId(directory,
                                                                       fileId);
-        if (NS_WARN_IF(!nativeFile)) {
-          IDB_REPORT_INTERNAL_ERR();
-          return Err(NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR);
-        }
+        IDB_TRY(OkIf(nativeFile), Err(NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR),
+                IDB_REPORT_INTERNAL_ERR_LAMBDA);
 
         switch (file.Type()) {
           case StructuredCloneFileBase::eStructuredClone:
@@ -5772,17 +5786,15 @@ SerializeStructuredCloneFiles(PBackgroundParent* aBackgroundActor,
             [[fallthrough]];
 
           case StructuredCloneFileBase::eBlob: {
-            auto impl = CreateFileBlobImpl(*aDatabase, nativeFile,
-                                           file.FileInfo().Id());
+            const auto impl = CreateFileBlobImpl(*aDatabase, nativeFile,
+                                                 file.FileInfo().Id());
 
             IPCBlob ipcBlob;
-            nsresult rv =
-                IPCBlobUtils::Serialize(impl, aBackgroundActor, ipcBlob);
-            if (NS_WARN_IF(NS_FAILED(rv))) {
-              // This can only fail if the child has crashed.
-              IDB_REPORT_INTERNAL_ERR();
-              return Err(NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR);
-            }
+
+            // This can only fail if the child has crashed.
+            IDB_TRY(IPCBlobUtils::Serialize(impl, aBackgroundActor, ipcBlob),
+                    Err(NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR),
+                    IDB_REPORT_INTERNAL_ERR_LAMBDA);
 
             aDatabase->MapBlob(ipcBlob, file.FileInfoPtr());
 
@@ -5795,12 +5807,10 @@ SerializeStructuredCloneFiles(PBackgroundParent* aBackgroundActor,
                   null_t(), StructuredCloneFileBase::eMutableFile};
             }
 
-            RefPtr<MutableFile> actor = MutableFile::Create(
+            const RefPtr<MutableFile> actor = MutableFile::Create(
                 nativeFile, aDatabase.clonePtr(), file.FileInfoPtr());
-            if (!actor) {
-              IDB_REPORT_INTERNAL_ERR();
-              return Err(NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR);
-            }
+            IDB_TRY(OkIf(actor), Err(NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR),
+                    IDB_REPORT_INTERNAL_ERR_LAMBDA);
 
             // Transfer ownership to IPDL.
             actor->SetActorAlive();
@@ -6369,16 +6379,6 @@ nsAutoCString MakeDirectionClause(const IDBCursorDirection aDirection) {
          (IsIncreasingOrder(aDirection) ? " ASC"_ns : " DESC"_ns);
 }
 
-nsresult LocalizeKey(const Key& aBaseKey, const nsCString& aLocale,
-                     Key* const aLocalizedKey) {
-  MOZ_ASSERT(aLocalizedKey);
-  MOZ_ASSERT(!aLocale.IsEmpty());
-
-  IDB_TRY_UNWRAP(*aLocalizedKey, aBaseKey.ToLocaleAwareKey(aLocale));
-
-  return NS_OK;
-}
-
 enum struct ComparisonOperator {
   LessThan,
   LessOrEquals,
@@ -6821,122 +6821,6 @@ class DeserializeIndexValueHelper final : public Runnable {
   const nsCString mLocale;
   StructuredCloneReadInfoParent& mCloneReadInfo;
   nsTArray<IndexUpdateInfo>& mUpdateInfoArray;
-  nsresult mStatus;
-};
-
-class DeserializeUpgradeValueHelper final : public Runnable {
- public:
-  explicit DeserializeUpgradeValueHelper(
-      StructuredCloneReadInfoParent& aCloneReadInfo)
-      : Runnable("DeserializeUpgradeValueHelper"),
-        mMonitor("DeserializeUpgradeValueHelper::mMonitor"),
-        mCloneReadInfo(aCloneReadInfo),
-        mStatus(NS_ERROR_FAILURE) {}
-
-  nsresult DispatchAndWait(nsAString& aFileIds) {
-    // We don't need to go to the main-thread and use the sandbox.
-    if (!mCloneReadInfo.Data().Size()) {
-      PopulateFileIds(aFileIds);
-      return NS_OK;
-    }
-
-    // The operation will continue on the main-thread.
-
-    MOZ_ASSERT(!(mCloneReadInfo.Data().Size() % sizeof(uint64_t)));
-
-    MonitorAutoLock lock(mMonitor);
-
-    RefPtr<Runnable> self = this;
-    const nsresult rv =
-        SchedulerGroup::Dispatch(TaskCategory::Other, self.forget());
-    if (NS_WARN_IF(NS_FAILED(rv))) {
-      return rv;
-    }
-
-    lock.Wait();
-
-    if (NS_FAILED(mStatus)) {
-      return mStatus;
-    }
-
-    PopulateFileIds(aFileIds);
-    return NS_OK;
-  }
-
-  NS_IMETHOD
-  Run() override {
-    MOZ_ASSERT(NS_IsMainThread());
-
-    AutoJSAPI jsapi;
-    jsapi.Init();
-    JSContext* cx = jsapi.cx();
-
-    JS::Rooted<JSObject*> global(cx, GetSandbox(cx));
-    if (NS_WARN_IF(!global)) {
-      OperationCompleted(NS_ERROR_FAILURE);
-      return NS_OK;
-    }
-
-    const JSAutoRealm ar(cx, global);
-
-    JS::Rooted<JS::Value> value(cx);
-    const nsresult rv = DeserializeUpgradeValue(cx, &value);
-    if (NS_WARN_IF(NS_FAILED(rv))) {
-      OperationCompleted(rv);
-      return NS_OK;
-    }
-
-    OperationCompleted(NS_OK);
-    return NS_OK;
-  }
-
- private:
-  nsresult DeserializeUpgradeValue(JSContext* aCx,
-                                   JS::MutableHandle<JS::Value> aValue) {
-    static const JSStructuredCloneCallbacks callbacks = {
-        StructuredCloneReadCallback<StructuredCloneReadInfoParent>,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr};
-
-    if (!JS_ReadStructuredClone(
-            aCx, mCloneReadInfo.Data(), JS_STRUCTURED_CLONE_VERSION,
-            JS::StructuredCloneScope::DifferentProcessForIndexedDB, aValue,
-            JS::CloneDataPolicy(), &callbacks, &mCloneReadInfo)) {
-      return NS_ERROR_DOM_DATA_CLONE_ERR;
-    }
-
-    return NS_OK;
-  }
-
-  void PopulateFileIds(nsAString& aFileIds) {
-    for (uint32_t count = mCloneReadInfo.Files().Length(), index = 0;
-         index < count; index++) {
-      const StructuredCloneFileParent& file = mCloneReadInfo.Files()[index];
-
-      const int64_t id = file.FileInfo().Id();
-
-      if (index) {
-        aFileIds.Append(' ');
-      }
-      aFileIds.AppendInt(file.Type() == StructuredCloneFileBase::eBlob ? id
-                                                                       : -id);
-    }
-  }
-
-  void OperationCompleted(nsresult aStatus) {
-    mStatus = aStatus;
-
-    MonitorAutoLock lock(mMonitor);
-    lock.Notify();
-  }
-
-  Monitor mMonitor;
-  StructuredCloneReadInfoParent& mCloneReadInfo;
   nsresult mStatus;
 };
 
@@ -7483,7 +7367,7 @@ Result<bool, nsresult> DatabaseConnection::ReclaimFreePagesWhileIdle(
       const auto& incrementalVacuumStmt,
       GetCachedStatement(
           "PRAGMA incremental_vacuum("_ns +
-          ToAutoCString(std::max(uint64_t(1), uint64_t(aFreelistCount / 10))) +
+          IntToCString(std::max(uint64_t(1), uint64_t(aFreelistCount / 10))) +
           ");"_ns));
 
   IDB_TRY_INSPECT(const auto& beginImmediateStmt,
@@ -7503,22 +7387,34 @@ Result<bool, nsresult> DatabaseConnection::ReclaimFreePagesWhileIdle(
 
   mInWriteTransaction = true;
 
-  bool freedSomePages = false;
+  bool freedSomePages = false, interrupted = false;
+
+  const auto rollback = [&aRollbackStatement, this](const auto&) {
+    MOZ_ASSERT(mInWriteTransaction);
+
+    // Something failed, make sure we roll everything back.
+    Unused << aRollbackStatement.Borrow()->Execute();
+
+    // XXX Is rollback infallible? Shouldn't we check the result?
+
+    mInWriteTransaction = false;
+  };
 
   IDB_TRY(CollectWhile(
-              [&aFreelistCount]() -> Result<bool, nsresult> {
+              [&aFreelistCount, &interrupted,
+               currentThread]() -> Result<bool, nsresult> {
+                if (NS_HasPendingEvents(currentThread)) {
+                  // Abort if something else wants to use the thread, and
+                  // roll back this transaction. It's ok if we never make
+                  // progress here because the idle service should
+                  // eventually reclaim this space.
+                  interrupted = true;
+                  return false;
+                }
                 return aFreelistCount != 0;
               },
-              [&aFreelistStatement, &aFreelistCount, currentThread,
-               &incrementalVacuumStmt, &freedSomePages,
-               this]() -> mozilla::Result<Ok, nsresult> {
-                // Fail if something else wants to use the thread, and
-                // roll back this transaction. It's ok if we never make
-                // progress here because the idle service should
-                // eventually reclaim this space.
-                IDB_TRY(OkIf(!NS_HasPendingEvents(currentThread)),
-                        Err(NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR));
-
+              [&aFreelistStatement, &aFreelistCount, &incrementalVacuumStmt,
+               &freedSomePages, this]() -> mozilla::Result<Ok, nsresult> {
                 IDB_TRY(incrementalVacuumStmt.Borrow()->Execute());
 
                 freedSomePages = true;
@@ -7528,8 +7424,13 @@ Result<bool, nsresult> DatabaseConnection::ReclaimFreePagesWhileIdle(
 
                 return Ok{};
               })
-              .andThen([&commitStmt, &freedSomePages,
+              .andThen([&commitStmt, &freedSomePages, &interrupted, &rollback,
                         this](Ok) -> Result<Ok, nsresult> {
+                if (interrupted) {
+                  rollback(Ok{});
+                  freedSomePages = false;
+                }
+
                 if (freedSomePages) {
                   // Commit the write transaction.
                   IDB_TRY(commitStmt.Borrow()->Execute(), QM_PROPAGATE,
@@ -7540,14 +7441,7 @@ Result<bool, nsresult> DatabaseConnection::ReclaimFreePagesWhileIdle(
 
                 return Ok{};
               }),
-          QM_PROPAGATE, ([&aRollbackStatement, this](const auto&) {
-            MOZ_ASSERT(mInWriteTransaction);
-
-            // Something failed, make sure we roll everything back.
-            Unused << aRollbackStatement.Borrow()->Execute();
-
-            mInWriteTransaction = false;
-          }));
+          QM_PROPAGATE, rollback);
 
   return freedSomePages;
 }
@@ -10122,14 +10016,14 @@ void Database::Stringify(nsACString& aResult) const {
   constexpr auto kQuotaGenericDelimiterString = "|"_ns;
 
   aResult.Append(
-      "DirectoryLock:"_ns + ToAutoCString(!!mDirectoryLock) +
+      "DirectoryLock:"_ns + IntToCString(!!mDirectoryLock) +
       kQuotaGenericDelimiterString +
       //
-      "Transactions:"_ns + ToAutoCString(mTransactions.Count()) +
+      "Transactions:"_ns + IntToCString(mTransactions.Count()) +
       kQuotaGenericDelimiterString +
       //
       "OtherProcessActor:"_ns +
-      ToAutoCString(
+      IntToCString(
           BackgroundParent::IsOtherProcessActor(GetBackgroundParent())) +
       kQuotaGenericDelimiterString +
       //
@@ -10139,15 +10033,16 @@ void Database::Stringify(nsACString& aResult) const {
       "PersistenceType:"_ns + PersistenceTypeToString(mPersistenceType) +
       kQuotaGenericDelimiterString +
       //
-      "Closed:"_ns + ToAutoCString(mClosed) + kQuotaGenericDelimiterString +
-      //
-      "Invalidated:"_ns + ToAutoCString(mInvalidated) +
+      "Closed:"_ns + IntToCString(static_cast<bool>(mClosed)) +
       kQuotaGenericDelimiterString +
       //
-      "ActorWasAlive:"_ns + ToAutoCString(mActorWasAlive) +
+      "Invalidated:"_ns + IntToCString(static_cast<bool>(mInvalidated)) +
       kQuotaGenericDelimiterString +
       //
-      "ActorDestroyed:"_ns + ToAutoCString(mActorDestroyed));
+      "ActorWasAlive:"_ns + IntToCString(static_cast<bool>(mActorWasAlive)) +
+      kQuotaGenericDelimiterString +
+      //
+      "ActorDestroyed:"_ns + IntToCString(static_cast<bool>(mActorDestroyed)));
 }
 
 SafeRefPtr<FileInfo> Database::GetBlob(const IPCBlob& aIPCBlob) {
@@ -12580,12 +12475,10 @@ mozilla::ipc::IPCResult Cursor<CursorType>::RecvContinue(
         if constexpr (IsIndexCursor) {
           auto localeAwarePosition = Key{};
           if (this->IsLocaleAware()) {
-            const nsresult rv =
-                LocalizeKey(aCurrentKey, this->mLocale, &localeAwarePosition);
-            if (NS_WARN_IF(NS_FAILED(rv))) {
-              ASSERT_UNLESS_FUZZING();
-              return Err(IPC_FAIL_NO_REASON(this));
-            }
+            IDB_TRY_UNWRAP(localeAwarePosition,
+                           aCurrentKey.ToLocaleAwareKey(this->mLocale),
+                           Err(IPC_FAIL_NO_REASON(this)),
+                           [](const auto&) { ASSERT_UNLESS_FUZZING(); });
           }
           return CursorPosition<CursorType>{aCurrentKey, localeAwarePosition,
                                             aCurrentObjectStoreKey};
@@ -12776,15 +12669,12 @@ nsCOMPtr<nsIFile> FileManager::GetFileForId(nsIFile* aDirectory, int64_t aId) {
   MOZ_ASSERT(aDirectory);
   MOZ_ASSERT(aId > 0);
 
-  nsAutoString id;
-  id.AppendInt(aId);
-
   IDB_TRY_UNWRAP(
       auto file,
       MOZ_TO_RESULT_INVOKE_TYPED(nsCOMPtr<nsIFile>, aDirectory, Clone),
       nullptr);
 
-  IDB_TRY(file->Append(id), nullptr);
+  IDB_TRY(file->Append(IntToString(aId)), nullptr);
 
   return file;
 }
@@ -12998,24 +12888,16 @@ nsresult FileManager::SyncDeleteFile(const int64_t aId) {
   }
 
   const auto directory = GetDirectory();
-  if (NS_WARN_IF(!directory)) {
-    return NS_ERROR_FAILURE;
-  }
+  IDB_TRY(OkIf(directory), NS_ERROR_FAILURE);
 
   const auto journalDirectory = GetJournalDirectory();
-  if (NS_WARN_IF(!journalDirectory)) {
-    return NS_ERROR_FAILURE;
-  }
+  IDB_TRY(OkIf(journalDirectory), NS_ERROR_FAILURE);
 
-  nsCOMPtr<nsIFile> file = GetFileForId(directory, aId);
-  if (NS_WARN_IF(!file)) {
-    return NS_ERROR_FAILURE;
-  }
+  const nsCOMPtr<nsIFile> file = GetFileForId(directory, aId);
+  IDB_TRY(OkIf(file), NS_ERROR_FAILURE);
 
-  nsCOMPtr<nsIFile> journalFile = GetFileForId(journalDirectory, aId);
-  if (NS_WARN_IF(!journalFile)) {
-    return NS_ERROR_FAILURE;
-  }
+  const nsCOMPtr<nsIFile> journalFile = GetFileForId(journalDirectory, aId);
+  IDB_TRY(OkIf(journalFile), NS_ERROR_FAILURE);
 
   return SyncDeleteFile(*file, *journalFile);
 }
@@ -13025,16 +12907,10 @@ nsresult FileManager::SyncDeleteFile(nsIFile& aFile, nsIFile& aJournalFile) {
       EnforcingQuota() ? QuotaManager::Get() : nullptr;
   MOZ_ASSERT_IF(EnforcingQuota(), quotaManager);
 
-  nsresult rv = DeleteFile(aFile, quotaManager, Type(), Group(), Origin(),
-                           Idempotency::No);
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
-  }
+  IDB_TRY(DeleteFile(aFile, quotaManager, Type(), Group(), Origin(),
+                     Idempotency::No));
 
-  rv = aJournalFile.Remove(false);
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
-  }
+  IDB_TRY(aJournalFile.Remove(false));
 
   return NS_OK;
 }
@@ -13150,15 +13026,9 @@ nsresult QuotaClient::UpgradeStorageFrom1_0To2_0(nsIFile* aDirectory) {
   AssertIsOnIOThread();
   MOZ_ASSERT(aDirectory);
 
-  AtomicBool dummy(false);
-  AutoTArray<nsString, 20> subdirsToProcess;
-  nsTHashtable<nsStringHashKey> databaseFilenames(20);
-  nsresult rv = GetDatabaseFilenames(aDirectory,
-                                     /* aCanceled */ dummy, subdirsToProcess,
-                                     databaseFilenames);
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
-  }
+  IDB_TRY_INSPECT((const auto& [subdirsToProcess, databaseFilenames]),
+                  GetDatabaseFilenames(*aDirectory,
+                                       /* aCanceled */ AtomicBool{false}));
 
   for (const nsString& subdirName : subdirsToProcess) {
     // If the directory has the correct suffix then it should exist in
@@ -13191,7 +13061,7 @@ nsresult QuotaClient::UpgradeStorageFrom1_0To2_0(nsIFile* aDirectory) {
 
     // We do have a database that uses this subdir so we should rename it now.
     nsCOMPtr<nsIFile> subdir;
-    rv = aDirectory->Clone(getter_AddRefs(subdir));
+    nsresult rv = aDirectory->Clone(getter_AddRefs(subdir));
     if (NS_WARN_IF(NS_FAILED(rv))) {
       return rv;
     }
@@ -13299,16 +13169,10 @@ Result<UsageInfo, nsresult> QuotaClient::InitOrigin(
     const nsACString& aOrigin, const AtomicBool& aCanceled) {
   AssertIsOnIOThread();
 
-  UsageInfo res;
-
-  nsresult rv =
-      GetUsageForOriginInternal(aPersistenceType, aGroup, aOrigin, aCanceled,
-                                /* aInitializing*/ true, &res);
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return Err(rv);
-  }
-
-  return res;
+  IDB_TRY_RETURN(MOZ_TO_RESULT_INVOKE(this, GetUsageForOriginInternal,
+                                      aPersistenceType, aGroup, aOrigin,
+                                      aCanceled,
+                                      /* aInitializing*/ true));
 }
 
 nsresult QuotaClient::InitOriginWithoutTracking(
@@ -13325,16 +13189,10 @@ Result<UsageInfo, nsresult> QuotaClient::GetUsageForOrigin(
     const nsACString& aOrigin, const AtomicBool& aCanceled) {
   AssertIsOnIOThread();
 
-  UsageInfo res;
-
-  nsresult rv =
-      GetUsageForOriginInternal(aPersistenceType, aGroup, aOrigin, aCanceled,
-                                /* aInitializing*/ false, &res);
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return Err(rv);
-  }
-
-  return res;
+  IDB_TRY_RETURN(MOZ_TO_RESULT_INVOKE(this, GetUsageForOriginInternal,
+                                      aPersistenceType, aGroup, aOrigin,
+                                      aCanceled,
+                                      /* aInitializing*/ false));
 }
 
 nsresult QuotaClient::GetUsageForOriginInternal(
@@ -13343,67 +13201,79 @@ nsresult QuotaClient::GetUsageForOriginInternal(
     const bool aInitializing, UsageInfo* aUsageInfo) {
   AssertIsOnIOThread();
 
-  IDB_TRY_INSPECT(
-      const nsCOMPtr<nsIFile>& directory,
-      GetDirectory(aPersistenceType, aOrigin), QM_PROPAGATE, [](const auto&) {
-        REPORT_TELEMETRY_INIT_ERR(kQuotaExternalError, IDB_GetDirectory);
-      });
+  IDB_TRY_INSPECT(const nsCOMPtr<nsIFile>& directory,
+                  GetDirectory(aPersistenceType, aOrigin));
 
   // We need to see if there are any files in the directory already. If they
   // are database files then we need to cleanup stored files (if it's needed)
   // and also get the usage.
 
-  AutoTArray<nsString, 20> subdirsToProcess;
-  nsTHashtable<nsStringHashKey> databaseFilenames(20);
-  nsTHashtable<nsStringHashKey> obsoleteFilenames;
-  nsresult rv = GetDatabaseFilenames(directory, aCanceled, subdirsToProcess,
-                                     databaseFilenames, &obsoleteFilenames);
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    REPORT_TELEMETRY_INIT_ERR(kQuotaExternalError, IDB_GetDBFilenames);
-    return rv;
-  }
+  // XXX Can we avoid unwrapping into non-const variables here? (Only
+  // databaseFilenames is currently modified below)
+  IDB_TRY_UNWRAP(
+      (auto [subdirsToProcess, databaseFilenames, obsoleteFilenames]),
+      GetDatabaseFilenames<ObsoleteFilenamesHandling::Include>(*directory,
+                                                               aCanceled));
 
   if (aInitializing) {
-    for (const nsString& subdirName : subdirsToProcess) {
-      // The directory must have the correct suffix.
-      nsDependentSubstring subdirNameBase;
-      if (NS_WARN_IF(!GetFilenameBase(
-              subdirName, kFileManagerDirectoryNameSuffix, subdirNameBase))) {
-        // If there is an unexpected directory in the idb directory, trying to
-        // delete at first instead of breaking the whole initialization.
-        if (NS_WARN_IF(NS_FAILED(DeleteFilesNoQuota(directory, subdirName)))) {
-          REPORT_TELEMETRY_INIT_ERR(kQuotaExternalError, IDB_GetBaseFilename);
-          return NS_ERROR_UNEXPECTED;
-        }
+    IDB_TRY(CollectEachInRange(
+        subdirsToProcess,
+        [&directory, &obsoleteFilenames = obsoleteFilenames,
+         &databaseFilenames = databaseFilenames, aPersistenceType, &aGroup,
+         &aOrigin](const nsString& subdirName) -> Result<Ok, nsresult> {
+          // The directory must have the correct suffix.
+          nsDependentSubstring subdirNameBase;
+          IDB_TRY(([&subdirName, &subdirNameBase] {
+                    IDB_TRY_RETURN(OkIf(GetFilenameBase(
+                        subdirName, kFileManagerDirectoryNameSuffix,
+                        subdirNameBase)));
+                  }()
+                       .orElse([&directory, &subdirName](
+                                   const NotOk) -> Result<Ok, nsresult> {
+                         // If there is an unexpected directory in the idb
+                         // directory, trying to delete at first instead of
+                         // breaking the whole initialization.
+                         IDB_TRY(DeleteFilesNoQuota(directory, subdirName),
+                                 Err(NS_ERROR_UNEXPECTED));
 
-        continue;
-      }
+                         return Ok{};
+                       })),
+                  Ok{});
 
-      if (obsoleteFilenames.Contains(subdirNameBase)) {
-        rv = RemoveDatabaseFilesAndDirectory(*directory, subdirNameBase,
-                                             nullptr, aPersistenceType, aGroup,
-                                             aOrigin, u""_ns);
-        if (NS_WARN_IF(NS_FAILED(rv))) {
-          // If we somehow running into here, it probably means we are in a
-          // serious situation. e.g. Filesystem corruption.
-          // Will handle this in bug 1521541.
-          REPORT_TELEMETRY_INIT_ERR(kQuotaExternalError, IDB_RemoveDBFiles);
-          return NS_ERROR_UNEXPECTED;
-        }
+          if (obsoleteFilenames.Contains(subdirNameBase)) {
+            // If this fails, it probably means we are in a serious situation.
+            // e.g. Filesystem corruption. Will handle this in bug 1521541.
+            IDB_TRY(RemoveDatabaseFilesAndDirectory(*directory, subdirNameBase,
+                                                    nullptr, aPersistenceType,
+                                                    aGroup, aOrigin, u""_ns),
+                    Err(NS_ERROR_UNEXPECTED));
 
-        databaseFilenames.RemoveEntry(subdirNameBase);
-        continue;
-      }
+            databaseFilenames.RemoveEntry(subdirNameBase);
+            return Ok{};
+          }
 
-      // The directory base must exist in databaseFilenames.
-      // If there is an unexpected directory in the idb directory, trying to
-      // delete at first instead of breaking the whole initialization.
-      if (NS_WARN_IF(!databaseFilenames.GetEntry(subdirNameBase)) &&
-          NS_WARN_IF((NS_FAILED(DeleteFilesNoQuota(directory, subdirName))))) {
-        REPORT_TELEMETRY_INIT_ERR(kQuotaExternalError, IDB_GetEntry);
-        return NS_ERROR_UNEXPECTED;
-      }
-    }
+          // The directory base must exist in databaseFilenames.
+          // If there is an unexpected directory in the idb directory, trying to
+          // delete at first instead of breaking the whole initialization.
+
+          IDB_TRY(([&databaseFilenames, &subdirNameBase] {
+                    IDB_TRY_RETURN(
+                        OkIf(databaseFilenames.GetEntry(subdirNameBase)));
+                  }()
+                       .orElse([&directory, &subdirName](
+                                   const NotOk) -> Result<Ok, nsresult> {
+                         // XXX It seems if we really got here, we can fail the
+                         // MOZ_ASSERT(!quotaManager->IsTemporaryStorageInitialized());
+                         // assertion in DeleteFilesNoQuota.
+                         IDB_TRY(DeleteFilesNoQuota(directory, subdirName),
+                                 Err(NS_ERROR_UNEXPECTED));
+
+                         return Ok{};
+                       })),
+                  Ok{});
+
+          return Ok{};
+        }));
   }
 
   for (const auto& databaseEntry : databaseFilenames) {
@@ -13413,86 +13283,59 @@ nsresult QuotaClient::GetUsageForOriginInternal(
 
     const auto& databaseFilename = databaseEntry.GetKey();
 
-    nsCOMPtr<nsIFile> fmDirectory;
-    rv = directory->Clone(getter_AddRefs(fmDirectory));
-    if (NS_WARN_IF(NS_FAILED(rv))) {
-      REPORT_TELEMETRY_INIT_ERR(kQuotaExternalError, IDB_Clone);
-      return rv;
-    }
+    IDB_TRY_INSPECT(
+        const auto& fmDirectory,
+        MOZ_TO_RESULT_INVOKE_TYPED(nsCOMPtr<nsIFile>, directory, Clone));
 
-    rv =
-        fmDirectory->Append(databaseFilename + kFileManagerDirectoryNameSuffix);
-    if (NS_WARN_IF(NS_FAILED(rv))) {
-      REPORT_TELEMETRY_INIT_ERR(kQuotaExternalError, IDB_Append);
-      return rv;
-    }
+    IDB_TRY(fmDirectory->Append(databaseFilename +
+                                kFileManagerDirectoryNameSuffix));
 
-    nsCOMPtr<nsIFile> databaseFile;
-    rv = directory->Clone(getter_AddRefs(databaseFile));
-    if (NS_WARN_IF(NS_FAILED(rv))) {
-      REPORT_TELEMETRY_INIT_ERR(kQuotaExternalError, IDB_Clone2);
-      return rv;
-    }
+    IDB_TRY_INSPECT(
+        const auto& databaseFile,
+        MOZ_TO_RESULT_INVOKE_TYPED(nsCOMPtr<nsIFile>, directory, Clone));
 
-    rv = databaseFile->Append(databaseFilename + kSQLiteSuffix);
-    if (NS_WARN_IF(NS_FAILED(rv))) {
-      REPORT_TELEMETRY_INIT_ERR(kQuotaExternalError, IDB_Append2);
-      return rv;
-    }
-
-    nsCOMPtr<nsIFile> walFile;
-    if (aUsageInfo) {
-      rv = directory->Clone(getter_AddRefs(walFile));
-      if (NS_WARN_IF(NS_FAILED(rv))) {
-        REPORT_TELEMETRY_INIT_ERR(kQuotaExternalError, IDB_Clone3);
-        return rv;
-      }
-
-      rv = walFile->Append(databaseFilename + kSQLiteWALSuffix);
-      if (NS_WARN_IF(NS_FAILED(rv))) {
-        REPORT_TELEMETRY_INIT_ERR(kQuotaExternalError, IDB_Append3);
-        return rv;
-      }
-    }
+    IDB_TRY(databaseFile->Append(databaseFilename + kSQLiteSuffix));
 
     if (aInitializing) {
-      rv = FileManager::InitDirectory(*fmDirectory, *databaseFile, aOrigin,
-                                      TelemetryIdForFile(databaseFile));
-      if (NS_WARN_IF(NS_FAILED(rv))) {
-        REPORT_TELEMETRY_INIT_ERR(kQuotaInternalError, IDB_InitDirectory);
-        return rv;
-      }
+      IDB_TRY(FileManager::InitDirectory(*fmDirectory, *databaseFile, aOrigin,
+                                         TelemetryIdForFile(databaseFile)));
     }
 
     if (aUsageInfo) {
-      int64_t fileSize;
-      rv = databaseFile->GetFileSize(&fileSize);
-      if (NS_WARN_IF(NS_FAILED(rv))) {
-        REPORT_TELEMETRY_INIT_ERR(kQuotaExternalError, IDB_GetFileSize);
-        return rv;
-      }
+      {
+        IDB_TRY_INSPECT(const int64_t& fileSize,
+                        MOZ_TO_RESULT_INVOKE(databaseFile, GetFileSize));
 
-      MOZ_ASSERT(fileSize >= 0);
-
-      *aUsageInfo += DatabaseUsageType(Some(uint64_t(fileSize)));
-
-      rv = walFile->GetFileSize(&fileSize);
-      if (NS_SUCCEEDED(rv)) {
         MOZ_ASSERT(fileSize >= 0);
+
         *aUsageInfo += DatabaseUsageType(Some(uint64_t(fileSize)));
-      } else if (NS_WARN_IF(rv != NS_ERROR_FILE_NOT_FOUND &&
-                            rv != NS_ERROR_FILE_TARGET_DOES_NOT_EXIST)) {
-        REPORT_TELEMETRY_INIT_ERR(kQuotaExternalError, IDB_GetWalFileSize);
-        return rv;
       }
 
-      IDB_TRY_INSPECT(const auto& fileUsage, FileManager::GetUsage(fmDirectory),
-                      QM_PROPAGATE, [](const auto&) {
-                        REPORT_TELEMETRY_INIT_ERR(kQuotaExternalError,
-                                                  IDB_GetUsage);
-                      });
+      {
+        IDB_TRY_INSPECT(
+            const auto& walFile,
+            MOZ_TO_RESULT_INVOKE_TYPED(nsCOMPtr<nsIFile>, directory, Clone));
 
-      *aUsageInfo += fileUsage;
+        IDB_TRY(walFile->Append(databaseFilename + kSQLiteWALSuffix));
+
+        IDB_TRY_INSPECT(const int64_t& walFileSize,
+                        MOZ_TO_RESULT_INVOKE(walFile, GetFileSize)
+                            .orElse([](const nsresult rv) {
+                              return (rv == NS_ERROR_FILE_NOT_FOUND ||
+                                      rv == NS_ERROR_FILE_TARGET_DOES_NOT_EXIST)
+                                         ? Result<int64_t, nsresult>{0}
+                                         : Err(rv);
+                            }));
+        MOZ_ASSERT(walFileSize >= 0);
+        *aUsageInfo += DatabaseUsageType(Some(uint64_t(walFileSize)));
+      }
+
+      {
+        IDB_TRY_INSPECT(const auto& fileUsage,
+                        FileManager::GetUsage(fmDirectory));
+
+        *aUsageInfo += fileUsage;
+      }
     }
   }
 
@@ -13650,7 +13493,7 @@ void QuotaClient::ShutdownTimedOut() {
 
   if (gFactoryOps && !gFactoryOps->IsEmpty()) {
     data.Append("FactoryOperations: "_ns +
-                ToAutoCString(static_cast<uint32_t>(gFactoryOps->Length())) +
+                IntToCString(static_cast<uint32_t>(gFactoryOps->Length())) +
                 " ("_ns);
 
     nsTHashtable<nsCStringHashKey> ids;
@@ -13671,7 +13514,7 @@ void QuotaClient::ShutdownTimedOut() {
 
   if (gLiveDatabaseHashtable && gLiveDatabaseHashtable->Count()) {
     data.Append("LiveDatabases: "_ns +
-                ToAutoCString(gLiveDatabaseHashtable->Count()) + " ("_ns);
+                IntToCString(gLiveDatabaseHashtable->Count()) + " ("_ns);
 
     // TODO: This is a basic join-sequence-of-strings operation. Don't we have
     // that available, i.e. something similar to
@@ -13749,87 +13592,84 @@ Result<nsCOMPtr<nsIFile>, nsresult> QuotaClient::GetDirectory(
   return directory;
 }
 
-nsresult QuotaClient::GetDatabaseFilenames(
-    nsIFile* aDirectory, const AtomicBool& aCanceled,
-    nsTArray<nsString>& aSubdirsToProcess,
-    nsTHashtable<nsStringHashKey>& aDatabaseFilenames,
-    nsTHashtable<nsStringHashKey>* aObsoleteFilenames) {
+template <QuotaClient::ObsoleteFilenamesHandling ObsoleteFilenames>
+Result<QuotaClient::GetDatabaseFilenamesResult<ObsoleteFilenames>, nsresult>
+QuotaClient::GetDatabaseFilenames(nsIFile& aDirectory,
+                                  const AtomicBool& aCanceled) {
   AssertIsOnIOThread();
-  MOZ_ASSERT(aDirectory);
 
-  nsCOMPtr<nsIDirectoryEnumerator> entries;
-  nsresult rv = aDirectory->GetDirectoryEntries(getter_AddRefs(entries));
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
-  }
+  IDB_TRY_INSPECT(const auto& entries,
+                  MOZ_TO_RESULT_INVOKE_TYPED(nsCOMPtr<nsIDirectoryEnumerator>,
+                                             &aDirectory, GetDirectoryEntries));
 
-  nsCOMPtr<nsIFile> file;
-  while (NS_SUCCEEDED((rv = entries->GetNextFile(getter_AddRefs(file)))) &&
-         file && !aCanceled) {
-    nsString leafName;
-    rv = file->GetLeafName(leafName);
-    if (NS_WARN_IF(NS_FAILED(rv))) {
-      return rv;
-    }
+  GetDatabaseFilenamesResult<ObsoleteFilenames> result;
 
-    bool isDirectory;
-    rv = file->IsDirectory(&isDirectory);
-    if (NS_WARN_IF(NS_FAILED(rv))) {
-      return rv;
-    }
+  IDB_TRY(CollectEach(
+      [&entries, &aCanceled]() -> Result<nsCOMPtr<nsIFile>, nsresult> {
+        if (aCanceled) {
+          return nsCOMPtr<nsIFile>{};
+        }
 
-    if (isDirectory) {
-      aSubdirsToProcess.AppendElement(leafName);
-      continue;
-    }
+        IDB_TRY_RETURN(MOZ_TO_RESULT_INVOKE_TYPED(nsCOMPtr<nsIFile>, entries,
+                                                  GetNextFile));
+      },
+      [&result](const nsCOMPtr<nsIFile>& file) -> Result<Ok, nsresult> {
+        IDB_TRY_INSPECT(const auto& leafName, MOZ_TO_RESULT_INVOKE_TYPED(
+                                                  nsString, file, GetLeafName));
+        IDB_TRY_INSPECT(const auto& isDirectory,
+                        MOZ_TO_RESULT_INVOKE(file, IsDirectory));
 
-    if (aObsoleteFilenames &&
-        StringBeginsWith(leafName, kIdbDeletionMarkerFilePrefix)) {
-      aObsoleteFilenames->PutEntry(
-          Substring(leafName, kIdbDeletionMarkerFilePrefix.Length()));
-      continue;
-    }
+        if (isDirectory) {
+          result.subdirsToProcess.AppendElement(leafName);
+          return Ok{};
+        }
 
-    // Skip OS metadata files. These files are only used in different platforms,
-    // but the profile can be shared across different operating systems, so we
-    // check it on all platforms.
-    if (QuotaManager::IsOSMetadata(leafName)) {
-      continue;
-    }
+        if constexpr (ObsoleteFilenames == ObsoleteFilenamesHandling::Include) {
+          if (StringBeginsWith(leafName, kIdbDeletionMarkerFilePrefix)) {
+            result.obsoleteFilenames.PutEntry(
+                Substring(leafName, kIdbDeletionMarkerFilePrefix.Length()));
+            return Ok{};
+          }
+        }
 
-    // Skip files starting with ".".
-    if (QuotaManager::IsDotFile(leafName)) {
-      continue;
-    }
+        // Skip OS metadata files. These files are only used in different
+        // platforms, but the profile can be shared across different operating
+        // systems, so we check it on all platforms.
+        if (QuotaManager::IsOSMetadata(leafName)) {
+          return Ok{};
+        }
 
-    // Skip SQLite temporary files. These files take up space on disk but will
-    // be deleted as soon as the database is opened, so we don't count them
-    // towards quota.
-    if (StringEndsWith(leafName, kSQLiteJournalSuffix) ||
-        StringEndsWith(leafName, kSQLiteSHMSuffix)) {
-      continue;
-    }
+        // Skip files starting with ".".
+        if (QuotaManager::IsDotFile(leafName)) {
+          return Ok{};
+        }
 
-    // The SQLite WAL file does count towards quota, but it is handled below
-    // once we find the actual database file.
-    if (StringEndsWith(leafName, kSQLiteWALSuffix)) {
-      continue;
-    }
+        // Skip SQLite temporary files. These files take up space on disk but
+        // will be deleted as soon as the database is opened, so we don't count
+        // them towards quota.
+        if (StringEndsWith(leafName, kSQLiteJournalSuffix) ||
+            StringEndsWith(leafName, kSQLiteSHMSuffix)) {
+          return Ok{};
+        }
 
-    nsDependentSubstring leafNameBase;
-    if (!GetFilenameBase(leafName, kSQLiteSuffix, leafNameBase)) {
-      UNKNOWN_FILE_WARNING(leafName);
-      continue;
-    }
+        // The SQLite WAL file does count towards quota, but it is handled below
+        // once we find the actual database file.
+        if (StringEndsWith(leafName, kSQLiteWALSuffix)) {
+          return Ok{};
+        }
 
-    aDatabaseFilenames.PutEntry(leafNameBase);
-  }
+        nsDependentSubstring leafNameBase;
+        if (!GetFilenameBase(leafName, kSQLiteSuffix, leafNameBase)) {
+          UNKNOWN_FILE_WARNING(leafName);
+          return Ok{};
+        }
 
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
-  }
+        result.databaseFilenames.PutEntry(leafNameBase);
 
-  return NS_OK;
+        return Ok{};
+      }));
+
+  return result;
 }
 
 void QuotaClient::ProcessMaintenanceQueue() {
@@ -14001,7 +13841,7 @@ void Maintenance::Stringify(nsACString& aResult) const {
   AssertIsOnBackgroundThread();
 
   aResult.Append("DatabaseMaintenances: "_ns +
-                 ToAutoCString(mDatabaseMaintenances.Count()) + " ("_ns);
+                 IntToCString(mDatabaseMaintenances.Count()) + " ("_ns);
 
   nsTHashtable<nsCStringHashKey> ids;
 
@@ -15233,15 +15073,18 @@ nsresult DatabaseOperationBase::MaybeBindKeyToStatement(
   MOZ_ASSERT(aStatement);
 
   if (!aKey.IsUnset()) {
-    nsresult rv;
-    const auto& transformedKey = aKeyTransformation(aKey, &rv);
-    if (NS_WARN_IF(NS_FAILED(rv))) {
-      return rv;
-    }
-
-    rv = transformedKey.BindToStatement(aStatement, aParameterName);
-    if (NS_WARN_IF(NS_FAILED(rv))) {
-      return rv;
+    // XXX This case distinction could be avoided if IDB_TRY_INSPECT would also
+    // work with a function not returning a Result<V, E> but simply a V (which
+    // is const Key& here) and then assuming it is always a success. Or the
+    // transformation could be changed to return Result<const V&, void> but I
+    // don't think that Result supports that at the moment.
+    if constexpr (std::is_reference_v<
+                      std::invoke_result_t<KeyTransformation, Key>>) {
+      IDB_TRY(
+          aKeyTransformation(aKey).BindToStatement(aStatement, aParameterName));
+    } else {
+      IDB_TRY_INSPECT(const auto& transformedKey, aKeyTransformation(aKey));
+      IDB_TRY(transformedKey.BindToStatement(aStatement, aParameterName));
     }
   }
 
@@ -15256,22 +15099,15 @@ nsresult DatabaseOperationBase::BindTransformedKeyRangeToStatement(
   MOZ_ASSERT(!IsOnBackgroundThread());
   MOZ_ASSERT(aStatement);
 
-  nsresult rv =
-      MaybeBindKeyToStatement(aKeyRange.lower(), aStatement,
-                              kStmtParamNameLowerKey, aKeyTransformation);
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
-  }
+  IDB_TRY(MaybeBindKeyToStatement(aKeyRange.lower(), aStatement,
+                                  kStmtParamNameLowerKey, aKeyTransformation));
 
   if (aKeyRange.isOnly()) {
-    return rv;
+    return NS_OK;
   }
 
-  rv = MaybeBindKeyToStatement(aKeyRange.upper(), aStatement,
-                               kStmtParamNameUpperKey, aKeyTransformation);
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
-  }
+  IDB_TRY(MaybeBindKeyToStatement(aKeyRange.upper(), aStatement,
+                                  kStmtParamNameUpperKey, aKeyTransformation));
 
   return NS_OK;
 }
@@ -15281,10 +15117,7 @@ nsresult DatabaseOperationBase::BindKeyRangeToStatement(
     const SerializedKeyRange& aKeyRange,
     mozIStorageStatement* const aStatement) {
   return BindTransformedKeyRangeToStatement(
-      aKeyRange, aStatement, [](const Key& key, nsresult* rv) -> const auto& {
-        *rv = NS_OK;
-        return key;
-      });
+      aKeyRange, aStatement, [](const Key& key) -> const auto& { return key; });
 }
 
 // static
@@ -15294,11 +15127,8 @@ nsresult DatabaseOperationBase::BindKeyRangeToStatement(
   MOZ_ASSERT(!aLocale.IsEmpty());
 
   return BindTransformedKeyRangeToStatement(
-      aKeyRange, aStatement, [&aLocale](const Key& key, nsresult* rv) {
-        Key localizedKey;
-        *rv = LocalizeKey(key, aLocale, &localizedKey);
-        return localizedKey;
-      });
+      aKeyRange, aStatement,
+      [&aLocale](const Key& key) { return key.ToLocaleAwareKey(aLocale); });
 }
 
 // static
@@ -15783,7 +15613,7 @@ void DatabaseOperationBase::AutoSetProgressHandler::Unregister() {
 MutableFile::MutableFile(nsIFile* aFile, SafeRefPtr<Database> aDatabase,
                          SafeRefPtr<FileInfo> aFileInfo)
     : BackgroundMutableFileParentBase(FILE_HANDLE_STORAGE_IDB, aDatabase->Id(),
-                                      IntString(aFileInfo->Id()), aFile),
+                                      IntToString(aFileInfo->Id()), aFile),
       mDatabase(std::move(aDatabase)),
       mFileInfo(std::move(aFileInfo)) {
   AssertIsOnBackgroundThread();
@@ -16800,118 +16630,89 @@ nsresult OpenDatabaseOp::DoDatabaseWork() {
 
   AUTO_PROFILER_LABEL("OpenDatabaseOp::DoDatabaseWork", DOM);
 
-  if (NS_WARN_IF(QuotaClient::IsShuttingDownOnNonBackgroundThread()) ||
-      !OperationMayProceed()) {
+  IDB_TRY(OkIf(!QuotaClient::IsShuttingDownOnNonBackgroundThread()),
+          NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR, IDB_REPORT_INTERNAL_ERR_LAMBDA);
+
+  if (!OperationMayProceed()) {
     IDB_REPORT_INTERNAL_ERR();
     return NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR;
   }
 
   const nsString& databaseName = mCommonParams.metadata().name();
-  PersistenceType persistenceType = mCommonParams.metadata().persistenceType();
+  const PersistenceType persistenceType =
+      mCommonParams.metadata().persistenceType();
 
   QuotaManager* const quotaManager = QuotaManager::Get();
   MOZ_ASSERT(quotaManager);
 
-  nsCOMPtr<nsIFile> dbDirectory;
+  IDB_TRY_INSPECT(const auto& dbDirectory,
+                  quotaManager->EnsureStorageAndOriginIsInitialized(
+                      persistenceType, mSuffix, mGroup, mOrigin, Client::IDB));
 
-  nsresult rv = quotaManager->EnsureStorageAndOriginIsInitialized(
-      persistenceType, mSuffix, mGroup, mOrigin, Client::IDB,
-      getter_AddRefs(dbDirectory));
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
-  }
+  IDB_TRY(
+      dbDirectory->Append(NS_LITERAL_STRING_FROM_CSTRING(IDB_DIRECTORY_NAME)));
 
-  rv = dbDirectory->Append(NS_LITERAL_STRING_FROM_CSTRING(IDB_DIRECTORY_NAME));
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
-  }
+  {
+    IDB_TRY_INSPECT(const bool& exists,
+                    MOZ_TO_RESULT_INVOKE(dbDirectory, Exists));
 
-  bool exists;
-  rv = dbDirectory->Exists(&exists);
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
-  }
-
-  if (!exists) {
-    rv = dbDirectory->Create(nsIFile::DIRECTORY_TYPE, 0755);
-    if (NS_WARN_IF(NS_FAILED(rv))) {
-      return rv;
+    if (!exists) {
+      IDB_TRY(dbDirectory->Create(nsIFile::DIRECTORY_TYPE, 0755));
     }
-  }
 #ifdef DEBUG
-  else {
-    bool isDirectory;
-    MOZ_ASSERT(NS_SUCCEEDED(dbDirectory->IsDirectory(&isDirectory)));
-    MOZ_ASSERT(isDirectory);
-  }
+    else {
+      bool isDirectory;
+      MOZ_ASSERT(NS_SUCCEEDED(dbDirectory->IsDirectory(&isDirectory)));
+      MOZ_ASSERT(isDirectory);
+    }
 #endif
+  }
 
   nsAutoString databaseFilenameBase;
   GetDatabaseFilenameBase(databaseName, databaseFilenameBase);
 
-  nsCOMPtr<nsIFile> markerFile;
-  rv = dbDirectory->Clone(getter_AddRefs(markerFile));
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
-  }
+  IDB_TRY_INSPECT(
+      const auto& markerFile,
+      MOZ_TO_RESULT_INVOKE_TYPED(nsCOMPtr<nsIFile>, dbDirectory, Clone));
 
-  rv = markerFile->Append(kIdbDeletionMarkerFilePrefix + databaseFilenameBase);
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
-  }
+  IDB_TRY(
+      markerFile->Append(kIdbDeletionMarkerFilePrefix + databaseFilenameBase));
 
-  rv = markerFile->Exists(&exists);
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
-  }
+  IDB_TRY_INSPECT(const bool& exists, MOZ_TO_RESULT_INVOKE(markerFile, Exists));
 
   if (exists) {
     // Delete the database and directroy since they should be deleted in
     // previous operation.
     // Note: only update usage to the QuotaManager when mEnforcingQuota == true
-    rv = RemoveDatabaseFilesAndDirectory(
+    IDB_TRY(RemoveDatabaseFilesAndDirectory(
         *dbDirectory, databaseFilenameBase,
         mEnforcingQuota ? quotaManager : nullptr, persistenceType, mGroup,
-        mOrigin, databaseName);
-    if (NS_WARN_IF(NS_FAILED(rv))) {
-      return rv;
-    }
+        mOrigin, databaseName));
   }
 
-  nsCOMPtr<nsIFile> dbFile;
-  rv = dbDirectory->Clone(getter_AddRefs(dbFile));
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
-  }
+  IDB_TRY_INSPECT(
+      const auto& dbFile,
+      MOZ_TO_RESULT_INVOKE_TYPED(nsCOMPtr<nsIFile>, dbDirectory, Clone));
 
-  rv = dbFile->Append(databaseFilenameBase + kSQLiteSuffix);
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
-  }
+  IDB_TRY(dbFile->Append(databaseFilenameBase + kSQLiteSuffix));
 
   mTelemetryId = TelemetryIdForFile(dbFile);
 
 #ifdef DEBUG
-  nsString databaseFilePath;
-  rv = dbFile->GetPath(databaseFilePath);
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
-  }
+  {
+    IDB_TRY_INSPECT(const auto& databaseFilePath,
+                    MOZ_TO_RESULT_INVOKE_TYPED(nsString, dbFile, GetPath));
 
-  MOZ_ASSERT(databaseFilePath == mDatabaseFilePath);
+    MOZ_ASSERT(databaseFilePath == mDatabaseFilePath);
+  }
 #endif
 
-  nsCOMPtr<nsIFile> fmDirectory;
-  rv = dbDirectory->Clone(getter_AddRefs(fmDirectory));
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
-  }
+  IDB_TRY_INSPECT(
+      const auto& fmDirectory,
+      MOZ_TO_RESULT_INVOKE_TYPED(nsCOMPtr<nsIFile>, dbDirectory, Clone));
 
-  rv = fmDirectory->Append(databaseFilenameBase +
-                           kFileManagerDirectoryNameSuffix);
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
-  }
+  IDB_TRY(fmDirectory->Append(databaseFilenameBase +
+                              kFileManagerDirectoryNameSuffix));
 
   IDB_TRY_UNWRAP(
       NotNull<nsCOMPtr<mozIStorageConnection>> connection,
@@ -16919,15 +16720,9 @@ nsresult OpenDatabaseOp::DoDatabaseWork() {
                               mDirectoryLockId, mTelemetryId));
 
   AutoSetProgressHandler asph;
-  rv = asph.Register(*connection, this);
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
-  }
+  IDB_TRY(asph.Register(*connection, this));
 
-  rv = LoadDatabaseInformation(*connection);
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
-  }
+  IDB_TRY(LoadDatabaseInformation(*connection));
 
   MOZ_ASSERT(mMetadata->mNextObjectStoreId > mMetadata->mObjectStores.Count());
   MOZ_ASSERT(mMetadata->mNextIndexId > 0);
@@ -16938,36 +16733,36 @@ nsresult OpenDatabaseOp::DoDatabaseWork() {
   if (!mRequestedVersion) {
     // If the requested version was not specified and the database was created,
     // treat it as if version 1 were requested.
-    if (mMetadata->mCommonMetadata.version() == 0) {
-      mRequestedVersion = 1;
-    } else {
-      // Otherwise, treat it as if the current version were requested.
-      mRequestedVersion = mMetadata->mCommonMetadata.version();
-    }
+    // Otherwise, treat it as if the current version were requested.
+    mRequestedVersion = mMetadata->mCommonMetadata.version() == 0
+                            ? 1
+                            : mMetadata->mCommonMetadata.version();
   }
 
-  if (NS_WARN_IF(mMetadata->mCommonMetadata.version() > mRequestedVersion)) {
-    return NS_ERROR_DOM_INDEXEDDB_VERSION_ERR;
-  }
+  IDB_TRY(OkIf(mMetadata->mCommonMetadata.version() <= mRequestedVersion),
+          NS_ERROR_DOM_INDEXEDDB_VERSION_ERR);
 
-  IndexedDatabaseManager* mgr = IndexedDatabaseManager::Get();
-  MOZ_ASSERT(mgr);
+  IDB_TRY_UNWRAP(
+      mFileManager,
+      ([this, persistenceType, &databaseName, &fmDirectory,
+        &connection]() -> mozilla::Result<SafeRefPtr<FileManager>, nsresult> {
+        IndexedDatabaseManager* const mgr = IndexedDatabaseManager::Get();
+        MOZ_ASSERT(mgr);
 
-  SafeRefPtr<FileManager> fileManager =
-      mgr->GetFileManager(persistenceType, mOrigin, databaseName);
-  if (!fileManager) {
-    fileManager = MakeSafeRefPtr<FileManager>(persistenceType, mGroup, mOrigin,
-                                              databaseName, mEnforcingQuota);
+        SafeRefPtr<FileManager> fileManager =
+            mgr->GetFileManager(persistenceType, mOrigin, databaseName);
 
-    rv = fileManager->Init(fmDirectory, *connection);
-    if (NS_WARN_IF(NS_FAILED(rv))) {
-      return rv;
-    }
+        if (!fileManager) {
+          fileManager = MakeSafeRefPtr<FileManager>(
+              persistenceType, mGroup, mOrigin, databaseName, mEnforcingQuota);
 
-    mgr->AddFileManager(fileManager.clonePtr());
-  }
+          IDB_TRY(fileManager->Init(fmDirectory, *connection));
 
-  mFileManager = std::move(fileManager);
+          mgr->AddFileManager(fileManager.clonePtr());
+        }
+
+        return fileManager;
+      }()));
 
   // Must close connection before dispatching otherwise we might race with the
   // connection thread which needs to open the same database.
@@ -16981,10 +16776,7 @@ nsresult OpenDatabaseOp::DoDatabaseWork() {
                ? State::SendingResults
                : State::BeginVersionChange;
 
-  rv = mOwningEventTarget->Dispatch(this, NS_DISPATCH_NORMAL);
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
-  }
+  IDB_TRY(mOwningEventTarget->Dispatch(this, NS_DISPATCH_NORMAL));
 
   return NS_OK;
 }
@@ -16994,261 +16786,262 @@ nsresult OpenDatabaseOp::LoadDatabaseInformation(
   AssertIsOnIOThread();
   MOZ_ASSERT(mMetadata);
 
-  // Load version information.
-  nsCOMPtr<mozIStorageStatement> stmt;
-  nsresult rv = aConnection.CreateStatement(
-      "SELECT name, origin, version FROM database"_ns, getter_AddRefs(stmt));
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
+  {
+    // Load version information.
+    IDB_TRY_INSPECT(
+        const auto& stmt,
+        MOZ_TO_RESULT_INVOKE_TYPED(
+            nsCOMPtr<mozIStorageStatement>, aConnection, CreateStatement,
+            "SELECT name, origin, version FROM database"_ns));
+
+    IDB_TRY_INSPECT(const bool& hasResult,
+                    MOZ_TO_RESULT_INVOKE(stmt, ExecuteStep));
+
+    IDB_TRY(OkIf(hasResult), NS_ERROR_FILE_CORRUPTED);
+
+    IDB_TRY_INSPECT(const auto& databaseName,
+                    MOZ_TO_RESULT_INVOKE_TYPED(nsString, stmt, GetString, 0));
+
+    IDB_TRY(OkIf(mCommonParams.metadata().name() == databaseName),
+            NS_ERROR_FILE_CORRUPTED);
+
+    IDB_TRY_INSPECT(const auto& origin, MOZ_TO_RESULT_INVOKE_TYPED(
+                                            nsCString, stmt, GetUTF8String, 1));
+
+    // We can't just compare these strings directly. See bug 1339081 comment 69.
+    IDB_TRY(OkIf(QuotaManager::AreOriginsEqualOnDisk(mOrigin, origin)),
+            NS_ERROR_FILE_CORRUPTED);
+
+    IDB_TRY_INSPECT(const int64_t& version,
+                    MOZ_TO_RESULT_INVOKE(stmt, GetInt64, 2));
+
+    mMetadata->mCommonMetadata.version() = uint64_t(version);
   }
-
-  IDB_TRY_INSPECT(const bool& hasResult,
-                  MOZ_TO_RESULT_INVOKE(stmt, ExecuteStep));
-
-  if (NS_WARN_IF(!hasResult)) {
-    return NS_ERROR_FILE_CORRUPTED;
-  }
-
-  nsString databaseName;
-  rv = stmt->GetString(0, databaseName);
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
-  }
-
-  if (NS_WARN_IF(mCommonParams.metadata().name() != databaseName)) {
-    return NS_ERROR_FILE_CORRUPTED;
-  }
-
-  nsCString origin;
-  rv = stmt->GetUTF8String(1, origin);
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
-  }
-
-  // We can't just compare these strings directly. See bug 1339081 comment 69.
-  if (NS_WARN_IF(!QuotaManager::AreOriginsEqualOnDisk(mOrigin, origin))) {
-    return NS_ERROR_FILE_CORRUPTED;
-  }
-
-  int64_t version;
-  rv = stmt->GetInt64(2, &version);
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
-  }
-
-  mMetadata->mCommonMetadata.version() = uint64_t(version);
 
   ObjectStoreTable& objectStores = mMetadata->mObjectStores;
 
-  // Load object store names and ids.
-  rv = aConnection.CreateStatement(
-      "SELECT id, auto_increment, name, key_path "
-      "FROM object_store"_ns,
-      getter_AddRefs(stmt));
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
-  }
+  IDB_TRY_INSPECT(
+      const auto& lastObjectStoreId,
+      ([&aConnection,
+        &objectStores]() -> mozilla::Result<IndexOrObjectStoreId, nsresult> {
+        // Load object store names and ids.
+        IDB_TRY_INSPECT(
+            const auto& stmt,
+            MOZ_TO_RESULT_INVOKE_TYPED(
+                nsCOMPtr<mozIStorageStatement>, aConnection, CreateStatement,
+                "SELECT id, auto_increment, name, key_path "
+                "FROM object_store"_ns));
 
-  IndexOrObjectStoreId lastObjectStoreId = 0;
+        IndexOrObjectStoreId lastObjectStoreId = 0;
 
-  IDB_TRY(CollectWhileHasResult(
-      *stmt,
-      [&lastObjectStoreId, &objectStores,
-       usedIds = Maybe<nsTHashtable<nsUint64HashKey>>{},
-       usedNames = Maybe<nsTHashtable<nsStringHashKey>>{}](
-          auto& stmt) mutable -> mozilla::Result<Ok, nsresult> {
-        IDB_TRY_INSPECT(const IndexOrObjectStoreId& objectStoreId,
-                        MOZ_TO_RESULT_INVOKE(stmt, GetInt64, 0));
+        IDB_TRY(CollectWhileHasResult(
+            *stmt,
+            [&lastObjectStoreId, &objectStores,
+             usedIds = Maybe<nsTHashtable<nsUint64HashKey>>{},
+             usedNames = Maybe<nsTHashtable<nsStringHashKey>>{}](
+                auto& stmt) mutable -> mozilla::Result<Ok, nsresult> {
+              IDB_TRY_INSPECT(const IndexOrObjectStoreId& objectStoreId,
+                              MOZ_TO_RESULT_INVOKE(stmt, GetInt64, 0));
 
-        if (!usedIds) {
-          usedIds.emplace();
-        }
+              if (!usedIds) {
+                usedIds.emplace();
+              }
 
-        IDB_TRY(OkIf(objectStoreId > 0), Err(NS_ERROR_FILE_CORRUPTED));
-        IDB_TRY(OkIf(!usedIds.ref().Contains(objectStoreId)),
-                Err(NS_ERROR_FILE_CORRUPTED));
+              IDB_TRY(OkIf(objectStoreId > 0), Err(NS_ERROR_FILE_CORRUPTED));
+              IDB_TRY(OkIf(!usedIds.ref().Contains(objectStoreId)),
+                      Err(NS_ERROR_FILE_CORRUPTED));
 
-        IDB_TRY(OkIf(usedIds.ref().PutEntry(objectStoreId, fallible)),
-                Err(NS_ERROR_OUT_OF_MEMORY));
+              IDB_TRY(OkIf(usedIds.ref().PutEntry(objectStoreId, fallible)),
+                      Err(NS_ERROR_OUT_OF_MEMORY));
 
-        nsString name;
-        IDB_TRY(stmt.GetString(2, name));
+              nsString name;
+              IDB_TRY(stmt.GetString(2, name));
 
-        if (!usedNames) {
-          usedNames.emplace();
-        }
+              if (!usedNames) {
+                usedNames.emplace();
+              }
 
-        IDB_TRY(OkIf(!usedNames.ref().Contains(name)),
-                Err(NS_ERROR_FILE_CORRUPTED));
+              IDB_TRY(OkIf(!usedNames.ref().Contains(name)),
+                      Err(NS_ERROR_FILE_CORRUPTED));
 
-        IDB_TRY(OkIf(usedNames.ref().PutEntry(name, fallible)),
-                Err(NS_ERROR_OUT_OF_MEMORY));
+              IDB_TRY(OkIf(usedNames.ref().PutEntry(name, fallible)),
+                      Err(NS_ERROR_OUT_OF_MEMORY));
 
-        RefPtr<FullObjectStoreMetadata> metadata =
-            new FullObjectStoreMetadata();
-        metadata->mCommonMetadata.id() = objectStoreId;
-        metadata->mCommonMetadata.name() = name;
+              RefPtr<FullObjectStoreMetadata> metadata =
+                  new FullObjectStoreMetadata();
+              metadata->mCommonMetadata.id() = objectStoreId;
+              metadata->mCommonMetadata.name() = name;
 
-        IDB_TRY_INSPECT(const int32_t& columnType,
-                        MOZ_TO_RESULT_INVOKE(stmt, GetTypeOfIndex, 3));
+              IDB_TRY_INSPECT(const int32_t& columnType,
+                              MOZ_TO_RESULT_INVOKE(stmt, GetTypeOfIndex, 3));
 
-        if (columnType == mozIStorageStatement::VALUE_TYPE_NULL) {
-          metadata->mCommonMetadata.keyPath() = KeyPath(0);
-        } else {
-          MOZ_ASSERT(columnType == mozIStorageStatement::VALUE_TYPE_TEXT);
+              if (columnType == mozIStorageStatement::VALUE_TYPE_NULL) {
+                metadata->mCommonMetadata.keyPath() = KeyPath(0);
+              } else {
+                MOZ_ASSERT(columnType == mozIStorageStatement::VALUE_TYPE_TEXT);
 
-          nsString keyPathSerialization;
-          IDB_TRY(stmt.GetString(3, keyPathSerialization));
+                nsString keyPathSerialization;
+                IDB_TRY(stmt.GetString(3, keyPathSerialization));
 
-          metadata->mCommonMetadata.keyPath() =
-              KeyPath::DeserializeFromString(keyPathSerialization);
-          IDB_TRY(OkIf(metadata->mCommonMetadata.keyPath().IsValid()),
-                  Err(NS_ERROR_FILE_CORRUPTED));
-        }
+                metadata->mCommonMetadata.keyPath() =
+                    KeyPath::DeserializeFromString(keyPathSerialization);
+                IDB_TRY(OkIf(metadata->mCommonMetadata.keyPath().IsValid()),
+                        Err(NS_ERROR_FILE_CORRUPTED));
+              }
 
-        IDB_TRY_INSPECT(const int64_t& nextAutoIncrementId,
-                        MOZ_TO_RESULT_INVOKE(stmt, GetInt64, 1));
+              IDB_TRY_INSPECT(const int64_t& nextAutoIncrementId,
+                              MOZ_TO_RESULT_INVOKE(stmt, GetInt64, 1));
 
-        metadata->mCommonMetadata.autoIncrement() = !!nextAutoIncrementId;
-        metadata->mNextAutoIncrementId = nextAutoIncrementId;
-        metadata->mCommittedAutoIncrementId = nextAutoIncrementId;
+              metadata->mCommonMetadata.autoIncrement() = !!nextAutoIncrementId;
+              metadata->mNextAutoIncrementId = nextAutoIncrementId;
+              metadata->mCommittedAutoIncrementId = nextAutoIncrementId;
 
-        IDB_TRY(OkIf(objectStores.Put(objectStoreId, std::move(metadata),
-                                      fallible)),
-                Err(NS_ERROR_OUT_OF_MEMORY));
+              IDB_TRY(OkIf(objectStores.Put(objectStoreId, std::move(metadata),
+                                            fallible)),
+                      Err(NS_ERROR_OUT_OF_MEMORY));
 
-        lastObjectStoreId = std::max(lastObjectStoreId, objectStoreId);
+              lastObjectStoreId = std::max(lastObjectStoreId, objectStoreId);
 
-        return Ok{};
-      }));
+              return Ok{};
+            }));
 
-  // Load index information
-  rv = aConnection.CreateStatement(
-      "SELECT "
-      "id, object_store_id, name, key_path, unique_index, multientry, "
-      "locale, is_auto_locale "
-      "FROM object_store_index"_ns,
-      getter_AddRefs(stmt));
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
-  }
+        return lastObjectStoreId;
+      }()));
 
-  IndexOrObjectStoreId lastIndexId = 0;
+  IDB_TRY_INSPECT(
+      const auto& lastIndexId,
+      ([&aConnection,
+        &objectStores]() -> mozilla::Result<IndexOrObjectStoreId, nsresult> {
+        // Load index information
+        IDB_TRY_INSPECT(
+            const auto& stmt,
+            MOZ_TO_RESULT_INVOKE_TYPED(nsCOMPtr<mozIStorageStatement>,
+                                       aConnection, CreateStatement,
+                                       "SELECT "
+                                       "id, object_store_id, name, key_path, "
+                                       "unique_index, multientry, "
+                                       "locale, is_auto_locale "
+                                       "FROM object_store_index"_ns));
 
-  IDB_TRY(CollectWhileHasResult(
-      *stmt,
-      [&lastIndexId, &objectStores, &aConnection,
-       usedIds = Maybe<nsTHashtable<nsUint64HashKey>>{},
-       usedNames = Maybe<nsTHashtable<nsStringHashKey>>{}](
-          auto& stmt) mutable -> mozilla::Result<Ok, nsresult> {
-        IDB_TRY_INSPECT(const IndexOrObjectStoreId& objectStoreId,
-                        MOZ_TO_RESULT_INVOKE(stmt, GetInt64, 1));
+        IndexOrObjectStoreId lastIndexId = 0;
 
-        RefPtr<FullObjectStoreMetadata> objectStoreMetadata;
-        IDB_TRY(OkIf(objectStores.Get(objectStoreId,
-                                      getter_AddRefs(objectStoreMetadata))),
-                Err(NS_ERROR_OUT_OF_MEMORY));
+        IDB_TRY(CollectWhileHasResult(
+            *stmt,
+            [&lastIndexId, &objectStores, &aConnection,
+             usedIds = Maybe<nsTHashtable<nsUint64HashKey>>{},
+             usedNames = Maybe<nsTHashtable<nsStringHashKey>>{}](
+                auto& stmt) mutable -> mozilla::Result<Ok, nsresult> {
+              IDB_TRY_INSPECT(const IndexOrObjectStoreId& objectStoreId,
+                              MOZ_TO_RESULT_INVOKE(stmt, GetInt64, 1));
 
-        MOZ_ASSERT(objectStoreMetadata->mCommonMetadata.id() == objectStoreId);
+              RefPtr<FullObjectStoreMetadata> objectStoreMetadata;
+              IDB_TRY(OkIf(objectStores.Get(
+                          objectStoreId, getter_AddRefs(objectStoreMetadata))),
+                      Err(NS_ERROR_OUT_OF_MEMORY));
 
-        IndexOrObjectStoreId indexId;
-        IDB_TRY(stmt.GetInt64(0, &indexId));
+              MOZ_ASSERT(objectStoreMetadata->mCommonMetadata.id() ==
+                         objectStoreId);
 
-        if (!usedIds) {
-          usedIds.emplace();
-        }
+              IndexOrObjectStoreId indexId;
+              IDB_TRY(stmt.GetInt64(0, &indexId));
 
-        IDB_TRY(OkIf(indexId > 0), Err(NS_ERROR_FILE_CORRUPTED));
-        IDB_TRY(OkIf(!usedIds.ref().Contains(indexId)),
-                Err(NS_ERROR_FILE_CORRUPTED));
+              if (!usedIds) {
+                usedIds.emplace();
+              }
 
-        IDB_TRY(OkIf(usedIds.ref().PutEntry(indexId, fallible)),
-                Err(NS_ERROR_OUT_OF_MEMORY));
+              IDB_TRY(OkIf(indexId > 0), Err(NS_ERROR_FILE_CORRUPTED));
+              IDB_TRY(OkIf(!usedIds.ref().Contains(indexId)),
+                      Err(NS_ERROR_FILE_CORRUPTED));
 
-        nsString name;
-        IDB_TRY(stmt.GetString(2, name));
+              IDB_TRY(OkIf(usedIds.ref().PutEntry(indexId, fallible)),
+                      Err(NS_ERROR_OUT_OF_MEMORY));
 
-        nsAutoString hashName;
-        hashName.AppendInt(indexId);
-        hashName.Append(':');
-        hashName.Append(name);
+              nsString name;
+              IDB_TRY(stmt.GetString(2, name));
 
-        if (!usedNames) {
-          usedNames.emplace();
-        }
+              const nsAutoString hashName =
+                  IntToString(indexId) + u":"_ns + name;
 
-        IDB_TRY(OkIf(!usedNames.ref().Contains(hashName)),
-                Err(NS_ERROR_FILE_CORRUPTED));
+              if (!usedNames) {
+                usedNames.emplace();
+              }
 
-        IDB_TRY(OkIf(usedNames.ref().PutEntry(hashName, fallible)),
-                Err(NS_ERROR_OUT_OF_MEMORY));
+              IDB_TRY(OkIf(!usedNames.ref().Contains(hashName)),
+                      Err(NS_ERROR_FILE_CORRUPTED));
 
-        RefPtr<FullIndexMetadata> indexMetadata = new FullIndexMetadata();
-        indexMetadata->mCommonMetadata.id() = indexId;
-        indexMetadata->mCommonMetadata.name() = name;
+              IDB_TRY(OkIf(usedNames.ref().PutEntry(hashName, fallible)),
+                      Err(NS_ERROR_OUT_OF_MEMORY));
+
+              RefPtr<FullIndexMetadata> indexMetadata = new FullIndexMetadata();
+              indexMetadata->mCommonMetadata.id() = indexId;
+              indexMetadata->mCommonMetadata.name() = name;
 
 #ifdef DEBUG
-        {
-          int32_t columnType;
-          nsresult rv = stmt.GetTypeOfIndex(3, &columnType);
-          MOZ_ASSERT(NS_SUCCEEDED(rv));
-          MOZ_ASSERT(columnType != mozIStorageStatement::VALUE_TYPE_NULL);
-        }
+              {
+                int32_t columnType;
+                nsresult rv = stmt.GetTypeOfIndex(3, &columnType);
+                MOZ_ASSERT(NS_SUCCEEDED(rv));
+                MOZ_ASSERT(columnType != mozIStorageStatement::VALUE_TYPE_NULL);
+              }
 #endif
 
-        nsString keyPathSerialization;
-        IDB_TRY(stmt.GetString(3, keyPathSerialization));
+              nsString keyPathSerialization;
+              IDB_TRY(stmt.GetString(3, keyPathSerialization));
 
-        indexMetadata->mCommonMetadata.keyPath() =
-            KeyPath::DeserializeFromString(keyPathSerialization);
-        IDB_TRY(OkIf(indexMetadata->mCommonMetadata.keyPath().IsValid()),
-                Err(NS_ERROR_FILE_CORRUPTED));
+              indexMetadata->mCommonMetadata.keyPath() =
+                  KeyPath::DeserializeFromString(keyPathSerialization);
+              IDB_TRY(OkIf(indexMetadata->mCommonMetadata.keyPath().IsValid()),
+                      Err(NS_ERROR_FILE_CORRUPTED));
 
-        int32_t scratch;
-        IDB_TRY(stmt.GetInt32(4, &scratch));
+              int32_t scratch;
+              IDB_TRY(stmt.GetInt32(4, &scratch));
 
-        indexMetadata->mCommonMetadata.unique() = !!scratch;
+              indexMetadata->mCommonMetadata.unique() = !!scratch;
 
-        IDB_TRY(stmt.GetInt32(5, &scratch));
+              IDB_TRY(stmt.GetInt32(5, &scratch));
 
-        indexMetadata->mCommonMetadata.multiEntry() = !!scratch;
+              indexMetadata->mCommonMetadata.multiEntry() = !!scratch;
 
-        const bool localeAware = !stmt.IsNull(6);
-        if (localeAware) {
-          IDB_TRY(
-              stmt.GetUTF8String(6, indexMetadata->mCommonMetadata.locale()));
+              const bool localeAware = !stmt.IsNull(6);
+              if (localeAware) {
+                IDB_TRY(stmt.GetUTF8String(
+                    6, indexMetadata->mCommonMetadata.locale()));
 
-          IDB_TRY(stmt.GetInt32(7, &scratch));
+                IDB_TRY(stmt.GetInt32(7, &scratch));
 
-          indexMetadata->mCommonMetadata.autoLocale() = !!scratch;
+                indexMetadata->mCommonMetadata.autoLocale() = !!scratch;
 
-          // Update locale-aware indexes if necessary
-          const nsCString& indexedLocale =
-              indexMetadata->mCommonMetadata.locale();
-          const bool& isAutoLocale =
-              indexMetadata->mCommonMetadata.autoLocale();
-          nsCString systemLocale = IndexedDatabaseManager::GetLocale();
-          if (!systemLocale.IsEmpty() && isAutoLocale &&
-              !indexedLocale.EqualsASCII(systemLocale.get())) {
-            IDB_TRY(UpdateLocaleAwareIndex(
-                aConnection, indexMetadata->mCommonMetadata, systemLocale));
-          }
-        }
+                // Update locale-aware indexes if necessary
+                const nsCString& indexedLocale =
+                    indexMetadata->mCommonMetadata.locale();
+                const bool& isAutoLocale =
+                    indexMetadata->mCommonMetadata.autoLocale();
+                const nsCString& systemLocale =
+                    IndexedDatabaseManager::GetLocale();
+                if (!systemLocale.IsEmpty() && isAutoLocale &&
+                    !indexedLocale.EqualsASCII(systemLocale.get())) {
+                  IDB_TRY(UpdateLocaleAwareIndex(aConnection,
+                                                 indexMetadata->mCommonMetadata,
+                                                 systemLocale));
+                }
+              }
 
-        IDB_TRY(OkIf(objectStoreMetadata->mIndexes.Put(
-                    indexId, std::move(indexMetadata), fallible)),
-                Err(NS_ERROR_OUT_OF_MEMORY));
+              IDB_TRY(OkIf(objectStoreMetadata->mIndexes.Put(
+                          indexId, std::move(indexMetadata), fallible)),
+                      Err(NS_ERROR_OUT_OF_MEMORY));
 
-        lastIndexId = std::max(lastIndexId, indexId);
+              lastIndexId = std::max(lastIndexId, indexId);
 
-        return Ok{};
-      }));
+              return Ok{};
+            }));
 
-  if (NS_WARN_IF(lastObjectStoreId == INT64_MAX) ||
-      NS_WARN_IF(lastIndexId == INT64_MAX)) {
-    IDB_REPORT_INTERNAL_ERR();
-    return NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR;
-  }
+        return lastIndexId;
+      }()));
+
+  IDB_TRY(OkIf(lastObjectStoreId != INT64_MAX),
+          NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR, IDB_REPORT_INTERNAL_ERR_LAMBDA);
+  IDB_TRY(OkIf(lastIndexId != INT64_MAX), NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR,
+          IDB_REPORT_INTERNAL_ERR_LAMBDA);
 
   mMetadata->mNextObjectStoreId = lastObjectStoreId + 1;
   mMetadata->mNextIndexId = lastIndexId + 1;
@@ -21066,7 +20859,7 @@ nsresult ObjectStoreGetRequestOp::DoDatabaseWork(
       kStmtParamNameObjectStoreId +
       MaybeGetBindingClauseForKeyRange(mOptionalKeyRange, kColumnNameKey) +
       " ORDER BY key ASC"_ns +
-      (mLimit ? kOpenLimit + ToAutoCString(mLimit) : EmptyCString());
+      (mLimit ? kOpenLimit + IntToCString(mLimit) : EmptyCString());
 
   IDB_TRY_INSPECT(const auto& stmt, aConnection->BorrowCachedStatement(query));
 
@@ -21216,7 +21009,7 @@ nsresult ObjectStoreGetKeyRequestOp::DoDatabaseWork(
       kStmtParamNameObjectStoreId +
       MaybeGetBindingClauseForKeyRange(mOptionalKeyRange, kColumnNameKey) +
       " ORDER BY key ASC"_ns +
-      (mLimit ? " LIMIT "_ns + ToAutoCString(mLimit) : EmptyCString());
+      (mLimit ? " LIMIT "_ns + IntToCString(mLimit) : EmptyCString());
 
   IDB_TRY_INSPECT(const auto& stmt, aConnection->BorrowCachedStatement(query));
 
@@ -21588,7 +21381,7 @@ nsresult IndexGetRequestOp::DoDatabaseWork(DatabaseConnection* aConnection) {
           kStmtParamNameIndexId +
           MaybeGetBindingClauseForKeyRange(mOptionalKeyRange,
                                            kColumnNameValue) +
-          (mLimit ? kOpenLimit + ToAutoCString(mLimit) : EmptyCString())));
+          (mLimit ? kOpenLimit + IntToCString(mLimit) : EmptyCString())));
 
   nsresult rv = stmt->BindInt64ByName(kStmtParamNameIndexId,
                                       mMetadata->mCommonMetadata.id());
@@ -21715,7 +21508,7 @@ nsresult IndexGetKeyRequestOp::DoDatabaseWork(DatabaseConnection* aConnection) {
       "FROM "_ns +
       indexTable + "WHERE index_id = :"_ns + kStmtParamNameIndexId +
       MaybeGetBindingClauseForKeyRange(mOptionalKeyRange, kColumnNameValue) +
-      (mLimit ? kOpenLimit + ToAutoCString(mLimit) : EmptyCString());
+      (mLimit ? kOpenLimit + IntToCString(mLimit) : EmptyCString());
 
   IDB_TRY_INSPECT(const auto& stmt, aConnection->BorrowCachedStatement(query));
 
@@ -22231,7 +22024,7 @@ nsresult OpenOpHelper<IDBCursorType::ObjectStore>::DoDatabaseWork(
   // require changes to CursorOpBase::PopulateResponseFromStatement.
   const nsCString firstQuery = queryStart + keyRangeClause + directionClause +
                                kOpenLimit +
-                               ToAutoCString(1 + GetCursor().mMaxExtraCount);
+                               IntToCString(1 + GetCursor().mMaxExtraCount);
 
   IDB_TRY_INSPECT(const auto& stmt,
                   aConnection->BorrowCachedStatement(firstQuery));
@@ -22371,7 +22164,7 @@ nsresult OpenOpHelper<IDBCursorType::Index>::DoDatabaseWork(
   // require changes to CursorOpBase::PopulateResponseFromStatement.
   const nsCString firstQuery = queryStart + keyRangeClause + directionClause +
                                kOpenLimit +
-                               ToAutoCString(1 + GetCursor().mMaxExtraCount);
+                               IntToCString(1 + GetCursor().mMaxExtraCount);
 
   IDB_TRY_INSPECT(const auto& stmt,
                   aConnection->BorrowCachedStatement(firstQuery));
@@ -22621,7 +22414,7 @@ nsresult Cursor<CursorType>::ContinueOp::DoDatabaseWork(
   // Bind limit.
   nsresult rv = stmt->BindUTF8StringByName(
       kStmtParamNameLimit,
-      ToAutoCString(advanceCount + mCursor->mMaxExtraCount));
+      IntToCString(advanceCount + mCursor->mMaxExtraCount));
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
