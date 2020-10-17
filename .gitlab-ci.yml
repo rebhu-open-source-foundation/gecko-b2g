@@ -88,6 +88,8 @@ build:desktop:
   stage: build
   before_script:
     - '[ "$(cat ${HOME}/.mozbuild/ver)" = "3" ] || curl https://packages.preprod.kaiostech.com/ndk/v3/mozbuild.tar.bz2 | tar -C ${HOME}/ -xj'
+    - *global_setup
+    - *koost_setup
   script:
     - ./mach build
     - ./mach package
