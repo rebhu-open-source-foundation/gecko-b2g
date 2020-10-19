@@ -72,6 +72,11 @@ this.PermissionsTable = {
     pwa: DENY_ACTION,
     signed: ALLOW_ACTION,
   },
+  "bluetooth-privileged": {
+    pwa: DENY_ACTION,
+    signed: DENY_ACTION,
+    core: ALLOW_ACTION,
+  },
   camera: {
     pwa: PROMPT_ACTION,
     signed: PROMPT_ACTION,

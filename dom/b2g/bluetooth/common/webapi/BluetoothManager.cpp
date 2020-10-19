@@ -164,7 +164,7 @@ already_AddRefed<BluetoothManager> BluetoothManager::Create(
 }
 
 // static
-bool BluetoothManager::HasPermission(JSContext* /* unused */,
+bool BluetoothManager::HasPermission(const nsACString& aType,
                                      JSObject* aGlobal) {
   nsIPrincipal* principal = nsContentUtils::ObjectPrincipal(aGlobal);
   NS_ENSURE_TRUE(principal, false);
@@ -174,7 +174,7 @@ bool BluetoothManager::HasPermission(JSContext* /* unused */,
   NS_ENSURE_TRUE(permissionManager, false);
 
   uint32_t permission = nsIPermissionManager::UNKNOWN_ACTION;
-  permissionManager->TestExactPermissionFromPrincipal(principal, "bluetooth"_ns,
+  permissionManager->TestExactPermissionFromPrincipal(principal, aType,
                                                       &permission);
 
   if (permission == nsIPermissionManager::ALLOW_ACTION ||
@@ -183,6 +183,19 @@ bool BluetoothManager::HasPermission(JSContext* /* unused */,
   }
 
   return false;
+}
+
+// static
+bool BluetoothManager::HasPermission(JSContext* /* unused */,
+                                     JSObject* aGlobal) {
+  return HasPermission("bluetooth"_ns, aGlobal) ||
+         HasPermission("bluetooth-privileged"_ns, aGlobal);
+}
+
+// static
+bool BluetoothManager::HasPrivilegedPermission(JSContext* /* unused */,
+                                               JSObject* aGlobal) {
+  return HasPermission("bluetooth-privileged"_ns, aGlobal);
 }
 
 void BluetoothManager::HandleAdapterAdded(const BluetoothValue& aValue) {

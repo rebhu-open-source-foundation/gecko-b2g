@@ -11,8 +11,7 @@ interface BluetoothPbapRequestHandle
    * callback if the PBAP request type is not 'pullvcardentryreq' or operation
    * fails.
    */
-  // TODO: make it AvailableIn=CertifiedApps
-  [NewObject, Throws]
+  [NewObject, Throws, Func="bluetooth::BluetoothManager::HasPrivilegedPermission"]
   DOMRequest replyTovCardPulling(Blob vcardObject);
 
   /**
@@ -20,8 +19,7 @@ interface BluetoothPbapRequestHandle
    * callback if the PBAP request type is not 'pullphonebookreq' or operation
    * fails.
    */
-  // TODO: make it AvailableIn=CertifiedApps
-  [NewObject, Throws]
+  [NewObject, Throws, Func="bluetooth::BluetoothManager::HasPrivilegedPermission"]
   DOMRequest replyToPhonebookPulling(Blob vcardObject,
                                      unsigned long long phonebookSize);
   /**
@@ -29,8 +27,7 @@ interface BluetoothPbapRequestHandle
    * callback if the PBAP request type is not 'pullvcardlistingreq' or operation
    * fails.
    */
-  // TODO: make it AvailableIn=CertifiedApps
-  [NewObject, Throws]
+  [NewObject, Throws, Func="bluetooth::BluetoothManager::HasPrivilegedPermission"]
   DOMRequest replyTovCardListing(Blob vcardObject,
                                  unsigned long long phonebookSize);
 };

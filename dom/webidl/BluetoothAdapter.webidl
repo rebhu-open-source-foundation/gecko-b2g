@@ -35,13 +35,14 @@ dictionary MediaPlayStatus
 [Exposed=Window]
 interface BluetoothAdapter : EventTarget {
   readonly attribute BluetoothAdapterState  state;
+  [Func="bluetooth::BluetoothManager::HasPrivilegedPermission"]
   readonly attribute DOMString              address;
   readonly attribute DOMString              name;
   readonly attribute boolean                discoverable;
   readonly attribute boolean                discovering;
   readonly attribute BluetoothGattServer?   gattServer;
 
-
+  [Func="bluetooth::BluetoothManager::HasPrivilegedPermission"]
   readonly attribute BluetoothPairingListener? pairingReqs;
 
 
@@ -115,12 +116,12 @@ interface BluetoothAdapter : EventTarget {
    * Several onattributechanged events would be triggered during processing the
    * request, and the last one indicates adapter.state becomes enabled/disabled.
    */
-  [NewObject]
+  [NewObject, Func="bluetooth::BluetoothManager::HasPrivilegedPermission"]
   Promise<void> enable();
-  [NewObject]
+  [NewObject, Func="bluetooth::BluetoothManager::HasPrivilegedPermission"]
   Promise<void> disable();
 
-  [NewObject]
+  [NewObject, Func="bluetooth::BluetoothManager::HasPrivilegedPermission"]
   Promise<void> setName(DOMString name);
   [NewObject]
   Promise<void> setDiscoverable(boolean discoverable);
@@ -151,7 +152,7 @@ interface BluetoothAdapter : EventTarget {
   Promise<void> stopLeScan(BluetoothDiscoveryHandle discoveryHandle);
 
 
-  [NewObject, Throws]
+  [NewObject, Throws, Func="bluetooth::BluetoothManager::HasPrivilegedPermission"]
   DOMRequest getConnectedDevices(unsigned short serviceUuid);
 
   /**
@@ -172,26 +173,26 @@ interface BluetoothAdapter : EventTarget {
    * @param profile 2-octets service UUID. This is optional.
    */
 
-  [NewObject, Throws]
+  [NewObject, Throws, Func="bluetooth::BluetoothManager::HasPrivilegedPermission"]
   DOMRequest connect(BluetoothDevice device, optional unsigned short serviceUuid);
 
-  [NewObject, Throws]
+  [NewObject, Throws, Func="bluetooth::BluetoothManager::HasPrivilegedPermission"]
   DOMRequest disconnect(BluetoothDevice device, optional unsigned short serviceUuid);
 
   // One device can only send one file at a time
-  [NewObject, Throws]
+  [NewObject, Throws, Func="bluetooth::BluetoothManager::HasPrivilegedPermission"]
   DOMRequest sendFile(DOMString deviceAddress, Blob blob);
-  [NewObject, Throws]
+  [NewObject, Throws, Func="bluetooth::BluetoothManager::HasPrivilegedPermission"]
   DOMRequest stopSendingFile(DOMString deviceAddress);
-  [NewObject, Throws]
+  [NewObject, Throws, Func="bluetooth::BluetoothManager::HasPrivilegedPermission"]
   DOMRequest confirmReceivingFile(DOMString deviceAddress, boolean confirmation);
 
   // Connect/Disconnect SCO (audio) connection
-  [NewObject, Throws]
+  [NewObject, Throws, Func="bluetooth::BluetoothManager::HasPrivilegedPermission"]
   DOMRequest connectSco();
-  [NewObject, Throws]
+  [NewObject, Throws, Func="bluetooth::BluetoothManager::HasPrivilegedPermission"]
   DOMRequest disconnectSco();
-  [NewObject, Throws]
+  [NewObject, Throws, Func="bluetooth::BluetoothManager::HasPrivilegedPermission"]
   DOMRequest isScoConnected();
 
   /**
@@ -204,21 +205,21 @@ interface BluetoothAdapter : EventTarget {
    *
    * For more information please refer to bug 912005 and 925638.
    */
-  [NewObject, Throws]
+  [NewObject, Throws, Func="bluetooth::BluetoothManager::HasPrivilegedPermission"]
   DOMRequest answerWaitingCall();
-  [NewObject, Throws]
+  [NewObject, Throws, Func="bluetooth::BluetoothManager::HasPrivilegedPermission"]
   DOMRequest ignoreWaitingCall();
-  [NewObject, Throws]
+  [NewObject, Throws, Func="bluetooth::BluetoothManager::HasPrivilegedPermission"]
   DOMRequest toggleCalls();
 
   // AVRCP 1.3 methods
-  [NewObject, Throws]
+  [NewObject, Throws, Func="bluetooth::BluetoothManager::HasPrivilegedPermission"]
   DOMRequest sendMediaMetaData(optional MediaMetaData mediaMetaData = {});
-  [NewObject, Throws]
+  [NewObject, Throws, Func="bluetooth::BluetoothManager::HasPrivilegedPermission"]
   DOMRequest sendMediaPlayStatus(optional MediaPlayStatus mediaPlayStatus = {});
 
   // MAP event report
-  [NewObject, Throws]
+  [NewObject, Throws, Func="bluetooth::BluetoothManager::HasPrivilegedPermission"]
   Promise<void> sendMessageEvent(octet masId, Blob eventObject);
 };
 
