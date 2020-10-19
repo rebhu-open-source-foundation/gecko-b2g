@@ -72,6 +72,11 @@
     },
 
     onLocationChange(webProgress, request, location, flags) {
+      // Only act on top-level changes.
+      if (!webProgress.isTopLevel) {
+        return;
+      }
+
       this.log(`onLocationChange ${location.spec}`);
 
       // Ignore locationchange events which occur before the first loadstart.
@@ -93,6 +98,11 @@
 
     // eslint-disable-next-line complexity
     onStateChange(webProgress, request, stateFlags, status) {
+      // Only act on top-level changes.
+      if (!webProgress.isTopLevel) {
+        return;
+      }
+
       const CERTIFICATE_ERROR_PAGE_PREF =
         "security.alternate_certificate_error_page";
       // this.log(`onStateChange ${stateFlags}`);
@@ -234,7 +244,7 @@
     },
 
     onSecurityChange(webProgress, request, state) {
-      var securityStateDesc;
+      let securityStateDesc;
       if (state & Ci.nsIWebProgressListener.STATE_IS_SECURE) {
         securityStateDesc = "secure";
       } else if (state & Ci.nsIWebProgressListener.STATE_IS_BROKEN) {
@@ -246,22 +256,22 @@
         securityStateDesc = "???";
       }
 
-      var mixedStateDesc;
+      let mixedState;
       if (
         state & Ci.nsIWebProgressListener.STATE_BLOCKED_MIXED_ACTIVE_CONTENT
       ) {
-        mixedStateDesc = "blocked_mixed_active_content";
+        mixedState = "blocked_mixed_active_content";
       } else if (
         state & Ci.nsIWebProgressListener.STATE_LOADED_MIXED_ACTIVE_CONTENT
       ) {
         // Note that STATE_LOADED_MIXED_ACTIVE_CONTENT implies STATE_IS_BROKEN
-        mixedStateDesc = "loaded_mixed_active_content";
+        mixedState = "loaded_mixed_active_content";
       }
 
-      var isEV = !!(
+      let extendedValidation = !!(
         state & Ci.nsIWebProgressListener.STATE_IDENTITY_EV_TOPLEVEL
       );
-      var isMixedContent = !!(
+      var mixedContent = !!(
         state &
         (Ci.nsIWebProgressListener.STATE_BLOCKED_MIXED_ACTIVE_CONTENT |
           Ci.nsIWebProgressListener.STATE_LOADED_MIXED_ACTIVE_CONTENT)
@@ -269,11 +279,21 @@
 
       this.dispatchEvent("securitychange", {
         state: securityStateDesc,
-        mixedState: mixedStateDesc,
-        extendedValidation: isEV,
-        mixedContent: isMixedContent,
+        mixedState,
+        extendedValidation,
+        mixedContent,
       });
     },
+
+    onStatusChange(webProgress, request, status, message) {},
+    onProgressChange(
+      webProgress,
+      request,
+      curSelfProgress,
+      maxSelfProgress,
+      curTotalProgress,
+      maxTotalProgress
+    ) {},
   };
 
   const kRelayedEvents = [
