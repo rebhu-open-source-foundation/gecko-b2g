@@ -103,9 +103,8 @@ class PermissionsManagerParent extends JSWindowActorParent {
   }
 
   _internalAddPermission(aData) {
-    let uri = Services.io.newURI(aData.origin);
     let principal = Services.scriptSecurityManager.createContentPrincipalFromOrigin(
-      uri
+      aData.origin
     );
 
     let action;
