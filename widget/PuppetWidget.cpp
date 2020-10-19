@@ -9,6 +9,7 @@
 
 #include "ClientLayerManager.h"
 #include "gfxPlatform.h"
+#include "nsRefreshDriver.h"
 #include "mozilla/dom/BrowserChild.h"
 #include "mozilla/gfx/gfxVars.h"
 #include "mozilla/Hal.h"
@@ -161,7 +162,6 @@ void PuppetWidget::Destroy() {
 
   Base::OnDestroy();
   Base::Destroy();
-  mPaintTask.Revoke();
   if (mMemoryPressureObserver) {
     mMemoryPressureObserver->Unregister();
     mMemoryPressureObserver = nullptr;
@@ -268,13 +268,10 @@ void PuppetWidget::Invalidate(const LayoutDeviceIntRect& aRect) {
     return;
   }
 
-  mDirtyRegion.Or(mDirtyRegion, aRect);
-
-  if (mBrowserChild && !mDirtyRegion.IsEmpty() && !mPaintTask.IsPending()) {
-    mPaintTask = new PaintTask(this);
-    nsCOMPtr<nsIRunnable> event(mPaintTask.get());
-    SchedulerGroup::Dispatch(TaskCategory::Other, event.forget());
-    return;
+  if (mBrowserChild && !aRect.IsEmpty()) {
+    if (RefPtr<nsRefreshDriver> refreshDriver = GetTopLevelRefreshDriver()) {
+      refreshDriver->ScheduleViewManagerFlush();
+    }
   }
 }
 
@@ -711,6 +708,18 @@ bool PuppetWidget::HaveValidInputContextCache() const {
           IMEStateManager::GetWidgetForActiveInputContext() == this);
 }
 
+nsRefreshDriver* PuppetWidget::GetTopLevelRefreshDriver() const {
+  if (!mBrowserChild) {
+    return nullptr;
+  }
+
+  if (PresShell* presShell = mBrowserChild->GetTopLevelPresShell()) {
+    return presShell->GetRefreshDriver();
+  }
+
+  return nullptr;
+}
+
 void PuppetWidget::SetInputContext(const InputContext& aContext,
                                    const InputContextAction& aAction) {
   mInputContext = aContext;
@@ -989,64 +998,6 @@ void PuppetWidget::ClearCachedCursor() {
   mCustomCursor = nullptr;
 }
 
-nsresult PuppetWidget::Paint() {
-  MOZ_ASSERT(!mDirtyRegion.IsEmpty(), "paint event logic messed up");
-
-  if (!GetCurrentWidgetListener()) return NS_OK;
-
-  LayoutDeviceIntRegion region = mDirtyRegion;
-
-  // reset repaint tracking
-  mDirtyRegion.SetEmpty();
-  mPaintTask.Revoke();
-
-  RefPtr<PuppetWidget> strongThis(this);
-
-  GetCurrentWidgetListener()->WillPaintWindow(this);
-
-  if (GetCurrentWidgetListener()) {
-#ifdef DEBUG
-    debug_DumpPaintEvent(stderr, this, region.ToUnknownRegion(), "PuppetWidget",
-                         0);
-#endif
-
-    if (mLayerManager->GetBackendType() ==
-            mozilla::layers::LayersBackend::LAYERS_CLIENT ||
-        mLayerManager->GetBackendType() ==
-            mozilla::layers::LayersBackend::LAYERS_WR ||
-        (mozilla::layers::LayersBackend::LAYERS_BASIC ==
-             mLayerManager->GetBackendType() &&
-         mBrowserChild && mBrowserChild->IsLayersConnected().isSome())) {
-      // Do nothing, the compositor will handle drawing
-      if (mBrowserChild) {
-        mBrowserChild->NotifyPainted();
-      }
-    } else if (mozilla::layers::LayersBackend::LAYERS_BASIC ==
-               mLayerManager->GetBackendType()) {
-      RefPtr<gfxContext> ctx = gfxContext::CreateOrNull(mDrawTarget);
-      if (!ctx) {
-        gfxDevCrash(LogReason::InvalidContext)
-            << "PuppetWidget context problem " << gfx::hexa(mDrawTarget);
-        return NS_ERROR_FAILURE;
-      }
-      ctx->Rectangle(gfxRect(0, 0, 0, 0));
-      ctx->Clip();
-      AutoLayerManagerSetup setupLayerManager(this, ctx,
-                                              BufferMode::BUFFER_NONE);
-      GetCurrentWidgetListener()->PaintWindow(this, region);
-      if (mBrowserChild) {
-        mBrowserChild->NotifyPainted();
-      }
-    }
-  }
-
-  if (GetCurrentWidgetListener()) {
-    GetCurrentWidgetListener()->DidPaintWindow();
-  }
-
-  return NS_OK;
-}
-
 void PuppetWidget::SetChild(PuppetWidget* aChild) {
   MOZ_ASSERT(this != aChild, "can't parent a widget to itself");
   MOZ_ASSERT(!aChild->mChild,
@@ -1055,17 +1006,11 @@ void PuppetWidget::SetChild(PuppetWidget* aChild) {
   mChild = aChild;
 }
 
-NS_IMETHODIMP
-PuppetWidget::PaintTask::Run() {
-  if (mWidget) {
-    mWidget->Paint();
-  }
-  return NS_OK;
-}
-
 void PuppetWidget::PaintNowIfNeeded() {
-  if (IsVisible() && mPaintTask.IsPending()) {
-    Paint();
+  if (IsVisible()) {
+    if (RefPtr<nsRefreshDriver> refreshDriver = GetTopLevelRefreshDriver()) {
+      refreshDriver->DoTick();
+    }
   }
 }
 

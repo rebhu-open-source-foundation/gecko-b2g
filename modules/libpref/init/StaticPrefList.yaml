@@ -1027,6 +1027,11 @@
   value: false
   mirror: always
 
+- name: browser.navigation.requireUserInteraction
+  type: bool
+  value: false
+  mirror: always
+
 # Indicates if about:newtab shows content (enabled) or just blank.
 - name: browser.newtabpage.enabled
   type: bool
@@ -1929,6 +1934,12 @@
 
 # Enable passing the "storage" option to indexedDB.open.
 - name: dom.indexedDB.storageOption.enabled
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+# Enable indexedDB in private browsing mode.
+- name: dom.indexedDB.privateBrowsing.enabled
   type: RelaxedAtomicBool
   value: false
   mirror: always
@@ -5615,6 +5626,11 @@
   value: 5000
   mirror: once
 
+- name: layers.gpu-process.crash-also-crashes-browser
+  type: bool
+  value: false
+  mirror: always
+
 - name: layers.low-precision-buffer
   type: RelaxedAtomicBool
   value: false
@@ -9287,7 +9303,7 @@
 
 - name: privacy.partition.network_state
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: @IS_EARLY_BETA_OR_EARLIER@
   mirror: always
 
 - name: privacy.partition.bloburl_per_agent_cluster

@@ -160,7 +160,10 @@ var PrintEventHandler = {
     // is initiated and the print preview clone must be a snapshot from the
     // time that the print was started.
     let sourceBrowsingContext = this.getSourceBrowsingContext();
-    this.previewBrowser = this._createPreviewBrowser(sourceBrowsingContext);
+    this.previewBrowser = PrintUtils.createPreviewBrowser(
+      sourceBrowsingContext,
+      ourBrowser
+    );
 
     // Get the temporary browser that will previously have been created for the
     // platform code to generate the static clone printing doc into if this
@@ -185,13 +188,23 @@ var PrintEventHandler = {
 
     // First check the available destinations to ensure we get settings for an
     // accessible printer.
-    let {
-      destinations,
+    let destinations,
       defaultSystemPrinter,
       fallbackPaperList,
       selectedPrinter,
-      printersByName,
-    } = await this.getPrintDestinations();
+      printersByName;
+    try {
+      ({
+        destinations,
+        defaultSystemPrinter,
+        fallbackPaperList,
+        selectedPrinter,
+        printersByName,
+      } = await this.getPrintDestinations());
+    } catch (e) {
+      this.reportPrintingError("PRINT_DESTINATIONS");
+      throw e;
+    }
     PrintSettingsViewProxy.availablePrinters = printersByName;
     PrintSettingsViewProxy.fallbackPaperList = fallbackPaperList;
     PrintSettingsViewProxy.defaultSystemPrinter = defaultSystemPrinter;
@@ -307,36 +320,6 @@ var PrintEventHandler = {
     this.previewBrowser.frameLoader.exitPrintPreview();
   },
 
-  _createPreviewBrowser(sourceBrowsingContext) {
-    // Create a preview browser.
-    let printPreviewBrowser = gBrowser.createBrowser({
-      remoteType: sourceBrowsingContext.currentRemoteType,
-      userContextId: sourceBrowsingContext.originAttributes.userContextId,
-      initialBrowsingContextGroupId: sourceBrowsingContext.group.id,
-      skipLoad: true,
-    });
-    printPreviewBrowser.classList.add("printPreviewBrowser");
-    printPreviewBrowser.setAttribute("flex", "1");
-    printPreviewBrowser.setAttribute("printpreview", "true");
-    // Disable the context menu for this browser. This is set as an attribute
-    // on the browser instead of using addEventListener since the latter
-    // was causing memory leaks.
-    printPreviewBrowser.setAttribute("oncontextmenu", "return false;");
-    document.l10n.setAttributes(printPreviewBrowser, "printui-preview-label");
-
-    // Create the stack for the loading indicator.
-    let doc = ourBrowser.ownerDocument;
-    let previewStack = doc.importNode(
-      doc.getElementById("printPreviewStackTemplate").content,
-      true
-    ).firstElementChild;
-
-    previewStack.append(printPreviewBrowser);
-    ourBrowser.parentElement.prepend(previewStack);
-
-    return printPreviewBrowser;
-  },
-
   async print(systemDialogSettings) {
     // Disable the form when a print is in progress
     for (let element of document.querySelector("#print").elements) {
@@ -384,9 +367,15 @@ var PrintEventHandler = {
   },
 
   async refreshSettings(printerName) {
-    let currentPrinter = await PrintSettingsViewProxy.resolvePropertiesForPrinter(
-      printerName
-    );
+    let currentPrinter;
+    try {
+      currentPrinter = await PrintSettingsViewProxy.resolvePropertiesForPrinter(
+        printerName
+      );
+    } catch (e) {
+      this.reportPrintingError("PRINTER_PROPERTIES");
+      throw e;
+    }
     this.settings = currentPrinter.settings;
     this.defaultSettings = currentPrinter.defaultSettings;
 
@@ -540,9 +529,14 @@ var PrintEventHandler = {
     if (printerChanged || changedSettings.paperId) {
       // The paper's margin properties are async,
       // so resolve those now before we update the settings
-      await PrintSettingsViewProxy.fetchPaperMargins(
-        changedSettings.paperId || this.viewSettings.paperId
-      );
+      try {
+        await PrintSettingsViewProxy.fetchPaperMargins(
+          changedSettings.paperId || this.viewSettings.paperId
+        );
+      } catch (e) {
+        this.reportPrintingError("PAPER_MARGINS");
+        throw e;
+      }
     }
 
     for (let [setting, value] of Object.entries(changedSettings)) {
@@ -628,10 +622,16 @@ var PrintEventHandler = {
 
     // This resolves with a PrintPreviewSuccessInfo dictionary.  That also has
     // a `sheetCount` property available which we should use (bug 1662331).
-    let {
-      totalPageCount,
-      hasSelection,
-    } = await previewBrowser.frameLoader.printPreview(settings, sourceWinId);
+    let totalPageCount, hasSelection;
+    try {
+      ({
+        totalPageCount,
+        hasSelection,
+      } = await previewBrowser.frameLoader.printPreview(settings, sourceWinId));
+    } catch (e) {
+      this.reportPrintingError("PRINT_PREVIEW");
+      throw e;
+    }
 
     // Send the page count and show the preview.
     let numPages = totalPageCount;
@@ -701,11 +701,29 @@ var PrintEventHandler = {
     if (Cu.isInAutomation) {
       printers = await Promise.resolve(window._mockPrinters || []);
     } else {
-      printers = await printerList.printers;
+      try {
+        printers = await printerList.printers;
+      } catch (e) {
+        this.reportPrintingError("PRINTER_LIST");
+        throw e;
+      }
     }
 
-    const fallbackPaperList = await printerList.fallbackPaperList;
-    const lastUsedPrinterName = PSSVC.lastUsedPrinterName;
+    let fallbackPaperList;
+    try {
+      fallbackPaperList = await printerList.fallbackPaperList;
+    } catch (e) {
+      this.reportPrintingError("FALLBACK_PAPER_LIST");
+      throw e;
+    }
+
+    let lastUsedPrinterName;
+    try {
+      lastUsedPrinterName = PSSVC.lastUsedPrinterName;
+    } catch (e) {
+      this.reportPrintingError("LAST_USED_PRINTER");
+      throw e;
+    }
     const defaultPrinterName = printerList.systemDefaultPrinterName;
     const printersByName = {};
 
@@ -806,6 +824,10 @@ var PrintEventHandler = {
         };
       }
     }
+  },
+
+  reportPrintingError(aMessage) {
+    Services.telemetry.keyedScalarAdd("printing.error", aMessage, 1);
   },
 
   /**
@@ -932,7 +954,13 @@ var PrintSettingsViewProxy = {
       // We've already resolved and calculated these values
       return;
     }
-    let margins = await paperInfo.paper.unwriteableMargin;
+    let margins;
+    try {
+      margins = await paperInfo.paper.unwriteableMargin;
+    } catch (e) {
+      this.reportPrintingError("UNWRITEABLE_MARGIN");
+      throw e;
+    }
     margins.QueryInterface(Ci.nsIPaperMargin);
 
     // margin dimenions are given on the paper in points, setting values need to be in inches
@@ -955,18 +983,23 @@ var PrintSettingsViewProxy = {
 
     // Await the async printer data.
     if (printerInfo.printer) {
-      [
-        printerInfo.supportsColor,
-        printerInfo.supportsMonochrome,
-        printerInfo.paperList,
-        printerInfo.defaultSettings,
-      ] = await Promise.all([
-        printerInfo.printer.supportsColor,
-        printerInfo.printer.supportsMonochrome,
-        printerInfo.printer.paperList,
-        // get a set of default settings for this printer
-        printerInfo.printer.createDefaultSettings(printerName),
-      ]);
+      try {
+        [
+          printerInfo.supportsColor,
+          printerInfo.supportsMonochrome,
+          printerInfo.paperList,
+          printerInfo.defaultSettings,
+        ] = await Promise.all([
+          printerInfo.printer.supportsColor,
+          printerInfo.printer.supportsMonochrome,
+          printerInfo.printer.paperList,
+          // get a set of default settings for this printer
+          printerInfo.printer.createDefaultSettings(printerName),
+        ]);
+      } catch (e) {
+        this.reportPrintingError("PRINTER_SETTINGS");
+        throw e;
+      }
       printerInfo.defaultSettings.QueryInterface(Ci.nsIPrintSettings);
     } else if (printerName == PrintUtils.SAVE_TO_PDF_PRINTER) {
       // The Mozilla PDF pseudo-printer has no actual nsIPrinter implementation

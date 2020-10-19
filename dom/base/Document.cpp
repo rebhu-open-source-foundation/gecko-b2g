@@ -9148,6 +9148,28 @@ void Document::WriteCommon(const Sequence<nsString>& aText,
 
 void Document::WriteCommon(const nsAString& aText, bool aNewlineTerminate,
                            ErrorResult& aRv) {
+#ifdef DEBUG
+  {
+    // Assert that we do not use or accidentally introduce doc.write()
+    // in system privileged context or in any of our about: pages.
+    nsCOMPtr<nsIPrincipal> principal = NodePrincipal();
+    bool isAboutOrPrivContext = principal->IsSystemPrincipal();
+    if (!isAboutOrPrivContext) {
+      if (principal->SchemeIs("about")) {
+        // about:blank inherits the security contetext and this assertion
+        // is only meant for actual about: pages.
+        nsAutoCString host;
+        principal->GetHost(host);
+        isAboutOrPrivContext = !host.EqualsLiteral("blank");
+      }
+    }
+    // Some automated tests use an empty string to kick off some parsing
+    // mechansims, but they do not do any harm since they use an empty string.
+    MOZ_ASSERT(!isAboutOrPrivContext || aText.IsEmpty(),
+               "do not use doc.write in privileged context!");
+  }
+#endif
+
   mTooDeepWriteRecursion =
       (mWriteLevel > NS_MAX_DOCUMENT_WRITE_DEPTH || mTooDeepWriteRecursion);
   if (NS_WARN_IF(mTooDeepWriteRecursion)) {
@@ -12239,26 +12261,42 @@ static nsINode* GetCorrespondingNodeInDocument(const nsINode* aOrigNode,
   MOZ_ASSERT(aOrigNode);
 
   // Selections in anonymous subtrees aren't supported.
-  if (aOrigNode->IsInNativeAnonymousSubtree() || aOrigNode->IsInShadowTree()) {
+  if (NS_WARN_IF(aOrigNode->IsInNativeAnonymousSubtree())) {
     return nullptr;
   }
 
   nsTArray<int32_t> indexArray;
-  const nsINode* child = aOrigNode;
-  while (const nsINode* parent = child->GetParentNode()) {
-    int32_t index = parent->ComputeIndexOf(child);
+  const nsINode* current = aOrigNode;
+  while (const nsINode* parent = current->GetParentNode()) {
+    int32_t index = parent->ComputeIndexOf(current);
     MOZ_ASSERT(index >= 0);
     indexArray.AppendElement(index);
-    child = parent;
+    current = parent;
   }
-  MOZ_ASSERT(child->IsDocument());
+  MOZ_ASSERT(current->IsDocument() || current->IsShadowRoot());
+  nsINode* correspondingNode = [&]() -> nsINode* {
+    if (current->IsDocument()) {
+      return &aStaticClone;
+    }
+    const auto* shadow = ShadowRoot::FromNode(*current);
+    if (!shadow) {
+      return nullptr;
+    }
+    nsINode* correspondingHost =
+        GetCorrespondingNodeInDocument(shadow->Host(), aStaticClone);
+    if (NS_WARN_IF(!correspondingHost || !correspondingHost->IsElement())) {
+      return nullptr;
+    }
+    return correspondingHost->AsElement()->GetShadowRoot();
+  }();
 
-  nsINode* correspondingNode = &aStaticClone;
+  if (NS_WARN_IF(!correspondingNode)) {
+    return nullptr;
+  }
   for (int32_t i : Reversed(indexArray)) {
     correspondingNode = correspondingNode->GetChildAt_Deprecated(i);
     NS_ENSURE_TRUE(correspondingNode, nullptr);
   }
-
   return correspondingNode;
 }
 
@@ -12320,7 +12358,7 @@ static void CachePrintSelectionRanges(const Document& aSourceDoc,
     nsINode* endNode =
         GetCorrespondingNodeInDocument(endContainer, aStaticClone);
 
-    if (!startNode || !endNode) {
+    if (NS_WARN_IF(!startNode || !endNode)) {
       continue;
     }
 

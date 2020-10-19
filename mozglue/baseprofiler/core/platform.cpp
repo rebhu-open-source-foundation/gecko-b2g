@@ -9,9 +9,9 @@
 // - A "periodic" sample is the most complex kind. It is done in response to a
 //   timer while the profiler is active. It involves writing a stack trace plus
 //   a variety of other values (memory measurements, responsiveness
-//   measurements, markers, etc.) into the main ProfileBuffer. The sampling is
-//   done from off-thread, and so SuspendAndSampleAndResumeThread() is used to
-//   get the register values.
+//   measurements, etc.) into the main ProfileBuffer. The sampling is done from
+//   off-thread, and so SuspendAndSampleAndResumeThread() is used to get the
+//   register values.
 //
 // - A "synchronous" sample is a simpler kind. It is done in response to an API
 //   call (profiler_get_backtrace()). It involves writing a stack trace and
@@ -63,7 +63,6 @@
 #include "ProfiledThreadData.h"
 #include "ProfilerBacktrace.h"
 #include "ProfileBuffer.h"
-#include "BaseProfilerMarkerPayload.h"
 #include "RegisteredThread.h"
 #include "BaseProfilerSharedLibraries.h"
 #include "ThreadInfo.h"
@@ -180,6 +179,8 @@ void PrintToConsole(const char* aFmt, ...) {
 #endif
   va_end(args);
 }
+
+const int scProfilerMainThreadId = profiler_current_thread_id();
 
 constexpr static bool ValidateFeatures() {
   int expectedFeatureNumber = 0;
@@ -349,8 +350,7 @@ typedef const PSAutoLock& PSLockRef;
 class CorePS {
  private:
   CorePS()
-      : mMainThreadId(profiler_current_thread_id()),
-        mProcessStartTime(TimeStamp::ProcessCreation()),
+      : mProcessStartTime(TimeStamp::ProcessCreation()),
         // This needs its own mutex, because it is used concurrently from
         // functions guarded by gPSMutex as well as others without safety (e.g.,
         // profiler_add_marker). It is *not* used inside the critical section of
@@ -382,11 +382,6 @@ class CorePS {
   // thread that we don't have to worry about it being racy.
   static bool Exists() { return !!sInstance; }
 
-  static bool IsMainThread() {
-    MOZ_ASSERT(sInstance);
-    return profiler_current_thread_id() == sInstance->mMainThreadId;
-  }
-
   static void AddSizeOf(PSLockRef, MallocSizeOf aMallocSizeOf,
                         size_t& aProfSize, size_t& aLulSize) {
     MOZ_ASSERT(sInstance);
@@ -415,9 +410,6 @@ class CorePS {
     }
 #endif
   }
-
-  // No PSLockRef is needed for this field because it's immutable.
-  PS_GET_LOCKLESS(int, MainThreadId)
 
   // No PSLockRef is needed for this field because it's immutable.
   PS_GET_LOCKLESS(const TimeStamp&, ProcessStartTime)
@@ -526,9 +518,6 @@ class CorePS {
  private:
   // The singleton instance
   static CorePS* sInstance;
-
-  // ID of the main thread (assuming CorePS was started on the main thread).
-  const int mMainThreadId;
 
   // The time that the process started.
   const TimeStamp mProcessStartTime;
@@ -1869,7 +1858,7 @@ static void StreamMetaJSCustomObject(PSLockRef aLock,
   StreamMarkerSchema(aWriter);
   aWriter.EndArray();
 
-  if (!CorePS::IsMainThread()) {
+  if (!profiler_is_main_thread()) {
     // Leave the rest of the properties out if we're not on the main thread.
     // At the moment, the only case in which this function is called on a
     // background thread is if we're in a content process and are going to
@@ -2526,7 +2515,7 @@ static ProfilingStack* locked_register_thread(PSLockRef aLock,
   }
 
   RefPtr<ThreadInfo> info = new ThreadInfo(aName, profiler_current_thread_id(),
-                                           CorePS::IsMainThread());
+                                           profiler_is_main_thread());
   UniquePtr<RegisteredThread> registeredThread =
       MakeUnique<RegisteredThread>(info, aStackTop);
 
@@ -2749,7 +2738,7 @@ void profiler_shutdown() {
 
   VTUNE_SHUTDOWN();
 
-  MOZ_RELEASE_ASSERT(CorePS::IsMainThread());
+  MOZ_RELEASE_ASSERT(profiler_is_main_thread());
   MOZ_RELEASE_ASSERT(CorePS::Exists());
 
   // If the profiler is active we must get a handle to the SamplerThread before
@@ -3355,10 +3344,6 @@ void profiler_remove_sampled_counter(BaseProfilerCount* aCounter) {
   CorePS::RemoveCounter(lock, aCounter);
 }
 
-static void maybelocked_profiler_add_marker_for_thread(
-    int aThreadId, ProfilingCategoryPair aCategoryPair, const char* aMarkerName,
-    const ProfilerMarkerPayload& aPayload, const PSAutoLock* aLockOrNull);
-
 ProfilingStack* profiler_register_thread(const char* aName,
                                          void* aGuessStackTop) {
   DEBUG_LOG("profiler_register_thread(%s)", aName);
@@ -3381,10 +3366,8 @@ ProfilingStack* profiler_register_thread(const char* aName,
     text += "\" attempted to re-register as \"";
     text += aName;
     text += "\"";
-    maybelocked_profiler_add_marker_for_thread(
-        CorePS::MainThreadId(), ProfilingCategoryPair::OTHER_Profiling,
-        "profiler_register_thread again",
-        TextMarkerPayload(text, TimeStamp::NowUnfuzzed()), &lock);
+    BASE_PROFILER_MARKER_TEXT("profiler_register_thread again", OTHER_Profiling,
+                              MarkerThreadId::MainThread(), text);
 
     return &thread->RacyRegisteredThread().ProfilingStack();
   }
@@ -3427,13 +3410,11 @@ void profiler_unregister_thread() {
     // unregistered. Send it to the main thread (unless this *is* already the
     // main thread, which has been unregistered); this may be useful to catch
     // mismatched register/unregister pairs in Firefox.
-    if (int tid = profiler_current_thread_id(); tid != CorePS::MainThreadId()) {
-      maybelocked_profiler_add_marker_for_thread(
-          CorePS::MainThreadId(), ProfilingCategoryPair::OTHER_Profiling,
-          "profiler_unregister_thread again",
-          TextMarkerPayload(std::to_string(profiler_current_thread_id()),
-                            TimeStamp::NowUnfuzzed()),
-          &lock);
+    if (int tid = profiler_current_thread_id();
+        tid != profiler_main_thread_id()) {
+      BASE_PROFILER_MARKER_TEXT("profiler_unregister_thread again",
+                                OTHER_Profiling, MarkerThreadId::MainThread(),
+                                std::to_string(profiler_current_thread_id()));
     }
     // There are two ways FindCurrentThreadRegisteredThread() might have failed.
     //
@@ -3543,7 +3524,7 @@ bool detail::IsThreadBeingProfiled() {
 }
 
 bool profiler_thread_is_sleeping() {
-  MOZ_RELEASE_ASSERT(CorePS::IsMainThread());
+  MOZ_RELEASE_ASSERT(profiler_is_main_thread());
   MOZ_RELEASE_ASSERT(CorePS::Exists());
 
   RacyRegisteredThread* racyRegisteredThread =
@@ -3638,151 +3619,12 @@ bool profiler_is_locked_on_current_thread() {
          CorePS::CoreBuffer().IsThreadSafeAndLockedOnCurrentThread();
 }
 
-static void racy_profiler_add_marker(const char* aMarkerName,
-                                     ProfilingCategoryPair aCategoryPair,
-                                     const ProfilerMarkerPayload* aPayload) {
-  MOZ_RELEASE_ASSERT(CorePS::Exists());
-
-  // This function is hot enough that we use RacyFeatures, not ActivePS.
-  if (!profiler_can_accept_markers()) {
-    return;
-  }
-
-  // Note that it's possible that the above test would change again before we
-  // actually record the marker. Because of this imprecision it's possible to
-  // miss a marker or record one we shouldn't. Either way is not a big deal.
-
-  RacyRegisteredThread* racyRegisteredThread =
-      TLSRegisteredThread::RacyRegisteredThread();
-  if (!racyRegisteredThread || !racyRegisteredThread->IsBeingProfiled()) {
-    return;
-  }
-
-  TimeStamp origin = (aPayload && !aPayload->GetStartTime().IsNull())
-                         ? aPayload->GetStartTime()
-                         : TimeStamp::NowUnfuzzed();
-  TimeDuration delta = origin - CorePS::ProcessStartTime();
-  CorePS::CoreBuffer().PutObjects(
-      ProfileBufferEntry::Kind::MarkerData, racyRegisteredThread->ThreadId(),
-      WrapProfileBufferUnownedCString(aMarkerName),
-      static_cast<uint32_t>(aCategoryPair), aPayload, delta.ToMilliseconds());
-}
-
-void profiler_add_marker(const char* aMarkerName,
-                         ProfilingCategoryPair aCategoryPair,
-                         const ProfilerMarkerPayload& aPayload) {
-  racy_profiler_add_marker(aMarkerName, aCategoryPair, &aPayload);
-}
-
 // This is a simplified version of profiler_add_marker that can be easily passed
 // into the JS engine.
 void profiler_add_js_marker(const char* aMarkerName, const char* aMarkerText) {
   BASE_PROFILER_MARKER_TEXT(
       ProfilerString8View::WrapNullTerminatedString(aMarkerName), JS, {},
       ProfilerString8View::WrapNullTerminatedString(aMarkerText));
-}
-
-static void maybelocked_profiler_add_marker_for_thread(
-    int aThreadId, ProfilingCategoryPair aCategoryPair, const char* aMarkerName,
-    const ProfilerMarkerPayload& aPayload, const PSAutoLock* aLockOrNull) {
-  MOZ_RELEASE_ASSERT(CorePS::Exists());
-
-  if (!profiler_can_accept_markers()) {
-    return;
-  }
-
-#ifdef DEBUG
-  auto checkThreadId = [](int aThreadId, const PSAutoLock& aLock) {
-    if (!ActivePS::Exists(aLock)) {
-      return;
-    }
-
-    // Assert that our thread ID makes sense
-    bool realThread = false;
-    const Vector<UniquePtr<RegisteredThread>>& registeredThreads =
-        CorePS::RegisteredThreads(aLock);
-    for (auto& thread : registeredThreads) {
-      RefPtr<ThreadInfo> info = thread->Info();
-      if (info->ThreadId() == aThreadId) {
-        realThread = true;
-        break;
-      }
-    }
-    MOZ_ASSERT(realThread, "Invalid thread id");
-  };
-
-  if (aLockOrNull) {
-    checkThreadId(aThreadId, *aLockOrNull);
-  } else {
-    PSAutoLock lock;
-    checkThreadId(aThreadId, lock);
-  }
-#endif
-
-  // Insert the marker into the buffer
-  TimeStamp origin = (!aPayload.GetStartTime().IsNull())
-                         ? aPayload.GetStartTime()
-                         : TimeStamp::NowUnfuzzed();
-  TimeDuration delta = origin - CorePS::ProcessStartTime();
-  CorePS::CoreBuffer().PutObjects(
-      ProfileBufferEntry::Kind::MarkerData, aThreadId,
-      WrapProfileBufferUnownedCString(aMarkerName),
-      static_cast<uint32_t>(aCategoryPair), &aPayload, delta.ToMilliseconds());
-}
-
-void profiler_add_marker_for_thread(int aThreadId,
-                                    ProfilingCategoryPair aCategoryPair,
-                                    const char* aMarkerName,
-                                    const ProfilerMarkerPayload& aPayload) {
-  return maybelocked_profiler_add_marker_for_thread(
-      aThreadId, aCategoryPair, aMarkerName, aPayload, nullptr);
-}
-
-void profiler_add_marker_for_mainthread(ProfilingCategoryPair aCategoryPair,
-                                        const char* aMarkerName,
-                                        const ProfilerMarkerPayload& aPayload) {
-  profiler_add_marker_for_thread(CorePS::MainThreadId(), aCategoryPair,
-                                 aMarkerName, aPayload);
-}
-
-void profiler_tracing_marker(const char* aCategoryString,
-                             const char* aMarkerName,
-                             ProfilingCategoryPair aCategoryPair,
-                             TracingKind aKind,
-                             const Maybe<uint64_t>& aInnerWindowID) {
-  MOZ_RELEASE_ASSERT(CorePS::Exists());
-
-  VTUNE_TRACING(aMarkerName, aKind);
-
-  // This function is hot enough that we use RacyFeatures, notActivePS.
-  if (!profiler_can_accept_markers()) {
-    return;
-  }
-
-  AUTO_PROFILER_STATS(base_add_marker_with_TracingMarkerPayload);
-  profiler_add_marker(
-      aMarkerName, aCategoryPair,
-      TracingMarkerPayload(aCategoryString, aKind, aInnerWindowID));
-}
-
-void profiler_tracing_marker(const char* aCategoryString,
-                             const char* aMarkerName,
-                             ProfilingCategoryPair aCategoryPair,
-                             TracingKind aKind, UniqueProfilerBacktrace aCause,
-                             const Maybe<uint64_t>& aInnerWindowID) {
-  MOZ_RELEASE_ASSERT(CorePS::Exists());
-
-  VTUNE_TRACING(aMarkerName, aKind);
-
-  // This function is hot enough that we use RacyFeatures, notActivePS.
-  if (!profiler_can_accept_markers()) {
-    return;
-  }
-
-  AUTO_PROFILER_STATS(base_add_marker_with_TracingMarkerPayload);
-  profiler_add_marker(aMarkerName, aCategoryPair,
-                      TracingMarkerPayload(aCategoryString, aKind,
-                                           aInnerWindowID, std::move(aCause)));
 }
 
 // NOTE: aCollector's methods will be called while the target thread is paused.

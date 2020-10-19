@@ -9122,7 +9122,7 @@ __webpack_require__.r(__webpack_exports__);
 const TOP_SITES_SOURCE = "TOP_SITES";
 const TOP_SITES_CONTEXT_MENU_OPTIONS = ["CheckPinTopSite", "EditTopSite", "Separator", "OpenInNewWindow", "OpenInPrivateWindow", "Separator", "BlockUrl", "DeleteUrl"];
 const TOP_SITES_SPOC_CONTEXT_MENU_OPTIONS = ["PinSpocTopSite", "Separator", "OpenInNewWindow", "OpenInPrivateWindow", "Separator", "BlockUrl", "ShowPrivacyInfo"];
-const TOP_SITES_SPONSORED_POSITION_CONTEXT_MENU_OPTIONS = ["OpenInNewWindow", "OpenInPrivateWindow", "Separator", "BlockUrl", "ShowPrivacyInfo"]; // the special top site for search shortcut experiment can only have the option to unpin (which removes) the topsite
+const TOP_SITES_SPONSORED_POSITION_CONTEXT_MENU_OPTIONS = ["PinSpocTopSite", "Separator", "OpenInNewWindow", "OpenInPrivateWindow", "Separator", "BlockUrl", "ShowPrivacyInfo"]; // the special top site for search shortcut experiment can only have the option to unpin (which removes) the topsite
 
 const TOP_SITES_SEARCH_SHORTCUTS_CONTEXT_MENU_OPTIONS = ["CheckPinTopSite", "Separator", "BlockUrl"]; // minimum size necessary to show a rich icon instead of a screenshot
 
@@ -9592,16 +9592,17 @@ class TopSiteLink extends react__WEBPACK_IMPORTED_MODULE_4___default.a.PureCompo
       "data-fallback": smallFaviconFallback && letterFallback,
       style: smallFaviconStyle
     })), react__WEBPACK_IMPORTED_MODULE_4___default.a.createElement("div", {
-      className: `title${link.isPinned || link.sponsored_position ? " has-icon" : ""}${link.isPinned ? " pinned" : ""}`
+      className: `title${link.isPinned ? " has-icon pinned" : ""}`
     }, link.isPinned && react__WEBPACK_IMPORTED_MODULE_4___default.a.createElement("div", {
       className: "icon icon-pin-small"
-    }), link.sponsored_position && react__WEBPACK_IMPORTED_MODULE_4___default.a.createElement("div", {
-      className: "icon icon-sponsored-small"
     }), react__WEBPACK_IMPORTED_MODULE_4___default.a.createElement("span", {
       dir: "auto"
-    }, title)), link.type === SPOC_TYPE ? react__WEBPACK_IMPORTED_MODULE_4___default.a.createElement("span", {
-      className: "top-site-spoc-label"
-    }, "Sponsored") : null), children, link.type === SPOC_TYPE ? react__WEBPACK_IMPORTED_MODULE_4___default.a.createElement(_DiscoveryStreamImpressionStats_ImpressionStats__WEBPACK_IMPORTED_MODULE_3__["ImpressionStats"], {
+    }, title || react__WEBPACK_IMPORTED_MODULE_4___default.a.createElement("br", null)), link.type === SPOC_TYPE || link.sponsored_position ? react__WEBPACK_IMPORTED_MODULE_4___default.a.createElement("span", {
+      className: "sponsored-label",
+      "data-l10n-id": "newtab-topsite-sponsored"
+    }) : react__WEBPACK_IMPORTED_MODULE_4___default.a.createElement("span", {
+      className: "sponsored-label"
+    }, react__WEBPACK_IMPORTED_MODULE_4___default.a.createElement("br", null)))), children, link.type === SPOC_TYPE ? react__WEBPACK_IMPORTED_MODULE_4___default.a.createElement(_DiscoveryStreamImpressionStats_ImpressionStats__WEBPACK_IMPORTED_MODULE_3__["ImpressionStats"], {
       flightId: link.flightId,
       rows: [{
         id: link.id,

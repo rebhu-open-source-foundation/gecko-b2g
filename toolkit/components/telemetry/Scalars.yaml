@@ -4127,6 +4127,15 @@ printing:
       - 'OUT_OF_MEMORY'
       - 'UNEXPECTED'
       - 'FAILURE'
+      - 'FALLBACK_PAPER_LIST'
+      - 'LAST_USED_PRINTER'
+      - 'PAPER_MARGINS'
+      - 'PRINT_DESTINATIONS'
+      - 'PRINT_PREVIEW'
+      - 'PRINTER_LIST'
+      - 'PRINTER_PROPERTIES'
+      - 'PRINTER_SETTINGS'
+      - 'UNWRITEABLE_MARGIN'
     expires: never
     kind: uint
     notification_emails:
@@ -4688,6 +4697,24 @@ browser.searchinit:
       - 'firefox'
     record_in_processes:
       - main
+  engine_invalid_webextension:
+    bug_numbers:
+      - 1665938
+    description: >
+      Records the WebExtension ID of a search engine where the WebExtension
+      is not installed (= 1), disabled (= 2) or where the submission URL
+      is different between the search engine and the WebExtension (= 3)
+    expires: "89"
+    keyed: true
+    kind: uint
+    notification_emails:
+      - fx-search@mozilla.com
+      - mbanner@mozilla.com
+    products:
+      - 'firefox'
+    record_in_processes:
+      - 'main'
+    release_channel_collection: opt-out
 
 encoding:
   override_used:
@@ -5528,6 +5555,23 @@ urlbar.searchmode:
     description: >
       A keyed uint recording how many times the user entered a particular search
       mode after selecting a tab-to-search result.
+    expires: never
+    kind: uint
+    keyed: true
+    notification_emails:
+      - fx-search@mozilla.com
+      - tbrooks@mozilla.com
+    release_channel_collection: opt-out
+    products:
+      - 'firefox'
+    record_in_processes:
+      - main
+  tabtosearch_onboard:
+    bug_numbers:
+      - 1665934
+    description: >
+      A keyed uint recording how many times the user entered a particular search
+      mode after selecting a tab-to-search onboarding result.
     expires: never
     kind: uint
     keyed: true

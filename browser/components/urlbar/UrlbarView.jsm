@@ -81,7 +81,7 @@ class UrlbarView {
 
     for (let viewTemplate of UrlbarView.dynamicViewTemplatesByName.values()) {
       if (viewTemplate.stylesheet) {
-        this._addDynamicStylesheet(viewTemplate.stylesheet);
+        addDynamicStylesheet(this.window, viewTemplate.stylesheet);
       }
     }
   }
@@ -333,8 +333,11 @@ class UrlbarView {
       );
     }
 
-    // Freeze results as the user is interacting with them.
-    this.controller.cancelQuery();
+    // Freeze results as the user is interacting with them, unless we are
+    // deferring events while waiting for critical results.
+    if (!this.input.eventBufferer.isDeferringEvents) {
+      this.controller.cancelQuery();
+    }
 
     let selectedElement = this._selectedElement;
 
@@ -408,6 +411,12 @@ class UrlbarView {
 
     if (!this.isOpen) {
       return;
+    }
+
+    // We exit search mode preview on close since the result previewing it is
+    // implicitly unselected.
+    if (this.input.searchMode?.isPreview) {
+      this.input.searchMode = null;
     }
 
     this.removeAccessibleFocus();
@@ -643,6 +652,17 @@ class UrlbarView {
       // may have been an alias, so remove formatting if necessary.
       this.input.formatValue();
     }
+
+    if (queryContext.deferUserSelectionProviders.size) {
+      // DeferUserSelectionProviders block user selection until the result is
+      // shown, so it's the view's duty to remove them.
+      // Doing it sooner, like when the results are added by the provider,
+      // would not suffice because there's still a delay before those results
+      // reach the view.
+      queryContext.results.forEach(r => {
+        queryContext.deferUserSelectionProviders.delete(r.providerName);
+      });
+    }
   }
 
   /**
@@ -750,7 +770,7 @@ class UrlbarView {
     this.dynamicViewTemplatesByName.set(name, viewTemplate);
     if (viewTemplate.stylesheet) {
       for (let window of BrowserWindowTracker.orderedWindows) {
-        window.gURLBar.view._addDynamicStylesheet(viewTemplate.stylesheet);
+        addDynamicStylesheet(window, viewTemplate.stylesheet);
       }
     }
   }
@@ -770,7 +790,7 @@ class UrlbarView {
     this.dynamicViewTemplatesByName.delete(name);
     if (viewTemplate.stylesheet) {
       for (let window of BrowserWindowTracker.orderedWindows) {
-        window.gURLBar.view._removeDynamicStylesheet(viewTemplate.stylesheet);
+        removeDynamicStylesheet(window, viewTemplate.stylesheet);
       }
     }
   }
@@ -1126,12 +1146,6 @@ class UrlbarView {
       favicon.src = result.payload.icon || UrlbarUtils.ICON.DEFAULT;
     }
 
-    if (result.payload.isPinned) {
-      item.toggleAttribute("pinned", true);
-    } else {
-      item.removeAttribute("pinned");
-    }
-
     let title = item._elements.get("title");
     this._setResultTitle(result, title);
 
@@ -1253,6 +1267,24 @@ class UrlbarView {
       action.toggleAttribute("slide-in", true);
     } else {
       action.removeAttribute("slide-in");
+    }
+
+    if (result.payload.isPinned) {
+      item.toggleAttribute("pinned", true);
+    } else {
+      item.removeAttribute("pinned");
+    }
+
+    if (result.payload.isSponsored) {
+      item.toggleAttribute("sponsored", true);
+      actionSetter = () => {
+        this.document.l10n.setAttributes(
+          action,
+          "urlbar-result-action-sponsored"
+        );
+      };
+    } else {
+      item.removeAttribute("sponsored");
     }
 
     let url = item._elements.get("url");
@@ -1813,47 +1845,6 @@ class UrlbarView {
     return true;
   }
 
-  /**
-   * Adds a dynamic result type stylesheet to the view's window.
-   *
-   * @param {string} stylesheetURL
-   *   The stylesheet's URL.
-   */
-  async _addDynamicStylesheet(stylesheetURL) {
-    // Try-catch all of these so that failing to load a stylesheet doesn't break
-    // callers and possibly the urlbar.  If a stylesheet does fail to load, the
-    // dynamic results that depend on it will appear broken, but at least we
-    // won't break the whole urlbar.
-    try {
-      let uri = Services.io.newURI(stylesheetURL);
-      let sheet = await styleSheetService.preloadSheetAsync(
-        uri,
-        Ci.nsIStyleSheetService.AGENT_SHEET
-      );
-      this.window.windowUtils.addSheet(sheet, Ci.nsIDOMWindowUtils.AGENT_SHEET);
-    } catch (ex) {
-      Cu.reportError(`Error adding dynamic stylesheet: ${ex}`);
-    }
-  }
-
-  /**
-   * Removes a dynamic result type stylesheet from the view's window.
-   *
-   * @param {string} stylesheetURL
-   *   The stylesheet's URL.
-   */
-  _removeDynamicStylesheet(stylesheetURL) {
-    // Try-catch for the same reason as desribed in _addDynamicStylesheet.
-    try {
-      this.window.windowUtils.removeSheetUsingURIString(
-        stylesheetURL,
-        Ci.nsIDOMWindowUtils.AGENT_SHEET
-      );
-    } catch (ex) {
-      Cu.reportError(`Error removing dynamic stylesheet: ${ex}`);
-    }
-  }
-
   // Event handlers below.
 
   _on_SelectedOneOffButtonChanged() {
@@ -2102,5 +2093,50 @@ class QueryContextCache {
 
   get(searchString) {
     return this._cache.find(e => e.searchString == searchString);
+  }
+}
+
+/**
+ * Adds a dynamic result type stylesheet to a specified window.
+ *
+ * @param {Window} window
+ *   The window to which to add the stylesheet.
+ * @param {string} stylesheetURL
+ *   The stylesheet's URL.
+ */
+async function addDynamicStylesheet(window, stylesheetURL) {
+  // Try-catch all of these so that failing to load a stylesheet doesn't break
+  // callers and possibly the urlbar.  If a stylesheet does fail to load, the
+  // dynamic results that depend on it will appear broken, but at least we
+  // won't break the whole urlbar.
+  try {
+    let uri = Services.io.newURI(stylesheetURL);
+    let sheet = await styleSheetService.preloadSheetAsync(
+      uri,
+      Ci.nsIStyleSheetService.AGENT_SHEET
+    );
+    window.windowUtils.addSheet(sheet, Ci.nsIDOMWindowUtils.AGENT_SHEET);
+  } catch (ex) {
+    Cu.reportError(`Error adding dynamic stylesheet: ${ex}`);
+  }
+}
+
+/**
+ * Removes a dynamic result type stylesheet from the view's window.
+ *
+ * @param {Window} window
+ *   The window from which to remove the stylesheet.
+ * @param {string} stylesheetURL
+ *   The stylesheet's URL.
+ */
+function removeDynamicStylesheet(window, stylesheetURL) {
+  // Try-catch for the same reason as desribed in addDynamicStylesheet.
+  try {
+    window.windowUtils.removeSheetUsingURIString(
+      stylesheetURL,
+      Ci.nsIDOMWindowUtils.AGENT_SHEET
+    );
+  } catch (ex) {
+    Cu.reportError(`Error removing dynamic stylesheet: ${ex}`);
   }
 }

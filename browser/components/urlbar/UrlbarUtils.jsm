@@ -199,7 +199,7 @@ var UrlbarUtils = {
   ]),
 
   // Valid entry points for search mode. If adding a value here, please update
-  // telemetry documentation.
+  // telemetry documentation and Scalars.yaml.
   SEARCH_MODE_ENTRY: new Set([
     "bookmarkmenu",
     "handoff",
@@ -209,6 +209,7 @@ var UrlbarUtils = {
     "shortcut",
     "tabmenu",
     "tabtosearch",
+    "tabtosearch_onboard",
     "topsites_newtab",
     "topsites_urlbar",
     "touchbar",
@@ -527,6 +528,9 @@ var UrlbarUtils = {
    *          dropdown.
    */
   getSpanForResult(result) {
+    if (result.resultSpan) {
+      return result.resultSpan;
+    }
     switch (result.type) {
       case UrlbarUtils.RESULT_TYPE.URL:
       case UrlbarUtils.RESULT_TYPE.BOOKMARKS:
@@ -1010,6 +1014,9 @@ UrlbarUtils.RESULT_PAYLOAD_SCHEMA = {
       isPinned: {
         type: "boolean",
       },
+      isSponsored: {
+        type: "boolean",
+      },
       sendAttributionRequest: {
         type: "boolean",
       },
@@ -1243,7 +1250,10 @@ class UrlbarQueryContext {
     }
 
     this.lastResultCount = 0;
+    // Note that Set is not serializable through JSON, so these may not be
+    // easily shared with add-ons.
     this.pendingHeuristicProviders = new Set();
+    this.deferUserSelectionProviders = new Set();
     this.trimmedSearchString = this.searchString.trim();
     this.userContextId =
       options.userContextId ||
@@ -1520,6 +1530,20 @@ class UrlbarProvider {
    */
   getViewUpdate(result) {
     return null;
+  }
+
+  /**
+   * Defines whether the view should defer user selection events while waiting
+   * for the first result from this provider.
+   *
+   * @returns {boolean} Whether the provider wants to defer user selection
+   *          events.
+   * @see UrlbarEventBufferer
+   * @note UrlbarEventBufferer has a timeout after which user events will be
+   *       processed regardless.
+   */
+  get deferUserSelection() {
+    return false;
   }
 }
 
