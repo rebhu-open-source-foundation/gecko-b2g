@@ -88,6 +88,14 @@ void InputMethodService::SendKey(const nsAString& aKey,
   return;
 }
 
+void InputMethodService::DeleteBackward(nsIInputMethodListener* aListener) {
+  IME_LOGD("InputMethodService::DeleteBackward");
+  mEditableSupportListener->DoDeleteBackward();
+  // TODO resolve/reject on result of DoDeleteBackward.
+  aListener->OnDeleteBackward(NS_OK);
+  return;
+}
+
 void InputMethodService::SetSelectedOption(int32_t aOptionIndex) {
   IME_LOGD("InputMethodService::SetSelectedOption:[%ld]", aOptionIndex);
   mEditableSupportListener->DoSetSelectedOption(aOptionIndex);

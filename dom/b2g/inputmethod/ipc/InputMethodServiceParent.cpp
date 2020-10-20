@@ -135,6 +135,12 @@ mozilla::ipc::IPCResult InputMethodServiceParent::RecvRequest(
       service->SendKey(request.key(), this);
       break;
     }
+    case InputMethodServiceRequest::TDeleteBackwardRequest: {
+      IME_LOGD("InputMethodServiceParent::RecvRequest:DeleteBackwardRequest");
+      const DeleteBackwardRequest& request = aRequest;
+      service->DeleteBackward(this);
+      break;
+    }
     case InputMethodServiceRequest::THandleFocusRequest: {
       IME_LOGD("InputMethodServiceParent::RecvRequest:HandleFocusRequest");
       const HandleFocusRequest& request = aRequest;
@@ -211,6 +217,14 @@ InputMethodServiceParent::OnSendKey(nsresult aStatus) {
   return NS_OK;
 }
 
+NS_IMETHODIMP
+InputMethodServiceParent::OnDeleteBackward(nsresult aStatus) {
+  IME_LOGD("InputMethodServiceParent::OnDeleteBackward");
+  DeleteBackwardResponse response(aStatus);
+  Unused << SendResponse(response);
+  return NS_OK;
+}
+
 // nsIEditableSupportListener methods.
 NS_IMETHODIMP
 InputMethodServiceParent::DoSetComposition(const nsAString& aText) {
@@ -253,6 +267,14 @@ InputMethodServiceParent::DoSendKey(const nsAString& aKey) {
   IME_LOGD("InputMethodServiceParent::DoSendKey");
   nsString key(aKey);
   DoSendKeyResponse response(key);
+  Unused << SendResponse(response);
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+InputMethodServiceParent::DoDeleteBackward() {
+  IME_LOGD("InputMethodServiceParent::DoDeleteBackward");
+  DoDeleteBackwardResponse response;
   Unused << SendResponse(response);
   return NS_OK;
 }

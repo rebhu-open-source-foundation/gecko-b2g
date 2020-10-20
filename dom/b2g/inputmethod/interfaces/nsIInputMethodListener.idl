@@ -12,6 +12,7 @@ interface nsIInputMethodListener : nsISupports
   void onKeydown(in nsresult aStatus);
   void onKeyup(in nsresult aStatus);
   void onSendKey(in nsresult aStatus);
+  void onDeleteBackward(in nsresult aStatus);
 };
 
 [scriptable, uuid(44bf6cea-f5db-11ea-b598-ff5a3d009e25)]
@@ -22,6 +23,7 @@ interface nsIEditableSupportListener : nsISupports
   void DoKeydown(in AString aKey);
   void DoKeyup(in AString aKey);
   void DoSendKey(in AString aKey);
+  void DoDeleteBackward();
   void DoSetSelectedOption(in int32_t aOptionindex);
   void DoSetSelectedOptions(in Array<int32_t> aOptionindexes) ;
 };

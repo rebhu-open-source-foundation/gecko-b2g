@@ -112,6 +112,23 @@ already_AddRefed<Promise> InputMethod::SendKey(const nsAString& aKey) {
   return promise.forget();
 }
 
+already_AddRefed<Promise> InputMethod::DeleteBackward() {
+  RefPtr<Promise> promise;
+  ErrorResult rv;
+  promise = Promise::Create(mGlobal, rv);
+  ENSURE_SUCCESS(rv, nullptr);
+
+  IME_LOGD("-- InputMethod::DeleteBackward");
+
+  RefPtr<InputMethodListener> listener = InputMethodListener::Create(promise);
+  nsresult result = listener->DeleteBackward();
+  if (NS_FAILED(result)) {
+    promise->MaybeReject(result);
+  }
+
+  return promise.forget();
+}
+
 void InputMethod::SetSelectedOption(int32_t aOptionIndex) {
   IME_LOGD("-- InputMethod::SetSelectedOption [%ld]", aOptionIndex);
 

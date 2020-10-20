@@ -117,6 +117,24 @@ InputMethodListener::OnSendKey(nsresult aStatus) {
   return NS_OK;
 }
 
+NS_IMETHODIMP
+InputMethodListener::OnDeleteBackward(nsresult aStatus) {
+  IME_LOGD("--InputMethodListener::OnDeleteBackward");
+  if (mPromise) {
+    if (NS_SUCCEEDED(aStatus)) {
+      IME_LOGD("--InputMethodListener::OnDeleteBackward: true");
+      mPromise->MaybeResolve(true);
+    } else {
+      IME_LOGD("--InputMethodListener::OnDeleteBackward: false");
+      mPromise->MaybeReject(aStatus);
+    }
+
+    mPromise = nullptr;
+  }
+
+  return NS_OK;
+}
+
 nsresult InputMethodListener::SetComposition(const nsAString& aText) {
   nsString text(aText);
   // TODO use a pure interface, and make it point to either the remote version
@@ -220,6 +238,26 @@ nsresult InputMethodListener::SendKey(const nsAString& aKey) {
     RefPtr<InputMethodService> service = InputMethodService::GetInstance();
     MOZ_ASSERT(service);
     service->SendKey(aKey, this);
+  }
+  return NS_OK;
+}
+
+nsresult InputMethodListener::DeleteBackward() {
+  ContentChild* contentChild = ContentChild::GetSingleton();
+  if (contentChild) {
+    IME_LOGD("--InputMethodListener::DeleteBackward content process");
+    // Call from content process.
+    InputMethodServiceChild* child = new InputMethodServiceChild();
+    child->SetInputMethodListener(this);
+    contentChild->SendPInputMethodServiceConstructor(child);
+    DeleteBackwardRequest request;
+    child->SendRequest(request);
+  } else {
+    IME_LOGD("--InputMethodListener::DeleteBackward in-process");
+    // Call from parent process (or in-proces app).
+    RefPtr<InputMethodService> service = InputMethodService::GetInstance();
+    MOZ_ASSERT(service);
+    service->DeleteBackward(this);
   }
   return NS_OK;
 }

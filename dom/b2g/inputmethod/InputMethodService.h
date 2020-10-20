@@ -30,6 +30,7 @@ class InputMethodService final : public nsISupports {
   void Keydown(const nsAString& aKey, nsIInputMethodListener* aListener);
   void Keyup(const nsAString& aKey, nsIInputMethodListener* aListener);
   void SendKey(const nsAString& aKey, nsIInputMethodListener* aListener);
+  void DeleteBackward(nsIInputMethodListener* aListener);
   void SetSelectedOption(int32_t optionIndex);
   void SetSelectedOptions(const nsTArray<int32_t>& optionIndexes);
   void HandleFocus(nsIEditableSupportListener* aListener,

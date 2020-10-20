@@ -38,6 +38,7 @@ class InputMethod final : public nsISupports, public nsWrapperCache {
   already_AddRefed<Promise> SendKey(const nsAString& aKey);
   already_AddRefed<Promise> Keydown(const nsAString& aKey);
   already_AddRefed<Promise> Keyup(const nsAString& aKey);
+  already_AddRefed<Promise> DeleteBackward();
 
   void SetSelectedOption(int32_t optionIndex);
   void SetSelectedOptions(const nsTArray<int32_t>& optionIndexes);

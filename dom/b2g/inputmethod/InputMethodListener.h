@@ -28,6 +28,7 @@ class InputMethodListener final : public nsIInputMethodListener {
   nsresult Keydown(const nsAString& aKey);
   nsresult Keyup(const nsAString& aKey);
   nsresult SendKey(const nsAString& aKey);
+  nsresult DeleteBackward();
 
   void SetSelectedOption(int32_t optionIndex);
   void SetSelectedOptions(const nsTArray<int32_t>& optionIndexes);

@@ -34,6 +34,11 @@ struct SendKeyRequest
   nsString key;
 };
 
+struct DeleteBackwardRequest
+{
+
+};
+
 struct SetSelectedOptionRequest
 {
   int32_t optionIndex;
@@ -102,6 +107,7 @@ union InputMethodServiceRequest
   KeydownRequest;
   KeyupRequest;
   SendKeyRequest;
+  DeleteBackwardRequest;
   HandleFocusRequest;
   HandleBlurRequest;
   SetSelectedOptionRequest;
@@ -133,6 +139,11 @@ struct SendKeyResponse
   nsresult status;
 };
 
+struct DeleteBackwardResponse
+{
+  nsresult status;
+};
+
 struct DoSetCompositionResponse
 {
   nsString text;
@@ -158,6 +169,11 @@ struct DoSendKeyResponse
   nsString key;
 };
 
+struct DoDeleteBackwardResponse
+{
+
+};
+
 struct DoSetSelectedOptionResponse
 {
   int32_t optionIndex;
@@ -174,11 +190,13 @@ union InputMethodServiceResponse
   KeydownResponse;
   KeyupResponse;
   SendKeyResponse;
+  DeleteBackwardResponse;
   DoSetCompositionResponse;
   DoEndCompositionResponse;
   DoKeydownResponse;
   DoKeyupResponse;
   DoSendKeyResponse;
+  DoDeleteBackwardResponse;
   DoSetSelectedOptionResponse;
   DoSetSelectedOptionsResponse;
 };

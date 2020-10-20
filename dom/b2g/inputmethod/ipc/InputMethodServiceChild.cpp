@@ -54,6 +54,12 @@ mozilla::ipc::IPCResult InputMethodServiceChild::RecvResponse(
       Unused << Send__delete__(this);
       break;
     }
+    case InputMethodServiceResponse::TDeleteBackwardResponse: {
+      const DeleteBackwardResponse& response = aResponse;
+      mInputMethodListener->OnDeleteBackward(response.status());
+      Unused << Send__delete__(this);
+      break;
+    }
     case InputMethodServiceResponse::TDoSetCompositionResponse: {
       const DoSetCompositionResponse& response = aResponse;
       mEditableSupportListener->DoSetComposition(response.text());
@@ -79,16 +85,18 @@ mozilla::ipc::IPCResult InputMethodServiceChild::RecvResponse(
       mEditableSupportListener->DoSendKey(response.key());
       break;
     }
+    case InputMethodServiceResponse::TDoDeleteBackwardResponse: {
+      mEditableSupportListener->DoDeleteBackward();
+      break;
+    }
     case InputMethodServiceResponse::TDoSetSelectedOptionResponse: {
       const DoSetSelectedOptionResponse& response = aResponse;
       mEditableSupportListener->DoSetSelectedOption(response.optionIndex());
-      Unused << Send__delete__(this);
       break;
     }
     case InputMethodServiceResponse::TDoSetSelectedOptionsResponse: {
       const DoSetSelectedOptionsResponse& response = aResponse;
       mEditableSupportListener->DoSetSelectedOptions(response.optionIndexes());
-      Unused << Send__delete__(this);
       break;
     }
     default: {

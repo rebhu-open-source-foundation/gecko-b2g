@@ -16,6 +16,11 @@ interface InputMethod {
   Promise<boolean> keyup(DOMString key);
 
   /**
+   * Delete a text/node/selection before the cursor
+   */
+  Promise<boolean> deleteBackward();
+
+  /**
    * Select the <select> option specified by index.
    * If this method is called on a <select> that support multiple
    * selection, then the option specified by index will be added to

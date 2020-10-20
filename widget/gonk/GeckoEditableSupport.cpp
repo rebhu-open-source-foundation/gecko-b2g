@@ -36,6 +36,8 @@
 #include "mozilla/dom/EventTarget.h"
 #include "mozilla/dom/Event.h"
 #include "mozilla/dom/nsInputContext.h"
+#include "nsIEditor.h"  // for nsIEditor, etc.
+#include "nsIEditingSession.h"
 
 using namespace mozilla::dom;
 
@@ -253,6 +255,30 @@ uint32_t getSelectionEnd(Element* aElement) {
     }
   }
   return end;
+}
+
+nsIEditor* getEditor(Element* aElement) {
+  nsCOMPtr<nsIEditor> editor = nullptr;
+  if (isPlainTextField(aElement)) {
+    RefPtr<TextControlElement> textControlElement =
+        TextControlElement::FromNodeOrNull(aElement);
+    if (!textControlElement) {
+      return nullptr;
+    }
+    editor = textControlElement->GetTextEditor();
+  } else if (isContentEditable(aElement)) {
+    nsCOMPtr<Document> document = aElement->OwnerDoc();
+    nsCOMPtr<nsPIDOMWindowOuter> window = document->GetWindow();
+    nsCOMPtr<nsIDocShell> docShell = window->GetDocShell();
+    nsCOMPtr<nsIEditingSession> editSession;
+    nsresult rv = docShell->GetEditingSession(getter_AddRefs(editSession));
+    if (NS_FAILED(rv)) {
+      return nullptr;
+    }
+    editSession->GetEditorForWindow(window, getter_AddRefs(editor));
+  }
+
+  return editor;
 }
 
 HandleFocusRequest CreateFocusRequestFromInputContext(
@@ -675,6 +701,24 @@ GeckoEditableSupport::DoSendKey(const nsAString& aKey) {
   // If blur at keydown, we may lose mDispatcher before keyup.
   if (!mDispatcher) return NS_OK;
   mDispatcher->DispatchKeyboardEvent(eKeyUp, event, status);
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+GeckoEditableSupport::DoDeleteBackward() {
+  IME_LOGD("-- GeckoEditableSupport::DoDeleteBackward");
+  IME_LOGD("-- EditableSupport mDispatcher:[%p]", mDispatcher.get());
+
+  nsFocusManager* focusManager = nsFocusManager::GetFocusManager();
+  if (!focusManager) return NS_ERROR_ABORT;
+  Element* focusedElement = focusManager->GetFocusedElement();
+  if (!focusedElement) return NS_ERROR_ABORT;
+
+  nsCOMPtr<nsIEditor> editor = getEditor(focusedElement);
+  if (!editor) return NS_ERROR_ABORT;
+  nsresult rv =
+      editor->DeleteSelection(nsIEditor::ePrevious, nsIEditor::eStrip);
+  if (NS_FAILED(rv)) return NS_ERROR_ABORT;
   return NS_OK;
 }
 
