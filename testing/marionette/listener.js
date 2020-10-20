@@ -46,6 +46,7 @@ const contentId = content.docShell.browsingContext.id;
 const curContainer = {
   _frame: null,
   _parentFrame: null,
+  shadowRoot: null,
 
   get frame() {
     return this._frame;
@@ -55,6 +56,7 @@ const curContainer = {
     this._frame = frame;
     this._parentFrame = frame.parent;
     this.id = frame.browsingContext.id;
+    this.shadowRoot = null;
   },
 
   get parentFrame() {
@@ -136,6 +138,7 @@ let isElementSelectedFn = dispatch(isElementSelected);
 let clearElementFn = dispatch(clearElement);
 let isElementDisplayedFn = dispatch(isElementDisplayed);
 let getElementValueOfCssPropertyFn = dispatch(getElementValueOfCssProperty);
+let switchToShadowRootFn = dispatch(switchToShadowRoot);
 let singleTapFn = dispatch(singleTap);
 let performActionsFn = dispatch(performActions);
 let releaseActionsFn = dispatch(releaseActions);
@@ -186,6 +189,7 @@ function startListeners() {
   addMessageListener("Marionette:singleTap", singleTapFn);
   addMessageListener("Marionette:switchToFrame", switchToFrame);
   addMessageListener("Marionette:switchToParentFrame", switchToParentFrame);
+  addMessageListener("Marionette:switchToShadowRoot", switchToShadowRootFn);
 }
 
 function deregister() {
@@ -236,6 +240,7 @@ function deregister() {
   removeMessageListener("Marionette:singleTap", singleTapFn);
   removeMessageListener("Marionette:switchToFrame", switchToFrame);
   removeMessageListener("Marionette:switchToParentFrame", switchToParentFrame);
+  removeMessageListener("Marionette:switchToShadowRoot", switchToShadowRootFn);
 }
 
 function deleteSession() {
@@ -765,6 +770,38 @@ async function sendKeysToElement(el, val, capabilities) {
 /** Clear the text of an element. */
 function clearElement(el) {
   interaction.clearElement(el);
+}
+
+/** Switch the current context to the specified host's Shadow DOM. */
+function switchToShadowRoot(el) {
+  if (!element.isElement(el)) {
+    // If no host element is passed, attempt to find a parent shadow
+    // root or, if none found, unset the current shadow root
+    if (curContainer.shadowRoot) {
+      let parent;
+      try {
+        parent = curContainer.shadowRoot.host;
+      } catch (e) {
+        // There is a chance that host element is dead and we are trying to
+        // access a dead object.
+        curContainer.shadowRoot = null;
+        return;
+      }
+      while (parent && !(parent instanceof curContainer.frame.ShadowRoot)) {
+        parent = parent.parentNode;
+      }
+      curContainer.shadowRoot = parent;
+    }
+    return;
+  }
+
+  let foundShadowRoot = el.shadowRoot;
+  if (!foundShadowRoot) {
+    throw new error.NoSuchElementError(
+      pprint`Unable to locate shadow root: ${el}`
+    );
+  }
+  curContainer.shadowRoot = foundShadowRoot;
 }
 
 /**
