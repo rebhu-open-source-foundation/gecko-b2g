@@ -1524,6 +1524,8 @@ void NetworkUtils::ExecuteCommand(NetworkParams aOptions) {
       BUILD_ENTRY(removeDefaultRoute),
       BUILD_ENTRY(addHostRoute),
       BUILD_ENTRY(removeHostRoute),
+      BUILD_ENTRY(addSecondaryRoute),
+      BUILD_ENTRY(removeSecondaryRoute),
       BUILD_ENTRY(setMtu),
       BUILD_ENTRY(setDefaultNetwork),
       BUILD_ENTRY(addInterfaceToNetwork),
@@ -1549,6 +1551,8 @@ void NetworkUtils::ExecuteCommand(NetworkParams aOptions) {
       BUILD_ENTRY(setDhcpServer),
       BUILD_ENTRY(getTetheringStatus),
       BUILD_ENTRY(enableUsbRndis),
+      BUILD_ENTRY(updateUpStream),
+      BUILD_ENTRY(removeUpStream),
       BUILD_ENTRY(setUSBTethering),
       BUILD_ENTRY(setWifiTethering),
 #undef BUILD_ENTRY
