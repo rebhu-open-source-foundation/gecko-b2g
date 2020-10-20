@@ -711,7 +711,7 @@ GeckoEditableSupport::DoSetSelectedOption(int32_t aOptionIndex) {
   event->SetTrusted(true);
 
   ErrorResult rv;
-  document->DispatchEvent(*event);
+  selectElement->DispatchEvent(*event);
   if (rv.Failed()) {
     IME_LOGD("Failed to dispatch change event!!!");
     return NS_ERROR_ABORT;
@@ -764,7 +764,7 @@ GeckoEditableSupport::DoSetSelectedOptions(
   event->SetTrusted(true);
 
   ErrorResult rv;
-  document->DispatchEvent(*event);
+  selectElement->DispatchEvent(*event);
   if (rv.Failed()) {
     IME_LOGD("Failed to dispatch change event!!!");
     return NS_ERROR_ABORT;
