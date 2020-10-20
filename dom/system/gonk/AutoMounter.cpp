@@ -21,10 +21,7 @@
 
 #include "AutoMounter.h"
 #include "nsVolumeService.h"
-// TODO: temporarily comment out Settings related code.
-#if 0
-#  include "AutoMounterSetting.h"
-#endif
+#include "AutoMounterSetting.h"
 #include "base/message_loop.h"
 #include "base/task.h"
 #include "mozilla/AutoRestore.h"
@@ -108,6 +105,7 @@ namespace mozilla {
 namespace system {
 
 #define SYS_USB_CONFIG "sys.usb.config"
+#define SYS_USB_STATE_PROPERTY "sys.usb.state"
 #define PERSIST_SYS_USB_CONFIG "persist.sys.usb.config"
 
 #define USB_FUNC_ADB "adb"
@@ -215,20 +213,15 @@ class AutoMounter {
     VolumeManager::RegisterStateObserver(&mVolumeManagerStateObserver);
     Volume::RegisterVolumeObserver(&mVolumeEventObserver, "AutoMounter");
 
-// TODO: temporarily comment out Settings related code.
-#if 0
     // It's possible that the VolumeManager is already in the READY state,
     // so we call CheckVolumeSettings here to cover that case. Otherwise,
     // we'll pick it up when the VolumeManage state changes to VOLUMES_READY.
     CheckVolumeSettings();
-#endif
 
     DBG("Calling UpdateState from constructor");
     UpdateState();
   }
 
-// TODO: temporarily comment out Settings related code.
-#if 0
   void CheckVolumeSettings() {
     if (VolumeManager::State() != VolumeManager::VOLUMES_READY) {
       DBG("CheckVolumeSettings: VolumeManager is NOT READY yet");
@@ -256,7 +249,6 @@ class AutoMounter {
       }
     }
   }
-#endif
 
   void UpdateState();
   void GetStatus(bool& umsAvail, bool& umsConfigured, bool& umsEnabled,
@@ -479,14 +471,11 @@ void AutoVolumeManagerStateObserver::Notify(
     return;
   }
 
-// TODO: temporarily comment out Settings related code.
-#if 0
   // In the event that the VolumeManager just entered the VOLUMES_READY state,
   // we call CheckVolumeSettings here (it's possible that this method never
   // gets called if the VolumeManager was already in the VOLUMES_READY state
   // by the time the AutoMounter was constructed).
   sAutoMounter->CheckVolumeSettings();
-#endif
 
   DBG("Calling UpdateState due to VolumeManagerStateObserver");
   sAutoMounter->UpdateState();
@@ -513,6 +502,23 @@ static bool IsUsbFunctionEnabled(const char* aConfig, const char* aUsbFunc) {
     }
   }
   DBG("IsUsbFunctionEnabled('%s', '%s'): returning false", aConfig, aUsbFunc);
+  return false;
+}
+
+static bool WaitForState(const char* state) {
+  // wait for the transition to complete.
+  // give up after 1 second.
+  char SysUsbConfig[PROPERTY_VALUE_MAX];
+  for (int i = 0; i < 20; i++) {
+    // State transition is done when sys.usb.state is set to the new
+    // configuration
+    property_get(SYS_USB_STATE_PROPERTY, SysUsbConfig, "");
+    if (strcmp(SysUsbConfig, state) == 0) {
+      return true;
+    }
+    usleep(50 * 1000);
+  }
+  ERR("Wait for state %s failed, it's still %s", state, SysUsbConfig);
   return false;
 }
 
@@ -589,6 +595,16 @@ static void SetUsbFunction(const char* aUsbFunc) {
   if (newSysUsbConfig[0] == '\0') {
     // Convert the empty string back to the string "none"
     strlcpy(newSysUsbConfig, USB_FUNC_NONE, sizeof(newSysUsbConfig));
+  } else {
+    // According to files system/core/rootdir/init.usb.configfs.rc and
+    // frameworks/base/services/usb/java/com/android/server/usb/UsbDeviceManager.java
+    // in Q project, we need to set sys.usb.config as 'none' to reset related
+    // usb configuration. Otherwise the operation such as symlink may fail.
+    property_set(SYS_USB_CONFIG, USB_FUNC_NONE);
+    if (!WaitForState(USB_FUNC_NONE)) {
+      ERR("Failed to kick USB config");
+      return;
+    }
   }
   LOG("SetUsbFunction(%s) %s from '%s' to '%s'", aUsbFunc, SYS_USB_CONFIG,
       oldSysUsbConfig, newSysUsbConfig);
@@ -1372,19 +1388,12 @@ class UsbCableObserver final : public hal::SwitchObserver {
 };
 
 static StaticRefPtr<UsbCableObserver> sUsbCableObserver;
-
-// TODO: temporarily comment out Settings related code.
-#if 0
 static StaticRefPtr<AutoMounterSetting> sAutoMounterSetting;
-#endif
 
 void InitAutoMounter() {
   InitVolumeManager();
 
-// TODO: temporarily comment out Settings related code.
-#if 0
   sAutoMounterSetting = new AutoMounterSetting();
-#endif
 
   XRE_GetIOMessageLoop()->PostTask(NewRunnableFunction(
       "InitAutoMounterIOThreadRunnable", InitAutoMounterIOThread));
@@ -1402,23 +1411,17 @@ void InitAutoMounter() {
 }
 
 int32_t GetAutoMounterStatus() {
-// TODO: temporarily comment out Settings related code.
-#if 0
   if (sAutoMounterSetting) {
     return sAutoMounterSetting->GetStatus();
   }
-#endif
   return AUTOMOUNTER_STATUS_DISABLED;
 }
 
 // static
 void SetAutoMounterStatus(int32_t aStatus) {
-// TODO: temporarily comment out Settings related code.
-#if 0
   if (sAutoMounterSetting) {
     sAutoMounterSetting->SetStatus(aStatus);
   }
-#endif
 }
 
 void SetAutoMounterMode(int32_t aMode) {
@@ -1462,10 +1465,7 @@ void ShutdownAutoMounter() {
     status_reporter_progress = REPORTER_UNREGISTERED;
   }
 
-// TODO: temporarily comment out Settings related code.
-#if 0
   sAutoMounterSetting = nullptr;
-#endif
 
   sUsbCableObserver = nullptr;
 

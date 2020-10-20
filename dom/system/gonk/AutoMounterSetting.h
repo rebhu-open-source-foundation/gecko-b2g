@@ -1,0 +1,41 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+#ifndef mozilla_system_automountersetting_h__
+#define mozilla_system_automountersetting_h__
+
+#include "nsIObserver.h"
+#include "nsISettings.h"
+
+namespace mozilla {
+namespace system {
+
+class AutoMounterSetting : public nsISettingsGetResponse,
+                           public nsISettingsObserver,
+                           public nsISidlDefaultResponse {
+ public:
+  NS_DECL_ISUPPORTS
+  NS_DECL_NSISETTINGSGETRESPONSE
+  NS_DECL_NSISETTINGSOBSERVER
+  NS_DECL_NSISIDLDEFAULTRESPONSE
+
+  AutoMounterSetting();
+
+  static void CheckVolumeSettings(const nsACString& aVolumeName);
+
+  int32_t GetStatus() { return mStatus; }
+  void SetStatus(int32_t aStatus);
+  const char* StatusStr(int32_t aStatus);
+
+ protected:
+  virtual ~AutoMounterSetting();
+
+ private:
+  int32_t mStatus;
+};
+
+}  // namespace system
+}  // namespace mozilla
+
+#endif  // mozilla_system_automountersetting_h__

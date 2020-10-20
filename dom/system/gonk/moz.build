@@ -28,11 +28,12 @@ EXPORTS += [
 ]
 
 UNIFIED_SOURCES += [
-    "AudioChannelManager.cpp",
-    "AudioManager.cpp",
-    "AutoMounter.cpp",
-    "SystemProperty.cpp",
-    "SystemWorkerManager.cpp",
+    'AudioChannelManager.cpp',
+    'AudioManager.cpp',
+    'AutoMounter.cpp',
+    'AutoMounterSetting.cpp',
+    'SystemProperty.cpp',
+    'SystemWorkerManager.cpp',
 ]
 
 EXTRA_JS_MODULES += [
