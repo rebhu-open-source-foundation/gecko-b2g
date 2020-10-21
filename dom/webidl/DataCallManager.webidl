@@ -9,7 +9,10 @@ enum DataCallType {
   "ims",
   "dun",
   "fota",
-  "hipri"
+  "hipri",
+  "xcap",
+  "cbs",
+  "emergency"
 };
 
 enum DataCallState {

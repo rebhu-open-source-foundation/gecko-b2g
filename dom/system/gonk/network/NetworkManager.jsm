@@ -64,6 +64,7 @@ const IPV4_MAX_PREFIX_LENGTH = 32;
 const IPV6_MAX_PREFIX_LENGTH = 128;
 
 // Connection Type for Network Information API
+/* eslint-disable no-unused-vars */
 const CONNECTION_TYPE_CELLULAR = 0;
 const CONNECTION_TYPE_BLUETOOTH = 1;
 const CONNECTION_TYPE_ETHERNET = 2;
@@ -71,12 +72,15 @@ const CONNECTION_TYPE_WIFI = 3;
 const CONNECTION_TYPE_OTHER = 4;
 const CONNECTION_TYPE_NONE = 5;
 const CONNECTION_TYPE_UNKNOWN = 6;
+/* eslint-enable no-unused-vars */
 
-const MANUAL_PROXY_CONFIGURATION = Ci.nsIProtocolProxyService.PROXYCONFIG_MANUAL;
+const MANUAL_PROXY_CONFIGURATION =
+  Ci.nsIProtocolProxyService.PROXYCONFIG_MANUAL;
 
 const CLAT_PREFIX = "v4-";
 
 var debug;
+/* eslint-disable no-global-assign */
 function updateDebug() {
   //TODO: always true for now.
   /*
@@ -98,6 +102,7 @@ function updateDebug() {
     console.log("-*- NetworkManager: ", s, "\n");
   };
 }
+/* eslint-enable no-global-assign */
 updateDebug();
 
 function defineLazyRegExp(obj, name, pattern) {
@@ -134,7 +139,7 @@ function convertToDataCallType(aNetworkType) {
     case Ci.nsINetworkInfo.NETWORK_TYPE_MOBILE_IA:
       return "ia";
     case Ci.nsINetworkInfo.NETWORK_TYPE_MOBILE_ECC:
-      return "ecc";
+      return "emergency";
     case Ci.nsINetworkInfo.NETWORK_TYPE_MOBILE_XCAP:
       return "xcap";
     default:
@@ -432,13 +437,20 @@ Nat464Xlat.prototype = {
 
     this.nat64Debug("Starting clatd on " + this.ifaceName);
 
-    gNetworkService.startClatd(this.ifaceName, this.nat64Prefix,
-      function (success, clatdAddress) {
-        this.nat64Debug("Clatd started: " + (success ? "success" : "fail") + " address: " + clatdAddress);
-        if (success) {
-          self.clatdAddress = clatdAddress;
-        }
-        aCallback(success);
+    gNetworkService.startClatd(this.ifaceName, this.nat64Prefix, function(
+      success,
+      clatdAddress
+    ) {
+      this.nat64Debug(
+        "Clatd started: " +
+          (success ? "success" : "fail") +
+          " address: " +
+          clatdAddress
+      );
+      if (success) {
+        self.clatdAddress = clatdAddress;
+      }
+      aCallback(success);
     });
   },
 
@@ -486,7 +498,6 @@ CaptivePortalLanding.prototype = {
   set landing(aVal) {
     this._landing = aVal;
   },
-
 };
 
 /**
@@ -499,11 +510,11 @@ function NetworkManager() {
   this.networkNat464Links = {};
 
   try {
-    this._manageOfflineStatus = Services.prefs.getBoolPref(
-      PREF_MANAGE_OFFLINE_STATUS
-    );
+    this._manageOfflineStatus =
+      this._manageOfflineStatus ||
+      Services.prefs.getBoolPref(PREF_MANAGE_OFFLINE_STATUS);
   } catch (ex) {
-    // Ignore.
+    this._manageOfflineStatus = true;
   }
   Services.prefs.addObserver(PREF_MANAGE_OFFLINE_STATUS, this);
   Services.prefs.addObserver(PREF_NETWORK_DEBUG_ENABLED, this);
@@ -676,7 +687,7 @@ NetworkManager.prototype = {
         break;
     }
   },
-
+  /* eslint-disable consistent-return */
   receiveMessage(aMsg) {
     switch (aMsg.name) {
       case "NetworkInterfaceList:ListInterface": {
@@ -723,6 +734,7 @@ NetworkManager.prototype = {
       }
     }
   },
+  /* eslint-enable consistent-return */
 
   getNetworkId(aNetworkInfo) {
     let id = "device";
@@ -775,6 +787,7 @@ NetworkManager.prototype = {
     this.onUpdateNetworkInterface(aNetwork, null, aNetworkId);
   },
 
+  /* eslint-disable no-unused-vars */
   _updateSubnetRoutes(aPreNetworkInfo, aExtNetworkInfo) {
     let preIps = {};
     let prePrefixLengths = {};
@@ -876,6 +889,7 @@ NetworkManager.prototype = {
     }
     return Promise.all(promises);
   },
+  /* eslint-enable no-unused-vars */
 
   _addSubnetRoutes(aNetworkInfo) {
     let ips = {};
@@ -1144,6 +1158,7 @@ NetworkManager.prototype = {
     this.onUpdateNetworkInterface(aNetwork, preNetwork, aNetworkId);
   },
 
+  /* eslint-disable consistent-return */
   onUpdateNetworkInterface(aNetwork, preNetwork, aNetworkId) {
     // Latest network information.
     // Add route or connected state using extNetworkInfo.
@@ -1367,6 +1382,7 @@ NetworkManager.prototype = {
         break;
     }
   },
+  /* eslint-enable consistent-return */
 
   unregisterNetworkInterface(network) {
     if (!(network instanceof Ci.nsINetworkInterface)) {
@@ -1436,6 +1452,7 @@ NetworkManager.prototype = {
     }
   },
 
+  /* eslint-disable consistent-return */
   onInterfaceLinkStateChanged(aClatNetworkIface) {
     debug("onInterfaceLinkStateChanged aClatNetworkIface=" + aClatNetworkIface);
     if (!(aClatNetworkIface in this.networkNat464Links)) {
@@ -1558,6 +1575,7 @@ NetworkManager.prototype = {
       }.bind(this)
     );
   },
+  /* eslint-enable consistent-return */
 
   interfaceRemoved(aNat464Iface) {
     let clatIface = aNat464Iface.split(CLAT_PREFIX);
@@ -1660,8 +1678,10 @@ NetworkManager.prototype = {
   },
   set networkTypePriorityList(val) {
     if (val.length != this._networkTypePriorityList.length) {
-      throw "Priority list length should equal to " +
-        this._networkTypePriorityList.length;
+      throw new Error(
+        "Priority list length should equal to " +
+          this._networkTypePriorityList.length
+      );
     }
 
     // Check if types in new priority list are valid and also make sure there
@@ -1674,7 +1694,7 @@ NetworkManager.prototype = {
     while (list.length) {
       let type = list.shift();
       if (!val.includes(type)) {
-        throw "There is missing network type";
+        throw new Error("There is missing network type");
       }
     }
 
@@ -1717,15 +1737,13 @@ NetworkManager.prototype = {
         Ci.nsINetworkInfo.NETWORK_TYPE_ETHERNET,
       ].includes(val)
     ) {
-      throw "Invalid network type";
+      throw new Error("Invalid network type");
     }
     this._preferredNetworkType = val;
   },
 
   // Provide support captive portal connection type.
-  _captivePortalSupportTypes: [
-    Ci.nsINetworkInfo.NETWORK_TYPE_WIFI,
-  ],
+  _captivePortalSupportTypes: [Ci.nsINetworkInfo.NETWORK_TYPE_WIFI],
 
   _captivePortalLandings: [],
 
@@ -1752,7 +1770,7 @@ NetworkManager.prototype = {
         Ci.nsINetworkInfo.NETWORK_TYPE_ETHERNET,
       ].includes(network.info.type)
     ) {
-      throw "Invalid network type";
+      throw new Error("Invalid network type");
     }
 
     this._overriddenActive = network;
@@ -2093,9 +2111,11 @@ NetworkManager.prototype = {
           prefix: IPV4_MAX_PREFIX_LENGTH,
           gateway: IPV4_ADDRESS_ANY,
         };
-        promise = this._setSecondaryRoute(true, network.name, hostRoute).then(
-          () => this._setSecondaryRoute(true, network.name, defaultRoute)
-        );
+        promise = this._setSecondaryRoute(
+          true,
+          network.name,
+          hostRoute
+        ).then(() => this._setSecondaryRoute(true, network.name, defaultRoute));
       }
 
       promises.push(promise);
@@ -2141,6 +2161,7 @@ NetworkManager.prototype = {
   /**
    * Determine the active interface and configure it.
    */
+  /* eslint-disable consistent-return */
   setAndConfigureActive() {
     debug("Evaluating whether active network needs to be changed.");
     let oldActive = this._activeNetwork;
@@ -2253,14 +2274,15 @@ NetworkManager.prototype = {
         if (this._manageOfflineStatus) {
           Services.io.offline =
             !anyConnected &&
-            (gTetheringService.wifiState ===
+            gTetheringService.wifiState ===
               Ci.nsITetheringService.TETHERING_STATE_INACTIVE &&
-	      gTetheringService.usbState ===
-	        Ci.nsITetheringService.TETHERING_STATE_INACTIVE);
+            gTetheringService.usbState ===
+              Ci.nsITetheringService.TETHERING_STATE_INACTIVE;
         }
         return Promise.resolve();
       });
   },
+  /* eslint-enable consistent-return */
 
   resolveHostname(aNetworkInfo, aHostname) {
     // Sanity check for null, undefined and empty string... etc.
@@ -2734,7 +2756,10 @@ NetworkManager.prototype = {
           " network interface."
       );
       // Sets manual proxy configuration.
-      Services.prefs.setIntPref("network.proxy.type", MANUAL_PROXY_CONFIGURATION);
+      Services.prefs.setIntPref(
+        "network.proxy.type",
+        MANUAL_PROXY_CONFIGURATION
+      );
 
       // Do not use this proxy server for all protocols.
       Services.prefs.setBoolPref("network.proxy.share_proxy_settings", false);
@@ -2816,14 +2841,19 @@ var CaptivePortalDetectionHelper = (function() {
 
   let _sendNotification = function(networkType, landing) {
     for (let index in NetworkManager.prototype._captivePortalLandings) {
-
-      if (NetworkManager.prototype._captivePortalLandings[index].networkType
-          != networkType) {
+      if (
+        NetworkManager.prototype._captivePortalLandings[index].networkType !=
+        networkType
+      ) {
         continue;
       }
 
-      if (landing == NetworkManager.prototype._captivePortalLandings[index].landing ||
-         (!landing && !NetworkManager.prototype._captivePortalLandings[index].landing)) {
+      if (
+        landing ==
+          NetworkManager.prototype._captivePortalLandings[index].landing ||
+        (!landing &&
+          !NetworkManager.prototype._captivePortalLandings[index].landing)
+      ) {
         return;
       }
       NetworkManager.prototype._captivePortalLandings[index].landing = landing;
@@ -2834,7 +2864,8 @@ var CaptivePortalDetectionHelper = (function() {
       propBag.setProperty("networkType", networkType);
       Services.obs.notifyObservers(propBag, "captive-portal-result");
       BinderServices.connectivity.onCaptivePortalChanged(
-        NetworkManager.prototype._captivePortalLandings[index]);
+        NetworkManager.prototype._captivePortalLandings[index]
+      );
       break;
     }
   };
@@ -2843,7 +2874,10 @@ var CaptivePortalDetectionHelper = (function() {
     EVENT_CONNECT,
     EVENT_DISCONNECT,
     notify(eventType, network) {
-      if (!network || !(network.type in NetworkManager.prototype._captivePortalSupportTypes)) {
+      if (
+        !network ||
+        !(network.type in NetworkManager.prototype._captivePortalSupportTypes)
+      ) {
         // unsupportive network type.
         return;
       }
@@ -2865,7 +2899,7 @@ var CaptivePortalDetectionHelper = (function() {
         case EVENT_DISCONNECT:
           if (
             _available &&
-	    network &&
+            network &&
             _lastCaptivePortalStatus[network.type] == EVENT_CONNECT
           ) {
             _lastCaptivePortalStatus[network.type] = EVENT_DISCONNECT;
