@@ -32,6 +32,8 @@ class SystemMessageService final : public nsISystemMessageService {
   SystemMessageService();
   ~SystemMessageService();
 
+  bool HasPermission(const nsAString& aMessageName, const nsACString& aOrigin);
+
   struct SubscriberInfo {
     SubscriberInfo(const nsACString& aScope, const nsACString& aOriginSuffix)
         : mScope(aScope), mOriginSuffix(aOriginSuffix) {}

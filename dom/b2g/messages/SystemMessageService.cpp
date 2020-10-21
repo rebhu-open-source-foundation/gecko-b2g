@@ -11,6 +11,7 @@
 #include "mozilla/StaticPtr.h"
 #include "js/JSON.h"
 #include "nsISystemMessageListener.h"
+#include "nsCharSeparatedTokenizer.h"
 
 #undef LOG
 mozilla::LazyLogModule gSystemMessageServiceLog("SystemMessageService");
@@ -21,8 +22,39 @@ namespace mozilla {
 namespace dom {
 
 static StaticRefPtr<SystemMessageService> sSystemMessageService;
+static nsDataHashtable<nsStringHashKey, nsCString>
+    sSystemMessagePermissionsTable;
 
 namespace {
+
+/**
+ * About sSystemMessagePermissionsTable.
+ * Key: Name of system message.
+ * Data: Name of permission. (Please lookup from the PermissionsTable.jsm)
+ *       For example, "alarm" messages require "alarms" permission, then do
+ *       sSystemMessagePermissionsTable.Put(u"alarm"_ns, "alarms"_ns);
+ *
+ *       If your system message do not need to specify any permission, please
+ *       set EmptyCString().
+ *
+ *       If your system message requires multiple permissions, please use ","
+ *       to separate them, i.e. "camera,cellbroadcast".
+ *
+ *       If your system message requires access permission, such as
+ *       "settings": [read, write], please expand them manually, i.e.
+ *       "settings:read,settings:write".
+ */
+void BuildPermissionsTable() {
+  /**
+   * For efficient lookup and systematic indexing, please help to arrange the
+   * key names (system message names) in alphabetical order.
+   **/
+  sSystemMessagePermissionsTable.Put(u"activity"_ns, EmptyCString());
+  /**
+   * Note: Please do NOT directly add new entries at the bottom of this table,
+   * try to insert them alphabetically.
+   **/
+}
 
 nsresult SerializeFromJSVal(JSContext* aCx, JS::HandleValue aValue,
                             nsAString& aResult) {
@@ -61,6 +93,7 @@ already_AddRefed<SystemMessageService> SystemMessageService::GetInstance() {
 
   if (!sSystemMessageService) {
     sSystemMessageService = new SystemMessageService();
+    BuildPermissionsTable();
     ClearOnShutdown(&sSystemMessageService);
   }
 
@@ -170,6 +203,14 @@ void SystemMessageService::DoSubscribe(const nsAString& aMessageName,
                                        const nsACString& aScope,
                                        const nsACString& aOriginSuffix,
                                        nsISystemMessageListener* aListener) {
+  if (!HasPermission(aMessageName, aOrigin)) {
+    if (aListener) {
+      aListener->OnSubscribe(NS_ERROR_DOM_SECURITY_ERR);
+    }
+    LOG("Permission denied.");
+    return;
+  }
+
   SubscriberTable* table = mSubscribers.LookupOrAdd(aMessageName);
   UniquePtr<SubscriberInfo> info(new SubscriberInfo(aScope, aOriginSuffix));
   table->Put(aOrigin, std::move(info));
@@ -183,6 +224,42 @@ void SystemMessageService::DoSubscribe(const nsAString& aMessageName,
   LOG("             subscriber origin=%s", nsCString(aOrigin).get());
 
   return;
+}
+
+bool SystemMessageService::HasPermission(const nsAString& aMessageName,
+                                         const nsACString& aOrigin) {
+  LOG("Checking permission: message name=%s",
+      NS_LossyConvertUTF16toASCII(aMessageName).get());
+  LOG("             subscriber origin=%s", nsCString(aOrigin).get());
+
+  nsAutoCString permNames;
+  if (!sSystemMessagePermissionsTable.Get(aMessageName, &permNames)) {
+    LOG("Did not define in system message permissions table.");
+    return false;
+  }
+
+  nsCOMPtr<nsIPermissionManager> permMgr =
+      mozilla::services::GetPermissionManager();
+  nsCOMPtr<nsIPrincipal> principal =
+      BasePrincipal::CreateContentPrincipal(aOrigin);
+
+  if (principal && permMgr && !permNames.IsEmpty()) {
+    nsCCharSeparatedTokenizer tokenizer(permNames, ',');
+    while (tokenizer.hasMoreTokens()) {
+      nsAutoCString permName(tokenizer.nextToken());
+      if (permName.IsEmpty()) {
+        continue;
+      }
+      uint32_t perm = nsIPermissionManager::UNKNOWN_ACTION;
+      permMgr->TestExactPermissionFromPrincipal(principal, permName, &perm);
+      LOG("Permission of %s: %d", permName.get(), perm);
+      if (perm != nsIPermissionManager::ALLOW_ACTION) {
+        return false;
+      }
+    }
+  }
+
+  return true;
 }
 
 void SystemMessageService::DebugPrintSubscribersTable() {
