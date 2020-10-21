@@ -18,7 +18,7 @@ use crate::common::uds_transport::*;
 use crate::services::core::service::*;
 use log::{debug, error};
 use moz_task::{TaskRunnable, ThreadPtrHandle, ThreadPtrHolder};
-use nserror::{nsresult, NS_OK};
+use nserror::{nsresult, NS_ERROR_INVALID_ARG, NS_OK};
 use nsstring::*;
 use parking_lot::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -28,7 +28,7 @@ use xpcom::{
     interfaces::{
         nsIAppsServiceDelegate, nsIGeckoBridge, nsIMobileManagerDelegate,
         nsINetworkManagerDelegate, nsIPowerManagerDelegate, nsISidlConnectionObserver,
-        nsISidlDefaultResponse, nsISidlEventListener,
+        nsISidlDefaultResponse, nsISidlEventListener, nsISimContactInfo,
     },
     RefPtr,
 };
@@ -67,6 +67,11 @@ type OnRegisterTokenTask = (
     (String, String, Vec<String>),
 );
 
+type ImportSimContactsTask = (
+    SidlCallTask<(), (), nsISidlDefaultResponse>,
+    Vec<SimContactInfo>, /* contacts */
+);
+
 // The tasks that can be dispatched to the calling thread.
 enum GeckoBridgeTask {
     SetAppsServiceDelegate(SetAppsServiceDelegateTask),
@@ -77,6 +82,7 @@ enum GeckoBridgeTask {
     IntPrefChanged(OnIntPrefChangedTask),
     BoolPrefChanged(OnBoolPrefChangedTask),
     RegisterToken(OnRegisterTokenTask),
+    ImportSimContacts(ImportSimContactsTask),
 }
 
 struct GeckoBridgeImpl {
@@ -164,6 +170,9 @@ impl ServiceClientImpl<GeckoBridgeTask> for GeckoBridgeImpl {
                 }
                 GeckoBridgeTask::RegisterToken(task) => {
                     let _ = self.register_token(task);
+                }
+                GeckoBridgeTask::ImportSimContacts(task) => {
+                    let _ = self.import_sim_contacts(task);
                 }
             }
         }
@@ -350,6 +359,15 @@ impl GeckoBridgeImpl {
         Ok(())
     }
 
+    fn import_sim_contacts(&mut self, task: ImportSimContactsTask) -> Result<(), nsresult> {
+        debug!("GeckoBridge::import_sim_contacts");
+
+        let (task, contacts) = task;
+        let request = GeckoBridgeFromClient::GeckoFeaturesImportSimContacts(Some(contacts));
+        self.sender.send_task(&request, ImportSimContactsTaskReceiver { task });
+        Ok(())
+    }
+
     fn next_object_id(&mut self) -> TrackerId {
         let res = self.current_object_id;
         self.current_object_id += 1;
@@ -419,6 +437,14 @@ task_receiver!(
     GeckoBridgeToClient,
     GeckoFeaturesRegisterTokenSuccess,
     GeckoFeaturesRegisterTokenError
+);
+
+task_receiver!(
+    ImportSimContactsTaskReceiver,
+    nsISidlDefaultResponse,
+    GeckoBridgeToClient,
+    GeckoFeaturesImportSimContactsSuccess,
+    GeckoFeaturesImportSimContactsError
 );
 
 #[derive(xpcom)]
@@ -701,6 +727,71 @@ impl GeckoBridgeXpcom {
             error!("Unable to get GeckoBridgeImpl");
         }
 
+        Ok(())
+    }
+
+    xpcom_method!(import_sim_contacts => ImportSimContacts(contacts: *const ThinVec<RefPtr<nsISimContactInfo>>, callback: *const nsISidlDefaultResponse));
+    fn import_sim_contacts(
+        &self,
+        contacts: &ThinVec<RefPtr<nsISimContactInfo>>,
+        callback: &nsISidlDefaultResponse,
+    ) -> Result<(), nsresult> {
+        debug!("GeckoBridgeXpcom::import_sim_contacts");
+
+        // Validate parameters.
+        let contacts_info: Vec<SimContactInfo> = contacts
+            .iter()
+            .filter_map(|item| {
+                let mut id = nsString::new();
+                let mut tel = nsString::new();
+                let mut email = nsString::new();
+                let mut name = nsString::new();
+
+                unsafe {
+                    if item.GetId(&mut *id) != NS_OK {
+                        return None;
+                    }
+                    if item.GetTel(&mut *tel) != NS_OK {
+                        return None;
+                    }
+                    if item.GetEmail(&mut *email) != NS_OK {
+                        return None;
+                    }
+                    if item.GetName(&mut *name) != NS_OK {
+                        return None;
+                    }
+                }
+
+                Some(SimContactInfo {
+                    id: id.to_string(),
+                    tel: tel.to_string(),
+                    email: email.to_string(),
+                    name: name.to_string(),
+                })
+            })
+            .collect();
+
+        // If we failed to convert at least one element of the array, bail out.
+        if contacts_info.len() != contacts.len() {
+            return Err(NS_ERROR_INVALID_ARG);
+        }
+
+        let callback =
+            ThreadPtrHolder::new(cstr!("nsISidlDefaultResponse"), RefPtr::new(callback)).unwrap();
+        let task = (SidlCallTask::new(callback), contacts_info);
+
+        if !self.ensure_service() {
+            self.queue_task(GeckoBridgeTask::ImportSimContacts(task));
+            return Ok(());
+        }
+
+        // The service is ready, send the request right away.
+        debug!("GeckoBridgeXpcom::set direct call");
+        if let Some(inner) = self.inner.lock().as_ref() {
+            return inner.lock().import_sim_contacts(task);
+        } else {
+            error!("Unable to get GeckoBridgeImpl");
+        }
         Ok(())
     }
 

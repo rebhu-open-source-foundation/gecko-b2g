@@ -24,7 +24,7 @@ impl From<ObjectRef> for TrackerId {
 }
 
 pub static SERVICE_FINGERPRINT: &str =
-    "1c20d952702efd5720abaaa75fa9915dc6e71f17c9d059262dc530cd8ed8ee";
+    "68d5ce88b2d346471b3b9547e8bef1a905316dcd53440399cbd5352b52fa61c";
 
 #[derive(Clone, PartialEq, Deserialize, Serialize, Debug)]
 pub enum CardInfoType {
@@ -79,32 +79,41 @@ pub struct NetworkOperator {
     pub mcc: String,
 }
 
+#[derive(Clone, Deserialize, Serialize, Debug)]
+pub struct SimContactInfo {
+    pub id: String,
+    pub tel: String,
+    pub email: String,
+    pub name: String,
+}
+
 #[derive(Debug, Deserialize, Serialize)]
 pub enum GeckoBridgeFromClient {
     GeckoFeaturesBoolPrefChanged(String, bool),   // 0
     GeckoFeaturesCharPrefChanged(String, String), // 1
-    GeckoFeaturesIntPrefChanged(String, i64),     // 2
-    GeckoFeaturesRegisterToken(String, String, Option<Vec<String>>), // 3
-    GeckoFeaturesSetAppsServiceDelegate(ObjectRef), // 4
-    GeckoFeaturesSetMobileManagerDelegate(ObjectRef), // 5
-    GeckoFeaturesSetNetworkManagerDelegate(ObjectRef), // 6
-    GeckoFeaturesSetPowerManagerDelegate(ObjectRef), // 7
-    AppsServiceDelegateOnBootSuccess,             // 8
-    AppsServiceDelegateOnBootError,               // 9
-    AppsServiceDelegateOnInstallSuccess,          // 10
-    AppsServiceDelegateOnInstallError,            // 11
-    AppsServiceDelegateOnUninstallSuccess,        // 12
-    AppsServiceDelegateOnUninstallError,          // 13
-    AppsServiceDelegateOnUpdateSuccess,           // 14
-    AppsServiceDelegateOnUpdateError,             // 15
-    MobileManagerDelegateGetCardInfoSuccess(String), // 16
-    MobileManagerDelegateGetCardInfoError,        // 17
-    MobileManagerDelegateGetMncMccSuccess(NetworkOperator), // 18
-    MobileManagerDelegateGetMncMccError,          // 19
-    NetworkManagerDelegateGetNetworkInfoSuccess(NetworkInfo), // 20
-    NetworkManagerDelegateGetNetworkInfoError,    // 21
-    PowerManagerDelegateSetScreenEnabledSuccess,  // 22
-    PowerManagerDelegateSetScreenEnabledError,    // 23
+    GeckoFeaturesImportSimContacts(Option<Vec<SimContactInfo>>), // 2
+    GeckoFeaturesIntPrefChanged(String, i64),     // 3
+    GeckoFeaturesRegisterToken(String, String, Option<Vec<String>>), // 4
+    GeckoFeaturesSetAppsServiceDelegate(ObjectRef), // 5
+    GeckoFeaturesSetMobileManagerDelegate(ObjectRef), // 6
+    GeckoFeaturesSetNetworkManagerDelegate(ObjectRef), // 7
+    GeckoFeaturesSetPowerManagerDelegate(ObjectRef), // 8
+    AppsServiceDelegateOnBootSuccess,             // 9
+    AppsServiceDelegateOnBootError,               // 10
+    AppsServiceDelegateOnInstallSuccess,          // 11
+    AppsServiceDelegateOnInstallError,            // 12
+    AppsServiceDelegateOnUninstallSuccess,        // 13
+    AppsServiceDelegateOnUninstallError,          // 14
+    AppsServiceDelegateOnUpdateSuccess,           // 15
+    AppsServiceDelegateOnUpdateError,             // 16
+    MobileManagerDelegateGetCardInfoSuccess(String), // 17
+    MobileManagerDelegateGetCardInfoError,        // 18
+    MobileManagerDelegateGetMncMccSuccess(NetworkOperator), // 19
+    MobileManagerDelegateGetMncMccError,          // 20
+    NetworkManagerDelegateGetNetworkInfoSuccess(NetworkInfo), // 21
+    NetworkManagerDelegateGetNetworkInfoError,    // 22
+    PowerManagerDelegateSetScreenEnabledSuccess,  // 23
+    PowerManagerDelegateSetScreenEnabledError,    // 24
 }
 
 #[derive(Debug, Deserialize)]
@@ -113,24 +122,26 @@ pub enum GeckoBridgeToClient {
     GeckoFeaturesBoolPrefChangedError,                   // 1
     GeckoFeaturesCharPrefChangedSuccess,                 // 2
     GeckoFeaturesCharPrefChangedError,                   // 3
-    GeckoFeaturesIntPrefChangedSuccess,                  // 4
-    GeckoFeaturesIntPrefChangedError,                    // 5
-    GeckoFeaturesRegisterTokenSuccess,                   // 6
-    GeckoFeaturesRegisterTokenError,                     // 7
-    GeckoFeaturesSetAppsServiceDelegateSuccess,          // 8
-    GeckoFeaturesSetAppsServiceDelegateError,            // 9
-    GeckoFeaturesSetMobileManagerDelegateSuccess,        // 10
-    GeckoFeaturesSetMobileManagerDelegateError,          // 11
-    GeckoFeaturesSetNetworkManagerDelegateSuccess,       // 12
-    GeckoFeaturesSetNetworkManagerDelegateError,         // 13
-    GeckoFeaturesSetPowerManagerDelegateSuccess,         // 14
-    GeckoFeaturesSetPowerManagerDelegateError,           // 15
-    AppsServiceDelegateOnBoot(String, JsonValue),        // 16
-    AppsServiceDelegateOnInstall(String, JsonValue),     // 17
-    AppsServiceDelegateOnUninstall(String),              // 18
-    AppsServiceDelegateOnUpdate(String, JsonValue),      // 19
-    MobileManagerDelegateGetCardInfo(i64, CardInfoType), // 20
-    MobileManagerDelegateGetMncMcc(i64, bool),           // 21
-    NetworkManagerDelegateGetNetworkInfo,                // 22
-    PowerManagerDelegateSetScreenEnabled(bool, bool),    // 23
+    GeckoFeaturesImportSimContactsSuccess,               // 4
+    GeckoFeaturesImportSimContactsError,                 // 5
+    GeckoFeaturesIntPrefChangedSuccess,                  // 6
+    GeckoFeaturesIntPrefChangedError,                    // 7
+    GeckoFeaturesRegisterTokenSuccess,                   // 8
+    GeckoFeaturesRegisterTokenError,                     // 9
+    GeckoFeaturesSetAppsServiceDelegateSuccess,          // 10
+    GeckoFeaturesSetAppsServiceDelegateError,            // 11
+    GeckoFeaturesSetMobileManagerDelegateSuccess,        // 12
+    GeckoFeaturesSetMobileManagerDelegateError,          // 13
+    GeckoFeaturesSetNetworkManagerDelegateSuccess,       // 14
+    GeckoFeaturesSetNetworkManagerDelegateError,         // 15
+    GeckoFeaturesSetPowerManagerDelegateSuccess,         // 16
+    GeckoFeaturesSetPowerManagerDelegateError,           // 17
+    AppsServiceDelegateOnBoot(String, JsonValue),        // 18
+    AppsServiceDelegateOnInstall(String, JsonValue),     // 19
+    AppsServiceDelegateOnUninstall(String),              // 20
+    AppsServiceDelegateOnUpdate(String, JsonValue),      // 21
+    MobileManagerDelegateGetCardInfo(i64, CardInfoType), // 22
+    MobileManagerDelegateGetMncMcc(i64, bool),           // 23
+    NetworkManagerDelegateGetNetworkInfo,                // 24
+    PowerManagerDelegateSetScreenEnabled(bool, bool),    // 25
 }

@@ -29,6 +29,14 @@ interface nsINetworkManagerDelegate : nsISupports {
     void getNetworkInfo(out long state, out long type);
 };
 
+[scriptable, uuid(23dcf3a6-97a6-450c-b27e-a5c1c7a03733)]
+interface nsISimContactInfo : nsISupports {
+    attribute AString id;
+    attribute AString tel;
+    attribute AString email;
+    attribute AString name;
+};
+
 [scriptable, uuid(d8dccf0f-de80-4216-9bee-7403e4ac0373)]
 interface nsIGeckoBridge : nsISupports {
     // Register a apps service delegate that will be called by the apps service.
@@ -48,4 +56,7 @@ interface nsIGeckoBridge : nsISupports {
 
     // Register a token bound to a (url, permissions) context.
     void registerToken(in AString token, in AString url, in Array<AString> settings, in nsISidlDefaultResponse callback);
+
+    // Import SimContactInfo to contacts DB.
+    void importSimContacts(in Array<nsISimContactInfo> contacts, in nsISidlDefaultResponse callback);
 };
