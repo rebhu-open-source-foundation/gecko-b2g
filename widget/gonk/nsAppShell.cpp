@@ -694,6 +694,11 @@ nsresult nsRepeatKeyTimer::SetDelay(uint32_t aDelay) {
   return NS_OK;
 }
 
+static already_AddRefed<nsIScreen> GetPrimaryScreen() {
+  RefPtr<nsIScreen> screen = ScreenHelperGonk::GetPrimaryScreen();
+  return screen.forget();
+}
+
 NS_IMETHODIMP
 nsRepeatKeyTimer::Notify(nsITimer* timer) {
   if (mGeckoInputDispatcher)
@@ -758,13 +763,11 @@ void GeckoInputReaderPolicy::setDisplayInfo() {
                     static_cast<int>(DISPLAY_ORIENTATION_270),
                 "Orientation enums not matched!");
 
-  nsCOMPtr<nsIScreen> screen;
-  ScreenManager& screenManager = ScreenManager::GetSingleton();
-  screenManager.GetPrimaryScreen(getter_AddRefs(screen));
+  nsCOMPtr<nsIScreen> screen = GetPrimaryScreen() ;
 
-  uint32_t rotation = ROTATION_0;
-  // FIXME: DebugOnly<nsresult> rv = screen->GetRotation(&rotation);
-  // FIXME: MOZ_ASSERT(NS_SUCCEEDED(rv));
+  uint32_t rotation = nsIScreen::ROTATION_0_DEG;
+  DebugOnly<nsresult> rv = screen->GetRotation(&rotation);
+  MOZ_ASSERT(NS_SUCCEEDED(rv));
 
   int32_t x, y, width, height;
   screen->GetAvailRect(&x, &y, &width, &height);
@@ -1220,7 +1223,7 @@ nsAppShell::Observe(nsISupports* aSubject, const char* aTopic,
 
 NS_IMETHODIMP
 nsAppShell::Exit() {
-  // OrientationObserver::ShutDown();
+  OrientationObserver::ShutDown();
   nsCOMPtr<nsIObserverService> obsServ = GetObserverService();
   if (obsServ) {
     obsServ->RemoveObserver(this, "browser-ui-startup-complete");
@@ -1306,7 +1309,7 @@ void nsAppShell::NotifyNativeEvent() { write(signalfds[1], "w", 1); }
 
 /* static */ void nsAppShell::NotifyScreenInitialized() {
   // Getting the instance of OrientationObserver to initialize it.
-  // OrientationObserver::GetInstance();
+  OrientationObserver::GetInstance();
 }
 
 /* static */ void nsAppShell::NotifyScreenRotation() {
@@ -1314,9 +1317,7 @@ void nsAppShell::NotifyNativeEvent() { write(signalfds[1], "w", 1); }
   gAppShell->mReader->requestRefreshConfiguration(
       InputReaderConfiguration::CHANGE_DISPLAY_INFO);
 
-  nsCOMPtr<nsIScreen> screen;
-  ScreenManager& screenManager = ScreenManager::GetSingleton();
-  screenManager.GetPrimaryScreen(getter_AddRefs(screen));
-  // TODO: FIXME:
-  // hal::NotifyScreenConfigurationChange(screen->GetConfiguration());
+  hal::ScreenConfiguration config;
+  hal::GetCurrentScreenConfiguration(&config);
+  hal::NotifyScreenConfigurationChange(config);
 }

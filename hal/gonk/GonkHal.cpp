@@ -1072,8 +1072,6 @@ void EnableSystemTimezoneChangeNotifications() {}
 
 void DisableSystemTimezoneChangeNotifications() {}
 
-#if 0  // TODO: FIXME
-
 // Nothing to do here.  Gonk widgetry always listens for screen
 // orientation changes.
 void
@@ -1105,7 +1103,6 @@ UnlockScreenOrientation()
   OrientationObserver::GetInstance()->UnlockScreenOrientation();
 }
 
-#endif
 
 // This thread will wait for the alarm firing by a blocking IO.
 static pthread_t sAlarmFireWatcherThread;

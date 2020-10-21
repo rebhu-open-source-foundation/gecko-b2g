@@ -90,8 +90,7 @@ SOURCES += [
     "nsNativeBasicThemeGonk.cpp",
     "nsWidgetFactory.cpp",
     "nsWindow.cpp",
-    # TODO: fixme
-    #    'OrientationObserver.cpp',
+    "OrientationObserver.cpp",
     "ProcessOrientation.cpp",
     "ProcInfo.cpp",
     "ScreenHelperGonk.cpp",

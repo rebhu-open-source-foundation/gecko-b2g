@@ -25,9 +25,11 @@
 #include "mozilla/HalSensor.h"
 #include "ProcessOrientation.h"
 #include "nsServiceManagerUtils.h"
+#include "ScreenHelperGonk.h"
 
 using namespace mozilla;
-using namespace dom;
+using namespace mozilla::hal;
+
 
 namespace {
 
@@ -49,12 +51,7 @@ const static uint32_t sDefaultPortrait = 0;
 static uint32_t sOrientationOffset = 0;
 
 static already_AddRefed<nsIScreen> GetPrimaryScreen() {
-  nsCOMPtr<nsIScreenManager> screenMgr =
-      do_GetService("@mozilla.org/gfx/screenmanager;1");
-  NS_ENSURE_TRUE(screenMgr, nullptr);
-
-  nsCOMPtr<nsIScreen> screen;
-  screenMgr->GetPrimaryScreen(getter_AddRefs(screen));
+  RefPtr<nsIScreen> screen = widget::ScreenHelperGonk::GetPrimaryScreen();
   return screen.forget();
 }
 
@@ -123,7 +120,7 @@ static nsresult ConvertToScreenRotation(ScreenOrientation aOrientation,
  *
  * @param aRotation nsIScreen rotation e.g. nsIScreen::ROTATION_0_DEG.
  * @param aResult output DOM orientation e.g.
- *        dom::eScreenOrientation_PortraitPrimary.
+ *        eScreenOrientation_PortraitPrimary.
  * @return NS_OK on success. NS_ILLEGAL_VALUE on failure.
  */
 nsresult ConvertToDomOrientation(uint32_t aRotation,

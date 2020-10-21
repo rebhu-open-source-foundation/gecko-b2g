@@ -19,9 +19,20 @@ enum class DisplayType: int32_t {
 const size_t NUM_DISPLAY_TYPES = 3;
 %}
 
-[scriptable, uuid(826e80c8-d70f-42e2-8aa9-82c05f2a370a)]
+[scriptable, uuid(011d7ce8-090a-4df9-b969-6a1ef5f330a6)]
 interface nsIScreen : nsISupports
 {
+  /**
+   * Allowable screen rotations, when the underlying widget toolkit
+   * supports rotating the screen.
+   *
+   * ROTATION_0_DEG is the default, unrotated configuration.
+   */
+  const unsigned long   ROTATION_0_DEG = 0;
+  const unsigned long  ROTATION_90_DEG = 1;
+  const unsigned long ROTATION_180_DEG = 2;
+  const unsigned long ROTATION_270_DEG = 3;
+
   /**
    * These report screen dimensions in (screen-specific) device pixels
    */
@@ -36,6 +47,12 @@ interface nsIScreen : nsISupports
 
   readonly attribute long pixelDepth;
   readonly attribute long colorDepth;
+
+  /**
+   * Get/set the screen rotation, on platforms that support changing
+   * screen rotation.
+   */
+  attribute unsigned long rotation;
 
   /**
    * The number of device pixels per desktop pixel for this screen (for

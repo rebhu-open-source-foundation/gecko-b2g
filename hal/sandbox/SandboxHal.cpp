@@ -113,7 +113,7 @@ void DisableScreenConfigurationNotifications() {
 }
 
 void GetCurrentScreenConfiguration(ScreenConfiguration* aScreenConfiguration) {
-  fallback::GetCurrentScreenConfiguration(aScreenConfiguration);
+  Hal()->SendGetCurrentScreenConfiguration(aScreenConfiguration);
 }
 
 bool LockScreenOrientation(const hal::ScreenOrientation& aOrientation) {
@@ -556,6 +556,12 @@ class HalParent : public PHalParent,
   virtual mozilla::ipc::IPCResult RecvDisableScreenConfigurationNotifications()
       override {
     hal::UnregisterScreenConfigurationObserver(this);
+    return IPC_OK();
+  }
+
+  virtual mozilla::ipc::IPCResult RecvGetCurrentScreenConfiguration(
+    ScreenConfiguration* aScreenConfiguration) override {
+    hal::GetCurrentScreenConfiguration(aScreenConfiguration);
     return IPC_OK();
   }
 

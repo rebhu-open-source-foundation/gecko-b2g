@@ -28,6 +28,12 @@ class nsBaseScreen : public nsIScreen {
                                     int32_t* outWidth,
                                     int32_t* outHeight) override;
 
+  NS_IMETHOD GetRotation(uint32_t* aRotation) override {
+    *aRotation = nsIScreen::ROTATION_0_DEG;
+    return NS_OK;
+  }
+  NS_IMETHOD SetRotation(uint32_t aRotation) override { return NS_ERROR_NOT_AVAILABLE; }
+
   NS_IMETHOD GetContentsScaleFactor(double* aContentsScaleFactor) override;
 
   NS_IMETHOD GetDefaultCSSScaleFactor(double* aScaleFactor) override;

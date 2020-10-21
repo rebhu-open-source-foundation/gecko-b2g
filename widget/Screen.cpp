@@ -119,5 +119,16 @@ Screen::GetDpi(float* aDPI) {
   return NS_OK;
 }
 
+NS_IMETHODIMP
+Screen::GetRotation(uint32_t* aRotation) {
+  *aRotation = nsIScreen::ROTATION_0_DEG;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+Screen::SetRotation(uint32_t aRotation) {
+  return NS_ERROR_NOT_AVAILABLE;
+}
+
 }  // namespace widget
 }  // namespace mozilla
