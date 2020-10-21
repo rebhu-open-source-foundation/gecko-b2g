@@ -347,20 +347,20 @@ already_AddRefed<DOMRequest> Icc::SetCardLock(
   RefPtr<DOMRequest> request = new DOMRequest(GetOwner());
   RefPtr<IccCallback> requestCallback = new IccCallback(GetOwner(), request);
 
-  if (aOptions.mEnabled) {  // TODO: fix the condition
-    // Enable card lock.
+  if (aOptions.mEnabled.IsNull()) {
+    // Change card lock password.
+    rv = mHandler->ChangeCardLockPassword(
+        static_cast<uint32_t>(aOptions.mLockType), aOptions.mPin,
+        aOptions.mNewPin, requestCallback);
+  } else {
+    // Enable/Disable card lock.
     const nsString& password = (aOptions.mLockType == IccLockType::Fdn)
                                    ? aOptions.mPin2
                                    : aOptions.mPin;
 
     rv = mHandler->SetCardLockEnabled(static_cast<uint32_t>(aOptions.mLockType),
-                                      password, aOptions.mEnabled,
+                                      password, aOptions.mEnabled.Value(),
                                       requestCallback);
-  } else {
-    // Change card lock password.
-    rv = mHandler->ChangeCardLockPassword(
-        static_cast<uint32_t>(aOptions.mLockType), aOptions.mPin,
-        aOptions.mNewPin, requestCallback);
   }
 
   if (NS_FAILED(rv)) {

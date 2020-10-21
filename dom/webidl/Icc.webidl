@@ -141,7 +141,7 @@ dictionary IccSetCardLockOptions
  DOMString? newPin = null; // Used for changing password operation.
                            // Necessary for lock types: "pin", "pin2"
 
- boolean enabled = false; // Used for enabling/disabling operation.
+ boolean? enabled = null; // Used for enabling/disabling operation.
                   // Necessary for lock types: "pin", "fdn"
 };
 
@@ -309,6 +309,9 @@ interface Icc : EventTarget
    * @param info
    *        An object containing information about the lock and
    *        how to modify its state.
+   *        {enabled: null} means ChangeCardLockPassword.
+   *        {enabled: true} means SetCardLockEnabled(true).
+   *        {enabled: false} means SetCardLockEnabled(false).
    *
    * @return a DOMRequest.
    *         The request's error will be an object containing the number of
