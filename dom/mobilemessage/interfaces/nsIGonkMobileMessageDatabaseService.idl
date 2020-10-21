@@ -150,4 +150,16 @@ interface nsIGonkMobileMessageDatabaseService : nsIMobileMessageDatabaseService
    */
   void saveSmsSegment(in jsval aSmsSegment,
                       in nsIGonkMobileMessageDatabaseConcatenationCallback aCallback);
+
+  void saveCellBroadcastMessage(in jsval aCellBroadcastMessage,
+                     [optional] in nsIGonkMobileMessageDatabaseCallback aCallback);
+
+  void getCellBroadcastMessage(in unsigned short aSerialNumber,
+                               in unsigned short aMessageIdentifier,
+                               in nsIGonkMobileMessageDatabaseRecordCallback aCallback);
+
+  void deleteCellBroadcastMessage(in unsigned short aSerialNumber,
+                                  in unsigned short aMessageIdentifier,
+                                  in nsIGonkMobileMessageDatabaseRecordCallback aCallback);
+
 };

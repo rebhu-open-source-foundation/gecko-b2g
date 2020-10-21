@@ -84,6 +84,7 @@ const PARTICIPANT_STORE_NAME = "participant";
 
 /**
  * @typedef {string} MobileMessageDB.MOST_RECENT_STORE_NAME
+ *
  * @deprecated
  */
 const MOST_RECENT_STORE_NAME = "most-recent";
@@ -94,6 +95,13 @@ const MOST_RECENT_STORE_NAME = "most-recent";
  * The name of the object store for incoming SMS segments.
  */
 const SMS_SEGMENT_STORE_NAME = "sms-segment";
+
+/**
+ * @typedef {string} MobileMessageDB.CELLBROADCAST_STORE_NAME
+ *
+ * The name of the object store for cellbroadcast message.
+ */
+const CELLBROADCAST_STORE_NAME = "cellbroadcast";
 
 const DELIVERY_SENDING = "sending";
 const DELIVERY_SENT = "sent";
@@ -382,6 +390,69 @@ this.PhoneNumberUtils = {
  */
 
 /**
+ * @typedef {Object} MobileMessageDB.CellbroadcastRecord
+ *
+ * Represents a cellbroadcast message
+ *
+ * <pre>
+ * +---------------------------------------------------------------+
+ * | CellbroadcastRecord                                           |
+ * +---------------------------------------------------------------+
+ * | id: Number (primary-key)                                      |
+ * | serialNumber: Number                                          |
+ * | messageIdentifier: Number                                     |
+ * | geographicalScope: Number                                     |
+ * | plmn: Number                                                  |
+ * | lac: Number                                                   |
+ * | cid: Number                                                   |
+ * | messageCode: Number                                           |
+ * | language: String                                              |
+ * | timestamp: Number                                             |
+ * | hash: String // Use serialNumber and messageIdentifier        |
+ * |                                                               |
+ * | [Message Body]                                                |
+ * | data: Array of Uint8 (available if it's 8bit encoding)        |
+ * | body: String                                                  |
+ * |                                                               |
+ * | [ETWS]                                                        |
+ * | warningType: Number                                           |
+ * |                                                               |
+ * | [WAC]                                                         |
+ * | geometries: {                                                 |
+ * |   polygon: {                                                  |
+ * |     type: Number                                              |
+ * |     vertices: Array of {                                      |
+ * |       latlng: {                                               |
+ * |         lat: Number                                           |
+ * |         lng: Number                                           |
+ * |       }                                                       |
+ * |     }                                                         |
+ * |     scaledVertices: Array of {                                |
+ * |       point: {                                                |
+ * |         x: Number                                             |
+ * |         y: Number                                             |
+ * |       }                                                       |
+ * |     }                                                         |
+ * |     origin: {                                                 |
+ * |       lat: Number                                             |
+ * |       lng: Number                                             |
+ * |     }                                                         |
+ * |   }                                                           |
+ * |   circle: {                                                   |
+ * |     type: Number                                              |
+ * |     center: {                                                 |
+ * |       lat: Number                                             |
+ * |       lng: Number                                             |
+ * |     }                                                         |
+ * |     radius: Number                                            |
+ * |   }                                                           |
+ * | }                                                             |
+ * | maximumWaitingTimeSec: Number                                 |
+ * +---------------------------------------------------------------+
+ * </pre>
+ */
+
+/**
  * @class MobileMessageDB
  * @classdesc
  *
@@ -607,6 +678,9 @@ MobileMessageDB.prototype = {
             break;
           case 22:
             self.upgradeSchema22(event.target.transaction, next);
+            break;
+          case 23:
+            self.upgradeSchema23(db, event.target.transaction, next);
             break;
           default:
             event.target.transaction.abort();
@@ -2106,6 +2180,18 @@ MobileMessageDB.prototype = {
         }; // End of threadMessageCursorReq.onsuccess.
       })(invalidThreadIds.shift()); // End of function redoThreading.
     }; // End of messageStore.openCursor().onsuccess
+  },
+
+  /**
+   * Add cellbroadcastStore to store cellbroadcast message.
+   */
+  upgradeSchema23(db, transaction, next) {
+    let cellBroadcastStore = db.createObjectStore(CELLBROADCAST_STORE_NAME, {
+      keyPath: "id",
+      autoIncrement: true,
+    });
+    cellBroadcastStore.createIndex("hash", "hash", { unique: true });
+    next();
   },
 
   /**
@@ -4541,6 +4627,166 @@ MobileMessageDB.prototype = {
         };
       },
       [SMS_SEGMENT_STORE_NAME]
+    );
+  },
+
+  /**
+   * Store a single cellbroadcast message
+   *
+   * @function MobileMessageDB.saveCellbroadcastMessage
+   * @param {MobileMessageDB.CellbroadcastRecord} aCellbroadcast
+   *        Single cellbroadcast message.
+   * @param {MobileMessageDB.SaveCellbroadcastCallback} aCallback.notify
+   *        The callback function to invoke when the request finishes.
+   */
+  saveCellBroadcastMessage(aCellBroadcastMessage, aCallback) {
+    if (DEBUG) {
+      debug("Save CellBroadcast Message ");
+    }
+
+    this.newTxn(
+      READ_WRITE,
+      function(error, txn, cellBroadcastStore) {
+        if (error) {
+          if (DEBUG) {
+            debug(error);
+          }
+          aCallback.notify(error, null);
+          return;
+        }
+
+        txn.oncomplete = function(event) {
+          if (DEBUG) {
+            debug("Transaction " + txn + " completed.");
+          }
+          aCallback.notify(Cr.NS_OK, aCellBroadcastMessage);
+        };
+
+        txn.onabort = function(event) {
+          if (DEBUG) {
+            debug("transaction abort due to " + event.target.error.name);
+          }
+          let error =
+            event.target.error.name === "QuotaExceededError"
+              ? Cr.NS_ERROR_FILE_NO_DEVICE_SPACE
+              : Cr.NS_ERROR_FAILURE;
+          aCallback.notify(error, null);
+        };
+
+        aCellBroadcastMessage.hash =
+          aCellBroadcastMessage.serialNumber +
+          ":" +
+          aCellBroadcastMessage.messageIdentifier;
+
+        cellBroadcastStore.add(aCellBroadcastMessage);
+      },
+      [CELLBROADCAST_STORE_NAME]
+    );
+  },
+
+  getCellBroadcastMessage(aSerialNumber, aMessageIdentifier, aCallback) {
+    let hash = aSerialNumber + ":" + aMessageIdentifier;
+    if (DEBUG) {
+      debug("get Cellbroadcast Message hash: " + hash);
+    }
+
+    this.newTxn(
+      READ_ONLY,
+      function(error, txn, cellBroadcastStore) {
+        if (error) {
+          if (DEBUG) {
+            debug(error);
+          }
+          aCallback.notify(error, null, null);
+          return;
+        }
+        let request = cellBroadcastStore.index("hash").get(hash);
+
+        txn.oncomplete = function(event) {
+          if (DEBUG) {
+            debug("Transaction " + txn + " completed.");
+          }
+          let cellBroadcastRecord = request.result;
+          if (!cellBroadcastRecord) {
+            if (DEBUG) {
+              debug("Broadcast Message: " + hash + " not found");
+            }
+            aCallback.notify(Cr.NS_ERROR_FILE_NOT_FOUND, null, null);
+            return;
+          }
+          aCallback.notify(Cr.NS_OK, cellBroadcastRecord, null);
+        };
+
+        txn.onerror = function(event) {
+          if (DEBUG) {
+            if (event.target) {
+              debug("Caught error on transaction", event.target.error.name);
+            }
+          }
+          aCallback.notify(Cr.NS_ERROR_FAILURE, null, null);
+        };
+      },
+      [CELLBROADCAST_STORE_NAME]
+    );
+  },
+
+  deleteCellBroadcastMessage(aSerialNumber, aMessageIdentifier, aCallback) {
+    let hash = aSerialNumber + ":" + aMessageIdentifier;
+    if (DEBUG) {
+      debug("Delete Cellbroadcast Message hash: " + hash);
+    }
+
+    this.newTxn(
+      READ_WRITE,
+      function(error, txn, cellBroadcastStore) {
+        if (error) {
+          if (DEBUG) {
+            debug(error);
+          }
+          aCallback.notify(error, null, null);
+          return;
+        }
+        let request = cellBroadcastStore.index("hash").get(hash);
+        let deletedRecord = {};
+
+        txn.oncomplete = function(event) {
+          if (DEBUG) {
+            debug("Transaction " + txn + " completed.");
+          }
+          if (!deletedRecord) {
+            aCallback.notify(Cr.NS_ERROR_FILE_NOT_FOUND, null, null);
+            return;
+          }
+          aCallback.notify(Cr.NS_OK, deletedRecord, null);
+        };
+
+        txn.onerror = function(event) {
+          if (DEBUG) {
+            if (event.target) {
+              debug("Caught error on transaction", event.target.error.name);
+            }
+          }
+          aCallback.notify(Cr.NS_ERROR_FAILURE, null, null);
+        };
+
+        request.onsuccess = function(event) {
+          let deletedRecord = event.target.result;
+          if (!deletedRecord) {
+            if (DEBUG) {
+              debug("Broadcast Message: " + hash + " not found");
+            }
+          } else {
+            cellBroadcastStore.delete(deletedRecord.id).onsuccess = function(
+              event
+            ) {
+              if (DEBUG) {
+                debug("Cellbroadcast Message: " + hash + " deleted");
+              }
+            };
+          }
+        };
+      },
+      [CELLBROADCAST_STORE_NAME]
     );
   },
 
