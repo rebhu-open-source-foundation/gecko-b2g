@@ -139,7 +139,7 @@ function convertToDataCallType(aNetworkType) {
     case Ci.nsINetworkInfo.NETWORK_TYPE_MOBILE_IA:
       return "ia";
     case Ci.nsINetworkInfo.NETWORK_TYPE_MOBILE_ECC:
-      return "emergency";
+      return "Emergency";
     case Ci.nsINetworkInfo.NETWORK_TYPE_MOBILE_XCAP:
       return "xcap";
     default:

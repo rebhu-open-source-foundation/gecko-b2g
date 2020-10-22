@@ -12,7 +12,7 @@ enum DataCallType {
   "hipri",
   "xcap",
   "cbs",
-  "emergency"
+  "Emergency"
 };
 
 enum DataCallState {

@@ -610,7 +610,7 @@ function convertToDataCallType(aNetworkType) {
     case NETWORK_TYPE_MOBILE_HIPRI:
       return "hipri";
     case NETWORK_TYPE_MOBILE_ECC:
-      return "emergency";
+      return "Emergency";
     default:
       return "unknown";
   }
@@ -754,7 +754,7 @@ DataCallHandler.prototype = {
         return NETWORK_TYPE_MOBILE_CBS;
       case "hipri":
         return NETWORK_TYPE_MOBILE_HIPRI;
-      case "emergency":
+      case "Emergency":
         return NETWORK_TYPE_MOBILE_ECC;
       default:
         return NETWORK_TYPE_UNKNOWN;

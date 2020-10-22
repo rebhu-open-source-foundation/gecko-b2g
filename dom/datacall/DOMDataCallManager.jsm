@@ -97,7 +97,7 @@ XPCOMUtils.defineLazyGetter(this, "gDataCallHelper", function() {
         case Ci.nsINetworkInfo.NETWORK_TYPE_MOBILE_CBS:
           return "cbs";
         case Ci.nsINetworkInfo.NETWORK_TYPE_MOBILE_ECC:
-          return "emergency";
+          return "Emergency";
         default:
           return "unknown";
       }
@@ -123,7 +123,7 @@ XPCOMUtils.defineLazyGetter(this, "gDataCallHelper", function() {
           return Ci.nsINetworkInfo.NETWORK_TYPE_MOBILE_XCAP;
         case "cbs":
           return Ci.nsINetworkInfo.NETWORK_TYPE_MOBILE_CBS;
-        case "emergency":
+        case "Emergency":
           return Ci.nsINetworkInfo.NETWORK_TYPE_MOBILE_ECC;
         default:
           return Ci.nsINetworkInfo.NETWORK_TYPE_UNKNOWN;
