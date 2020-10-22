@@ -417,6 +417,7 @@ pub enum VideoCodecSpecific {
     VPxConfig(VPxConfigBox),
     AV1Config(AV1ConfigBox),
     ESDSConfig(TryVec<u8>),
+    H263Config(TryVec<u8>),
 }
 
 #[derive(Debug)]
@@ -952,6 +953,7 @@ pub enum CodecType {
     EncryptedAudio,
     LPCM, // QT
     ALAC,
+    H263,
 }
 
 impl Default for CodecType {
@@ -2909,6 +2911,7 @@ fn read_video_sample_entry<T: Read>(src: &mut BMFFBox<T>) -> Result<SampleEntry>
         BoxType::VP9SampleEntry => CodecType::VP9,
         BoxType::AV1SampleEntry => CodecType::AV1,
         BoxType::ProtectedVisualSampleEntry => CodecType::EncryptedVideo,
+        BoxType::H263SampleEntry => CodecType::H263,
         _ => {
             debug!("Unsupported video codec, box {:?} found", name);
             CodecType::Unknown
@@ -2952,6 +2955,21 @@ fn read_video_sample_entry<T: Read>(src: &mut BMFFBox<T>) -> Result<SampleEntry>
                 debug!("{:?} (avcc)", avcc);
                 // TODO(kinetik): Parse avcC box?  For now we just stash the data.
                 codec_specific = Some(VideoCodecSpecific::AVCConfig(avcc));
+            }
+            BoxType::H263SpecificBox => {
+                if (name != BoxType::H263SampleEntry) || codec_specific.is_some()
+                {
+                    return Err(Error::InvalidData("malformed video sample entry"));
+                }
+                let h263_dec_spec_struc_size = b
+                    .head
+                    .size
+                    .checked_sub(b.head.offset)
+                    .expect("offset invalid");
+                let h263_dec_spec_struc = read_buf(&mut b.content, h263_dec_spec_struc_size)?;
+                debug!("{:?} (h263DecSpecStruc)", h263_dec_spec_struc);
+
+                codec_specific = Some(VideoCodecSpecific::H263Config(h263_dec_spec_struc));
             }
             BoxType::VPCodecConfigurationBox => {
                 // vpcC

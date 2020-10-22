@@ -32,6 +32,7 @@ static IMAGE_AVIF_CORRUPT: &str = "tests/bug-1655846.avif";
 static IMAGE_AVIF_CORRUPT_2: &str = "tests/bug-1661347.avif";
 static IMAGE_AVIF_GRID: &str = "av1-avif/testFiles/Microsoft/Summer_in_Tomsk_720p_5x4_grid.avif";
 static AVIF_TEST_DIR: &str = "av1-avif/testFiles";
+static VIDEO_H263_3GP: &str = "tests/bbb_sunflower_QCIF_30fps_h263_noaudio_1f.3gp";
 
 // Adapted from https://github.com/GuillaumeGomez/audio-video-metadata/blob/9dff40f565af71d5502e03a2e78ae63df95cfd40/src/metadata.rs#L53
 #[test]
@@ -89,6 +90,9 @@ fn public_api() {
                         }
                         mp4::VideoCodecSpecific::AV1Config(ref _av1c) => {
                             "AV1"
+                        }
+                        mp4::VideoCodecSpecific::H263Config(ref _h263) => {
+                            "H263"
                         }
                     },
                     "AVC"
@@ -671,5 +675,32 @@ fn public_avif_read_samples() {
         let context = &mut mp4::AvifContext::new();
         let input = &mut File::open(path).expect("Unknow file");
         mp4::read_avif(input, context).expect("read_avif failed");
+    }
+}
+
+#[test]
+fn public_video_h263() {
+    let mut fd = File::open(VIDEO_H263_3GP).expect("Unknown file");
+    let mut buf = Vec::new();
+    fd.read_to_end(&mut buf).expect("File error");
+
+    let mut c = Cursor::new(&buf);
+    let mut context = mp4::MediaContext::new();
+    mp4::read_mp4(&mut c, &mut context).expect("read_mp4 failed");
+    for track in context.tracks {
+        let stsd = track.stsd.expect("expected an stsd");
+        let v = match stsd.descriptions.first().expect("expected a SampleEntry") {
+            mp4::SampleEntry::Video(ref v) => v,
+            _ => panic!("expected a VideoSampleEntry"),
+        };
+        assert_eq!(v.codec_type, mp4::CodecType::H263);
+        assert_eq!(v.width, 176);
+        assert_eq!(v.height, 144);
+        let _codec_specific = match v.codec_specific {
+            mp4::VideoCodecSpecific::H263Config(_) => true,
+            _ => {
+                panic!("expected a H263Config",);
+            }
+        };
     }
 }
