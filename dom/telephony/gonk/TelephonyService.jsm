@@ -727,10 +727,12 @@ TelephonyService.prototype = {
   },
 
   _isVoWifi(aClientId) {
-    let voice = gGonkMobileConnectionService.getItemByServiceId(aClientId)
-      .voice;
-    let radioTech = RIL.GECKO_RADIO_TECH.indexOf(voice.type);
-    return radioTech == RIL.NETWORK_CREG_TECH_IWLAN;
+    let connInfo = gGonkMobileConnectionService.getItemByServiceId(aClientId)
+      .data;
+    return (
+      RIL.GECKO_RADIO_TECH.indexOf(connInfo.type) ===
+      RIL.NETWORK_CREG_TECH_IWLAN
+    );
   },
 
   // An array of nsITelephonyListener instances.
