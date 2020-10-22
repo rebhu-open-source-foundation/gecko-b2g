@@ -662,6 +662,19 @@ DOMWifiManager.prototype = {
     return request;
   },
 
+  set openNetworkNotificationEnabled(enabled) {
+    var request = this.createRequest();
+    this._sendMessageForRequest(
+      "WifiManager:setOpenNetworkNotification",
+      enabled,
+      request
+    );
+  },
+
+  get openNetworkNotificationEnabled() {
+    return Services.prefs.getBoolPref("persist.wifi.notification", false);
+  },
+
   get enabled() {
     return this._enabled;
   },

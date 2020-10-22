@@ -282,6 +282,11 @@ interface WifiManager : EventTarget {
   DOMRequest deleteCert(DOMString certNickname);
 
   /**
+   * Attribute to enable or disable open network notification.
+   */
+  attribute boolean openNetworkNotificationEnabled;
+
+  /**
    * Returns whether or not wifi is currently enabled.
    */
   readonly attribute boolean enabled;

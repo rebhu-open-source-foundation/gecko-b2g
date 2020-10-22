@@ -128,6 +128,7 @@ const ERROR_EAP_SIM_VENDOR_SPECIFIC_EXPIRED_CERT =
 const WIFIWORKER_CONTRACTID = "@mozilla.org/wifi/worker;1";
 const WIFIWORKER_CID = Components.ID("{a14e8977-d259-433a-a88d-58dd44657e5b}");
 
+const kFinalUiStartUpTopic = "final-ui-startup";
 const kXpcomShutdownChangedTopic = "xpcom-shutdown";
 const kScreenStateChangedTopic = "screen-state-changed";
 const kInterfaceAddressChangedTopic = "interface-address-change";
@@ -142,16 +143,17 @@ const kCaptivePortalLoginSuccessEvent = "captive-portal-login-success";
 
 const MAX_SUPPLICANT_LOOP_ITERATIONS = 4;
 
-// Settings DB path for wifi
-const SETTINGS_WIFI_ENABLED = "wifi.enabled";
+// Settings DB for wifi debugging
 const SETTINGS_WIFI_DEBUG_ENABLED = "wifi.debugging.enabled";
 
 // Settings DB for airplane mode.
 const SETTINGS_AIRPLANE_MODE = "airplaneMode.enabled";
 const SETTINGS_AIRPLANE_MODE_STATUS = "airplaneMode.status";
 
-// Settings DB for open network notify
-const SETTINGS_WIFI_NOTIFICATION = "wifi.notification";
+// Preference for wifi persist state
+const PREFERENCE_WIFI_ENABLED = "persist.wifi.enabled";
+// Preference for open network notification persist state
+const PREFERENCE_WIFI_NOTIFICATION = "persist.wifi.notification";
 
 // Default value for WIFI tethering.
 const DEFAULT_HOTSPOT_IP = "192.168.1.1";
@@ -2433,6 +2435,7 @@ function WifiWorker() {
     "WifiManager:deleteCert",
     "WifiManager:setWifiEnabled",
     "WifiManager:setWifiTethering",
+    "WifiManager:setOpenNetworkNotification",
     "child-process-shutdown",
   ];
 
@@ -2442,6 +2445,7 @@ function WifiWorker() {
     }.bind(this)
   );
 
+  Services.obs.addObserver(this, kFinalUiStartUpTopic);
   Services.obs.addObserver(this, kXpcomShutdownChangedTopic);
   Services.obs.addObserver(this, kScreenStateChangedTopic);
   Services.obs.addObserver(this, kInterfaceAddressChangedTopic);
@@ -3168,14 +3172,11 @@ function WifiWorker() {
   WifiManager.syncDebug();
 
   // Get settings value and initialize.
-  this.getSettings(SETTINGS_WIFI_ENABLED);
   this.getSettings(SETTINGS_WIFI_DEBUG_ENABLED);
-  this.getSettings(SETTINGS_WIFI_NOTIFICATION);
   this.getSettings(SETTINGS_AIRPLANE_MODE);
 
   // Add settings observers.
   this.addSettingsObserver(SETTINGS_WIFI_DEBUG_ENABLED);
-  this.addSettingsObserver(SETTINGS_WIFI_NOTIFICATION);
   this.addSettingsObserver(SETTINGS_AIRPLANE_MODE);
   this.addSettingsObserver(SETTINGS_AIRPLANE_MODE_STATUS);
 
@@ -3659,6 +3660,9 @@ WifiWorker.prototype = {
       case "WifiManager:setWifiTethering":
         this.setWifiTethering(msg);
         break;
+      case "WifiManager:setOpenNetworkNotification":
+        this.setOpenNetworkNotificationEnabled(msg);
+        break;
       case "WifiManager:getState": {
         if (!this._domManagers.includes(msg.manager)) {
           this._domManagers.push(msg.manager);
@@ -3907,7 +3911,7 @@ WifiWorker.prototype = {
     }
 
     // Store persist wifi state.
-    this.setSettings(SETTINGS_WIFI_ENABLED, enabled);
+    Services.prefs.setBoolPref(PREFERENCE_WIFI_ENABLED, enabled);
 
     // Make sure Wifi hotspot is idle before switching to Wifi mode.
     if (
@@ -4581,6 +4585,34 @@ WifiWorker.prototype = {
     });
   },
 
+  setOpenNetworkNotificationEnabled(msg) {
+    let enabled = msg.data;
+    Services.prefs.setBoolPref(PREFERENCE_WIFI_NOTIFICATION, enabled);
+    OpenNetworkNotifier.setOpenNetworkNotifyEnabled(enabled);
+  },
+
+  updateWifiState() {
+    let enabled = Services.prefs.getBoolPref(PREFERENCE_WIFI_ENABLED, false);
+    debug((enabled ? "Enable" : "Disable") + " wifi from preference");
+    this.handleWifiEnabled(enabled, function(ok) {
+      if (ok && WifiManager.supplicantStarted) {
+        WifiManager.supplicantConnected();
+      }
+    });
+  },
+
+  updateOpenNetworkNotification() {
+    let enabled = Services.prefs.getBoolPref(
+      PREFERENCE_WIFI_NOTIFICATION,
+      false
+    );
+    debug(
+      (enabled ? "Enable" : "Disable") +
+        " open network notification from preference"
+    );
+    OpenNetworkNotifier.setOpenNetworkNotifyEnabled(enabled);
+  },
+
   // This is a bit ugly, but works. In particular, this depends on the fact
   // that RadioManager never actually tries to get the worker from us.
   get worker() {
@@ -4592,10 +4624,10 @@ WifiWorker.prototype = {
 
     this.handleWifiEnabled(false, function() {});
     this.removeSettingsObserver(SETTINGS_WIFI_DEBUG_ENABLED);
-    this.removeSettingsObserver(SETTINGS_WIFI_NOTIFICATION);
     this.removeSettingsObserver(SETTINGS_AIRPLANE_MODE);
     this.removeSettingsObserver(SETTINGS_AIRPLANE_MODE_STATUS);
 
+    Services.obs.removeObserver(this, kFinalUiStartUpTopic);
     Services.obs.removeObserver(this, kXpcomShutdownChangedTopic);
     Services.obs.removeObserver(this, kScreenStateChangedTopic);
     Services.obs.removeObserver(this, kInterfaceAddressChangedTopic);
@@ -4652,6 +4684,10 @@ WifiWorker.prototype = {
   // nsIObserver implementation
   observe(subject, topic, data) {
     switch (topic) {
+      case kFinalUiStartUpTopic:
+        this.updateWifiState();
+        this.updateOpenNetworkNotification();
+        break;
       case kXpcomShutdownChangedTopic:
         this.shutdown();
 
@@ -4938,22 +4974,10 @@ WifiWorker.prototype = {
 
   handleSettingsChanged(aName, aValue) {
     switch (aName) {
-      case SETTINGS_WIFI_ENABLED:
-        debug((aValue ? "Enable" : "Disable") + " wifi from settings");
-        this.handleWifiEnabled(aValue, function(ok) {
-          if (ok && WifiManager.supplicantStarted) {
-            WifiManager.supplicantConnected();
-          }
-        });
-        break;
       case SETTINGS_WIFI_DEBUG_ENABLED:
         debug("'" + SETTINGS_WIFI_DEBUG_ENABLED + "' is now " + aValue);
         gDebug = aValue;
         WifiManager.syncDebug();
-        break;
-      case SETTINGS_WIFI_NOTIFICATION:
-        debug("'" + SETTINGS_WIFI_NOTIFICATION + "' is now " + aValue);
-        OpenNetworkNotifier.setOpenNetworkNotifyEnabled(aValue);
         break;
       case SETTINGS_AIRPLANE_MODE:
         debug("'" + SETTINGS_AIRPLANE_MODE + "' is now " + aValue);
