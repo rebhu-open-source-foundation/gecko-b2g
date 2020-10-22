@@ -19,14 +19,32 @@
 #include "nsIMobileDeviceIdentities.h"
 #include "nsINetworkInterface.h"
 #include "nsINetworkManager.h"
+#include "nsIRadioInterfaceLayer.h"
+
+#define MOBILEMANAGERDELEGATE_DEBUG
+
+#ifdef MOBILEMANAGERDELEGATE_DEBUG
+  static int s_mobile_debug = 1;
+# define MOBILEDEBUG(X) if (s_mobile_debug) printf_stderr("MobileManagerDelegate:%s\n", X);
+#else
+# define MOBILEDEBUG(X)
+#endif
 
 #define RETURN_IF_NULL_MSG(varname, msg) \
   if (NULL == varname) {                 \
+    MOBILEDEBUG(msg)                     \
     return NS_ERROR_FAILURE;             \
   }
 
 #define RETURN_IF_ERROR_MSG(varname, msg) \
   if (NS_OK != varname) {                 \
+    MOBILEDEBUG(msg)                      \
+    return NS_ERROR_FAILURE;              \
+  }
+
+#define RETURN_IF_EMPTY_MSG(varname, msg) \
+  if (!varname.Length()) {                \
+    MOBILEDEBUG(msg)                      \
     return NS_ERROR_FAILURE;              \
   }
 
@@ -61,9 +79,33 @@ MobileManagerDelegateService::ConstructMobileManagerDelegate() {
   return service.forget();
 }
 
+bool
+MobileManagerDelegateService::ValidateCardId(int cardId) {
+  nsCOMPtr<nsIRadioInterfaceLayer> ril = do_GetService("@mozilla.org/ril;1");
+  NS_ENSURE_TRUE(ril, false);
+
+  uint32_t numRadioInterfaces = 0;
+  nsresult rv = ril->GetNumRadioInterfaces(&numRadioInterfaces);
+  if (NS_FAILED(rv)) {
+    MOBILEDEBUG("Failed to get radio interface numbers")
+    return false;
+  }
+
+  if (cardId >= numRadioInterfaces) {
+    MOBILEDEBUG("Invalid cardId")
+    return false;
+  }
+
+  return true;
+}
+
 NS_IMETHODIMP
 MobileManagerDelegateService::GetCardInfo(int cardId, int type,
                                           nsAString& result) {
+  if (!ValidateCardId(cardId)) {
+    return NS_ERROR_FAILURE;
+  }
+
   if (CIT_IMEI == type) {  // IMEI
     nsCOMPtr<nsIMobileConnectionService> service =
         do_GetService(NS_MOBILE_CONNECTION_SERVICE_CONTRACTID);
@@ -78,6 +120,8 @@ MobileManagerDelegateService::GetCardInfo(int cardId, int type,
     RETURN_IF_NULL_MSG(deviceIdentities, "Invalid nsIMobileDeviceIdentities")
 
     RETURN_IF_ERROR_MSG(deviceIdentities->GetImei(result), "Failed to get IMEI")
+
+    RETURN_IF_EMPTY_MSG(result, "Imei is empty")
   } else {  // IMSI and MSISDN both used icc
     nsCOMPtr<nsIIccService> iccService = do_GetService(ICC_SERVICE_CONTRACTID);
 
@@ -87,6 +131,8 @@ MobileManagerDelegateService::GetCardInfo(int cardId, int type,
 
     if (CIT_IMSI == type) {  // IMSI ends here
       RETURN_IF_ERROR_MSG(icc->GetImsi(result), "Failed to get IMSI")
+
+      RETURN_IF_EMPTY_MSG(result, "Imsi is empty")
     } else {  // MSISDN should do something more
       nsCOMPtr<nsIIccInfo> iccInfo;
       RETURN_IF_ERROR_MSG(icc->GetIccInfo(getter_AddRefs(iccInfo)),
@@ -96,10 +142,14 @@ MobileManagerDelegateService::GetCardInfo(int cardId, int type,
       if (gsmIccInfo) {
         RETURN_IF_ERROR_MSG(gsmIccInfo->GetMsisdn(result),
                             "Failed to get MSISDN")
+
+        RETURN_IF_EMPTY_MSG(result, "MSISDN is empty")
       } else {
         nsCOMPtr<nsICdmaIccInfo> cdmaIccInfo = do_QueryInterface(iccInfo);
         RETURN_IF_NULL_MSG(cdmaIccInfo, "Invalid nsICdmaIccInfo")
         RETURN_IF_ERROR_MSG(cdmaIccInfo->GetMdn(result), "Failed to get MDN")
+
+        RETURN_IF_EMPTY_MSG(result, "MDN is empty")
       }
     }  // end of IMSI and MSISDN
   }    // end of IMEI and IMSI and MSISDN
@@ -110,6 +160,10 @@ MobileManagerDelegateService::GetCardInfo(int cardId, int type,
 NS_IMETHODIMP
 MobileManagerDelegateService::GetMncMcc(int cardId, bool isSim, nsAString& mnc,
                                         nsAString& mcc) {
+  if (!ValidateCardId(cardId)) {
+    return NS_ERROR_FAILURE;
+  }
+
   if (isSim) {
     // Get simcard mnc/mcc.
     nsCOMPtr<nsIIccService> iccService = do_GetService(ICC_SERVICE_CONTRACTID);

@@ -23,6 +23,8 @@ class MobileManagerDelegateService final : public nsIMobileManagerDelegate {
  private:
   MobileManagerDelegateService();
   ~MobileManagerDelegateService();
+
+  bool ValidateCardId(int aCardId);
 };
 
 }  // namespace mozilla
