@@ -35,7 +35,7 @@ help() {
 }
 
 check_commit_msg() {
-  COMMIT_MESSAGE_PATTERN="^Bug [[:digit:]]+ \- "
+  COMMIT_MESSAGE_PATTERN="^(Bug|MozBug) [[:digit:]]+ \- "
   local msg="${1}"
 
   if ! [[ ${msg} =~ ${COMMIT_MESSAGE_PATTERN} ]]; then
