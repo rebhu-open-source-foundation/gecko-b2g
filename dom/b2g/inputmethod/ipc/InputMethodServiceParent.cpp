@@ -168,6 +168,15 @@ mozilla::ipc::IPCResult InputMethodServiceParent::RecvRequest(
       service->SetSelectedOptions(request.optionIndexes());
       break;
     }
+    case InputMethodServiceRequest::TCommonRequest: {
+      IME_LOGD(
+          "InputMethodServiceParent::RecvRequest:CommonRequest");
+      const CommonRequest& request = aRequest;
+      if (request.requestName() == u"RemoveFocus"_ns) {
+        service->RemoveFocus();
+      }
+      break;
+    }
     default: {
       return IPC_FAIL(this, "Unknown InputMethodService action type.");
     }
@@ -292,6 +301,15 @@ InputMethodServiceParent::DoSetSelectedOptions(
     const nsTArray<int32_t>& aOptionIndexes) {
   IME_LOGD("InputMethodServiceParent::DoSetSelectedOptions");
   DoSetSelectedOptionsResponse response(aOptionIndexes);
+  Unused << SendResponse(response);
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+InputMethodServiceParent::DoRemoveFocus() {
+  IME_LOGD("InputMethodServiceParent::DoRemoveFocus");
+  CommonResponse response;
+  response.responseName() = u"DoRemoveFocus"_ns;
   Unused << SendResponse(response);
   return NS_OK;
 }

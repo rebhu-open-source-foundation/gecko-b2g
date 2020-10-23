@@ -33,6 +33,7 @@ class InputMethodService final : public nsISupports {
   void DeleteBackward(nsIInputMethodListener* aListener);
   void SetSelectedOption(int32_t optionIndex);
   void SetSelectedOptions(const nsTArray<int32_t>& optionIndexes);
+  void RemoveFocus();
   void HandleFocus(nsIEditableSupportListener* aListener,
                    nsIInputContext* aPropBag);
   void HandleBlur(nsIEditableSupportListener* aListener);

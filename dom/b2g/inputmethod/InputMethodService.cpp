@@ -108,6 +108,11 @@ void InputMethodService::SetSelectedOptions(
   mEditableSupportListener->DoSetSelectedOptions(aOptionIndexes);
 }
 
+void InputMethodService::RemoveFocus() {
+  IME_LOGD("InputMethodService::RemoveFocus");
+  mEditableSupportListener->DoRemoveFocus();
+}
+
 void InputMethodService::HandleFocus(nsIEditableSupportListener* aListener,
                                      nsIInputContext* aPropBag) {
   IME_LOGD("InputMethodService::HandleFocus");

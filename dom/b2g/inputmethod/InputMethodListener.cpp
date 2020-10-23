@@ -300,5 +300,24 @@ void InputMethodListener::SetSelectedOptions(
   }
 }
 
+void InputMethodListener::RemoveFocus() {
+  ContentChild* contentChild = ContentChild::GetSingleton();
+  if (contentChild) {
+    IME_LOGD("--InputMethodListener::RemoveFocus content process");
+    // Call from content process.
+    RefPtr<InputMethodServiceChild> child = new InputMethodServiceChild();
+    child->SetInputMethodListener(this);
+    contentChild->SendPInputMethodServiceConstructor(child);
+    CommonRequest request(u"RemoveFocus"_ns);
+    child->SendRequest(request);
+  } else {
+    IME_LOGD("--InputMethodListener::RemoveFocus in-process");
+    // Call from parent process (or in-proces app).
+    RefPtr<InputMethodService> service = InputMethodService::GetInstance();
+    MOZ_ASSERT(service);
+    service->RemoveFocus();
+  }
+}
+
 }  // namespace dom
 }  // namespace mozilla

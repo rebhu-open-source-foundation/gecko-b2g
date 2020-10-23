@@ -144,6 +144,13 @@ void InputMethod::SetSelectedOptions(const nsTArray<int32_t>& aOptionIndexes) {
   listener->SetSelectedOptions(aOptionIndexes);
 }
 
+void InputMethod::RemoveFocus() {
+  IME_LOGD("-- InputMethod::RemoveFocus");
+
+  RefPtr<InputMethodListener> listener = InputMethodListener::Create();
+  listener->RemoveFocus();
+}
+
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(InputMethod, mGlobal)
 NS_IMPL_CYCLE_COLLECTING_ADDREF(InputMethod)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(InputMethod)

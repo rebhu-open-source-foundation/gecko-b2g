@@ -26,4 +26,5 @@ interface nsIEditableSupportListener : nsISupports
   void DoDeleteBackward();
   void DoSetSelectedOption(in int32_t aOptionindex);
   void DoSetSelectedOptions(in Array<int32_t> aOptionindexes) ;
+  void DoRemoveFocus();
 };

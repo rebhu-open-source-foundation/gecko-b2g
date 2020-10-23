@@ -38,4 +38,10 @@ interface InputMethod {
    */
   void setSelectedOptions(sequence<long> indexes);
 
+  /**
+   * Remove focus from the current input, usable by Gaia System app, globally,
+   * regardless of the current focus state.
+   */
+  void removeFocus();
+
   };

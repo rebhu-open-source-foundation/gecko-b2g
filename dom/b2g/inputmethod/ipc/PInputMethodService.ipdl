@@ -49,6 +49,11 @@ struct SetSelectedOptionsRequest
   int32_t[] optionIndexes;
 };
 
+struct CommonRequest
+{
+  nsString requestName;
+};
+
 struct OptionDetail
 {
   bool group;
@@ -112,6 +117,7 @@ union InputMethodServiceRequest
   HandleBlurRequest;
   SetSelectedOptionRequest;
   SetSelectedOptionsRequest;
+  CommonRequest;
 };
 
 struct SetCompositionResponse
@@ -141,6 +147,12 @@ struct SendKeyResponse
 
 struct DeleteBackwardResponse
 {
+  nsresult status;
+};
+
+struct CommonResponse
+{
+  nsString responseName;
   nsresult status;
 };
 
@@ -199,6 +211,7 @@ union InputMethodServiceResponse
   DoDeleteBackwardResponse;
   DoSetSelectedOptionResponse;
   DoSetSelectedOptionsResponse;
+  CommonResponse;
 };
 
 async protocol PInputMethodService

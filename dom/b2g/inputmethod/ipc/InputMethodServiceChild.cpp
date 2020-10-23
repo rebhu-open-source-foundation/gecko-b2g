@@ -99,6 +99,14 @@ mozilla::ipc::IPCResult InputMethodServiceChild::RecvResponse(
       mEditableSupportListener->DoSetSelectedOptions(response.optionIndexes());
       break;
     }
+    case InputMethodServiceResponse::TCommonResponse: {
+      const CommonResponse& response = aResponse;
+      if (response.responseName() == u"DoRemoveFocus"_ns) {
+        mEditableSupportListener->DoRemoveFocus();
+      }
+
+      break;
+    }
     default: {
       return IPC_FAIL(this, "Unknown InputMethodService action type.");
     }

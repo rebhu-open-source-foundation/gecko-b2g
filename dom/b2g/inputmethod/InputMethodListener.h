@@ -32,6 +32,7 @@ class InputMethodListener final : public nsIInputMethodListener {
 
   void SetSelectedOption(int32_t optionIndex);
   void SetSelectedOptions(const nsTArray<int32_t>& optionIndexes);
+  void RemoveFocus();
 
  private:
   explicit InputMethodListener(Promise* aPromise);

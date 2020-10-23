@@ -408,6 +408,7 @@ GeckoEditableSupport::Observe(nsISupports* aSubject, const char* aTopic,
     mChromeEventHandler->RemoveEventListener(u"blur"_ns, this,
                                              /* useCapture = */ true);
   }
+  return NS_OK;
 }
 
 nsresult GeckoEditableSupport::NotifyIME(
@@ -814,6 +815,23 @@ GeckoEditableSupport::DoSetSelectedOptions(
     return NS_ERROR_ABORT;
   }
 
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+GeckoEditableSupport::DoRemoveFocus() {
+  IME_LOGD("-- GeckoEditableSupport::DoRemoveFocus");
+
+  nsFocusManager* focusManager = nsFocusManager::GetFocusManager();
+  if (!focusManager) return NS_ERROR_ABORT;
+  Element* focusedElement = focusManager->GetFocusedElement();
+  if (!focusedElement) return NS_ERROR_ABORT;
+
+  ErrorResult rv;
+  focusedElement->Blur(rv);
+  if (NS_WARN_IF(rv.Failed())) {
+    return rv.StealNSResult();
+  }
   return NS_OK;
 }
 

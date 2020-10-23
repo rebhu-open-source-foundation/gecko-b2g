@@ -43,6 +43,7 @@ class InputMethod final : public nsISupports, public nsWrapperCache {
   void SetSelectedOption(int32_t optionIndex);
   void SetSelectedOptions(const nsTArray<int32_t>& optionIndexes);
 
+  void RemoveFocus();
  protected:
   ~InputMethod() = default;
 
