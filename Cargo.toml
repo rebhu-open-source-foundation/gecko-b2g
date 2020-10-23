@@ -75,7 +75,7 @@ failure_derive = { git = "https://github.com/badboy/failure", rev = "64af847bc5f
 
 [patch.'https://github.com/mozilla/mp4parse-rust']
 # Overwrite third_party/rust/mp4parse and third_party/rust/mp4parse_capi/,
-# because we add H.263 support to it.
+# because we add H.263 and AMR support to it.
 mp4parse = { path = "media/mp4parse-rust/mp4parse"}
 mp4parse_capi = { path = "media/mp4parse-rust/mp4parse_capi"}
 

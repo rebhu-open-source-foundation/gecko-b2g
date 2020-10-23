@@ -398,6 +398,7 @@ pub enum AudioCodecSpecific {
     ALACSpecificBox(ALACSpecificBox),
     MP3,
     LPCM,
+    AMRSpecificBox(TryVec<u8>),
 }
 
 #[derive(Debug)]
@@ -954,6 +955,7 @@ pub enum CodecType {
     LPCM, // QT
     ALAC,
     H263,
+    AMR,
 }
 
 impl Default for CodecType {
@@ -3160,6 +3162,22 @@ fn read_audio_sample_entry<T: Read>(src: &mut BMFFBox<T>) -> Result<SampleEntry>
                 debug!("{:?} (sinf)", sinf);
                 codec_type = CodecType::EncryptedAudio;
                 protection_info.push(sinf)?;
+            }
+            BoxType::AMRSpecificBox => {
+                if (name != BoxType::AMRNBSampleEntry && name != BoxType::AMRWBSampleEntry)
+                    || codec_specific.is_some()
+                {
+                    return Err(Error::InvalidData("malformed audio sample entry"));
+                }
+                let amr_dec_spec_struc_size = b
+                    .head
+                    .size
+                    .checked_sub(b.head.offset)
+                    .expect("offset invalid");
+                let amr_dec_spec_struc = read_buf(&mut b.content, amr_dec_spec_struc_size)?;
+                debug!("{:?} (h263DecSpecStruc)", amr_dec_spec_struc);
+                codec_type = CodecType::AMR;
+                codec_specific = Some(AudioCodecSpecific::AMRSpecificBox(amr_dec_spec_struc));
             }
             _ => {
                 debug!("Unsupported audio codec, box {:?} found", b.head.name);

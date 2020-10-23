@@ -33,6 +33,7 @@ static IMAGE_AVIF_CORRUPT_2: &str = "tests/bug-1661347.avif";
 static IMAGE_AVIF_GRID: &str = "av1-avif/testFiles/Microsoft/Summer_in_Tomsk_720p_5x4_grid.avif";
 static AVIF_TEST_DIR: &str = "av1-avif/testFiles";
 static VIDEO_H263_3GP: &str = "tests/bbb_sunflower_QCIF_30fps_h263_noaudio_1f.3gp";
+static AUDIO_AMRNB_3GP: &str = "tests/bbb_sunflower_amrnb_1s.3gp";
 
 // Adapted from https://github.com/GuillaumeGomez/audio-video-metadata/blob/9dff40f565af71d5502e03a2e78ae63df95cfd40/src/metadata.rs#L53
 #[test]
@@ -147,6 +148,9 @@ fn public_api() {
                         }
                         mp4::AudioCodecSpecific::LPCM => {
                             "LPCM"
+                        }
+                        mp4::AudioCodecSpecific::AMRSpecificBox(_) => {
+                            "AMR"
                         }
                     },
                     "ES"
@@ -700,6 +704,31 @@ fn public_video_h263() {
             mp4::VideoCodecSpecific::H263Config(_) => true,
             _ => {
                 panic!("expected a H263Config",);
+            }
+        };
+    }
+}
+
+#[test]
+fn public_audio_amrnb() {
+    let mut fd = File::open(AUDIO_AMRNB_3GP).expect("Unknown file");
+    let mut buf = Vec::new();
+    fd.read_to_end(&mut buf).expect("File error");
+
+    let mut c = Cursor::new(&buf);
+    let mut context = mp4::MediaContext::new();
+    mp4::read_mp4(&mut c, &mut context).expect("read_mp4 failed");
+    for track in context.tracks {
+        let stsd = track.stsd.expect("expected an stsd");
+        let a = match stsd.descriptions.first().expect("expected a SampleEntry") {
+            mp4::SampleEntry::Audio(ref v) => v,
+            _ => panic!("expected a AudioSampleEntry"),
+        };
+        assert_eq!(a.codec_type, mp4::CodecType::AMR);
+        let _codec_specific = match a.codec_specific {
+            mp4::AudioCodecSpecific::AMRSpecificBox(_) => true,
+            _ => {
+                panic!("expected a AMRSpecificBox",);
             }
         };
     }
