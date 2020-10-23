@@ -627,9 +627,8 @@ convert_stream_type_to_sl_stream(cubeb_stream_type stream_type)
     return SL_ANDROID_STREAM_VOICE;
   case CUBEB_STREAM_TYPE_RING:
     return SL_ANDROID_STREAM_RING;
-  // FIXME: SL_ANDROID_STREAM_SYSTEM_ENFORCED not defined
-  // case CUBEB_STREAM_TYPE_SYSTEM_ENFORCED:
-  //   return SL_ANDROID_STREAM_SYSTEM_ENFORCED;
+  case CUBEB_STREAM_TYPE_SYSTEM_ENFORCED:
+    return SL_ANDROID_STREAM_SYSTEM_ENFORCED;
   default:
     LOG("Unknown cubeb stream type %d, use media stream", stream_type);
     return SL_ANDROID_STREAM_MEDIA;
