@@ -92,19 +92,18 @@ const HW_DEFAULT_CLIENT_ID = 0;
 const ICC_MAX_LINEAR_FIXED_RECORDS = 0xfe;
 
 // set to true in ril_consts.js to see debug messages
-//var DEBUG = RIL_DEBUG.DEBUG_RIL;
-var DEBUG = true;
+var DEBUG = RIL_DEBUG.DEBUG_RIL;
 
 function updateDebugFlag() {
   // Read debug setting from pref
-  /*let debugPref;
+  let debugPref;
   try {
-    debugPref = Services.prefs.getBoolPref(RIL_DEBUG.PREF_RIL_DEBUG_ENABLED);
+    debugPref =
+      debugPref || Services.prefs.getBoolPref(RIL_DEBUG.PREF_RIL_DEBUG_ENABLED);
   } catch (e) {
     debugPref = false;
-  }*/
-  //DEBUG = RIL_DEBUG.DEBUG_RIL || debugPref;
-  DEBUG = true;
+  }
+  DEBUG = RIL_DEBUG.DEBUG_RIL || debugPref;
 }
 updateDebugFlag();
 
@@ -560,7 +559,6 @@ RadioInterfaceLayer.prototype = {
       case NS_PREFBRANCH_PREFCHANGE_TOPIC_ID:
         if (data === RIL_DEBUG.PREF_RIL_DEBUG_ENABLED) {
           updateDebugFlag();
-          this.setWorkerDebugFlag(DEBUG);
         }
         break;
     }

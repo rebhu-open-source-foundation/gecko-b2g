@@ -489,14 +489,18 @@ DataCallManager.prototype = {
     }
 
     if (gSettingsManager) {
-      this.debug("get " + aKey + " setting.");
+      if (DEBUG) {
+        this.debug("get " + aKey + " setting.");
+      }
       let self = this;
       gSettingsManager.get(aKey, {
         resolve: info => {
           self.observeSetting(info);
         },
         reject: () => {
-          self.debug("get " + aKey + " failed.");
+          if (DEBUG) {
+            self.debug("get " + aKey + " failed.");
+          }
         },
       });
     }
@@ -507,16 +511,22 @@ DataCallManager.prototype = {
     }
 
     if (gSettingsManager) {
-      this.debug(
-        "set " + aKey + " setting with value = " + JSON.stringify(aValue)
-      );
+      if (DEBUG) {
+        this.debug(
+          "set " + aKey + " setting with value = " + JSON.stringify(aValue)
+        );
+      }
       let self = this;
       gSettingsManager.set([{ name: aKey, value: JSON.stringify(aValue) }], {
         resolve: () => {
-          self.debug(" Set " + aKey + " succedded. ");
+          if (DEBUG) {
+            self.debug(" Set " + aKey + " succedded. ");
+          }
         },
         reject: () => {
-          self.debug("Set " + aKey + " failed.");
+          if (DEBUG) {
+            self.debug("Set " + aKey + " failed.");
+          }
         },
       });
     }
@@ -529,14 +539,20 @@ DataCallManager.prototype = {
     }
 
     if (gSettingsManager) {
-      this.debug("add " + aKey + " setting observer.");
+      if (DEBUG) {
+        this.debug("add " + aKey + " setting observer.");
+      }
       let self = this;
       gSettingsManager.addObserver(aKey, this, {
         resolve: () => {
-          self.debug("observed " + aKey + " successed.");
+          if (DEBUG) {
+            self.debug("observed " + aKey + " successed.");
+          }
         },
         reject: () => {
-          self.debug("observed " + aKey + " failed.");
+          if (DEBUG) {
+            self.debug("observed " + aKey + " failed.");
+          }
         },
       });
     }
@@ -548,14 +564,20 @@ DataCallManager.prototype = {
     }
 
     if (gSettingsManager) {
-      this.debug("remove " + aKey + " setting observer.");
+      if (DEBUG) {
+        this.debug("remove " + aKey + " setting observer.");
+      }
       let self = this;
       gSettingsManager.removeObserver(aKey, this, {
         resolve: () => {
-          self.debug("remove observer " + aKey + " successed.");
+          if (DEBUG) {
+            self.debug("remove observer " + aKey + " successed.");
+          }
         },
         reject: () => {
-          self.debug("remove observer " + aKey + " failed.");
+          if (DEBUG) {
+            self.debug("remove observer " + aKey + " failed.");
+          }
         },
       });
     }
@@ -917,10 +939,6 @@ DataCallHandler.prototype = {
       this._pengingApnSettings = aNewApnSettings;
       return;
     }
-
-    console.log(
-      "updateApnSettings.  aNewApnSettings= " + JSON.stringify(aNewApnSettings)
-    );
 
     this._pendingApnSettings = aNewApnSettings;
     this.setInitialAttachApn(this._pendingApnSettings);

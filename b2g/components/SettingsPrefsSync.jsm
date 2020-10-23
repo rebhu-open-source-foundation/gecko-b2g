@@ -54,8 +54,35 @@ const kSettingsToObserve = {
   "apz.overscroll.enabled": true,
   "browser.safebrowsing.enabled": true,
   "browser.safebrowsing.malware.enabled": true,
+  "mms.debugging.enabled": false,
+  "network.debugging.enabled": false,
   "privacy.donottrackheader.enabled": false,
   "privacy.trackingprotection.enabled": false,
+  "ril.debugging.enabled": false,
+  "ril.mms.requestReadReport.enabled": {
+    prefName: "dom.mms.requestReadReport",
+    defaultValue: true,
+  },
+  "ril.mms.requestStatusReport.enabled": {
+    prefName: "dom.mms.requestStatusReport",
+    defaultValue: false,
+  },
+  "ril.mms.retrieval_mode": {
+    prefName: "dom.mms.retrieval_mode",
+    defaultValue: "manual",
+  },
+  "ril.sms.requestStatusReport.enabled": {
+    prefName: "dom.sms.requestStatusReport",
+    defaultValue: false,
+  },
+  "ril.sms.strict7BitEncoding.enabled": {
+    prefName: "dom.sms.strict7BitEncoding",
+    defaultValue: false,
+  },
+  "ril.sms.maxReadAheadEntries": {
+    prefName: "dom.sms.maxReadAheadEntries",
+    defaultValue: 7,
+  },
   "ui.prefers.color-theme": {
     prefName: "ui.systemUsesDarkTheme",
     defaultValue: 0,
