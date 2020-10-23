@@ -180,6 +180,8 @@ MediaResult MP4AudioInfo::Update(const Mp4parseTrackInfo* track,
     mMimeType = "audio/flac"_ns;
   } else if (codecType == MP4PARSE_CODEC_MP3) {
     mMimeType = "audio/mpeg"_ns;
+  } else if (codecType == MP4PARSE_CODEC_AMR) {
+    mMimeType = "audio/3gpp"_ns;
   }
 
   mRate = audio->sample_info[0].sample_rate;

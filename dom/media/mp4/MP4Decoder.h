@@ -43,6 +43,11 @@ class MP4Decoder {
   // space matters.
   static bool IsAAC(const nsACString& aMimeType);
 
+  // Return true if aMimeType is one of the strings used by our demuxers to
+  // identify AMR. Does not parse general content type strings, i.e. white
+  // space matters.
+  static bool IsAMR(const nsACString& aMimeType);
+
   // Returns true if the MP4 backend is preffed on.
   static bool IsEnabled();
 

@@ -209,6 +209,12 @@ bool MP4Decoder::IsAAC(const nsACString& aMimeType) {
 }
 
 /* static */
+bool MP4Decoder::IsAMR(const nsACString& aMimeType) {
+  return aMimeType.EqualsLiteral("audio/3gpp") ||
+         aMimeType.EqualsLiteral("audio/amr-wb");
+}
+
+/* static */
 bool MP4Decoder::IsEnabled() { return StaticPrefs::media_mp4_enabled(); }
 
 /* static */
