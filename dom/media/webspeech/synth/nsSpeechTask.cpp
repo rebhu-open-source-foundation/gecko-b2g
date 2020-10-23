@@ -421,12 +421,13 @@ void nsSpeechTask::Cancel() {
                          "Unable to call onCancel() callback");
   }
 
-  if (mStream) {
-    mStream->Suspend();
-  }
-
   if (!mInited) {
     mPreCanceled = true;
+  }
+
+  if (mStream) {
+    mStream->Suspend();
+    DispatchEnd(GetCurrentTime(), GetCurrentCharOffset());
   }
 }
 
