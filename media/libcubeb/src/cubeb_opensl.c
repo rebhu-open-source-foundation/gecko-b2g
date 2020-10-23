@@ -1226,7 +1226,13 @@ opensl_configure_playback(cubeb_stream * stm, cubeb_stream_params * params) {
           streamType, res);
     }
 
+#ifdef MOZ_WIDGET_GONK
+    // Default to SL_ANDROID_PERFORMANCE_LATENCY_EFFECTS to make sure primary
+    // output is used.
+    SLuint32 performanceMode = SL_ANDROID_PERFORMANCE_LATENCY_EFFECTS;
+#else
     SLuint32 performanceMode = SL_ANDROID_PERFORMANCE_LATENCY;
+#endif
     if (stm->buffer_size_frames > POWERSAVE_LATENCY_FRAMES_THRESHOLD) {
       performanceMode = SL_ANDROID_PERFORMANCE_POWER_SAVING;
     }
