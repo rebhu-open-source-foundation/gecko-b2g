@@ -2,15 +2,11 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::common::sidl_task::*;
 use crate::services::bridge::messages::SimContactInfo;
 use log::debug;
 use nserror::{nsresult, NS_ERROR_NOT_IMPLEMENTED, NS_OK};
 use nsstring::*;
-use xpcom::{
-    interfaces::{nsISidlEventListener, nsISupports},
-    RefPtr,
-};
+use xpcom::RefPtr;
 
 // XPCOM implementation of nsISimContactInfo, used to dispatch SimContactInfo to events and observers.
 #[derive(xpcom)]
@@ -28,10 +24,10 @@ impl SimContactInfoXpcom {
         debug!("SimContactInfoXpcom::new");
 
         Self::allocate(InitSimContactInfoXpcom {
-           id: nsString::from(&contact.id),
-           tel: nsString::from(&contact.tel),
-           email: nsString::from(&contact.email),
-           name: nsString::from(&contact.name),
+            id: nsString::from(&contact.id),
+            tel: nsString::from(&contact.tel),
+            email: nsString::from(&contact.email),
+            name: nsString::from(&contact.name),
         })
     }
     xpcom_method!(set_id => SetId(aId: *const nsAString));
