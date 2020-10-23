@@ -397,7 +397,7 @@ XPCOMUtils.defineLazyGetter(this, "Screenshot", function() {
       Services.obs.addObserver((subject, topic, data) => {
         _webembed_log(`receive captive-portal-login: ${data}`);
         this.dispatchEvent(
-          new CustomEvent("captive-portal-login", { detail: data })
+          new CustomEvent("captive-portal-login-request", { detail: data })
         );
       }, "captive-portal-login");
 
@@ -405,7 +405,7 @@ XPCOMUtils.defineLazyGetter(this, "Screenshot", function() {
         _webembed_log(`receive captive-portal-login-abort: ${data}`);
         this.dispatchEvent(
           new CustomEvent("captive-portal-login-result", {
-            detail: { result: 0, id: data.id },
+            detail: { result: false, id: data.id },
           })
         );
       }, "captive-portal-login-abort");
@@ -414,7 +414,7 @@ XPCOMUtils.defineLazyGetter(this, "Screenshot", function() {
         _webembed_log(`receive captive-portal-login-success: ${data}`);
         this.dispatchEvent(
           new CustomEvent("captive-portal-login-result", {
-            detail: { result: 1, id: data.id },
+            detail: { result: true, id: data.id },
           })
         );
       }, "captive-portal-login-success");
