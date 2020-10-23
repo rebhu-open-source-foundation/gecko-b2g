@@ -16,9 +16,9 @@ GonkDecoderModule::GonkDecoderModule() {}
 GonkDecoderModule::~GonkDecoderModule() {}
 
 /* static */
-GonkDecoderModule* GonkDecoderModule::Create() {
+already_AddRefed<PlatformDecoderModule> GonkDecoderModule::Create() {
   if (Init()) {
-    return new GonkDecoderModule();
+    return MakeAndAddRef<GonkDecoderModule>();
   }
   return nullptr;
 }

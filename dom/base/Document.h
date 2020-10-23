@@ -25,6 +25,7 @@
 #include "nsIChannelEventSink.h"
 #include "nsIProgressEventSink.h"
 #include "nsIRadioGroupContainer.h"
+#include "nsIScriptGlobalObject.h"
 #include "nsIScriptObjectPrincipal.h"
 #include "nsIURI.h"                 // for use in inline functions
 #include "nsIWeakReferenceUtils.h"  // for nsWeakPtr
@@ -106,7 +107,6 @@ class nsILayoutHistoryState;
 class nsIObjectLoadingContent;
 class nsIRequest;
 class nsIRunnable;
-class nsIScriptGlobalObject;
 class nsISecurityConsoleMessage;
 class nsIStructuredCloneContainer;
 class nsIVariant;
@@ -5116,6 +5116,9 @@ class Document : public nsINode,
 
   // Accumulate JS telemetry collected
   void AccumulateJSTelemetry();
+
+  // Accumulate page load metrics
+  void AccumulatePageLoadTelemetry();
 
  public:
   // Needs to be public because the bindings code pokes at it.

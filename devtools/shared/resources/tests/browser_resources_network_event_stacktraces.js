@@ -14,7 +14,7 @@ const TEST_URI = `${URL_ROOT_SSL}network_document.html`;
 const REQUEST_STUB = {
   code: `await fetch("/request_post_0.html", { method: "POST" });`,
   expected: {
-    stacktrace: true,
+    stacktraceAvailable: true,
     lastFrame: {
       filename:
         "https://example.com/browser/devtools/shared/resources/tests/network_document.html",
@@ -39,11 +39,9 @@ add_task(async function() {
 
 async function testNetworkEventStackTraceResources(requestStub) {
   const tab = await addTab(TEST_URI);
-  const {
-    client,
-    resourceWatcher,
-    targetList,
-  } = await initResourceWatcherAndTarget(tab);
+  const { client, resourceWatcher, targetList } = await initResourceWatcher(
+    tab
+  );
 
   const networkEvents = new Map();
   const stackTraces = new Map();

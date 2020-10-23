@@ -3227,7 +3227,8 @@ nsDocShell::SetDeviceSizeIsPageSize(bool aValue) {
     RefPtr<nsPresContext> presContext = GetPresContext();
     if (presContext) {
       presContext->MediaFeatureValuesChanged(
-          {MediaFeatureChangeReason::DeviceSizeIsPageSizeChange});
+          {MediaFeatureChangeReason::DeviceSizeIsPageSizeChange},
+          MediaFeatureChangePropagation::JustThisDocument);
     }
   }
   return NS_OK;
@@ -7195,7 +7196,7 @@ nsresult nsDocShell::RestorePresentation(nsISHEntry* aSHEntry,
   // to the event loop.  This mimics the way it is called by nsIChannel
   // implementations.
 
-  // Revoke any pending restore (just in case)
+  // Revoke any pending restore (just in case).
   NS_ASSERTION(!mRestorePresentationEvent.IsPending(),
                "should only have one RestorePresentationEvent");
   mRestorePresentationEvent.Revoke();
@@ -9338,7 +9339,7 @@ nsresult nsDocShell::InternalLoad(nsDocShellLoadState* aLoadState,
       nsID historyID = {};
       aLoadState->SHEntry()->GetDocshellID(historyID);
 
-      MOZ_ALWAYS_SUCCEEDS(mBrowsingContext->SetHistoryID(historyID));
+      Unused << mBrowsingContext->SetHistoryID(historyID);
     }
   }
 
@@ -11133,7 +11134,7 @@ nsresult nsDocShell::UpdateURLAndHistory(Document* aDocument, nsIURI* aNewURI,
                         /* aPreviousScrollPos = */ Some(scrollPos), aNewURI,
                         /* aOriginalURI = */ nullptr,
                         /* aTriggeringPrincipal = */ aDocument->NodePrincipal(),
-                        csp, title, Some(scrollRestorationIsManual), aData,
+                        csp, title, scrollRestorationIsManual, aData,
                         uriWasModified);
     } else {
       // Since we're not changing which page we have loaded, pass
@@ -11180,7 +11181,8 @@ nsresult nsDocShell::UpdateURLAndHistory(Document* aDocument, nsIURI* aNewURI,
     UpdateActiveEntry(
         true, /* aPreviousScrollPos = */ Nothing(), aNewURI, aNewURI,
         aDocument->NodePrincipal(), aDocument->GetCsp(), title,
-        /* aScrollRestorationIsManual = */ Nothing(), aData, uriWasModified);
+        mActiveEntry && mActiveEntry->GetScrollRestorationIsManual(), aData,
+        uriWasModified);
   } else {
     // Step 3.
     newSHEntry = mOSHE;
@@ -11599,8 +11601,8 @@ void nsDocShell::UpdateActiveEntry(
     bool aReplace, const Maybe<nsPoint>& aPreviousScrollPos, nsIURI* aURI,
     nsIURI* aOriginalURI, nsIPrincipal* aTriggeringPrincipal,
     nsIContentSecurityPolicy* aCsp, const nsAString& aTitle,
-    const Maybe<bool>& aScrollRestorationIsManual,
-    nsIStructuredCloneContainer* aData, bool aURIWasModified) {
+    bool aScrollRestorationIsManual, nsIStructuredCloneContainer* aData,
+    bool aURIWasModified) {
   MOZ_ASSERT(mozilla::SessionHistoryInParent());
   MOZ_ASSERT(aURI, "uri is null");
   MOZ_ASSERT(mLoadType == LOAD_PUSHSTATE,
@@ -11630,10 +11632,7 @@ void nsDocShell::UpdateActiveEntry(
   mActiveEntry->SetTitle(aTitle);
   mActiveEntry->SetStateData(static_cast<nsStructuredCloneContainer*>(aData));
   mActiveEntry->SetURIWasModified(aURIWasModified);
-  if (aScrollRestorationIsManual.isSome()) {
-    mActiveEntry->SetScrollRestorationIsManual(
-        aScrollRestorationIsManual.value());
-  }
+  mActiveEntry->SetScrollRestorationIsManual(aScrollRestorationIsManual);
 
   if (replace) {
     mBrowsingContext->ReplaceActiveSessionHistoryEntry(mActiveEntry.get());

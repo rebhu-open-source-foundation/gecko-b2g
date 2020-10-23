@@ -70,11 +70,6 @@ TEST_SUITES = {
         'mach_command': 'firefox-ui-update',
         'kwargs': {},
     },
-    'check-spidermonkey': {
-        'aliases': ('sm',),
-        'mach_command': 'check-spidermonkey',
-        'kwargs': {'valgrind': False},
-    },
     # TODO(ato): integrate geckodriver tests with moz.build
     'geckodriver': {
         'aliases': ('testing/geckodriver',),
@@ -195,7 +190,7 @@ TEST_SUITES = {
         'build_flavor': 'reftest',
         'mach_command': 'reftest',
         'kwargs': {'tests': None},
-        'task_regex': ['(opt|debug)-reftest($|.*(-1|[^0-9])$)',
+        'task_regex': ['(opt|debug)(-geckoview)?-reftest($|.*(-1|[^0-9])$)',
                        'test-verify-gpu($|.*(-1|[^0-9])$)'],
     },
     'reftest-qr': {
@@ -203,7 +198,7 @@ TEST_SUITES = {
         'build_flavor': 'reftest',
         'mach_command': 'reftest',
         'kwargs': {'tests': None},
-        'task_regex': ['(opt|debug)-reftest-qr($|.*(-1|[^0-9])$)',
+        'task_regex': ['(opt|debug)(-geckoview)?-reftest-qr($|.*(-1|[^0-9])$)',
                        'test-verify-gpu($|.*(-1|[^0-9])$)'],
     },
     'robocop': {

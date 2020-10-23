@@ -22,6 +22,11 @@ loader.lazyRequireGetter(
   Targets.TYPES.FRAME,
   "devtools/server/actors/watcher/target-helpers/frame-helper"
 );
+loader.lazyRequireGetter(
+  TARGET_HELPERS,
+  Targets.TYPES.PROCESS,
+  "devtools/server/actors/watcher/target-helpers/process-helper"
+);
 
 exports.WatcherActor = protocol.ActorClassWithSpec(watcherSpec, {
   /**
@@ -93,7 +98,9 @@ exports.WatcherActor = protocol.ActorClassWithSpec(watcherSpec, {
       actor: this.actorID,
       traits: {
         // FF77+ supports frames in Watcher actor
-        frame: true,
+        [Targets.TYPES.FRAME]: true,
+        // FF83+ supports processes
+        [Targets.TYPES.PROCESS]: true,
         resources: {
           // FF81+ (bug 1642295) added support for:
           // - CONSOLE_MESSAGE
@@ -116,6 +123,8 @@ exports.WatcherActor = protocol.ActorClassWithSpec(watcherSpec, {
           [Resources.TYPES.ERROR_MESSAGE]: hasBrowserElement,
           [Resources.TYPES.PLATFORM_MESSAGE]: true,
           [Resources.TYPES.NETWORK_EVENT]:
+            enableServerWatcher && hasBrowserElement,
+          [Resources.TYPES.NETWORK_EVENT_STACKTRACE]:
             enableServerWatcher && hasBrowserElement,
           [Resources.TYPES.STYLESHEET]:
             enableServerWatcher && hasBrowserElement,

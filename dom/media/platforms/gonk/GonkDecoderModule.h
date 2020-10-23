@@ -14,7 +14,7 @@ namespace mozilla {
 class GonkDecoderModule : public PlatformDecoderModule {
  public:
   // Called on main thread.
-  static GonkDecoderModule* Create();
+  static already_AddRefed<PlatformDecoderModule> Create();
 
   GonkDecoderModule();
   virtual ~GonkDecoderModule();

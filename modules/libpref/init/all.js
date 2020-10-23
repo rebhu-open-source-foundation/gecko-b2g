@@ -668,11 +668,7 @@ pref("gfx.webrender.debug.gpu-time-queries", false);
 pref("gfx.webrender.debug.gpu-sample-queries", false);
 pref("gfx.webrender.debug.disable-batching", false);
 pref("gfx.webrender.debug.epochs", false);
-pref("gfx.webrender.debug.compact-profiler", false);
-pref("gfx.webrender.debug.smart-profiler", false);
 pref("gfx.webrender.debug.echo-driver-messages", false);
-pref("gfx.webrender.debug.new-frame-indicator", false);
-pref("gfx.webrender.debug.new-scene-indicator", false);
 pref("gfx.webrender.debug.show-overdraw", false);
 pref("gfx.webrender.debug.slow-frame-indicator", false);
 pref("gfx.webrender.debug.picture-caching", false);
@@ -682,6 +678,7 @@ pref("gfx.webrender.debug.small-screen", false);
 pref("gfx.webrender.debug.obscure-images", false);
 pref("gfx.webrender.debug.glyph-flashing", false);
 pref("gfx.webrender.debug.capture-profiler", false);
+pref("gfx.webrender.debug.profiler-ui", "Default");
 
 
 pref("accessibility.warn_on_browsewithcaret", true);
@@ -1953,8 +1950,6 @@ pref("network.proxy.socks_port",            0);
 pref("network.proxy.socks_version",         5);
 pref("network.proxy.proxy_over_tls",        true);
 pref("network.proxy.no_proxies_on",         "");
-// Set true to allow resolving proxy for localhost
-pref("network.proxy.allow_hijacking_localhost", false);
 pref("network.proxy.failover_timeout",      1800); // 30 minutes
 pref("network.online",                      true); //online/offline
 
@@ -2591,7 +2586,7 @@ pref("browser.tabs.remote.autostart", false);
 // any session can contain a mix of Fission and non-Fission windows. Instead,
 // callers should check whether the relevant nsILoadContext has the
 // `useRemoteSubframes` flag set.
-#if defined(RELEASE_OR_BETA) || defined(MOZ_WIDGET_ANDROID)
+#if defined(RELEASE_OR_BETA)
   pref("fission.autostart", false, locked);
 #else
   pref("fission.autostart", false);

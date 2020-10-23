@@ -177,7 +177,7 @@ class PrintHelper {
       supportsColor: Promise.resolve(true),
       supportsMonochrome: Promise.resolve(true),
       paperList: Promise.resolve([]),
-      createDefaultSettings: name => {
+      createDefaultSettings: () => {
         let settings = PSSVC.newPrintSettings;
         for (let [key, value] of Object.entries(defaultSettings)) {
           settings[key] = value;
@@ -259,8 +259,11 @@ class PrintHelper {
     EventUtils.sendString(text, this.win);
   }
 
-  async openMoreSettings() {
-    this.click(this.get("more-settings").firstElementChild);
+  async openMoreSettings(options) {
+    let details = this.get("more-settings");
+    if (!details.open) {
+      this.click(details.firstElementChild, options);
+    }
     await this.awaitAnimationFrame();
   }
 

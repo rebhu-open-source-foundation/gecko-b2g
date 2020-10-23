@@ -287,7 +287,7 @@ nsresult AudioStream::Init(uint32_t aNumChannels,
   params.channels = mOutChannels;
   params.layout = static_cast<uint32_t>(aChannelMap);
   params.format = ToCubebFormat<AUDIO_OUTPUT_FORMAT>::value;
-  params.prefs = CubebUtils::GetDefaultStreamPrefs();
+  params.prefs = CubebUtils::GetDefaultStreamPrefs(CUBEB_DEVICE_TYPE_OUTPUT);
 #if defined(__ANDROID__)
 #  if defined(MOZ_B2G)
   params.stream_type = CubebUtils::ConvertChannelToCubebType(aAudioChannel);

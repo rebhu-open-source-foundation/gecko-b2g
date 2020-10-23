@@ -58,7 +58,7 @@ bool CubebLatencyPrefSet();
 cubeb_stream_type ConvertChannelToCubebType(dom::AudioChannel aChannel);
 #  endif
 void GetCurrentBackend(nsAString& aBackend);
-cubeb_stream_prefs GetDefaultStreamPrefs();
+cubeb_stream_prefs GetDefaultStreamPrefs(cubeb_device_type aType);
 char* GetForcedOutputDevice();
 // No-op on all platforms but Android, where it tells the device's AudioManager
 // to switch to "communication mode", which might change audio routing,

@@ -13,12 +13,14 @@ from __future__ import absolute_import, print_function
 
 import argparse
 import errno
+import glob
 import hashlib
 import os
 import shutil
 import subprocess
 from contextlib import contextmanager
 import tarfile
+import tempfile
 
 import requests
 import pytoml as toml
@@ -181,17 +183,19 @@ def verify_sha(filename, sha):
     return False
 
 
-def fetch(url):
+def fetch(url, validate=True):
     '''Download and verify a package url.'''
     base = os.path.basename(url)
     log('Fetching %s...' % base)
-    fetch_file(url + '.asc')
-    fetch_file(url + '.sha256')
+    if validate:
+        fetch_file(url + '.asc')
+        fetch_file(url + '.sha256')
     sha = fetch_file(url)
-    log('Verifying %s...' % base)
-    verify_sha(base, sha)
-    subprocess.check_call(['gpg', '--keyid-format', '0xlong',
-                           '--verify', base + '.asc', base])
+    if validate:
+        log('Verifying %s...' % base)
+        verify_sha(base, sha)
+        subprocess.check_call(['gpg', '--keyid-format', '0xlong',
+                               '--verify', base + '.asc', base])
     return sha
 
 
@@ -219,6 +223,9 @@ def package(manifest, pkg, target):
         # rust-src is the same for all targets, and has a literal '*' in the
         # section key/name instead of a target
         info = manifest['pkg'][pkg]['target']['*']
+    if 'xz_url' in info:
+        info['url'] = info.pop('xz_url')
+        info['hash'] = info.pop('xz_hash')
     return (version, info)
 
 
@@ -226,11 +233,11 @@ def fetch_package(manifest, pkg, host):
     version, info = package(manifest, pkg, host)
     if not info['available']:
         log('%s marked unavailable for %s' % (pkg, host))
-        raise AssertionError
+        raise KeyError
 
     log('%s %s\n  %s\n  %s' % (pkg, version, info['url'], info['hash']))
-    sha = fetch(info['url'])
-    if sha != info['hash']:
+    sha = fetch(info['url'], info['hash'] is not None)
+    if info['hash'] and sha != info['hash']:
         log('Checksum mismatch: package resource is different from manifest'
             '\n  %s' % sha)
         raise AssertionError
@@ -279,7 +286,45 @@ def build_tar_package(name, base, directory):
                 tf.add(directory)
 
 
-def fetch_manifest(channel='stable'):
+def fetch_manifest(channel='stable', host=None, targets=()):
+    if channel.startswith('bors-'):
+        assert host
+        rev = channel[len('bors-'):]
+        base_url = 'https://s3-us-west-1.amazonaws.com/rust-lang-ci2/rustc-builds'
+        manifest = {
+            'date': 'some date',
+            'pkg': {},
+        }
+
+        def target(url):
+            return {
+                'url': url,
+                'hash': None,
+                'available': requests.head(url).status_code == 200,
+            }
+
+        for pkg in ('cargo', 'rustc', 'rustfmt-preview'):
+            manifest['pkg'][pkg] = {
+                'version': 'bors',
+                'target': {
+                    host: target('{}/{}/{}-nightly-{}.tar.xz'.format(base_url, rev, pkg, host)),
+                },
+            }
+        manifest['pkg']['rust-src'] = {
+            'version': 'bors',
+            'target': {
+                '*': target('{}/{}/rust-src-nightly.tar.xz'.format(base_url, rev)),
+            }
+        }
+        for pkg in ('rust-std', 'rust-analysis'):
+            manifest['pkg'][pkg] = {
+                'version': 'bors',
+                'target': {
+                    t: target('{}/{}/{}-nightly-{}.tar.xz'.format(base_url, rev, pkg, t))
+                    for t in sorted(set(targets) | set([host]))
+                },
+            }
+        return manifest
     if '-' in channel:
         channel, date = channel.split('-', 1)
         prefix = '/' + date
@@ -296,15 +341,15 @@ def fetch_manifest(channel='stable'):
     return manifest
 
 
-def repack(host, targets, channel='stable', cargo_channel=None):
+def repack(host, targets, channel='stable', cargo_channel=None, compiler_builtins_hack=False):
     log("Repacking rust for %s supporting %s..." % (host, targets))
 
-    manifest = fetch_manifest(channel)
+    manifest = fetch_manifest(channel, host, targets)
     log('Using manifest for rust %s as of %s.' % (channel, manifest['date']))
     if cargo_channel == channel:
         cargo_manifest = manifest
     else:
-        cargo_manifest = fetch_manifest(cargo_channel)
+        cargo_manifest = fetch_manifest(cargo_channel, host, targets)
         log('Using manifest for cargo %s as of %s.' %
             (cargo_channel, cargo_manifest['date']))
 
@@ -331,6 +376,43 @@ def repack(host, targets, channel='stable', cargo_channel=None):
     for std in stds:
         install(os.path.basename(std['url']), install_dir)
         pass
+    # Workaround for https://github.com/rust-lang/rust/issues/74657:
+    # Remove the .llvmbc and .llvmcmd sections (sections for the LLVM bitcode)
+    # from the compiler_builtins rlib.
+    hack_targets = ()
+    if compiler_builtins_hack:
+        hack_targets = (
+            'x86_64-unknown-linux-gnu',
+            'i686-unknown-linux-gnu',
+            'thumbv7neon-linux-androideabi',
+            'aarch64-linux-android',
+        )
+        llvm_bin = os.path.join(os.environ['MOZ_FETCHES_DIR'], 'clang', 'bin')
+    for t in hack_targets:
+        if t not in targets:
+            continue
+        for lib in glob.glob(os.path.join(install_dir, 'lib', 'rustlib', t, 'lib',
+                                          'libcompiler_builtins*')):
+            log('Postprocessing %s' % lib)
+            with tempfile.TemporaryDirectory() as d:
+                # Extract all the files from the .rlib
+                subprocess.check_call(
+                    [os.path.join(llvm_bin, 'llvm-ar'), 'x', os.path.abspath(lib)], cwd=d)
+                files = os.listdir(d)
+                for f in files:
+                    if not f.endswith('.o'):
+                        continue
+                    # For each .o file, remove the aforementioned sections.
+                    subprocess.check_call(
+                        [os.path.join(llvm_bin, 'llvm-objcopy'),
+                         '-R', '.llvmbc', '-R', '.llvmcmd', f],
+                        cwd=d)
+                # Create a new .rlib with the updated object files.
+                subprocess.check_call(
+                    [os.path.join(llvm_bin, 'llvm-ar'), 'crv', os.path.abspath(lib)] + files,
+                    cwd=d)
+                subprocess.check_call(
+                    [os.path.join(llvm_bin, 'llvm-ranlib'), os.path.abspath(lib)], cwd=d)
 
     log('Creating archive...')
     tar_file = install_dir + ".tar.zst"
@@ -438,6 +520,9 @@ def args():
     parser.add_argument('--cargo-channel',
                         help='Release channel version to use for cargo.'
                              ' Defaults to the same as --channel.')
+    parser.add_argument('--compiler-builtins-hack', action='store_true',
+                        help='Enable workaround for '
+                             'https://github.com/rust-lang/rust/issues/74657.')
     parser.add_argument('--host',
                         help='Host platform for the toolchain executable:'
                              ' e.g. linux64 or aarch64-linux-android.'

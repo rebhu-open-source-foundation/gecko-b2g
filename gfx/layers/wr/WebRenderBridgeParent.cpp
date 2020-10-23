@@ -362,9 +362,9 @@ WebRenderBridgeParent::WebRenderBridgeParent(
     MOZ_ASSERT(!mCompositorScheduler);
     mCompositorScheduler = new CompositorVsyncScheduler(this, mWidget);
   }
-
   UpdateDebugFlags();
   UpdateQualitySettings();
+  UpdateProfilerUI();
 }
 
 WebRenderBridgeParent::WebRenderBridgeParent(const wr::PipelineId& aPipelineId,
@@ -1500,6 +1500,11 @@ void WebRenderBridgeParent::UpdateDebugFlags() {
   mApi->UpdateDebugFlags(gfxVars::WebRenderDebugFlags());
 }
 
+void WebRenderBridgeParent::UpdateProfilerUI() {
+  nsCString uiString = gfxVars::GetWebRenderProfilerUIOrDefault();
+  mApi->SetProfilerUI(uiString);
+}
+
 void WebRenderBridgeParent::UpdateMultithreading() {
   mApi->EnableMultithreading(gfxVars::UseWebRenderMultithreading());
 }
@@ -1801,6 +1806,23 @@ mozilla::ipc::IPCResult WebRenderBridgeParent::RecvScheduleComposite() {
   // Caller of LayerManager::ScheduleComposite() expects that it trigger
   // composite. Then we do not want to skip generate frame.
   ScheduleForcedGenerateFrame();
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult WebRenderBridgeParent::RecvForceComposite() {
+  MOZ_ASSERT(IsRootWebRenderBridgeParent());
+  if (mDestroyed) {
+    return IPC_OK();
+  }
+
+  TimeStamp start = TimeStamp::Now();
+  wr::RenderThread::Get()->IncPendingFrameCount(mApi->GetId(), VsyncId(),
+                                                start);
+
+  wr::TransactionBuilder fastTxn(/* aUseSceneBuilderThread */ false);
+  fastTxn.InvalidateRenderedFrame();
+  fastTxn.GenerateFrame();
+  mApi->SendTransaction(fastTxn);
   return IPC_OK();
 }
 

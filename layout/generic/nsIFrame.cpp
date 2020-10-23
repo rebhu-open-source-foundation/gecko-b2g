@@ -8448,6 +8448,7 @@ nsresult nsIFrame::PeekOffsetForCharacter(nsPeekOffsetStruct* aPos,
       }
       next.mJumpedLine |= current.mJumpedLine;
       next.mMovedOverNonSelectableText |= current.mMovedOverNonSelectableText;
+      next.mHasSelectableFrame |= current.mHasSelectableFrame;
       current = next;
     }
 
@@ -8455,7 +8456,7 @@ nsresult nsIFrame::PeekOffsetForCharacter(nsPeekOffsetStruct* aPos,
     // the offset to be at the frame edge. Note that if we are extending the
     // selection, this doesn't matter.
     if (peekSearchState == FOUND && current.mMovedOverNonSelectableText &&
-        !aPos->mExtend) {
+        (!aPos->mExtend || current.mHasSelectableFrame)) {
       int32_t start, end;
       current.mFrame->GetOffsets(start, end);
       current.mOffset = aPos->mDirection == eDirNext ? 0 : end - start;
@@ -9017,6 +9018,9 @@ nsIFrame::SelectablePeekReport nsIFrame::GetFrameFromDirection(
 
     selectable = IsSelectable(traversedFrame);
     if (!selectable) {
+      if (traversedFrame->IsSelectable(nullptr)) {
+        result.mHasSelectableFrame = true;
+      }
       result.mMovedOverNonSelectableText = true;
     }
   }  // while (!selectable)
@@ -10335,14 +10339,6 @@ void nsIFrame::BoxReflow(nsBoxLayoutState& aState, nsPresContext* aPresContext,
                          nscoord aWidth, nscoord aHeight, bool aMoveFrame) {
   DO_GLOBAL_REFLOW_COUNT("nsBoxToBlockAdaptor");
 
-#ifdef DEBUG_REFLOW
-  nsAdaptorAddIndents();
-  printf("Reflowing: ");
-  mFrame->ListTag(stdout);
-  printf("\n");
-  gIndent2++;
-#endif
-
   nsBoxLayoutMetrics* metrics = BoxMetrics();
   if (MOZ_UNLIKELY(!metrics)) {
     // Can't proceed without BoxMetrics. This should only happen if something
@@ -10512,15 +10508,6 @@ void nsIFrame::BoxReflow(nsBoxLayoutState& aState, nsPresContext* aPresContext,
       reflowInput.SetVResize(true);
     }
 
-#ifdef DEBUG_REFLOW
-    nsAdaptorAddIndents();
-    printf("Size=(%d,%d)\n", reflowInput.ComputedWidth(),
-           reflowInput.ComputedHeight());
-    nsAdaptorAddIndents();
-    nsAdaptorPrintReason(reflowInput);
-    printf("\n");
-#endif
-
     // place the child and reflow
 
     Reflow(aPresContext, aDesiredSize, reflowInput, status);
@@ -10547,23 +10534,8 @@ void nsIFrame::BoxReflow(nsBoxLayoutState& aState, nsPresContext* aPresContext,
     aDesiredSize.SetBlockStartAscent(metrics->mBlockAscent);
   }
 
-#ifdef DEBUG_REFLOW
-  if (aHeight != NS_UNCONSTRAINEDSIZE && aDesiredSize.Height() != aHeight) {
-    nsAdaptorAddIndents();
-    printf("*****got taller!*****\n");
-  }
-  if (aWidth != NS_UNCONSTRAINEDSIZE && aDesiredSize.Width() != aWidth) {
-    nsAdaptorAddIndents();
-    printf("*****got wider!******\n");
-  }
-#endif
-
   metrics->mLastSize.width = aDesiredSize.Width();
   metrics->mLastSize.height = aDesiredSize.Height();
-
-#ifdef DEBUG_REFLOW
-  gIndent2--;
-#endif
 }
 
 nsBoxLayoutMetrics* nsIFrame::BoxMetrics() const {
@@ -11284,55 +11256,6 @@ nsIFrame::PhysicalAxes nsIFrame::ShouldApplyOverflowClipping(
   return clip ? PhysicalAxes::Both : PhysicalAxes::None;
 }
 
-// Box layout debugging
-#ifdef DEBUG_REFLOW
-int32_t gIndent2 = 0;
-
-void nsAdaptorAddIndents() {
-  for (int32_t i = 0; i < gIndent2; i++) {
-    printf(" ");
-  }
-}
-
-void nsAdaptorPrintReason(ReflowInput& aReflowInput) {
-  char* reflowReasonString;
-
-  switch (aReflowInput.reason) {
-    case eReflowReason_Initial:
-      reflowReasonString = "initial";
-      break;
-
-    case eReflowReason_Resize:
-      reflowReasonString = "resize";
-      break;
-    case eReflowReason_Dirty:
-      reflowReasonString = "dirty";
-      break;
-    case eReflowReason_StyleChange:
-      reflowReasonString = "stylechange";
-      break;
-    case eReflowReason_Incremental: {
-      switch (aReflowInput.reflowCommand->Type()) {
-        case eReflowType_StyleChanged:
-          reflowReasonString = "incremental (StyleChanged)";
-          break;
-        case eReflowType_ReflowDirty:
-          reflowReasonString = "incremental (ReflowDirty)";
-          break;
-        default:
-          reflowReasonString = "incremental (Unknown)";
-      }
-    } break;
-    default:
-      reflowReasonString = "unknown";
-      break;
-  }
-
-  printf("%s", reflowReasonString);
-}
-
-#endif
-
 #ifdef DEBUG
 static void GetTagName(nsIFrame* aFrame, nsIContent* aContent, int aResultSize,
                        char* aResult) {
@@ -11872,7 +11795,7 @@ void DR_State::InitFrameTypeTable() {
   AddFrameTypeInfo(LayoutFrameType::Page, "page", "page");
   AddFrameTypeInfo(LayoutFrameType::Placeholder, "place", "placeholder");
   AddFrameTypeInfo(LayoutFrameType::Canvas, "canvas", "canvas");
-  AddFrameTypeInfo(LayoutFrameType::Root, "root", "root");
+  AddFrameTypeInfo(LayoutFrameType::XULRoot, "xulroot", "xulroot");
   AddFrameTypeInfo(LayoutFrameType::Scroll, "scroll", "scroll");
   AddFrameTypeInfo(LayoutFrameType::TableCell, "cell", "tableCell");
   AddFrameTypeInfo(LayoutFrameType::TableCol, "col", "tableCol");

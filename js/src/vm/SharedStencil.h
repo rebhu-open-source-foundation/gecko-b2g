@@ -144,9 +144,10 @@ struct ScopeNote {
 // NOTE: These are counted in Code Units from the start of the script source.
 //
 // Also included in the SourceExtent is the line and column numbers of the
-// sourceStart position. In most cases this is derived from the source text,
-// however in the case of dynamic functions it may be overriden by the
-// compilation options.
+// sourceStart position. Compilation options may specify the initial line and
+// column number.
+//
+// NOTE: Column number may saturate and must not be used as unique identifier.
 struct SourceExtent {
   SourceExtent() = default;
 
@@ -539,6 +540,7 @@ class SharedImmutableScriptData {
                               RefPtr<SharedImmutableScriptData>& sisd);
 
   size_t immutableDataLength() const { return isd_->immutableData().Length(); }
+  uint32_t nfixed() const { return isd_->nfixed; }
 };
 
 // Matches SharedImmutableScriptData objects that have the same atoms as well as

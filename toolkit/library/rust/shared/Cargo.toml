@@ -19,9 +19,9 @@ static_prefs = { path = "../../../../modules/libpref/init/static_prefs" }
 profiler_helper = { path = "../../../../tools/profiler/rust-helper", optional = true }
 mozurl = { path = "../../../../netwerk/base/mozurl" }
 webrender_bindings = { path = "../../../../gfx/webrender_bindings", optional = true }
-cubeb-coreaudio = { git = "https://github.com/ChunMinChang/cubeb-coreaudio-rs", rev = "08a2b75285732a2e1a389bc4ab02518c74a8a9c5", optional = true }
-cubeb-pulse = { git = "https://github.com/djg/cubeb-pulse-rs", rev="3224e2dee65c0726c448484d4c3c43956b9330ec", optional = true, features=["pulse-dlopen"] }
-cubeb-sys = { version = "0.7", optional = true, features=["gecko-in-tree"] }
+cubeb-coreaudio = { git = "https://github.com/ChunMinChang/cubeb-coreaudio-rs", rev = "d5af7ad7631440e1c4b0a548481c6740fade9d65", optional = true }
+cubeb-pulse = { git = "https://github.com/djg/cubeb-pulse-rs", rev="bf31534d08b2c16fb5e4c5834944ae3271efbd63", optional = true, features=["pulse-dlopen"] }
+cubeb-sys = { version = "0.8", optional = true, features=["gecko-in-tree"] }
 encoding_glue = { path = "../../../../intl/encoding_glue" }
 audioipc-client = { path = "../../../../media/audioipc/client", optional = true }
 audioipc-server = { path = "../../../../media/audioipc/server", optional = true }
@@ -65,6 +65,7 @@ rusqlite = { version = "0.24.1", features = ["modern_sqlite", "in_gecko"] }
 fluent = { version = "0.13.1", features = ["fluent-pseudo"] }
 fluent-ffi = { path = "../../../../intl/l10n/rust/fluent-ffi" }
 firefox-accounts-bridge = { path = "../../../../services/fxaccounts/rust-bridge/firefox-accounts-bridge", optional=true }
+l10nregistry-ffi = { path = "../../../../intl/l10n/rust/l10nregistry-ffi" }
 
 processtools = { path = "../../../components/processtools" }
 qcms = { path = "../../../../gfx/qcms" }

@@ -729,7 +729,7 @@ dependencies = [
 [[package]]
 name = "coreaudio-sys-utils"
 version = "0.1.0"
-source = "git+https://github.com/ChunMinChang/cubeb-coreaudio-rs?rev=08a2b75285732a2e1a389bc4ab02518c74a8a9c5#08a2b75285732a2e1a389bc4ab02518c74a8a9c5"
+source = "git+https://github.com/ChunMinChang/cubeb-coreaudio-rs?rev=d5af7ad7631440e1c4b0a548481c6740fade9d65#d5af7ad7631440e1c4b0a548481c6740fade9d65"
 dependencies = [
  "core-foundation-sys",
  "coreaudio-sys",
@@ -949,27 +949,27 @@ dependencies = [
 
 [[package]]
 name = "cubeb"
-version = "0.7.0"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1116606d6045c9199f6a1e082f3cf63383ba6f9961339701faa6370dcf73135f"
+checksum = "289952682b57343f3d852161d60f2a34a07c5fc39c113f155ab8aa3f471c917b"
 dependencies = [
  "cubeb-core",
 ]
 
 [[package]]
 name = "cubeb-backend"
-version = "0.7.0"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cc644425cb33d45994a5df4351958369c00e3f7bbf785b8cab270c7840b75774"
+checksum = "2052099fa6e07b444a43aa167874fb0350ed9be840f399e639f9e50cf37ec05c"
 dependencies = [
  "cubeb-core",
 ]
 
 [[package]]
 name = "cubeb-core"
-version = "0.7.0"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f7c55529b8f47926e4242e1fc01d31b08a5a4847967c5c250644e33fe237cfe5"
+checksum = "c6197f805b94171473c3fa3059f688f00a2df1ee76259f9ea641401b58917df3"
 dependencies = [
  "bitflags",
  "cubeb-sys",
@@ -978,7 +978,7 @@ dependencies = [
 [[package]]
 name = "cubeb-coreaudio"
 version = "0.1.0"
-source = "git+https://github.com/ChunMinChang/cubeb-coreaudio-rs?rev=08a2b75285732a2e1a389bc4ab02518c74a8a9c5#08a2b75285732a2e1a389bc4ab02518c74a8a9c5"
+source = "git+https://github.com/ChunMinChang/cubeb-coreaudio-rs?rev=d5af7ad7631440e1c4b0a548481c6740fade9d65#d5af7ad7631440e1c4b0a548481c6740fade9d65"
 dependencies = [
  "atomic",
  "audio-mixer",
@@ -996,7 +996,7 @@ dependencies = [
 [[package]]
 name = "cubeb-pulse"
 version = "0.3.0"
-source = "git+https://github.com/djg/cubeb-pulse-rs?rev=3224e2dee65c0726c448484d4c3c43956b9330ec#3224e2dee65c0726c448484d4c3c43956b9330ec"
+source = "git+https://github.com/djg/cubeb-pulse-rs?rev=bf31534d08b2c16fb5e4c5834944ae3271efbd63#bf31534d08b2c16fb5e4c5834944ae3271efbd63"
 dependencies = [
  "cubeb-backend",
  "pulse",
@@ -1007,9 +1007,9 @@ dependencies = [
 
 [[package]]
 name = "cubeb-sys"
-version = "0.7.0"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dcbc562eb6ccf62abacf9e3eebce992e5c36b230ca313ebd7c2d7d0e99deae90"
+checksum = "5b0f751f2aee031f589bcfd812b99cfbf923aa1612d34c9757608cf540f74ad9"
 dependencies = [
  "cmake",
  "pkg-config",
@@ -1845,9 +1845,9 @@ dependencies = [
 
 [[package]]
 name = "gfx-backend-dx12"
-version = "0.5.3"
+version = "0.5.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "37365e2927d55cefac0d3f78dfd1d3119fbb13a8bd7afe2409d729961fee22fc"
+checksum = "cfd506627f3a7003e80f4344123184ce60ed06822c8b8ad2ae4ec674a512ca86"
 dependencies = [
  "bitflags",
  "d3d12",
@@ -1969,6 +1969,8 @@ dependencies = [
  "fog-gtest",
  "gecko-fuzz-targets",
  "gkrust-shared",
+ "l10nregistry-ffi-gtest",
+ "moz_task-gtest",
  "mozglue-static",
  "mp4parse-gtest",
  "nsstring-gtest",
@@ -2008,6 +2010,7 @@ dependencies = [
  "http_sfv",
  "jsrust_shared",
  "kvstore",
+ "l10nregistry-ffi",
  "lmdb-rkv-sys",
  "log",
  "mapped_hyph",
@@ -2626,6 +2629,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "l10nregistry-ffi"
+version = "0.1.0"
+dependencies = [
+ "futures-channel",
+ "libc",
+ "nserror",
+ "nsstring",
+]
+
+[[package]]
+name = "l10nregistry-ffi-gtest"
+version = "0.1.0"
+dependencies = [
+ "l10nregistry-ffi",
+ "moz_task",
+]
+
+[[package]]
 name = "lazy_static"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3078,10 +3099,20 @@ checksum = "20c82a57087fd5990d7122dbff1607c3b20c3d2958e9d9ad9765aab415e2c91c"
 name = "moz_task"
 version = "0.1.0"
 dependencies = [
+ "cstr",
+ "futures-task",
  "libc",
  "nserror",
  "nsstring",
+ "thiserror",
  "xpcom",
+]
+
+[[package]]
+name = "moz_task-gtest"
+version = "0.1.0"
+dependencies = [
+ "moz_task",
 ]
 
 [[package]]
@@ -3167,7 +3198,6 @@ dependencies = [
 [[package]]
 name = "mp4parse"
 version = "0.11.4"
-source = "git+https://github.com/mozilla/mp4parse-rust?rev=f7c35a30ff25521bebe64c19d3f306569ecb5385#f7c35a30ff25521bebe64c19d3f306569ecb5385"
 dependencies = [
  "bitreader",
  "byteorder",
@@ -3185,7 +3215,6 @@ version = "0.1.0"
 [[package]]
 name = "mp4parse_capi"
 version = "0.11.4"
-source = "git+https://github.com/mozilla/mp4parse-rust?rev=f7c35a30ff25521bebe64c19d3f306569ecb5385#f7c35a30ff25521bebe64c19d3f306569ecb5385"
 dependencies = [
  "byteorder",
  "fallible_collections",
@@ -3918,7 +3947,7 @@ dependencies = [
 [[package]]
 name = "pulse"
 version = "0.3.0"
-source = "git+https://github.com/djg/cubeb-pulse-rs?rev=3224e2dee65c0726c448484d4c3c43956b9330ec#3224e2dee65c0726c448484d4c3c43956b9330ec"
+source = "git+https://github.com/djg/cubeb-pulse-rs?rev=bf31534d08b2c16fb5e4c5834944ae3271efbd63#bf31534d08b2c16fb5e4c5834944ae3271efbd63"
 dependencies = [
  "bitflags",
  "pulse-ffi",
@@ -3927,7 +3956,7 @@ dependencies = [
 [[package]]
 name = "pulse-ffi"
 version = "0.1.0"
-source = "git+https://github.com/djg/cubeb-pulse-rs?rev=3224e2dee65c0726c448484d4c3c43956b9330ec#3224e2dee65c0726c448484d4c3c43956b9330ec"
+source = "git+https://github.com/djg/cubeb-pulse-rs?rev=bf31534d08b2c16fb5e4c5834944ae3271efbd63#bf31534d08b2c16fb5e4c5834944ae3271efbd63"
 dependencies = [
  "libc",
 ]
@@ -4019,9 +4048,9 @@ dependencies = [
 
 [[package]]
 name = "range-alloc"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dd5927936723a9e8b715d37d7e4b390455087c4bdf25b9f702309460577b14f9"
+checksum = "a871f1e45a3a3f0c73fb60343c811238bb5143a81642e27c2ac7aac27ff01a63"
 
 [[package]]
 name = "raw-cpuid"
@@ -5581,18 +5610,18 @@ checksum = "57da5d7300428d75d8b3cdfb736e41ee6af8926d69c1de2f201a1a22f234b7b5"
 
 [[package]]
 name = "wast"
-version = "25.0.2"
+version = "26.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "000df4e05cdb4cbc1d0bb1e7e5ea86adb3f1295850c9effb9a47b1086a346895"
+checksum = "b3f174eed73e885ede6c8fcc3fbea8c3757afa521840676496cde56bb742ddab"
 dependencies = [
  "leb128",
 ]
 
 [[package]]
 name = "wat"
-version = "1.0.26"
+version = "1.0.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4766d466249e23279e92c52033429eb91141c5efea1c4478138fa6f6ef4efe3e"
+checksum = "26b2dccbce4d0e14875091846e110a2369267b18ddd0d6423479b88dad914d71"
 dependencies = [
  "wast",
 ]
