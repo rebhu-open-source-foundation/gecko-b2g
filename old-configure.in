@@ -2907,8 +2907,8 @@ AC_DEFINE(NO_NSPR_10_SUPPORT)
 if test -n "$MOZ_B2G"; then
     AC_DEFINE(MOZ_B2G)
 
-    if test -d "$gonkdir/system/bt" &&
-       test -d "$gonkdir/system/bluetoothd"; then
+    if test -d "$GONK_PATH/system/bt" &&
+       test -d "$GONK_PATH/system/bluetoothd"; then
         MOZ_B2G_BT=1
         MOZ_B2G_BT_DAEMON=1
     fi
