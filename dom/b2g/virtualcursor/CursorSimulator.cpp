@@ -758,18 +758,23 @@ void CursorSimulator::AdjustMoveOffset(CSSIntSize& aWindowSize,
 nsIScrollableFrame* CursorSimulator::FindScrollableFrame(nsIFrame* aFrame) {
   // Depends on direction to compute ScrollTarget
   CSSPoint directionPt(0, 0);
+  EventStateManager::ComputeScrollTargetOptions options;
   switch (mDirection) {
     case CursorDirection::UP:
       directionPt.y = -1;
+      options = EventStateManager::COMPUTE_SCROLLABLE_ANCESTOR_ALONG_Y_AXIS;
       break;
     case CursorDirection::DOWN:
       directionPt.y = 1;
+      options = EventStateManager::COMPUTE_SCROLLABLE_ANCESTOR_ALONG_Y_AXIS;
       break;
     case CursorDirection::LEFT:
       directionPt.x = -1;
+      options = EventStateManager::COMPUTE_SCROLLABLE_ANCESTOR_ALONG_X_AXIS;
       break;
     case CursorDirection::RIGHT:
       directionPt.x = 1;
+      options = EventStateManager::COMPUTE_SCROLLABLE_ANCESTOR_ALONG_X_AXIS;
       break;
     default:
       break;
@@ -785,9 +790,8 @@ nsIScrollableFrame* CursorSimulator::FindScrollableFrame(nsIFrame* aFrame) {
   WidgetWheelEvent event(true, eWheel, nullptr);
   event.mDeltaX = directionPt.x;
   event.mDeltaY = directionPt.y;
-  nsIScrollableFrame* scrollableFrame = do_QueryFrame(esm->ComputeScrollTarget(
-      aFrame, &event,
-      EventStateManager::COMPUTE_SCROLLABLE_ANCESTOR_ALONG_X_AXIS));
+  nsIScrollableFrame* scrollableFrame =
+      do_QueryFrame(esm->ComputeScrollTarget(aFrame, &event, options));
 
   return scrollableFrame;
 }
