@@ -2223,8 +2223,9 @@ MOZ_ARG_ENABLE_BOOL(touchpal,
     ENABLE_TOUCHPAL=1 && NUM_IME_ENABLED=$((NUM_IME_ENABLED+1)),
     ENABLE_TOUCHPAL= )
 if test -n "$ENABLE_TOUCHPAL"; then
-   if test -d "$gonkdir/external/libtouchpal" ; then
-     CPPFLAGS="$CPPFLAGS -I$gonkdir/external/libtouchpal"
+   if test -d "$GONK_PATH/external/libtouchpal" ; then
+     CPPFLAGS="$CPPFLAGS -I$GONK_PATH/external/libtouchpal"
+     LDFLAGS="$LDFLAGS -L$GONK_PATH/external/libtouchpal"
    fi
    AC_DEFINE(ENABLE_TOUCHPAL)
 fi
