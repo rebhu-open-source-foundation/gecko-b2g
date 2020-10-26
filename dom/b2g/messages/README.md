@@ -145,6 +145,6 @@ let sm = Cc["@mozilla.org/systemmessage-service;1"].getService(
   Ci.nsISystemMessageService
 );
 let msg = { test1: "aaa", test2: "bbb" };
-let appOrigin = "https://calculator.local";
+let appOrigin = "http://calculator.localhost";
 sm.sendMessage("alarm", msg, appOrigin);
 ```

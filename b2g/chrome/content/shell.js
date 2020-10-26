@@ -335,19 +335,3 @@ document.addEventListener(
   },
   { once: true }
 );
-
-// Install the self signed certificate for locally served apps.
-function setup_local_https() {
-  const { LocalDomains } = ChromeUtils.import(
-    "resource://gre/modules/LocalDomains.jsm"
-  );
-
-  LocalDomains.init();
-  if (LocalDomains.scan()) {
-    debug(`Updating local domains list to: ${LocalDomains.get()}`);
-    LocalDomains.update();
-  }
-}
-
-// We need to set this up early to be able to launch the homescreen.
-setup_local_https();

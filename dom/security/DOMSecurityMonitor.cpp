@@ -88,7 +88,7 @@ void DOMSecurityMonitor::AuditParsingOfHTMLXMLFragments(
       //-------------------------------------------------------------------
       "chrome://b2g/content/"_ns,
       "chrome://system/content/"_ns,
-      "https://shared.local/"_ns,
+      "http://shared.localhost/"_ns,
   };
 
   for (const nsLiteralCString& allowlistEntry : htmlFragmentAllowlist) {

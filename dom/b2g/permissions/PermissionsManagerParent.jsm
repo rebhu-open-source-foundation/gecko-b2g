@@ -67,7 +67,7 @@ class PermissionsManagerParent extends JSWindowActorParent {
   isExplicitInPermissionsTable(aOrigin, aPermName) {
     let appType = "pwa";
 
-    if (aOrigin.endsWith(".local")) {
+    if (aOrigin.endsWith(".localhost")) {
       if (PermissionsHelper.isCoreApp(aOrigin) === true) {
         appType = "core";
       } else {

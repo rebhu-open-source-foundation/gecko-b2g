@@ -1067,9 +1067,10 @@ mozilla::ipc::IPCResult BrowserChild::RecvLoadURL(
   }
 
   // Extract app name from installed apps and rename the process.
-  if (StringEndsWith(host, ".local"_ns)) {
+  if (StringEndsWith(host, ".localhost"_ns)) {
     nsAutoCString appName;
-    appName.Assign(Substring(host, 0, host.Length() - 6));
+    appName.Assign(Substring(
+        host, 0, host.Length() - 10 /* 10 is length of .localhost */));
     mozilla::ipc::SetThisProcessName(appName.get());
   }
 #endif

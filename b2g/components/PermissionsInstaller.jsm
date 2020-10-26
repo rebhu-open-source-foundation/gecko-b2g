@@ -147,9 +147,9 @@ this.PermissionsInstaller = {
       let appType = "pwa";
       let isCore = false;
 
-      // Packaged apps are served from the ".local" domain.
+      // Packaged apps are served from the ".localhost" domain.
       let uri = Services.io.newURI(aManifestURL);
-      if (uri.host.endsWith(".local")) {
+      if (uri.host.endsWith(".localhost")) {
         appType = "signed";
         // Core apps get special treatment for some permissions.
         isCore = aFeatures.core === true;
@@ -204,7 +204,7 @@ this.PermissionsInstaller = {
             permValue
           );
 
-          if (aManifestURL.startsWith("https://system.local")) {
+          if (aManifestURL.startsWith("http://system.localhost")) {
             let systemStartupURL = Services.prefs.getCharPref(
               "b2g.system_startup_url"
             );

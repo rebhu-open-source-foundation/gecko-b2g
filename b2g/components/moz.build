@@ -56,7 +56,6 @@ EXTRA_JS_MODULES += [
     "ErrorPage.jsm",
     "GeckoBridge.jsm",
     "KillSwitchMain.jsm",
-    "LocalDomains.jsm",
     "MultiscreenHandler.jsm",
     "OrientationChangeHandler.jsm",
     "PermissionsInstaller.jsm",

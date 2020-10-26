@@ -240,7 +240,7 @@ NS_IMETHODIMP AlarmManager::Init() {
       nsresult rv =
           Preferences::GetCString("b2g.system_startup_url", systemStartupUrl);
       if (NS_SUCCEEDED(rv) && clientInfo->URL().Equals(systemStartupUrl)) {
-        mUrl = "https://system.local"_ns;
+        mUrl = "http://system.localhost"_ns;
       }
     } else {
       nsCOMPtr<nsIIOService> ios(do_GetIOService());
