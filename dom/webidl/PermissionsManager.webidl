@@ -7,7 +7,7 @@
  Exposed=Window]
 interface PermissionsManager
 {
-  DOMString get(DOMString permission, DOMString origin);
+  Promise<DOMString> get(DOMString permission, DOMString origin);
 
   void set(DOMString permission, DOMString value, DOMString origin);
 

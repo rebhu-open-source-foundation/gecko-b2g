@@ -8,8 +8,6 @@ function debug(aMsg) {
   //dump(`-*- PermissionsManager: ${aMsg}\n`);
 }
 
-const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
-
 const PERMISSIONSETTINGS_CID = Components.ID(
   "{cd2cf7a1-f4c1-487b-8c1b-1a71c7097431}"
 );
@@ -26,31 +24,43 @@ PermissionsManager.prototype = {
     this.window = aWindow;
   },
 
+  createPromise(aPromiseInit) {
+    return new this.window.Promise(aPromiseInit);
+  },
+
   get(aPermName, aOrigin) {
     debug(`get ${aPermName} ${aOrigin}`);
-    let principal = Services.scriptSecurityManager.createContentPrincipalFromOrigin(
-      aOrigin
-    );
-    let result = Services.perms.testExactPermissionFromPrincipal(
-      principal,
-      aPermName
-    );
-
-    switch (result) {
-      case Ci.nsIPermissionManager.UNKNOWN_ACTION:
-        return "unknown";
-      case Ci.nsIPermissionManager.ALLOW_ACTION:
-        return "allow";
-      case Ci.nsIPermissionManager.DENY_ACTION:
-        return "deny";
-      case Ci.nsIPermissionManager.PROMPT_ACTION:
-        return "prompt";
-      default:
-        debug(
-          `Unsupported PermissionsManager origin: ${aOrigin} perm: ${aPermName} action: ${result}`
+    return this.createPromise(
+      function(aResolve, aReject) {
+        let actor = this.window.windowGlobalChild.getActor(
+          "PermissionsManager"
         );
-        return "unknown";
-    }
+        actor
+          .getPermission({
+            type: aPermName,
+            origin: aOrigin,
+          })
+          .then(result => {
+            switch (result) {
+              case Ci.nsIPermissionManager.UNKNOWN_ACTION:
+                aResolve("unknown");
+                break;
+              case Ci.nsIPermissionManager.ALLOW_ACTION:
+                aResolve("allow");
+                break;
+              case Ci.nsIPermissionManager.DENY_ACTION:
+                aResolve("deny");
+                break;
+              case Ci.nsIPermissionManager.PROMPT_ACTION:
+                aResolve("prompt");
+                break;
+              default:
+                aResolve("unknown");
+                break;
+            }
+          });
+      }.bind(this)
+    );
   },
 
   async isExplicit(aPermName, aOrigin) {

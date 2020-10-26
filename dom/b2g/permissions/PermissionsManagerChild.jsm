@@ -7,6 +7,10 @@
 this.EXPORTED_SYMBOLS = ["PermissionsManagerChild"];
 
 class PermissionsManagerChild extends JSWindowActorChild {
+  getPermission(params) {
+    return this.sendQuery("PermissionsManager:GetPermission", params);
+  }
+
   isExplicit(params) {
     return this.sendQuery("PermissionsManager:IsExplicit", params);
   }

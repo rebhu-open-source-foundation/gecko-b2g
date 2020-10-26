@@ -237,6 +237,7 @@ ChromeUtils.registerWindowActor("PermissionsManager", {
     moduleURI: "resource://gre/modules/PermissionsManagerParent.jsm",
     messages: [
       "PermissionsManager:AddPermission",
+      "PermissionsManager:GetPermission",
       "PermissionsManager:IsExplicit",
     ],
   },
