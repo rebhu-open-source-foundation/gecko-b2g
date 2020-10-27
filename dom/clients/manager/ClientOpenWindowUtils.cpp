@@ -244,7 +244,7 @@ void OpenWindow(const ClientOpenWindowArgsParsed& aArgsValidated,
     return;
   }
   nsresult rv = bwin->CreateContentWindow(
-      nullptr, aOpenInfo, WhereTo(aArgsValidated),
+      aArgsValidated.uri, aOpenInfo, WhereTo(aArgsValidated),
       nsIBrowserDOMWindow::OPEN_NEW, aArgsValidated.principal,
       aArgsValidated.csp, aBC);
   if (NS_WARN_IF(NS_FAILED(rv))) {
