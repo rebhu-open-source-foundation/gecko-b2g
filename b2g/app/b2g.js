@@ -1166,6 +1166,8 @@ pref("dom.security.skip_remote_script_assertion_in_system_priv_context", true);
 pref("gfx.webrender.all", false);
 pref("gfx.webrender.enabled", false);
 pref("gfx.webrender.force-disabled", true);
+pref("gfx.webrender.picture-tile-width", 256);
+pref("gfx.webrender.picture-tile-height", 512);
 
 // We control process prelaunch from the embedding api.
 pref("dom.ipc.processPrelaunch.enabled", false);
