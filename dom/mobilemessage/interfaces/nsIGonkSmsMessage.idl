@@ -98,17 +98,20 @@ interface nsIGonkSmsMessage: nsISupports
   readonly attribute boolean mwiActive;
 
   /**
-   * True if there are messages waiting in the voicemail server.
+   * CDMA SMS Message Type, as defined in 3GPP2 C.S0015-A v2.0, Table 3.4-1
+   * Set to 0 if invalid.
    */
   readonly attribute unsigned short cdmaMessageType;
 
   /**
-   * True if there are messages waiting in the voicemail server.
+   * SMS Teleservice Identitifier, as defined in 3GPP2 N.S0005, Table 175.
+   * Set to 0 if invalid.
    */
   readonly attribute unsigned long cdmaTeleservice;
 
   /**
-   * True if there are messages waiting in the voicemail server.
+   * CDMA Service Category, 3GPP2 C.R1001-D v2.0, 9.3 Service Category.
+   * Set to 0 if invalid.
    */
   readonly attribute unsigned long cdmaServiceCategory;
 

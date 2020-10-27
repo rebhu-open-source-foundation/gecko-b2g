@@ -38,6 +38,7 @@ const GEO_FENCING_MAXIMUM_WAIT_TIME = 0x01;
 const GEO_FENCING_POLYGON = 0x02;
 const GEO_FENCING_CIRCLE = 0x03;
 
+const GEOMETRY_TYPE_UNKNOW = 0;
 const GEOMETRY_TYPE_POLYGON = 1;
 const GEOMETRY_TYPE_CIRCLE = 2;
 
@@ -97,6 +98,16 @@ LatLng.prototype = {
   },
 };
 
+function Geometry() {}
+Geometry.prototype = {
+  type: GEOMETRY_TYPE_UNKNOW,
+  contains(aLatLng) {
+    if (DEBUG) {
+      debug("Non-implemented geometry method");
+    }
+  },
+};
+
 function Point(aX, aY) {
   this.x = aX;
   this.y = aY;
@@ -125,6 +136,7 @@ function Polygon(aLatLngs) {
   }
 }
 Polygon.prototype = {
+  __proto__: Geometry.prototype,
   type: GEOMETRY_TYPE_POLYGON,
   _vertices: [],
   _scaledVertices: [],
@@ -201,6 +213,7 @@ function Circle(aCenter, aRadiusInMeters) {
   this._radius = aRadiusInMeters;
 }
 Circle.prototype = {
+  __proto__: Geometry.prototype,
   type: GEOMETRY_TYPE_CIRCLE,
   _center: null,
   _radius: 0,
@@ -3256,13 +3269,13 @@ GsmPDUHelperObject.prototype = {
       // Both messageIdentifier and serialNumber are 16 bits integers.
       // ATIS-0700041 Section 5.1.6
       let cellBroadcastIdentity = {};
-      cellBroadcastIdentity._messageIdentifier =
+      cellBroadcastIdentity.messageIdentifier =
         (this.readHexOctet() << 8) | this.readHexOctet();
-      cellBroadcastIdentity._serialNumber =
+      cellBroadcastIdentity.serialNumber =
         (this.readHexOctet() << 8) | this.readHexOctet();
       cbIdentifiers.push(cellBroadcastIdentity);
     }
-    msg.geoFencingTrigger = { _type: type, _cbIdentifiers: cbIdentifiers };
+    msg.geoFencingTrigger = {type, cbIdentifiers };
   },
 
   /**
@@ -3452,8 +3465,12 @@ GsmPDUHelperObject.prototype = {
       maximumWaitingTimeSec: null, //  X   X    O
       geoFencingTrigger: null, //  X   X    O
       /*{
-        _type:               null,                             //  X   X    O
-        _cbIdentifiers:      null,                             //  X   X    O
+        type:               null,                             //  X   X    O
+        cbIdentifiers:      null,                             //  X   X    O
+        {
+        messageIdentifier: null,                             //  X   X    O
+        serialNumber:      null,                             //  X   X    O
+        }
       }*/
     };
 

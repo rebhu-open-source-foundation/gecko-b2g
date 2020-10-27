@@ -948,20 +948,26 @@ SmsService.prototype = {
   },
 
   _handleCellbroadcastMessageReceived(aMessage, aServiceId) {
+    let gonkCellBroadcastMessage = {
+      QueryInterface: ChromeUtils.generateQI([Ci.nsIGonkCellBroadcastMessage]),
+      gsmGeographicalScope:
+        Ci.nsICellBroadcastService.GSM_GEOGRAPHICAL_SCOPE_INVALID,
+      messageCode: aMessage.messageCode,
+      messageId: aMessage.messageId,
+      language: aMessage.language,
+      body: aMessage.fullBody,
+      messageClass: Ci.nsICellBroadcastService.GSM_MESSAGE_CLASS_NORMAL,
+      timeStamp: Date.now(),
+      cdmaServiceCategory: aMessage.serviceCategory,
+      hasEtwsInfo: false,
+      etwsWarningType: Ci.nsICellBroadcastService.GSM_ETWS_WARNING_INVALID,
+      etwsEmergencyUserAlert: false,
+      etwsPopup: false,
+    };
+
     gCellBroadcastService.notifyMessageReceived(
       aServiceId,
-      Ci.nsICellBroadcastService.GSM_GEOGRAPHICAL_SCOPE_INVALID,
-      aMessage.messageCode,
-      aMessage.messageId,
-      aMessage.language,
-      aMessage.fullBody,
-      Ci.nsICellBroadcastService.GSM_MESSAGE_CLASS_NORMAL,
-      Date.now(),
-      aMessage.serviceCategory,
-      false,
-      Ci.nsICellBroadcastService.GSM_ETWS_WARNING_INVALID,
-      false,
-      false
+      gonkCellBroadcastMessage
     );
   },
 

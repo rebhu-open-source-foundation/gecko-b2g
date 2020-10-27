@@ -58,6 +58,21 @@ XPCOMUtils.defineLazyServiceGetter(
   "nsIPowerManagerService"
 );
 
+XPCOMUtils.defineLazyServiceGetter(
+  this,
+  "gMobileMessageDBService",
+  "@mozilla.org/mobilemessage/gonkmobilemessagedatabaseservice;1",
+  "nsIGonkMobileMessageDatabaseService"
+);
+
+XPCOMUtils.defineLazyGetter(this, "gGeolocation", function() {
+  let geolocation = {};
+  try {
+    geolocation = Cc["@mozilla.org/geolocation;1"].getService(Ci.nsISupports);
+  } catch (e) {}
+  return geolocation;
+});
+
 const GONK_CELLBROADCAST_SERVICE_CID = Components.ID(
   "{7ba407ce-21fd-11e4-a836-1bfdee377e5c}"
 );
@@ -71,6 +86,7 @@ function debug(s) {
 
 var CB_SEARCH_LIST_GECKO_CONFIG = false;
 const CB_HANDLED_WAKELOCK_TIMEOUT = 10000;
+const TYPE_ACTIVE_ALERT_SHARE_WAC = 2;
 
 function CellBroadcastService() {
   this._listeners = [];
@@ -377,40 +393,121 @@ CellBroadcastService.prototype = {
     }
   },
 
-  /**
-   * nsIGonkCellBroadcastService interface
-   */
-  notifyMessageReceived(
+  broadcastGeometryMessage(aServiceId, aGeometryMessage) {
+    let callback = (aRv, aDeletedRecord, aCellBroadCastMessage) => {
+      if (DEBUG && Components.isSuccessCode(aRv)) {
+        debug("Failed to delete cellbroadcast message");
+      }
+    };
+    gMobileMessageDBService.deleteCellBroadcastMessage(
+      aGeometryMessage.serialNumber,
+      aGeometryMessage.messageIdentifier,
+      callback
+    );
+    this._broadcastCellBroadcastMessage(aServiceId, aGeometryMessage);
+  },
+
+  _performGeoFencing(
     aServiceId,
-    aGsmGeographicalScope,
-    aMessageCode,
-    aMessageId,
-    aLanguage,
-    aBody,
-    aMessageClass,
-    aTimestamp,
-    aCdmaServiceCategory,
-    aHasEtwsInfo,
-    aEtwsWarningType,
-    aEtwsEmergencyUserAlert,
-    aEtwsPopup
+    aCellBroadcastMessage,
+    aLatLng,
+    aBroadcastArea
   ) {
-    this._acquireCbHandledWakeLock();
+    aBroadcastArea.forEach(geo => {
+      if (geo.contains(aLatLng)) {
+        this.broadcastGeometryMessage(aServiceId, aCellBroadcastMessage);
+      }
+    });
+  },
+
+  _handleGeoFencingTrigger(aServiceId, aGeoTriggerMessage) {
+    let cbIdentifiers = aGeoTriggerMessage.cellBroadcastIdentifiers;
+    let allBroadcastMessages = [];
+
+    let findCellbroadcastMessage = identity =>
+      new Promise(resolve =>
+        gMobileMessageDBService.getCellBroadcastMessage(
+          identity.serialNumber,
+          identity.messageIdentifier,
+          function(aRv, aMessageRecord, aCellBroadCastMessage) {
+            if (Components.isSuccessCode(aRv) && aMessageRecord) {
+              allBroadcastMessages.push(aMessageRecord);
+            }
+            resolve();
+          }
+        )
+      );
+    for (let i = 0; i < cbIdentifiers.length; i++) {
+      findCellbroadcastMessage(cbIdentifiers[i]);
+    }
+
+    //handle TYPE_ACTIVE_ALERT_SHARE_WAC to share all geometries together
+    let commonBroadcastArea = [];
+    if (
+      aGeoTriggerMessage.geoFencingTriggerType == TYPE_ACTIVE_ALERT_SHARE_WAC
+    ) {
+      allBroadcastMessages.forEach(msg => {
+        commonBroadcastArea.push(...msg.geometries);
+      });
+    }
+    allBroadcastMessages.forEach(msg => {
+      if (commonBroadcastArea.length > 0) {
+        this._handleGeometryMessage(aServiceId, msg, commonBroadcastArea);
+      } else {
+        this._handleGeometryMessage(aServiceId, msg);
+      }
+    });
+  },
+
+  _handleGeometryMessage(
+    aServiceId,
+    aGeometryMessage,
+    aBroadcastArea = aGeometryMessage.geometries
+  ) {
+    if (aGeometryMessage.maximumWaitingTimeSec > 0) {
+      let options = {
+        //TODO: check which accuracy we should use.
+        enableHighAccuracy: false,
+        timeout: aGeometryMessage.maximumWaitingTimeSec * 1000,
+        maximumAge: 0,
+      };
+      let success = pos => {
+        let latLng = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        this._performGeoFencing(
+          aServiceId,
+          aGeometryMessage,
+          latLng,
+          aBroadcastArea
+        );
+      };
+      let error = err => {
+        debug("geolocation error " + err);
+        // Broadcast the message directly if the location is not available.
+        this.broadcastGeometryMessage(aServiceId, aGeometryMessage);
+      };
+      gGeolocation.getCurrentPosition(options, success, error);
+    } else {
+      // Broadcast the message directly because no geo-fencing required.
+      this.broadcastGeometryMessage(aServiceId, aGeometryMessage);
+    }
+  },
+
+  _broadcastCellBroadcastMessage(aServiceId, aCellBroadcastMessage) {
     // Broadcast CBS System message
     gCellbroadcastMessenger.notifyCbMessageReceived(
       aServiceId,
-      aGsmGeographicalScope,
-      aMessageCode,
-      aMessageId,
-      aLanguage,
-      aBody,
-      aMessageClass,
-      aTimestamp,
-      aCdmaServiceCategory,
-      aHasEtwsInfo,
-      aEtwsWarningType,
-      aEtwsEmergencyUserAlert,
-      aEtwsPopup
+      aCellBroadcastMessage.gsmGeographicalScope,
+      aCellBroadcastMessage.messageCode,
+      aCellBroadcastMessage.messageId,
+      aCellBroadcastMessage.language,
+      aCellBroadcastMessage.body,
+      aCellBroadcastMessage.messageClass,
+      aCellBroadcastMessage.timestamp,
+      aCellBroadcastMessage.cdmaServiceCategory,
+      aCellBroadcastMessage.hasEtwsInfo,
+      aCellBroadcastMessage.etwsWarningType,
+      aCellBroadcastMessage.etwsEmergencyUserAlert,
+      aCellBroadcastMessage.etwsPopup
     );
 
     // Notify received message to registered listener
@@ -418,22 +515,36 @@ CellBroadcastService.prototype = {
       try {
         listener.notifyMessageReceived(
           aServiceId,
-          aGsmGeographicalScope,
-          aMessageCode,
-          aMessageId,
-          aLanguage,
-          aBody,
-          aMessageClass,
-          aTimestamp,
-          aCdmaServiceCategory,
-          aHasEtwsInfo,
-          aEtwsWarningType,
-          aEtwsEmergencyUserAlert,
-          aEtwsPopup
+          aCellBroadcastMessage.gsmGeographicalScope,
+          aCellBroadcastMessage.messageCode,
+          aCellBroadcastMessage.messageId,
+          aCellBroadcastMessage.language,
+          aCellBroadcastMessage.body,
+          aCellBroadcastMessage.messageClass,
+          aCellBroadcastMessage.timestamp,
+          aCellBroadcastMessage.cdmaServiceCategory,
+          aCellBroadcastMessage.hasEtwsInfo,
+          aCellBroadcastMessage.etwsWarningType,
+          aCellBroadcastMessage.etwsEmergencyUserAlert,
+          aCellBroadcastMessage.etwsPopup
         );
       } catch (e) {
         debug("listener threw an exception: " + e);
       }
+    }
+  },
+  /**
+   * nsIGonkCellBroadcastService interface
+   */
+  notifyMessageReceived(aServiceId, aCellBroadcastMessage) {
+    this._acquireCbHandledWakeLock();
+    if (aCellBroadcastMessage.geoFencingTriggerType != null) {
+      this._handleGeoFencingTrigger(aServiceId, aCellBroadcastMessage);
+    } else if (aCellBroadcastMessage.geometries != null) {
+      gMobileMessageDBService.saveCellBroadcastMessage(aCellBroadcastMessage);
+      this._handleGeometryMessage(aServiceId, aCellBroadcastMessage);
+    } else {
+      this._broadcastCellBroadcastMessage(aServiceId, aCellBroadcastMessage);
     }
   },
 

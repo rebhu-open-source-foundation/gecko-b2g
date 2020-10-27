@@ -2404,22 +2404,42 @@ RadioInterface.prototype = {
       ? message.serviceCategory
       : Ci.nsICellBroadcastService.CDMA_SERVICE_CATEGORY_INVALID;
 
-    gCellBroadcastService.notifyMessageReceived(
-      this.clientId,
-      this._convertCbGsmGeographicalScope(message.geographicalScope),
-      message.messageCode,
-      message.messageId,
-      message.language,
-      message.fullBody,
-      this._convertCbMessageClass(message.messageClass),
-      Date.now(),
-      serviceCategory,
+    let gonkCellBroadcastMessage = {
+      QueryInterface: ChromeUtils.generateQI([Ci.nsIGonkCellBroadcastMessage]),
+      gsmGeographicalScope: this._convertCbGsmGeographicalScope(
+        message.geographicalScope
+      ),
+      messageCode: message.messageCode,
+      serialNumber: message.serial,
+      messageId: message.messageId,
+      language: message.language,
+      body: message.fullBody,
+      messageClass: this._convertCbMessageClass(message.messageClass),
+      timeStamp: Date.now(),
+      cdmaServiceCategory: serviceCategory,
       hasEtwsInfo,
-      hasEtwsInfo
+      etwsWarningType: hasEtwsInfo
         ? this._convertCbEtwsWarningType(etwsInfo.warningType)
         : Ci.nsICellBroadcastService.GSM_ETWS_WARNING_INVALID,
-      hasEtwsInfo ? etwsInfo.emergencyUserAlert : false,
-      hasEtwsInfo ? etwsInfo.popup : false
+      etwsEmergencyUserAlert: hasEtwsInfo ? etwsInfo.emergencyUserAlert : false,
+      etwsPopup: hasEtwsInfo ? etwsInfo.popup : false,
+    };
+
+    if (message.geoFencingTrigger != null) {
+      gonkCellBroadcastMessage.geoFencingTriggerType =
+        message.geoFencingTrigger.type;
+      gonkCellBroadcastMessage.cellBroadcastIdentifiers =
+        message.geoFencingTrigger.cbIdentifiers;
+    }
+    if (message.geometries != null) {
+      gonkCellBroadcastMessage.geometries = message.geometries;
+      gonkCellBroadcastMessage.maximumWaitingTimeSec =
+        message.maximumWaitingTimeSec;
+    }
+
+    gCellBroadcastService.notifyMessageReceived(
+      this.clientId,
+      gonkCellBroadcastMessage
     );
   },
 

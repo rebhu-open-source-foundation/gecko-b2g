@@ -1,0 +1,97 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+#include "domstubs.idl"
+#include "nsISupports.idl"
+
+[scriptable, uuid(38ce9960-1831-11eb-8b6f-0800200c9a66)]
+interface nsIGonkCellBroadcastMessage: nsISupports
+{
+  /**
+   * Gsm geographical scope.
+   */
+  readonly attribute unsigned long gsmGeographicalScope;
+
+  /**
+   * Message code.
+   */
+  readonly attribute unsigned short messageCode;
+
+  /**
+   * Serial number.
+   */
+  readonly attribute unsigned short serialNumber;
+
+  /**
+   * Message ID.
+   */
+  readonly attribute unsigned short messageId;
+
+  /**
+   * Text Language.
+   */
+  readonly attribute AString language;
+
+  /**
+   * Text message body
+   */
+  readonly attribute AString body;
+
+  /**
+   * Message class.
+   */
+  readonly attribute unsigned long messageClass;
+
+  /**
+   * The time stamp when message is arrived.
+   */
+  readonly attribute DOMTimeStamp timeStamp;
+
+  /**
+   * CDMA service category.
+   */
+  readonly attribute unsigned long cdmaServiceCategory;
+
+  /**
+   * True if this is ETWS message
+   */
+  readonly attribute boolean hasEtwsInfo;
+
+  /**
+   * ETWS warning type.
+   */
+  readonly attribute unsigned long etwsWarningType;
+
+  /**
+   * True if this is emergency user alert
+   */
+  readonly attribute boolean etwsEmergencyUserAlert;
+
+  /**
+   * True if need to pup up
+   */
+  readonly attribute boolean etwsPopup;
+
+  /**
+   * Array of geometry(circle or polygon)
+   */
+  [implicit_jscontext]
+  readonly attribute jsval geometries;
+
+  /**
+   * Maximum waiting for geo fencing
+   */
+  readonly attribute unsigned short maximumWaitingTimeSec;
+
+  /**
+   * Geo fencing trigger type
+   */
+  readonly attribute unsigned long geoFencingTriggerType;
+
+  /**
+   * Array of cell broadcast identity
+   */
+  [implicit_jscontext]
+  readonly attribute jsval cellBroadcastIdentifiers;
+};

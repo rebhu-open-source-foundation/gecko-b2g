@@ -3,6 +3,7 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "nsICellBroadcastService.idl"
+#include "nsIGonkCellBroadcastMessage.idl"
 
 %{C++
 #define GONK_CELLBROADCAST_SERVICE_CONTRACTID \
@@ -16,16 +17,5 @@ interface nsIGonkCellBroadcastService : nsICellBroadcastService
    * Called when a cellbroadcast message has been received by the network.
    */
   void notifyMessageReceived(in unsigned long aServiceId,
-                             in unsigned long aGsmGeographicalScope,
-                             in unsigned short aMessageCode,
-                             in unsigned short aMessageId,
-                             in AString aLanguage,
-                             in AString aBody,
-                             in unsigned long aMessageClass,
-                             in DOMTimeStamp aTimestamp,
-                             in unsigned long aCdmaServiceCategory,
-                             in boolean aHasEtwsInfo,
-                             in unsigned long aEtwsWarningType,
-                             in boolean aEtwsEmergencyUserAlert,
-                             in boolean aEtwsPopup);
+                             in nsIGonkCellBroadcastMessage aCellBroadcastMessage);
 };
