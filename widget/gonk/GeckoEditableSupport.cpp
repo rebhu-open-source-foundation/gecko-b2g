@@ -50,7 +50,8 @@ bool isContentEditable(Element* aElement) {
     return false;
   }
   bool isContentEditable = false;
-  bool isEditingOn = false;
+  bool isDesignModeOn = false;
+  nsAutoString designMode;
   RefPtr<nsGenericHTMLElement> htmlElement =
       nsGenericHTMLElement::FromNodeOrNull(aElement);
   if (htmlElement) {
@@ -58,18 +59,20 @@ bool isContentEditable(Element* aElement) {
   }
   RefPtr<Document> document = aElement->OwnerDoc();
   if (document) {
-    isEditingOn = document->IsEditingOn();
+    document->GetDesignMode(designMode);
+    isDesignModeOn = designMode.EqualsLiteral("on");
   }
-  if (isContentEditable || isEditingOn) {
+  if (isContentEditable || isDesignModeOn) {
     return true;
   }
 
   document = document->OwnerDoc();
-  if (document) {
+  if (!document) {
     return false;
   }
-
-  return document->IsEditingOn();
+  document->GetDesignMode(designMode);
+  isDesignModeOn = designMode.EqualsLiteral("on");
+  return isDesignModeOn;
 }
 
 bool isIgnoredInputTypes(nsAString& inputType) {
