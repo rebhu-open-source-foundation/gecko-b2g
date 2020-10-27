@@ -1,3 +1,3 @@
 config = {
-    'app_name': 'b2g',
+    "app_name": "b2g",
 }

@@ -15,10 +15,10 @@ from mozbuild.util import (
 
 
 def main(argv):
-    parser = argparse.ArgumentParser(description='Merge l10n files.')
-    parser.add_argument('--output', help='Path to write merged output')
-    parser.add_argument('--ref-file', help='Path to reference file (en-US)')
-    parser.add_argument('--l10n-file', help='Path to locale file')
+    parser = argparse.ArgumentParser(description="Merge l10n files.")
+    parser.add_argument("--output", help="Path to write merged output")
+    parser.add_argument("--ref-file", help="Path to reference file (en-US)")
+    parser.add_argument("--l10n-file", help="Path to locale file")
 
     args = parser.parse_args(argv)
 
@@ -29,10 +29,13 @@ def main(argv):
     from compare_locales.paths import (
         File,
     )
+
     cc = ContentComparer([Observer()])
-    cc.compare(File(args.ref_file, args.ref_file, ''),
-               File(args.l10n_file, args.l10n_file, ''),
-               args.output)
+    cc.compare(
+        File(args.ref_file, args.ref_file, ""),
+        File(args.l10n_file, args.l10n_file, ""),
+        args.output,
+    )
 
     ensureParentDir(args.output)
     if not os.path.exists(args.output):
@@ -44,5 +47,5 @@ def main(argv):
     return 0
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main(sys.argv[1:])

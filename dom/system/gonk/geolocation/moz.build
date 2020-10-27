@@ -14,16 +14,16 @@
 # limitations under the License.
 
 EXPORTS += [
-    'GeolocationUtil.h',
-    'GonkGPSGeolocationProvider.h',
+    "GeolocationUtil.h",
+    "GonkGPSGeolocationProvider.h",
 ]
 UNIFIED_SOURCES += [
-    'GeolocationUtil.cpp',
-    'GonkGPSGeolocationProvider.cpp',
+    "GeolocationUtil.cpp",
+    "GonkGPSGeolocationProvider.cpp",
 ]
 
 XPCOM_MANIFESTS += [
-    'components.conf',
+    "components.conf",
 ]
 
-FINAL_LIBRARY = 'xul'
+FINAL_LIBRARY = "xul"

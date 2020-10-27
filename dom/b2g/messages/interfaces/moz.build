@@ -5,8 +5,8 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 XPIDL_SOURCES += [
-    'nsISystemMessageListener.idl',
-    'nsISystemMessageService.idl',
+    "nsISystemMessageListener.idl",
+    "nsISystemMessageService.idl",
 ]
 
-XPIDL_MODULE = 'dom_messages'
+XPIDL_MODULE = "dom_messages"

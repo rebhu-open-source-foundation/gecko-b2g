@@ -14,38 +14,38 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-XPIDL_MODULE = 'dom_system_gonk_volume'
+XPIDL_MODULE = "dom_system_gonk_volume"
 
 XPIDL_SOURCES += [
-    'nsIVolume.idl',
-    'nsIVolumeMountLock.idl',
-    'nsIVolumeService.idl',
-    'nsIVolumeStat.idl',
+    "nsIVolume.idl",
+    "nsIVolumeMountLock.idl",
+    "nsIVolumeService.idl",
+    "nsIVolumeStat.idl",
 ]
 
 EXPORTS += [
-    'nsVolume.h',
-    'nsVolumeService.h',
+    "nsVolume.h",
+    "nsVolumeService.h",
 ]
 
 UNIFIED_SOURCES += [
-    'nsVolume.cpp',
-    'nsVolumeMountLock.cpp',
-    'nsVolumeService.cpp',
-    'nsVolumeStat.cpp',
-    'VoldProxy.cpp',
-    'Volume.cpp',
-    'VolumeManager.cpp',
-    'VolumeServiceIOThread.cpp',
-    'VolumeServiceTest.cpp',
+    "nsVolume.cpp",
+    "nsVolumeMountLock.cpp",
+    "nsVolumeService.cpp",
+    "nsVolumeStat.cpp",
+    "VoldProxy.cpp",
+    "Volume.cpp",
+    "VolumeManager.cpp",
+    "VolumeServiceIOThread.cpp",
+    "VolumeServiceTest.cpp",
 ]
 
-include('/ipc/chromium/chromium-config.mozbuild')
+include("/ipc/chromium/chromium-config.mozbuild")
 
 LOCAL_INCLUDES += [
-    '/dom/system/gonk',
+    "/dom/system/gonk",
 ]
 
-DEFINES['HAVE_ANDROID_OS'] = True
+DEFINES["HAVE_ANDROID_OS"] = True
 
-FINAL_LIBRARY = 'xul'
+FINAL_LIBRARY = "xul"

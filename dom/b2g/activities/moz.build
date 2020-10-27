@@ -5,32 +5,32 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 DIRS += [
-    'interfaces',
+    "interfaces",
 ]
 
 EXTRA_JS_MODULES += [
-    'ActivitiesService.jsm',
-    'ActivitiesServiceFilter.jsm',
-    'ActivityProxy.jsm',
-    'ActivityRequestHandlerProxy.jsm',
+    "ActivitiesService.jsm",
+    "ActivitiesServiceFilter.jsm",
+    "ActivityProxy.jsm",
+    "ActivityRequestHandlerProxy.jsm",
 ]
 
 XPCOM_MANIFESTS += [
-    'components.conf',
+    "components.conf",
 ]
 
 UNIFIED_SOURCES += [
-    'WebActivity.cpp',
-    'WebActivityRequestHandler.cpp',
-    'WebActivityWorker.cpp',
+    "WebActivity.cpp",
+    "WebActivityRequestHandler.cpp",
+    "WebActivityWorker.cpp",
 ]
 
 EXPORTS.mozilla.dom += [
-    'WebActivity.h',
-    'WebActivityRequestHandler.h',
-    'WebActivityWorker.h',
+    "WebActivity.h",
+    "WebActivityRequestHandler.h",
+    "WebActivityWorker.h",
 ]
 
-include('/ipc/chromium/chromium-config.mozbuild')
+include("/ipc/chromium/chromium-config.mozbuild")
 
-FINAL_LIBRARY = 'xul'
+FINAL_LIBRARY = "xul"

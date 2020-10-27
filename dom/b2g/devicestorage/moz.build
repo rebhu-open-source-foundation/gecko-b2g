@@ -9,44 +9,44 @@ with Files("**"):
 
 
 EXPORTS += [
-    'DeviceStorage.h',
-    'DeviceStorageFileDescriptor.h',
-    'nsDeviceStorage.h',
+    "DeviceStorage.h",
+    "DeviceStorageFileDescriptor.h",
+    "nsDeviceStorage.h",
 ]
 
 EXPORTS.mozilla.dom += [
-    'DeviceStorageAreaListener.h',
-    'FileIterable.h',
+    "DeviceStorageAreaListener.h",
+    "FileIterable.h",
 ]
 
 EXPORTS.mozilla.dom.devicestorage += [
-    'DeviceStorageRequestChild.h',
-    'DeviceStorageRequestParent.h',
-    'DeviceStorageStatics.h',
+    "DeviceStorageRequestChild.h",
+    "DeviceStorageRequestParent.h",
+    "DeviceStorageStatics.h",
 ]
 
 UNIFIED_SOURCES += [
-    'DeviceStorageAreaListener.cpp',
-    'DeviceStorageRequestChild.cpp',
-    'DeviceStorageRequestParent.cpp',
-    'DeviceStorageStatics.cpp',
-    'FileIterable.cpp',
-    'nsDeviceStorage.cpp',
+    "DeviceStorageAreaListener.cpp",
+    "DeviceStorageRequestChild.cpp",
+    "DeviceStorageRequestParent.cpp",
+    "DeviceStorageStatics.cpp",
+    "FileIterable.cpp",
+    "nsDeviceStorage.cpp",
 ]
 
 IPDL_SOURCES += [
-    'PDeviceStorageRequest.ipdl',
+    "PDeviceStorageRequest.ipdl",
 ]
 
-include('/ipc/chromium/chromium-config.mozbuild')
+include("/ipc/chromium/chromium-config.mozbuild")
 
-FINAL_LIBRARY = 'xul'
+FINAL_LIBRARY = "xul"
 LOCAL_INCLUDES += [
-    '/dom/base',
-    '/dom/ipc',
+    "/dom/base",
+    "/dom/ipc",
 ]
 
 MOCHITEST_MANIFESTS += [
-    'test/mochitest.ini',
+    "test/mochitest.ini",
 ]
-MOCHITEST_CHROME_MANIFESTS += ['test/chrome.ini']
+MOCHITEST_CHROME_MANIFESTS += ["test/chrome.ini"]

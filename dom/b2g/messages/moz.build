@@ -8,28 +8,28 @@ with Files("**"):
     BUG_COMPONENT = ("Core", "DOM: System Messages")
 
 DIRS += [
-    'interfaces',
-    'ipc',
+    "interfaces",
+    "ipc",
 ]
 
 UNIFIED_SOURCES += [
-    'SystemMessageManager.cpp',
-    'SystemMessageManagerWorker.cpp',
-    'SystemMessageService.cpp',
-    'SystemMessageSubscription.cpp',
+    "SystemMessageManager.cpp",
+    "SystemMessageManagerWorker.cpp",
+    "SystemMessageService.cpp",
+    "SystemMessageSubscription.cpp",
 ]
 
 EXPORTS.mozilla.dom += [
-    'SystemMessageManager.h',
-    'SystemMessageManagerWorker.h',
-    'SystemMessageService.h',
-    'SystemMessageSubscription.h',
+    "SystemMessageManager.h",
+    "SystemMessageManagerWorker.h",
+    "SystemMessageService.h",
+    "SystemMessageSubscription.h",
 ]
 
 XPCOM_MANIFESTS += [
-    'components.conf',
+    "components.conf",
 ]
 
-include('/ipc/chromium/chromium-config.mozbuild')
+include("/ipc/chromium/chromium-config.mozbuild")
 
-FINAL_LIBRARY = 'xul'
+FINAL_LIBRARY = "xul"

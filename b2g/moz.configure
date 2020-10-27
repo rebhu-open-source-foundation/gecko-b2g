@@ -4,151 +4,174 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-option('--with-b2g-version',
-       nargs=1,
-       help='B2G version number',
-       default='3.0')
+option("--with-b2g-version", nargs=1, help="B2G version number", default="3.0")
 
 
-@depends('--with-b2g-version')
+@depends("--with-b2g-version")
 def b2g_version(value):
     return value[0]
 
 
-set_config('MOZ_B2G_VERSION', b2g_version)
-set_define('MOZ_B2G_VERSION', b2g_version)
+set_config("MOZ_B2G_VERSION", b2g_version)
+set_define("MOZ_B2G_VERSION", b2g_version)
 
 
-option('--with-b2g-os-name',
-       nargs=1,
-       help='B2G OS name',
-       default='B2GOS')
+option("--with-b2g-os-name", nargs=1, help="B2G OS name", default="B2GOS")
 
 
-@depends('--with-b2g-os-name')
+@depends("--with-b2g-os-name")
 def b2g_os_name(value):
     return value[0]
 
 
-set_config('MOZ_B2G_OS_NAME', b2g_os_name)
-set_define('MOZ_B2G_OS_NAME', b2g_os_name)
+set_config("MOZ_B2G_OS_NAME", b2g_os_name)
+set_define("MOZ_B2G_OS_NAME", b2g_os_name)
 
-option('--with-target-arch-name', nargs=1, help='Target arch name for the hidl generated headers')
+option(
+    "--with-target-arch-name",
+    nargs=1,
+    help="Target arch name for the hidl generated headers",
+)
 
-@depends_if('--with-target-arch-name')
+
+@depends_if("--with-target-arch-name")
 def target_arch_name(value):
     return value[0]
 
-set_config('TARGET_ARCH_NAME', target_arch_name)
-set_define('TARGET_ARCH_NAME', target_arch_name)
 
-option('--with-gonk', nargs=1, help='Path to the gonk base directory')
-option('--with-gonk-gfx', nargs=0, help='Use the gonk widget layer')
+set_config("TARGET_ARCH_NAME", target_arch_name)
+set_define("TARGET_ARCH_NAME", target_arch_name)
 
-@depends_if('--with-gonk')
-@imports('os')
+option("--with-gonk", nargs=1, help="Path to the gonk base directory")
+option("--with-gonk-gfx", nargs=0, help="Use the gonk widget layer")
+
+
+@depends_if("--with-gonk")
+@imports("os")
 def gonkdir(value):
     if not os.path.isabs(value[0]):
-        die('Argument to --with-gonkdir must be an absolute path.')
+        die("Argument to --with-gonkdir must be an absolute path.")
     return value[0]
 
-set_config('GONK_PATH', gonkdir)
-set_define('GONK_PATH', gonkdir)
 
-add_old_configure_assignment('gonkdir', gonkdir)
+set_config("GONK_PATH", gonkdir)
+set_define("GONK_PATH", gonkdir)
 
-@depends_if('--with-gonk-gfx')
+add_old_configure_assignment("gonkdir", gonkdir)
+
+
+@depends_if("--with-gonk-gfx")
 def gonk_toolkit(_):
-    return 'cairo-gonk'
-
-imply_option('--enable-default-toolkit', gonk_toolkit)
+    return "cairo-gonk"
 
 
-option('--with-gonk-toolchain-prefix', nargs=1,
-       help='Prefix to gonk toolchain commands')
+imply_option("--enable-default-toolkit", gonk_toolkit)
 
-@depends_if('--with-gonk-toolchain-prefix')
+
+option(
+    "--with-gonk-toolchain-prefix", nargs=1, help="Prefix to gonk toolchain commands"
+)
+
+
+@depends_if("--with-gonk-toolchain-prefix")
 def gonk_toolchain_prefix(value):
     return value
 
-imply_option('--with-toolchain-prefix', gonk_toolchain_prefix)
 
-option('--disable-remote-control-service', help='Set compile flags necessary for Remote Control Service on B2G')
+imply_option("--with-toolchain-prefix", gonk_toolchain_prefix)
 
-@depends_if('--disable-remote-control-service')
+option(
+    "--disable-remote-control-service",
+    help="Set compile flags necessary for Remote Control Service on B2G",
+)
+
+
+@depends_if("--disable-remote-control-service")
 def remote_control_service(value):
     return bool(value)
 
-set_config('MOZ_B2G_REMOTECONTROLSERVICE', remote_control_service)
-set_define('MOZ_B2G_REMOTECONTROLSERVICE', remote_control_service)
 
-option('--target-build-variant', nargs=1, help='Target build variant type')
-@depends_if('--target-build-variant')
+set_config("MOZ_B2G_REMOTECONTROLSERVICE", remote_control_service)
+set_define("MOZ_B2G_REMOTECONTROLSERVICE", remote_control_service)
+
+option("--target-build-variant", nargs=1, help="Target build variant type")
+
+
+@depends_if("--target-build-variant")
 def get_variant(value):
-  if value[0] == 'user':
-    return 'TARGET_VARIANT_USER'
-  elif value[0] == 'userdebug':
-    return 'TARGET_VARIANT_USERDEBUG'
-  else:
-    return 'TARGET_VARIANT_ENG'
+    if value[0] == "user":
+        return "TARGET_VARIANT_USER"
+    elif value[0] == "userdebug":
+        return "TARGET_VARIANT_USERDEBUG"
+    else:
+        return "TARGET_VARIANT_ENG"
+
 
 set_config(get_variant, True)
 set_define(get_variant, True)
 
 # Presentation Support
 # ==============================================================
-option('--enable-presentation',
-       help='Enable Presentation Service (default disable)')
+option("--enable-presentation", help="Enable Presentation Service (default disable)")
 
-@depends('--disable-presentation', target)
+
+@depends("--disable-presentation", target)
 def presentation(value, target):
     enabled = bool(value)
     if enabled:
         return True
 
-set_config('MOZ_PRESENTATION', presentation)
-set_define('MOZ_PRESENTATION', presentation)
+
+set_config("MOZ_PRESENTATION", presentation)
+set_define("MOZ_PRESENTATION", presentation)
 
 # SocialAPI Support
 # ==============================================================
-option('--enable-social',
-       help='Enable Social Service (default disable)')
+option("--enable-social", help="Enable Social Service (default disable)")
 
-@depends('--disable-social', target)
+
+@depends("--disable-social", target)
 def social(value, target):
     enabled = bool(value)
     if enabled:
         return True
 
-set_config('MOZ_SOCIAL', social)
-set_define('MOZ_SOCIAL', social)
+
+set_config("MOZ_SOCIAL", social)
+set_define("MOZ_SOCIAL", social)
 
 # PrivateBrowsing Support
 # ==============================================================
-option('--disable-privatebrowsing',
-       help='Disable Private Browsing (default enable)')
+option("--disable-privatebrowsing", help="Disable Private Browsing (default enable)")
 
-@depends('--enable-privatebrowsing', target)
+
+@depends("--enable-privatebrowsing", target)
 def privatebrowsing(value, target):
     enabled = bool(value)
     if enabled:
         return True
 
-set_config('MOZ_PRIVATEBROWSING', privatebrowsing)
-set_define('MOZ_PRIVATEBROWSING', privatebrowsing)
+
+set_config("MOZ_PRIVATEBROWSING", privatebrowsing)
+set_define("MOZ_PRIVATEBROWSING", privatebrowsing)
 
 # GPU Node Support
 # ==============================================================
-option('--with-sandbox-gpu-node', nargs=1,
- help='Enable GPU nodes under the sandbox, value = [adreno, imagination, mali]')
+option(
+    "--with-sandbox-gpu-node",
+    nargs=1,
+    help="Enable GPU nodes under the sandbox, value = [adreno, imagination, mali]",
+)
 
-@depends_if('--with-sandbox-gpu-node')
+
+@depends_if("--with-sandbox-gpu-node")
 def sandboxgpunode(value):
- return "GPU_NODE_%s" % value[0]
+    return "GPU_NODE_%s" % value[0]
 
-set_define('GPU_NODE_adreno', 1)
-set_define('GPU_NODE_imagination', 2)
-set_define('GPU_NODE_mali', 3)
-set_define('MOZ_SANDBOX_GPU_NODE', sandboxgpunode)
 
-include('common.configure')
+set_define("GPU_NODE_adreno", 1)
+set_define("GPU_NODE_imagination", 2)
+set_define("GPU_NODE_mali", 3)
+set_define("MOZ_SANDBOX_GPU_NODE", sandboxgpunode)
+
+include("common.configure")

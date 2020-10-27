@@ -15,46 +15,46 @@
 # limitations under the License.
 
 SOURCES += [
-    'BootAnimation.cpp',
+    "BootAnimation.cpp",
 ]
 
-if CONFIG['CPU_ARCH'] == 'arm' and CONFIG['BUILD_ARM_NEON']:
-    SOURCES += ['rgb8888_to_rgb565_neon.cpp']
-    SOURCES['rgb8888_to_rgb565_neon.cpp'].flags += ['-mfpu=neon']
+if CONFIG["CPU_ARCH"] == "arm" and CONFIG["BUILD_ARM_NEON"]:
+    SOURCES += ["rgb8888_to_rgb565_neon.cpp"]
+    SOURCES["rgb8888_to_rgb565_neon.cpp"].flags += ["-mfpu=neon"]
 
-if CONFIG['CPU_ARCH'] in ('x86', 'x86_64') :
-    CFLAGS += ['-DANDROID_EMULATOR']
-    CXXFLAGS += ['-DANDROID_EMULATOR']
+if CONFIG["CPU_ARCH"] in ("x86", "x86_64"):
+    CFLAGS += ["-DANDROID_EMULATOR"]
+    CXXFLAGS += ["-DANDROID_EMULATOR"]
 
 UNIFIED_SOURCES += [
-    'FramebufferSurface.cpp',
-    'GonkDisplay.cpp',
-    'GrallocUsageConversion.cpp',
-    'NativeFramebufferDevice.cpp',
-    'NativeGralloc.cpp',
-    'WorkThread.cpp',
+    "FramebufferSurface.cpp",
+    "GonkDisplay.cpp",
+    "GrallocUsageConversion.cpp",
+    "NativeFramebufferDevice.cpp",
+    "NativeGralloc.cpp",
+    "WorkThread.cpp",
 ]
 
-#Library('display')
+# Library('display')
 
-include('/ipc/chromium/chromium-config.mozbuild')
+include("/ipc/chromium/chromium-config.mozbuild")
 
 LOCAL_INCLUDES += [
-    '../hwchal',
+    "../hwchal",
 ]
 
-#FORCE_STATIC_LIB = True
+# FORCE_STATIC_LIB = True
 
-DEFINES['XPCOM_GLUE'] = True
-DEFINES['HAVE_SYS_UIO_H'] = True
+DEFINES["XPCOM_GLUE"] = True
+DEFINES["HAVE_SYS_UIO_H"] = True
 
-FINAL_LIBRARY = 'xul'
+FINAL_LIBRARY = "xul"
 
 AllowCompilerWarnings()
 
 DisableStlWrapping()
 
 OS_LIBS += [
-    'suspend',
-    'ui',
+    "suspend",
+    "ui",
 ]

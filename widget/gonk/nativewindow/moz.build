@@ -14,36 +14,36 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-if CONFIG['ANDROID_VERSION'] >= '29':
+if CONFIG["ANDROID_VERSION"] >= "29":
     EXPORTS += [
-        'GonkBufferQueueO/GonkBufferQueue.h',
-        'GonkBufferQueueO/GonkBufferQueueDefs.h',
-        'GonkBufferQueueO/GonkBufferQueueProducer.h',
-        'GonkBufferQueueO/GonkBufferSlot.h',
-        'GonkBufferQueueO/GonkConsumerBase.h',
-        'GonkBufferQueueO/GonkNativeWindow.h',
-        'GonkBufferQueueO/GonkNativeWindowClient.h',
-        'GonkBufferQueueO/IGonkGraphicBufferConsumer.h',
+        "GonkBufferQueueO/GonkBufferQueue.h",
+        "GonkBufferQueueO/GonkBufferQueueDefs.h",
+        "GonkBufferQueueO/GonkBufferQueueProducer.h",
+        "GonkBufferQueueO/GonkBufferSlot.h",
+        "GonkBufferQueueO/GonkConsumerBase.h",
+        "GonkBufferQueueO/GonkNativeWindow.h",
+        "GonkBufferQueueO/GonkNativeWindowClient.h",
+        "GonkBufferQueueO/IGonkGraphicBufferConsumer.h",
     ]
 else:
-    error('B2G only supports ANDROID_VERSION >= 29 : %s' % CONFIG['ANDROID_VERSION'])
+    error("B2G only supports ANDROID_VERSION >= 29 : %s" % CONFIG["ANDROID_VERSION"])
 
-if CONFIG['MOZ_B2G_CAMERA'] or CONFIG['MOZ_OMX_DECODER'] or CONFIG['MOZ_WEBRTC']:
-    if CONFIG['ANDROID_VERSION'] >= '29':
+if CONFIG["MOZ_B2G_CAMERA"] or CONFIG["MOZ_OMX_DECODER"] or CONFIG["MOZ_WEBRTC"]:
+    if CONFIG["ANDROID_VERSION"] >= "29":
         SOURCES += [
-            'GonkBufferQueueO/GonkBufferItem.cpp',
-            'GonkBufferQueueO/GonkBufferQueue.cpp',
-            'GonkBufferQueueO/GonkBufferQueueConsumer.cpp',
-            'GonkBufferQueueO/GonkBufferQueueCore.cpp',
-            'GonkBufferQueueO/GonkBufferQueueProducer.cpp',
-            'GonkBufferQueueO/GonkBufferSlot.cpp',
-            'GonkBufferQueueO/GonkConsumerBase.cpp',
-            'GonkBufferQueueO/GonkNativeWindow.cpp',
-            'GonkBufferQueueO/GonkNativeWindowClient.cpp',
-            'GonkBufferQueueO/IGonkGraphicBufferConsumer.cpp',
+            "GonkBufferQueueO/GonkBufferItem.cpp",
+            "GonkBufferQueueO/GonkBufferQueue.cpp",
+            "GonkBufferQueueO/GonkBufferQueueConsumer.cpp",
+            "GonkBufferQueueO/GonkBufferQueueCore.cpp",
+            "GonkBufferQueueO/GonkBufferQueueProducer.cpp",
+            "GonkBufferQueueO/GonkBufferSlot.cpp",
+            "GonkBufferQueueO/GonkConsumerBase.cpp",
+            "GonkBufferQueueO/GonkNativeWindow.cpp",
+            "GonkBufferQueueO/GonkNativeWindowClient.cpp",
+            "GonkBufferQueueO/IGonkGraphicBufferConsumer.cpp",
         ]
     else:
-        error('B2G only supports ANDROID_VERSION >= 29')
+        error("B2G only supports ANDROID_VERSION >= 29")
 
 # TODO: FIXME
 # if CONFIG['ANDROID_VERSION'] >= '18':
@@ -51,21 +51,21 @@ if CONFIG['MOZ_B2G_CAMERA'] or CONFIG['MOZ_OMX_DECODER'] or CONFIG['MOZ_WEBRTC']
 #         'FakeSurfaceComposer.cpp',
 #     ]
 
-include('/ipc/chromium/chromium-config.mozbuild')
+include("/ipc/chromium/chromium-config.mozbuild")
 
 # Suppress some GCC warnings being treated as errors:
 #  - about attributes on forward declarations for types that are already
 #    defined, which complains about an important MOZ_EXPORT for android::AString
-if CONFIG['GNU_CC']:
-  CXXFLAGS += ['-Wno-error=attributes', '-Wno-overloaded-virtual']
+if CONFIG["GNU_CC"]:
+    CXXFLAGS += ["-Wno-error=attributes", "-Wno-overloaded-virtual"]
 
 CXXFLAGS += [
-    '-std=c++17',
-    '-Wno-macro-redefined',
-    '-Wno-mismatched-tags',
+    "-std=c++17",
+    "-Wno-macro-redefined",
+    "-Wno-mismatched-tags",
 ]
 
-FINAL_LIBRARY = 'xul'
+FINAL_LIBRARY = "xul"
 
 DisableStlWrapping()
 NoVisibilityFlags()

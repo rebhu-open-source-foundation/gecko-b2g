@@ -15,54 +15,54 @@
 # limitations under the License.
 
 XPIDL_SOURCES += [
-    'nsIAudioManager.idl',
-    'nsISystemWorkerManager.idl',
+    "nsIAudioManager.idl",
+    "nsISystemWorkerManager.idl",
 ]
 
-XPIDL_MODULE = 'dom_system_gonk'
+XPIDL_MODULE = "dom_system_gonk"
 
 EXPORTS += [
-    'AudioChannelManager.h',
-    'SystemProperty.h',
-    'SystemWorkerManager.h',
+    "AudioChannelManager.h",
+    "SystemProperty.h",
+    "SystemWorkerManager.h",
 ]
 
 UNIFIED_SOURCES += [
-    'AudioChannelManager.cpp',
-    'AudioManager.cpp',
-    'AutoMounter.cpp',
-    'SystemProperty.cpp',
-    'SystemWorkerManager.cpp',
+    "AudioChannelManager.cpp",
+    "AudioManager.cpp",
+    "AutoMounter.cpp",
+    "SystemProperty.cpp",
+    "SystemWorkerManager.cpp",
 ]
 
 EXTRA_JS_MODULES += [
-    'systemlibs.js',
+    "systemlibs.js",
 ]
 
 EXTRA_PP_JS_MODULES += [
-    'BinderServices.jsm',
+    "BinderServices.jsm",
 ]
 
-include('/ipc/chromium/chromium-config.mozbuild')
+include("/ipc/chromium/chromium-config.mozbuild")
 
-DEFINES['HAVE_ANDROID_OS'] = True
+DEFINES["HAVE_ANDROID_OS"] = True
 
 LOCAL_INCLUDES += [
-    '/dom/b2g/bluetooth/common',
-    'mtp',
-    'volume',
+    "/dom/b2g/bluetooth/common",
+    "mtp",
+    "volume",
 ]
 
 DIRS += [
-    'geolocation',
-    'mtp',
-    'network',
-    'volume',
+    "geolocation",
+    "mtp",
+    "network",
+    "volume",
 ]
 
-if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk' and CONFIG['MOZ_B2G_RIL']:
+if CONFIG["MOZ_WIDGET_TOOLKIT"] == "gonk" and CONFIG["MOZ_B2G_RIL"]:
     DIRS += [
-        'radio',
+        "radio",
     ]
 
-FINAL_LIBRARY = 'xul'
+FINAL_LIBRARY = "xul"

@@ -15,17 +15,17 @@
 # limitations under the License.
 
 UNIFIED_SOURCES += [
-    'MozMtpDatabase.cpp',
-    'MozMtpServer.cpp',
-    'MozMtpStorage.cpp',
+    "MozMtpDatabase.cpp",
+    "MozMtpServer.cpp",
+    "MozMtpStorage.cpp",
 ]
 
-include('/ipc/chromium/chromium-config.mozbuild')
+include("/ipc/chromium/chromium-config.mozbuild")
 
-DEFINES['HAVE_ANDROID_OS'] = True
+DEFINES["HAVE_ANDROID_OS"] = True
 
 LOCAL_INCLUDES += [
-    '/dom/system/gonk',
+    "/dom/system/gonk",
 ]
 
-FINAL_LIBRARY = 'xul'
+FINAL_LIBRARY = "xul"

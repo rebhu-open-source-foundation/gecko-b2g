@@ -1,9 +1,8 @@
-
 RESOURCE_FILES += [
-    'res/cur_default_26px.png',
-    'res/cur_pointer_26px.png',
-    'res/cur_progress_26px.png',
-    'res/cur_text_26px.png',
-    'res/cur_vertical_text_26px.png',
-    'res/cur_wait_26px.png',
+    "res/cur_default_26px.png",
+    "res/cur_pointer_26px.png",
+    "res/cur_progress_26px.png",
+    "res/cur_text_26px.png",
+    "res/cur_vertical_text_26px.png",
+    "res/cur_wait_26px.png",
 ]

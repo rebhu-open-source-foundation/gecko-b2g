@@ -6,21 +6,21 @@
 # All other trademarks are the property of their respective owners.
 
 EXPORTS.mozilla.dom += [
-    'ExternalAPI.h',
+    "ExternalAPI.h",
 ]
 
 UNIFIED_SOURCES += [
-    'ExternalAPI.cpp',
+    "ExternalAPI.cpp",
 ]
 
 EXTRA_JS_MODULES += [
-    'ExternalAPIService.jsm',
+    "ExternalAPIService.jsm",
 ]
 
 LOCAL_INCLUDES += [
-    '/dom/workers',
+    "/dom/workers",
 ]
 
-include('/ipc/chromium/chromium-config.mozbuild')
+include("/ipc/chromium/chromium-config.mozbuild")
 
-FINAL_LIBRARY = 'xul'
+FINAL_LIBRARY = "xul"

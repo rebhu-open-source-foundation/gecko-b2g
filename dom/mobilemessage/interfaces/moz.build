@@ -5,25 +5,24 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 XPIDL_SOURCES += [
-    'nsIDeletedMessageInfo.idl',
-    'nsIMmsMessage.idl',
-    'nsIMmsService.idl',
-    'nsIMobileMessageCallback.idl',
-    'nsIMobileMessageCursorCallback.idl',
-    'nsIMobileMessageDatabaseService.idl',
-    'nsIMobileMessageService.idl',
-    'nsIMobileMessageThread.idl',
-    'nsISmsMessage.idl',
-    'nsISmsService.idl',
-    'nsIWapPushApplication.idl',
+    "nsIDeletedMessageInfo.idl",
+    "nsIMmsMessage.idl",
+    "nsIMmsService.idl",
+    "nsIMobileMessageCallback.idl",
+    "nsIMobileMessageCursorCallback.idl",
+    "nsIMobileMessageDatabaseService.idl",
+    "nsIMobileMessageService.idl",
+    "nsIMobileMessageThread.idl",
+    "nsISmsMessage.idl",
+    "nsISmsService.idl",
+    "nsIWapPushApplication.idl",
 ]
 
 XPIDL_SOURCES += [
-    'nsIGonkMobileMessageDatabaseService.idl',
-    'nsIGonkSmsMessage.idl',
-    'nsIGonkSmsService.idl',
-    'nsISmsMessenger.idl',
+    "nsIGonkMobileMessageDatabaseService.idl",
+    "nsIGonkSmsMessage.idl",
+    "nsIGonkSmsService.idl",
+    "nsISmsMessenger.idl",
 ]
 
-XPIDL_MODULE = 'dom_mobilemessage'
-
+XPIDL_MODULE = "dom_mobilemessage"

@@ -15,137 +15,140 @@
 # limitations under the License.
 
 EXPORTS += [
-    'GfxDebugger.h',
-    'GonkActivityManagerService.h',
+    "GfxDebugger.h",
+    "GonkActivityManagerService.h",
     # 'GeckoTouchDispatcher.h',
-    'GonkPermission.h',
-    'OrientationObserver.h',
+    "GonkPermission.h",
+    "OrientationObserver.h",
 ]
 
 EXPORTS.mozilla += [
-    'hwchal/HwcHAL.h',
-    'libdisplay/BootAnimation.h',
+    "hwchal/HwcHAL.h",
+    "libdisplay/BootAnimation.h",
 ]
 
 EXPORTS.mozilla.widget += [
-    'GeckoEditableSupport.h',
-    'GonkCompositorWidget.h',
+    "GeckoEditableSupport.h",
+    "GonkCompositorWidget.h",
 ]
 
-DIRS += ['libdisplay', 'nativewindow']
+DIRS += ["libdisplay", "nativewindow"]
 
 # libui files
-SOURCES += ['libui/' + src for src in [
-    'EventHub.cpp',
-    'Input.cpp',
-    'InputApplication.cpp',
-    'InputDevice.cpp',
-    'InputDispatcher.cpp',
-    'InputListener.cpp',
-    'InputReader.cpp',
-    'InputTransport.cpp',
-    'InputWindow.cpp',
-    'Keyboard.cpp',
-    'KeyCharacterMap.cpp',
-    'KeyLayoutMap.cpp',
-    'PointerController.cpp',
-    'sha1.c',
-    'SpriteController.cpp',
-    'Tokenizer.cpp',
-    'VelocityControl.cpp',
-    'VelocityTracker.cpp',
-    'VirtualKeyMap.cpp',
-]]
+SOURCES += [
+    "libui/" + src
+    for src in [
+        "EventHub.cpp",
+        "Input.cpp",
+        "InputApplication.cpp",
+        "InputDevice.cpp",
+        "InputDispatcher.cpp",
+        "InputListener.cpp",
+        "InputReader.cpp",
+        "InputTransport.cpp",
+        "InputWindow.cpp",
+        "Keyboard.cpp",
+        "KeyCharacterMap.cpp",
+        "KeyLayoutMap.cpp",
+        "PointerController.cpp",
+        "sha1.c",
+        "SpriteController.cpp",
+        "Tokenizer.cpp",
+        "VelocityControl.cpp",
+        "VelocityTracker.cpp",
+        "VirtualKeyMap.cpp",
+    ]
+]
 
 # HwcHAL files
 SOURCES += [
-    'hwchal/HwcHAL.cpp',
+    "hwchal/HwcHAL.cpp",
 ]
 
 UNIFIED_SOURCES += [
-    'hwchal/android_10/ComposerHal.cpp',
-    'hwchal/android_10/HWC2.cpp',
+    "hwchal/android_10/ComposerHal.cpp",
+    "hwchal/android_10/HWC2.cpp",
 ]
 
 SOURCES += [
-    'GeckoEditableSupport.cpp',
-    'GeckoTouchDispatcher.cpp',
-    'GfxDebugger.cpp',
-    'GfxInfo.cpp',
-    'GLCursorImageManager.cpp',
-    'GonkActivityManagerService.cpp',
-    'GonkClipboardData.cpp',
-    'GonkCompositorWidget.cpp',
-    'GonkMemoryPressureMonitoring.cpp',
-    'GonkMemoryPressureMonitoring2.cpp',
-    'GonkPermission.cpp',
-    'MediaKeysEventSourceFactory.cpp',
-    'nsAppShell.cpp',
-    'nsClipboard.cpp',
-    'nsIdleServiceGonk.cpp',
-    'nsLookAndFeel.cpp',
-    'nsNativeBasicThemeGonk.cpp',
-    'nsWidgetFactory.cpp',
-    'nsWindow.cpp',
-# TODO: fixme
-#    'OrientationObserver.cpp',
-    'ProcessOrientation.cpp',
-    'ProcInfo.cpp',
-    'ScreenHelperGonk.cpp',
+    "GeckoEditableSupport.cpp",
+    "GeckoTouchDispatcher.cpp",
+    "GfxDebugger.cpp",
+    "GfxInfo.cpp",
+    "GLCursorImageManager.cpp",
+    "GonkActivityManagerService.cpp",
+    "GonkClipboardData.cpp",
+    "GonkCompositorWidget.cpp",
+    "GonkMemoryPressureMonitoring.cpp",
+    "GonkMemoryPressureMonitoring2.cpp",
+    "GonkPermission.cpp",
+    "MediaKeysEventSourceFactory.cpp",
+    "nsAppShell.cpp",
+    "nsClipboard.cpp",
+    "nsIdleServiceGonk.cpp",
+    "nsLookAndFeel.cpp",
+    "nsNativeBasicThemeGonk.cpp",
+    "nsWidgetFactory.cpp",
+    "nsWindow.cpp",
+    # TODO: fixme
+    #    'OrientationObserver.cpp',
+    "ProcessOrientation.cpp",
+    "ProcInfo.cpp",
+    "ScreenHelperGonk.cpp",
 ]
 
 SOURCES += [
-    'HwcComposer2D.cpp',
-    'HwcUtils.cpp',
+    "HwcComposer2D.cpp",
+    "HwcUtils.cpp",
 ]
 
-if CONFIG['MOZ_INSTRUMENT_EVENT_LOOP']:
+if CONFIG["MOZ_INSTRUMENT_EVENT_LOOP"]:
     SOURCES += [
-        'WidgetTraceEvent.cpp',
+        "WidgetTraceEvent.cpp",
     ]
 
-include('/ipc/chromium/chromium-config.mozbuild')
+include("/ipc/chromium/chromium-config.mozbuild")
 
-FINAL_LIBRARY = 'xul'
+FINAL_LIBRARY = "xul"
 
 LOCAL_INCLUDES += [
-    '/dom/base',
-    '/dom/system/android',
-    '/gfx/2d/',
-    '/image',
-    '/layout/base',
-    '/layout/forms',
-    '/layout/generic',
-    '/layout/painting',
-    '/layout/style',
-    '/widget',
-    '/widget/gonk/libdisplay',
+    "/dom/base",
+    "/dom/system/android",
+    "/gfx/2d/",
+    "/image",
+    "/layout/base",
+    "/layout/forms",
+    "/layout/generic",
+    "/layout/painting",
+    "/layout/style",
+    "/widget",
+    "/widget/gonk/libdisplay",
 ]
 
-DEFINES['HAVE_OFF64_T'] = True
-DEFINES['SK_BUILD_FOR_ANDROID_NDK'] = True
+DEFINES["HAVE_OFF64_T"] = True
+DEFINES["SK_BUILD_FOR_ANDROID_NDK"] = True
 
-DEFINES['HAVE_POSIX_CLOCKS'] = True
+DEFINES["HAVE_POSIX_CLOCKS"] = True
 
-if CONFIG['MOZ_OMX_DECODER']:
-    DEFINES['MOZ_OMX_DECODER'] = True
+if CONFIG["MOZ_OMX_DECODER"]:
+    DEFINES["MOZ_OMX_DECODER"] = True
 
 CXXFLAGS += [
-    '-Wno-macro-redefined',
-    '-Wno-mismatched-tags',
-    '-Wno-inconsistent-missing-override',
-    '-Wno-pointer-bool-conversion',
-    '-Wno-unused-private-field',
-    '-Wno-overloaded-virtual',
-    '-Wno-unused-result',
-    '-Wno-unused-function',
-    '-Wno-unused-value',
-    '-Wno-comma',
+    "-Wno-macro-redefined",
+    "-Wno-mismatched-tags",
+    "-Wno-inconsistent-missing-override",
+    "-Wno-pointer-bool-conversion",
+    "-Wno-unused-private-field",
+    "-Wno-overloaded-virtual",
+    "-Wno-unused-result",
+    "-Wno-unused-function",
+    "-Wno-unused-value",
+    "-Wno-comma",
 ]
 
 LOCAL_INCLUDES += [
-    '/gfx/ipc',
-    '/gfx/skia/skia',
-    '/gfx/skia/skia/include/config',
-    '/gfx/skia/skia/include/core',
+    "/gfx/ipc",
+    "/gfx/skia/skia",
+    "/gfx/skia/skia/include/config",
+    "/gfx/skia/skia/include/core",
 ]

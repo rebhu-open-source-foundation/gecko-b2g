@@ -7,52 +7,52 @@
 with Files("**"):
     BUG_COMPONENT = ("Core", "DOM: File")
 
-DIRS += ['compat']
+DIRS += ["compat"]
 
-TEST_DIRS += ['tests']
+TEST_DIRS += ["tests"]
 
 EXPORTS.mozilla.dom += [
-    'DeviceStorageFileSystem.h',
-    'Directory.h',
-    'FileSystemBase.h',
-    'FileSystemRequestParent.h',
-    'FileSystemSecurity.h',
-    'FileSystemTaskBase.h',
-    'FileSystemUtils.h',
-    'GetFilesHelper.h',
-    'OSFileSystem.h',
+    "DeviceStorageFileSystem.h",
+    "Directory.h",
+    "FileSystemBase.h",
+    "FileSystemRequestParent.h",
+    "FileSystemSecurity.h",
+    "FileSystemTaskBase.h",
+    "FileSystemUtils.h",
+    "GetFilesHelper.h",
+    "OSFileSystem.h",
 ]
 
 UNIFIED_SOURCES += [
-    'CopyOrMoveToTask.cpp',
-    'CreateDirectoryTask.cpp',
-    'CreateFileTask.cpp',
-    'DeviceStorageFileSystem.cpp',
-    'Directory.cpp',
-    'FileSystemBase.cpp',
-    'FileSystemPermissionRequest.cpp',
-    'FileSystemRequestParent.cpp',
-    'FileSystemSecurity.cpp',
-    'FileSystemTaskBase.cpp',
-    'FileSystemUtils.cpp',
-    'GetDirectoryListingTask.cpp',
-    'GetFileOrDirectoryTask.cpp',
-    'GetFilesHelper.cpp',
-    'GetFilesTask.cpp',
-    'OSFileSystem.cpp',
-    'RemoveTask.cpp',
-    'RenameToTask.cpp',
+    "CopyOrMoveToTask.cpp",
+    "CreateDirectoryTask.cpp",
+    "CreateFileTask.cpp",
+    "DeviceStorageFileSystem.cpp",
+    "Directory.cpp",
+    "FileSystemBase.cpp",
+    "FileSystemPermissionRequest.cpp",
+    "FileSystemRequestParent.cpp",
+    "FileSystemSecurity.cpp",
+    "FileSystemTaskBase.cpp",
+    "FileSystemUtils.cpp",
+    "GetDirectoryListingTask.cpp",
+    "GetFileOrDirectoryTask.cpp",
+    "GetFilesHelper.cpp",
+    "GetFilesTask.cpp",
+    "OSFileSystem.cpp",
+    "RemoveTask.cpp",
+    "RenameToTask.cpp",
 ]
 
-FINAL_LIBRARY = 'xul'
+FINAL_LIBRARY = "xul"
 
 IPDL_SOURCES += [
-    'PFileSystemParams.ipdlh',
-    'PFileSystemRequest.ipdl',
+    "PFileSystemParams.ipdlh",
+    "PFileSystemRequest.ipdl",
 ]
 
-include('/ipc/chromium/chromium-config.mozbuild')
+include("/ipc/chromium/chromium-config.mozbuild")
 
 LOCAL_INCLUDES += [
-    '/dom/base',
+    "/dom/base",
 ]

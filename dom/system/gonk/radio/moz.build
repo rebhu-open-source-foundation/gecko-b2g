@@ -14,51 +14,51 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-XPIDL_MODULE = 'dom_system_gonk_radio'
+XPIDL_MODULE = "dom_system_gonk_radio"
 
 XPIDL_SOURCES += [
-    'nsIDataCallInterfaceService.idl',
-    'nsIDataCallManager.idl',
-    'nsIGonkDataCallInterfaceService.idl',
-    'nsIRadioInterfaceLayer.idl',
-    'nsIRilIndicationResult.idl',
-    'nsIRilResponseResult.idl',
-    'nsIRilResult.idl',
-    'nsIRilWorkerService.idl',
+    "nsIDataCallInterfaceService.idl",
+    "nsIDataCallManager.idl",
+    "nsIGonkDataCallInterfaceService.idl",
+    "nsIRadioInterfaceLayer.idl",
+    "nsIRilIndicationResult.idl",
+    "nsIRilResponseResult.idl",
+    "nsIRilResult.idl",
+    "nsIRilWorkerService.idl",
 ]
 
 UNIFIED_SOURCES += [
-    'nsRilIndication.cpp',
-    'nsRilIndicationResult.cpp',
-    'nsRilResponse.cpp',
-    'nsRilResponseResult.cpp',
-    'nsRilResult.cpp',
-    'nsRilWorker.cpp',
-    'nsRilWorkerService.cpp',
+    "nsRilIndication.cpp",
+    "nsRilIndicationResult.cpp",
+    "nsRilResponse.cpp",
+    "nsRilResponseResult.cpp",
+    "nsRilResult.cpp",
+    "nsRilWorker.cpp",
+    "nsRilWorkerService.cpp",
 ]
 
 XPCOM_MANIFESTS += [
-    'components.conf',
+    "components.conf",
 ]
 
 EXTRA_JS_MODULES += [
-    'DataCallInterfaceService.jsm',
-    'DataCallManager.jsm',
-    'RadioInterfaceLayer.jsm',
-    'ril_consts.js',
-    'ril_consts_debug.js',
-    'RILSystemMessenger.jsm',
-    'RILSystemMessengerHelper.jsm',
-    'simIOHelper.js',
+    "DataCallInterfaceService.jsm",
+    "DataCallManager.jsm",
+    "RadioInterfaceLayer.jsm",
+    "ril_consts.js",
+    "ril_consts_debug.js",
+    "RILSystemMessenger.jsm",
+    "RILSystemMessengerHelper.jsm",
+    "simIOHelper.js",
 ]
 
 EXTRA_COMPONENTS += [
-    'DataCallManager.manifest',
-    'RadioInterfaceLayer.manifest',
+    "DataCallManager.manifest",
+    "RadioInterfaceLayer.manifest",
 ]
 
-include('/ipc/chromium/chromium-config.mozbuild')
+include("/ipc/chromium/chromium-config.mozbuild")
 
-DEFINES['HAVE_ANDROID_OS'] = True
+DEFINES["HAVE_ANDROID_OS"] = True
 
-FINAL_LIBRARY = 'xul'
+FINAL_LIBRARY = "xul"

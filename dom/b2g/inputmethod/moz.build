@@ -5,33 +5,29 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 DIRS += [
-    'interfaces',
-    'ipc',
+    "interfaces",
+    "ipc",
 ]
 
 EXPORTS.mozilla.dom += [
-    'IMELog.h',
-    'InputMethod.h',
-    'InputMethodListener.h',
-    'InputMethodService.h',
-    'nsInputContext.h'
+    "IMELog.h",
+    "InputMethod.h",
+    "InputMethodListener.h",
+    "InputMethodService.h",
+    "nsInputContext.h",
 ]
 
 UNIFIED_SOURCES += [
-    'InputMethod.cpp',
-    'InputMethodListener.cpp',
-    'InputMethodService.cpp',
-    'nsInputContext.cpp'
+    "InputMethod.cpp",
+    "InputMethodListener.cpp",
+    "InputMethodService.cpp",
+    "nsInputContext.cpp",
 ]
 
-EXTRA_JS_MODULES += [
+EXTRA_JS_MODULES += []
 
-]
+XPCOM_MANIFESTS += []
 
-XPCOM_MANIFESTS += [
+include("/ipc/chromium/chromium-config.mozbuild")
 
-]
-
-include('/ipc/chromium/chromium-config.mozbuild')
-
-FINAL_LIBRARY = 'xul'
+FINAL_LIBRARY = "xul"

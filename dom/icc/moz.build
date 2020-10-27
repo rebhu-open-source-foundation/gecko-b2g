@@ -4,66 +4,66 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-DIRS += ['interfaces']
+DIRS += ["interfaces"]
 
 EXPORTS += [
-    'ipc/IccIPCService.h',
+    "ipc/IccIPCService.h",
 ]
 
 EXPORTS.mozilla.dom += [
-    'Icc.h',
-    'IccInfo.h',
-    'IccManager.h',
+    "Icc.h",
+    "IccInfo.h",
+    "IccManager.h",
 ]
 
 EXPORTS.mozilla.dom.icc += [
-    'IccContact.h',
-    'ipc/IccChild.h',
-    'ipc/IccIPCUtils.h',
-    'ipc/IccParent.h'
+    "IccContact.h",
+    "ipc/IccChild.h",
+    "ipc/IccIPCUtils.h",
+    "ipc/IccParent.h",
 ]
 
 UNIFIED_SOURCES += [
-    'Assertions.cpp',
-    'Icc.cpp',
-    'IccCallback.cpp',
-    'IccContact.cpp',
+    "Assertions.cpp",
+    "Icc.cpp",
+    "IccCallback.cpp",
+    "IccContact.cpp",
     "IccInfo.cpp",
-    'IccListener.cpp',
-    'IccManager.cpp',
-    'ipc/IccChild.cpp',
-    'ipc/IccIPCService.cpp',
-    'ipc/IccIPCUtils.cpp',
-    'ipc/IccParent.cpp',
+    "IccListener.cpp",
+    "IccManager.cpp",
+    "ipc/IccChild.cpp",
+    "ipc/IccIPCService.cpp",
+    "ipc/IccIPCUtils.cpp",
+    "ipc/IccParent.cpp",
 ]
 
 IPDL_SOURCES += [
-    'ipc/PIcc.ipdl',
-    'ipc/PIccRequest.ipdl',
-    'ipc/PIccTypes.ipdlh',
+    "ipc/PIcc.ipdl",
+    "ipc/PIccRequest.ipdl",
+    "ipc/PIccTypes.ipdlh",
 ]
 
-if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk' and CONFIG['MOZ_B2G_RIL']:
+if CONFIG["MOZ_WIDGET_TOOLKIT"] == "gonk" and CONFIG["MOZ_B2G_RIL"]:
     EXTRA_JS_MODULES += [
-        'gonk/IccService.jsm',
-        'gonk/StkCmdFactory.jsm',
+        "gonk/IccService.jsm",
+        "gonk/StkCmdFactory.jsm",
     ]
 
     XPCOM_MANIFESTS += [
-        'gonk/components.conf',
+        "gonk/components.conf",
     ]
 
 XPCOM_MANIFESTS += [
-    'components.conf',
+    "components.conf",
 ]
 
-include('/ipc/chromium/chromium-config.mozbuild')
+include("/ipc/chromium/chromium-config.mozbuild")
 
-FINAL_LIBRARY = 'xul'
+FINAL_LIBRARY = "xul"
 
 LOCAL_INCLUDES += [
-    '/dom/system/gonk',
+    "/dom/system/gonk",
 ]
 
-if CONFIG['GNU_CXX']:
-    CXXFLAGS += ['-Wshadow']
+if CONFIG["GNU_CXX"]:
+    CXXFLAGS += ["-Wshadow"]

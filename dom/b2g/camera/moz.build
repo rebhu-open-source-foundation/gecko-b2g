@@ -4,94 +4,94 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-if CONFIG['MOZ_B2G_CAMERA']:
-    MOCHITEST_MANIFESTS += ['test/mochitest.ini']
+if CONFIG["MOZ_B2G_CAMERA"]:
+    MOCHITEST_MANIFESTS += ["test/mochitest.ini"]
 
 EXPORTS += [
-    'CameraCommon.h',
-    'CameraPreferences.h',
-    'DOMCameraDetectedFace.h',
-    'DOMCameraManager.h',
-    'ICameraControl.h',
+    "CameraCommon.h",
+    "CameraPreferences.h",
+    "DOMCameraDetectedFace.h",
+    "DOMCameraManager.h",
+    "ICameraControl.h",
 ]
 
 UNIFIED_SOURCES += [
-    'CameraControlImpl.cpp',
-    'CameraPreferences.cpp',
-    'CameraPreviewMediaStream.cpp',
-    'DOMCameraCapabilities.cpp',
-    'DOMCameraControl.cpp',
-    'DOMCameraControlListener.cpp',
-    'DOMCameraDetectedFace.cpp',
-    'DOMCameraManager.cpp',
+    "CameraControlImpl.cpp",
+    "CameraPreferences.cpp",
+    "CameraPreviewMediaStream.cpp",
+    "DOMCameraCapabilities.cpp",
+    "DOMCameraControl.cpp",
+    "DOMCameraControlListener.cpp",
+    "DOMCameraDetectedFace.cpp",
+    "DOMCameraManager.cpp",
 ]
 
-if CONFIG['MOZ_B2G_CAMERA']:
+if CONFIG["MOZ_B2G_CAMERA"]:
     XPIDL_SOURCES += [
-        'nsICameraTestHardware.idl',
+        "nsICameraTestHardware.idl",
     ]
 
-    XPIDL_MODULE = 'dom_camera'
+    XPIDL_MODULE = "dom_camera"
 
     UNIFIED_SOURCES += [
-        'GonkCameraControl.cpp',
-        'GonkCameraHwMgr.cpp',
-        'GonkCameraManager.cpp',
-        'GonkCameraParameters.cpp',
-        'GonkRecorderProfiles.cpp',
-        'TestGonkCameraControl.cpp',
-        'TestGonkCameraHardware.cpp',
+        "GonkCameraControl.cpp",
+        "GonkCameraHwMgr.cpp",
+        "GonkCameraManager.cpp",
+        "GonkCameraParameters.cpp",
+        "GonkRecorderProfiles.cpp",
+        "TestGonkCameraControl.cpp",
+        "TestGonkCameraHardware.cpp",
     ]
 
-    if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
+    if CONFIG["MOZ_WIDGET_TOOLKIT"] == "gonk":
         OS_LIBS += [
-            'camera_client',
-            'media',
+            "camera_client",
+            "media",
         ]
 
-    if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
+    if CONFIG["MOZ_WIDGET_TOOLKIT"] == "gonk":
         UNIFIED_SOURCES += [
-            'GonkCameraSource.cpp',
-            'GonkMediaBuffer.cpp',
-            'GonkRecorder.cpp',
+            "GonkCameraSource.cpp",
+            "GonkMediaBuffer.cpp",
+            "GonkRecorder.cpp",
         ]
         OS_LIBS += [
-            'stagefright_foundation',
+            "stagefright_foundation",
         ]
     else:
         UNIFIED_SOURCES += [
-            'FallbackCameraPlatform.cpp',
+            "FallbackCameraPlatform.cpp",
         ]
 
     EXTRA_COMPONENTS += [
-        'CameraTestHardware.js',
-        'CameraTestHardware.manifest',
+        "CameraTestHardware.js",
+        "CameraTestHardware.manifest",
     ]
 else:
     UNIFIED_SOURCES += [
-        'FallbackCameraControl.cpp',
-        'FallbackCameraManager.cpp',
+        "FallbackCameraControl.cpp",
+        "FallbackCameraManager.cpp",
     ]
 
 LOCAL_INCLUDES += [
-    '..',
-    '../../file',
-    '/media/libyuv/libyuv/include',
+    "..",
+    "../../file",
+    "/media/libyuv/libyuv/include",
 ]
 
-include('/ipc/chromium/chromium-config.mozbuild')
+include("/ipc/chromium/chromium-config.mozbuild")
 
 CXXFLAGS += [
-    '-std=c++17',
+    "-std=c++17",
 ]
 
 # Suppress some GCC warnings being treated as errors:
 #  - about attributes on forward declarations for types that are already
 #    defined, which complains about an important MOZ_EXPORT for android::AString
-if CONFIG['GNU_CC']:
+if CONFIG["GNU_CC"]:
     CXXFLAGS += [
-        '-Wno-error=attributes',
-        '-Wno-error=shadow',
+        "-Wno-error=attributes",
+        "-Wno-error=shadow",
     ]
 
-FINAL_LIBRARY = 'xul'
+FINAL_LIBRARY = "xul"

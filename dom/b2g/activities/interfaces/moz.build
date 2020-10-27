@@ -5,8 +5,8 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 XPIDL_SOURCES += [
-    'nsIActivityProxy.idl',
-    'nsIActivityRequestHandlerProxy.idl',
+    "nsIActivityProxy.idl",
+    "nsIActivityRequestHandlerProxy.idl",
 ]
 
-XPIDL_MODULE = 'dom_webactivity'
+XPIDL_MODULE = "dom_webactivity"

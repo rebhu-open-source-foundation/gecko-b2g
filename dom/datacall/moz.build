@@ -5,16 +5,16 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 EXTRA_JS_MODULES += [
-    'DOMDataCallManager.jsm',
-    'gonk/DataCallService.jsm',
+    "DOMDataCallManager.jsm",
+    "gonk/DataCallService.jsm",
 ]
 
 EXTRA_COMPONENTS += [
-    'gonk/DataCallService.manifest',
+    "gonk/DataCallService.manifest",
 ]
 
 XPCOM_MANIFESTS += [
-    'components.conf',
+    "components.conf",
 ]
 
-FINAL_LIBRARY = 'xul'
+FINAL_LIBRARY = "xul"

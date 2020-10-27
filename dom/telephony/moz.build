@@ -5,102 +5,98 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 XPIDL_SOURCES += [
-    'nsITelephonyCallInfo.idl',
+    "nsITelephonyCallInfo.idl",
 ]
 
-XPIDL_MODULE = 'dom_telephony'
+XPIDL_MODULE = "dom_telephony"
 
-EXPORTS += [
-    'ipc/TelephonyIPCService.h'
-]
+EXPORTS += ["ipc/TelephonyIPCService.h"]
 
 EXPORTS.mozilla.dom += [
-    'Assertions.cpp',
-    'CallsList.h',
-    'MMICall.h',
-    'Telephony.h',
-    'TelephonyCall.h',
-    'TelephonyCallCapabilities.h',
-    'TelephonyCallGroup.h',
-    'TelephonyCallId.h',
-    'USSDSession.h'
+    "Assertions.cpp",
+    "CallsList.h",
+    "MMICall.h",
+    "Telephony.h",
+    "TelephonyCall.h",
+    "TelephonyCallCapabilities.h",
+    "TelephonyCallGroup.h",
+    "TelephonyCallId.h",
+    "USSDSession.h",
 ]
 
 EXPORTS.mozilla.dom.telephony += [
-    'ipc/TelephonyChild.h',
-    'ipc/TelephonyIPCSerializer.h',
-    'ipc/TelephonyParent.h',
-    'TelephonyCallback.h',
-    'TelephonyCallInfo.h',
-    'TelephonyCommon.h',
-    'TelephonyDialCallback.h',
+    "ipc/TelephonyChild.h",
+    "ipc/TelephonyIPCSerializer.h",
+    "ipc/TelephonyParent.h",
+    "TelephonyCallback.h",
+    "TelephonyCallInfo.h",
+    "TelephonyCommon.h",
+    "TelephonyDialCallback.h",
 ]
 
 UNIFIED_SOURCES += [
-    'Assertions.cpp',
-    'CallsList.cpp',
-    'ipc/TelephonyChild.cpp',
-    'ipc/TelephonyIPCService.cpp',
-    'ipc/TelephonyParent.cpp',
-    'MMICall.cpp',
-    'Telephony.cpp',
-    'TelephonyCall.cpp',
-    'TelephonyCallback.cpp',
-    'TelephonyCallCapabilities.cpp',
-    'TelephonyCallGroup.cpp',
-    'TelephonyCallId.cpp',
-    'TelephonyCallInfo.cpp',
-    'TelephonyDialCallback.cpp',
-    'USSDSession.cpp',
+    "Assertions.cpp",
+    "CallsList.cpp",
+    "ipc/TelephonyChild.cpp",
+    "ipc/TelephonyIPCService.cpp",
+    "ipc/TelephonyParent.cpp",
+    "MMICall.cpp",
+    "Telephony.cpp",
+    "TelephonyCall.cpp",
+    "TelephonyCallback.cpp",
+    "TelephonyCallCapabilities.cpp",
+    "TelephonyCallGroup.cpp",
+    "TelephonyCallId.cpp",
+    "TelephonyCallInfo.cpp",
+    "TelephonyDialCallback.cpp",
+    "USSDSession.cpp",
 ]
 
 XPIDL_SOURCES += [
-    'nsITelephonyService.idl',
+    "nsITelephonyService.idl",
 ]
 
 IPDL_SOURCES += [
-        'ipc/PTelephony.ipdl',
+    "ipc/PTelephony.ipdl",
 ]
 
 IPDL_SOURCES += [
-    'ipc/PTelephonyRequest.ipdl',
-    'ipc/TelephonyTypes.ipdlh',
+    "ipc/PTelephonyRequest.ipdl",
+    "ipc/TelephonyTypes.ipdlh",
 ]
 
-if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk' and CONFIG['MOZ_B2G_RIL']:
+if CONFIG["MOZ_WIDGET_TOOLKIT"] == "gonk" and CONFIG["MOZ_B2G_RIL"]:
     XPIDL_SOURCES += [
-        'ims/nsIImsPhoneService.idl',
-        'nsIGonkTelephonyService.idl',
-        'nsITelephonyAudioService.idl',
-        'nsITelephonyMessenger.idl',
+        "ims/nsIImsPhoneService.idl",
+        "nsIGonkTelephonyService.idl",
+        "nsITelephonyAudioService.idl",
+        "nsITelephonyMessenger.idl",
     ]
 
     EXTRA_JS_MODULES += [
-        'gonk/DialNumberUtils.jsm',
-        'gonk/TelephonyAudioService.jsm',
-        'gonk/TelephonyService.jsm',
-        'gonk/TelephonyUtils.jsm',
-        'gonk/USSDReceivedWrapper.jsm',
+        "gonk/DialNumberUtils.jsm",
+        "gonk/TelephonyAudioService.jsm",
+        "gonk/TelephonyService.jsm",
+        "gonk/TelephonyUtils.jsm",
+        "gonk/USSDReceivedWrapper.jsm",
     ]
 
     XPCOM_MANIFESTS += [
-        'gonk/components.conf',
+        "gonk/components.conf",
     ]
 
 XPCOM_MANIFESTS += [
-    'components.conf',
+    "components.conf",
 ]
 
-EXTRA_COMPONENTS += [
-    'gonk/TelephonyService.manifest'
-]
+EXTRA_COMPONENTS += ["gonk/TelephonyService.manifest"]
 
-include('/ipc/chromium/chromium-config.mozbuild')
+include("/ipc/chromium/chromium-config.mozbuild")
 
-FINAL_LIBRARY = 'xul'
+FINAL_LIBRARY = "xul"
 
-if CONFIG['MOZ_BUILD_APP'] == 'browser':
-    MOCHITEST_MANIFESTS += ['test/mochitest/mochitest.ini']
+if CONFIG["MOZ_BUILD_APP"] == "browser":
+    MOCHITEST_MANIFESTS += ["test/mochitest/mochitest.ini"]
 
-if CONFIG['GNU_CXX']:
-    CXXFLAGS += ['-Wshadow']
+if CONFIG["GNU_CXX"]:
+    CXXFLAGS += ["-Wshadow"]

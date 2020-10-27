@@ -4,120 +4,120 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-if CONFIG['MOZ_BUILD_APP'] == 'browser':
-    MOCHITEST_MANIFESTS += ['tests/mochitest/mochitest.ini']
+if CONFIG["MOZ_BUILD_APP"] == "browser":
+    MOCHITEST_MANIFESTS += ["tests/mochitest/mochitest.ini"]
 
 EXPORTS += [
-    'ipc/ImsRegIPCService.h',
-    'ipc/MobileConnectionIPCService.h',
+    "ipc/ImsRegIPCService.h",
+    "ipc/MobileConnectionIPCService.h",
 ]
 
 EXPORTS.mozilla.dom += [
-    'DOMMobileConnectionDeviceIds.h',
-    'DOMMobileNetworkInfo.h',
-    'ImsDeviceConfiguration.h',
-    'ImsRegHandler.h',
-    'MobileCellInfo.h',
-    'MobileConnection.h',
-    'MobileConnectionArray.h',
-    'MobileConnectionInfo.h',
-    'MobileDeviceIdentities.h',
-    'MobileNetworkInfo.h',
-    'MobileSignalStrength.h',
+    "DOMMobileConnectionDeviceIds.h",
+    "DOMMobileNetworkInfo.h",
+    "ImsDeviceConfiguration.h",
+    "ImsRegHandler.h",
+    "MobileCellInfo.h",
+    "MobileConnection.h",
+    "MobileConnectionArray.h",
+    "MobileConnectionInfo.h",
+    "MobileDeviceIdentities.h",
+    "MobileNetworkInfo.h",
+    "MobileSignalStrength.h",
 ]
 
 EXPORTS.mozilla.dom.mobileconnection += [
-    'ipc/ImsRegistrationChild.h',
-    'ipc/ImsRegistrationParent.h',
-    'ipc/MobileConnectionChild.h',
-    'ipc/MobileConnectionIPCSerializer.h',
-    'ipc/MobileConnectionParent.h',
-    'MobileCallForwardingOptions.h',
+    "ipc/ImsRegistrationChild.h",
+    "ipc/ImsRegistrationParent.h",
+    "ipc/MobileConnectionChild.h",
+    "ipc/MobileConnectionIPCSerializer.h",
+    "ipc/MobileConnectionParent.h",
+    "MobileCallForwardingOptions.h",
 ]
 
 XPIDL_SOURCES += [
-    'interfaces/nsICellInfo.idl',
-    'interfaces/nsIImsRegService.idl',
-    'interfaces/nsIMobileCallForwardingOptions.idl',
-    'interfaces/nsIMobileCellInfo.idl',
-    'interfaces/nsIMobileConnectionInfo.idl',
-    'interfaces/nsIMobileConnectionService.idl',
-    'interfaces/nsIMobileDeviceIdentities.idl',
-    'interfaces/nsIMobileNetworkInfo.idl',
-    'interfaces/nsIMobileSignalStrength.idl',
-    'interfaces/nsINeighboringCellInfo.idl',
+    "interfaces/nsICellInfo.idl",
+    "interfaces/nsIImsRegService.idl",
+    "interfaces/nsIMobileCallForwardingOptions.idl",
+    "interfaces/nsIMobileCellInfo.idl",
+    "interfaces/nsIMobileConnectionInfo.idl",
+    "interfaces/nsIMobileConnectionService.idl",
+    "interfaces/nsIMobileDeviceIdentities.idl",
+    "interfaces/nsIMobileNetworkInfo.idl",
+    "interfaces/nsIMobileSignalStrength.idl",
+    "interfaces/nsINeighboringCellInfo.idl",
 ]
 
 UNIFIED_SOURCES += [
-    'Assertions.cpp',
-    'DOMMobileConnectionDeviceIds.cpp',
-    'DOMMobileNetworkInfo.cpp',
-    'ImsDeviceConfiguration.cpp',
-    'ImsRegCallback.cpp',
-    'ImsRegHandler.cpp',
-    'ipc/ImsRegIPCService.cpp',
-    'ipc/ImsRegistrationChild.cpp',
-    'ipc/ImsRegistrationParent.cpp',
-    'ipc/MobileConnectionChild.cpp',
-    'ipc/MobileConnectionIPCService.cpp',
-    'ipc/MobileConnectionParent.cpp',
-    'MobileCallForwardingOptions.cpp',
-    'MobileCellInfo.cpp',
-    'MobileConnectionArray.cpp',
-    'MobileConnectionCallback.cpp',
-    'MobileConnectionInfo.cpp',
-    'MobileDeviceIdentities.cpp',
-    'MobileNetworkInfo.cpp',
-    'MobileSignalStrength.cpp',
+    "Assertions.cpp",
+    "DOMMobileConnectionDeviceIds.cpp",
+    "DOMMobileNetworkInfo.cpp",
+    "ImsDeviceConfiguration.cpp",
+    "ImsRegCallback.cpp",
+    "ImsRegHandler.cpp",
+    "ipc/ImsRegIPCService.cpp",
+    "ipc/ImsRegistrationChild.cpp",
+    "ipc/ImsRegistrationParent.cpp",
+    "ipc/MobileConnectionChild.cpp",
+    "ipc/MobileConnectionIPCService.cpp",
+    "ipc/MobileConnectionParent.cpp",
+    "MobileCallForwardingOptions.cpp",
+    "MobileCellInfo.cpp",
+    "MobileConnectionArray.cpp",
+    "MobileConnectionCallback.cpp",
+    "MobileConnectionInfo.cpp",
+    "MobileDeviceIdentities.cpp",
+    "MobileNetworkInfo.cpp",
+    "MobileSignalStrength.cpp",
 ]
 
 SOURCES += [
-    'MobileConnection.cpp', # Non-unified due to no_pgo
+    "MobileConnection.cpp",  # Non-unified due to no_pgo
 ]
 
-if CONFIG['_MSC_VER'] and CONFIG['CPU_ARCH'] == 'x86_64':
-    SOURCES['MobileConnection.cpp'].no_pgo = True # VS2013 crashes, bug 1084162
+if CONFIG["_MSC_VER"] and CONFIG["CPU_ARCH"] == "x86_64":
+    SOURCES["MobileConnection.cpp"].no_pgo = True  # VS2013 crashes, bug 1084162
 
 IPDL_SOURCES += [
-    'ipc/PImsRegistration.ipdl',
-    'ipc/PImsRegistrationRequest.ipdl',
-    'ipc/PImsRegServiceFinder.ipdl',
-    'ipc/PMobileConnection.ipdl',
-    'ipc/PMobileConnectionRequest.ipdl',
-    'ipc/PMobileConnectionTypes.ipdlh',
+    "ipc/PImsRegistration.ipdl",
+    "ipc/PImsRegistrationRequest.ipdl",
+    "ipc/PImsRegServiceFinder.ipdl",
+    "ipc/PMobileConnection.ipdl",
+    "ipc/PMobileConnectionRequest.ipdl",
+    "ipc/PMobileConnectionTypes.ipdlh",
 ]
 
-if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk' and CONFIG['MOZ_B2G_RIL']:
+if CONFIG["MOZ_WIDGET_TOOLKIT"] == "gonk" and CONFIG["MOZ_B2G_RIL"]:
     XPIDL_SOURCES += [
-        'gonk/interfaces/nsIGonkImsRegService.idl',
-        'gonk/interfaces/nsIGonkMobileConnectionService.idl',
-        'gonk/interfaces/nsIImsCallSession.idl',
-        'gonk/interfaces/nsIImsConfig.idl',
-        'gonk/interfaces/nsIImsMMTelFeature.idl',
-        'gonk/interfaces/nsIImsRegistration.idl',
-        'gonk/interfaces/nsIImsServiceManager.idl',
-        'gonk/interfaces/nsIImsUt.idl',
-        'gonk/interfaces/nsIMobileConnectionMessenger.idl',
+        "gonk/interfaces/nsIGonkImsRegService.idl",
+        "gonk/interfaces/nsIGonkMobileConnectionService.idl",
+        "gonk/interfaces/nsIImsCallSession.idl",
+        "gonk/interfaces/nsIImsConfig.idl",
+        "gonk/interfaces/nsIImsMMTelFeature.idl",
+        "gonk/interfaces/nsIImsRegistration.idl",
+        "gonk/interfaces/nsIImsServiceManager.idl",
+        "gonk/interfaces/nsIImsUt.idl",
+        "gonk/interfaces/nsIMobileConnectionMessenger.idl",
     ]
 
     EXTRA_PP_JS_MODULES += [
-        'gonk/MobileConnectionService.jsm',
+        "gonk/MobileConnectionService.jsm",
     ]
 
     XPCOM_MANIFESTS += [
-        'gonk/components.conf',
+        "gonk/components.conf",
     ]
 
 XPCOM_MANIFESTS += [
-    'components.conf',
+    "components.conf",
 ]
 
 LOCAL_INCLUDES += [
-    '/dom/system/gonk',
+    "/dom/system/gonk",
 ]
 
-include('/ipc/chromium/chromium-config.mozbuild')
+include("/ipc/chromium/chromium-config.mozbuild")
 
-FINAL_LIBRARY = 'xul'
+FINAL_LIBRARY = "xul"
 
-XPIDL_MODULE = 'dom_mobileconnection'
+XPIDL_MODULE = "dom_mobileconnection"

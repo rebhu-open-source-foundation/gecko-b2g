@@ -5,8 +5,8 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 XPIDL_SOURCES += [
-  'nsIGonkSubsidyLockService.idl',
-  'nsISubsidyLockService.idl',
+    "nsIGonkSubsidyLockService.idl",
+    "nsISubsidyLockService.idl",
 ]
 
-XPIDL_MODULE = 'dom_subsidylock'
+XPIDL_MODULE = "dom_subsidylock"

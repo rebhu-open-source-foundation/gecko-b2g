@@ -4,10 +4,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-EXPORTS.mozilla += ['../android/Ashmem.h']
+EXPORTS.mozilla += ["../android/Ashmem.h"]
 
 SOURCES += [
-    '../android/Ashmem.cpp',
+    "../android/Ashmem.cpp",
 ]
 
-FINAL_LIBRARY = 'mozglue'
+FINAL_LIBRARY = "mozglue"

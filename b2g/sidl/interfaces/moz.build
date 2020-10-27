@@ -1,8 +1,7 @@
-
 XPIDL_SOURCES += [
-    'nsIGeckoBridge.idl',
-    'nsISettings.idl',
-    'nsISidl.idl',
+    "nsIGeckoBridge.idl",
+    "nsISettings.idl",
+    "nsISidl.idl",
 ]
 
-XPIDL_MODULE = 'sidl'
+XPIDL_MODULE = "sidl"

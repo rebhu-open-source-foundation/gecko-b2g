@@ -5,14 +5,14 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 if CONFIG["MOZ_B2G"]:
-    MOCHITEST_MANIFESTS += ['tests/mochitest.ini']
+    MOCHITEST_MANIFESTS += ["tests/mochitest.ini"]
 
 EXTRA_JS_MODULES += [
-    'DownloadManager.jsm',
-    'DownloadService.jsm',
-    'DownloadsIPC.jsm',
+    "DownloadManager.jsm",
+    "DownloadService.jsm",
+    "DownloadsIPC.jsm",
 ]
 
 XPCOM_MANIFESTS += [
-  'components.conf',
+    "components.conf",
 ]

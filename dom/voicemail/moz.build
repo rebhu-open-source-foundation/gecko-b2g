@@ -5,63 +5,61 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 XPIDL_SOURCES += [
-    'nsIVoicemailService.idl',
+    "nsIVoicemailService.idl",
 ]
 
-XPIDL_MODULE = 'dom_voicemail'
+XPIDL_MODULE = "dom_voicemail"
 
-EXPORTS += [
-    'ipc/VoicemailChild.h'
-]
+EXPORTS += ["ipc/VoicemailChild.h"]
 
 EXPORTS.mozilla.dom += [
-    'Voicemail.h',
-    'VoicemailStatus.h',
+    "Voicemail.h",
+    "VoicemailStatus.h",
 ]
 
 EXPORTS.mozilla.dom.voicemail += [
-    'ipc/VoicemailChild.h',
-    'ipc/VoicemailParent.h',
+    "ipc/VoicemailChild.h",
+    "ipc/VoicemailParent.h",
 ]
 
 IPDL_SOURCES += [
-    'ipc/PVoicemail.ipdl',
+    "ipc/PVoicemail.ipdl",
 ]
 
 SOURCES += [
-    'ipc/VoicemailChild.cpp',
-    'ipc/VoicemailParent.cpp',
-    'Voicemail.cpp',
+    "ipc/VoicemailChild.cpp",
+    "ipc/VoicemailParent.cpp",
+    "Voicemail.cpp",
 ]
 
 UNIFIED_SOURCES += [
-    'VoicemailStatus.cpp',
+    "VoicemailStatus.cpp",
 ]
 
 XPCOM_MANIFESTS += [
-    'components.conf',
+    "components.conf",
 ]
 
-if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk' and CONFIG['MOZ_B2G_RIL']:
+if CONFIG["MOZ_WIDGET_TOOLKIT"] == "gonk" and CONFIG["MOZ_B2G_RIL"]:
     XPIDL_SOURCES += [
-        'gonk/nsIGonkVoicemailService.idl',
+        "gonk/nsIGonkVoicemailService.idl",
     ]
 
     EXTRA_JS_MODULES += [
-        'gonk/VoicemailService.jsm',
+        "gonk/VoicemailService.jsm",
     ]
 
     XPCOM_MANIFESTS += [
-        'gonk/components.conf',
+        "gonk/components.conf",
     ]
 
 LOCAL_INCLUDES += [
-    '../base',
+    "../base",
 ]
 
-include('/ipc/chromium/chromium-config.mozbuild')
+include("/ipc/chromium/chromium-config.mozbuild")
 
-FINAL_LIBRARY = 'xul'
+FINAL_LIBRARY = "xul"
 
-if CONFIG['GNU_CXX']:
-    CXXFLAGS += ['-Wshadow']
+if CONFIG["GNU_CXX"]:
+    CXXFLAGS += ["-Wshadow"]

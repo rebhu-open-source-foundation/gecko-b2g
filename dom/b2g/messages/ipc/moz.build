@@ -5,19 +5,19 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 EXPORTS.mozilla.dom += [
-    'SystemMessageServiceChild.h',
-    'SystemMessageServiceParent.h',
+    "SystemMessageServiceChild.h",
+    "SystemMessageServiceParent.h",
 ]
 
 UNIFIED_SOURCES += [
-    'SystemMessageServiceChild.cpp',
-    'SystemMessageServiceParent.cpp',
+    "SystemMessageServiceChild.cpp",
+    "SystemMessageServiceParent.cpp",
 ]
 
 IPDL_SOURCES += [
-    'PSystemMessageService.ipdl',
+    "PSystemMessageService.ipdl",
 ]
 
-include('/ipc/chromium/chromium-config.mozbuild')
+include("/ipc/chromium/chromium-config.mozbuild")
 
-FINAL_LIBRARY = 'xul'
+FINAL_LIBRARY = "xul"

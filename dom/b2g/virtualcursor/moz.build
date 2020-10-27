@@ -3,41 +3,41 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 EXPORTS.mozilla.dom += [
-    'DOMVirtualCursor.h',
+    "DOMVirtualCursor.h",
 ]
 
 EXPORTS.mozilla.dom += [
     "CursorSimulator.h",
     "PanSimulator.h",
-    'VirtualCursorProxy.h',
-    'VirtualCursorService.h',
+    "VirtualCursorProxy.h",
+    "VirtualCursorService.h",
 ]
 
 UNIFIED_SOURCES += [
-    'CursorRemote.cpp',
-    'CursorSimulator.cpp',
-    'DOMVirtualCursor.cpp',
-    'PanSimulator.cpp',
-    'VirtualCursorProxy.cpp',
-    'VirtualCursorService.cpp',
+    "CursorRemote.cpp",
+    "CursorSimulator.cpp",
+    "DOMVirtualCursor.cpp",
+    "PanSimulator.cpp",
+    "VirtualCursorProxy.cpp",
+    "VirtualCursorService.cpp",
 ]
 
 LOCAL_INCLUDES += [
-    '/dom/base',
-    '/dom/html',
-    '/gfx/layers/',
+    "/dom/base",
+    "/dom/html",
+    "/gfx/layers/",
 ]
 
-XPIDL_MODULE = 'dom_virtualcursor'
+XPIDL_MODULE = "dom_virtualcursor"
 
 XPCOM_MANIFESTS += [
-    'components.conf',
+    "components.conf",
 ]
 
 XPIDL_SOURCES += [
-    'nsIVirtualCursorService.idl',
+    "nsIVirtualCursorService.idl",
 ]
 
-include('/ipc/chromium/chromium-config.mozbuild')
+include("/ipc/chromium/chromium-config.mozbuild")
 
-FINAL_LIBRARY = 'xul'
+FINAL_LIBRARY = "xul"

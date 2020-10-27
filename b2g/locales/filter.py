@@ -7,10 +7,15 @@ from __future__ import absolute_import
 
 def test(mod, path, entity=None):
     # ignore anything but b2g and specific overloads from dom and toolkit
-    if mod not in ("netwerk", "dom", "toolkit", "security/manager",
-                   "devtools/shared",
-                   "mobile",
-                   "b2g"):
+    if mod not in (
+        "netwerk",
+        "dom",
+        "toolkit",
+        "security/manager",
+        "devtools/shared",
+        "mobile",
+        "b2g",
+    ):
         return "ignore"
 
     return "error"

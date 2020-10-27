@@ -16,7 +16,7 @@ def disable_non_linux_workers(config, jobs):
     Never try to run tasks on macosx or windows workers.
     """
     for job in jobs:
-        impl, os = worker_type_implementation(config.graph_config, job['worker-type'])
-        if os in ('macosx', 'windows'):
-            job['optimization'] = {'always': None}
+        impl, os = worker_type_implementation(config.graph_config, job["worker-type"])
+        if os in ("macosx", "windows"):
+            job["optimization"] = {"always": None}
         yield job

@@ -5,41 +5,41 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 XPIDL_SOURCES += [
-    'interfaces/nsIAlarmHalService.idl',
-    'interfaces/nsIAlarmProxy.idl',
+    "interfaces/nsIAlarmHalService.idl",
+    "interfaces/nsIAlarmProxy.idl",
 ]
 
-XPIDL_MODULE = 'dom_alarm'
+XPIDL_MODULE = "dom_alarm"
 
 EXPORTS.mozilla.dom.alarm += [
-    'AlarmHalService.h',
+    "AlarmHalService.h",
 ]
 
 EXPORTS.mozilla.dom += [
-    'AlarmManager.h',
+    "AlarmManager.h",
 ]
 
 SOURCES += [
-    'AlarmHalService.cpp',
-    'AlarmManager.cpp',
+    "AlarmHalService.cpp",
+    "AlarmManager.cpp",
 ]
 
 EXTRA_JS_MODULES += [
-    'AlarmDB.jsm',
-    'AlarmProxy.jsm',
-    'AlarmService.jsm',
+    "AlarmDB.jsm",
+    "AlarmProxy.jsm",
+    "AlarmService.jsm",
 ]
 
 XPCOM_MANIFESTS += [
-    'components.conf',
+    "components.conf",
 ]
 
-include('/ipc/chromium/chromium-config.mozbuild')
+include("/ipc/chromium/chromium-config.mozbuild")
 
-FINAL_LIBRARY = 'xul'
+FINAL_LIBRARY = "xul"
 
-MOCHITEST_MANIFESTS += ['test/mochitest.ini']
+MOCHITEST_MANIFESTS += ["test/mochitest.ini"]
 
-MOCHITEST_CHROME_MANIFESTS += ['test/chrome.ini']
+MOCHITEST_CHROME_MANIFESTS += ["test/chrome.ini"]
 
-XPCSHELL_TESTS_MANIFESTS += ['test/xpcshell.ini']
+XPCSHELL_TESTS_MANIFESTS += ["test/xpcshell.ini"]

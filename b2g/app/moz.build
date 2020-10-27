@@ -4,78 +4,78 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-if CONFIG['GAIADIR']:
-    GeckoProgram(CONFIG['MOZ_APP_NAME'] + "-bin")
+if CONFIG["GAIADIR"]:
+    GeckoProgram(CONFIG["MOZ_APP_NAME"] + "-bin")
 else:
-    GeckoProgram(CONFIG['MOZ_APP_NAME'])
+    GeckoProgram(CONFIG["MOZ_APP_NAME"])
 
 SOURCES += [
-    'nsBrowserApp.cpp',
+    "nsBrowserApp.cpp",
 ]
-if CONFIG['_MSC_VER']:
+if CONFIG["_MSC_VER"]:
     # Always enter a Windows program through wmain, whether or not we're
     # a console application.
-    WIN32_EXE_LDFLAGS += ['-ENTRY:wmainCRTStartup']
+    WIN32_EXE_LDFLAGS += ["-ENTRY:wmainCRTStartup"]
 
 USE_LIBS += [
-    'zlib',
+    "zlib",
 ]
 
-for var in ('MOZ_APP_NAME', 'MOZ_APP_VERSION', 'MOZ_UPDATER'):
+for var in ("MOZ_APP_NAME", "MOZ_APP_VERSION", "MOZ_UPDATER"):
     DEFINES[var] = CONFIG[var]
 
 LOCAL_INCLUDES += [
-    '!/build',
-    '/toolkit/xre',
-    '/xpcom/base',
-    '/xpcom/build',
+    "!/build",
+    "/toolkit/xre",
+    "/xpcom/base",
+    "/xpcom/build",
 ]
 
-if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
+if CONFIG["MOZ_WIDGET_TOOLKIT"] == "gonk":
     LOCAL_INCLUDES += [
-        '/widget/gonk/libdisplay',
+        "/widget/gonk/libdisplay",
     ]
 
-    LDFLAGS += ['-Wl,--export-dynamic']
+    LDFLAGS += ["-Wl,--export-dynamic"]
 
     USE_LIBS += [
-        'mozpng',
+        "mozpng",
     ]
-    OS_LIBS += CONFIG['MOZ_ZLIB_LIBS']
-    if CONFIG['ANDROID_VERSION'] in ('17', '18', '19', '21', '22', '23', '27', '29'):
+    OS_LIBS += CONFIG["MOZ_ZLIB_LIBS"]
+    if CONFIG["ANDROID_VERSION"] in ("17", "18", "19", "21", "22", "23", "27", "29"):
         OS_LIBS += [
-            'gui',
+            "gui",
         ]
     OS_LIBS += [
-        'ui',
-        'EGL',
-        'binder',
-        'hardware_legacy',
-        'hardware',
+        "ui",
+        "EGL",
+        "binder",
+        "hardware_legacy",
+        "hardware",
     ]
-    if CONFIG['ANDROID_VERSION'] in ('17', '18', '19', '21', '22', '23', '27', '29'):
+    if CONFIG["ANDROID_VERSION"] in ("17", "18", "19", "21", "22", "23", "27", "29"):
         OS_LIBS += [
-            'suspend',
+            "suspend",
         ]
     OS_LIBS += [
-        'utils',
-        'cutils',
+        "utils",
+        "cutils",
     ]
 
 DisableStlWrapping()
 
-if CONFIG['OS_ARCH'] == 'WINNT':
+if CONFIG["OS_ARCH"] == "WINNT":
     OS_LIBS += [
-        'version',
+        "version",
     ]
 
-if CONFIG['GNU_CXX']:
-    CXXFLAGS += ['-Wshadow']
+if CONFIG["GNU_CXX"]:
+    CXXFLAGS += ["-Wshadow"]
 
 JS_PREFERENCE_PP_FILES += [
-    'b2g.js',
+    "b2g.js",
 ]
 
 FINAL_TARGET_PP_FILES += [
-  'ua-update.json.in',
+    "ua-update.json.in",
 ]

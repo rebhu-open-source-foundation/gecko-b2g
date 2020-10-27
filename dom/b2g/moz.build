@@ -5,52 +5,50 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 EXPORTS.mozilla.dom += [
-    'B2G.h',
+    "B2G.h",
 ]
 
 UNIFIED_SOURCES += [
-    'B2G.cpp',
+    "B2G.cpp",
 ]
 
 DIRS += [
-    'activities',
-    'alarm',
-    'camera',
-    'devicestorage',
-    'externalapi',
-    'flipmanager',
-    'downloads',
-    'inputmethod',
-    'keyboardeventgenerator',
-    'messages',
-    'permissions',
-    'powersupply',
-    'tethering',
-    'usb',
-    'virtualcursor',
+    "activities",
+    "alarm",
+    "camera",
+    "devicestorage",
+    "externalapi",
+    "flipmanager",
+    "downloads",
+    "inputmethod",
+    "keyboardeventgenerator",
+    "messages",
+    "permissions",
+    "powersupply",
+    "tethering",
+    "usb",
+    "virtualcursor",
 ]
 
-if CONFIG['MOZ_B2G_BT']:
-    DIRS += ['bluetooth']
+if CONFIG["MOZ_B2G_BT"]:
+    DIRS += ["bluetooth"]
 
-if CONFIG['ENABLE_TOUCHPAL']:
+if CONFIG["ENABLE_TOUCHPAL"]:
+    DIRS += ["imeconnect/touchpal"]
+
+if CONFIG["MOZ_B2G_FM"]:
+    DIRS += ["fmradio"]
+
+if CONFIG["MOZ_WIDGET_TOOLKIT"] == "gonk":
     DIRS += [
-        'imeconnect/touchpal'
+        "speakermanager",
     ]
 
-if CONFIG['MOZ_B2G_FM']:
-    DIRS += ['fmradio']
-
-if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
+if CONFIG["HAS_KOOST_MODULES"]:
     DIRS += [
-        'speakermanager',
+        "kaiauth",
     ]
 
-if CONFIG['HAS_KOOST_MODULES']:
-    DIRS += [
-        'kaiauth',
-    ]
+include("/ipc/chromium/chromium-config.mozbuild")
 
-include('/ipc/chromium/chromium-config.mozbuild')
-
-FINAL_LIBRARY = 'xul'
+FINAL_LIBRARY = "xul"

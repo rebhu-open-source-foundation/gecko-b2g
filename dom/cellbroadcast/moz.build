@@ -4,50 +4,50 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-DIRS += ['interfaces']
+DIRS += ["interfaces"]
 
 EXPORTS.mozilla.dom += [
-    'CellBroadcast.h',
-    'CellBroadcastMessage.h',
+    "CellBroadcast.h",
+    "CellBroadcastMessage.h",
 ]
 
 UNIFIED_SOURCES += [
-    'CellBroadcast.cpp',
-    'CellBroadcastMessage.cpp',
-    'ipc/CellBroadcastChild.cpp',
-    'ipc/CellBroadcastParent.cpp',
+    "CellBroadcast.cpp",
+    "CellBroadcastMessage.cpp",
+    "ipc/CellBroadcastChild.cpp",
+    "ipc/CellBroadcastParent.cpp",
 ]
 
-if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk' and CONFIG['MOZ_B2G_RIL']:
+if CONFIG["MOZ_WIDGET_TOOLKIT"] == "gonk" and CONFIG["MOZ_B2G_RIL"]:
     EXTRA_JS_MODULES += [
-        'gonk/CellBroadcastService.jsm',
-        'gonk/sms_cb_consts.js',
+        "gonk/CellBroadcastService.jsm",
+        "gonk/sms_cb_consts.js",
     ]
 
     EXTRA_PP_JS_MODULES += [
-        'gonk/GonkCellBroadcastConfigService.jsm',
+        "gonk/GonkCellBroadcastConfigService.jsm",
     ]
 
     XPCOM_MANIFESTS += [
-        'gonk/components.conf',
+        "gonk/components.conf",
     ]
 
 EXPORTS.mozilla.dom.cellbroadcast += [
-    'ipc/CellBroadcastChild.h',
-    'ipc/CellBroadcastParent.h',
+    "ipc/CellBroadcastChild.h",
+    "ipc/CellBroadcastParent.h",
 ]
 
 IPDL_SOURCES += [
-    'ipc/PCellBroadcast.ipdl',
+    "ipc/PCellBroadcast.ipdl",
 ]
 
 XPCOM_MANIFESTS += [
-    'components.conf',
+    "components.conf",
 ]
 
-include('/ipc/chromium/chromium-config.mozbuild')
+include("/ipc/chromium/chromium-config.mozbuild")
 
-FINAL_LIBRARY = 'xul'
+FINAL_LIBRARY = "xul"
 
-if CONFIG['GNU_CXX']:
-    CXXFLAGS += ['-Wshadow']
+if CONFIG["GNU_CXX"]:
+    CXXFLAGS += ["-Wshadow"]

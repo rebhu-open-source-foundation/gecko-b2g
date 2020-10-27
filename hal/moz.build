@@ -4,223 +4,221 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-with Files('**'):
-    BUG_COMPONENT = ('Core', 'Hardware Abstraction Layer (HAL)')
+with Files("**"):
+    BUG_COMPONENT = ("Core", "Hardware Abstraction Layer (HAL)")
 
 EXPORTS.mozilla += [
-    'Hal.h',
-    'HalBatteryInformation.h',
-    'HalImpl.h',
-    'HalNetworkInformation.h',
-    'HalSandbox.h',
-    'HalScreenConfiguration.h',
-    'HalSensor.h',
-    'HalTypes.h',
-    'HalWakeLock.h',
-    'HalWakeLockInformation.h',
+    "Hal.h",
+    "HalBatteryInformation.h",
+    "HalImpl.h",
+    "HalNetworkInformation.h",
+    "HalSandbox.h",
+    "HalScreenConfiguration.h",
+    "HalSensor.h",
+    "HalTypes.h",
+    "HalWakeLock.h",
+    "HalWakeLockInformation.h",
 ]
 
 EXPORTS.mozilla.fallback += [
-    'fallback/FallbackScreenConfiguration.h',
+    "fallback/FallbackScreenConfiguration.h",
 ]
 
 UNIFIED_SOURCES += [
-    'HalWakeLock.cpp',
-    'sandbox/SandboxHal.cpp',
-    'WindowIdentifier.cpp',
+    "HalWakeLock.cpp",
+    "sandbox/SandboxHal.cpp",
+    "WindowIdentifier.cpp",
 ]
 
 # Hal.cpp cannot be built in unified mode because it relies on HalImpl.h.
 SOURCES += [
-    'Hal.cpp',
+    "Hal.cpp",
 ]
 
-if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'android':
+if CONFIG["MOZ_WIDGET_TOOLKIT"] == "android":
     LOCAL_INCLUDES += [
-        '/widget/android',
+        "/widget/android",
     ]
     UNIFIED_SOURCES += [
-        'android/AndroidProcessPriority.cpp',
-        'android/AndroidSensor.cpp',
-        'fallback/FallbackAlarm.cpp',
-        'fallback/FallbackFlashlightManager.cpp',
-        'fallback/FallbackFlipManager.cpp',
-        'fallback/FallbackPowerSupply.cpp',
-        'fallback/FallbackUsbManager.cpp',
+        "android/AndroidProcessPriority.cpp",
+        "android/AndroidSensor.cpp",
+        "fallback/FallbackAlarm.cpp",
+        "fallback/FallbackFlashlightManager.cpp",
+        "fallback/FallbackFlipManager.cpp",
+        "fallback/FallbackPowerSupply.cpp",
+        "fallback/FallbackUsbManager.cpp",
     ]
     # AndroidHal.cpp cannot be built in unified mode because it relies on HalImpl.h.
     SOURCES += [
-        'android/AndroidHal.cpp',
+        "android/AndroidHal.cpp",
     ]
-elif CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
+elif CONFIG["MOZ_WIDGET_TOOLKIT"] == "gonk":
     UNIFIED_SOURCES += [
-        'fallback/FallbackProcessPriority.cpp',
-        'fallback/FallbackScreenConfiguration.cpp',
-        'gonk/GonkDiskSpaceWatcher.cpp',
-        'gonk/GonkSensor.cpp',
-        'gonk/GonkSensorsHal.cpp',
-        'gonk/GonkSwitch.cpp',
-        'gonk/SystemService.cpp',
-        'gonk/UeventPoller.cpp',
-        'linux/LinuxMemory.cpp',
+        "fallback/FallbackProcessPriority.cpp",
+        "fallback/FallbackScreenConfiguration.cpp",
+        "gonk/GonkDiskSpaceWatcher.cpp",
+        "gonk/GonkSensor.cpp",
+        "gonk/GonkSensorsHal.cpp",
+        "gonk/GonkSwitch.cpp",
+        "gonk/SystemService.cpp",
+        "gonk/UeventPoller.cpp",
+        "linux/LinuxMemory.cpp",
         # TODO: FIXME 'linux/LinuxPower.cpp',
     ]
     # GonkHal.cpp cannot be built in unified mode because it relies on HalImpl.h.
     SOURCES += [
-        'gonk/GonkHal.cpp',
+        "gonk/GonkHal.cpp",
     ]
 
-    if CONFIG['PRODUCT_MANUFACTURER_MTK'] :
+    if CONFIG["PRODUCT_MANUFACTURER_MTK"]:
         UNIFIED_SOURCES += [
-            'gonk/mtk_fm/GonkFMRadio.cpp',
+            "gonk/mtk_fm/GonkFMRadio.cpp",
         ]
         SOURCES += [
-           'gonk/mtk_fm/common.cpp',
-           'gonk/mtk_fm/fmr_core.cpp',
-           'gonk/mtk_fm/fmr_err.cpp',
+            "gonk/mtk_fm/common.cpp",
+            "gonk/mtk_fm/fmr_core.cpp",
+            "gonk/mtk_fm/fmr_err.cpp",
         ]
-    elif CONFIG['PRODUCT_MANUFACTURER_SPRD'] :
-        UNIFIED_SOURCES += [
-            'gonk/sprd_fm/GonkFMRadio.cpp'
-        ]
+    elif CONFIG["PRODUCT_MANUFACTURER_SPRD"]:
+        UNIFIED_SOURCES += ["gonk/sprd_fm/GonkFMRadio.cpp"]
 
         SOURCES += [
-            'gonk/sprd_fm/common.cpp',
-            'gonk/sprd_fm/fmr_core.cpp',
-            'gonk/sprd_fm/fmr_err.cpp'
+            "gonk/sprd_fm/common.cpp",
+            "gonk/sprd_fm/fmr_core.cpp",
+            "gonk/sprd_fm/fmr_err.cpp",
         ]
     else:
         UNIFIED_SOURCES += [
-            'gonk/GonkFMRadio.cpp',
+            "gonk/GonkFMRadio.cpp",
         ]
 
-elif CONFIG['OS_TARGET'] == 'Linux':
+elif CONFIG["OS_TARGET"] == "Linux":
     UNIFIED_SOURCES += [
-        'fallback/FallbackAlarm.cpp',
-        'fallback/FallbackFlashlightManager.cpp',
-        'fallback/FallbackFlipManager.cpp',
-        'fallback/FallbackNetwork.cpp',
-        'fallback/FallbackPowerSupply.cpp',
-        'fallback/FallbackProcessPriority.cpp',
-        'fallback/FallbackScreenConfiguration.cpp',
-        'fallback/FallbackSensor.cpp',
-        'fallback/FallbackUsbManager.cpp',
-        'fallback/FallbackVibration.cpp',
-        'linux/LinuxMemory.cpp',
+        "fallback/FallbackAlarm.cpp",
+        "fallback/FallbackFlashlightManager.cpp",
+        "fallback/FallbackFlipManager.cpp",
+        "fallback/FallbackNetwork.cpp",
+        "fallback/FallbackPowerSupply.cpp",
+        "fallback/FallbackProcessPriority.cpp",
+        "fallback/FallbackScreenConfiguration.cpp",
+        "fallback/FallbackSensor.cpp",
+        "fallback/FallbackUsbManager.cpp",
+        "fallback/FallbackVibration.cpp",
+        "linux/LinuxMemory.cpp",
     ]
-    if CONFIG['MOZ_ENABLE_DBUS']:
+    if CONFIG["MOZ_ENABLE_DBUS"]:
         UNIFIED_SOURCES += [
-            'linux/UPowerClient.cpp',
+            "linux/UPowerClient.cpp",
         ]
     else:
         UNIFIED_SOURCES += [
-            'fallback/FallbackBattery.cpp',
+            "fallback/FallbackBattery.cpp",
         ]
-elif CONFIG['OS_TARGET'] == 'WINNT':
+elif CONFIG["OS_TARGET"] == "WINNT":
     UNIFIED_SOURCES += [
-        'fallback/FallbackAlarm.cpp',
-        'fallback/FallbackFlashlightManager.cpp',
-        'fallback/FallbackFlipManager.cpp',
-        'fallback/FallbackMemory.cpp',
-        'fallback/FallbackNetwork.cpp',
-        'fallback/FallbackPowerSupply.cpp',
-        'fallback/FallbackScreenConfiguration.cpp',
-        'fallback/FallbackUsbManager.cpp',
-        'fallback/FallbackVibration.cpp',
-        'windows/WindowsProcessPriority.cpp',
-        'windows/WindowsSensor.cpp',
+        "fallback/FallbackAlarm.cpp",
+        "fallback/FallbackFlashlightManager.cpp",
+        "fallback/FallbackFlipManager.cpp",
+        "fallback/FallbackMemory.cpp",
+        "fallback/FallbackNetwork.cpp",
+        "fallback/FallbackPowerSupply.cpp",
+        "fallback/FallbackScreenConfiguration.cpp",
+        "fallback/FallbackUsbManager.cpp",
+        "fallback/FallbackVibration.cpp",
+        "windows/WindowsProcessPriority.cpp",
+        "windows/WindowsSensor.cpp",
     ]
     # WindowsBattery.cpp cannot be built in unified mode because it relies on HalImpl.h.
     SOURCES += [
-        'windows/WindowsBattery.cpp',
+        "windows/WindowsBattery.cpp",
     ]
-elif CONFIG['MOZ_WIDGET_TOOLKIT'] == 'cocoa':
+elif CONFIG["MOZ_WIDGET_TOOLKIT"] == "cocoa":
     UNIFIED_SOURCES += [
-        'cocoa/CocoaBattery.cpp',
-        'fallback/FallbackAlarm.cpp',
-        'fallback/FallbackFlashlightManager.cpp',
-        'fallback/FallbackFlipManager.cpp',
-        'fallback/FallbackMemory.cpp',
-        'fallback/FallbackNetwork.cpp',
-        'fallback/FallbackPowerSupply.cpp',
-        'fallback/FallbackProcessPriority.cpp',
-        'fallback/FallbackScreenConfiguration.cpp',
-        'fallback/FallbackUsbManager.cpp',
-        'fallback/FallbackVibration.cpp',
+        "cocoa/CocoaBattery.cpp",
+        "fallback/FallbackAlarm.cpp",
+        "fallback/FallbackFlashlightManager.cpp",
+        "fallback/FallbackFlipManager.cpp",
+        "fallback/FallbackMemory.cpp",
+        "fallback/FallbackNetwork.cpp",
+        "fallback/FallbackPowerSupply.cpp",
+        "fallback/FallbackProcessPriority.cpp",
+        "fallback/FallbackScreenConfiguration.cpp",
+        "fallback/FallbackUsbManager.cpp",
+        "fallback/FallbackVibration.cpp",
     ]
-elif CONFIG['OS_TARGET'] in ('OpenBSD', 'NetBSD', 'FreeBSD', 'DragonFly'):
+elif CONFIG["OS_TARGET"] in ("OpenBSD", "NetBSD", "FreeBSD", "DragonFly"):
     UNIFIED_SOURCES += [
-        'fallback/FallbackAlarm.cpp',
-        'fallback/FallbackFlashlightManager.cpp',
-        'fallback/FallbackFlipManager.cpp',
-        'fallback/FallbackMemory.cpp',
-        'fallback/FallbackNetwork.cpp',
-        'fallback/FallbackPowerSupply.cpp',
-        'fallback/FallbackProcessPriority.cpp',
-        'fallback/FallbackScreenConfiguration.cpp',
-        'fallback/FallbackSensor.cpp',
-        'fallback/FallbackUsbManager.cpp',
-        'fallback/FallbackVibration.cpp',
+        "fallback/FallbackAlarm.cpp",
+        "fallback/FallbackFlashlightManager.cpp",
+        "fallback/FallbackFlipManager.cpp",
+        "fallback/FallbackMemory.cpp",
+        "fallback/FallbackNetwork.cpp",
+        "fallback/FallbackPowerSupply.cpp",
+        "fallback/FallbackProcessPriority.cpp",
+        "fallback/FallbackScreenConfiguration.cpp",
+        "fallback/FallbackSensor.cpp",
+        "fallback/FallbackUsbManager.cpp",
+        "fallback/FallbackVibration.cpp",
     ]
-    if CONFIG['MOZ_ENABLE_DBUS']:
+    if CONFIG["MOZ_ENABLE_DBUS"]:
         UNIFIED_SOURCES += [
-            'linux/UPowerClient.cpp',
+            "linux/UPowerClient.cpp",
         ]
     else:
         UNIFIED_SOURCES += [
-            'fallback/FallbackBattery.cpp',
+            "fallback/FallbackBattery.cpp",
         ]
 else:
     UNIFIED_SOURCES += [
-        'fallback/FallbackAlarm.cpp',
-        'fallback/FallbackBattery.cpp',
-        'fallback/FallbackFlashlightManager.cpp',
-        'fallback/FallbackFlipManager.cpp',
-        'fallback/FallbackMemory.cpp',
-        'fallback/FallbackNetwork.cpp',
-        'fallback/FallbackPowerSupply.cpp',
-        'fallback/FallbackProcessPriority.cpp',
-        'fallback/FallbackScreenConfiguration.cpp',
-        'fallback/FallbackSensor.cpp',
-        'fallback/FallbackUsbManager.cpp',
-        'fallback/FallbackVibration.cpp',
+        "fallback/FallbackAlarm.cpp",
+        "fallback/FallbackBattery.cpp",
+        "fallback/FallbackFlashlightManager.cpp",
+        "fallback/FallbackFlipManager.cpp",
+        "fallback/FallbackMemory.cpp",
+        "fallback/FallbackNetwork.cpp",
+        "fallback/FallbackPowerSupply.cpp",
+        "fallback/FallbackProcessPriority.cpp",
+        "fallback/FallbackScreenConfiguration.cpp",
+        "fallback/FallbackSensor.cpp",
+        "fallback/FallbackUsbManager.cpp",
+        "fallback/FallbackVibration.cpp",
     ]
 
 # Fallbacks for backends implemented on Gonk only.
-if CONFIG['MOZ_WIDGET_TOOLKIT'] != 'gonk':
+if CONFIG["MOZ_WIDGET_TOOLKIT"] != "gonk":
     UNIFIED_SOURCES += [
-        'fallback/FallbackDiskSpaceWatcher.cpp',
-        'fallback/FallbackSystemService.cpp',
+        "fallback/FallbackDiskSpaceWatcher.cpp",
+        "fallback/FallbackSystemService.cpp",
     ]
 
-if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'cocoa':
+if CONFIG["MOZ_WIDGET_TOOLKIT"] == "cocoa":
     UNIFIED_SOURCES += [
-        'cocoa/CocoaSensor.mm',
-        'cocoa/smslib.mm',
+        "cocoa/CocoaSensor.mm",
+        "cocoa/smslib.mm",
     ]
 
 IPDL_SOURCES = [
-    'sandbox/PHal.ipdl',
+    "sandbox/PHal.ipdl",
 ]
 
-include('/ipc/chromium/chromium-config.mozbuild')
+include("/ipc/chromium/chromium-config.mozbuild")
 
-FINAL_LIBRARY = 'xul'
+FINAL_LIBRARY = "xul"
 
 LOCAL_INCLUDES += [
-    '/dom/b2g/powersupply',
-    '/dom/b2g/usb',
-    '/dom/base',
+    "/dom/b2g/powersupply",
+    "/dom/b2g/usb",
+    "/dom/base",
 ]
 
-if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
+if CONFIG["MOZ_WIDGET_TOOLKIT"] == "gonk":
     # So that we can call nsScreenManagerGonk::GetConfiguration().
     LOCAL_INCLUDES += [
-        '/widget',
-        '/widget/gonk',
+        "/widget",
+        "/widget/gonk",
     ]
 
-CFLAGS += CONFIG['GLIB_CFLAGS']
-CFLAGS += CONFIG['MOZ_DBUS_GLIB_CFLAGS']
-CXXFLAGS += CONFIG['GLIB_CFLAGS']
-CXXFLAGS += CONFIG['MOZ_DBUS_GLIB_CFLAGS']
+CFLAGS += CONFIG["GLIB_CFLAGS"]
+CFLAGS += CONFIG["MOZ_DBUS_GLIB_CFLAGS"]
+CXXFLAGS += CONFIG["GLIB_CFLAGS"]
+CXXFLAGS += CONFIG["MOZ_DBUS_GLIB_CFLAGS"]

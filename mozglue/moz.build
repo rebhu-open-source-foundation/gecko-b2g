@@ -7,23 +7,27 @@
 with Files("**"):
     BUG_COMPONENT = ("Core", "mozglue")
 
-if CONFIG['MOZ_LINKER'] or CONFIG['MOZ_WIDGET_TOOLKIT'] == 'android' or CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
-    DIRS += ['linker']
+if (
+    CONFIG["MOZ_LINKER"]
+    or CONFIG["MOZ_WIDGET_TOOLKIT"] == "android"
+    or CONFIG["MOZ_WIDGET_TOOLKIT"] == "gonk"
+):
+    DIRS += ["linker"]
 
-if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'android':
-    DIRS += ['android']
+if CONFIG["MOZ_WIDGET_TOOLKIT"] == "android":
+    DIRS += ["android"]
 
-if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
-    DIRS += ['gonk']
+if CONFIG["MOZ_WIDGET_TOOLKIT"] == "gonk":
+    DIRS += ["gonk"]
 
-if CONFIG['OS_TARGET'] == 'WINNT':
-    DIRS += ['dllservices']
+if CONFIG["OS_TARGET"] == "WINNT":
+    DIRS += ["dllservices"]
 
 DIRS += [
-  'baseprofiler',
-  'build',
-  'misc',
+    "baseprofiler",
+    "build",
+    "misc",
 ]
 
-if CONFIG['MOZ_WIDGET_TOOLKIT']:
-    TEST_DIRS += ['tests']
+if CONFIG["MOZ_WIDGET_TOOLKIT"]:
+    TEST_DIRS += ["tests"]

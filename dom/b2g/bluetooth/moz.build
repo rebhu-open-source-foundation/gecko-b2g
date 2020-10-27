@@ -8,153 +8,145 @@
 # Generic code
 #
 
-if CONFIG['MOZ_B2G_RIL']:
-    UNIFIED_SOURCES += [
-        'common/BluetoothRilListener.cpp'
-    ]
+if CONFIG["MOZ_B2G_RIL"]:
+    UNIFIED_SOURCES += ["common/BluetoothRilListener.cpp"]
 
 UNIFIED_SOURCES += [
-    'common/BluetoothCommon.cpp',
+    "common/BluetoothCommon.cpp",
 ]
 
 UNIFIED_SOURCES += [
-    'common/BluetoothGattReplyRunnable.cpp',
-    'common/BluetoothInterface.cpp',
-    'common/BluetoothProfileController.cpp',
-    'common/BluetoothReplyRunnable.cpp',
-    'common/BluetoothService.cpp',
-    'common/BluetoothUtils.cpp',
-    'common/BluetoothUuidHelper.cpp',
-    'common/ObexBase.cpp',
-    'common/webapi/BluetoothAdapter.cpp',
-    'common/webapi/BluetoothClassOfDevice.cpp',
-    'common/webapi/BluetoothConnectionHandle.cpp',
-    'common/webapi/BluetoothDevice.cpp',
-    'common/webapi/BluetoothDiscoveryHandle.cpp',
-    'common/webapi/BluetoothGatt.cpp',
-    'common/webapi/BluetoothGattAttributeEvent.cpp',
-    'common/webapi/BluetoothGattCharacteristic.cpp',
-    'common/webapi/BluetoothGattDescriptor.cpp',
-    'common/webapi/BluetoothGattServer.cpp',
-    'common/webapi/BluetoothGattService.cpp',
-    'common/webapi/BluetoothLeDeviceEvent.cpp',
-    'common/webapi/BluetoothManager.cpp',
-    'common/webapi/BluetoothMapRequestHandle.cpp',
-    'common/webapi/BluetoothObexAuthHandle.cpp',
-    'common/webapi/BluetoothPairingHandle.cpp',
-    'common/webapi/BluetoothPairingListener.cpp',
-    'common/webapi/BluetoothPbapRequestHandle.cpp',
-    'common/webapi/BluetoothUUID.cpp',
-    'ipc/BluetoothChild.cpp',
-    'ipc/BluetoothParent.cpp',
-    'ipc/BluetoothRequestChild.cpp',
-    'ipc/BluetoothRequestParent.cpp',
-    'ipc/BluetoothServiceChildProcess.cpp'
+    "common/BluetoothGattReplyRunnable.cpp",
+    "common/BluetoothInterface.cpp",
+    "common/BluetoothProfileController.cpp",
+    "common/BluetoothReplyRunnable.cpp",
+    "common/BluetoothService.cpp",
+    "common/BluetoothUtils.cpp",
+    "common/BluetoothUuidHelper.cpp",
+    "common/ObexBase.cpp",
+    "common/webapi/BluetoothAdapter.cpp",
+    "common/webapi/BluetoothClassOfDevice.cpp",
+    "common/webapi/BluetoothConnectionHandle.cpp",
+    "common/webapi/BluetoothDevice.cpp",
+    "common/webapi/BluetoothDiscoveryHandle.cpp",
+    "common/webapi/BluetoothGatt.cpp",
+    "common/webapi/BluetoothGattAttributeEvent.cpp",
+    "common/webapi/BluetoothGattCharacteristic.cpp",
+    "common/webapi/BluetoothGattDescriptor.cpp",
+    "common/webapi/BluetoothGattServer.cpp",
+    "common/webapi/BluetoothGattService.cpp",
+    "common/webapi/BluetoothLeDeviceEvent.cpp",
+    "common/webapi/BluetoothManager.cpp",
+    "common/webapi/BluetoothMapRequestHandle.cpp",
+    "common/webapi/BluetoothObexAuthHandle.cpp",
+    "common/webapi/BluetoothPairingHandle.cpp",
+    "common/webapi/BluetoothPairingListener.cpp",
+    "common/webapi/BluetoothPbapRequestHandle.cpp",
+    "common/webapi/BluetoothUUID.cpp",
+    "ipc/BluetoothChild.cpp",
+    "ipc/BluetoothParent.cpp",
+    "ipc/BluetoothRequestChild.cpp",
+    "ipc/BluetoothRequestParent.cpp",
+    "ipc/BluetoothServiceChildProcess.cpp",
 ]
-LOCAL_INCLUDES += [
-    'common',
-    'common/webapi',
-    'ipc'
-]
+LOCAL_INCLUDES += ["common", "common/webapi", "ipc"]
 
 #
 # Bluetooth backends
 #
 
-if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
-    if CONFIG['MOZ_B2G_BT_DAEMON']:
+if CONFIG["MOZ_WIDGET_TOOLKIT"] == "gonk":
+    if CONFIG["MOZ_B2G_BT_DAEMON"]:
         UNIFIED_SOURCES += [
-            'bluedroid/BluetoothA2dpManager.cpp',
-            'bluedroid/BluetoothAvrcpManager.cpp',
-            'bluedroid/BluetoothDaemonA2dpInterface.cpp',
-            'bluedroid/BluetoothDaemonAvrcpInterface.cpp',
-            'bluedroid/BluetoothDaemonCoreInterface.cpp',
-            'bluedroid/BluetoothDaemonGattInterface.cpp',
-            'bluedroid/BluetoothDaemonHandsfreeInterface.cpp',
-            'bluedroid/BluetoothDaemonHelpers.cpp',
-            'bluedroid/BluetoothDaemonHidInterface.cpp',
-            'bluedroid/BluetoothDaemonInterface.cpp',
-            'bluedroid/BluetoothDaemonSdpInterface.cpp',
-            'bluedroid/BluetoothDaemonSetupInterface.cpp',
-            'bluedroid/BluetoothDaemonSocketInterface.cpp',
-            'bluedroid/BluetoothGattManager.cpp',
-            'bluedroid/BluetoothHidManager.cpp',
-            'bluedroid/BluetoothMapBMessage.cpp',
-            'bluedroid/BluetoothMapFolder.cpp',
-            'bluedroid/BluetoothMapSmsManager.cpp',
-            'bluedroid/BluetoothOppManager.cpp',
-            'bluedroid/BluetoothPbapManager.cpp',
-            'bluedroid/BluetoothServiceBluedroid.cpp',
-            'bluedroid/BluetoothSocket.cpp',
-            'bluedroid/BluetoothSocketMessageWatcher.cpp'
+            "bluedroid/BluetoothA2dpManager.cpp",
+            "bluedroid/BluetoothAvrcpManager.cpp",
+            "bluedroid/BluetoothDaemonA2dpInterface.cpp",
+            "bluedroid/BluetoothDaemonAvrcpInterface.cpp",
+            "bluedroid/BluetoothDaemonCoreInterface.cpp",
+            "bluedroid/BluetoothDaemonGattInterface.cpp",
+            "bluedroid/BluetoothDaemonHandsfreeInterface.cpp",
+            "bluedroid/BluetoothDaemonHelpers.cpp",
+            "bluedroid/BluetoothDaemonHidInterface.cpp",
+            "bluedroid/BluetoothDaemonInterface.cpp",
+            "bluedroid/BluetoothDaemonSdpInterface.cpp",
+            "bluedroid/BluetoothDaemonSetupInterface.cpp",
+            "bluedroid/BluetoothDaemonSocketInterface.cpp",
+            "bluedroid/BluetoothGattManager.cpp",
+            "bluedroid/BluetoothHidManager.cpp",
+            "bluedroid/BluetoothMapBMessage.cpp",
+            "bluedroid/BluetoothMapFolder.cpp",
+            "bluedroid/BluetoothMapSmsManager.cpp",
+            "bluedroid/BluetoothOppManager.cpp",
+            "bluedroid/BluetoothPbapManager.cpp",
+            "bluedroid/BluetoothServiceBluedroid.cpp",
+            "bluedroid/BluetoothSocket.cpp",
+            "bluedroid/BluetoothSocketMessageWatcher.cpp",
         ]
         LOCAL_INCLUDES += [
-            'bluedroid',
+            "bluedroid",
         ]
 
-        if CONFIG['MOZ_B2G_RIL']:
+        if CONFIG["MOZ_B2G_RIL"]:
             UNIFIED_SOURCES += [
-                'bluedroid/hfp/BluetoothHfpManager.cpp',
+                "bluedroid/hfp/BluetoothHfpManager.cpp",
             ]
             LOCAL_INCLUDES += [
-                'bluedroid/hfp',
+                "bluedroid/hfp",
             ]
         else:
             UNIFIED_SOURCES += [
-                'bluedroid/hfp-fallback/BluetoothHfpManager.cpp',
+                "bluedroid/hfp-fallback/BluetoothHfpManager.cpp",
             ]
             LOCAL_INCLUDES += [
-                'bluedroid/hfp-fallback',
+                "bluedroid/hfp-fallback",
             ]
 
-        DEFINES['MOZ_B2G_BT_DAEMON'] = True
+        DEFINES["MOZ_B2G_BT_DAEMON"] = True
 
 #
 # Exported interfaces
 #
 
 EXPORTS.mozilla.dom.bluetooth.ipc += [
-    'ipc/BluetoothMessageUtils.h',
+    "ipc/BluetoothMessageUtils.h",
 ]
 
 EXPORTS.mozilla.dom.bluetooth += [
-    'common/BluetoothCommon.h',
-    'common/BluetoothGattUUIDName.h',
-    'common/BluetoothHashKeys.h',
-    'common/webapi/BluetoothAdapter.h',
-    'common/webapi/BluetoothClassOfDevice.h',
-    'common/webapi/BluetoothConnectionHandle.h',
-    'common/webapi/BluetoothDevice.h',
-    'common/webapi/BluetoothDiscoveryHandle.h',
-    'common/webapi/BluetoothGatt.h',
-    'common/webapi/BluetoothGattAttributeEvent.h',
-    'common/webapi/BluetoothGattCharacteristic.h',
-    'common/webapi/BluetoothGattDescriptor.h',
-    'common/webapi/BluetoothGattServer.h',
-    'common/webapi/BluetoothGattService.h',
-    'common/webapi/BluetoothLeDeviceEvent.h',
-    'common/webapi/BluetoothManager.h',
-    'common/webapi/BluetoothMapRequestHandle.h',
-    'common/webapi/BluetoothObexAuthHandle.h',
-    'common/webapi/BluetoothPairingHandle.h',
-    'common/webapi/BluetoothPairingListener.h',
-    'common/webapi/BluetoothPbapRequestHandle.h',
-    'ipc/BluetoothChild.h',
-    'ipc/BluetoothParent.h',
-    'ipc/BluetoothRequestChild.h',
-    'ipc/BluetoothRequestParent.h',
+    "common/BluetoothCommon.h",
+    "common/BluetoothGattUUIDName.h",
+    "common/BluetoothHashKeys.h",
+    "common/webapi/BluetoothAdapter.h",
+    "common/webapi/BluetoothClassOfDevice.h",
+    "common/webapi/BluetoothConnectionHandle.h",
+    "common/webapi/BluetoothDevice.h",
+    "common/webapi/BluetoothDiscoveryHandle.h",
+    "common/webapi/BluetoothGatt.h",
+    "common/webapi/BluetoothGattAttributeEvent.h",
+    "common/webapi/BluetoothGattCharacteristic.h",
+    "common/webapi/BluetoothGattDescriptor.h",
+    "common/webapi/BluetoothGattServer.h",
+    "common/webapi/BluetoothGattService.h",
+    "common/webapi/BluetoothLeDeviceEvent.h",
+    "common/webapi/BluetoothManager.h",
+    "common/webapi/BluetoothMapRequestHandle.h",
+    "common/webapi/BluetoothObexAuthHandle.h",
+    "common/webapi/BluetoothPairingHandle.h",
+    "common/webapi/BluetoothPairingListener.h",
+    "common/webapi/BluetoothPbapRequestHandle.h",
+    "ipc/BluetoothChild.h",
+    "ipc/BluetoothParent.h",
+    "ipc/BluetoothRequestChild.h",
+    "ipc/BluetoothRequestParent.h",
 ]
 
-EXPORTS.mozilla.dom += [
-    'common/webapi/BluetoothUUID.h'
-]
+EXPORTS.mozilla.dom += ["common/webapi/BluetoothUUID.h"]
 
 IPDL_SOURCES += [
-    'ipc/BluetoothTypes.ipdlh',
-    'ipc/PBluetooth.ipdl',
-    'ipc/PBluetoothRequest.ipdl'
+    "ipc/BluetoothTypes.ipdlh",
+    "ipc/PBluetooth.ipdl",
+    "ipc/PBluetoothRequest.ipdl",
 ]
 
-include('/ipc/chromium/chromium-config.mozbuild')
+include("/ipc/chromium/chromium-config.mozbuild")
 
-FINAL_LIBRARY = 'xul'
+FINAL_LIBRARY = "xul"

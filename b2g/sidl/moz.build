@@ -1,17 +1,10 @@
+DIRS += ["interfaces"]
 
-DIRS += ['interfaces']
+EXPORTS.sidl += ["PowerManagerDelegate.h", "SidlComponents.h"]
 
-EXPORTS.sidl += [
-    "PowerManagerDelegate.h",
-    "SidlComponents.h"
-]
+SOURCES += ["PowerManagerDelegate.cpp", "SidlComponents.cpp"]
 
-SOURCES += [
-    "PowerManagerDelegate.cpp",
-    "SidlComponents.cpp"
-]
-
-if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
+if CONFIG["MOZ_WIDGET_TOOLKIT"] == "gonk":
     EXPORTS.sidl += [
         "NetworkManagerDelegate.h",
     ]
@@ -20,7 +13,7 @@ if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
         "NetworkManagerDelegate.cpp",
     ]
 
-    if CONFIG['MOZ_B2G_RIL']:
+    if CONFIG["MOZ_B2G_RIL"]:
         EXPORTS.sidl += [
             "MobileManagerDelegate.h",
         ]
@@ -30,9 +23,9 @@ if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
         ]
 
 XPCOM_MANIFESTS += [
-    'components.conf',
+    "components.conf",
 ]
 
-include('/ipc/chromium/chromium-config.mozbuild')
+include("/ipc/chromium/chromium-config.mozbuild")
 
-FINAL_LIBRARY = 'xul'
+FINAL_LIBRARY = "xul"
