@@ -4,6 +4,8 @@
 
 "use strict";
 
+const {classes: Cc, interfaces: Ci, utils: Cu, results: Cr} = Components;
+
 const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
@@ -13,31 +15,21 @@ const { PromiseUtils } = ChromeUtils.import(
   "resource://gre/modules/PromiseUtils.jsm"
 );
 
-ChromeUtils.import("resource://gre/modules/ril_consts.js");
+Cu.import("resource://gre/modules/ril_consts.js");
 // set to true in ril_consts.js to see debug messages
 //var DEBUG = DEBUG_WORKER;
 var DEBUG = true;
 var GLOBAL = this;
 
 // Timeout value for emergency callback mode.
-const EMERGENCY_CB_MODE_TIMEOUT_MS = 300000; // 5 mins = 300000 ms.
+const EMERGENCY_CB_MODE_TIMEOUT_MS = 300000;  // 5 mins = 300000 ms.
 
 const GET_CURRENT_CALLS_RETRY_MAX = 3;
 
 // Timeout value for _waitingModemRestart
 const MODEM_RESTART_TIMEOUT_MS = 15000; // 15 seconds
 
-const PDU_HEX_OCTET_SIZE = 2;
-
-//TODO: Find better place
-const EARTH_RADIUS_METER = 6371 * 1000;
-const GEO_FENCING_MAXIMUM_WAIT_TIME_NOT_SET = 255;
-const GEO_FENCING_MAXIMUM_WAIT_TIME = 0x01;
-const GEO_FENCING_POLYGON = 0x02;
-const GEO_FENCING_CIRCLE = 0x03;
-
-const GEOMETRY_TYPE_POLYGON = 1;
-const GEOMETRY_TYPE_CIRCLE = 2;
+const PDU_HEX_OCTET_SIZE =2;
 
 var RILQUIRKS_CALLSTATE_EXTRA_UINT32;
 var RILQUIRKS_REQUEST_USE_DIAL_EMERGENCY_CALL;
@@ -69,141 +61,6 @@ if (!this.debug) {
   };
 }
 
-//TODO: Find better place
-function LatLng(alat, alng) {
-  this.lat = alat;
-  this.lng = alng;
-}
-LatLng.prototype = {
-  lat: 0,
-  lng: 0,
-
-  toRadians(aDegree) {
-    return aDegree * (Math.PI / 180);
-  },
-
-  distance(aLatLng) {
-    let dlat = Math.sin(0.5 * this.toRadians(this.lat - aLatLng.lat));
-    let dlng = Math.sin(0.5 * this.toRadians(this.lng - aLatLng.lng));
-    let x = (dlat * dlat) +
-      (dlng * dlng * Math.cos(this.toRadians(this.lat)) * Math.cos(this.toRadians(aLatLng.lat)));
-    return 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x)) * EARTH_RADIUS_METER;
-  },
-};
-
-function Point(aX, aY) {
-  this.x = aX;
-  this.y = aY;
-}
-Point.prototype = {
-  subtract(aPoint) {
-    return new Point(this.x - aPoint.x, this.y - aPoint.y);
-  },
-};
-
-function Polygon(aLatLngs) {
-  this._vertices = aLatLngs;
-
-  // Find the point with smallest longitude as the mOrigin point.
-  let idx = 0;
-  for (let i = 1; i < aLatLngs.length; i++) {
-    if (aLatLngs[i].lng < aLatLngs[idx].lng) {
-      idx = i;
-    }
-  }
-  this._origin = aLatLngs[idx];
-
-  for (let i = 0; i < aLatLngs.length; i++) {
-    let latLng = aLatLngs[i];
-    this._scaledVertices.push(this._convertAndScaleLatLng(latLng));
-  }
-}
-Polygon.prototype = {
-  type: GEOMETRY_TYPE_POLYGON,
-  _vertices: [],
-  _scaledVertices: [],
-  _origin: null,
-
-  _convertAndScaleLatLng(aLatLng) {
-    let pointX = aLatLng.lat - this._origin.lat;
-    let pointY = aLatLng.lng - this._origin.lng;
-
-    if (
-      Math.sign(this._origin.lng) != 0 &&
-      Math.sign(this._origin.lng) != Math.sign(aLatLng.lng)
-    ) {
-      let distCross0thMeridian =
-        Math.abs(this._origin.lng) + Math.abs(aLatLng.lng);
-      if (Math.sign(distCross0thMeridian * 2 - 360) > 0) {
-        pointY = Math.sign(this._origin.lng) * (360 - distCross0thMeridian);
-      }
-    }
-    return new Point(pointX * 1000.0, pointY * 1000.0);
-  },
-
-  _crossProduct(aPointA, aPointB) {
-    return aPointA.x * aPointB.y - aPointA.y * aPointB.x;
-  },
-
-  /**
-   * Check if the given point is inside the polygon.
-   * Winding Number Algorithm.
-   * The winding number would be zero if the point inside the polygon.
-   */
-  contains(aLatLng) {
-    let scaledPoint = this._convertAndScaleLatLng(aLatLng);
-
-    let verticesLength = this._scaledVertices.length;
-    let windingNumber = 0;
-    for (let i = 0; i < verticesLength; i++) {
-      let pointA = this._scaledVertices[i];
-      let pointB = this._scaledVertices[(i + 1) % verticesLength];
-
-      let counterClockwise = Math.sign(
-        this._crossProduct(
-          pointB.subtract(pointA),
-          scaledPoint.subtract(pointA)
-        )
-      );
-      if (counterClockwise == 0) {
-        if (
-          Math.min(pointA.x, pointB.x) <= scaledPoint.x &&
-          scaledPoint.x <= Math.max(pointA.x, pointB.x) &&
-          Math.min(pointA.y, pointB.y) <= scaledPoint.y &&
-          scaledPoint.y <= Math.max(pointA.y, pointB.y)
-        ) {
-          return true;
-        }
-      } else if (Math.sign(pointA.y - scaledPoint.y) <= 0) {
-        // upward crossing
-        if (counterClockwise > 0 && Math.sign(pointB.y - scaledPoint.y) > 0) {
-          ++windingNumber;
-        }
-      } else {
-        // downward crossing
-        if (counterClockwise < 0 && Math.sign(pointB.y - scaledPoint.y) <= 0) {
-          --windingNumber;
-        }
-      }
-    }
-    return windingNumber != 0;
-  },
-};
-
-function Circle(aCenter, aRadiusInMeters) {
-  this._center = aCenter;
-  this._radius = aRadiusInMeters;
-}
-Circle.prototype = {
-  type: GEOMETRY_TYPE_CIRCLE,
-  _center: null,
-  _radius: 0,
-
-  contains(aLatLng) {
-    return this._center.distance(aLatLng) <= this._radius;
-  },
-};
-
 function Context(aRadioInterfcae) {
   this.clientId = aRadioInterfcae.clientId;
   this.RIL = aRadioInterfcae;
@@ -211,41 +68,32 @@ function Context(aRadioInterfcae) {
 Context.prototype = {
   RIL: null,
 
-  debug(aMessage) {
+  debug: function(aMessage) {
     GLOBAL.debug("[" + this.RIL.clientId + "] " + aMessage);
-  },
+  }
 };
 
 (function() {
   let lazySymbols = [
-    "ICCContactHelper",
-    "ICCRecordHelper",
-    "ICCIOHelper",
-    "ICCFileHelper",
-    "ICCUtilsHelper",
-    "ICCPDUHelper",
-    "GsmPDUHelper",
-    "SimRecordHelper",
-    "ISimRecordHelper",
-    "BerTlvHelper",
-    "ComprehensionTlvHelper",
-    "StkProactiveCmdHelper",
+    "ICCContactHelper","ICCRecordHelper","ICCIOHelper", "ICCFileHelper",
+    "ICCUtilsHelper","ICCPDUHelper","GsmPDUHelper", "SimRecordHelper",
+    "ISimRecordHelper","BerTlvHelper","ComprehensionTlvHelper","StkProactiveCmdHelper",
     "StkCommandParamsFactory",
   ];
 
   for (let i = 0; i < lazySymbols.length; i++) {
     let symbol = lazySymbols[i];
     Object.defineProperty(Context.prototype, symbol, {
-      get() {
+      get: function() {
         let real = new GLOBAL[symbol + "Object"](this);
         Object.defineProperty(this, symbol, {
           value: real,
-          enumerable: true,
+          enumerable: true
         });
         return real;
       },
       configurable: true,
-      enumerable: true,
+      enumerable: true
     });
   }
 })();
@@ -2992,115 +2840,6 @@ GsmPDUHelperObject.prototype = {
   },
 
   /**
-   * Read Warning Area Coordinates Data
-   *
-   */
-  readWacData(msg) {
-    let waePduLength = this.getReadAvailable(); // nibbles
-    let readWACLatLng = function() {
-      // lat: 22 bist, lng: 22 bits
-      let wacLat = (this.readHexOctet() << 14) | (this.readHexOctet() << 6);
-      let thirdByte = this.readHexOctet();
-      wacLat = wacLat | (thirdByte >> 2);
-      let wacLng =
-        ((thirdByte & 0xc0) << 20) |
-        (this.readHexOctet() << 12) |
-        (this.readHexOctet() << 4) |
-        this.readHexNibble();
-
-      // latitude = wacLatitude * 180 / 2^22 - 90
-      // longitude = wacLongitude * 360 / 2^22 -180
-      return new LatLng(
-        (wacLat * 180.0) / (1 << 22) - 90,
-        (wacLng * 360.0) / (1 << 22) - 180
-      );
-    };
-
-    let wacDataLength = this.readHexOctet() | (this.readHexOctet() << 8);
-    if (wacDataLength > this.getReadAvailable() / PDU_HEX_OCTET_SIZE) {
-      // Seek back as no validate WAC data
-      this.seekIncoming(-2 * PDU_HEX_OCTET_SIZE);
-      throw "Invalid wac data";
-    } else {
-      let maxWaitTimeSec = GEO_FENCING_MAXIMUM_WAIT_TIME_NOT_SET;
-      let remain = wacDataLength;
-      let geo = [];
-      while (remain > 0) {
-        // Type: 4bits
-        // Length: 10 bits and skip 2 remained bits
-        let geoType = this.readHexNibble();
-        let geoLength =
-          (this.readHexNibble() << 6) | (this.readHexOctet() >> 2);
-        remain = remain - geoLength;
-        switch (geoType) {
-          case GEO_FENCING_MAXIMUM_WAIT_TIME:
-            maxWaitTimeSec = this.readHexOctet();
-            break;
-          case GEO_FENCING_POLYGON:
-            let latLngs = [];
-            // Each coordinate is represented by 44 bits integer.
-            // ATIS-0700041 5.2.4 Coordinate coding
-            let n = ((geoLength - 2) * 8) / 44;
-            for (let i = 0; i < n; i++) {
-              latLngs.push(readWACLatLng());
-            }
-            if (n % 2) {
-              //skip padding bits if the remained bits is less than 8.
-              //here we have 4 bits remained.
-              this.readHexNibble();
-            }
-            geo.push(new Polygon(latLngs));
-            break;
-          case GEO_FENCING_CIRCLE:
-            let center = readWACLatLng();
-            // radius = (wacRadius / 2^6). The unit of wacRadius is km, we use meter as the
-            // distance unit during geo-fencing.
-            // ATIS-0700041 5.2.5 radius coding
-            //radius: 20bits
-            let wacRadius =
-              (this.readHexOctet() << 12) |
-              (this.readHexOctet() << 4) |
-              this.readHexNibble();
-            let radius = ((wacRadius * 1.0) / (1 << 6)) * 1000.0;
-            geo.push(new Circle(center, radius));
-            break;
-          default:
-            throw "Unsupported geoType" + geoType;
-            break;
-        }
-      }
-      msg.geometries = geo;
-      msg.maximumWaitingTimeSec = maxWaitTimeSec;
-
-      // Seek back to beginning of WAC data
-      let remainPduLength = this.getReadAvailable();
-      this.seekIncoming(-1 * (waePduLength - remainPduLength));
-    }
-  },
-
-  readGeoFencingTriggerData(msg) {
-    //type: 4bits, length 7 bits
-    let type = this.readHexNibble();
-    let length = this.readHexOctet() >> 1;
-    // Skip the remained 4 bits
-    this.readHexNibble();
-
-    let messageIdentifierCount = ((length - 2) * 8) / 32;
-    var cbIdentifiers = [];
-    for (let i = 0; i < messageIdentifierCount; i++) {
-      // Both messageIdentifier and serialNumber are 16 bits integers.
-      // ATIS-0700041 Section 5.1.6
-      let cellBroadcastIdentity = {};
-      cellBroadcastIdentity._messageIdentifier =
-        (this.readHexOctet() << 8) | this.readHexOctet();
-      cellBroadcastIdentity._serialNumber =
-        (this.readHexOctet() << 8) | this.readHexOctet();
-      cbIdentifiers.push(cellBroadcastIdentity);
-    }
-    msg.geoFencingTrigger = { _type: type, _cbIdentifiers: cbIdentifiers };
-  },
-
-  /**
    * Read UMTS CB Data
    *
    * Octet Number(s)  Parameter
@@ -3113,60 +2852,49 @@ GsmPDUHelperObject.prototype = {
    *
    * @see 3GPP TS 23.041 section 9.4.2.2.5
    */
-  readUmtsCbData(msg) {
+  readUmtsCbData: function(msg) {
     let numOfPages = this.readHexOctet();
     if (numOfPages < 0 || numOfPages > 15) {
       throw new Error("Invalid numOfPages: " + numOfPages);
     }
 
-    if (isCMASGeoFencingTriggerMessage(msg)) {
-      readGeoFencingTriggerData(msg);
-      return;
-    }
-
     let bufAdapter = {
       context: this.context,
-      readHexOctet() {
+      readHexOctet: function() {
         return (this.readHexNibble() << 4) | this.readHexNibble();
-      },
+      }
     };
 
-    let removePaddingCharactors = function(text) {
+    let removePaddingCharactors = function (text) {
       for (let i = text.length - 1; i >= 0; i--) {
-        if (text.charAt(i) !== "\r") {
+        if (text.charAt(i) !== '\r') {
           return text.substring(0, i + 1);
         }
       }
       return text;
     };
 
-    let totalLength = 0,
-      length,
-      pageLengths = [];
+    let totalLength = 0, length, pageLengths = [];
     for (let i = 0; i < numOfPages; i++) {
-      this.seekIncoming(CB_MSG_PAGE_INFO_SIZE * PDU_HEX_OCTET_SIZE);
+      this.seekIncoming(CB_MSG_PAGE_INFO_SIZE);
       length = this.readHexOctet();
       totalLength += length;
       pageLengths.push(length);
     }
 
     // Seek back to beginning of CB Data.
-    this.seekIncoming(
-      -numOfPages * (CB_MSG_PAGE_INFO_SIZE + 1) * PDU_HEX_OCTET_SIZE
-    );
+    this.seekIncoming(-numOfPages * (CB_MSG_PAGE_INFO_SIZE + 1));
 
     switch (msg.encoding) {
       case PDU_DCS_MSG_CODING_7BITS_ALPHABET: {
         let body;
         msg.body = "";
         for (let i = 0; i < numOfPages; i++) {
-          body = this.readSeptetsToString.call(
-            bufAdapter,
-            Math.floor((pageLengths[i] * 8) / 7),
-            0,
-            PDU_NL_IDENTIFIER_DEFAULT,
-            PDU_NL_IDENTIFIER_DEFAULT
-          );
+          body = this.readSeptetsToString.call(bufAdapter,
+                                               Math.floor(pageLengths[i] * 8 / 7),
+                                               0,
+                                               PDU_NL_IDENTIFIER_DEFAULT,
+                                               PDU_NL_IDENTIFIER_DEFAULT);
           if (msg.hasLanguageIndicator) {
             if (!msg.language) {
               msg.language = body.substring(0, 2);
@@ -3177,9 +2905,7 @@ GsmPDUHelperObject.prototype = {
           msg.body += removePaddingCharactors(body);
 
           // Skip padding octets
-          this.seekIncoming(
-            (CB_MSG_PAGE_INFO_SIZE - pageLengths[i]) * PDU_HEX_OCTET_SIZE
-          );
+          this.seekIncoming(CB_MSG_PAGE_INFO_SIZE - pageLengths[i]);
           // Read the octet of CBS-Message-Information-Length
           this.readHexOctet();
         }
@@ -3191,13 +2917,11 @@ GsmPDUHelperObject.prototype = {
         msg.data = new Uint8Array(totalLength);
         for (let i = 0, j = 0; i < numOfPages; i++) {
           for (let pageLength = pageLengths[i]; pageLength > 0; pageLength--) {
-            msg.data[j++] = this.readHexOctet();
+              msg.data[j++] = this.readHexOctet();
           }
 
           // Skip padding octets
-          this.seekIncoming(
-            (CB_MSG_PAGE_INFO_SIZE - pageLengths[i]) * PDU_HEX_OCTET_SIZE
-          );
+          this.seekIncoming(CB_MSG_PAGE_INFO_SIZE - pageLengths[i]);
           // Read the octet of CBS-Message-Information-Length
           this.readHexOctet();
         }
@@ -3211,13 +2935,11 @@ GsmPDUHelperObject.prototype = {
           let pageLength = pageLengths[i];
           if (msg.hasLanguageIndicator) {
             if (!msg.language) {
-              msg.language = this.readSeptetsToString.call(
-                bufAdapter,
-                2,
-                0,
-                PDU_NL_IDENTIFIER_DEFAULT,
-                PDU_NL_IDENTIFIER_DEFAULT
-              );
+              msg.language = this.readSeptetsToString.call(bufAdapter,
+                                                           2,
+                                                           0,
+                                                           PDU_NL_IDENTIFIER_DEFAULT,
+                                                           PDU_NL_IDENTIFIER_DEFAULT);
             } else {
               this.readHexOctet();
               this.readHexOctet();
@@ -3227,24 +2949,16 @@ GsmPDUHelperObject.prototype = {
           }
 
           msg.body += removePaddingCharactors(
-            this.readUCS2String.call(bufAdapter, pageLength)
-          );
+                        this.readUCS2String.call(bufAdapter, pageLength));
 
           // Skip padding octets
-          this.seekIncoming(
-            (CB_MSG_PAGE_INFO_SIZE - pageLengths[i]) * PDU_HEX_OCTET_SIZE
-          );
+          this.seekIncoming(CB_MSG_PAGE_INFO_SIZE - pageLengths[i]);
           // Read the octet of CBS-Message-Information-Length
           this.readHexOctet();
         }
 
         break;
       }
-    }
-
-    let waePduLength = this.getReadAvailable(); // nibbles
-    if (waePduLength > 0) {
-      this.readWacData(msg);
     }
   },
 
@@ -3254,7 +2968,7 @@ GsmPDUHelperObject.prototype = {
    * @param pduLength
    *        total length of the incoming PDU in octets.
    */
-  readCbMessage(pduLength) {
+  readCbMessage: function(pduLength) {
     // Validity                                                   GSM ETWS UMTS
     let msg = {
       // Internally used in ril_worker:
@@ -3277,18 +2991,11 @@ GsmPDUHelperObject.prototype = {
       fullBody:             null,                              //  O   X    O
       fullData:             null,                              //  O   X    O
       messageClass:         GECKO_SMS_MESSAGE_CLASSES[PDU_DCS_MSG_CLASS_NORMAL], //  O   x    O
-      etws:                 null,                              //  ?   O    ?
+      etws:                 null                               //  ?   O    ?
       /*{
         warningType:        null,                              //  X   O    X
         popup:              false,                             //  X   O    X
         emergencyUserAlert: false,                             //  X   O    X
-      }*/
-      geometries:            null,                             //  X   X    O
-      maximumWaitingTimeSec: null,                             //  X   X    O
-      geoFencingTrigger:     null,                             //  X   X    O
-      /*{
-        _type:               null,                             //  X   X    O
-        _cbIdentifiers:      null,                             //  X   X    O
       }*/
     };
 
@@ -3299,18 +3006,17 @@ GsmPDUHelperObject.prototype = {
     if (pduLength <= CB_MESSAGE_SIZE_GSM) {
       this.readCbSerialNumber(msg);
       this.readCbMessageIdentifier(msg);
-      if (this.isEtwsMessage(msg) && pduLength <= CB_MESSAGE_SIZE_ETWS) {
+      if (this.isEtwsMessage(msg) && (pduLength <= CB_MESSAGE_SIZE_ETWS)) {
         msg.format = CB_FORMAT_ETWS;
         return this.readEtwsCbMessage(msg);
+      } else {
+        msg.format = CB_FORMAT_GSM;
+        return this.readGsmCbMessage(msg, pduLength);
       }
-      msg.format = CB_FORMAT_GSM;
-      return this.readGsmCbMessage(msg, pduLength);
     }
 
-    if (
-      pduLength >= CB_MESSAGE_SIZE_UMTS_MIN &&
-      pduLength <= CB_MESSAGE_SIZE_UMTS_MAX
-    ) {
+    if (pduLength >= CB_MESSAGE_SIZE_UMTS_MIN &&
+        pduLength <= CB_MESSAGE_SIZE_UMTS_MAX) {
       msg.format = CB_FORMAT_UMTS;
       return this.readUmtsCbMessage(msg);
     }
@@ -3318,15 +3024,9 @@ GsmPDUHelperObject.prototype = {
     throw new Error("Invalid PDU Length: " + pduLength);
   },
 
-  isEtwsMessage(msg) {
-    return (
-      msg.messageId >= CB_GSM_MESSAGEID_ETWS_BEGIN &&
-      msg.messageId <= CB_GSM_MESSAGEID_ETWS_END
-    );
-  },
-
-  isCMASGeoFencingTriggerMessage(msg) {
-    return msg.messageId === CB_CMAS_MESSAGEID_GEO_FENCING_TRIGGER;
+  isEtwsMessage: function(msg) {
+    return (msg.messageId >= CB_GSM_MESSAGEID_ETWS_BEGIN &&
+      msg.messageId <= CB_GSM_MESSAGEID_ETWS_END);
   },
 
   /**
@@ -3335,18 +3035,11 @@ GsmPDUHelperObject.prototype = {
    * @param msg
    *        message object for output.
    *
-   * Octet Number(s)  Parameter
-   *               1  Message Type
-   *           2 - 3  Message ID
-   *           4 - 5  Serial Number
-   *               6  DCS
-   *           7 - N  CB Data
-   *
    * @see 3GPP TS 23.041 section 9.4.2
    * @see 3GPP TS 25.324 section 10.2
    */
-  readUmtsCbMessage(msg) {
-    let type = this.readHexOctet();
+  readUmtsCbMessage: function(msg) {
+    let type = this.readHexOctet();;
     if (type != CB_UMTS_MESSAGE_TYPE_CBS) {
       throw new Error("Unsupported UMTS Cell Broadcast message type: " + type);
     }
@@ -3368,13 +3061,6 @@ GsmPDUHelperObject.prototype = {
    * @param pduLength
    *        total length of the incomint PDU in octets.
    *
-   * Octet Number(s)  Parameter
-   *           1 - 2  Message Type
-   *           3 - 4  Message ID
-   *               5  DCS
-   *               6  Page Parameter
-   *           7 - 88 CB Data
-
    * @see 3GPP TS 23.041 clause 9.4.1.2
    */
   readGsmCbMessage: function(msg, pduLength) {

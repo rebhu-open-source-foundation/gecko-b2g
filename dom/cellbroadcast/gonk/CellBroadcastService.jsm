@@ -395,14 +395,6 @@ CellBroadcastService.prototype = {
     aEtwsEmergencyUserAlert,
     aEtwsPopup
   ) {
-    //TODO: Handle geo fencing here
-    //1. get cell loaction information with aGsmGeographicalScope
-    //2. if it is geofencing trigger message
-    //      find previous message from database and jump to 4
-    //3. insert message into database
-    //4. if need geofencing check
-    //      request location
-    //      perform geofencing
     this._acquireCbHandledWakeLock();
     // Broadcast CBS System message
     gCellbroadcastMessenger.notifyCbMessageReceived(
