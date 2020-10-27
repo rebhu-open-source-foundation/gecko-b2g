@@ -74,6 +74,10 @@ pref("network.predictor.preserve", 50); // percentage of predictor data to keep 
 // Disable IPC security to let WebRTC works on https://appr.tc
 pref("network.disable.ipc.security", true);
 
+// Extend keepalive long lived idle time for push adaptive ping mechanism
+// See KaiOS Bug 108187
+pref("network.http.tcp_keepalive.long_lived_idle_time", 1800);
+
 /* session history */
 pref("browser.sessionhistory.max_entries", 50);
 pref("browser.sessionhistory.contentViewerTimeout", 360);
