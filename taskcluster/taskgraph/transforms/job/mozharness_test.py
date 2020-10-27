@@ -20,9 +20,7 @@ from taskgraph.transforms.job import (
 from taskgraph.util.schema import Schema
 from taskgraph.util.taskcluster import get_artifact_path
 from taskgraph.transforms.tests import test_description_schema, normpath
-from taskgraph.transforms.job.common import (
-    support_vcs_checkout,
-)
+from taskgraph.transforms.job.common import support_vcs_checkout
 
 VARIANTS = [
     "shippable",

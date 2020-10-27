@@ -18,9 +18,7 @@ from itertools import chain
 from operator import itemgetter
 from six import StringIO
 
-from mozpack.manifests import (
-    InstallManifest,
-)
+from mozpack.manifests import InstallManifest
 import mozpack.path as mozpath
 
 from mozbuild import frontend

@@ -54,7 +54,7 @@ class TestPartial(unittest.TestCase):
         )
 
     def test_remove_subst(self):
-        """Test removing a subst from the config. The file should be overwritten with 'None' """
+        """Test removing a subst from the config. The file should be overwritten with 'None'"""
         env = PartialConfigEnvironment(self._objdir())
         path = mozpath.join(env.topobjdir, "config.statusd", "substs", "MYSUBST")
         myconfig = config.copy()

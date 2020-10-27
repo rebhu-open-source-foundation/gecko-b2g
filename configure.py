@@ -30,9 +30,7 @@ from mozbuild.configure import (
 )
 from mozbuild.pythonutil import iter_modules_in_path
 from mozbuild.backend.configenvironment import PartialConfigEnvironment
-from mozbuild.util import (
-    write_indented_repr,
-)
+from mozbuild.util import write_indented_repr
 import mozpack.path as mozpath
 import six
 

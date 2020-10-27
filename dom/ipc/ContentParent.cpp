@@ -2534,6 +2534,9 @@ bool ContentParent::LaunchSubprocessResolve(bool aIsSync,
   base::ProcessId procId =
       base::GetProcId(mSubprocess->GetChildProcessHandle());
   Open(mSubprocess->TakeChannel(), procId);
+
+  ContentProcessManager::GetSingleton()->AddContentProcess(this);
+
 #ifdef MOZ_CODE_COVERAGE
   Unused << SendShareCodeCoverageMutex(
       CodeCoverageHandler::Get()->GetMutexHandle(procId));
@@ -2547,8 +2550,6 @@ bool ContentParent::LaunchSubprocessResolve(bool aIsSync,
     ShutDownProcess(SEND_SHUTDOWN_MESSAGE);
     return false;
   }
-
-  ContentProcessManager::GetSingleton()->AddContentProcess(this);
 
   mHangMonitorActor = ProcessHangMonitor::AddProcess(this);
 
@@ -7482,9 +7483,9 @@ mozilla::ipc::IPCResult ContentParent::RecvHistoryCommit(
 
 mozilla::ipc::IPCResult ContentParent::RecvHistoryGo(
     const MaybeDiscarded<BrowsingContext>& aContext, int32_t aOffset,
-    HistoryGoResolver&& aResolveRequestedIndex) {
+    uint64_t aHistoryEpoch, HistoryGoResolver&& aResolveRequestedIndex) {
   if (!aContext.IsDiscarded()) {
-    aContext.get_canonical()->HistoryGo(aOffset,
+    aContext.get_canonical()->HistoryGo(aOffset, aHistoryEpoch, Some(ChildID()),
                                         std::move(aResolveRequestedIndex));
   }
   return IPC_OK();

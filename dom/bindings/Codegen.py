@@ -15575,7 +15575,10 @@ class CGDOMJSProxyHandler_finalize(ClassMethod):
             "%s* self = UnwrapPossiblyNotInitializedDOMObject<%s>(proxy);\n"
             % (self.descriptor.nativeType, self.descriptor.nativeType)
         ) + finalizeHook(
-            self.descriptor, FINALIZE_HOOK_NAME, self.args[0].name, self.args[1].name
+            self.descriptor,
+            FINALIZE_HOOK_NAME,
+            self.args[0].name,
+            self.args[1].name,
         ).define()
 
 

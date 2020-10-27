@@ -10,9 +10,7 @@ import copy
 
 from taskgraph.transforms.base import TransformSequence
 from taskgraph.util.scriptworker import get_release_config
-from taskgraph.util.schema import (
-    resolve_keyed_by,
-)
+from taskgraph.util.schema import resolve_keyed_by
 
 import logging
 

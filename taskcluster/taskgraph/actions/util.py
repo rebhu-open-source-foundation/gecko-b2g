@@ -33,9 +33,7 @@ from taskgraph.util.taskcluster import (
     trigger_hook,
     CONCURRENCY,
 )
-from taskgraph.util.taskgraph import (
-    find_decision_task,
-)
+from taskgraph.util.taskgraph import find_decision_task
 
 logger = logging.getLogger(__name__)
 

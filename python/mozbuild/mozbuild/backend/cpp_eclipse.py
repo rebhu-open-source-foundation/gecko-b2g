@@ -12,9 +12,7 @@ import subprocess
 from xml.sax.saxutils import quoteattr
 from .common import CommonBackend
 
-from ..frontend.data import (
-    ComputedFlags,
-)
+from ..frontend.data import ComputedFlags
 from mozbuild.base import ExecutionSummary
 
 # TODO Have ./mach eclipse generate the workspace and index it:

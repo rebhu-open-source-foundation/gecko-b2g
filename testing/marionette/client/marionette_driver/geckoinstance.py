@@ -578,6 +578,12 @@ class DesktopInstance(GeckoInstance):
         "browser.tabs.warnOnCloseOtherTabs": False,
         # Do not warn when multiple tabs will be opened
         "browser.tabs.warnOnOpen": False,
+<<<<<<< HEAD
+=======
+        # Don't show the Bookmarks Toolbar on any tab (the above pref that
+        # disables the New Tab Page ends up showing the toolbar on about:blank).
+        "browser.toolbars.bookmarks.visibility": "never",
+>>>>>>> upstream/master
         # Disable the UI tour
         "browser.uitour.enabled": False,
         # Turn off search suggestions in the location bar so as not to trigger network

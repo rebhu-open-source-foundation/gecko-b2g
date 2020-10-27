@@ -7,9 +7,7 @@ from __future__ import absolute_import, print_function
 import os
 import subprocess
 import platform
-from distutils.version import (
-    StrictVersion,
-)
+from distutils.version import StrictVersion
 
 from mozboot.util import get_state_dir
 from mozfile import which

@@ -13,9 +13,7 @@ from taskgraph.transforms.base import TransformSequence
 from taskgraph.util.attributes import copy_attributes_from_dependent_job
 from taskgraph.util.keyed_by import evaluate_keyed_by
 from taskgraph.util.schema import taskref_or_string
-from taskgraph.util.scriptworker import (
-    get_signing_cert_scope_per_platform,
-)
+from taskgraph.util.scriptworker import get_signing_cert_scope_per_platform
 from taskgraph.transforms.task import task_description_schema
 from voluptuous import Required, Optional
 

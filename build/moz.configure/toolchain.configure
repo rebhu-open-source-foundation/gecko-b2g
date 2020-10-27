@@ -100,7 +100,7 @@ set_config("YASM_ASFLAGS", yasm_asflags)
 
 @depends("--disable-compile-environment", target)
 def compiling_android(compile_env, target):
-    return compile_env and target.os in ("Android")
+    return compile_env and target.os == "Android"
 
 
 include("android-ndk.configure", when=compiling_android)
@@ -147,8 +147,9 @@ with only_when(host_is_osx | target_is_osx):
     )
 
     @depends("--with-macos-sdk", host)
+    @imports(_from="__builtin__", _import="open")
     @imports(_from="os.path", _import="isdir")
-    @imports(_from="biplist", _import="readPlist")
+    @imports("plistlib")
     def macos_sdk(sdk, host):
         sdk_min_version = Version("10.11")
         sdk_max_version = Version("11.0")
@@ -177,7 +178,8 @@ with only_when(host_is_osx | target_is_osx):
                 "tools are selected during the Xcode/Developer Tools installation."
                 % sdk
             )
-        obj = readPlist(os.path.join(sdk, "SDKSettings.plist"))
+        with open(os.path.join(sdk, "SDKSettings.plist"), "rb") as plist:
+            obj = plistlib.load(plist)
         if not obj:
             die("Error parsing SDKSettings.plist in the SDK directory: %s" % sdk)
         if "Version" not in obj:

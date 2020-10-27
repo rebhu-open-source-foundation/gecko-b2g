@@ -759,14 +759,14 @@ class TestConfigure(unittest.TestCase):
 
         with self.assertRaisesRegexp(
             InvalidOptionError,
-            "--enable-bar=foo,bar' implied by 'imply_option at %s:16' "
+            "--enable-bar=foo,bar' implied by 'imply_option at %s:18' "
             "conflicts with '--enable-bar=a,b,c' from the command-line" % config_path,
         ):
             get_config(["--enable-bar=a,b,c"])
 
         with self.assertRaisesRegexp(
             InvalidOptionError,
-            "--enable-baz=BAZ' implied by 'imply_option at %s:25' "
+            "--enable-baz=BAZ' implied by 'imply_option at %s:29' "
             "conflicts with '--enable-baz=QUUX' from the command-line" % config_path,
         ):
             get_config(["--enable-baz=QUUX"])

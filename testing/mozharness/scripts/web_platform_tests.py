@@ -240,6 +240,10 @@ class WebPlatformTest(TestingMixin, MercurialScript, CodeCoverageMixin, AndroidM
                 dirs["abs_sdk_dir"] = os.path.join(
                     abs_dirs["abs_work_dir"], "android-sdk-linux"
                 )
+            if self.config["enable_webrender"]:
+                # AndroidMixin uses this when launching the emulator. We only want
+                # GLES3 if we're running WebRender
+                self.use_gles3 = True
 
         abs_dirs.update(dirs)
         self.abs_dirs = abs_dirs
@@ -352,6 +356,7 @@ class WebPlatformTest(TestingMixin, MercurialScript, CodeCoverageMixin, AndroidM
 
         if not c["e10s"]:
             cmd.append("--disable-e10s")
+
         if c["enable_webrender"]:
             cmd.append("--enable-webrender")
 

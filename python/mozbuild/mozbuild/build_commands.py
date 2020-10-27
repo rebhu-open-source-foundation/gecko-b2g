@@ -19,9 +19,7 @@ from mozbuild.util import ensure_subprocess_env, MOZBUILD_METRICS_PATH
 from mozbuild.mozconfig import MozconfigLoader
 import mozpack.path as mozpath
 
-from mozbuild.backend import (
-    backends,
-)
+from mozbuild.backend import backends
 
 BUILD_WHAT_HELP = """
 What to build. Can be a top-level make target or a relative directory. If
@@ -82,9 +80,7 @@ class Build(MachCommandBase):
         there are build actions not captured by either. If things don't appear to
         be rebuilding, perform a vanilla `mach build` to rebuild the world.
         """
-        from mozbuild.controller.building import (
-            BuildDriver,
-        )
+        from mozbuild.controller.building import BuildDriver
 
         self.log_manager.enable_all_structured_loggers()
 
@@ -166,9 +162,7 @@ class Build(MachCommandBase):
         "options", default=None, nargs=argparse.REMAINDER, help="Configure options"
     )
     def configure(self, options=None, buildstatus_messages=False, line_handler=None):
-        from mozbuild.controller.building import (
-            BuildDriver,
-        )
+        from mozbuild.controller.building import BuildDriver
 
         self.log_manager.enable_all_structured_loggers()
         driver = self._spawn(BuildDriver)

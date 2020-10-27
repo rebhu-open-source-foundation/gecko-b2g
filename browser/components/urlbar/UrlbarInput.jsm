@@ -17,6 +17,7 @@ XPCOMUtils.defineLazyModuleGetters(this, {
   ExtensionSearchHandler: "resource://gre/modules/ExtensionSearchHandler.jsm",
   ObjectUtils: "resource://gre/modules/ObjectUtils.jsm",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.jsm",
+  PromiseUtils: "resource://gre/modules/PromiseUtils.jsm",
   ReaderMode: "resource://gre/modules/ReaderMode.jsm",
   PartnerLinkAttribution: "resource:///modules/PartnerLinkAttribution.jsm",
   SearchUtils: "resource://gre/modules/SearchUtils.jsm",
@@ -557,7 +558,7 @@ class UrlbarInput {
       isValidUrl = true;
     } catch (ex) {}
     if (isValidUrl) {
-      this._loadURL(url, where, openParams);
+      this._loadURL(url, event, where, openParams);
       return;
     }
 
@@ -613,7 +614,7 @@ class UrlbarInput {
             browser.lastLocationChange == lastLocationChange
           ) {
             openParams.postData = postData;
-            this._loadURL(uri.spec, where, openParams, null, browser);
+            this._loadURL(uri.spec, event, where, openParams, null, browser);
           }
         }
       });
@@ -665,8 +666,19 @@ class UrlbarInput {
       allowInheritPrincipal: false,
     };
 
+    // When update2 is enabled and a one-off is selected, we restyle URL
+    // heuristic results to look like search results. In the unlikely event that
+    // they are clicked, we promote search mode instead of navigating to the
+    // URL. This was agreed on as a compromise between consistent UX and
+    // engineering effort. See review discussion at bug 1667766.
+    let urlResultWillPromoteSearchMode =
+      this.searchMode &&
+      result.heuristic &&
+      result.type == UrlbarUtils.RESULT_TYPE.URL &&
+      this.view.oneOffSearchButtons.selectedButton;
+
     let selIndex = result.rowIndex;
-    if (!result.payload.keywordOffer) {
+    if (!result.payload.keywordOffer && !urlResultWillPromoteSearchMode) {
       this.view.close(/* elementPicked */ true);
     }
 
@@ -685,7 +697,7 @@ class UrlbarInput {
         selType: "canonized",
         provider: result.providerName,
       });
-      this._loadURL(this.value, where, openParams, browser);
+      this._loadURL(this.value, event, where, openParams, browser);
       return;
     }
 
@@ -694,6 +706,11 @@ class UrlbarInput {
 
     switch (result.type) {
       case UrlbarUtils.RESULT_TYPE.URL: {
+        if (urlResultWillPromoteSearchMode) {
+          this.promoteSearchMode();
+          this.search(this.value);
+          return;
+        }
         // Bug 1578856: both the provider and the docshell run heuristics to
         // decide how to handle a non-url string, either fixing it to a url, or
         // searching for it.
@@ -934,6 +951,7 @@ class UrlbarInput {
 
     this._loadURL(
       url,
+      event,
       where,
       openParams,
       {
@@ -2250,6 +2268,8 @@ class UrlbarInput {
    *
    * @param {string} url
    *   The URL to open.
+   * @param {Event} event
+   *   The event that triggered to load the url.
    * @param {string} openUILinkWhere
    *   Where we expect the result to be opened.
    * @param {object} params
@@ -2271,6 +2291,7 @@ class UrlbarInput {
    */
   _loadURL(
     url,
+    event,
     openUILinkWhere,
     params,
     resultDetails = null,
@@ -2329,10 +2350,19 @@ class UrlbarInput {
       params.initiatingDoc = this.window.document;
     }
 
+    if (event?.keyCode === KeyEvent.DOM_VK_RETURN) {
+      if (openUILinkWhere === "current") {
+        params.avoidBrowserFocus = true;
+        this._keyDownEnterDeferred?.resolve(browser);
+      }
+    }
+
     // Focus the content area before triggering loads, since if the load
     // occurs in a new tab, we want focus to be restored to the content
     // area when the current tab is re-selected.
-    browser.focus();
+    if (!params.avoidBrowserFocus) {
+      browser.focus();
+    }
 
     if (openUILinkWhere != "current") {
       this.handleRevert();
@@ -2688,6 +2718,13 @@ class UrlbarInput {
       this.window.UpdatePopupNotificationsVisibility();
     }
 
+    // If user move the focus to another component while pressing Enter key,
+    // then keyup at that component, as we can't get the event, clear the promise.
+    if (this._keyDownEnterDeferred) {
+      this._keyDownEnterDeferred.resolve();
+      this._keyDownEnterDeferred = null;
+    }
+
     Services.obs.notifyObservers(null, "urlbar-blur");
   }
 
@@ -3014,6 +3051,13 @@ class UrlbarInput {
   }
 
   _on_keydown(event) {
+    if (event.keyCode === KeyEvent.DOM_VK_RETURN) {
+      if (this._keyDownEnterDeferred) {
+        this._keyDownEnterDeferred.reject();
+      }
+      this._keyDownEnterDeferred = PromiseUtils.defer();
+    }
+
     // Due to event deferring, it's possible preventDefault() won't be invoked
     // soon enough to actually prevent some of the default behaviors, thus we
     // have to handle the event "twice". This first immediate call passes false
@@ -3030,7 +3074,25 @@ class UrlbarInput {
     });
   }
 
-  _on_keyup(event) {
+  async _on_keyup(event) {
+    if (
+      event.keyCode === KeyEvent.DOM_VK_RETURN &&
+      this._keyDownEnterDeferred
+    ) {
+      try {
+        const loadingBrowser = await this._keyDownEnterDeferred.promise;
+        // Ensure the selected browser didn't change in the meanwhile.
+        if (this.window.gBrowser.selectedBrowser === loadingBrowser) {
+          loadingBrowser.focus();
+        }
+      } catch (ex) {
+        // Not all the Enter actions in the urlbar will cause a navigation, then it
+        // is normal for this to be rejected.
+      }
+      this._keyDownEnterDeferred = null;
+      return;
+    }
+
     this._toggleActionOverride(event);
   }
 

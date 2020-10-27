@@ -24,9 +24,7 @@ from mozpack.chrome.manifest import (
     ManifestSkin,
     ManifestLocale,
 )
-from mozpack.errors import (
-    ErrorMessage,
-)
+from mozpack.errors import ErrorMessage
 from mozpack.test.test_files import (
     foo_xpt,
     foo2_xpt,

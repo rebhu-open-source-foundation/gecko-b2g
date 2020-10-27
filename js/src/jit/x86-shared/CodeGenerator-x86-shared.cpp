@@ -2595,16 +2595,20 @@ void CodeGenerator::visitWasmBinarySimd128(LWasmBinarySimd128* ins) {
       masm.compareFloat64x2(Assembler::GreaterThanOrEqual, rhs, lhsDest);
       break;
     case wasm::SimdOp::F32x4PMax:
-      masm.pseudoMaxFloat32x4(rhs, lhsDest);
+      // `lhsDest` is actually rhsDest, and `rhs` is actually lhs
+      masm.pseudoMaxFloat32x4(lhsDest, rhs);
       break;
     case wasm::SimdOp::F32x4PMin:
-      masm.pseudoMinFloat32x4(rhs, lhsDest);
+      // `lhsDest` is actually rhsDest, and `rhs` is actually lhs
+      masm.pseudoMinFloat32x4(lhsDest, rhs);
       break;
     case wasm::SimdOp::F64x2PMax:
-      masm.pseudoMaxFloat64x2(rhs, lhsDest);
+      // `lhsDest` is actually rhsDest, and `rhs` is actually lhs
+      masm.pseudoMaxFloat64x2(lhsDest, rhs);
       break;
     case wasm::SimdOp::F64x2PMin:
-      masm.pseudoMinFloat64x2(rhs, lhsDest);
+      // `lhsDest` is actually rhsDest, and `rhs` is actually lhs
+      masm.pseudoMinFloat64x2(lhsDest, rhs);
       break;
     case wasm::SimdOp::I32x4DotSI16x8:
       masm.widenDotInt16x8(rhs, lhsDest);
@@ -2794,7 +2798,7 @@ void CodeGenerator::visitWasmShuffleSimd128(LWasmShuffleSimd128* ins) {
     }
     case LWasmShuffleSimd128::SHUFFLE_BLEND_8x16: {
       masm.shuffleInt8x16(reinterpret_cast<const uint8_t*>(control.asInt8x16()),
-                          rhs, lhsDest, ToFloatRegister(ins->temp()));
+                          rhs, lhsDest);
       break;
     }
     default: {

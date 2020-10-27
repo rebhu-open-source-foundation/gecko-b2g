@@ -19,9 +19,7 @@ from mozpack.chrome.manifest import (
     is_manifest,
     parse_manifest,
 )
-from mozpack.files import (
-    ExecutableFile,
-)
+from mozpack.files import ExecutableFile
 import mozpack.path as mozpath
 from mozbuild.preprocessor import Preprocessor
 

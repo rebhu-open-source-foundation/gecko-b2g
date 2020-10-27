@@ -240,10 +240,13 @@ def valid_ucrt_sdk_dir(windows_sdk_dir, windows_sdk_dir_env, compiler):
                 path = os.path.dirname(os.path.dirname(include))
                 version = os.path.basename(include)
                 if version != "include" and mozpath.basedir(lib, [path]):
-                    sdks[d] = Version(version), namespace(
-                        path=path,
-                        include=include,
-                        lib=lib,
+                    sdks[d] = (
+                        Version(version),
+                        namespace(
+                            path=path,
+                            include=include,
+                            lib=lib,
+                        ),
                     )
                     continue
             raise FatalCheckError(

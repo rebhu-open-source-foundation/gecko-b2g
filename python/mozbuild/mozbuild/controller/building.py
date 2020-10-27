@@ -21,9 +21,7 @@ from collections import (
     namedtuple,
     OrderedDict,
 )
-from textwrap import (
-    TextWrapper,
-)
+from textwrap import TextWrapper
 
 try:
     import psutil
@@ -38,18 +36,10 @@ from mozterm.widgets import Footer
 
 import mozpack.path as mozpath
 
-from .clobber import (
-    Clobberer,
-)
-from ..base import (
-    MozbuildObject,
-)
-from ..backend import (
-    get_backend_class,
-)
-from ..testing import (
-    install_test_files,
-)
+from .clobber import Clobberer
+from ..base import MozbuildObject
+from ..backend import get_backend_class
+from ..testing import install_test_files
 from ..compilation.warnings import (
     WarningsCollector,
     WarningsDatabase,

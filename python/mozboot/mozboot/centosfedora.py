@@ -23,7 +23,6 @@ class CentOSFedoraBootstrapper(LinuxBootstrapper, BaseBootstrapper):
         # For CentOS 7, later versions of nodejs come from nodesource
         # and include the npm package.
         self.packages = [
-            "autoconf213",
             "nodejs",
             "which",
         ]

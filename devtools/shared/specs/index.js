@@ -114,7 +114,7 @@ const Types = (exports.__TypesForTests = [
     front: null,
   },
   {
-    types: ["highlighter", "customhighlighter"],
+    types: ["customhighlighter"],
     spec: "devtools/shared/specs/highlighters",
     front: "devtools/client/fronts/highlighters",
   },
@@ -290,7 +290,7 @@ const Types = (exports.__TypesForTests = [
   {
     types: ["workerTarget"],
     spec: "devtools/shared/specs/targets/worker",
-    front: null,
+    front: "devtools/client/fronts/targets/worker",
   },
   {
     types: ["thread"],

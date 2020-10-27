@@ -12,7 +12,6 @@ class OpenSUSEBootstrapper(LinuxBootstrapper, BaseBootstrapper):
     """openSUSE experimental bootstrapper."""
 
     SYSTEM_PACKAGES = [
-        "autoconf213",
         "nodejs",
         "npm",
         "which",

@@ -37,7 +37,6 @@ class GentooBootstrapper(LinuxBootstrapper, BaseBootstrapper):
                 "--noreplace",
                 "--quiet",
                 "app-arch/zip",
-                "sys-devel/autoconf:2.1",
             ]
         )
 

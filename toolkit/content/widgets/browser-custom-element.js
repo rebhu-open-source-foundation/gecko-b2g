@@ -244,8 +244,6 @@
 
       this._audioMuted = false;
 
-      this._audioPlaying = false;
-
       this._hasAnyPlayingMediaBeenBlocked = false;
 
       this._unselectedTabHoverMessageListenerCount = 0;
@@ -752,10 +750,6 @@
       return this._audioMuted;
     }
 
-    get audioPlaying() {
-      return this._audioPlaying;
-    }
-
     get shouldHandleUnselectedTabHover() {
       return this._unselectedTabHoverMessageListenerCount > 0;
     }
@@ -941,14 +935,12 @@
       if (this._audioMuted) {
         return;
       }
-      this._audioPlaying = true;
       let event = document.createEvent("Events");
       event.initEvent("DOMAudioPlaybackStarted", true, false);
       this.dispatchEvent(event);
     }
 
     audioPlaybackStopped() {
-      this._audioPlaying = false;
       let event = document.createEvent("Events");
       event.initEvent("DOMAudioPlaybackStopped", true, false);
       this.dispatchEvent(event);

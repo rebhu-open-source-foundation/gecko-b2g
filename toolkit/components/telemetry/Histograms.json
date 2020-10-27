@@ -11197,7 +11197,7 @@
     "products": ["firefox"],
     "alert_emails": ["seceng-telemetry@mozilla.com", "sstreich@mozilla.com"],
     "bug_numbers": [1646768],
-    "expires_in_version": "85",
+    "expires_in_version": "90",
     "kind": "boolean",
     "description": "Accumulates how many downloads are mixed-content (True = The download is MixedContent, False= is not MixedContent)"
   },
@@ -11953,9 +11953,9 @@
     "products": ["firefox"],
     "expires_in_version": "86",
     "kind": "categorical",
-    "labels": ["FilterNotAvailable", "IssuerNotEnrolled", "CertificateTooNew", "CertificateValid", "CertificateRevoked", "LibraryFailure"],
+    "labels": ["FilterNotAvailable", "IssuerNotEnrolled", "CertificateTooNew", "CertificateValid", "CertificateRevoked", "LibraryFailure", "CertRevokedByStash"],
     "description": "The result of looking up revocation information for a TLS server certificate in CRLite.",
-    "bug_numbers": [1586855, 1607765],
+    "bug_numbers": [1586855, 1607765, 1670984],
     "releaseChannelCollection": "opt-out",
     "alert_emails": ["dkeeler@mozilla.com", "jcj@mozilla.com", "seceng-telemetry@mozilla.com"]
   },
@@ -15859,45 +15859,6 @@
     "n_values": 5,
     "bug_numbers": [1627708],
     "description": "Input device that triggered the zoom gesture (InputData::PinchGestureSource)",
-    "releaseChannelCollection": "opt-out"
-  },
-  "FOG_EVAL_USER_ACTIVE_S" : {
-    "products": ["firefox"],
-    "record_in_processes": ["main"],
-    "alert_emails": ["chutten@mozilla.com"],
-    "expires_in_version": "85",
-    "kind": "exponential",
-    "keyed": false,
-    "high": 7200,
-    "n_buckets": 50,
-    "bug_numbers": [1647876],
-    "description": "Seconds between `user-interaction-active` and `user-interaction-inactive`. For use in evaluating baseline engagement for Project FOG.",
-    "releaseChannelCollection": "opt-out"
-  },
-  "FOG_EVAL_USER_INACTIVE_S" : {
-    "products": ["firefox"],
-    "record_in_processes": ["main"],
-    "alert_emails": ["chutten@mozilla.com"],
-    "expires_in_version": "85",
-    "kind": "exponential",
-    "keyed": false,
-    "high": 7200,
-    "n_buckets": 50,
-    "bug_numbers": [1660887],
-    "description": "Seconds between `user-interaction-inactive` and `user-interaction-active`. For use in evaluating baseline engagement for Project FOG.",
-    "releaseChannelCollection": "opt-out"
-  },
-  "FOG_EVAL_WINDOW_RAISED_S" : {
-    "products": ["firefox"],
-    "record_in_processes": ["main"],
-    "alert_emails": ["chutten@mozilla.com"],
-    "expires_in_version": "85",
-    "kind": "exponential",
-    "keyed": false,
-    "high": 7200,
-    "n_buckets": 50,
-    "bug_numbers": [1647876],
-    "description": "Seconds between a Firefox window being raised and lowered. For use in evaluating baseline engagement for Project FOG.",
     "releaseChannelCollection": "opt-out"
   },
   "CREDITCARD_NUM_USES": {

@@ -21,7 +21,6 @@ class SolusBootstrapper(LinuxBootstrapper, BaseBootstrapper):
     """Solus experimental bootstrapper."""
 
     SYSTEM_PACKAGES = [
-        "autoconf213",
         "nodejs",
         "unzip",
         "zip",

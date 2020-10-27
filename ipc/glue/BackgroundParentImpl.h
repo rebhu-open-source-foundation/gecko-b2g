@@ -361,28 +361,22 @@ class BackgroundParentImpl : public PBackgroundParent,
   mozilla::ipc::IPCResult RecvStorageActivity(
       const PrincipalInfo& aPrincipalInfo) override;
 
-  PServiceWorkerParent* AllocPServiceWorkerParent(
-      const IPCServiceWorkerDescriptor&) override;
-
-  bool DeallocPServiceWorkerParent(PServiceWorkerParent*) override;
+  already_AddRefed<PServiceWorkerParent> AllocPServiceWorkerParent(
+      const IPCServiceWorkerDescriptor&) final;
 
   mozilla::ipc::IPCResult RecvPServiceWorkerConstructor(
       PServiceWorkerParent* aActor,
       const IPCServiceWorkerDescriptor& aDescriptor) override;
 
-  PServiceWorkerContainerParent* AllocPServiceWorkerContainerParent() override;
-
-  bool DeallocPServiceWorkerContainerParent(
-      PServiceWorkerContainerParent*) override;
+  already_AddRefed<PServiceWorkerContainerParent>
+  AllocPServiceWorkerContainerParent() final;
 
   mozilla::ipc::IPCResult RecvPServiceWorkerContainerConstructor(
       PServiceWorkerContainerParent* aActor) override;
 
-  PServiceWorkerRegistrationParent* AllocPServiceWorkerRegistrationParent(
-      const IPCServiceWorkerRegistrationDescriptor&) override;
-
-  bool DeallocPServiceWorkerRegistrationParent(
-      PServiceWorkerRegistrationParent*) override;
+  already_AddRefed<PServiceWorkerRegistrationParent>
+  AllocPServiceWorkerRegistrationParent(
+      const IPCServiceWorkerRegistrationDescriptor&) final;
 
   mozilla::ipc::IPCResult RecvPServiceWorkerRegistrationConstructor(
       PServiceWorkerRegistrationParent* aActor,

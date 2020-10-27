@@ -24,9 +24,7 @@ from mozfile import which
 from manifestparser import TestManifest
 from manifestparser import filters as mpf
 
-from mozbuild.base import (
-    MachCommandBase,
-)
+from mozbuild.base import MachCommandBase
 
 from mach.decorators import (
     CommandArgument,

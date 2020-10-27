@@ -17,9 +17,7 @@ from taskgraph.transforms.job import (
     configure_taskdesc_for_run,
     run_job_using,
 )
-from taskgraph.transforms.job.common import (
-    docker_worker_add_artifacts,
-)
+from taskgraph.transforms.job.common import docker_worker_add_artifacts
 from taskgraph.util.hash import hash_paths
 from taskgraph.util.attributes import RELEASE_PROJECTS
 from taskgraph import GECKO

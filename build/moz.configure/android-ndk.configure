@@ -142,8 +142,6 @@ def android_platform(target, android_version, ndk):
     else:
         platform_version = android_version
 
-    #   die('ndk=%s platform_version=%s arch=%s' % (ndk, platform_version, target_dir_name))
-
     platform_dir = os.path.join(
         ndk, "platforms", "android-%s" % platform_version, "arch-%s" % target_dir_name
     )

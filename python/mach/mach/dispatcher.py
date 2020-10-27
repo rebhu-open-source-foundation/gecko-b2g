@@ -204,11 +204,10 @@ class CommandAction(argparse.Action):
             for arg in subparser._actions[:]:
                 if arg.nargs == argparse.REMAINDER:
                     subparser._actions.remove(arg)
-                    remainder = (arg.dest,), {
-                        "default": arg.default,
-                        "nargs": arg.nargs,
-                        "help": arg.help,
-                    }
+                    remainder = (
+                        (arg.dest,),
+                        {"default": arg.default, "nargs": arg.nargs, "help": arg.help},
+                    )
         else:
             subparser = argparse.ArgumentParser(**parser_args)
 

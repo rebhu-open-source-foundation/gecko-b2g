@@ -1419,6 +1419,10 @@ void EventStateManager::DispatchCrossProcessEvent(WidgetEvent* aEvent,
       if (BrowserParent* pointerLockedRemote =
               BrowserParent::GetPointerLockedRemoteTarget()) {
         remote = pointerLockedRemote;
+      } else if (BrowserParent* pointerCapturedRemote =
+                     PointerEventHandler::GetPointerCapturingRemoteTarget(
+                         mouseEvent->pointerId)) {
+        remote = pointerCapturedRemote;
       }
 
       // If a mouse is over a remote target A, and then moves to
@@ -2738,6 +2742,7 @@ nsIFrame* EventStateManager::ComputeScrollTargetAndMayAdjustWheelEvent(
 
     // If the frame disregards the direction the user is trying to scroll, then
     // it should just bubbles the scroll event up to its parental scroll frame
+
     Maybe<layers::ScrollDirection> disregardedDirection =
         WheelHandlingUtils::GetDisregardedWheelScrollDirection(scrollFrame);
     if (disregardedDirection) {
@@ -5935,7 +5940,7 @@ nsresult EventStateManager::DoContentCommandScrollEvent(
   aEvent->mSucceeded = true;
 
   nsIScrollableFrame* sf =
-      presShell->GetScrollableFrameToScroll(ScrollableDirection::Either);
+      presShell->GetScrollableFrameToScroll(layers::EitherScrollDirection);
   aEvent->mIsEnabled =
       sf ? (aEvent->mScroll.mIsHorizontal ? WheelHandlingUtils::CanScrollOn(
                                                 sf, aEvent->mScroll.mAmount, 0)

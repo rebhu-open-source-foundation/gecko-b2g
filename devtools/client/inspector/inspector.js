@@ -257,9 +257,6 @@ Inspector.prototype = {
 
   async initInspectorFront(targetFront) {
     this.inspectorFront = await targetFront.getFront("inspector");
-    // TODO: Remove highlighter for top-level target once all tests and code paths are
-    // migrated away from inspector.highlighter. Bug 1646028
-    this.highlighter = this.inspectorFront.highlighter;
     this.walker = this.inspectorFront.walker;
   },
 
@@ -1958,7 +1955,7 @@ Inspector.prototype = {
     );
   },
 
-  async inspectNodeActor(nodeActor, inspectFromAnnotation) {
+  async inspectNodeActor(nodeActor, reason) {
     const nodeFront = await this.inspectorFront.getNodeFrontFromNodeGrip({
       actor: nodeActor,
     });
@@ -1976,9 +1973,7 @@ Inspector.prototype = {
       return false;
     }
 
-    await this.selection.setNodeFront(nodeFront, {
-      reason: inspectFromAnnotation,
-    });
+    await this.selection.setNodeFront(nodeFront, { reason });
     return true;
   },
 };

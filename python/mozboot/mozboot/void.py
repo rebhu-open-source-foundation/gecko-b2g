@@ -15,7 +15,6 @@ from mozboot.linux_common import LinuxBootstrapper
 class VoidBootstrapper(LinuxBootstrapper, BaseBootstrapper):
 
     PACKAGES = [
-        "autoconf213",
         "clang",
         "make",
         "mercurial",

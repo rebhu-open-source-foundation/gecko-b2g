@@ -54,13 +54,12 @@ void gfxConfigManager::Init() {
   mWrEnvForceDisabled = gfxPlatform::WebRenderEnvvarDisabled();
 
 #ifdef XP_WIN
-  mHwStretchingSupport =
-      DeviceManagerDx::Get()->CheckHardwareStretchingSupport();
+  DeviceManagerDx::Get()->CheckHardwareStretchingSupport(mHwStretchingSupport);
   mScaledResolution = HasScaledResolution();
   mIsWin10OrLater = IsWin10OrLater();
   mWrCompositorDCompRequired = true;
 #else
-  mHwStretchingSupport = true;
+  ++mHwStretchingSupport.mBoth;
 #endif
 
 #ifdef MOZ_WIDGET_GTK
@@ -177,14 +176,22 @@ bool gfxConfigManager::ConfigureWebRenderQualified() {
                                      "INTEL_BATTERY_REQUIRES_DCOMP"_ns);
       }
 
-      int32_t maxRefreshRate = mGfxInfo->GetMaxRefreshRate();
+      bool mixed;
+      int32_t maxRefreshRate = mGfxInfo->GetMaxRefreshRate(&mixed);
       if (maxRefreshRate > 60) {
         mFeatureWrQualified->Disable(FeatureStatus::Blocked,
-                                   "Monitor refresh rate too high",
-                                   "REFRESH_RATE_TOO_HIGH"_ns);
+                                     "Monitor refresh rate too high",
+                                     "REFRESH_RATE_TOO_HIGH"_ns);
+      }
+    } else if (adapterVendorID == u"0x10de") {
+      bool mixed = false;
+      int32_t maxRefreshRate = mGfxInfo->GetMaxRefreshRate(&mixed);
+      if (maxRefreshRate > 60 && mixed) {
+        mFeatureWrQualified->Disable(FeatureStatus::Blocked,
+                                     "Monitor refresh rate too high/mixed",
+                                     "NVIDIA_REFRESH_RATE_MIXED"_ns);
       }
     }
-
   }
 
   return guarded;
@@ -215,10 +222,14 @@ void gfxConfigManager::ConfigureWebRender() {
   // Disable native compositor when hardware stretching is not supported. It is
   // for avoiding a problem like Bug 1618370.
   // XXX Is there a better check for Bug 1618370?
-  if (!mHwStretchingSupport && mScaledResolution) {
+  if (!mHwStretchingSupport.IsFullySupported() && mScaledResolution) {
+    nsPrintfCString failureId(
+        "FEATURE_FAILURE_NO_HARDWARE_STRETCHING_B%uW%uF%uN%uE%u",
+        mHwStretchingSupport.mBoth, mHwStretchingSupport.mWindowOnly,
+        mHwStretchingSupport.mFullScreenOnly, mHwStretchingSupport.mNone,
+        mHwStretchingSupport.mError);
     mFeatureWrCompositor->Disable(FeatureStatus::Unavailable,
-                                  "No hardware stretching support",
-                                  "FEATURE_FAILURE_NO_HARDWARE_STRETCHING"_ns);
+                                  "No hardware stretching support", failureId);
   }
 
   bool guardedByQualifiedPref = ConfigureWebRenderQualified();

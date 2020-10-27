@@ -358,6 +358,7 @@ class AudioContext final : public DOMEventTargetHelper,
 
  private:
   void DisconnectFromWindow();
+  already_AddRefed<Promise> CreatePromise(ErrorResult& aRv);
   void RemoveFromDecodeQueue(WebAudioDecodeJob* aDecodeJob);
   void ShutdownDecoder();
 

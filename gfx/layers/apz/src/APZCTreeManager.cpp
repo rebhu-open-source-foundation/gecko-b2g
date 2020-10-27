@@ -267,7 +267,8 @@ class MOZ_RAII AutoFocusSequenceNumberSetter {
 };
 
 APZCTreeManager::APZCTreeManager(LayersId aRootLayersId)
-    : mInputQueue(new InputQueue()),
+    : mTestSampleTime(Nothing(), "APZCTreeManager::mTestSampleTime"),
+      mInputQueue(new InputQueue()),
       mRootLayersId(aRootLayersId),
       mSampler(nullptr),
       mUpdater(nullptr),
@@ -347,12 +348,14 @@ AsyncPanZoomController* APZCTreeManager::NewAPZCInstance(
 }
 
 void APZCTreeManager::SetTestSampleTime(const Maybe<TimeStamp>& aTime) {
-  mTestSampleTime = aTime;
+  auto testSampleTime = mTestSampleTime.Lock();
+  testSampleTime.ref() = aTime;
 }
 
 SampleTime APZCTreeManager::GetFrameTime() {
-  if (mTestSampleTime) {
-    return SampleTime::FromTest(*mTestSampleTime);
+  auto testSampleTime = mTestSampleTime.Lock();
+  if (testSampleTime.ref()) {
+    return SampleTime::FromTest(*testSampleTime.ref());
   }
   return SampleTime::FromNow();
 }
@@ -1394,9 +1397,9 @@ HitTestingTreeNode* APZCTreeManager::PrepareNodeForLayer(
       typedef TreeBuildingState::DeferredTransformMap::value_type PairType;
       if (!aAncestorTransform.ContainsPerspectiveTransform() &&
           !apzc->AncestorTransformContainsPerspective()) {
-        MOZ_ASSERT(false,
-                   "Two layers that scroll together have different ancestor "
-                   "transforms");
+        NS_ASSERTION(false,
+                     "Two layers that scroll together have different ancestor "
+                     "transforms");
       } else if (!aAncestorTransform.ContainsPerspectiveTransform()) {
         aState.mPerspectiveTransformsDeferredToChildren.insert(
             PairType{apzc, apzc->GetAncestorTransformPerspective()});

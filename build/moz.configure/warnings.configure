@@ -236,7 +236,6 @@ check_and_add_gcc_warning(
     when=depends(c_compiler)(lambda c: c.type == "clang" and c.version < "6.0"),
 )
 
-
 # B2G errors
 check_and_add_gcc_warning("-Wno-mismatched-tags")
 check_and_add_gcc_warning("-Wno-unused-private-field")

@@ -53,9 +53,7 @@ from mozbuild.jar import (
 from mozbuild.preprocessor import Preprocessor
 from mozpack.chrome.manifest import parse_manifest_line
 
-from mozbuild.util import (
-    mkdir,
-)
+from mozbuild.util import mkdir
 
 
 class XPIDLManager(object):

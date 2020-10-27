@@ -30,6 +30,8 @@ XPCOMUtils.defineLazyModuleGetters(this, {
   element: "chrome://marionette/content/element.js",
   error: "chrome://marionette/content/error.js",
   evaluate: "chrome://marionette/content/evaluate.js",
+  getMarionetteFrameActorProxy:
+    "chrome://marionette/content/actors/MarionetteFrameParent.jsm",
   IdlePromise: "chrome://marionette/content/sync.js",
   interaction: "chrome://marionette/content/interaction.js",
   l10n: "chrome://marionette/content/l10n.js",
@@ -378,8 +380,7 @@ GeckoDriver.prototype.sendAsync = function(name, data, commandID) {
  *     The parent actor.
  */
 GeckoDriver.prototype.getActor = function(options = {}) {
-  const browsingContext = this.getBrowsingContext(options);
-  return browsingContext.currentWindowGlobal.getActor("MarionetteFrame");
+  return getMarionetteFrameActorProxy(() => this.getBrowsingContext(options));
 };
 
 /**
@@ -1193,7 +1194,7 @@ GeckoDriver.prototype.execute_ = async function(
  */
 GeckoDriver.prototype.navigateTo = async function(cmd) {
   assert.content(this.context);
-  assert.open(this.getBrowsingContext({ context: Context.Content, top: true }));
+  const browsingContext = assert.open(this.getBrowsingContext({ top: true }));
   await this._handleUserPrompts();
 
   let validURL;
@@ -1203,13 +1204,12 @@ GeckoDriver.prototype.navigateTo = async function(cmd) {
     throw new error.InvalidArgumentError(`Malformed URL: ${e.message}`);
   }
 
-  // We need to move to the top frame before navigating
+  // Switch to the top-level browsing context before navigating
   await this.listener.switchToFrame();
 
   const currentURL = await this._getCurrentURL();
   const loadEventExpected = navigate.isLoadEventExpected(currentURL, validURL);
 
-  const browsingContext = this.getBrowsingContext({ context: Context.Content });
   await navigate.waitForNavigationCompleted(
     this,
     () => {
@@ -1324,13 +1324,11 @@ GeckoDriver.prototype.getPageSource = async function() {
  */
 GeckoDriver.prototype.goBack = async function() {
   assert.content(this.context);
-  assert.open(this.getBrowsingContext({ top: true }));
+  const browsingContext = assert.open(this.getBrowsingContext({ top: true }));
   await this._handleUserPrompts();
 
-  const browsingContext = this.getBrowsingContext({ context: Context.Content });
-
   // If there is no history, just return
-  if (!browsingContext.top.embedderElement?.canGoBack) {
+  if (!browsingContext.embedderElement?.canGoBack) {
     return;
   }
 
@@ -1352,13 +1350,11 @@ GeckoDriver.prototype.goBack = async function() {
  */
 GeckoDriver.prototype.goForward = async function() {
   assert.content(this.context);
-  assert.open(this.getBrowsingContext({ top: true }));
+  const browsingContext = assert.open(this.getBrowsingContext({ top: true }));
   await this._handleUserPrompts();
 
-  const browsingContext = this.getBrowsingContext({ context: Context.Content });
-
   // If there is no history, just return
-  if (!browsingContext.top.embedderElement?.canGoForward) {
+  if (!browsingContext.embedderElement?.canGoForward) {
     return;
   }
 
@@ -1380,13 +1376,12 @@ GeckoDriver.prototype.goForward = async function() {
  */
 GeckoDriver.prototype.refresh = async function() {
   assert.content(this.context);
-  assert.open(this.getBrowsingContext({ top: true }));
+  const browsingContext = assert.open(this.getBrowsingContext({ top: true }));
   await this._handleUserPrompts();
 
-  // We need to move to the top frame before navigating
+  // Switch to the top-level browsiing context before navigating
   await this.listener.switchToFrame();
 
-  const browsingContext = this.getBrowsingContext({ context: Context.Content });
   await navigate.waitForNavigationCompleted(this, () => {
     navigate.refresh(browsingContext);
   });
@@ -1668,6 +1663,15 @@ GeckoDriver.prototype.switchToWindow = async function(cmd) {
     try {
       await this.setWindowHandle(found, focus);
       selected = true;
+
+      // Temporarily inform the framescript of the current browsing context to
+      // allow sending the correct page load events. This has to be done until
+      // the framescript is no longer in use (bug 1669172).
+      if (this.context == Context.Content) {
+        await this.listener.setBrowsingContextId(
+          this.contentBrowsingContext.id
+        );
+      }
     } catch (e) {
       logger.error(e);
     }
@@ -1995,10 +1999,6 @@ GeckoDriver.prototype.singleTap = async function(cmd) {
  *     Not yet available in current context.
  */
 GeckoDriver.prototype.performActions = async function(cmd) {
-  assert.content(
-    this.context,
-    "Command 'performActions' is not yet available in chrome context"
-  );
   assert.open(this.getBrowsingContext());
   await this._handleUserPrompts();
 
@@ -2008,6 +2008,11 @@ GeckoDriver.prototype.performActions = async function(cmd) {
     await this.getActor().performActions(actions, this.capabilities);
     return;
   }
+
+  assert.content(
+    this.context,
+    "Command 'performActions' is not yet available in chrome context"
+  );
 
   await this.listener.performActions({ actions }, this.capabilities);
 };
@@ -2023,7 +2028,6 @@ GeckoDriver.prototype.performActions = async function(cmd) {
  *     Not available in current context.
  */
 GeckoDriver.prototype.releaseActions = async function() {
-  assert.content(this.context);
   assert.open(this.getBrowsingContext());
   await this._handleUserPrompts();
 
@@ -2032,6 +2036,10 @@ GeckoDriver.prototype.releaseActions = async function() {
     return;
   }
 
+  assert.content(
+    this.context,
+    "Command 'releaseActions' is not yet available in chrome context"
+  );
   await this.listener.releaseActions();
 };
 
@@ -2269,10 +2277,9 @@ GeckoDriver.prototype.clickElement = async function(cmd) {
       this,
       () => actor.clickElement(webEl, this.capabilities),
       {
-        browsingContext: this.getBrowsingContext(),
+        loadEventExpected: target !== "_blank",
         // The click might trigger a navigation, so don't count on it.
         requireBeforeUnload: false,
-        loadEventExpected: target !== "_blank",
       }
     );
     return;
@@ -2291,10 +2298,9 @@ GeckoDriver.prototype.clickElement = async function(cmd) {
         this,
         () => this.listener.clickElement(webEl, this.capabilities),
         {
-          browsingContext: this.getBrowsingContext(),
+          loadEventExpected: target !== "_blank",
           // The click might trigger a navigation, so don't count on it.
           requireBeforeUnload: false,
-          loadEventExpected: target !== "_blank",
         }
       );
       break;

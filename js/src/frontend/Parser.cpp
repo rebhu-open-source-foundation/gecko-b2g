@@ -1994,6 +1994,7 @@ bool PerHandlerParser<SyntaxParseHandler>::finishFunction(
   }
   for (const ScriptAtom& binding : pc_->closedOverBindingsForLazy()) {
     if (binding) {
+      binding->markUsedByStencil();
       gcthings.infallibleAppend(AsVariant(binding));
     } else {
       gcthings.infallibleAppend(AsVariant(NullScriptThing()));
@@ -7192,8 +7193,10 @@ bool GeneralParser<ParseHandler, Unit>::classMember(
       classInitializedMembers.instanceFields++;
     }
 
-    FunctionNodeType initializer = fieldInitializerOpt(
-        propName, propAtom, classInitializedMembers, isStatic, hasHeritage);
+    TokenPos propNamePos(propNameOffset, pos().end);
+    FunctionNodeType initializer =
+        fieldInitializerOpt(propNamePos, propName, propAtom,
+                            classInitializedMembers, isStatic, hasHeritage);
     if (!initializer) {
       return false;
     }
@@ -7370,8 +7373,9 @@ bool GeneralParser<ParseHandler, Unit>::classMember(
         return false;
       }
 
-      initializerIfPrivate =
-          Some(privateMethodInitializer(propAtom, storedMethodAtom));
+      TokenPos propNamePos(propNameOffset, pos().end);
+      initializerIfPrivate = Some(
+          privateMethodInitializer(propNamePos, propAtom, storedMethodAtom));
     }
   }
 
@@ -7832,7 +7836,8 @@ GeneralParser<ParseHandler, Unit>::synthesizeConstructor(
 template <class ParseHandler, typename Unit>
 typename ParseHandler::FunctionNodeType
 GeneralParser<ParseHandler, Unit>::privateMethodInitializer(
-    const ParserAtom* propAtom, const ParserAtom* storedMethodAtom) {
+    TokenPos propNamePos, const ParserAtom* propAtom,
+    const ParserAtom* storedMethodAtom) {
   // Synthesize an initializer function that the constructor can use to stamp a
   // private method onto an instance object.
   FunctionSyntaxKind syntaxKind = FunctionSyntaxKind::FieldInitializer;
@@ -7841,17 +7846,16 @@ GeneralParser<ParseHandler, Unit>::privateMethodInitializer(
   bool isSelfHosting = options().selfHostingMode;
   FunctionFlags flags =
       InitialFunctionFlags(syntaxKind, generatorKind, asyncKind, isSelfHosting);
-  TokenPos firstTokenPos = pos();
 
-  FunctionNodeType funNode = handler_.newFunction(syntaxKind, firstTokenPos);
+  FunctionNodeType funNode = handler_.newFunction(syntaxKind, propNamePos);
   if (!funNode) {
     return null();
   }
 
   Directives directives(true);
   FunctionBox* funbox =
-      newFunctionBox(funNode, nullptr, flags, 0, directives, generatorKind,
-                     asyncKind, TopLevelFunction::No);
+      newFunctionBox(funNode, nullptr, flags, propNamePos.begin, directives,
+                     generatorKind, asyncKind, TopLevelFunction::No);
   if (!funbox) {
     return null();
   }
@@ -7867,7 +7871,7 @@ GeneralParser<ParseHandler, Unit>::privateMethodInitializer(
 
   // Add empty parameter list.
   ListNodeType argsbody =
-      handler_.newList(ParseNodeKind::ParamsBody, firstTokenPos);
+      handler_.newList(ParseNodeKind::ParamsBody, propNamePos);
   if (!argsbody) {
     return null();
   }
@@ -7898,7 +7902,7 @@ GeneralParser<ParseHandler, Unit>::privateMethodInitializer(
   // a body of synthesized AST nodes. Instead, the body is left empty and the
   // initializer is synthesized at the bytecode level.
   // See BytecodeEmitter::emitPrivateMethodInitializer.
-  ListNodeType stmtList = handler_.newStatementList(firstTokenPos);
+  ListNodeType stmtList = handler_.newStatementList(propNamePos);
   if (!stmtList) {
     return null();
   }
@@ -7911,10 +7915,10 @@ GeneralParser<ParseHandler, Unit>::privateMethodInitializer(
   handler_.setEndPosition(initializerBody, stmtList);
   handler_.setFunctionBody(funNode, initializerBody);
 
-  // Since the initializer doesn't correspond directly to any of the original
-  // source, set it's text position as being empty.
-  funbox->setStart(0, 0, 0);
-  funbox->setEnd(0);
+  // Set field-initializer lambda boundary to start at property name and end
+  // after method body.
+  setFunctionStartAtPosition(funbox, propNamePos);
+  setFunctionEndFromCurrentToken(funbox);
 
   if (!finishFunction()) {
     return null();
@@ -7930,25 +7934,13 @@ GeneralParser<ParseHandler, Unit>::privateMethodInitializer(
 template <class ParseHandler, typename Unit>
 typename ParseHandler::FunctionNodeType
 GeneralParser<ParseHandler, Unit>::fieldInitializerOpt(
-    Node propName, const ParserAtom* propAtom,
+    TokenPos propNamePos, Node propName, const ParserAtom* propAtom,
     ClassInitializedMembers& classInitializedMembers, bool isStatic,
     HasHeritage hasHeritage) {
   bool hasInitializer = false;
   if (!tokenStream.matchToken(&hasInitializer, TokenKind::Assign,
                               TokenStream::SlashIsDiv)) {
     return null();
-  }
-
-  TokenPos firstTokenPos;
-  if (hasInitializer) {
-    firstTokenPos = pos();
-  } else {
-    // the location of the "initializer" should be a zero-width span:
-    // class C {
-    //   x /* here */ ;
-    // }
-    uint32_t endPos = pos().end;
-    firstTokenPos = TokenPos(endPos, endPos);
   }
 
   FunctionSyntaxKind syntaxKind = FunctionSyntaxKind::FieldInitializer;
@@ -7959,7 +7951,7 @@ GeneralParser<ParseHandler, Unit>::fieldInitializerOpt(
       InitialFunctionFlags(syntaxKind, generatorKind, asyncKind, isSelfHosting);
 
   // Create the top-level field initializer node.
-  FunctionNodeType funNode = handler_.newFunction(syntaxKind, firstTokenPos);
+  FunctionNodeType funNode = handler_.newFunction(syntaxKind, propNamePos);
   if (!funNode) {
     return null();
   }
@@ -7967,7 +7959,7 @@ GeneralParser<ParseHandler, Unit>::fieldInitializerOpt(
   // Create the FunctionBox and link it to the function object.
   Directives directives(true);
   FunctionBox* funbox =
-      newFunctionBox(funNode, nullptr, flags, firstTokenPos.begin, directives,
+      newFunctionBox(funNode, nullptr, flags, propNamePos.begin, directives,
                      generatorKind, asyncKind, TopLevelFunction::No);
   if (!funbox) {
     return null();
@@ -7978,11 +7970,7 @@ GeneralParser<ParseHandler, Unit>::fieldInitializerOpt(
   // We can't use setFunctionStartAtCurrentToken because that uses pos().begin,
   // which is incorrect for fields without initializers (pos() points to the
   // field identifier)
-  uint32_t firstTokenLine, firstTokenColumn;
-  tokenStream.computeLineAndColumn(firstTokenPos.begin, &firstTokenLine,
-                                   &firstTokenColumn);
-
-  funbox->setStart(firstTokenPos.begin, firstTokenLine, firstTokenColumn);
+  setFunctionStartAtPosition(funbox, propNamePos);
 
   // Push a SourceParseContext on to the stack.
   ParseContext* outerpc = pc_;
@@ -7994,7 +7982,6 @@ GeneralParser<ParseHandler, Unit>::fieldInitializerOpt(
   pc_->functionScope().useAsVarScope(pc_);
 
   Node initializerExpr;
-  TokenPos wholeInitializerPos;
   if (hasInitializer) {
     // Parse the expression for the field initializer.
     {
@@ -8006,16 +7993,14 @@ GeneralParser<ParseHandler, Unit>::fieldInitializerOpt(
     }
 
     handler_.checkAndSetIsDirectRHSAnonFunction(initializerExpr);
-
-    wholeInitializerPos = pos();
-    wholeInitializerPos.begin = firstTokenPos.begin;
   } else {
-    initializerExpr = handler_.newRawUndefinedLiteral(firstTokenPos);
+    initializerExpr = handler_.newRawUndefinedLiteral(propNamePos);
     if (!initializerExpr) {
       return null();
     }
-    wholeInitializerPos = firstTokenPos;
   }
+
+  TokenPos wholeInitializerPos(propNamePos.begin, pos().end);
 
   // Update the end position of the parse node.
   handler_.setEndPosition(funNode, wholeInitializerPos.end);

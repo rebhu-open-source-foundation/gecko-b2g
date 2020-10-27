@@ -64,6 +64,7 @@ activity_stream:
       "MENU_REMOVE",
       "TOP_SITES_EDIT",
       "TOP_SITES_EDIT_CLOSE",
+      "TOPSITE_SPONSOR_INFO",
       "UNPIN"]
     release_channel_collection: opt-out
     products:
@@ -2067,13 +2068,13 @@ intl.ui.browserLanguage:
       installId: The id for an install.
     products:
       - firefox
-    expiry_version: "85"
+    expiry_version: "97"
     notification_emails:
       - flod@mozilla.com
       - mstriemer@mozilla.com
     release_channel_collection: opt-out
     record_in_processes: ["main"]
-    bug_numbers: [1486507, 1553311, 1607501]
+    bug_numbers: [1486507, 1553311, 1607501, 1672571]
 
 security:
   evalUsage:
@@ -2425,13 +2426,14 @@ slow_script_warning:
     bug_numbers:
       - 1652613
       - 1667245
+      - 1672572
     description: >
       Recorded when a slow script hang is resolved.
     products:
       - "firefox"
     record_in_processes: ["main"]
     release_channel_collection: opt-out
-    expiry_version: "85"
+    expiry_version: "93"
     notification_emails:
       - esmyth@mozilla.com
       - gkruitbosch@mozilla.com

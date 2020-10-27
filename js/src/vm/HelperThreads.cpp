@@ -594,6 +594,7 @@ void ParseTask::trace(JSTracer* trc) {
   if (compilationInfos_) {
     compilationInfos_->trace(trc);
   }
+  gcOutput_.trace(trc);
 }
 
 size_t ParseTask::sizeOfExcludingThis(
@@ -687,6 +688,12 @@ void ScriptParseTask<Unit>::parse(JSContext* cx) {
   compilationInfo_ =
       frontend::CompileGlobalScriptToStencil(cx, options, data, scopeKind);
 
+  if (compilationInfo_) {
+    if (!frontend::PrepareForInstantiate(cx, *compilationInfo_, gcOutput_)) {
+      compilationInfo_ = nullptr;
+    }
+  }
+
   if (options.useOffThreadParseGlobal) {
     Unused << instantiateStencils(cx);
   }
@@ -697,27 +704,26 @@ bool ParseTask::instantiateStencils(JSContext* cx) {
     return false;
   }
 
-  frontend::CompilationGCOutput gcOutput(cx);
   bool result;
   if (compilationInfo_) {
-    result = frontend::InstantiateStencils(cx, *compilationInfo_, gcOutput);
+    result = frontend::InstantiateStencils(cx, *compilationInfo_, gcOutput_);
   } else {
-    result = frontend::InstantiateStencils(cx, *compilationInfos_, gcOutput);
+    result = frontend::InstantiateStencils(cx, *compilationInfos_, gcOutput_);
   }
 
   // Whatever happens to the top-level script compilation (even if it fails),
   // we must finish initializing the SSO.  This is because there may be valid
   // inner scripts observable by the debugger which reference the partially-
   // initialized SSO.
-  if (gcOutput.sourceObject) {
-    sourceObjects.infallibleAppend(gcOutput.sourceObject);
+  if (gcOutput_.sourceObject) {
+    sourceObjects.infallibleAppend(gcOutput_.sourceObject);
   }
 
   if (result) {
-    MOZ_ASSERT(gcOutput.script);
-    MOZ_ASSERT_IF(gcOutput.module,
-                  gcOutput.module->script() == gcOutput.script);
-    scripts.infallibleAppend(gcOutput.script);
+    MOZ_ASSERT(gcOutput_.script);
+    MOZ_ASSERT_IF(gcOutput_.module,
+                  gcOutput_.module->script() == gcOutput_.script);
+    scripts.infallibleAppend(gcOutput_.script);
   }
 
   return result;
@@ -747,6 +753,12 @@ void ModuleParseTask<Unit>::parse(JSContext* cx) {
   options.setModule();
 
   compilationInfo_ = frontend::ParseModuleToStencil(cx, options, data);
+
+  if (compilationInfo_) {
+    if (!frontend::PrepareForInstantiate(cx, *compilationInfo_, gcOutput_)) {
+      compilationInfo_ = nullptr;
+    }
+  }
 
   if (options.useOffThreadParseGlobal) {
     Unused << instantiateStencils(cx);
@@ -788,6 +800,12 @@ void ScriptDecodeTask::parse(JSContext* cx) {
     }
 
     compilationInfos_ = std::move(compilationInfos.get());
+
+    if (compilationInfos_) {
+      if (!frontend::PrepareForInstantiate(cx, *compilationInfos_, gcOutput_)) {
+        compilationInfos_ = nullptr;
+      }
+    }
 
     return;
   }

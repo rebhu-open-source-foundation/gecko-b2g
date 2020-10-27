@@ -590,10 +590,9 @@ class BaseBootstrapper(object):
     def ensure_mercurial_modern(self):
         installed, modern, version = self.is_mercurial_modern()
 
-        # We build from a git repo, so we don't care about Mercurial being up to date.
-        # if modern:
-        print("Your version of Mercurial (%s) is sufficiently modern." % version)
-        return installed, modern
+        if modern:
+            print("Your version of Mercurial (%s) is sufficiently modern." % version)
+            return installed, modern
 
         self._ensure_package_manager_updated()
 

@@ -13,13 +13,12 @@ from mozpack.copier import (
     FileCopier,
     FileRegistry,
 )
+from mozpack.errors import errors
 from mozpack.files import (
     BaseFile,
     FileFinder,
 )
-from mozpack.manifests import (
-    InstallManifest,
-)
+from mozpack.manifests import InstallManifest
 from mozbuild.util import DefinesAction
 from mozbuild.action.util import log_build_task
 
@@ -64,12 +63,13 @@ def process_manifest(destdir, paths, track, no_symlinks=False, defines={}):
     manifest.populate_registry(
         copier, defines_override=defines, link_policy=link_policy
     )
-    result = copier.copy(
-        destdir,
-        remove_unaccounted=remove_unaccounted,
-        remove_all_directory_symlinks=remove_all_directory_symlinks,
-        remove_empty_directories=remove_empty_directories,
-    )
+    with errors.accumulate():
+        result = copier.copy(
+            destdir,
+            remove_unaccounted=remove_unaccounted,
+            remove_all_directory_symlinks=remove_all_directory_symlinks,
+            remove_empty_directories=remove_empty_directories,
+        )
 
     if track:
         # We should record files that we actually copied.

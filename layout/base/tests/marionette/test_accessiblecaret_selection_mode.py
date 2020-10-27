@@ -507,9 +507,9 @@ class AccessibleCaretSelectionModeTestCase(MarionetteTestCase):
         sel = SelectionManager(body)
 
         self.long_press_on_word(sel4, 3)
-        (end_caret1_x, end_caret1_y), (
-            end_caret2_x,
-            end_caret2_y,
+        (
+            (end_caret1_x, end_caret1_y),
+            (end_caret2_x, end_caret2_y),
         ) = sel.carets_location()
 
         self.long_press_on_word(sel3, 3)
@@ -541,9 +541,9 @@ class AccessibleCaretSelectionModeTestCase(MarionetteTestCase):
         # Select the first word in the second line
         self.long_press_on_word(sel2, 0)
         sel = SelectionManager(body)
-        (start_caret_x, start_caret_y), (
-            end_caret_x,
-            end_caret_y,
+        (
+            (start_caret_x, start_caret_y),
+            (end_caret_x, end_caret_y),
         ) = sel.carets_location()
 
         # Select target word in the first line

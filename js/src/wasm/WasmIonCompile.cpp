@@ -846,11 +846,20 @@ class FunctionCompiler {
       return nullptr;
     }
 
-    // Expand load-and-splat as integer load followed by splat.
     MemoryAccessDesc access(viewType, addr.align, addr.offset,
                             bytecodeIfNotAsmJS());
-    ValType resultType =
-        viewType == Scalar::Int64 ? ValType::I64 : ValType::I32;
+
+    // Generate better code (on x86)
+    if (viewType == Scalar::Float64) {
+      access.setSplatSimd128Load();
+      return load(addr.base, &access, ValType::V128);
+    }
+
+    ValType resultType = ValType::I32;
+    if (viewType == Scalar::Float32) {
+      resultType = ValType::F32;
+      splatOp = wasm::SimdOp::F32x4Splat;
+    }
     auto* scalar = load(addr.base, &access, resultType);
     if (!inDeadCode() && !scalar) {
       return nullptr;
@@ -864,14 +873,12 @@ class FunctionCompiler {
       return nullptr;
     }
 
-    MemoryAccessDesc access(Scalar::Int64, addr.align, addr.offset,
+    // Generate better code (on x86) by loading as a double with an
+    // operation that sign extends directly.
+    MemoryAccessDesc access(Scalar::Float64, addr.align, addr.offset,
                             bytecodeIfNotAsmJS());
-    // Expand load-and-extend as integer load followed by widen.
-    auto* scalar = load(addr.base, &access, ValType::I64);
-    if (!inDeadCode() && !scalar) {
-      return nullptr;
-    }
-    return scalarToSimd128(scalar, op);
+    access.setWidenSimd128Load(op);
+    return load(addr.base, &access, ValType::V128);
   }
 
   MDefinition* loadZeroSimd128(Scalar::Type viewType, size_t numBytes,
@@ -5013,9 +5020,9 @@ static bool EmitBodyExprs(FunctionCompiler& f) {
           case uint32_t(SimdOp::V16x8LoadSplat):
             CHECK(EmitLoadSplatSimd128(f, Scalar::Uint16, SimdOp::I16x8Splat));
           case uint32_t(SimdOp::V32x4LoadSplat):
-            CHECK(EmitLoadSplatSimd128(f, Scalar::Uint32, SimdOp::I32x4Splat));
+            CHECK(EmitLoadSplatSimd128(f, Scalar::Float32, SimdOp::I32x4Splat));
           case uint32_t(SimdOp::V64x2LoadSplat):
-            CHECK(EmitLoadSplatSimd128(f, Scalar::Int64, SimdOp::I64x2Splat));
+            CHECK(EmitLoadSplatSimd128(f, Scalar::Float64, SimdOp::I64x2Splat));
           case uint32_t(SimdOp::I16x8LoadS8x8):
           case uint32_t(SimdOp::I16x8LoadU8x8):
           case uint32_t(SimdOp::I32x4LoadS16x4):

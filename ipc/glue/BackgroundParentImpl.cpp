@@ -38,8 +38,11 @@
 #include "mozilla/dom/RemoteWorkerServiceParent.h"
 #include "mozilla/dom/ReportingHeader.h"
 #include "mozilla/dom/ServiceWorkerActors.h"
+#include "mozilla/dom/ServiceWorkerContainerParent.h"
 #include "mozilla/dom/ServiceWorkerManagerParent.h"
+#include "mozilla/dom/ServiceWorkerParent.h"
 #include "mozilla/dom/ServiceWorkerRegistrar.h"
+#include "mozilla/dom/ServiceWorkerRegistrationParent.h"
 #include "mozilla/dom/SessionStorageManager.h"
 #include "mozilla/dom/SharedWorkerParent.h"
 #include "mozilla/dom/StorageActivityService.h"
@@ -91,6 +94,7 @@ using mozilla::dom::PMIDIPortParent;
 using mozilla::dom::PServiceWorkerContainerParent;
 using mozilla::dom::PServiceWorkerParent;
 using mozilla::dom::PServiceWorkerRegistrationParent;
+using mozilla::dom::ServiceWorkerParent;
 using mozilla::dom::UDPSocketParent;
 using mozilla::dom::WebAuthnTransactionParent;
 using mozilla::dom::cache::PCacheParent;
@@ -1249,14 +1253,10 @@ IPCResult BackgroundParentImpl::RecvStorageActivity(
   return IPC_OK();
 }
 
-PServiceWorkerParent* BackgroundParentImpl::AllocPServiceWorkerParent(
+already_AddRefed<PServiceWorkerParent>
+BackgroundParentImpl::AllocPServiceWorkerParent(
     const IPCServiceWorkerDescriptor&) {
-  return dom::AllocServiceWorkerParent();
-}
-
-bool BackgroundParentImpl::DeallocPServiceWorkerParent(
-    PServiceWorkerParent* aActor) {
-  return dom::DeallocServiceWorkerParent(aActor);
+  return MakeAndAddRef<ServiceWorkerParent>();
 }
 
 IPCResult BackgroundParentImpl::RecvPServiceWorkerConstructor(
@@ -1266,14 +1266,9 @@ IPCResult BackgroundParentImpl::RecvPServiceWorkerConstructor(
   return IPC_OK();
 }
 
-PServiceWorkerContainerParent*
+already_AddRefed<PServiceWorkerContainerParent>
 BackgroundParentImpl::AllocPServiceWorkerContainerParent() {
-  return dom::AllocServiceWorkerContainerParent();
-}
-
-bool BackgroundParentImpl::DeallocPServiceWorkerContainerParent(
-    PServiceWorkerContainerParent* aActor) {
-  return dom::DeallocServiceWorkerContainerParent(aActor);
+  return MakeAndAddRef<mozilla::dom::ServiceWorkerContainerParent>();
 }
 
 mozilla::ipc::IPCResult
@@ -1283,15 +1278,10 @@ BackgroundParentImpl::RecvPServiceWorkerContainerConstructor(
   return IPC_OK();
 }
 
-PServiceWorkerRegistrationParent*
+already_AddRefed<PServiceWorkerRegistrationParent>
 BackgroundParentImpl::AllocPServiceWorkerRegistrationParent(
     const IPCServiceWorkerRegistrationDescriptor&) {
-  return dom::AllocServiceWorkerRegistrationParent();
-}
-
-bool BackgroundParentImpl::DeallocPServiceWorkerRegistrationParent(
-    PServiceWorkerRegistrationParent* aActor) {
-  return dom::DeallocServiceWorkerRegistrationParent(aActor);
+  return MakeAndAddRef<mozilla::dom::ServiceWorkerRegistrationParent>();
 }
 
 mozilla::ipc::IPCResult

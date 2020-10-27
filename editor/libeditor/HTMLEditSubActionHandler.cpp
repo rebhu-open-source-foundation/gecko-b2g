@@ -3272,7 +3272,26 @@ nsresult HTMLEditor::ComputeTargetRanges(
     AutoRangeArray& aRangesToDelete) {
   MOZ_ASSERT(IsEditActionDataAvailable());
 
-  // TODO: Handle the case to delete in a table.
+  // First check for table selection mode.  If so, hand off to table editor.
+  SelectedTableCellScanner scanner(aRangesToDelete);
+  if (scanner.IsInTableCellSelectionMode()) {
+    // If it's in table cell selection mode, we'll delete all childen in
+    // the all selected table cell elements,
+    if (scanner.ElementsRef().Length() == aRangesToDelete.Ranges().Length()) {
+      return NS_OK;
+    }
+    // but will ignore all ranges which does not select a table cell.
+    size_t removedRanges = 0;
+    for (size_t i = 1; i < scanner.ElementsRef().Length(); i++) {
+      if (HTMLEditUtils::GetTableCellElementIfOnlyOneSelected(
+              aRangesToDelete.Ranges()[i - removedRanges]) !=
+          scanner.ElementsRef()[i]) {
+        aRangesToDelete.Ranges().RemoveElementAt(i - removedRanges);
+        removedRanges++;
+      }
+    }
+    return NS_OK;
+  }
 
   AutoDeleteRangesHandler deleteHandler;
   nsresult rv = deleteHandler.ComputeRangesToDelete(*this, aDirectionAndAmount,
@@ -3290,6 +3309,10 @@ EditActionResult HTMLEditor::HandleDeleteSelection(
   MOZ_ASSERT(aStripWrappers == nsIEditor::eStrip ||
              aStripWrappers == nsIEditor::eNoStrip);
 
+  if (!SelectionRefPtr()->RangeCount()) {
+    return EditActionCanceled();
+  }
+
   // Remember that we did a selection deletion.  Used by
   // CreateStyleForInsertText()
   TopLevelEditSubActionDataRef().mDidDeleteSelection = true;
@@ -3301,9 +3324,7 @@ EditActionResult HTMLEditor::HandleDeleteSelection(
   }
 
   // First check for table selection mode.  If so, hand off to table editor.
-  ErrorResult error;
-  if (RefPtr<Element> cellElement = GetFirstSelectedTableCellElement(error)) {
-    error.SuppressException();
+  if (HTMLEditUtils::IsInTableCellSelectionMode(*SelectionRefPtr())) {
     nsresult rv = DeleteTableCellContentsWithTransaction();
     if (NS_WARN_IF(Destroyed())) {
       return EditActionResult(NS_ERROR_EDITOR_DESTROYED);
@@ -3312,14 +3333,6 @@ EditActionResult HTMLEditor::HandleDeleteSelection(
         NS_SUCCEEDED(rv),
         "HTMLEditor::DeleteTableCellContentsWithTransaction() failed");
     return EditActionHandled(rv);
-  }
-
-  // Only when there is no selection range, GetFirstSelectedTableCellElement()
-  // returns error and in this case, anyway we cannot handle delete selection.
-  // So, let's return error here even though we haven't handled this.
-  if (error.Failed()) {
-    NS_WARNING("HTMLEditor::GetFirstSelectedTableCellElement() failed");
-    return EditActionResult(error.StealNSResult());
   }
 
   AutoRangeArray rangesToDelete(*SelectionRefPtr());

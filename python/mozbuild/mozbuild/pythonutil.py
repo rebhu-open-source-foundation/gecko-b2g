@@ -9,9 +9,7 @@ import six
 import subprocess
 import sys
 
-from distutils.version import (
-    StrictVersion,
-)
+from distutils.version import StrictVersion
 
 
 def iter_modules_in_path(*paths):

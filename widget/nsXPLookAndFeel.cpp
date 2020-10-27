@@ -295,7 +295,8 @@ void nsXPLookAndFeel::IntPrefChanged(nsLookAndFeelIntPref* data) {
 #endif
   }
 
-  NotifyChangedAllWindows();
+  // Int prefs can't change our system colors or fonts.
+  NotifyChangedAllWindows(widget::ThemeChangeKind::MediaQueriesOnly);
 }
 
 // static
@@ -321,7 +322,8 @@ void nsXPLookAndFeel::FloatPrefChanged(nsLookAndFeelFloatPref* data) {
 #endif
   }
 
-  NotifyChangedAllWindows();
+  // Float prefs can't change our system colors or fonts.
+  NotifyChangedAllWindows(widget::ThemeChangeKind::MediaQueriesOnly);
 }
 
 // static
@@ -355,7 +357,8 @@ void nsXPLookAndFeel::ColorPrefChanged(unsigned int index,
 #endif
   }
 
-  NotifyChangedAllWindows();
+  // Color prefs affect style, because they by definition change system colors.
+  NotifyChangedAllWindows(widget::ThemeChangeKind::Style);
 }
 
 void nsXPLookAndFeel::InitFromPref(nsLookAndFeelIntPref* aPref) {
@@ -1032,9 +1035,10 @@ void nsXPLookAndFeel::RecordTelemetry() {
 namespace mozilla {
 
 // static
-void LookAndFeel::NotifyChangedAllWindows() {
+void LookAndFeel::NotifyChangedAllWindows(widget::ThemeChangeKind aKind) {
   if (nsCOMPtr<nsIObserverService> obs = services::GetObserverService()) {
-    obs->NotifyObservers(nullptr, "look-and-feel-changed", nullptr);
+    obs->NotifyObservers(nullptr, "look-and-feel-changed",
+                         reinterpret_cast<char16_t*>(uintptr_t(aKind)));
   }
 }
 

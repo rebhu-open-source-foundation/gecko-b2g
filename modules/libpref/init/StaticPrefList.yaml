@@ -1721,7 +1721,7 @@
 # Whether wheel listeners are passive by default.
 - name: dom.event.default_to_passive_wheel_listeners
   type: bool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
 
 #if defined(XP_MACOSX)
@@ -6220,7 +6220,7 @@
 # Is support for CSS masonry layout enabled?
 - name: layout.css.grid-template-masonry-value.enabled
   type: RelaxedAtomicBool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
   rust: true
 
@@ -9067,6 +9067,12 @@
 - name: print.default_dpi
   type: float
   value: 144.0f
+  mirror: always
+
+# Whether support for monochrome printing is enabled on mac.
+- name: print.mac.monochrome.enabled
+  type: RelaxedAtomicBool
+  value: true
   mirror: always
 
 #---------------------------------------------------------------------------

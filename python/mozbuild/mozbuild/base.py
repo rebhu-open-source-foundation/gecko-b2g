@@ -483,9 +483,7 @@ class MozbuildObject(ProcessExecutionMixin):
             BuildReader,
             EmptyConfig,
         )
-        from mozpack.files import (
-            MercurialRevisionFinder,
-        )
+        from mozpack.files import MercurialRevisionFinder
 
         if config_mode == "build":
             config = self.config_environment

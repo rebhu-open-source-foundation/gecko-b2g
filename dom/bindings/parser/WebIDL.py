@@ -53,7 +53,7 @@ def enum(*names, **kw):
         def __getattr__(self, attr):
             if attr in self.attrs:
                 return self.attrs[attr]
-            raise AttributeError(attr)
+            raise AttributeError
 
         def __setattr__(self, name, value):  # this makes it read-only
             raise NotImplementedError

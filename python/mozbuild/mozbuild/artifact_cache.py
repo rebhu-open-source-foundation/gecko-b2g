@@ -30,9 +30,7 @@ import os
 import six
 import six.moves.urllib.parse as urlparse
 
-from mozbuild.util import (
-    mkdir,
-)
+from mozbuild.util import mkdir
 import mozpack.path as mozpath
 from dlmanager import (
     DownloadManager,

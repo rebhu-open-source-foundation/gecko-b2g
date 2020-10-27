@@ -26,16 +26,10 @@ from mozpack import path as mozpath
 
 import taskgraph
 
-from .base import (
-    TransformSequence,
-)
-from ..util.cached_tasks import (
-    add_optimization,
-)
+from .base import TransformSequence
+from ..util.cached_tasks import add_optimization
 from ..util.schema import Schema, validate_schema
-from ..util.treeherder import (
-    join_symbol,
-)
+from ..util.treeherder import join_symbol
 
 
 CACHE_TYPE = "content.v1"

@@ -818,7 +818,6 @@ XPCOMUtils.defineLazyModuleGetters(this, {
   HomePage: "resource:///modules/HomePage.jsm",
   Integration: "resource://gre/modules/Integration.jsm",
   LoginBreaches: "resource:///modules/LoginBreaches.jsm",
-  LiveBookmarkMigrator: "resource:///modules/LiveBookmarkMigrator.jsm",
   NewTabUtils: "resource://gre/modules/NewTabUtils.jsm",
   Normandy: "resource://normandy/Normandy.jsm",
   ObjectUtils: "resource://gre/modules/ObjectUtils.jsm",
@@ -2598,17 +2597,6 @@ BrowserGlue.prototype = {
       },
 
       {
-        condition:
-          Services.prefs.getIntPref(
-            "browser.livebookmarks.migrationAttemptsLeft",
-            0
-          ) > 0,
-        task: () => {
-          LiveBookmarkMigrator.migrate().catch(Cu.reportError);
-        },
-      },
-
-      {
         task: () => {
           TabUnloader.init();
         },
@@ -2655,10 +2643,12 @@ BrowserGlue.prototype = {
       // pre-init buffer.
       {
         task: () => {
-          let FOG = Cc["@mozilla.org/toolkit/glean;1"].createInstance(
-            Ci.nsIFOG
-          );
-          FOG.initializeFOG();
+          if (AppConstants.MOZ_GLEAN) {
+            let FOG = Cc["@mozilla.org/toolkit/glean;1"].createInstance(
+              Ci.nsIFOG
+            );
+            FOG.initializeFOG();
+          }
         },
       },
 
@@ -3326,7 +3316,7 @@ BrowserGlue.prototype = {
   _migrateUI: function BG__migrateUI() {
     // Use an increasing number to keep track of the current migration state.
     // Completely unrelated to the current Firefox release number.
-    const UI_VERSION = 99;
+    const UI_VERSION = 101;
     const BROWSER_DOCURL = AppConstants.BROWSER_CHROME_URL;
 
     if (!Services.prefs.prefHasUserValue("browser.migration.version")) {
@@ -3594,16 +3584,6 @@ BrowserGlue.prototype = {
         );
         OS.File.remove(path, { ignoreAbsent: true });
       }
-    }
-
-    if (currentUIVersion < 75) {
-      // Ensure we try to migrate any live bookmarks the user might have, trying up to
-      // 5 times. We set this early, and here, to avoid running the migration on
-      // new profile (or, indeed, ever creating the pref there).
-      Services.prefs.setIntPref(
-        "browser.livebookmarks.migrationAttemptsLeft",
-        5
-      );
     }
 
     if (currentUIVersion < 76) {
@@ -3960,6 +3940,36 @@ BrowserGlue.prototype = {
 
     if (currentUIVersion < 99) {
       Services.prefs.clearUserPref("security.tls.version.enable-deprecated");
+    }
+
+    // Set a pref if the bookmarks toolbar was already visible,
+    // so we can keep it visible when navigating away from newtab
+    if (currentUIVersion < 100) {
+      let bookmarksToolbarWasVisible =
+        Services.xulStore.getValue(
+          BROWSER_DOCURL,
+          "PersonalToolbar",
+          "collapsed"
+        ) == "false";
+      if (bookmarksToolbarWasVisible) {
+        // Migrate the user to the "always visible" value. See firefox.js for
+        // the other possible states.
+        Services.prefs.setCharPref(
+          "browser.toolbars.bookmarks.visibility",
+          "always"
+        );
+      }
+      Services.xulStore.removeValue(
+        BROWSER_DOCURL,
+        "PersonalToolbar",
+        "collapsed"
+      );
+    }
+
+    if (currentUIVersion < 101) {
+      Services.prefs.clearUserPref(
+        "browser.livebookmarks.migrationAttemptsLeft"
+      );
     }
 
     // Update the migration version.

@@ -294,9 +294,7 @@ class PackageFrontend(MachCommandBase):
         import requests
         import time
 
-        from taskgraph.util.taskcluster import (
-            get_artifact_url,
-        )
+        from taskgraph.util.taskcluster import get_artifact_url
 
         start = time.time()
         self._set_log_level(verbose)

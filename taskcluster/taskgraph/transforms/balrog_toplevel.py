@@ -8,9 +8,7 @@ Transform the beetmover task into an actual task description.
 from __future__ import absolute_import, print_function, unicode_literals
 
 from taskgraph.transforms.base import TransformSequence
-from taskgraph.util.scriptworker import (
-    get_release_config,
-)
+from taskgraph.util.scriptworker import get_release_config
 from taskgraph.util.yaml import load_yaml
 
 from mozrelease.balrog import generate_update_properties

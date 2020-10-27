@@ -16,12 +16,8 @@ import hashlib
 import os
 import sys
 
-from mozpack.files import (
-    FileFinder,
-)
-from mozpack.mozjar import (
-    JarWriter,
-)
+from mozpack.files import FileFinder
+from mozpack.mozjar import JarWriter
 import mozpack.path as mozpath
 
 SDK_RELEASE = "10.0.17134.0"

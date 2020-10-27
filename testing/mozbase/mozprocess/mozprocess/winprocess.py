@@ -475,9 +475,9 @@ TerminateJobObject.errcheck = ErrCheckBool
 # WaitForSingleObject()
 
 WaitForSingleObjectProto = WINFUNCTYPE(
-    DWORD,  # Return type
-    HANDLE,  # hHandle
-    DWORD,  # dwMilliseconds
+    DWORD,
+    HANDLE,
+    DWORD,  # Return type  # hHandle  # dwMilliseconds
 )
 WaitForSingleObjectFlags = ((1, "hHandle"), (1, "dwMilliseconds", -1))
 WaitForSingleObject = WaitForSingleObjectProto(
@@ -499,9 +499,9 @@ ERROR_CONTROL_C_EXIT = 0x23C
 # GetExitCodeProcess()
 
 GetExitCodeProcessProto = WINFUNCTYPE(
-    BOOL,  # Return type
-    HANDLE,  # hProcess
-    LPDWORD,  # lpExitCode
+    BOOL,
+    HANDLE,
+    LPDWORD,  # Return type  # hProcess  # lpExitCode
 )
 GetExitCodeProcessFlags = ((1, "hProcess"), (2, "lpExitCode"))
 GetExitCodeProcess = GetExitCodeProcessProto(

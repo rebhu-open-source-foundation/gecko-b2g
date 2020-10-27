@@ -7,9 +7,7 @@ from __future__ import absolute_import
 import functools
 import types
 
-from unittest.case import (
-    SkipTest,
-)
+from unittest.case import SkipTest
 
 
 def parameterized(func_suffix, *args, **kwargs):

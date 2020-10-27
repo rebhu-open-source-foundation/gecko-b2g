@@ -308,9 +308,9 @@ class ArtifactJob(object):
         with JarWriter(file=processed_filename, compress_level=5) as writer:
             with tarfile.open(filename) as reader:
                 for filename, entry in TarFinder(filename, reader):
-                    for pattern, (
-                        src_prefix,
-                        dest_prefix,
+                    for (
+                        pattern,
+                        (src_prefix, dest_prefix),
                     ) in self.test_artifact_patterns:
                         if not mozpath.match(filename, pattern):
                             continue

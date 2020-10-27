@@ -193,11 +193,11 @@ def test_get_raptor_test_list_chrome(create_args):
 
 
 def test_get_raptor_test_list_geckoview(create_args):
-    args = create_args(app="geckoview", test="raptor-unity-webgl", browser_cycles=1)
+    args = create_args(app="geckoview", test="unity-webgl", browser_cycles=1)
 
     test_list = get_raptor_test_list(args, mozinfo.os)
     assert len(test_list) == 1
-    assert test_list[0]["name"] == "raptor-unity-webgl-geckoview"
+    assert test_list[0]["name"] == "unity-webgl"
 
 
 def test_get_raptor_test_list_gecko_profiling_enabled(create_args):
@@ -330,19 +330,19 @@ def test_get_raptor_test_list_add_test_url_params(create_args):
 
 
 def test_get_raptor_test_list_refbrow(create_args):
-    args = create_args(app="refbrow", test="raptor-speedometer", browser_cycles=1)
+    args = create_args(app="refbrow", test="speedometer", browser_cycles=1)
 
     test_list = get_raptor_test_list(args, mozinfo.os)
     assert len(test_list) == 1
-    assert test_list[0]["name"] == "raptor-speedometer-refbrow"
+    assert test_list[0]["name"] == "speedometer"
 
 
 def test_get_raptor_test_list_fenix(create_args):
-    args = create_args(app="fenix", test="raptor-speedometer", browser_cycles=1)
+    args = create_args(app="fenix", test="speedometer", browser_cycles=1)
 
     test_list = get_raptor_test_list(args, mozinfo.os)
-    # we don't have any actual fenix tests yet
     assert len(test_list) == 1
+    assert test_list[0]["name"] == "speedometer"
 
 
 def test_add_test_url_params_with_single_extra_param():

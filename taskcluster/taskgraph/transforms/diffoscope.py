@@ -11,9 +11,7 @@ from __future__ import absolute_import, print_function, unicode_literals
 from six import text_type
 from taskgraph.transforms.base import TransformSequence
 from taskgraph.transforms.task import task_description_schema
-from taskgraph.util.schema import (
-    Schema,
-)
+from taskgraph.util.schema import Schema
 from taskgraph.util.taskcluster import get_artifact_path
 from voluptuous import (
     Any,

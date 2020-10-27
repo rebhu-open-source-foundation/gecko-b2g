@@ -58,6 +58,7 @@
 #include "mozilla/layers/IAPZCTreeManager.h"
 #include "mozilla/layers/APZInputBridge.h"
 #include "mozilla/layers/CompositorBridgeParent.h"
+#include "ThemeChangeKind.h"
 
 #define LOG(args...) __android_log_print(ANDROID_LOG_INFO, "Gonk", ##args)
 #define LOGW(args...) __android_log_print(ANDROID_LOG_WARN, "Gonk", ##args)
@@ -400,7 +401,7 @@ static const char* sThemePrefList[] = {
 
 static void ThemePrefChanged(const char* aPref, void* aModule) {
   auto window = static_cast<nsWindow*>(aModule);
-  window->NotifyThemeChanged();
+  window->NotifyThemeChanged(ThemeChangeKind::MediaQueriesOnly);
 }
 
 NS_IMETHODIMP

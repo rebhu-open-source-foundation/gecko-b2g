@@ -520,6 +520,8 @@ policies and contribution forms [3].
             Object.prototype.toString.call(worker) == '[object ServiceWorker]';
     }
 
+    var seen_func_name = Object.create(null);
+
     function get_test_name(func, name)
     {
         if (name) {
@@ -537,8 +539,18 @@ policies and contribution forms [3].
                 var trimmed = (arrow[1] !== undefined ? arrow[1] : arrow[2]).trim();
                 // drop trailing ; if there's no earlier ones
                 trimmed = trimmed.replace(/^([^;]*)(;\s*)+$/, "$1");
-                // ignore this if it's then empty
-                if (trimmed) return trimmed;
+
+                if (trimmed) {
+                    let name = trimmed;
+                    if (seen_func_name[trimmed]) {
+                        // This subtest name already exists, so add a suffix.
+                        name += " " + seen_func_name[trimmed];
+                    } else {
+                        seen_func_name[trimmed] = 0;
+                    }
+                    seen_func_name[trimmed] += 1;
+                    return name;
+                }
             }
         }
 

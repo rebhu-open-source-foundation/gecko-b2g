@@ -3,7 +3,7 @@ import json
 import logging
 import os
 import re
-import urlparse
+from urllib import parse as urlparse
 from collections import defaultdict
 
 import manifestupdate
@@ -134,7 +134,7 @@ def get_manifest(metadata_root, test_path, url_base):
     """
     manifest_path = expected.expected_path(metadata_root, test_path)
     try:
-        with open(manifest_path) as f:
+        with open(manifest_path, "rb") as f:
             return compile(
                 f,
                 data_cls_getter=data_cls_getter,
@@ -154,7 +154,7 @@ def get_dir_manifest(path):
                      values should be computed.
     """
     try:
-        with open(path) as f:
+        with open(path, "rb") as f:
             return compile(f, data_cls_getter=lambda x, y: DirectoryManifest)
     except IOError:
         return None
@@ -217,7 +217,7 @@ def get_dir_paths(test_root, test_path):
 
 
 def iter_tests(manifests):
-    for manifest in manifests.iterkeys():
+    for manifest in manifests.keys():
         for test_type, test_path, tests in manifest:
             url_base = manifests[manifest]["url_base"]
             metadata_base = manifests[manifest]["metadata_path"]
@@ -334,10 +334,10 @@ def update_wpt_meta(logger, meta_root, data):
         raise ValueError("%s is not a directory" % (meta_root,))
 
     with WptMetaCollection(meta_root) as wpt_meta:
-        for dir_path, dir_data in sorted(data.iteritems()):
-            for test, test_data in dir_data.get("_tests", {}).iteritems():
+        for dir_path, dir_data in sorted(data.items()):
+            for test, test_data in dir_data.get("_tests", {}).items():
                 add_test_data(logger, wpt_meta, dir_path, test, None, test_data)
-                for subtest, subtest_data in test_data.get("_subtests", {}).iteritems():
+                for subtest, subtest_data in test_data.get("_subtests", {}).items():
                     add_test_data(
                         logger, wpt_meta, dir_path, test, subtest, subtest_data
                     )

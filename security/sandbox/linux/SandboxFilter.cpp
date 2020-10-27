@@ -697,6 +697,9 @@ class SandboxPolicyCommon : public SandboxPolicyBase {
       CASES_FOR_lseek:
         return Allow();
 
+      CASES_FOR_getdents:
+        return Allow();
+
       CASES_FOR_ftruncate:
       case __NR_fallocate:
         return mMayCreateShmem ? Allow() : InvalidSyscall();
@@ -708,6 +711,10 @@ class SandboxPolicyCommon : public SandboxPolicyBase {
         // Memory mapping
       CASES_FOR_mmap:
       case __NR_munmap:
+        return Allow();
+
+        // Shared memory
+      case __NR_memfd_create:
         return Allow();
 
         // ipc::Shmem; also, glibc when creating threads:
@@ -1298,7 +1305,6 @@ class ContentSandboxPolicy : public SandboxPolicyCommon {
       CASES_FOR_select:
         return Allow();
 
-      CASES_FOR_getdents:
       case __NR_writev:
 #ifdef DESKTOP
       case __NR_pwrite64:
@@ -1478,11 +1484,6 @@ class ContentSandboxPolicy : public SandboxPolicyCommon {
 
       case __NR_eventfd2:
         return Allow();
-
-#  ifdef __NR_memfd_create
-      case __NR_memfd_create:
-        return Allow();
-#  endif
 
 #  ifdef __NR_rt_tgsigqueueinfo
         // Only allow to send signals within the process.

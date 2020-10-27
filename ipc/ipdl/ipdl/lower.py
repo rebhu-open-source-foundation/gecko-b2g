@@ -40,8 +40,9 @@ class LowerToCxx:
         if tu.protocol:
             pname = tu.protocol.name
 
-            parentheader, parentcpp = File(pname + "Parent.h"), File(
-                pname + "Parent.cpp"
+            parentheader, parentcpp = (
+                File(pname + "Parent.h"),
+                File(pname + "Parent.cpp"),
             )
             _GenerateProtocolParentCode().lower(
                 tu, pname + "Parent", parentheader, parentcpp

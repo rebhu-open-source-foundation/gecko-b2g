@@ -15,15 +15,9 @@ import time
 
 import mozbuild.util
 import mozpack.path as mozpath
-from mozpack.manifests import (
-    InstallManifest,
-)
-from mozpack.copier import (
-    FileCopier,
-)
-from mozbuild.backend import (
-    get_backend_class,
-)
+from mozpack.manifests import InstallManifest
+from mozpack.copier import FileCopier
+from mozbuild.backend import get_backend_class
 
 # Watchman integration cribbed entirely from
 # https://github.com/facebook/watchman/blob/19aebfebb0b5b0b5174b3914a879370ffc5dac37/python/bin/watchman-wait

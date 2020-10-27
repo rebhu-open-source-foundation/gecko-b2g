@@ -11,15 +11,9 @@ import unittest
 
 from mozunit import main
 
-from mozbuild.base import (
-    MozbuildObject,
-)
-from mozbuild.controller.building import (
-    BuildDriver,
-)
-from mozbuild.controller.clobber import (
-    Clobberer,
-)
+from mozbuild.base import MozbuildObject
+from mozbuild.controller.building import BuildDriver
+from mozbuild.controller.clobber import Clobberer
 from mozbuild.test.common import prepare_tmp_topsrcdir
 
 

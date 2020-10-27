@@ -30,13 +30,9 @@ from collections import defaultdict, OrderedDict
 import itertools
 import six
 
-from ..util import (
-    group_unified_files,
-)
+from ..util import group_unified_files
 
-from ..testing import (
-    all_test_flavors,
-)
+from ..testing import all_test_flavors
 
 
 class TreeMetadata(object):

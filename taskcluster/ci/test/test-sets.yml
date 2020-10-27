@@ -161,10 +161,6 @@ raptor-fetch-profiling:
     - raptor-wasm-godot-cranelift-firefox-profiling
     - raptor-assorted-dom-firefox-profiling
 
-raptor-fetch-geckoview:
-    - raptor-unity-webgl-geckoview
-    - raptor-unity-webgl-refbrow
-
 raptor-fetch-chromium:
     - raptor-unity-webgl-chromium
     - raptor-wasm-misc-chromium
@@ -468,14 +464,13 @@ android-x86_64-qr-tests:
     - mochitest-media
     - mochitest-plain
     - mochitest-plain-gpu
+    - web-platform-tests
+    - web-platform-tests-crashtest
+    - web-platform-tests-reftest
     - reftest
 
 android-hw-aarch64-opt-unittests:
     - jittest
-    - mochitest-media
-    - mochitest-webgl1-core
-    - mochitest-webgl1-ext
-    - mochitest-webgl2-core
 
 android-hw-arm7-pgo-unittests:
     - jittest
@@ -483,10 +478,6 @@ android-hw-arm7-pgo-unittests:
 
 android-hw-aarch64-pgo-unittests:
     - jittest
-    - mochitest-media
-    - mochitest-webgl1-core
-    - mochitest-webgl1-ext
-    - mochitest-webgl2-core
 
 android-hw-arm7-debug-unittests:
     - jittest
@@ -494,26 +485,14 @@ android-hw-arm7-debug-unittests:
 
 android-hw-aarch64-debug-unittests:
     - jittest
-    - mochitest-media
-    - mochitest-webgl1-core
-    - mochitest-webgl1-ext
-    - mochitest-webgl2-core
 
 android-hw-aarch64-qr:
     - crashtest-qr
     - reftest-qr
-
-android-hw-arm7-raptor:
-    - raptor-speedometer-geckoview
-    - raptor-speedometer-refbrow
-    - raptor-speedometer-fenix
-    - raptor-speedometer-fennec68
-
-android-hw-aarch64-raptor:
-    - raptor-speedometer-geckoview
-    - raptor-speedometer-refbrow
-    - raptor-speedometer-fenix
-    - raptor-speedometer-fennec68
+    - mochitest-media
+    - mochitest-webgl1-core
+    - mochitest-webgl1-ext
+    - mochitest-webgl2-core
 
 android-hw-arm7-raptor-cpu-memory:
     - raptor-speedometer-geckoview-cpu-memory

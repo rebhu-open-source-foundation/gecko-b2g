@@ -24,9 +24,7 @@ from mozbuild.configure.util import (
     Version,
 )
 
-from mozbuild.configure import (
-    ConfigureSandbox,
-)
+from mozbuild.configure import ConfigureSandbox
 
 from mozbuild.util import exec_
 

@@ -1480,10 +1480,17 @@ already_AddRefed<mozilla::dom::Promise> Document::AddCertException(
     promise->MaybeReject(NS_ERROR_DOM_INVALID_STATE_ERR);
     return promise.forget();
   }
+
+  nsCOMPtr<nsIURI> innerURI = NS_GetInnermostURI(failedChannelURI);
+  if (!innerURI) {
+    promise->MaybeReject(NS_ERROR_DOM_INVALID_STATE_ERR);
+    return promise.forget();
+  }
+
   nsAutoCString host;
-  failedChannelURI->GetAsciiHost(host);
+  innerURI->GetAsciiHost(host);
   int32_t port;
-  failedChannelURI->GetPort(&port);
+  innerURI->GetPort(&port);
 
   tsi = do_QueryInterface(info);
   if (NS_WARN_IF(!tsi)) {
@@ -12325,6 +12332,12 @@ static nsINode* GetCorrespondingNodeInDocument(const nsINode* aOrigNode,
     return nullptr;
   }
 
+  // If the node is disconnected, this is a bug in the selection code, but it
+  // can happen with shadow DOM so handle it.
+  if (NS_WARN_IF(!aOrigNode->IsInComposedDoc())) {
+    return nullptr;
+  }
+
   nsTArray<int32_t> indexArray;
   const nsINode* current = aOrigNode;
   while (const nsINode* parent = current->GetParentNode()) {
@@ -12880,21 +12893,18 @@ bool Document::IsPotentiallyScrollable(HTMLBodyElement* aBody) {
     return false;
   }
 
-  // The element's parent element's computed value of the overflow-x or
-  // overflow-y properties is neither visible nor clip.
+  // The element's parent element's computed value of the overflow-x and
+  // overflow-y properties are visible.
   MOZ_ASSERT(aBody->GetParent() == aBody->OwnerDoc()->GetRootElement());
   nsIFrame* parentFrame = nsLayoutUtils::GetStyleFrame(aBody->GetParent());
-  if (parentFrame && !parentFrame->StyleDisplay()->IsScrollableOverflow()) {
+  if (parentFrame &&
+      parentFrame->StyleDisplay()->OverflowIsVisibleInBothAxis()) {
     return false;
   }
 
   // The element's computed value of the overflow-x or overflow-y properties is
-  // neither visible nor clip.
-  if (!bodyFrame->StyleDisplay()->IsScrollableOverflow()) {
-    return false;
-  }
-
-  return true;
+  // not visible.
+  return !bodyFrame->StyleDisplay()->OverflowIsVisibleInBothAxis();
 }
 
 Element* Document::GetScrollingElement() {

@@ -49,7 +49,6 @@ class WindowsBootstrapper(BaseBootstrapper):
         "patch",
         "patchutils",
         "diffutils",
-        "autoconf2.13",
         "tar",
         "zip",
         "unzip",

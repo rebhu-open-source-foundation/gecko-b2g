@@ -22,9 +22,7 @@ import re
 import stat
 import sys
 import time
-from collections import (
-    OrderedDict,
-)
+from collections import OrderedDict
 from io import BytesIO, StringIO
 
 import six

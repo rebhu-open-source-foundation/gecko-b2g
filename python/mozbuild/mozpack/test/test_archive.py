@@ -20,9 +20,7 @@ from mozpack.archive import (
     create_tar_gz_from_files,
     create_tar_bz2_from_files,
 )
-from mozpack.files import (
-    GeneratedFile,
-)
+from mozpack.files import GeneratedFile
 
 from mozunit import main
 

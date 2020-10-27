@@ -55,8 +55,6 @@
 #include "nsISizeOfEventTarget.h"
 #include "nsDOMJSUtils.h"
 #include "nsArrayUtils.h"
-#include "mozilla/dom/WakeLock.h"
-#include "mozilla/dom/power/PowerManagerService.h"
 #include "nsIDocShellTreeOwner.h"
 #include "nsIInterfaceRequestorUtils.h"
 #include "nsIPermissionManager.h"
@@ -1596,7 +1594,6 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INTERNAL(nsGlobalWindowOuter)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mDocumentStoragePrincipal)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mDocumentPartitionedPrincipal)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mDoc)
-  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mWakeLock)
 
   // Traverse stuff from nsPIDOMWindow
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mChromeEventHandler)
@@ -1629,7 +1626,6 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(nsGlobalWindowOuter)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mDocumentStoragePrincipal)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mDocumentPartitionedPrincipal)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mDoc)
-  NS_IMPL_CYCLE_COLLECTION_UNLINK(mWakeLock)
 
   // Unlink stuff from nsPIDOMWindow
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mChromeEventHandler)
@@ -4745,26 +4741,6 @@ void nsGlobalWindowOuter::FinishFullscreenChange(bool aIsFullscreen) {
       }
       mChromeFields.mFullscreenPresShell = nullptr;
     }
-  }
-
-  if (!mWakeLock && mFullscreen) {
-    RefPtr<power::PowerManagerService> pmService =
-        power::PowerManagerService::GetInstance();
-    if (!pmService) {
-      return;
-    }
-
-    // XXXkhuey using the inner here, do we need to do something if it changes?
-    ErrorResult rv;
-    mWakeLock = pmService->NewWakeLock(u"DOM_Fullscreen"_ns,
-                                       GetCurrentInnerWindow(), rv);
-    NS_WARNING_ASSERTION(!rv.Failed(), "Failed to lock the wakelock");
-    rv.SuppressException();
-  } else if (mWakeLock && !mFullscreen) {
-    ErrorResult rv;
-    mWakeLock->Unlock(rv);
-    mWakeLock = nullptr;
-    rv.SuppressException();
   }
 }
 

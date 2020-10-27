@@ -15,9 +15,7 @@ import six
 from mozbuild.chunkify import chunkify
 from six import text_type
 from taskgraph.loader.multi_dep import schema
-from taskgraph.transforms.base import (
-    TransformSequence,
-)
+from taskgraph.transforms.base import TransformSequence
 from taskgraph.util.schema import (
     optionally_keyed_by,
     resolve_keyed_by,

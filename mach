@@ -33,12 +33,8 @@ py2commands="
     web-platform-tests
     web-platform-tests-update
     wpt
-    wpt-manifest-update
     wpt-metadata-merge
-    wpt-metadata-summary
     wpt-serve
-    wpt-test-paths
-    wpt-unittest
     wpt-update
 "
 

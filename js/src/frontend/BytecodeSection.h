@@ -57,6 +57,7 @@ struct MOZ_STACK_CLASS GCThingList {
 
   MOZ_MUST_USE bool append(const ParserAtom* atom, GCThingIndex* index) {
     *index = GCThingIndex(vector.length());
+    atom->markUsedByStencil();
     if (!vector.append(mozilla::AsVariant(std::move(atom)))) {
       js::ReportOutOfMemory(cx);
       return false;
@@ -189,7 +190,7 @@ typedef Vector<js::SrcNote, 64> SrcNotesVector;
 // bytecode is stored in this class.
 class BytecodeSection {
  public:
-  BytecodeSection(JSContext* cx, uint32_t lineNum);
+  BytecodeSection(JSContext* cx, uint32_t lineNum, uint32_t column);
 
   // ---- Bytecode ----
 

@@ -19,9 +19,7 @@ from six.moves.collections_abc import Mapping
 
 from mozbuild.util import memoize
 from mozpack.files import GeneratedFile
-from mozpack.archive import (
-    create_tar_gz_from_files,
-)
+from mozpack.archive import create_tar_gz_from_files
 from .. import GECKO
 
 from .yaml import load_yaml

@@ -52,6 +52,7 @@
 #include "nsICookieService.h"
 #include "nsIDOMWindowUtils.h"
 #include "nsIDocShell.h"
+#include "nsIDNSService.h"
 #include "nsIEncodedChannel.h"
 #include "nsIHttpHeaderVisitor.h"
 #include "nsILoadGroupChild.h"
@@ -169,6 +170,7 @@ HttpBaseChannel::HttpBaseChannel()
       mTransferSize(0),
       mRequestSize(0),
       mDecodedBodySize(0),
+      mSupportsHTTP3(false),
       mEncodedBodySize(0),
       mRequestContextID(0),
       mContentWindowId(0),
@@ -1569,6 +1571,12 @@ HttpBaseChannel::GetEncodedBodySize(uint64_t* aEncodedBodySize) {
 }
 
 NS_IMETHODIMP
+HttpBaseChannel::GetSupportsHTTP3(bool* aSupportsHTTP3) {
+  *aSupportsHTTP3 = mSupportsHTTP3;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
 HttpBaseChannel::GetRequestMethod(nsACString& aMethod) {
   mRequestHead.Method(aMethod);
   return NS_OK;
@@ -1845,6 +1853,19 @@ HttpBaseChannel::GetAllowSTS(bool* value) {
 NS_IMETHODIMP
 HttpBaseChannel::SetAllowSTS(bool value) {
   ENSURE_CALLED_BEFORE_CONNECT();
+
+  if (!value) {
+    // The only channels that are allowSTS == false are OCSPRequest
+    // If this is an OCSP channel, and the global TRR mode is TRR_ONLY (3)
+    // then we set the mode for this channel as TRR_FIRST.
+    // We do this to prevent a TRR service channel's OCSP validation from
+    // blocking DNS resolution completely.
+    nsCOMPtr<nsIDNSService> dns = do_GetService(NS_DNSSERVICE_CONTRACTID);
+    uint32_t trrMode = 0;
+    if (dns && NS_SUCCEEDED(dns->GetCurrentTrrMode(&trrMode)) && trrMode == 3) {
+      SetTRRMode(nsIRequest::TRR_FIRST_MODE);
+    }
+  }
 
   mAllowSTS = value;
   return NS_OK;

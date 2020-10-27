@@ -10,9 +10,7 @@ from six import text_type
 from taskgraph.loader.single_dep import schema
 from taskgraph.transforms.base import TransformSequence
 from taskgraph.util.attributes import copy_attributes_from_dependent_job
-from taskgraph.util.scriptworker import (
-    get_signing_cert_scope,
-)
+from taskgraph.util.scriptworker import get_signing_cert_scope
 from taskgraph.transforms.task import task_description_schema
 from voluptuous import Optional
 

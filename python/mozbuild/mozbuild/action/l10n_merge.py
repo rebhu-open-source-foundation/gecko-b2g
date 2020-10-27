@@ -9,9 +9,7 @@ import shutil
 import sys
 import os
 
-from mozbuild.util import (
-    ensureParentDir,
-)
+from mozbuild.util import ensureParentDir
 
 
 def main(argv):
@@ -26,9 +24,7 @@ def main(argv):
         ContentComparer,
         Observer,
     )
-    from compare_locales.paths import (
-        File,
-    )
+    from compare_locales.paths import File
 
     cc = ContentComparer([Observer()])
     cc.compare(

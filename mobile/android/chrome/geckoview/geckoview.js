@@ -177,7 +177,7 @@ var ModuleManager = {
     // Now we're switching the remoteness.
     this.disabledModules = [];
     this.forEach(module => {
-      if (module.enabled) {
+      if (module.enabled && module.disableOnProcessSwitch) {
         module.enabled = false;
         this.disabledModules.push(module);
       }
@@ -382,9 +382,6 @@ class ModuleInfo {
    * Called before the browser is removed
    */
   onDestroyBrowser() {
-    if (this._impl) {
-      this._impl.onDestroyBrowser();
-    }
     this._contentModuleLoaded = false;
   }
 
@@ -430,6 +427,13 @@ class ModuleInfo {
 
   get manager() {
     return this._manager;
+  }
+
+  get disableOnProcessSwitch() {
+    // Only disable while process switching if it has a frameScript
+    return (
+      !!this._onInitPhase?.frameScript || !!this._onEnablePhase?.frameScript
+    );
   }
 
   get name() {
