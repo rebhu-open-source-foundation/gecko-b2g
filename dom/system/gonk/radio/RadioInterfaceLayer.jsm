@@ -2822,7 +2822,7 @@ RadioInterface.prototype = {
     if (DEBUG) {
       this.debug(
         "Received message from worker handleRilResponse:" +
-          JSON.stringify(response)
+          JSON.stringify(response.rilMessageType)
       );
     }
 

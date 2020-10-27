@@ -15,7 +15,12 @@
 #undef DEBUG
 #define INFO(args...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, ##args)
 #define ERROR(args...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, ##args)
-#define DEBUG(args...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, ##args)
+#define DEBUG(args...)                                         \
+  do {                                                         \
+    if (gRilDebug_isLoggingEnabled) {                          \
+      __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, ##args); \
+    }                                                          \
+  } while (0)
 
 #define RILINDICATIONRESULT_CID                      \
   {                                                  \
@@ -36,8 +41,7 @@ NS_IMPL_ISUPPORTS(nsRilIndicationResult, nsIRilIndicationResult)
  */
 nsRilIndicationResult::nsRilIndicationResult(const nsAString& aRilMessageType)
     : nsRilResult(aRilMessageType) {
-  __android_log_print(ANDROID_LOG_INFO, " nsRilIndicationResult",
-                      "init nsRilIndicationResult");
+  DEBUG("init nsRilIndicationResult");
 }
 
 /**
@@ -45,8 +49,7 @@ nsRilIndicationResult::nsRilIndicationResult(const nsAString& aRilMessageType)
  * For radioStateChanged
  */
 void nsRilIndicationResult::updateRadioStateChanged(int32_t aRadioState) {
-  __android_log_print(ANDROID_LOG_INFO, " nsRilIndicationResult",
-                      "updateRadioStateChanged");
+  DEBUG("updateRadioStateChanged");
   mRadioState = aRadioState;
 }
 
@@ -55,8 +58,7 @@ void nsRilIndicationResult::updateRadioStateChanged(int32_t aRadioState) {
  * For onSms
  */
 void nsRilIndicationResult::updateOnSms(nsTArray<int32_t>& aPdu) {
-  __android_log_print(ANDROID_LOG_INFO, " nsRilIndicationResult",
-                      "updateOnSms");
+  DEBUG("updateOnSms");
   mPdu = aPdu.Clone();
 }
 
@@ -65,8 +67,7 @@ void nsRilIndicationResult::updateOnSms(nsTArray<int32_t>& aPdu) {
  * For newSmsOnSim
  */
 void nsRilIndicationResult::updateNewSmsOnSim(int32_t aRecordNumber) {
-  __android_log_print(ANDROID_LOG_INFO, " nsRilIndicationResult",
-                      "updateNewSmsOnSim");
+  DEBUG("updateNewSmsOnSim");
   mRecordNumber = aRecordNumber;
 }
 
@@ -76,8 +77,7 @@ void nsRilIndicationResult::updateNewSmsOnSim(int32_t aRecordNumber) {
  */
 void nsRilIndicationResult::updateOnUssd(int32_t aTypeCode,
                                          const nsAString& aMessage) {
-  __android_log_print(ANDROID_LOG_INFO, " nsRilIndicationResult",
-                      "updateOnUssd");
+  DEBUG("updateOnUssd");
   mTypeCode = aTypeCode;
   mMessage = aMessage;
 }
@@ -88,8 +88,7 @@ void nsRilIndicationResult::updateOnUssd(int32_t aTypeCode,
  */
 void nsRilIndicationResult::updateNitzTimeReceived(const nsAString& aDateString,
                                                    int64_t aReceiveTimeInMS) {
-  __android_log_print(ANDROID_LOG_INFO, " nsRilIndicationResult",
-                      "updateNitzTimeReceived");
+  DEBUG("updateNitzTimeReceived");
   mDateString = aDateString;
   mReceiveTimeInMS = aReceiveTimeInMS;
 }
@@ -100,15 +99,13 @@ void nsRilIndicationResult::updateNitzTimeReceived(const nsAString& aDateString,
  */
 void nsRilIndicationResult::updateCurrentSignalStrength(
     nsSignalStrength* aSignalStrength) {
-  __android_log_print(ANDROID_LOG_INFO, " nsRilIndicationResult",
-                      "updateCurrentSignalStrength");
+  DEBUG("updateCurrentSignalStrength");
   mSignalStrength = aSignalStrength;
 }
 
 void nsRilIndicationResult::updateDataCallListChanged(
     nsTArray<RefPtr<nsSetupDataCallResult>>& aDatacalls) {
-  __android_log_print(ANDROID_LOG_INFO, " nsRilIndicationResult",
-                      "updateDataCallListChanged");
+  DEBUG("updateDataCallListChanged");
   mDatacalls = aDatacalls.Clone();
 }
 
@@ -118,8 +115,7 @@ void nsRilIndicationResult::updateDataCallListChanged(
  */
 void nsRilIndicationResult::updateSuppSvcNotify(
     nsSuppSvcNotification* aSuppSvc) {
-  __android_log_print(ANDROID_LOG_INFO, " nsRilIndicationResult",
-                      "updateSuppSvcNotify");
+  DEBUG("updateSuppSvcNotify");
   mSuppSvc = aSuppSvc;
 }
 
@@ -128,8 +124,7 @@ void nsRilIndicationResult::updateSuppSvcNotify(
  * For stkProactiveCommand
  */
 void nsRilIndicationResult::updateStkProactiveCommand(const nsAString& aCmd) {
-  __android_log_print(ANDROID_LOG_INFO, " nsRilIndicationResult",
-                      "updateStkProactiveCommand");
+  DEBUG("updateStkProactiveCommand");
   mCmd = aCmd;
 }
 
@@ -138,8 +133,7 @@ void nsRilIndicationResult::updateStkProactiveCommand(const nsAString& aCmd) {
  * For stkEventNotify
  */
 void nsRilIndicationResult::updateStkEventNotify(const nsAString& aCmd) {
-  __android_log_print(ANDROID_LOG_INFO, " nsRilIndicationResult",
-                      "updateStkEventNotify");
+  DEBUG("updateStkEventNotify");
   mCmd = aCmd;
 }
 
@@ -148,8 +142,7 @@ void nsRilIndicationResult::updateStkEventNotify(const nsAString& aCmd) {
  * For stkCallSetup
  */
 void nsRilIndicationResult::updateStkCallSetup(int32_t aTimeout) {
-  __android_log_print(ANDROID_LOG_INFO, " nsRilIndicationResult",
-                      "updateStkCallSetup");
+  DEBUG("updateStkCallSetup");
   mTimeout = aTimeout;
 }
 
@@ -159,8 +152,7 @@ void nsRilIndicationResult::updateStkCallSetup(int32_t aTimeout) {
  */
 void nsRilIndicationResult::updateSimRefresh(
     nsSimRefreshResult* aRefreshResult) {
-  __android_log_print(ANDROID_LOG_INFO, " nsRilIndicationResult",
-                      "updateSimRefresh");
+  DEBUG("updateSimRefresh");
   mRefreshResult = aRefreshResult;
 }
 
@@ -169,8 +161,7 @@ void nsRilIndicationResult::updateSimRefresh(
  * For callRing
  */
 void nsRilIndicationResult::updateCallRing(bool aIsGsm) {
-  __android_log_print(ANDROID_LOG_INFO, " nsRilIndicationResult",
-                      "updateCallRing");
+  DEBUG("updateCallRing");
   mIsGsm = aIsGsm;
 }
 
@@ -179,8 +170,7 @@ void nsRilIndicationResult::updateCallRing(bool aIsGsm) {
  * For newBroadcastSms
  */
 void nsRilIndicationResult::updateNewBroadcastSms(nsTArray<int32_t>& aData) {
-  __android_log_print(ANDROID_LOG_INFO, " nsRilIndicationResult",
-                      "updateNewBroadcastSms");
+  DEBUG("updateNewBroadcastSms");
   mData = aData.Clone();
 }
 
@@ -190,8 +180,7 @@ void nsRilIndicationResult::updateNewBroadcastSms(nsTArray<int32_t>& aData) {
  */
 void nsRilIndicationResult::updateRestrictedStateChanged(
     int32_t aRestrictedState) {
-  __android_log_print(ANDROID_LOG_INFO, " nsRilIndicationResult",
-                      "updateRestrictedStateChanged");
+  DEBUG("updateRestrictedStateChanged");
   mRestrictedState = aRestrictedState;
 }
 
@@ -200,8 +189,7 @@ void nsRilIndicationResult::updateRestrictedStateChanged(
  * For indicateRingbackTone
  */
 void nsRilIndicationResult::updateIndicateRingbackTone(bool aPlayRingbackTone) {
-  __android_log_print(ANDROID_LOG_INFO, " nsRilIndicationResult",
-                      "updateIndicateRingbackTone");
+  DEBUG("updateIndicateRingbackTone");
   mPlayRingbackTone = aPlayRingbackTone;
 }
 
@@ -210,15 +198,13 @@ void nsRilIndicationResult::updateIndicateRingbackTone(bool aPlayRingbackTone) {
  * For voiceRadioTechChanged
  */
 void nsRilIndicationResult::updateVoiceRadioTechChanged(int32_t aRadioTech) {
-  __android_log_print(ANDROID_LOG_INFO, " nsRilIndicationResult",
-                      "updateVoiceRadioTechChanged");
+  DEBUG("updateVoiceRadioTechChanged");
   mRadioTech = aRadioTech;
 }
 
 void nsRilIndicationResult::updateCellInfoList(
     nsTArray<RefPtr<nsRilCellInfo>>& aRecords) {
-  __android_log_print(ANDROID_LOG_INFO, " nsRilIndicationResult",
-                      "updateCellInfoList");
+  DEBUG("updateCellInfoList");
   mRecords = aRecords.Clone();
 }
 
@@ -227,8 +213,7 @@ void nsRilIndicationResult::updateCellInfoList(
  * For subscriptionStatusChanged
  */
 void nsRilIndicationResult::updateSubscriptionStatusChanged(bool aActivate) {
-  __android_log_print(ANDROID_LOG_INFO, " nsRilIndicationResult",
-                      "updateSubscriptionStatusChanged");
+  DEBUG("updateSubscriptionStatusChanged");
   mActivate = aActivate;
 }
 
@@ -237,15 +222,13 @@ void nsRilIndicationResult::updateSubscriptionStatusChanged(bool aActivate) {
  * For srvccStateNotify
  */
 void nsRilIndicationResult::updateSrvccStateNotify(int32_t aSrvccState) {
-  __android_log_print(ANDROID_LOG_INFO, " nsRilIndicationResult",
-                      "updateSrvccStateNotify");
+  DEBUG("updateSrvccStateNotify");
   mSrvccState = aSrvccState;
 }
 
 void nsRilIndicationResult::updateHardwareConfigChanged(
     nsTArray<RefPtr<nsHardwareConfig>>& aConfigs) {
-  __android_log_print(ANDROID_LOG_INFO, " nsRilIndicationResult",
-                      "updateHardwareConfigChanged");
+  DEBUG("updateHardwareConfigChanged");
   mConfigs = aConfigs.Clone();
 }
 
@@ -255,8 +238,7 @@ void nsRilIndicationResult::updateHardwareConfigChanged(
  */
 void nsRilIndicationResult::updateRadioCapabilityIndication(
     nsRadioCapability* aRc) {
-  __android_log_print(ANDROID_LOG_INFO, " nsRilIndicationResult",
-                      "updateRadioCapabilityIndication");
+  DEBUG("updateRadioCapabilityIndication");
   mRc = aRc;
 }
 
@@ -266,8 +248,7 @@ void nsRilIndicationResult::updateRadioCapabilityIndication(
  */
 void nsRilIndicationResult::updateStkCallControlAlphaNotify(
     const nsAString& aAlpha) {
-  __android_log_print(ANDROID_LOG_INFO, " nsRilIndicationResult",
-                      "updateStkCallControlAlphaNotify");
+  DEBUG("updateStkCallControlAlphaNotify");
   mAlpha = aAlpha;
 }
 
@@ -276,8 +257,7 @@ void nsRilIndicationResult::updateStkCallControlAlphaNotify(
  * For lceData
  */
 void nsRilIndicationResult::updateLceData(nsILceDataInfo* aLce) {
-  __android_log_print(ANDROID_LOG_INFO, " nsRilIndicationResult",
-                      "updateLceData");
+  DEBUG("updateLceData");
   mLce = aLce;
 }
 
@@ -286,8 +266,7 @@ void nsRilIndicationResult::updateLceData(nsILceDataInfo* aLce) {
  * For pcoData
  */
 void nsRilIndicationResult::updatePcoData(nsIPcoDataInfo* aPco) {
-  __android_log_print(ANDROID_LOG_INFO, " nsRilIndicationResult",
-                      "updatePcoDatat");
+  DEBUG("updatePcoDatat");
   mPco = aPco;
 }
 
@@ -296,8 +275,7 @@ void nsRilIndicationResult::updatePcoData(nsIPcoDataInfo* aPco) {
  * For modemReset
  */
 void nsRilIndicationResult::updateModemReset(const nsAString& aReason) {
-  __android_log_print(ANDROID_LOG_INFO, " nsRilIndicationResult",
-                      "updateModemReset");
+  DEBUG("updateModemReset");
   mReason = aReason;
 }
 
@@ -305,8 +283,7 @@ void nsRilIndicationResult::updateModemReset(const nsAString& aReason) {
  *
  */
 nsRilIndicationResult::~nsRilIndicationResult() {
-  // QLOGD("mDatacall = aDatacall; for %x, type = %d", (int)(void *)this,
-  // mNetworkType);
+  DEBUG("~nsRilIndicationResult");
 }
 
 NS_IMETHODIMP nsRilIndicationResult::GetRilMessageType(

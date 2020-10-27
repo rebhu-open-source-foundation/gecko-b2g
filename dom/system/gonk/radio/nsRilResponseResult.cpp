@@ -15,7 +15,12 @@
 #undef DEBUG
 #define INFO(args...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, ##args)
 #define ERROR(args...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, ##args)
-#define DEBUG(args...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, ##args)
+#define DEBUG(args...)                                         \
+  do {                                                         \
+    if (gRilDebug_isLoggingEnabled) {                          \
+      __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, ##args); \
+    }                                                          \
+  } while (0)
 
 #define RILRESPONSERESULT_CID                        \
   {                                                  \
@@ -38,8 +43,9 @@ nsRilResponseResult::nsRilResponseResult(const nsAString& aRilMessageType,
                                          int32_t aRilMessageToken,
                                          int32_t aErrorMsg)
     : nsRilResult(aRilMessageType, aRilMessageToken, aErrorMsg) {
-  INFO("init nsRilResponseResult");
+  DEBUG("init nsRilResponseResult");
 }
+
 /**
  * For DeviceIdentity
  */
@@ -47,8 +53,7 @@ void nsRilResponseResult::updateDeviceIdentity(const nsAString& aImei,
                                                const nsAString& aImeisv,
                                                const nsAString& aEsn,
                                                const nsAString& aMeid) {
-  __android_log_print(ANDROID_LOG_INFO, " nsRilResponseResult",
-                      "updateDeviceIdentity");
+  DEBUG("updateDeviceIdentity");
   mImei = aImei;
   mImeisv = aImeisv;
   mEsn = aEsn;
@@ -59,8 +64,7 @@ void nsRilResponseResult::updateDeviceIdentity(const nsAString& aImei,
  * For VoiceRadioTechnology
  */
 void nsRilResponseResult::updateVoiceRadioTechnology(int32_t aRadioTech) {
-  __android_log_print(ANDROID_LOG_INFO, " nsRilResponseResult",
-                      "updateVoiceRadioTechnology");
+  DEBUG("updateVoiceRadioTechnology");
   mRadioTech = aRadioTech;
 }
 
@@ -69,8 +73,7 @@ void nsRilResponseResult::updateVoiceRadioTechnology(int32_t aRadioTech) {
  */
 void nsRilResponseResult::updateBasebandVersion(
     const nsAString& aBasebandVersion) {
-  __android_log_print(ANDROID_LOG_INFO, " nsRilResponseResult",
-                      "updateBasebandVersion");
+  DEBUG("updateBasebandVersion");
   mBasebandVersion = aBasebandVersion;
 }
 
@@ -78,8 +81,7 @@ void nsRilResponseResult::updateBasebandVersion(
  * For IccCardStatus
  */
 void nsRilResponseResult::updateIccCardStatus(nsCardStatus* aCardStatus) {
-  __android_log_print(ANDROID_LOG_INFO, " nsRilResponseResult",
-                      "updateIccCardStatus");
+  DEBUG("updateIccCardStatus");
   mCardStatus = aCardStatus;
 }
 
@@ -88,8 +90,7 @@ void nsRilResponseResult::updateIccCardStatus(nsCardStatus* aCardStatus) {
  */
 void nsRilResponseResult::updateVoiceRegStatus(
     nsVoiceRegState* aVoiceRegState) {
-  __android_log_print(ANDROID_LOG_INFO, " nsRilResponseResult",
-                      "updateVoiceRegStatus");
+  DEBUG("updateVoiceRegStatus");
   mVoiceRegState = aVoiceRegState;
 }
 
@@ -97,8 +98,7 @@ void nsRilResponseResult::updateVoiceRegStatus(
  * For DataRegStatus
  */
 void nsRilResponseResult::updateDataRegStatus(nsDataRegState* aDataRegState) {
-  __android_log_print(ANDROID_LOG_INFO, " nsRilResponseResult",
-                      "updateDataRegStatus");
+  DEBUG("updateDataRegStatus");
   mDataRegState = aDataRegState;
 }
 
@@ -106,8 +106,7 @@ void nsRilResponseResult::updateDataRegStatus(nsDataRegState* aDataRegState) {
  * For OperatorInfo
  */
 void nsRilResponseResult::updateOperator(nsOperatorInfo* aOperatorInfo) {
-  __android_log_print(ANDROID_LOG_INFO, " nsRilResponseResult",
-                      "updateOperatorInfo");
+  DEBUG("updateOperatorInfo");
   mOperatorInfo = aOperatorInfo;
 }
 
@@ -115,8 +114,7 @@ void nsRilResponseResult::updateOperator(nsOperatorInfo* aOperatorInfo) {
  * For NetworkSelectionMode
  */
 void nsRilResponseResult::updateNetworkSelectionMode(bool aNwModeManual) {
-  __android_log_print(ANDROID_LOG_INFO, " nsRilResponseResult",
-                      "updateNetworkSelectionMode");
+  DEBUG("updateNetworkSelectionMode");
   mNwModeManual = aNwModeManual;
 }
 
@@ -125,8 +123,7 @@ void nsRilResponseResult::updateNetworkSelectionMode(bool aNwModeManual) {
  */
 void nsRilResponseResult::updateSignalStrength(
     nsSignalStrength* aSignalStrength) {
-  __android_log_print(ANDROID_LOG_INFO, " nsRilResponseResult",
-                      "updateSignalStrength");
+  DEBUG("updateSignalStrength");
   mSignalStrength = aSignalStrength;
 }
 
@@ -134,8 +131,7 @@ void nsRilResponseResult::updateSignalStrength(
  * For GetSmscAddress
  */
 void nsRilResponseResult::updateSmscAddress(const nsAString& aSmsc) {
-  __android_log_print(ANDROID_LOG_INFO, " nsRilResponseResult",
-                      "updateSmscAddress");
+  DEBUG("updateSmscAddress");
   mSmsc = aSmsc;
 }
 
@@ -143,8 +139,7 @@ void nsRilResponseResult::updateSmscAddress(const nsAString& aSmsc) {
  * For getCurrentCallsResponse
  */
 void nsRilResponseResult::updateCurrentCalls(nsTArray<RefPtr<nsCall>>& aCalls) {
-  __android_log_print(ANDROID_LOG_INFO, " nsRilResponseResult",
-                      "updateCurrentCalls");
+  DEBUG("updateCurrentCalls");
   mCalls = aCalls.Clone();
 }
 
@@ -153,8 +148,7 @@ void nsRilResponseResult::updateCurrentCalls(nsTArray<RefPtr<nsCall>>& aCalls) {
  */
 void nsRilResponseResult::updateFailCause(int32_t aCauseCode,
                                           const nsAString& aVendorCause) {
-  __android_log_print(ANDROID_LOG_INFO, " nsRilResponseResult",
-                      "updateFailCause");
+  DEBUG("updateFailCause");
   mCauseCode = aCauseCode;
   mVendorCause = aVendorCause;
 }
@@ -163,7 +157,7 @@ void nsRilResponseResult::updateFailCause(int32_t aCauseCode,
  * For getPreferredNetworkType
  */
 void nsRilResponseResult::updatePreferredNetworkType(int32_t aType) {
-  __android_log_print(ANDROID_LOG_INFO, " nsRilResponseResult", "updateType");
+  DEBUG("updateType");
   mType = aType;
 }
 
@@ -172,8 +166,7 @@ void nsRilResponseResult::updatePreferredNetworkType(int32_t aType) {
  */
 void nsRilResponseResult::updateAvailableNetworks(
     nsTArray<RefPtr<nsOperatorInfo>>& aAvailableNetworks) {
-  __android_log_print(ANDROID_LOG_INFO, " nsRilResponseResult",
-                      "updateAvailableNetworks");
+  DEBUG("updateAvailableNetworks");
   mAvailableNetworks = aAvailableNetworks.Clone();
 }
 
@@ -182,8 +175,7 @@ void nsRilResponseResult::updateAvailableNetworks(
  */
 void nsRilResponseResult::updateDataCallResponse(
     nsSetupDataCallResult* aDcResponse) {
-  __android_log_print(ANDROID_LOG_INFO, " nsRilResponseResult",
-                      "updateDataCallResponse");
+  DEBUG("updateDataCallResponse");
   mDcResponse = aDcResponse;
 }
 
@@ -192,7 +184,7 @@ void nsRilResponseResult::updateDataCallResponse(
  */
 void nsRilResponseResult::updateDcList(
     nsTArray<RefPtr<nsSetupDataCallResult>>& aDcLists) {
-  __android_log_print(ANDROID_LOG_INFO, " nsRilResponseResult", "updateDcList");
+  DEBUG("updateDcList");
   mDcLists = aDcLists.Clone();
 }
 
@@ -201,8 +193,7 @@ void nsRilResponseResult::updateDcList(
  */
 void nsRilResponseResult::updateCellInfoList(
     nsTArray<RefPtr<nsRilCellInfo>>& aCellInfoLists) {
-  __android_log_print(ANDROID_LOG_INFO, " nsRilResponseResult",
-                      "updateCellInfoList");
+  DEBUG("updateCellInfoList");
   mCellInfoLists = aCellInfoLists.Clone();
 }
 
@@ -210,7 +201,7 @@ void nsRilResponseResult::updateCellInfoList(
  * For getIMSI
  */
 void nsRilResponseResult::updateIMSI(const nsAString& aIMSI) {
-  __android_log_print(ANDROID_LOG_INFO, " nsRilResponseResult", "updateIMSI");
+  DEBUG("updateIMSI");
   mIMSI = aIMSI;
 }
 
@@ -218,8 +209,7 @@ void nsRilResponseResult::updateIMSI(const nsAString& aIMSI) {
  * For IccIOForApp
  */
 void nsRilResponseResult::updateIccIoResult(nsIccIoResult* aIccIoResult) {
-  __android_log_print(ANDROID_LOG_INFO, " nsRilResponseResult",
-                      "updateIccIoResult");
+  DEBUG("updateIccIoResult");
   mIccIoResult = aIccIoResult;
 }
 
@@ -227,7 +217,7 @@ void nsRilResponseResult::updateIccIoResult(nsIccIoResult* aIccIoResult) {
  * For getClir
  */
 void nsRilResponseResult::updateClir(int32_t aN, int32_t aM) {
-  __android_log_print(ANDROID_LOG_INFO, " nsRilResponseResult", "updateClir");
+  DEBUG("updateClir");
   mCLIR_N = aN;
   mCLIR_M = aM;
 }
@@ -237,8 +227,7 @@ void nsRilResponseResult::updateClir(int32_t aN, int32_t aM) {
  */
 void nsRilResponseResult::updateCallForwardStatusList(
     nsTArray<RefPtr<nsCallForwardInfo>>& aCallForwardInfoLists) {
-  __android_log_print(ANDROID_LOG_INFO, " nsRilResponseResult",
-                      "updateCallForwardStatusList");
+  DEBUG("updateCallForwardStatusList");
   mCallForwardInfoLists = aCallForwardInfoLists.Clone();
 }
 
@@ -247,8 +236,7 @@ void nsRilResponseResult::updateCallForwardStatusList(
  */
 void nsRilResponseResult::updateCallWaiting(bool aEnable,
                                             int32_t aServiceClass) {
-  __android_log_print(ANDROID_LOG_INFO, " nsRilResponseResult",
-                      "updateCallWaiting");
+  DEBUG("updateCallWaiting");
   mCWEnable = aEnable;
   mServiceClass = aServiceClass;
 }
@@ -257,8 +245,7 @@ void nsRilResponseResult::updateCallWaiting(bool aEnable,
  * For getFacilityLockForApp
  */
 void nsRilResponseResult::updateServiceClass(int32_t aServiceClass) {
-  __android_log_print(ANDROID_LOG_INFO, " nsRilResponseResult",
-                      "updateServiceClass");
+  DEBUG("updateServiceClass");
   mServiceClass = aServiceClass;
 }
 
@@ -266,7 +253,7 @@ void nsRilResponseResult::updateServiceClass(int32_t aServiceClass) {
  * For getClip
  */
 void nsRilResponseResult::updateClip(int32_t aProvisioned) {
-  __android_log_print(ANDROID_LOG_INFO, " nsRilResponseResult", "updateClip");
+  DEBUG("updateClip");
   mProvisioned = aProvisioned;
 }
 
@@ -275,8 +262,7 @@ void nsRilResponseResult::updateClip(int32_t aProvisioned) {
  */
 void nsRilResponseResult::updateNeighboringCells(
     nsTArray<RefPtr<nsNeighboringCell>>& aNeighboringCell) {
-  __android_log_print(ANDROID_LOG_INFO, " nsRilResponseResult",
-                      "updateNeighboringCells");
+  DEBUG("updateNeighboringCells");
   mNeighboringCell = aNeighboringCell.Clone();
 }
 
@@ -293,7 +279,7 @@ void nsRilResponseResult::updateTtyMode(int32_t aTtyMode) {
  * For getMute
  */
 void nsRilResponseResult::updateMute(bool aMuteEnabled) {
-  __android_log_print(ANDROID_LOG_INFO, " nsRilResponseResult", "updateMute");
+  DEBUG("updateMute");
   mMuteEnabled = aMuteEnabled;
 }
 
@@ -301,8 +287,7 @@ void nsRilResponseResult::updateMute(bool aMuteEnabled) {
  * For Icc pin/pul
  */
 void nsRilResponseResult::updateRemainRetries(int32_t aRemainingRetries) {
-  __android_log_print(ANDROID_LOG_INFO, " nsRilResponseResult",
-                      "updateRemainRetries = %d", aRemainingRetries);
+  DEBUG("updateRemainRetries = %d", aRemainingRetries);
   mRemainingRetries = aRemainingRetries;
 }
 
@@ -310,8 +295,7 @@ void nsRilResponseResult::updateRemainRetries(int32_t aRemainingRetries) {
  * For GetPreferredVoicePrivacy
  */
 void nsRilResponseResult::updateVoicePrivacy(bool aEnhancedVoicePrivacy) {
-  __android_log_print(ANDROID_LOG_INFO, " nsRilResponseResult",
-                      "updateVoicePrivacy");
+  DEBUG("updateVoicePrivacy");
   mEnhancedVoicePrivacy = aEnhancedVoicePrivacy;
 }
 
@@ -320,8 +304,7 @@ void nsRilResponseResult::updateVoicePrivacy(bool aEnhancedVoicePrivacy) {
  */
 void nsRilResponseResult::updateRadioCapability(
     nsRadioCapability* aRadioCapability) {
-  __android_log_print(ANDROID_LOG_INFO, " nsRilResponseResult",
-                      "updateRadioCapability");
+  DEBUG("updateRadioCapability");
   mRadioCapability = aRadioCapability;
 }
 
@@ -330,8 +313,7 @@ void nsRilResponseResult::updateRadioCapability(
  */
 void nsRilResponseResult::updateSendSmsResponse(
     nsSendSmsResult* aSendSmsResult) {
-  __android_log_print(ANDROID_LOG_INFO, " nsRilResponseResult",
-                      "updateSendSmsResponse");
+  DEBUG("updateSendSmsResponse");
   mSendSmsResult = aSendSmsResult;
 }
 

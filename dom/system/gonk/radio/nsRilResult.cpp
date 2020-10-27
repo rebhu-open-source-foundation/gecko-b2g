@@ -15,7 +15,12 @@
 #undef DEBUG
 #define INFO(args...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, ##args)
 #define ERROR(args...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, ##args)
-#define DEBUG(args...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, ##args)
+#define DEBUG(args...)                                         \
+  do {                                                         \
+    if (gRilDebug_isLoggingEnabled) {                          \
+      __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, ##args); \
+    }                                                          \
+  } while (0)
 
 #define RILRESULT_CID                                \
   {                                                  \
@@ -36,8 +41,7 @@ nsGsmSignalStrength::nsGsmSignalStrength(int32_t aSignalStrength,
     : mSignalStrength(aSignalStrength),
       mBitErrorRate(aBitErrorRate),
       mTimingAdvance(aTimingAdvance) {
-  __android_log_print(ANDROID_LOG_INFO, " nsGsmSignalStrength",
-                      "init nsGsmSignalStrength");
+  DEBUG("init nsGsmSignalStrength");
 }
 
 NS_IMETHODIMP nsGsmSignalStrength::GetSignalStrength(int32_t* aSignalStrength) {
@@ -63,8 +67,7 @@ NS_IMPL_ISUPPORTS(nsGsmSignalStrength, nsIGsmSignalStrength)
 nsWcdmaSignalStrength::nsWcdmaSignalStrength(int32_t aSignalStrength,
                                              int32_t aBitErrorRate)
     : mSignalStrength(aSignalStrength), mBitErrorRate(aBitErrorRate) {
-  __android_log_print(ANDROID_LOG_INFO, " nsWcdmaSignalStrength",
-                      "init nsWcdmaSignalStrength");
+  DEBUG("init nsWcdmaSignalStrength");
 }
 
 NS_IMETHODIMP nsWcdmaSignalStrength::GetSignalStrength(
@@ -87,8 +90,7 @@ NS_IMPL_ISUPPORTS(nsWcdmaSignalStrength, nsIWcdmaSignalStrength)
  */
 nsCdmaSignalStrength::nsCdmaSignalStrength(int32_t aDbm, int32_t aEcio)
     : mDbm(aDbm), mEcio(aEcio) {
-  __android_log_print(ANDROID_LOG_INFO, " nsCdmaSignalStrength",
-                      "init nsCdmaSignalStrength");
+  DEBUG("init nsCdmaSignalStrength");
 }
 
 NS_IMETHODIMP nsCdmaSignalStrength::GetDbm(int32_t* aDbm) {
@@ -110,8 +112,7 @@ NS_IMPL_ISUPPORTS(nsCdmaSignalStrength, nsICdmaSignalStrength)
 nsEvdoSignalStrength::nsEvdoSignalStrength(int32_t aDbm, int32_t aEcio,
                                            int32_t aSignalNoiseRatio)
     : mDbm(aDbm), mEcio(aEcio), mSignalNoiseRatio(aSignalNoiseRatio) {
-  __android_log_print(ANDROID_LOG_INFO, " nsEvdoSignalStrength",
-                      "init nsEvdoSignalStrength");
+  DEBUG("init nsEvdoSignalStrength");
 }
 
 NS_IMETHODIMP nsEvdoSignalStrength::GetDbm(int32_t* aDbm) {
@@ -144,8 +145,7 @@ nsLteSignalStrength::nsLteSignalStrength(int32_t aSignalStrength, int32_t aRsrp,
       mRssnr(aRssnr),
       mCqi(aCqi),
       mTimingAdvance(aTimingAdvance) {
-  __android_log_print(ANDROID_LOG_INFO, " nsLteSignalStrength",
-                      "init nsLteSignalStrength");
+  DEBUG("init nsLteSignalStrength");
 }
 
 NS_IMETHODIMP nsLteSignalStrength::GetSignalStrength(int32_t* aSignalStrength) {
@@ -182,8 +182,7 @@ NS_IMPL_ISUPPORTS(nsLteSignalStrength, nsILteSignalStrength)
  * nsTdScdmaSignalStrength implementation
  */
 nsTdScdmaSignalStrength::nsTdScdmaSignalStrength(int32_t aRscp) : mRscp(aRscp) {
-  __android_log_print(ANDROID_LOG_INFO, " nsLteSignalStrength",
-                      "init nsLteSignalStrength");
+  DEBUG("init nsLteSignalStrength");
 }
 
 NS_IMETHODIMP nsTdScdmaSignalStrength::GetRscp(int32_t* aRscp) {
@@ -210,8 +209,7 @@ nsSignalStrength::nsSignalStrength(
       mEvdoSignalStrength(aEvdoSignalStrength),
       mLteSignalStrength(aLteSignalStrength),
       mTdScdmaSignalStrength(aTdScdmaSignalStrength) {
-  __android_log_print(ANDROID_LOG_INFO, " nsSignalStrength",
-                      "init nsSignalStrength");
+  DEBUG("init nsSignalStrength");
 }
 
 NS_IMETHODIMP nsSignalStrength::GetGsmSignalStrength(
@@ -274,8 +272,7 @@ nsSetupDataCallResult::nsSetupDataCallResult(
       mGateways(aGateways),
       mPcscf(aPcscf),
       mMtu(aMtu) {
-  __android_log_print(ANDROID_LOG_INFO, " nsSetupDataCallResult",
-                      "init nsSetupDataCallResult");
+  DEBUG("init nsSetupDataCallResult");
 }
 
 NS_IMETHODIMP nsSetupDataCallResult::GetFailCause(int32_t* aFailCause) {
@@ -351,8 +348,7 @@ nsSuppSvcNotification::nsSuppSvcNotification(bool aNotificationType,
       mIndex(aIndex),
       mType(aType),
       mNumber(aNumber) {
-  __android_log_print(ANDROID_LOG_INFO, " nsSuppSvcNotification",
-                      "init nsSuppSvcNotification");
+  DEBUG("init nsSuppSvcNotification");
 }
 
 NS_IMETHODIMP nsSuppSvcNotification::GetNotificationType(
@@ -392,8 +388,7 @@ NS_IMPL_ISUPPORTS(nsSuppSvcNotification, nsISuppSvcNotification)
 nsSimRefreshResult::nsSimRefreshResult(int32_t aType, int32_t aEfId,
                                        const nsAString& aAid)
     : mType(aType), mEfId(aEfId), mAid(aAid) {
-  __android_log_print(ANDROID_LOG_INFO, " nsSimRefreshResult",
-                      "init nsSimRefreshResult");
+  DEBUG("init nsSimRefreshResult");
 }
 
 NS_IMETHODIMP nsSimRefreshResult::GetType(int32_t* aType) {
@@ -429,8 +424,7 @@ nsCellIdentityGsm::nsCellIdentityGsm(const nsAString& aMcc,
       mCid(aCid),
       mArfcn(aArfcn),
       mBsic(aBsic) {
-  __android_log_print(ANDROID_LOG_INFO, " nsCellIdentityGsm",
-                      "init nsCellIdentityGsm");
+  DEBUG("init nsCellIdentityGsm");
 }
 
 NS_IMETHODIMP nsCellIdentityGsm::GetMcc(nsAString& aMcc) {
@@ -476,8 +470,7 @@ nsCellIdentityCdma::nsCellIdentityCdma(int32_t aNetworkId, int32_t aSystemId,
       mBaseStationId(aBaseStationId),
       mLongitude(aLongitude),
       mLatitude(aLatitude) {
-  __android_log_print(ANDROID_LOG_INFO, " nsCellIdentityCdma",
-                      "init nsCellIdentityCdma");
+  DEBUG("init nsCellIdentityCdma");
 }
 
 NS_IMETHODIMP nsCellIdentityCdma::GetNetworkId(int32_t* aNetworkId) {
@@ -522,8 +515,7 @@ nsCellIdentityLte::nsCellIdentityLte(const nsAString& aMcc,
       mPci(aPci),
       mTac(aTac),
       mEarfcn(aEarfcn) {
-  __android_log_print(ANDROID_LOG_INFO, " nsCellIdentityLte",
-                      "init nsCellIdentityLte");
+  DEBUG("init nsCellIdentityLte");
 }
 
 NS_IMETHODIMP nsCellIdentityLte::GetMcc(nsAString& aMcc) {
@@ -571,8 +563,7 @@ nsCellIdentityWcdma::nsCellIdentityWcdma(const nsAString& aMcc,
       mCid(aCid),
       mPsc(aPsc),
       mUarfcn(aUarfcn) {
-  __android_log_print(ANDROID_LOG_INFO, " nsCellIdentityWcdma",
-                      "init nsCellIdentityWcdma");
+  DEBUG("init nsCellIdentityWcdma");
 }
 
 NS_IMETHODIMP nsCellIdentityWcdma::GetMcc(nsAString& aMcc) {
@@ -615,8 +606,7 @@ nsCellIdentityTdScdma::nsCellIdentityTdScdma(const nsAString& aMcc,
                                              int32_t aLac, int32_t aCid,
                                              int32_t aCpid)
     : mMcc(aMcc), mMnc(aMnc), mLac(aLac), mCid(aCid), mCpid(aCpid) {
-  __android_log_print(ANDROID_LOG_INFO, " nsCellIdentityTdScdma",
-                      "init nsCellIdentityTdScdma");
+  DEBUG("init nsCellIdentityTdScdma");
 }
 
 NS_IMETHODIMP nsCellIdentityTdScdma::GetMcc(nsAString& aMcc) {
@@ -661,43 +651,37 @@ nsCellIdentity::nsCellIdentity(int32_t aCellInfoType,
       mCellIdentityCdma(aCellIdentityCdma),
       mCellIdentityLte(aCellIdentityLte),
       mCellIdentityTdScdma(aCellIdentityTdScdma) {
-  __android_log_print(ANDROID_LOG_INFO, " nsCellIdentity",
-                      "init nsCellIdentity");
+  DEBUG("init nsCellIdentity");
 }
 
 nsCellIdentity::nsCellIdentity(int32_t aCellInfoType,
                                nsCellIdentityGsm* aCellIdentityGsm)
     : mCellInfoType(aCellInfoType), mCellIdentityGsm(aCellIdentityGsm) {
-  __android_log_print(ANDROID_LOG_INFO, " nsCellIdentity",
-                      "init nsCellIdentity GSM");
+  DEBUG("init nsCellIdentity GSM");
 }
 
 nsCellIdentity::nsCellIdentity(int32_t aCellInfoType,
                                nsCellIdentityWcdma* aCellIdentityWcdma)
     : mCellInfoType(aCellInfoType), mCellIdentityWcdma(aCellIdentityWcdma) {
-  __android_log_print(ANDROID_LOG_INFO, " nsCellIdentity",
-                      "init nsCellIdentity WCDMA");
+  DEBUG("init nsCellIdentity WCDMA");
 }
 
 nsCellIdentity::nsCellIdentity(int32_t aCellInfoType,
                                nsCellIdentityCdma* aCellIdentityCdma)
     : mCellInfoType(aCellInfoType), mCellIdentityCdma(aCellIdentityCdma) {
-  __android_log_print(ANDROID_LOG_INFO, " nsCellIdentity",
-                      "init nsCellIdentity CDMA");
+  DEBUG("init nsCellIdentity CDMA");
 }
 
 nsCellIdentity::nsCellIdentity(int32_t aCellInfoType,
                                nsCellIdentityLte* aCellIdentityLte)
     : mCellInfoType(aCellInfoType), mCellIdentityLte(aCellIdentityLte) {
-  __android_log_print(ANDROID_LOG_INFO, " nsCellIdentity",
-                      "init nsCellIdentity LTE");
+  DEBUG("init nsCellIdentity LTE");
 }
 
 nsCellIdentity::nsCellIdentity(int32_t aCellInfoType,
                                nsCellIdentityTdScdma* aCellIdentityTdScdma)
     : mCellInfoType(aCellInfoType), mCellIdentityTdScdma(aCellIdentityTdScdma) {
-  __android_log_print(ANDROID_LOG_INFO, " nsCellIdentity",
-                      "init nsCellIdentity TDCDMA");
+  DEBUG("init nsCellIdentity TDCDMA");
 }
 
 NS_IMETHODIMP nsCellIdentity::GetCellInfoType(int32_t* aCellInfoType) {
@@ -752,7 +736,7 @@ nsCellInfoGsm::nsCellInfoGsm(nsCellIdentityGsm* aCellIdentityGsm,
                              nsGsmSignalStrength* aSignalStrengthGsm)
     : mCellIdentityGsm(aCellIdentityGsm),
       mSignalStrengthGsm(aSignalStrengthGsm) {
-  __android_log_print(ANDROID_LOG_INFO, " nsCellInfoGsm", "init nsCellInfoGsm");
+  DEBUG("init nsCellInfoGsm");
 }
 
 NS_IMETHODIMP nsCellInfoGsm::GetCellIdentityGsm(
@@ -783,8 +767,7 @@ nsCellInfoCdma::nsCellInfoCdma(nsCellIdentityCdma* aCellIdentityCdma,
     : mCellIdentityCdma(aCellIdentityCdma),
       mSignalStrengthCdma(aSignalStrengthCdma),
       mSignalStrengthEvdo(aSignalStrengthEvdo) {
-  __android_log_print(ANDROID_LOG_INFO, " nsCellInfoCdma",
-                      "init nsCellInfoCdma");
+  DEBUG("init nsCellInfoCdma");
 }
 
 NS_IMETHODIMP nsCellInfoCdma::GetCellIdentityCdma(
@@ -820,7 +803,7 @@ nsCellInfoLte::nsCellInfoLte(nsCellIdentityLte* aCellIdentityLte,
                              nsLteSignalStrength* aSignalStrengthLte)
     : mCellIdentityLte(aCellIdentityLte),
       mSignalStrengthLte(aSignalStrengthLte) {
-  __android_log_print(ANDROID_LOG_INFO, " nsCellInfoLte", "init nsCellInfoLte");
+  DEBUG("init nsCellInfoLte");
 }
 
 NS_IMETHODIMP nsCellInfoLte::GetCellIdentityLte(
@@ -849,8 +832,7 @@ nsCellInfoWcdma::nsCellInfoWcdma(nsCellIdentityWcdma* aCellIdentityWcdma,
                                  nsWcdmaSignalStrength* aSignalStrengthWcdma)
     : mCellIdentityWcdma(aCellIdentityWcdma),
       mSignalStrengthWcdma(aSignalStrengthWcdma) {
-  __android_log_print(ANDROID_LOG_INFO, " nsCellInfoWcdma",
-                      "init nsCellInfoWcdma");
+  DEBUG("init nsCellInfoWcdma");
 }
 
 NS_IMETHODIMP nsCellInfoWcdma::GetCellIdentityWcdma(
@@ -880,8 +862,7 @@ nsCellInfoTdScdma::nsCellInfoTdScdma(
     nsTdScdmaSignalStrength* aSignalStrengthTdScdma)
     : mCellIdentityTdScdma(aCellIdentityTdScdma),
       mSignalStrengthTdScdma(aSignalStrengthTdScdma) {
-  __android_log_print(ANDROID_LOG_INFO, " nsCellInfoTdScdma",
-                      "init nsCellInfoTdScdma");
+  DEBUG("init nsCellInfoTdScdma");
 }
 
 NS_IMETHODIMP nsCellInfoTdScdma::GetCellIdentityTdScdma(
@@ -921,7 +902,7 @@ nsRilCellInfo::nsRilCellInfo(int32_t aCellInfoType, bool aRegistered,
       mLte(aLte),
       mWcdma(aWcdma),
       mTdScdma(aTdScdma) {
-  __android_log_print(ANDROID_LOG_INFO, " nsRilCellInfo", "init nsRilCellInfo");
+  DEBUG("init nsRilCellInfo");
 }
 
 nsRilCellInfo::nsRilCellInfo(int32_t aCellInfoType, bool aRegistered,
@@ -932,8 +913,7 @@ nsRilCellInfo::nsRilCellInfo(int32_t aCellInfoType, bool aRegistered,
       mTimeStampType(aTimeStampType),
       mTimeStamp(aTimeStamp),
       mGsm(aGsm) {
-  __android_log_print(ANDROID_LOG_INFO, " nsRilCellInfo",
-                      "init nsRilCellInfo GSM");
+  DEBUG("init nsRilCellInfo GSM");
 }
 
 nsRilCellInfo::nsRilCellInfo(int32_t aCellInfoType, bool aRegistered,
@@ -944,8 +924,7 @@ nsRilCellInfo::nsRilCellInfo(int32_t aCellInfoType, bool aRegistered,
       mTimeStampType(aTimeStampType),
       mTimeStamp(aTimeStamp),
       mWcdma(aWcdma) {
-  __android_log_print(ANDROID_LOG_INFO, " nsRilCellInfo",
-                      "init nsRilCellInfo WCDMA");
+  DEBUG("init nsRilCellInfo WCDMA");
 }
 
 nsRilCellInfo::nsRilCellInfo(int32_t aCellInfoType, bool aRegistered,
@@ -956,8 +935,7 @@ nsRilCellInfo::nsRilCellInfo(int32_t aCellInfoType, bool aRegistered,
       mTimeStampType(aTimeStampType),
       mTimeStamp(aTimeStamp),
       mCdma(aCdma) {
-  __android_log_print(ANDROID_LOG_INFO, " nsRilCellInfo",
-                      "init nsRilCellInfo CDMA");
+  DEBUG("init nsRilCellInfo CDMA");
 }
 
 nsRilCellInfo::nsRilCellInfo(int32_t aCellInfoType, bool aRegistered,
@@ -968,8 +946,7 @@ nsRilCellInfo::nsRilCellInfo(int32_t aCellInfoType, bool aRegistered,
       mTimeStampType(aTimeStampType),
       mTimeStamp(aTimeStamp),
       mLte(aLte) {
-  __android_log_print(ANDROID_LOG_INFO, " nsRilCellInfo",
-                      "init nsRilCellInfo LTE");
+  DEBUG("init nsRilCellInfo LTE");
 }
 
 nsRilCellInfo::nsRilCellInfo(int32_t aCellInfoType, bool aRegistered,
@@ -980,8 +957,7 @@ nsRilCellInfo::nsRilCellInfo(int32_t aCellInfoType, bool aRegistered,
       mTimeStampType(aTimeStampType),
       mTimeStamp(aTimeStamp),
       mTdScdma(aTdScdma) {
-  __android_log_print(ANDROID_LOG_INFO, " nsRilCellInfo",
-                      "init nsRilCellInfo TDCDMA");
+  DEBUG("init nsRilCellInfo TDCDMA");
 }
 
 NS_IMETHODIMP nsRilCellInfo::GetCellInfoType(int32_t* aCellInfoType) {
@@ -1047,8 +1023,7 @@ nsHardwareConfig::nsHardwareConfig(int32_t aType, const nsAString& aUuid,
                                    nsIHardwareConfigModem* aModem,
                                    nsIHardwareConfigSim* aSim)
     : mType(aType), mUuid(aUuid), mState(aState), mModem(aModem), mSim(aSim) {
-  __android_log_print(ANDROID_LOG_INFO, " nsHardwareConfig",
-                      "init nsHardwareConfig");
+  DEBUG("init nsHardwareConfig");
 }
 
 NS_IMETHODIMP nsHardwareConfig::GetType(int32_t* aType) {
@@ -1095,8 +1070,7 @@ nsHardwareConfigModem::nsHardwareConfigModem(int32_t aRilModel, int32_t aRat,
       mMaxVoice(aMaxVoice),
       mMaxData(aMaxData),
       mMaxStandby(aMaxStandby) {
-  __android_log_print(ANDROID_LOG_INFO, " nsHardwareConfigModem",
-                      "init nsHardwareConfigModem");
+  DEBUG("init nsHardwareConfigModem");
 }
 
 NS_IMETHODIMP nsHardwareConfigModem::GetRilModel(int32_t* aRilModel) {
@@ -1133,8 +1107,7 @@ NS_IMPL_ISUPPORTS(nsHardwareConfigModem, nsIHardwareConfigModem)
  */
 nsHardwareConfigSim::nsHardwareConfigSim(const nsAString& aModemUuid)
     : mModemUuid(aModemUuid) {
-  __android_log_print(ANDROID_LOG_INFO, " nsHardwareConfigSim",
-                      "init nsHardwareConfigSim");
+  DEBUG("init nsHardwareConfigSim");
 }
 
 NS_IMETHODIMP nsHardwareConfigSim::GetModemUuid(nsAString& aModemUuid) {
@@ -1159,8 +1132,7 @@ nsRadioCapability::nsRadioCapability(int32_t aSession, int32_t aPhase,
       mRaf(aRaf),
       mLogicalModemUuid(aLogicalModemUuid),
       mStatus(aStatus) {
-  __android_log_print(ANDROID_LOG_INFO, " nsRadioCapability",
-                      "init nsRadioCapability");
+  DEBUG("init nsRadioCapability");
 }
 
 NS_IMETHODIMP nsRadioCapability::GetSession(int32_t* aSession) {
@@ -1199,8 +1171,7 @@ NS_IMPL_ISUPPORTS(nsRadioCapability, nsIRadioCapability)
  */
 nsLceStatusInfo::nsLceStatusInfo(int32_t aLceStatus, int32_t aActualIntervalMs)
     : mLceStatus(aLceStatus), mActualIntervalMs(aActualIntervalMs) {
-  __android_log_print(ANDROID_LOG_INFO, " nsLceStatusInfo",
-                      "init nsLceStatusInfo");
+  DEBUG("init nsLceStatusInfo");
 }
 
 NS_IMETHODIMP nsLceStatusInfo::GetLceStatus(int32_t* aLceStatus) {
@@ -1226,7 +1197,7 @@ nsLceDataInfo::nsLceDataInfo(int32_t aLastHopCapacityKbps,
     : mLastHopCapacityKbps(aLastHopCapacityKbps),
       mConfidenceLevel(aConfidenceLevel),
       mLceSuspended(aLceSuspended) {
-  __android_log_print(ANDROID_LOG_INFO, " nsLceDataInfo", "init nsLceDataInfo");
+  DEBUG("init nsLceDataInfo");
 }
 
 NS_IMETHODIMP nsLceDataInfo::GetLastHopCapacityKbps(
@@ -1259,7 +1230,7 @@ nsPcoDataInfo::nsPcoDataInfo(int32_t aCid, const nsAString& aBearerProto,
       mBearerProto(aBearerProto),
       mPcoId(aPcoId),
       mContents(aContents.Clone()) {
-  __android_log_print(ANDROID_LOG_INFO, " nsPcoDataInfo", "init nsPcoDataInfo");
+  DEBUG("init nsPcoDataInfo");
 }
 
 NS_IMETHODIMP nsPcoDataInfo::GetCid(int32_t* aCid) {
@@ -1309,7 +1280,7 @@ nsAppStatus::nsAppStatus(int32_t aAppType, int32_t aAppState,
       mPin1Replaced(aPin1Replaced),
       mPin1(aPin1),
       mPin2(aPin2) {
-  __android_log_print(ANDROID_LOG_INFO, " nsAppStatus", "init nsAppStatus");
+  DEBUG("init nsAppStatus");
 }
 
 NS_IMETHODIMP nsAppStatus::GetAppType(int32_t* aAppType) {
@@ -1371,7 +1342,7 @@ nsCardStatus::nsCardStatus(int32_t aCardState, int32_t aUniversalPinState,
       mCdmaSubscriptionAppIndex(aCdmaSubscriptionAppIndex),
       mImsSubscriptionAppIndex(aImsSubscriptionAppIndex),
       mApplications(aApplications.Clone()) {
-  __android_log_print(ANDROID_LOG_INFO, " nsCardStatus", "init nsCardStatus");
+  DEBUG("init nsCardStatus");
 }
 
 NS_IMETHODIMP nsCardStatus::GetCardState(int32_t* aCardState) {
@@ -1440,8 +1411,7 @@ nsVoiceRegState::nsVoiceRegState(int32_t aRegState, int32_t aRat,
       mDefaultRoamingIndicator(aDefaultRoamingIndicator),
       mReasonForDenial(aReasonForDenial),
       mCellIdentity(aCellIdentity) {
-  __android_log_print(ANDROID_LOG_INFO, " nsVoiceRegState",
-                      "init nsVoiceRegState");
+  DEBUG("init nsVoiceRegState");
 }
 
 NS_IMETHODIMP nsVoiceRegState::GetRegState(int32_t* aRegState) {
@@ -1503,8 +1473,7 @@ nsDataRegState::nsDataRegState(int32_t aRegState, int32_t aRat,
       mReasonDataDenied(aReasonDataDenied),
       mMaxDataCalls(aMaxDataCalls),
       mCellIdentity(aCellIdentity) {
-  __android_log_print(ANDROID_LOG_INFO, " nsDataRegState",
-                      "init nsDataRegState");
+  DEBUG("init nsDataRegState");
 }
 
 NS_IMETHODIMP nsDataRegState::GetRegState(int32_t* aRegState) {
@@ -1549,8 +1518,7 @@ nsOperatorInfo::nsOperatorInfo(const nsAString& aAlphaLong,
       mAlphaShort(aAlphaShort),
       mOperatorNumeric(aOperatorNumeric),
       mStatus(aStatus) {
-  __android_log_print(ANDROID_LOG_INFO, " nsOperatorInfo",
-                      "init nsOperatorInfo");
+  DEBUG("init nsOperatorInfo");
 }
 
 NS_IMETHODIMP nsOperatorInfo::GetAlphaLong(nsAString& aAlphaLong) {
@@ -1583,8 +1551,7 @@ NS_IMPL_ISUPPORTS(nsOperatorInfo, nsIOperatorInfo)
  */
 nsNeighboringCell::nsNeighboringCell(const nsAString& aCid, int32_t aRssi)
     : mCid(aCid), mRssi(aRssi) {
-  __android_log_print(ANDROID_LOG_INFO, " nsNeighboringCell",
-                      "init nsNeighboringCell");
+  DEBUG("init nsNeighboringCell");
 }
 
 NS_IMETHODIMP nsNeighboringCell::GetCid(nsAString& aCid) {
@@ -1623,7 +1590,7 @@ nsCall::nsCall(int32_t aState, int32_t aIndex, int32_t aToa, bool aIsMpty,
       mName(aName),
       mNamePresentation(aNamePresentation),
       mUusInfo(aUusInfo.Clone()) {
-  __android_log_print(ANDROID_LOG_INFO, " nsCall", "init nsCall");
+  DEBUG("init nsCall");
 }
 
 NS_IMETHODIMP nsCall::GetState(int32_t* aState) {
@@ -1710,7 +1677,7 @@ NS_IMPL_ISUPPORTS(nsCall, nsICall)
 nsUusInfo::nsUusInfo(int32_t aUusType, int32_t aUusDcs,
                      const nsAString& aUusData)
     : mUusType(aUusType), mUusDcs(aUusDcs), mUusData(aUusData) {
-  __android_log_print(ANDROID_LOG_INFO, " nsUusInfo", "init nsUusInfo");
+  DEBUG("init nsUusInfo");
 }
 
 NS_IMETHODIMP nsUusInfo::GetUusType(int32_t* aUusType) {
@@ -1739,7 +1706,7 @@ NS_IMPL_ISUPPORTS(nsUusInfo, nsIUusInfo)
 nsIccIoResult::nsIccIoResult(int32_t aSw1, int32_t aSw2,
                              const nsAString& aSimResponse)
     : mSw1(aSw1), mSw2(aSw2), mSimResponse(aSimResponse) {
-  __android_log_print(ANDROID_LOG_INFO, " nsIccIoResult", "init nsIccIoResult");
+  DEBUG("init nsIccIoResult");
 }
 
 NS_IMETHODIMP nsIccIoResult::GetSw1(int32_t* aSw1) {
@@ -1775,8 +1742,7 @@ nsCallForwardInfo::nsCallForwardInfo(int32_t aStatus, int32_t aReason,
       mToa(aToa),
       mNumber(aNumber),
       mTimeSeconds(aTimeSeconds) {
-  __android_log_print(ANDROID_LOG_INFO, " nsCallForwardInfo",
-                      "init nsCallForwardInfo");
+  DEBUG("init nsCallForwardInfo");
 }
 
 NS_IMETHODIMP nsCallForwardInfo::GetStatus(int32_t* aStatus) {
@@ -1820,8 +1786,7 @@ NS_IMPL_ISUPPORTS(nsCallForwardInfo, nsICallForwardInfo)
 nsSendSmsResult::nsSendSmsResult(int32_t aMessageRef, const nsAString& aAckPDU,
                                  int32_t aErrorCode)
     : mMessageRef(aMessageRef), mAckPDU(aAckPDU), mErrorCode(aErrorCode) {
-  __android_log_print(ANDROID_LOG_INFO, " nsSendSmsResult",
-                      "init nsSendSmsResult");
+  DEBUG("init nsSendSmsResult");
 }
 
 NS_IMETHODIMP nsSendSmsResult::GetMessageRef(int32_t* aMessageRef) {
@@ -1851,16 +1816,14 @@ NS_IMPL_ISUPPORTS(nsSendSmsResult, nsISendSmsResult)
  */
 nsRilResult::nsRilResult(const nsAString& aRilMessageType)
     : mRilMessageType(aRilMessageType) {
-  __android_log_print(ANDROID_LOG_INFO, " nsRilResult",
-                      "init nsRilResult for indication.");
+  DEBUG("init nsRilResult for indication.");
 }
 nsRilResult::nsRilResult(const nsAString& aRilMessageType,
                          int32_t aRilMessageToken, int32_t aErrorMsg)
     : mRilMessageType(aRilMessageType),
       mRilMessageToken(aRilMessageToken),
       mErrorMsg(aErrorMsg) {
-  __android_log_print(ANDROID_LOG_INFO, " nsRilResult",
-                      "init nsRilResult for response.");
+  DEBUG("init nsRilResult for response.");
 }
 
 /**

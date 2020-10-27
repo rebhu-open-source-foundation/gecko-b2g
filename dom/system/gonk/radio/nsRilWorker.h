@@ -63,6 +63,8 @@ using ::android::hardware::radio::V1_0::UusInfo;
 
 using ::android::hidl::base::V1_0::IBase;
 
+static bool gRilDebug_isLoggingEnabled = false;
+
 class nsRilWorker;
 
 class nsRilWorker final : public nsIRilWorker {
@@ -84,6 +86,7 @@ class nsRilWorker final : public nsIRilWorker {
   void sendAck();
   void sendRilIndicationResult(nsRilIndicationResult* aIndication);
   void sendRilResponseResult(nsRilResponseResult* aResponse);
+  void updateDebug();
   nsCOMPtr<nsIRilCallback> mRilCallback;
 
  private:

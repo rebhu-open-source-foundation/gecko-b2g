@@ -21,8 +21,13 @@
   __android_log_print(ANDROID_LOG_INFO, RILWORKERSERVICE_LOG_TAG, ##args)
 #define ERROR(args...) \
   __android_log_print(ANDROID_LOG_ERROR, RILWORKERSERVICE_LOG_TAG, ##args)
-#define DEBUG(args...) \
-  __android_log_print(ANDROID_LOG_DEBUG, RILWORKERSERVICE_LOG_TAG, ##args)
+#define DEBUG(args...)                                                 \
+  do {                                                                 \
+    if (gRilDebug_isLoggingEnabled) {                                  \
+      __android_log_print(ANDROID_LOG_DEBUG, RILWORKERSERVICE_LOG_TAG, \
+                          ##args);                                     \
+    }                                                                  \
+  } while (0)
 
 /*================ Implementation of Class nsCellBroadcastService=============*/
 
@@ -35,12 +40,12 @@ nsRilWorkerService::nsRilWorkerService() : mNumRilWorkers(1) {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(!gRilWorkerService);
 
-  INFO("init nsRilWorkerService");
+  DEBUG("init nsRilWorkerService");
 
-  // TODO get the mNumRilWorkers value for the muti sim.
+  mNumRilWorkers = mozilla::Preferences::GetInt("ril.numRadioInterfaces", 1);
   if (mRilWorkers.Length() == 0) {
     for (int clientId = 0; clientId < mNumRilWorkers; clientId++) {
-      INFO("Creating new ril_worker for clientId = %d", clientId);
+      DEBUG("Creating new ril_worker for clientId = %d", clientId);
       RefPtr<nsRilWorker> ri = new nsRilWorker(clientId);
       mRilWorkers.AppendElement(ri);
     }
@@ -49,7 +54,7 @@ nsRilWorkerService::nsRilWorkerService() : mNumRilWorkers(1) {
 
 NS_IMETHODIMP nsRilWorkerService::GetRilWorker(uint32_t clientId,
                                                nsIRilWorker** aRilWorker) {
-  INFO("GetRilWorker = %d", clientId);
+  DEBUG("GetRilWorker = %d", clientId);
   nsCOMPtr<nsIRilWorker> worker;
 
   if (clientId >= mRilWorkers.Length()) {

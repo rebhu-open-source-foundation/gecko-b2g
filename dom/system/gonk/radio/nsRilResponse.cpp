@@ -15,7 +15,12 @@
 #undef DEBUG
 #define INFO(args...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, ##args)
 #define ERROR(args...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, ##args)
-#define DEBUG(args...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, ##args)
+#define DEBUG(args...)                                         \
+  do {                                                         \
+    if (gRilDebug_isLoggingEnabled) {                          \
+      __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, ##args); \
+    }                                                          \
+  } while (0)
 
 CardStatus cardStatus;
 
@@ -23,12 +28,12 @@ CardStatus cardStatus;
  *
  */
 nsRilResponse::nsRilResponse(nsRilWorker* aRil) {
-  INFO("init nsRilResponse");
+  DEBUG("init nsRilResponse");
   mRIL = aRil;
 }
 
 nsRilResponse::~nsRilResponse() {
-  INFO("Destructor nsRilResponse");
+  DEBUG("~nsRilResponse");
   mRIL = nullptr;
   MOZ_ASSERT(!mRIL);
 }
@@ -42,7 +47,7 @@ Return<void> nsRilResponse::getIccCardStatusResponse(
       new nsRilResponseResult(u"getICCStatus"_ns, rspInfo.serial,
                               convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error == RadioError::NONE) {
-    INFO("getICCStatus success.");
+    DEBUG("getICCStatus success.");
     uint32_t numApplications = card_status.applications.size();
 
     // limit to maximum allowed applications
@@ -75,7 +80,7 @@ Return<void> nsRilResponse::getIccCardStatusResponse(
                          card_status.imsSubscriptionAppIndex, applications);
     result->updateIccCardStatus(cardStatus);
   } else {
-    INFO("getICCStatus error.");
+    DEBUG("getICCStatus error.");
   }
 
   mRIL->sendRilResponseResult(result);
@@ -91,8 +96,8 @@ Return<void> nsRilResponse::supplyIccPinForAppResponse(
       new nsRilResponseResult(u"enterICCPIN"_ns, rspInfo.serial,
                               convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error != RadioError::NONE) {
-    INFO("supplyIccPinForAppResponse error = %d , retries = %d", rspInfo.error,
-         remainingRetries);
+    DEBUG("supplyIccPinForAppResponse error = %d , retries = %d", rspInfo.error,
+          remainingRetries);
     result->updateRemainRetries(remainingRetries);
   }
   mRIL->sendRilResponseResult(result);
@@ -108,8 +113,8 @@ Return<void> nsRilResponse::supplyIccPukForAppResponse(
       new nsRilResponseResult(u"enterICCPUK"_ns, rspInfo.serial,
                               convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error != RadioError::NONE) {
-    INFO("supplyIccPukForAppResponse error = %d , retries = %d", rspInfo.error,
-         remainingRetries);
+    DEBUG("supplyIccPukForAppResponse error = %d , retries = %d", rspInfo.error,
+          remainingRetries);
     result->updateRemainRetries(remainingRetries);
   }
   mRIL->sendRilResponseResult(result);
@@ -125,8 +130,8 @@ Return<void> nsRilResponse::supplyIccPin2ForAppResponse(
       new nsRilResponseResult(u"enterICCPIN2"_ns, rspInfo.serial,
                               convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error != RadioError::NONE) {
-    INFO("supplyIccPin2ForAppResponse error = %d , retries = %d", rspInfo.error,
-         remainingRetries);
+    DEBUG("supplyIccPin2ForAppResponse error = %d , retries = %d",
+          rspInfo.error, remainingRetries);
     result->updateRemainRetries(remainingRetries);
   }
   mRIL->sendRilResponseResult(result);
@@ -142,8 +147,8 @@ Return<void> nsRilResponse::supplyIccPuk2ForAppResponse(
       new nsRilResponseResult(u"enterICCPUK2"_ns, rspInfo.serial,
                               convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error != RadioError::NONE) {
-    INFO("supplyIccPuk2ForAppResponse error = %d , retries = %d", rspInfo.error,
-         remainingRetries);
+    DEBUG("supplyIccPuk2ForAppResponse error = %d , retries = %d",
+          rspInfo.error, remainingRetries);
     result->updateRemainRetries(remainingRetries);
   }
   mRIL->sendRilResponseResult(result);
@@ -159,8 +164,8 @@ Return<void> nsRilResponse::changeIccPinForAppResponse(
       new nsRilResponseResult(u"changeICCPIN"_ns, rspInfo.serial,
                               convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error != RadioError::NONE) {
-    INFO("changeIccPinForAppResponse error = %d , retries = %d", rspInfo.error,
-         remainingRetries);
+    DEBUG("changeIccPinForAppResponse error = %d , retries = %d", rspInfo.error,
+          remainingRetries);
     result->updateRemainRetries(remainingRetries);
   }
   mRIL->sendRilResponseResult(result);
@@ -176,8 +181,8 @@ Return<void> nsRilResponse::changeIccPin2ForAppResponse(
       u"changeICCPIN2"_ns, rspInfo.serial,
       convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error != RadioError::NONE) {
-    INFO("changeIccPin2ForAppResponse error = %d , retries = %d", rspInfo.error,
-         remainingRetries);
+    DEBUG("changeIccPin2ForAppResponse error = %d , retries = %d",
+          rspInfo.error, remainingRetries);
     result->updateRemainRetries(remainingRetries);
   }
   mRIL->sendRilResponseResult(result);
@@ -203,12 +208,12 @@ Return<void> nsRilResponse::getCurrentCallsResponse(
       convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error == RadioError::NONE) {
     uint32_t numCalls = calls.size();
-    INFO("getCurrentCalls numCalls= %d", numCalls);
+    DEBUG("getCurrentCalls numCalls= %d", numCalls);
     nsTArray<RefPtr<nsCall>> aCalls(numCalls);
 
     for (uint32_t i = 0; i < numCalls; i++) {
       uint32_t numUusInfo = calls[i].uusInfo.size();
-      INFO("getCurrentCalls numUusInfo= %d", numUusInfo);
+      DEBUG("getCurrentCalls numUusInfo= %d", numUusInfo);
       nsTArray<RefPtr<nsUusInfo>> aUusInfos(numUusInfo);
 
       for (uint32_t j = 0; j < numUusInfo; j++) {
@@ -220,8 +225,8 @@ Return<void> nsRilResponse::getCurrentCallsResponse(
         aUusInfos.AppendElement(uusinfo);
       }
 
-      INFO("getCurrentCalls index= %d  state=%d", calls[i].index,
-           convertCallState(calls[i].state));
+      DEBUG("getCurrentCalls index= %d  state=%d", calls[i].index,
+            convertCallState(calls[i].state));
       RefPtr<nsCall> call = new nsCall(
           convertCallState(calls[i].state), calls[i].index, calls[i].toa,
           calls[i].isMpty, calls[i].isMT, int32_t(calls[i].als),
@@ -234,7 +239,7 @@ Return<void> nsRilResponse::getCurrentCallsResponse(
     }
     result->updateCurrentCalls(aCalls);
   } else {
-    INFO("getCurrentCalls error.");
+    DEBUG("getCurrentCalls error.");
   }
 
   mRIL->sendRilResponseResult(result);
@@ -261,7 +266,7 @@ Return<void> nsRilResponse::getIMSIForAppResponse(
   if (rspInfo.error == RadioError::NONE) {
     result->updateIMSI(NS_ConvertUTF8toUTF16(imsi.c_str()));
   } else {
-    INFO("getIMSIForAppResponse error.");
+    DEBUG("getIMSIForAppResponse error.");
   }
   mRIL->sendRilResponseResult(result);
   return Void();
@@ -332,7 +337,7 @@ Return<void> nsRilResponse::getLastCallFailCauseResponse(
         covertLastCallFailCause(failCauseInfo.causeCode),
         NS_ConvertUTF8toUTF16(failCauseInfo.vendorCause.c_str()));
   } else {
-    INFO("getLastCallFailCauseResponse error.");
+    DEBUG("getLastCallFailCauseResponse error.");
   }
   mRIL->sendRilResponseResult(result);
 
@@ -352,7 +357,7 @@ Return<void> nsRilResponse::getSignalStrengthResponse(
         result->convertSignalStrength(sig_strength);
     result->updateSignalStrength(signalStrength);
   } else {
-    INFO("getSignalStrength error.");
+    DEBUG("getSignalStrength error.");
   }
 
   mRIL->sendRilResponseResult(result);
@@ -369,7 +374,7 @@ Return<void> nsRilResponse::getVoiceRegistrationStateResponse(
       u"getVoiceRegistrationState"_ns, rspInfo.serial,
       convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error == RadioError::NONE) {
-    INFO("getVoiceRegistrationState success.");
+    DEBUG("getVoiceRegistrationState success.");
     RefPtr<nsCellIdentity> cellIdentity =
         result->convertCellIdentity(voiceRegResponse.cellIdentity);
     RefPtr<nsVoiceRegState> voiceRegState = new nsVoiceRegState(
@@ -380,7 +385,7 @@ Return<void> nsRilResponse::getVoiceRegistrationStateResponse(
         voiceRegResponse.reasonForDenial, cellIdentity);
     result->updateVoiceRegStatus(voiceRegState);
   } else {
-    INFO("getVoiceRegistrationState error.");
+    DEBUG("getVoiceRegistrationState error.");
   }
 
   mRIL->sendRilResponseResult(result);
@@ -396,7 +401,7 @@ Return<void> nsRilResponse::getDataRegistrationStateResponse(
       u"getDataRegistrationState"_ns, rspInfo.serial,
       convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error == RadioError::NONE) {
-    INFO("getDataRegistrationState success.");
+    DEBUG("getDataRegistrationState success.");
     RefPtr<nsCellIdentity> cellIdentity =
         result->convertCellIdentity(dataRegResponse.cellIdentity);
     RefPtr<nsDataRegState> dataRegState = new nsDataRegState(
@@ -405,7 +410,7 @@ Return<void> nsRilResponse::getDataRegistrationStateResponse(
         cellIdentity);
     result->updateDataRegStatus(dataRegState);
   } else {
-    INFO("getDataRegistrationState error.");
+    DEBUG("getDataRegistrationState error.");
   }
 
   mRIL->sendRilResponseResult(result);
@@ -430,7 +435,7 @@ Return<void> nsRilResponse::getOperatorResponse(
                            NS_ConvertUTF8toUTF16(numeric.c_str()), 0);
     result->updateOperator(operatorInfo);
   } else {
-    INFO("getOperator error.");
+    DEBUG("getOperator error.");
   }
   mRIL->sendRilResponseResult(result);
   return Void();
@@ -467,7 +472,7 @@ Return<void> nsRilResponse::sendSmsResponse(const RadioResponseInfo& info,
         sms.errorCode);
     result->updateSendSmsResponse(smsResult);
   } else {
-    INFO("sendSMS error.");
+    DEBUG("sendSMS error.");
   }
 
   mRIL->sendRilResponseResult(result);
@@ -496,7 +501,7 @@ Return<void> nsRilResponse::setupDataCallResponse(
         result->convertDcResponse(dcResponse);
     result->updateDataCallResponse(datacallresponse);
   } else {
-    INFO("setupDataCall error.");
+    DEBUG("setupDataCall error.");
   }
 
   mRIL->sendRilResponseResult(result);
@@ -516,7 +521,7 @@ Return<void> nsRilResponse::iccIOForAppResponse(const RadioResponseInfo& info,
         iccIo.sw1, iccIo.sw2, NS_ConvertUTF8toUTF16(iccIo.simResponse.c_str()));
     result->updateIccIoResult(iccIoResult);
   } else {
-    INFO("iccIOForApp error.");
+    DEBUG("iccIOForApp error.");
     RefPtr<nsIccIoResult> iccIoResult =
         new nsIccIoResult(iccIo.sw1, iccIo.sw2, NS_ConvertUTF8toUTF16(""));
     result->updateIccIoResult(iccIoResult);
@@ -554,7 +559,7 @@ Return<void> nsRilResponse::getClirResponse(const RadioResponseInfo& info,
   if (rspInfo.error == RadioError::NONE) {
     result->updateClir(n, m);
   } else {
-    INFO("getClirResponse error.");
+    DEBUG("getClirResponse error.");
   }
   mRIL->sendRilResponseResult(result);
 
@@ -594,7 +599,7 @@ Return<void> nsRilResponse::getCallForwardStatusResponse(
     }
     result->updateCallForwardStatusList(aCallForwardInfoLists);
   } else {
-    INFO("getCallForwardStatusResponse error.");
+    DEBUG("getCallForwardStatusResponse error.");
   }
   mRIL->sendRilResponseResult(result);
   return Void();
@@ -620,7 +625,7 @@ Return<void> nsRilResponse::getCallWaitingResponse(
   if (rspInfo.error == RadioError::NONE) {
     result->updateCallWaiting(enable, serviceClass);
   } else {
-    INFO("getCallWaitingResponse error.");
+    DEBUG("getCallWaitingResponse error.");
   }
   mRIL->sendRilResponseResult(result);
 
@@ -673,7 +678,7 @@ Return<void> nsRilResponse::getFacilityLockForAppResponse(
   if (rspInfo.error == RadioError::NONE) {
     result->updateServiceClass(response);
   } else {
-    INFO("setFacilityLockForAppResponse error.");
+    DEBUG("setFacilityLockForAppResponse error.");
   }
   mRIL->sendRilResponseResult(result);
   return Void();
@@ -688,8 +693,8 @@ Return<void> nsRilResponse::setFacilityLockForAppResponse(
       u"setICCFacilityLock"_ns, rspInfo.serial,
       convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error != RadioError::NONE) {
-    INFO("setFacilityLockForAppResponse error = %d , retries = %d",
-         rspInfo.error, retry);
+    DEBUG("setFacilityLockForAppResponse error = %d , retries = %d",
+          rspInfo.error, retry);
     result->updateRemainRetries(retry);
   }
   mRIL->sendRilResponseResult(result);
@@ -748,7 +753,7 @@ Return<void> nsRilResponse::getAvailableNetworksResponse(
       convertRadioErrorToNum(rspInfo.error));
   if (rspInfo.error == RadioError::NONE) {
     uint32_t numNetworks = networkInfos.size();
-    INFO("getAvailableNetworks numNetworks= %d", numNetworks);
+    DEBUG("getAvailableNetworks numNetworks= %d", numNetworks);
     nsTArray<RefPtr<nsOperatorInfo>> aNetworks(numNetworks);
 
     for (uint32_t i = 0; i < numNetworks; i++) {
@@ -761,7 +766,7 @@ Return<void> nsRilResponse::getAvailableNetworksResponse(
     }
     result->updateAvailableNetworks(aNetworks);
   } else {
-    INFO("getAvailableNetworksResponse error.");
+    DEBUG("getAvailableNetworksResponse error.");
   }
   mRIL->sendRilResponseResult(result);
   return Void();
@@ -867,7 +872,7 @@ Return<void> nsRilResponse::getDataCallListResponse(
     }
     result->updateDcList(aDcLists);
   } else {
-    INFO("getDataCallListResponse error.");
+    DEBUG("getDataCallListResponse error.");
   }
   mRIL->sendRilResponseResult(result);
   return Void();
@@ -1007,7 +1012,7 @@ Return<void> nsRilResponse::getNeighboringCidsResponse(
     }
     result->updateNeighboringCells(aNeighboringCells);
   } else {
-    INFO("getNeighboringCidsResponse error.");
+    DEBUG("getNeighboringCidsResponse error.");
   }
   mRIL->sendRilResponseResult(result);
 
@@ -1354,7 +1359,7 @@ Return<void> nsRilResponse::getCellInfoListResponse(
     }
     result->updateCellInfoList(aCellInfoLists);
   } else {
-    INFO("getDataCallListResponse error.");
+    DEBUG("getDataCallListResponse error.");
   }
   mRIL->sendRilResponseResult(result);
   return Void();
@@ -1501,7 +1506,7 @@ Return<void> nsRilResponse::requestIccSimAuthenticationResponse(
         iccIo.sw1, iccIo.sw2, NS_ConvertUTF8toUTF16(iccIo.simResponse.c_str()));
     result->updateIccIoResult(iccIoResult);
   } else {
-    INFO("getIccAuthentication error.");
+    DEBUG("getIccAuthentication error.");
     RefPtr<nsIccIoResult> iccIoResult =
         new nsIccIoResult(iccIo.sw1, iccIo.sw2, NS_ConvertUTF8toUTF16(""));
     result->updateIccIoResult(iccIoResult);
@@ -1543,7 +1548,7 @@ Return<void> nsRilResponse::getRadioCapabilityResponse(
         static_cast<int32_t>(rc.status));
     result->updateRadioCapability(radioCapability);
   } else {
-    INFO("getRadioCapability error.");
+    DEBUG("getRadioCapability error.");
   }
 
   mRIL->sendRilResponseResult(result);
