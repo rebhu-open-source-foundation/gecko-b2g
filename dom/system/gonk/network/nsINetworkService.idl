@@ -519,25 +519,6 @@ interface nsINetworkService : nsISupports
   void setInterfaceConfig(in jsval config, in nsISetInterfaceConfigCallback callback);
 
   /**
-   * Configure a network interface.
-   *
-   * @param config
-   *        An object containing the detail that we want to configure the interface:
-   *
-   *          - ifname:  string
-   *          - ipaddr:  long
-   *          - mask:    long
-   *          - gateway: long
-   *          - dns1:    long
-   *          - dns2:    long
-   *
-   * @param callback
-   *        Callback to notify the result of configurating network interface.
-   */
-  void configureInterface(in jsval config,
-                          in nsINativeCommandCallback callback);
-
-  /**
    * Issue a DHCP client request.
    *
    * @param networkInterface
@@ -560,42 +541,6 @@ interface nsINetworkService : nsISupports
    */
   void stopDhcp(in AString ifname,
                 in nsINativeCommandCallback callback);
-
-  /**
-   * Enable a network interface.
-   *
-   * @param networkInterface
-   *        The network interface name which we want to enable.
-   *
-   * @param callback
-   *        Callback to notify the result of disabling network interface.
-   */
-  void enableInterface(in AString interfaceName,
-                       in nsINativeCommandCallback callback);
-
-  /**
-   * Disable a network interface.
-   *
-   * @param networkInterface
-   *        The network interface name which we want to disable.
-   *
-   * @param callback
-   *        Callback to notify the result of disabling network interface.
-   */
-  void disableInterface(in AString interfaceName,
-                        in nsINativeCommandCallback callback);
-
-  /**
-   * Reset all connections on a specified network interface.
-   *
-   * @param interfaceName
-   *        The network interface name which we want to reset.
-   *
-   * @param callback
-   *        Callback to notify the result of resetting connections.
-   */
-  void resetConnections(in AString interfaceName,
-                        in nsINativeCommandCallback callback);
 
   /**
    * Create network (required to call prior to any networking operation).

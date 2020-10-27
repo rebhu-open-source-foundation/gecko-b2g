@@ -1531,12 +1531,8 @@ void NetworkUtils::ExecuteCommand(NetworkParams aOptions) {
       BUILD_ENTRY(addInterfaceToNetwork),
       BUILD_ENTRY(removeInterfaceToNetwork),
       BUILD_ENTRY(setIpv6PrivacyExtensions),
-      BUILD_ENTRY(configureInterface),
       BUILD_ENTRY(dhcpRequest),
       BUILD_ENTRY(stopDhcp),
-      BUILD_ENTRY(enableInterface),
-      BUILD_ENTRY(disableInterface),
-      BUILD_ENTRY(resetConnections),
       BUILD_ENTRY(getInterfaces),
       BUILD_ENTRY(getInterfaceConfig),
       BUILD_ENTRY(setInterfaceConfig),
@@ -1968,13 +1964,6 @@ CommandResult NetworkUtils::setIpv6PrivacyExtensions(NetworkParams& aOptions) {
   return CommandResult(CommandResult::Pending());
 }
 
-CommandResult NetworkUtils::configureInterface(NetworkParams& aOptions) {
-  NS_ConvertUTF16toUTF8 autoIfname(aOptions.mIfname);
-  return CommandResult(mNetUtils->do_ifc_configure(
-      autoIfname.get(), aOptions.mIpaddr, aOptions.mMask,
-      aOptions.mGateway_long, aOptions.mDns1_long, aOptions.mDns2_long));
-}
-
 CommandResult NetworkUtils::dhcpRequest(NetworkParams& aOptions) {
   mozilla::dom::NetworkResultOptions result;
 
@@ -2034,22 +2023,6 @@ CommandResult NetworkUtils::dhcpRequest(NetworkParams& aOptions) {
 
 CommandResult NetworkUtils::stopDhcp(NetworkParams& aOptions) {
   return CommandResult(mNetUtils->do_dhcp_stop(GET_CHAR(mIfname)));
-}
-
-CommandResult NetworkUtils::enableInterface(NetworkParams& aOptions) {
-  return CommandResult(
-      mNetUtils->do_ifc_enable(NS_ConvertUTF16toUTF8(aOptions.mIfname).get()));
-}
-
-CommandResult NetworkUtils::disableInterface(NetworkParams& aOptions) {
-  return CommandResult(
-      mNetUtils->do_ifc_disable(NS_ConvertUTF16toUTF8(aOptions.mIfname).get()));
-}
-
-CommandResult NetworkUtils::resetConnections(NetworkParams& aOptions) {
-  NS_ConvertUTF16toUTF8 autoIfname(aOptions.mIfname);
-  return CommandResult(mNetUtils->do_ifc_reset_connections(
-      NS_ConvertUTF16toUTF8(aOptions.mIfname).get(), RESET_ALL_ADDRESSES));
 }
 
 /**

@@ -754,11 +754,17 @@ var WifiManager = (function() {
         // and routing table is changed but still cannot connect to network
         // so the workaround here is disable interface the enable again to
         // trigger network reconnect with static ip.
-        gNetworkService.disableInterface(manager.ifname, function(ok) {
-          gNetworkService.enableInterface(manager.ifname, function(ok) {
-            callback(ok);
-          });
-        });
+        gNetworkService.setInterfaceConfig(
+          { ifname: manager.ifname, link: "down" },
+          function(ok) {
+            gNetworkService.setInterfaceConfig(
+              { ifname: manager.ifname, link: "up" },
+              function(ok) {
+                callback(ok);
+              }
+            );
+          }
+        );
         return;
       }
 
@@ -771,6 +777,8 @@ var WifiManager = (function() {
   function runStaticIp(ifname, key) {
     debug("Run static ip");
 
+    // TODO: NetworkService no longer support libnetutils.
+    /*
     // Read static ip information from settings.
     let staticIpInfo;
 
@@ -803,6 +811,7 @@ var WifiManager = (function() {
         });
       }
     );
+    */
   }
 
   var suppressEvents = false;
@@ -1774,9 +1783,12 @@ var WifiManager = (function() {
           gNetworkManager.updateNetworkInterface(WifiNetworkInterface);
 
           manager.supplicantStarted = true;
-          gNetworkService.enableInterface(manager.ifname, function(ok) {
-            callback(ok);
-          });
+          gNetworkService.setInterfaceConfig(
+            { ifname: manager.ifname, link: "up" },
+            function(ok) {
+              callback(ok);
+            }
+          );
           BinderServices.wifi.onWifiStateChanged(
             WifiConstants.WIFI_STATE_ENABLED
           );
@@ -1814,15 +1826,18 @@ var WifiManager = (function() {
     // until it does.
     let doDisableWifi = function() {
       manager.state = "UNINITIALIZED";
-      gNetworkService.disableInterface(manager.ifname, function(ok) {
-        wifiCommand.stopWifi(function(result) {
-          notify("supplicantlost", { success: true });
-          callback(result.status == SUCCESS);
-          BinderServices.wifi.onWifiStateChanged(
-            WifiConstants.WIFI_STATE_DISABLED
-          );
-        });
-      });
+      gNetworkService.setInterfaceConfig(
+        { ifname: manager.ifname, link: "down" },
+        function(ok) {
+          wifiCommand.stopWifi(function(result) {
+            notify("supplicantlost", { success: true });
+            callback(result.status == SUCCESS);
+            BinderServices.wifi.onWifiStateChanged(
+              WifiConstants.WIFI_STATE_DISABLED
+            );
+          });
+        }
+      );
 
       // We are going to terminate the connection between wpa_supplicant.
       // Stop the polling timer immediately to prevent connection info update
@@ -1858,7 +1873,10 @@ var WifiManager = (function() {
           return;
         }
         var ifaceName = result.apInterface;
-        gNetworkService.enableInterface(ifaceName, function(ok) {});
+        gNetworkService.setInterfaceConfig(
+          { ifname: ifaceName, link: "up" },
+          function(ok) {}
+        );
         WifiNetworkInterface.info.name = ifaceName;
 
         gTetheringService.setWifiTethering(
@@ -1906,22 +1924,9 @@ var WifiManager = (function() {
   };
 
   manager.connectionDropped = function(callback) {
-    // Reset network interface when connection drop
-    gNetworkService.configureInterface(
-      {
-        ifname: manager.ifname,
-        ipaddr: 0,
-        mask: 0,
-        gateway: 0,
-        dns1: 0,
-        dns2: 0,
-      },
-      function(data) {}
-    );
-
     // If we got disconnected, kill the DHCP client in preparation for
     // reconnection.
-    gNetworkService.resetConnections(manager.ifname, function() {
+    gNetworkService.resetRoutingTable(manager.ifname, function() {
       netUtil.stopDhcp(manager.ifname, function() {
         callback();
       });

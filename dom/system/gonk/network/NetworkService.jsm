@@ -31,34 +31,24 @@ XPCOMUtils.defineLazyServiceGetter(
 
 const WIFI_CTRL_INTERFACE = "wl0.1";
 
-var debug;
+var DEBUG = true;
 function updateDebug() {
   //TODO: always true for now.
-  let debugPref = true;
   /*
-  let debugPref = false; // set default value here.
   try {
-    debugPref =
-      debugPref || Services.prefs.getBoolPref(PREF_NETWORK_DEBUG_ENABLED);
+    DEBUG =
+      DEBUG || Services.prefs.getBoolPref(PREF_NETWORK_DEBUG_ENABLED);
   } catch (e) {}
 
-  if (debugPref) {
-    debug = function(s) {
-      dump("-*- NetworkService: " + s + "\n");
-    };
-  } else {
-    debug = function(s) {};
-  }
   */
-  debug = function(s) {
+}
+
+function debug(s) {
+  if (DEBUG) {
     console.log("-*- NetworkService: ", s, "\n");
-  };
+  }
 }
 updateDebug();
-
-function netdResponseType(aCode) {
-  return Math.floor(aCode / 100) * 100;
-}
 
 function Task(aId, aParams, aSetupFunction) {
   this.id = aId;
@@ -320,12 +310,7 @@ NetworkService.prototype = {
     this.controlMessage(params, function(aData) {
       let result = aData.result;
       let enableString = aEnable ? "Enable" : "Disable";
-      debug(
-        enableString +
-          " tethering Alarm result: " +
-          result +
-          " reason "
-      );
+      debug(enableString + " tethering Alarm result: " + result + " reason ");
       if (aCallback) {
         aCallback.networkUsageAlarmResult(null);
       }
@@ -730,7 +715,13 @@ NetworkService.prototype = {
       let reason = aData.resultReason;
       let enableString = aEnable ? "Enable" : "Disable";
 
-      debug(enableString + " Wifi tethering result: " + result);
+      debug(
+        enableString +
+          " Wifi tethering result: " +
+          result +
+          " reason: " +
+          reason
+      );
 
       this.setNetworkTetheringAlarm(aEnable, aConfig.externalIfname);
 
@@ -858,22 +849,6 @@ NetworkService.prototype = {
     });
   },
 
-  configureInterface(aConfig, aCallback) {
-    let params = {
-      cmd: "configureInterface",
-      ifname: aConfig.ifname,
-      ipaddr: aConfig.ipaddr,
-      mask: aConfig.mask,
-      gateway_long: aConfig.gateway,
-      dns1_long: aConfig.dns1,
-      dns2_long: aConfig.dns2,
-    };
-
-    this.controlMessage(params, function(aResult) {
-      aCallback.nativeCommandResult(!aResult.error);
-    });
-  },
-
   dhcpRequest(aInterfaceName, aCallback) {
     let params = {
       cmd: "dhcpRequest",
@@ -891,39 +866,6 @@ NetworkService.prototype = {
   stopDhcp(aInterfaceName, aCallback) {
     let params = {
       cmd: "stopDhcp",
-      ifname: aInterfaceName,
-    };
-
-    this.controlMessage(params, function(aResult) {
-      aCallback.nativeCommandResult(!aResult.error);
-    });
-  },
-
-  enableInterface(aInterfaceName, aCallback) {
-    let params = {
-      cmd: "enableInterface",
-      ifname: aInterfaceName,
-    };
-
-    this.controlMessage(params, function(aResult) {
-      aCallback.nativeCommandResult(!aResult.error);
-    });
-  },
-
-  disableInterface(aInterfaceName, aCallback) {
-    let params = {
-      cmd: "disableInterface",
-      ifname: aInterfaceName,
-    };
-
-    this.controlMessage(params, function(aResult) {
-      aCallback.nativeCommandResult(!aResult.error);
-    });
-  },
-
-  resetConnections(aInterfaceName, aCallback) {
-    let params = {
-      cmd: "resetConnections",
       ifname: aInterfaceName,
     };
 
@@ -1033,7 +975,7 @@ NetworkService.prototype = {
     let params = {
       cmd: "startClatd",
       ifname: interfaceName,
-      nat64Prefix: nat64Prefix,
+      nat64Prefix,
     };
 
     this.controlMessage(params, aResult => {

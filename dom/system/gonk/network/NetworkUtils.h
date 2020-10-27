@@ -292,12 +292,8 @@ class NetworkUtils final {
   CommandResult addInterfaceToNetwork(NetworkParams& aOptions);
   CommandResult removeInterfaceToNetwork(NetworkParams& aOptions);
   CommandResult setIpv6PrivacyExtensions(NetworkParams& aOptions);
-  CommandResult configureInterface(NetworkParams& aOptions);
   CommandResult dhcpRequest(NetworkParams& aOptions);
   CommandResult stopDhcp(NetworkParams& aOptions);
-  CommandResult enableInterface(NetworkParams& aOptions);
-  CommandResult disableInterface(NetworkParams& aOptions);
-  CommandResult resetConnections(NetworkParams& aOptions);
   CommandResult getInterfaces(NetworkParams& aOptions);
   CommandResult getInterfaceConfig(NetworkParams& aOptions);
   CommandResult setInterfaceConfig(NetworkParams& aOptions);
