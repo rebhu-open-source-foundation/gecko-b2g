@@ -55,6 +55,8 @@ class BatteryManager : public DOMEventTargetHelper,
 
   bool Present() const;
 
+  static bool HasPermission(JSContext* aContext, JSObject* aGlobal);
+
   IMPL_EVENT_HANDLER(chargingchange)
   IMPL_EVENT_HANDLER(chargingtimechange)
   IMPL_EVENT_HANDLER(dischargingtimechange)

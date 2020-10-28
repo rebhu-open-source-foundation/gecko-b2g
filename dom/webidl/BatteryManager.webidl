@@ -19,7 +19,7 @@ enum BatteryHealth {
   "Unknown",
 };
 
-[ChromeOnly, Exposed=Window]
+[Exposed=Window]
 interface BatteryManager : EventTarget {
     readonly attribute boolean             charging;
     readonly attribute unrestricted double chargingTime;

@@ -128,8 +128,8 @@ Navigator includes NavigatorGeolocation;
 
 // http://www.w3.org/TR/battery-status/#navigatorbattery-interface
 partial interface Navigator {
-  // ChromeOnly to prevent web content from fingerprinting users' batteries.
-  [Throws, ChromeOnly, Pref="dom.battery.enabled"]
+  // Core apps only on b2g, to prevent web content from fingerprinting users' batteries.
+  [Throws, Func="battery::BatteryManager::HasPermission", Pref="dom.battery.enabled"]
   Promise<BatteryManager> getBattery();
 };
 

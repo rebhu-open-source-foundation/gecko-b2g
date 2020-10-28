@@ -15,6 +15,10 @@ SOURCES += [
     "BatteryManager.cpp",
 ]
 
+EXPORTS.mozilla.dom.battery += [
+    "BatteryManager.h",
+]
+
 include("/ipc/chromium/chromium-config.mozbuild")
 
 FINAL_LIBRARY = "xul"

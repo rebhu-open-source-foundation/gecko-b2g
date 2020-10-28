@@ -12,6 +12,7 @@
 #include "mozilla/Hal.h"
 #include "mozilla/dom/BatteryManagerBinding.h"
 #include "mozilla/Preferences.h"
+#include "nsContentPermissionHelper.h"
 #include "nsContentUtils.h"
 #include "mozilla/dom/Document.h"
 
@@ -226,4 +227,32 @@ void BatteryManager::Notify(const hal::BatteryInformation& aBatteryInfo) {
   }
 }
 
+// static
+bool BatteryManager::HasPermission(JSContext* aContext, JSObject* aGlobal) {
+  if (nsContentUtils::IsSystemCaller(aContext)) {
+    return true;
+  }
+
+  nsIPrincipal* principal = nsContentUtils::ObjectPrincipal(aGlobal);
+  if (NS_WARN_IF(!principal)) {
+    return false;
+  }
+
+  nsCOMPtr<nsIPermissionManager> permissionManager =
+      services::GetPermissionManager();
+  if (NS_WARN_IF(!permissionManager)) {
+    return false;
+  }
+
+  uint32_t permission = nsIPermissionManager::UNKNOWN_ACTION;
+  permissionManager->TestExactPermissionFromPrincipal(principal, "battery"_ns,
+                                                      &permission);
+
+  if (permission == nsIPermissionManager::ALLOW_ACTION ||
+      permission == nsIPermissionManager::PROMPT_ACTION) {
+    return true;
+  }
+
+  return false;
+}
 }  // namespace mozilla::dom::battery
