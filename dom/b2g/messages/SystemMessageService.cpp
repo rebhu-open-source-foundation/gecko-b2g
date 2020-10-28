@@ -50,6 +50,20 @@ void BuildPermissionsTable() {
    * key names (system message names) in alphabetical order.
    **/
   sSystemMessagePermissionsTable.Put(u"activity"_ns, EmptyCString());
+  sSystemMessagePermissionsTable.Put(u"bluetooth-dialer-command"_ns,
+                                     "bluetooth-privileged"_ns);
+  sSystemMessagePermissionsTable.Put(
+      u"bluetooth-opp-receiving-file-confirmation"_ns,
+      "bluetooth-privileged"_ns);
+  sSystemMessagePermissionsTable.Put(u"bluetooth-opp-transfer-complete"_ns,
+                                     "bluetooth-privileged"_ns);
+  sSystemMessagePermissionsTable.Put(u"bluetooth-opp-transfer-start"_ns,
+                                     "bluetooth-privileged"_ns);
+  sSystemMessagePermissionsTable.Put(u"bluetooth-opp-update-progress"_ns,
+                                     "bluetooth-privileged"_ns);
+  sSystemMessagePermissionsTable.Put(u"bluetooth-pairing-request"_ns,
+                                     "bluetooth-privileged"_ns);
+  sSystemMessagePermissionsTable.Put(u"media-button"_ns, EmptyCString());
   /**
    * Note: Please do NOT directly add new entries at the bottom of this table,
    * try to insert them alphabetically.

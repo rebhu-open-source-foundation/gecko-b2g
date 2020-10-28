@@ -4,10 +4,17 @@ System messages are messages from the system, they are sent by the system based 
 
 ## Message types
 
-| **Name** | **Permission**  |
-| :---:    | :---------:     |
-| activity |                 |
-| alarm    |                 |
+| **Name**                                  | **Permission**       |
+| :-                                        | :-                   |
+| activity                                  |                      |
+| alarm                                     |                      |
+| bluetooth-dialer-command                  | bluetooth-privileged |
+| bluetooth-opp-receiving-file-confirmation | bluetooth-privileged |
+| bluetooth-opp-transfer-complete           | bluetooth-privileged |
+| bluetooth-opp-transfer-start              | bluetooth-privileged |
+| bluetooth-opp-update-progress             | bluetooth-privileged |
+| bluetooth-pairing-request                 | bluetooth-privileged |
+| media-button                              |                      |
 
 ## For front-end and application developers
 
@@ -56,11 +63,11 @@ navigator.serviceWorker.register("sw.js").then(registration => {
   registration.systemMessageManager.subscribe("alarm").then(
     rv => {
       console.log('Successfully subscribe system messages of name "alarm".');
-    },  
+    },
     error => {
       console.log("Fail to subscribe system message, error: " + error);
-    }   
-  );  
+    }
+  );
 });
 ```
 
@@ -69,7 +76,7 @@ navigator.serviceWorker.register("sw.js").then(registration => {
 self.registration.systemMessageManager.subscribe("alarm").then(
   rv => {
     console.log('Successfully subscribe system messages of name "alarm".');
-  },  
+  },
   error => {
     console.log("Fail to subscribe system message, error: " + error);
   }
