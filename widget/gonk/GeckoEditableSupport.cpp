@@ -842,17 +842,19 @@ nsresult GeckoEditableSupport::GetInputContextBag(
   if (!focusManager) return NS_ERROR_ABORT;
   Element* focusedElement = focusManager->GetFocusedElement();
   if (!focusedElement) return NS_ERROR_ABORT;
+  nsCOMPtr<Document> doc = focusedElement->GetComposedDoc();
+  Element* activeElement = doc->GetActiveElement();
 
   nsAutoString attributeValue;
 
   // type
-  focusedElement->GetTagName(attributeValue);
+  activeElement->GetTagName(attributeValue);
   aInputContext->SetType(attributeValue);
   IME_LOGD("InputContext: type:[%s]",
            NS_ConvertUTF16toUTF8(attributeValue).get());
 
   // inputType
-  focusedElement->GetAttribute(u"type"_ns, attributeValue);
+  activeElement->GetAttribute(u"type"_ns, attributeValue);
   aInputContext->SetInputType(attributeValue);
   IME_LOGD("InputContext: inputType:[%s]",
            NS_ConvertUTF16toUTF8(attributeValue).get());
