@@ -98,7 +98,8 @@ BluetoothService::ToggleBtAck::Run() {
   return NS_OK;
 }
 
-NS_IMPL_ISUPPORTS(BluetoothService, nsIObserver)
+NS_IMPL_ISUPPORTS(BluetoothService, nsIObserver, nsISettingsGetResponse,
+                  nsISettingsGetResponse, nsISettingsObserver)
 
 bool BluetoothService::IsToggling() const { return sToggleInProgress; }
 
@@ -126,6 +127,11 @@ bool BluetoothService::Init() {
 
   if (NS_FAILED(obs->AddObserver(this, NS_XPCOM_SHUTDOWN_OBSERVER_ID, false))) {
     BT_WARNING("Failed to add shutdown observer!");
+    return false;
+  }
+
+  if (NS_FAILED(HandleStartup())) {
+    BT_WARNING("Failed to HandleStartup");
     return false;
   }
 
@@ -439,11 +445,15 @@ nsresult BluetoothService::HandleStartup() {
 
   nsCOMPtr<nsISettingsManager> settings =
       do_GetService("@mozilla.org/sidl-native/settings;1");
-  if (settings) {
-    settings->Get(BLUETOOTH_ENABLED_SETTING, this);
-    settings->Get(BLUETOOTH_DEBUGGING_SETTING, this);
-    settings->AddObserver(BLUETOOTH_DEBUGGING_SETTING, this, this);
+
+  if (!settings) {
+    BT_WARNING("Failed to get nsISettingsManager");
+    return NS_ERROR_FAILURE;
   }
+
+  settings->Get(BLUETOOTH_ENABLED_SETTING, this);
+  settings->Get(BLUETOOTH_DEBUGGING_SETTING, this);
+  settings->AddObserver(BLUETOOTH_DEBUGGING_SETTING, this, this);
 
   sToggleInProgress = true;
   return NS_OK;
@@ -613,10 +623,6 @@ BluetoothService* BluetoothService::Get() {
 nsresult BluetoothService::Observe(nsISupports* aSubject, const char* aTopic,
                                    const char16_t* aData) {
   MOZ_ASSERT(NS_IsMainThread());
-
-  if (!strcmp(aTopic, "profile-after-change")) {
-    return HandleStartup();
-  }
 
   if (!strcmp(aTopic, NS_XPCOM_SHUTDOWN_OBSERVER_ID)) {
     /**
