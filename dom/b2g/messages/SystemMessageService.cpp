@@ -64,7 +64,19 @@ void BuildPermissionsTable() {
                                      "bluetooth-privileged"_ns);
   sSystemMessagePermissionsTable.Put(u"bluetooth-pairing-request"_ns,
                                      "bluetooth-privileged"_ns);
+  sSystemMessagePermissionsTable.Put(u"cellbroadcast-received"_ns, "cellbroadcast"_ns);
+  sSystemMessagePermissionsTable.Put(u"icc-stkcommand"_ns, "settings:read,settings:write"_ns);
   sSystemMessagePermissionsTable.Put(u"media-button"_ns, EmptyCString());
+  sSystemMessagePermissionsTable.Put(u"sms-delivery-error"_ns, "sms"_ns);
+  sSystemMessagePermissionsTable.Put(u"sms-delivery-success"_ns, "sms"_ns);
+  sSystemMessagePermissionsTable.Put(u"sms-failed"_ns, "sms"_ns);
+  sSystemMessagePermissionsTable.Put(u"sms-received"_ns, "sms"_ns);
+  sSystemMessagePermissionsTable.Put(u"sms-sent"_ns, "sms"_ns);
+  sSystemMessagePermissionsTable.Put(u"telephony-call-ended"_ns, "telephony"_ns);
+  sSystemMessagePermissionsTable.Put(u"telephony-hac-mode-changed"_ns, "telephony"_ns);
+  sSystemMessagePermissionsTable.Put(u"telephony-new-call"_ns, "telephony"_ns);
+  sSystemMessagePermissionsTable.Put(u"telephony-tty-mode-changed"_ns, "telephony"_ns);
+  sSystemMessagePermissionsTable.Put(u"ussd-received"_ns, "mobileconnection"_ns);
   /**
    * Note: Please do NOT directly add new entries at the bottom of this table,
    * try to insert them alphabetically.

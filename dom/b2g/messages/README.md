@@ -14,7 +14,19 @@ System messages are messages from the system, they are sent by the system based 
 | bluetooth-opp-transfer-start              | bluetooth-privileged |
 | bluetooth-opp-update-progress             | bluetooth-privileged |
 | bluetooth-pairing-request                 | bluetooth-privileged |
+| cellbroadcast-received                    | cellbroadcast        |
+| icc-stkcommand                            | settings:read, settings:write |
 | media-button                              |                      |
+| sms-delivery-error                        | sms                  |
+| sms-delivery-success                      | sms                  |
+| sms-failed                                | sms                  |
+| sms-received                              | sms                  |
+| sms-sent                                  | sms                  |
+| telephony-call-ended                      | telephony            |
+| telephony-hac-mode-changed                | telephony            |
+| telephony-new-call                        | telephony            |
+| telephony-tty-mode-changed                | telephony            |
+| ussd-received                             | mobileconnection     |
 
 ## For front-end and application developers
 
