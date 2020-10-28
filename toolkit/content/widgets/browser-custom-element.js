@@ -1291,11 +1291,16 @@
     webViewSetCursorEnable(enable) {
       console.log(`webViewSetCursorEnable ${enable}`);
       let mm = this.messageManager;
-      mm.sendAsyncMessage("WebView::SetCursorEnable", { enable });
+      if (mm) {
+        mm.sendAsyncMessage("WebView::SetCursorEnable", { enable });
+      }
     }
 
     webViewGetCursorEnabled() {
       console.log(`webViewGetCursorEnabled`);
+      if (!this.messageManager) {
+        return Promise.reject();
+      }
       let id = `WebView::GetCursorEnabled::${this.webViewRequestId}`;
       this.webViewRequestId += 1;
       return new Promise((resolve, reject) => {
