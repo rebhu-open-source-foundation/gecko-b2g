@@ -11,8 +11,6 @@ using namespace mozilla::intl;
 
 OSPreferences::OSPreferences() {}
 
-OSPreferences::~OSPreferences() {}
-
 bool OSPreferences::ReadSystemLocales(nsTArray<nsCString>& aLocaleList) {
   return false;
 }
@@ -23,9 +21,11 @@ bool OSPreferences::ReadRegionalPrefsLocales(nsTArray<nsCString>& aLocaleList) {
   return ReadSystemLocales(aLocaleList);
 }
 
-bool OSPreferences::ReadDateTimePattern(DateTimeFormatStyle aDateStyle,
-                                        DateTimeFormatStyle aTimeStyle,
+bool OSPreferences::ReadDateTimePattern(DateTimeFormatStyle aDateFormatStyle,
+                                        DateTimeFormatStyle aTimeFormatStyle,
                                         const nsACString& aLocale,
-                                        nsAString& aRetVal) {
+                                        nsACString& aRetVal) {
   return false;
 }
+
+void OSPreferences::RemoveObservers() {}

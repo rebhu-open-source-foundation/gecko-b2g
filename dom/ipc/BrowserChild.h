@@ -449,8 +449,6 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
 
   void SetBackgroundColor(const nscolor& aColor);
 
-  void NotifyPainted();
-
   MOZ_CAN_RUN_SCRIPT_BOUNDARY virtual mozilla::ipc::IPCResult RecvUpdateEffects(
       const EffectsInfo& aEffects);
 
@@ -723,9 +721,6 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
 
   mozilla::ipc::IPCResult RecvSetDocShellIsActive(const bool& aIsActive);
 
-  mozilla::ipc::IPCResult RecvSetSuspendMediaWhenInactive(
-      const bool& aSuspendMediaWhenInactive);
-
   MOZ_CAN_RUN_SCRIPT_BOUNDARY
   mozilla::ipc::IPCResult RecvRenderLayers(
       const bool& aEnabled, const layers::LayersObserverEpoch& aEpoch);
@@ -809,8 +804,6 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
 
   void InternalSetDocShellIsActive(bool aIsActive);
 
-  void InternalSetSuspendMediaWhenInactive(bool aSuspendMediaWhenInactive);
-
   bool CreateRemoteLayerManager(
       mozilla::layers::PCompositorBridgeChild* aCompositorChild);
 
@@ -839,7 +832,6 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
   Maybe<bool> mLayersConnected;
   EffectsInfo mEffectsInfo;
   bool mDidFakeShow;
-  bool mNotified;
   bool mTriedBrowserInit;
   hal::ScreenOrientation mOrientation;
 
@@ -931,7 +923,6 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
   // states temporarily as "pending", and only apply them once the DocShell
   // is no longer blocked.
   bool mPendingDocShellIsActive;
-  bool mPendingSuspendMediaWhenInactive;
   bool mPendingDocShellReceivedMessage;
   bool mPendingRenderLayers;
   bool mPendingRenderLayersReceivedMessage;
