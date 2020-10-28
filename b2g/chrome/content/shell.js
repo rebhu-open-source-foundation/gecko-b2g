@@ -161,6 +161,12 @@ var shell = {
     };
     this.contentBrowser.addProgressListener(listener);
 
+    Services.ppmm.addMessageListener("content-handler", this);
+    Services.ppmm.addMessageListener("dial-handler", this);
+    Services.ppmm.addMessageListener("sms-handler", this);
+    Services.ppmm.addMessageListener("mail-handler", this);
+    Services.ppmm.addMessageListener("file-picker", this);
+
     debug(`Setting system url to ${startURL}`);
 
     this.contentBrowser.src = startURL;
@@ -173,6 +179,11 @@ var shell = {
   stop() {
     window.removeEventListener("unload", this);
     window.removeEventListener("sizemodechange", this);
+    Services.ppmm.removeMessageListener("content-handler", this);
+    Services.ppmm.removeMessageListener("dial-handler", this);
+    Services.ppmm.removeMessageListener("sms-handler", this);
+    Services.ppmm.removeMessageListener("mail-handler", this);
+    Services.ppmm.removeMessageListener("file-picker", this);
   },
 
   handleEvent(event) {
@@ -196,6 +207,44 @@ var shell = {
       case "unload":
         this.stop();
         break;
+    }
+  },
+
+  receiveMessage(message) {
+    const activities = {
+      "content-handler": { name: "view" },
+      "dial-handler": { name: "dial" },
+      "mail-handler": { name: "new" },
+      "sms-handler": { name: "new" },
+      "file-picker": { name: "pick", response: "file-picked" },
+    };
+
+    if (!(message.name in activities)) {
+      return;
+    }
+
+    let data = message.data;
+    let activity = activities[message.name];
+
+    let a = new window.WebActivity({
+      name: activity.name,
+      data,
+    });
+
+    let promise = a.start();
+    if (activity.response) {
+      let sender = message.target.QueryInterface(Ci.nsIMessageSender);
+      promise.then(
+        result => {
+          sender.sendAsyncMessage(activity.response, {
+            success: true,
+            result,
+          });
+        },
+        error => {
+          sender.sendAsyncMessage(activity.response, { success: false });
+        }
+      );
     }
   },
 
