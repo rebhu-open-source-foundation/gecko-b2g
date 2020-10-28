@@ -355,6 +355,13 @@ XPCOMUtils.defineLazyGetter(this, "Screenshot", function() {
         );
       }, "mtp-state-changed");
 
+      Services.obs.addObserver((subject, topic, data) => {
+        _webembed_log(`receive volume-state-changed: ${data}`);
+        this.dispatchEvent(
+          new CustomEvent("volume-state-changed", { detail: data })
+        );
+      }, "volume-state-changed");
+
       // whether geolocation service is active
       this.geolocationActive = false;
 
