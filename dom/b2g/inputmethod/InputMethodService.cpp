@@ -46,58 +46,60 @@ already_AddRefed<InputMethodService> InputMethodService::GetInstance() {
 void InputMethodService::SetComposition(const nsAString& aText,
                                         nsIInputMethodListener* aListener) {
   IME_LOGD("InputMethodService::SetComposition");
+  if (!mEditableSupportListener) return;
   mEditableSupportListener->DoSetComposition(aText);
   // TODO resolve/reject on result of DoSetComposition.
   aListener->OnSetComposition(NS_OK);
-  return;
 }
 
 void InputMethodService::EndComposition(const nsAString& aText,
                                         nsIInputMethodListener* aListener) {
-  IME_LOGD("InputMethodService::EndComposition");
+  IME_LOGD("InputMethodService::EndComposition. mEditableSupportListener:[%p]",
+           mEditableSupportListener.get());
+  if (!mEditableSupportListener) return;
   mEditableSupportListener->DoEndComposition(aText);
   // TODO resolve/reject on result of DoEndComposition.
   aListener->OnEndComposition(NS_OK);
-  return;
 }
 
 void InputMethodService::Keydown(const nsAString& aKey,
                                  nsIInputMethodListener* aListener) {
   IME_LOGD("InputMethodService::Keydown");
+  if (!mEditableSupportListener) return;
   mEditableSupportListener->DoKeydown(aKey);
   // TODO resolve/reject on result of DoKeydown.
   aListener->OnKeydown(NS_OK);
-  return;
 }
 
 void InputMethodService::Keyup(const nsAString& aKey,
                                nsIInputMethodListener* aListener) {
   IME_LOGD("InputMethodService::Keyup");
+  if (!mEditableSupportListener) return;
   mEditableSupportListener->DoKeyup(aKey);
   // TODO resolve/reject on result of DoKeyup.
   aListener->OnKeyup(NS_OK);
-  return;
 }
 
 void InputMethodService::SendKey(const nsAString& aKey,
                                  nsIInputMethodListener* aListener) {
   IME_LOGD("InputMethodService::SendKey");
+  if (!mEditableSupportListener) return;
   mEditableSupportListener->DoSendKey(aKey);
   // TODO resolve/reject on result of DoSendKey.
   aListener->OnSendKey(NS_OK);
-  return;
 }
 
 void InputMethodService::DeleteBackward(nsIInputMethodListener* aListener) {
   IME_LOGD("InputMethodService::DeleteBackward");
+  if (!mEditableSupportListener) return;
   mEditableSupportListener->DoDeleteBackward();
   // TODO resolve/reject on result of DoDeleteBackward.
   aListener->OnDeleteBackward(NS_OK);
-  return;
 }
 
 void InputMethodService::SetSelectedOption(int32_t aOptionIndex) {
   IME_LOGD("InputMethodService::SetSelectedOption:[%ld]", aOptionIndex);
+  if (!mEditableSupportListener) return;
   mEditableSupportListener->DoSetSelectedOption(aOptionIndex);
 }
 
@@ -105,11 +107,13 @@ void InputMethodService::SetSelectedOptions(
     const nsTArray<int32_t>& aOptionIndexes) {
   IME_LOGD("InputMethodService::SetSelectedOptions, length:[%d]",
            aOptionIndexes.Length());
+  if (!mEditableSupportListener) return;
   mEditableSupportListener->DoSetSelectedOptions(aOptionIndexes);
 }
 
 void InputMethodService::RemoveFocus() {
   IME_LOGD("InputMethodService::RemoveFocus");
+  if (!mEditableSupportListener) return;
   mEditableSupportListener->DoRemoveFocus();
 }
 

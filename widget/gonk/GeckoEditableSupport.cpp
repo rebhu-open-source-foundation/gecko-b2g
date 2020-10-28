@@ -683,12 +683,12 @@ GeckoEditableSupport::DoSendKey(const nsAString& aKey) {
   IME_LOGD("-- EditableSupport DoSendKey");
   IME_LOGD("-- EditableSupport aKey:[%s]", NS_ConvertUTF16toUTF8(aKey).get());
   IME_LOGD("-- EditableSupport mDispatcher:[%p]", mDispatcher.get());
-  // Handle value
-  nsresult rv = mDispatcher->GetState();
+  RefPtr<TextEventDispatcher> kungFuDeathGrip(mDispatcher);
+  nsresult rv = kungFuDeathGrip->GetState();
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
-  nsCOMPtr<nsIWidget> widget = mDispatcher->GetWidget();
+  nsCOMPtr<nsIWidget> widget = kungFuDeathGrip->GetWidget();
   WidgetKeyboardEvent event(true, eVoidEvent, widget);
   event.mKeyNameIndex = WidgetKeyboardEvent::GetKeyNameIndex(aKey);
   if (event.mKeyNameIndex == KEY_NAME_INDEX_USE_STRING) {
@@ -699,12 +699,10 @@ GeckoEditableSupport::DoSendKey(const nsAString& aKey) {
     IME_LOGD("-- EditableSupport DoSendKey: mKeyCode:[%d]", event.mKeyCode);
   }
   nsEventStatus status = nsEventStatus_eIgnore;
-  if (mDispatcher->DispatchKeyboardEvent(eKeyDown, event, status)) {
-    mDispatcher->MaybeDispatchKeypressEvents(event, status);
+  if (kungFuDeathGrip->DispatchKeyboardEvent(eKeyDown, event, status)) {
+    kungFuDeathGrip->MaybeDispatchKeypressEvents(event, status);
   }
-  // If blur at keydown, we may lose mDispatcher before keyup.
-  if (!mDispatcher) return NS_OK;
-  mDispatcher->DispatchKeyboardEvent(eKeyUp, event, status);
+  kungFuDeathGrip->DispatchKeyboardEvent(eKeyUp, event, status);
   return NS_OK;
 }
 
