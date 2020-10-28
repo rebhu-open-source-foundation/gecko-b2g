@@ -254,3 +254,9 @@ partial interface B2G {
   [Throws, Func="DOMVirtualCursor::HasPermission", Pref="dom.virtualcursor.enabled"]
   readonly attribute DOMVirtualCursor virtualCursor;
 };
+
+[Exposed=Window]
+partial interface B2G {
+  [ChromeOnly]
+  void setDispatchKeyToContentFirst(boolean enable);
+};

@@ -318,6 +318,11 @@ class EventStateManager : public nsSupportsWeakReference, public nsIObserver {
   static nsWeakPtr sPointerLockedElement;
   static nsWeakPtr sPointerLockedDoc;
 
+  static bool sDispatchKeyToContentFirst;
+  static void SetDispatchKeyToContentFirst(bool aEnable) {
+    sDispatchKeyToContentFirst = aEnable;
+  }
+
   /**
    * If the absolute values of mMultiplierX and/or mMultiplierY are equal or
    * larger than this value, the computed scroll amount isn't rounded down to

@@ -143,8 +143,14 @@ static UniquePtr<WidgetMouseEvent> CreateMouseOrPointerWidgetEvent(
     WidgetMouseEvent* aMouseEvent, EventMessage aMessage,
     EventTarget* aRelatedTarget);
 
+bool EventStateManager::sDispatchKeyToContentFirst = false;
+
 static bool DispatchKeyToContentFirst(WidgetKeyboardEvent* aKeyEvent) {
   if (!aKeyEvent) {
+    return false;
+  }
+
+  if (!EventStateManager::sDispatchKeyToContentFirst) {
     return false;
   }
 

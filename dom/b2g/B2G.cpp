@@ -6,6 +6,7 @@
 
 #include "mozilla/dom/B2G.h"
 #include "mozilla/dom/B2GBinding.h"
+#include "mozilla/EventStateManager.h"
 #include "nsIPermissionManager.h"
 
 namespace mozilla {
@@ -893,6 +894,10 @@ UsbManager* B2G::GetUsbManager(ErrorResult& aRv) {
   }
 
   return mUsbManager;
+}
+
+void B2G::SetDispatchKeyToContentFirst(bool aEnable) {
+  EventStateManager::SetDispatchKeyToContentFirst(aEnable);
 }
 
 }  // namespace dom

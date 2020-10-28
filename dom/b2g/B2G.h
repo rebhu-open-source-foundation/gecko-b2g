@@ -175,6 +175,8 @@ class B2G final : public nsIDOMMozWakeLockListener, public nsWrapperCache {
   already_AddRefed<nsDOMDeviceStorage> GetDeviceStorageByNameAndType(
       const nsAString& aName, const nsAString& aType, ErrorResult& aRv);
 
+  void SetDispatchKeyToContentFirst(bool aEnable);
+
   // Shutting down.
   void Shutdown();
 
