@@ -221,9 +221,6 @@ extern "C" const char* __tsan_default_suppressions() {
          // Bug 1506812
          "race:BeginBackgroundRead\n"
 
-         // Bug 1506910
-         "race:gMozillaPoisonValue\n"
-
          // Bug 1601286
          "race:setFlagBit\n"
          "race:isFatInline\n"
@@ -259,31 +256,17 @@ extern "C" const char* __tsan_default_suppressions() {
          "race:nsSocketTransport::Close\n"
          "race:nsSocketTransport::OnSocketDetached\n"
 
-         // Bug 1607138
-         "race:gXPCOMThreadsShutDown\n"
-
          // Bug 1607446
          "race:nsJARChannel::Suspend\n"
          "race:nsJARChannel::Resume\n"
 
-         // Bug 1607588
-         "race:nssSlot_GetToken\n"
-         "race:nssToken_Destroy\n"
-
-         // Bug 1607704
-         "race:nsUrlClassifierDBServiceWorker::OpenDb\n"
-         "race:nsUrlClassifierDBServiceWorker::Shutdown\n"
-
-         // Bug 1607706
-         "race:TemporaryIPCBlobParent::CreateAndShareFile\n"
+         // Bug 1607449
+         "race:fill_CERTCertificateFields\n"
+         "race:CERT_DestroyCertificate\n"
 
          // Bug 1608068
          "race:makeOwnBaseShape\n"
          "race:numDynamicSlots\n"
-
-         // Bug 1608357
-         "race:nsHtml5ExecutorFlusher::Run\n"
-         "race:geckoservo::glue::traverse_subtree\n"
 
          // Bug 1615017
          "race:CacheFileMetadata::SetHash\n"

@@ -1896,7 +1896,7 @@
 # adaptative version of this.
 - name: dom.image-lazy-loading.root-margin.top
   type: float
-  value: 0
+  value: 300
   mirror: always
 
 - name: dom.image-lazy-loading.root-margin.top.percentage
@@ -1906,7 +1906,7 @@
 
 - name: dom.image-lazy-loading.root-margin.bottom
   type: float
-  value: 0
+  value: 300
   mirror: always
 
 - name: dom.image-lazy-loading.root-margin.bottom.percentage
@@ -1916,7 +1916,7 @@
 
 - name: dom.image-lazy-loading.root-margin.left
   type: float
-  value: 0
+  value: 300
   mirror: always
 
 - name: dom.image-lazy-loading.root-margin.left.percentage
@@ -1926,7 +1926,7 @@
 
 - name: dom.image-lazy-loading.root-margin.right
   type: float
-  value: 0
+  value: 300
   mirror: always
 
 - name: dom.image-lazy-loading.root-margin.right.percentage
@@ -6600,6 +6600,11 @@
   value: true
   mirror: always
 
+- name: layout.display-list.improve-fragmentation
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
 # Are dynamic reflow roots enabled?
 - name: layout.dynamic-reflow-roots.enabled
   type: bool
@@ -8900,6 +8905,12 @@
 - name: network.dns.httpssvc.http3_fast_fallback_timeout
   type: RelaxedAtomicUint32
   value: 50
+  mirror: always
+
+# Whether to use https rr for speculative connections.
+- name: network.dns.use_https_rr_for_speculative_connection
+  type: RelaxedAtomicBool
+  value: false
   mirror: always
 
 #---------------------------------------------------------------------------

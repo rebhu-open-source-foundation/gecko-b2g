@@ -1193,6 +1193,13 @@ void LIRGenerator::lowerBitOp(JSOp op, MBinaryBitwiseInstruction* ins) {
 
 void LIRGenerator::visitTypeOf(MTypeOf* ins) {
   MDefinition* opd = ins->input();
+
+  if (opd->type() == MIRType::Object) {
+    auto* lir = new (alloc()) LTypeOfO(useRegister(opd));
+    define(lir, ins);
+    return;
+  }
+
   MOZ_ASSERT(opd->type() == MIRType::Value);
 
   LTypeOfV* lir = new (alloc()) LTypeOfV(useBox(opd), tempToUnbox());
@@ -3113,6 +3120,14 @@ void LIRGenerator::visitGetNextEntryForIterator(MGetNextEntryForIterator* ins) {
                                                     temp(), temp(), temp());
   define(lir, ins);
   assignSafepoint(lir, ins);
+}
+
+void LIRGenerator::visitArrayBufferByteLengthInt32(
+    MArrayBufferByteLengthInt32* ins) {
+  MOZ_ASSERT(ins->object()->type() == MIRType::Object);
+  auto* lir = new (alloc())
+      LArrayBufferByteLengthInt32(useRegisterAtStart(ins->object()));
+  define(lir, ins);
 }
 
 void LIRGenerator::visitArrayBufferViewLength(MArrayBufferViewLength* ins) {

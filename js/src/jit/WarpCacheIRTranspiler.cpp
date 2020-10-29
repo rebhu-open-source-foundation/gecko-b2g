@@ -1268,6 +1268,21 @@ bool WarpCacheIRTranspiler::emitLoadConstantString(uint32_t strOffset,
   return defineOperand(resultId, valConst);
 }
 
+bool WarpCacheIRTranspiler::emitLoadConstantStringResult(uint32_t strOffset) {
+  JSString* val = stringStubField(strOffset);
+  auto* valConst = constant(StringValue(val));
+  pushResult(valConst);
+  return true;
+}
+
+bool WarpCacheIRTranspiler::emitLoadTypeOfObjectResult(ObjOperandId objId) {
+  MDefinition* obj = getOperand(objId);
+  auto* ins = MTypeOf::New(alloc(), obj);
+  add(ins);
+  pushResult(ins);
+  return true;
+}
+
 bool WarpCacheIRTranspiler::emitLoadEnclosingEnvironment(
     ObjOperandId objId, ObjOperandId resultId) {
   MDefinition* env = getOperand(objId);
@@ -1474,6 +1489,17 @@ bool WarpCacheIRTranspiler::emitLoadFunctionNameResult(ObjOperandId objId) {
   add(name);
 
   pushResult(name);
+  return true;
+}
+
+bool WarpCacheIRTranspiler::emitLoadArrayBufferByteLengthInt32Result(
+    ObjOperandId objId) {
+  MDefinition* obj = getOperand(objId);
+
+  auto* length = MArrayBufferByteLengthInt32::New(alloc(), obj);
+  add(length);
+
+  pushResult(length);
   return true;
 }
 

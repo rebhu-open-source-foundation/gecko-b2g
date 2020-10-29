@@ -4757,7 +4757,8 @@ class MBitNot : public MUnaryInstruction, public BitwisePolicy::Data {
   ALLOW_CLONE(MBitNot)
 };
 
-class MTypeOf : public MUnaryInstruction, public BoxInputsPolicy::Data {
+class MTypeOf : public MUnaryInstruction,
+                public BoxExceptPolicy<0, MIRType::Object>::Data {
   bool inputMaybeCallableOrEmulatesUndefined_;
 
   explicit MTypeOf(MDefinition* def)
@@ -7773,6 +7774,28 @@ class MGetNextEntryForIterator
   NAMED_OPERANDS((0, iter), (1, result))
 
   Mode mode() const { return mode_; }
+};
+
+// Read the byte length of an array buffer as int32.
+class MArrayBufferByteLengthInt32 : public MUnaryInstruction,
+                                    public SingleObjectPolicy::Data {
+  explicit MArrayBufferByteLengthInt32(MDefinition* obj)
+      : MUnaryInstruction(classOpcode, obj) {
+    setResultType(MIRType::Int32);
+    setMovable();
+  }
+
+ public:
+  INSTRUCTION_HEADER(ArrayBufferByteLengthInt32)
+  TRIVIAL_NEW_WRAPPERS
+  NAMED_OPERANDS((0, object))
+
+  bool congruentTo(const MDefinition* ins) const override {
+    return congruentIfOperandsEqual(ins);
+  }
+  AliasSet getAliasSet() const override {
+    return AliasSet::Load(AliasSet::FixedSlot);
+  }
 };
 
 // Read the length of an array buffer view.
@@ -14281,6 +14304,9 @@ class MWasmBinarySimd128 : public MBinaryInstruction,
     return ins->toWasmBinarySimd128()->simdOp() == simdOp_ &&
            congruentIfOperandsEqual(ins);
   }
+#ifdef ENABLE_WASM_SIMD
+  MDefinition* foldsTo(TempAllocator& alloc) override;
+#endif
 
   wasm::SimdOp simdOp() const { return simdOp_; }
 

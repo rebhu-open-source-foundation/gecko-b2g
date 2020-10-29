@@ -12,10 +12,13 @@
 #include "RemoveTask.h"
 #include "CopyOrMoveToTask.h"
 #include "RenameToTask.h"
+#include "GetFilesTask.h"
 
 #include "mozilla/dom/ContentParent.h"
 #include "mozilla/dom/FileSystemBase.h"
 #include "mozilla/dom/FileSystemSecurity.h"
+#include "mozilla/ipc/BackgroundParent.h"
+#include "mozilla/dom/OSFileSystem.h"
 #include "mozilla/Unused.h"
 #include "nsProxyRelease.h"
 

@@ -648,9 +648,6 @@ class MacroAssembler : public MacroAssemblerSpecific {
   inline void passABIArg(FloatRegister reg, MoveOp::Type type);
 
   inline void callWithABI(
-      void* fun, MoveOp::Type result = MoveOp::GENERAL,
-      CheckUnsafeCallWithABI check = CheckUnsafeCallWithABI::Check);
-  inline void callWithABI(
       DynFn fun, MoveOp::Type result = MoveOp::GENERAL,
       CheckUnsafeCallWithABI check = CheckUnsafeCallWithABI::Check);
   template <typename Sig, Sig fun>
@@ -2760,15 +2757,15 @@ class MacroAssembler : public MacroAssemblerSpecific {
   std::pair<CodeOffset, uint32_t> wasmReserveStackChecked(
       uint32_t amount, wasm::BytecodeOffset trapOffset);
 
-  // Emit a bounds check against the wasm heap limit, jumping to 'label' if
-  // 'cond' holds. If JitOptions.spectreMaskIndex is true, in speculative
-  // executions 'index' is saturated in-place to 'boundsCheckLimit'.
-  void wasmBoundsCheck(Condition cond, Register index,
-                       Register boundsCheckLimit, Label* label)
+  // Emit a bounds check against the wasm heap limit for 32-bit memory, jumping
+  // to 'label' if 'cond' holds. If JitOptions.spectreMaskIndex is true, in
+  // speculative executions 'index' is saturated in-place to 'boundsCheckLimit'.
+  void wasmBoundsCheck32(Condition cond, Register index,
+                         Register boundsCheckLimit, Label* label)
       DEFINED_ON(arm, arm64, mips32, mips64, x86_shared);
 
-  void wasmBoundsCheck(Condition cond, Register index, Address boundsCheckLimit,
-                       Label* label)
+  void wasmBoundsCheck32(Condition cond, Register index,
+                         Address boundsCheckLimit, Label* label)
       DEFINED_ON(arm, arm64, mips32, mips64, x86_shared);
 
   // Each wasm load/store instruction appends its own wasm::Trap::OutOfBounds.
@@ -3776,26 +3773,6 @@ class MacroAssembler : public MacroAssemblerSpecific {
   void iteratorClose(Register obj, Register temp1, Register temp2,
                      Register temp3);
 
-  using MacroAssemblerSpecific::extractTag;
-  MOZ_MUST_USE Register extractTag(const TypedOrValueRegister& reg,
-                                   Register scratch) {
-    if (reg.hasValue()) {
-      return extractTag(reg.valueReg(), scratch);
-    }
-    mov(ImmWord(MIRTypeToTag(reg.type())), scratch);
-    return scratch;
-  }
-
-  using MacroAssemblerSpecific::extractObject;
-  MOZ_MUST_USE Register extractObject(const TypedOrValueRegister& reg,
-                                      Register scratch) {
-    if (reg.hasValue()) {
-      return extractObject(reg.valueReg(), scratch);
-    }
-    MOZ_ASSERT(reg.type() == MIRType::Object);
-    return reg.typedReg().gpr();
-  }
-
   // Inline version of js_TypedArray_uint8_clamp_double.
   // This function clobbers the input register.
   void clampDoubleToUint8(FloatRegister input, Register output) PER_ARCH;
@@ -3906,6 +3883,10 @@ class MacroAssembler : public MacroAssemblerSpecific {
       Register obj, ValueOperand output,
       JS::ExpandoAndGeneration* expandoAndGeneration, uint64_t generation,
       Label* fail);
+
+  void loadArrayBufferByteLengthInt32(Register obj, Register output);
+  void loadArrayBufferViewByteOffsetInt32(Register obj, Register output);
+  void loadArrayBufferViewLengthInt32(Register obj, Register output);
 
  private:
   void isCallableOrConstructor(bool isCallable, Register obj, Register output,

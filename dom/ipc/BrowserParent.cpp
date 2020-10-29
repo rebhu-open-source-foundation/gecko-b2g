@@ -80,6 +80,7 @@
 #include "nsIXPConnect.h"
 #include "nsIXULBrowserWindow.h"
 #include "nsIAppWindow.h"
+#include "nsLayoutUtils.h"
 #include "nsQueryActor.h"
 #include "nsSHistory.h"
 #include "nsViewManager.h"

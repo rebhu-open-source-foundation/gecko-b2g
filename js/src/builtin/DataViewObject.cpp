@@ -885,7 +885,7 @@ bool DataViewObject::fun_setFloat64(JSContext* cx, unsigned argc, Value* vp) {
 bool DataViewObject::bufferGetterImpl(JSContext* cx, const CallArgs& args) {
   Rooted<DataViewObject*> thisView(
       cx, &args.thisv().toObject().as<DataViewObject>());
-  args.rval().set(DataViewObject::bufferValue(thisView));
+  args.rval().set(thisView->bufferValue());
   return true;
 }
 
@@ -906,7 +906,7 @@ bool DataViewObject::byteLengthGetterImpl(JSContext* cx, const CallArgs& args) {
   }
 
   // Step 7.
-  args.rval().set(DataViewObject::byteLengthValue(thisView));
+  args.rval().set(thisView->byteLengthValue());
   return true;
 }
 
@@ -927,7 +927,7 @@ bool DataViewObject::byteOffsetGetterImpl(JSContext* cx, const CallArgs& args) {
   }
 
   // Step 7.
-  args.rval().set(DataViewObject::byteOffsetValue(thisView));
+  args.rval().set(thisView->byteOffsetValue());
   return true;
 }
 

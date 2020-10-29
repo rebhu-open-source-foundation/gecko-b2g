@@ -3161,6 +3161,19 @@ bool CacheIRCompiler::emitLoadArgumentsObjectLengthResult(ObjOperandId objId) {
   return true;
 }
 
+bool CacheIRCompiler::emitLoadArrayBufferByteLengthInt32Result(
+    ObjOperandId objId) {
+  JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
+  AutoOutputRegister output(*this);
+  Register obj = allocator.useRegister(masm, objId);
+  AutoScratchRegisterMaybeOutput scratch(allocator, masm, output);
+
+  masm.loadArrayBufferByteLengthInt32(obj, scratch);
+
+  EmitStoreResult(masm, scratch, JSVAL_TYPE_INT32, output);
+  return true;
+}
+
 bool CacheIRCompiler::emitLoadTypedArrayLengthResult(ObjOperandId objId,
                                                      uint32_t getterOffset) {
   JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
@@ -3168,7 +3181,7 @@ bool CacheIRCompiler::emitLoadTypedArrayLengthResult(ObjOperandId objId,
   Register obj = allocator.useRegister(masm, objId);
   AutoScratchRegisterMaybeOutput scratch(allocator, masm, output);
 
-  masm.unboxInt32(Address(obj, ArrayBufferViewObject::lengthOffset()), scratch);
+  masm.loadArrayBufferViewLengthInt32(obj, scratch);
   EmitStoreResult(masm, scratch, JSVAL_TYPE_INT32, output);
   return true;
 }
@@ -3723,8 +3736,8 @@ bool CacheIRCompiler::emitLoadTypedArrayElementExistsResult(
 
   Label outOfBounds, done;
 
-  // Bound check.
-  masm.unboxInt32(Address(obj, ArrayBufferViewObject::lengthOffset()), scratch);
+  // Bounds check.
+  masm.loadArrayBufferViewLengthInt32(obj, scratch);
   masm.branch32(Assembler::BelowOrEqual, scratch, index, &outOfBounds);
   EmitStoreBoolean(masm, true, output);
   masm.jump(&done);
@@ -3966,8 +3979,7 @@ bool CacheIRCompiler::emitTypedArrayByteOffsetResult(ObjOperandId objId) {
   AutoScratchRegisterMaybeOutput scratch(allocator, masm, output);
   Register obj = allocator.useRegister(masm, objId);
 
-  masm.unboxInt32(Address(obj, ArrayBufferViewObject::byteOffsetOffset()),
-                  scratch);
+  masm.loadArrayBufferViewByteOffsetInt32(obj, scratch);
   masm.tagValue(JSVAL_TYPE_INT32, scratch, output.valueReg());
   return true;
 }
@@ -4744,8 +4756,7 @@ bool CacheIRCompiler::emitStoreTypedArrayElement(ObjOperandId objId,
   // Bounds check.
   Label done;
   Register spectreTemp = scratch2 ? scratch2->get() : spectreScratch->get();
-  masm.unboxInt32(Address(obj, ArrayBufferViewObject::lengthOffset()),
-                  scratch1);
+  masm.loadArrayBufferViewLengthInt32(obj, scratch1);
   masm.spectreBoundsCheck32(index, scratch1, spectreTemp,
                             handleOOB ? &done : failure->label());
 
@@ -4859,8 +4870,7 @@ bool CacheIRCompiler::emitLoadTypedArrayElementResult(
 
   // Bounds check.
   Label outOfBounds;
-  masm.unboxInt32(Address(obj, ArrayBufferViewObject::lengthOffset()),
-                  scratch1);
+  masm.loadArrayBufferViewLengthInt32(obj, scratch1);
   masm.spectreBoundsCheck32(index, scratch1, scratch2,
                             handleOOB ? &outOfBounds : failure->label());
 
@@ -4950,7 +4960,7 @@ static void EmitDataViewBoundsCheck(MacroAssembler& masm, size_t byteSize,
   // Ensure both offset < length and offset + (byteSize - 1) < length.
   static_assert(ArrayBufferObject::MaxBufferByteLength <= INT32_MAX,
                 "Code assumes DataView length fits in int32");
-  masm.unboxInt32(Address(obj, DataViewObject::lengthOffset()), scratch);
+  masm.loadArrayBufferViewLengthInt32(obj, scratch);
   if (byteSize == 1) {
     masm.spectreBoundsCheck32(offset, scratch, InvalidReg, fail);
   } else {
@@ -7498,7 +7508,7 @@ bool CacheIRCompiler::emitAtomicsCompareExchangeResult(
   }
 
   // Bounds check.
-  masm.unboxInt32(Address(obj, ArrayBufferViewObject::lengthOffset()), scratch);
+  masm.loadArrayBufferViewLengthInt32(obj, scratch);
   masm.spectreBoundsCheck32(index, scratch, spectreTemp, failure->label());
 
   // Atomic operations are highly platform-dependent, for example x86/x64 has
@@ -7553,7 +7563,7 @@ bool CacheIRCompiler::emitAtomicsReadModifyWriteResult(
   }
 
   // Bounds check.
-  masm.unboxInt32(Address(obj, ArrayBufferViewObject::lengthOffset()), scratch);
+  masm.loadArrayBufferViewLengthInt32(obj, scratch);
   masm.spectreBoundsCheck32(index, scratch, spectreTemp, failure->label());
 
   // See comment in emitAtomicsCompareExchange for why we use an ABI call.
@@ -7663,7 +7673,7 @@ bool CacheIRCompiler::emitAtomicsLoadResult(ObjOperandId objId,
   }
 
   // Bounds check.
-  masm.unboxInt32(Address(obj, ArrayBufferViewObject::lengthOffset()), scratch);
+  masm.loadArrayBufferViewLengthInt32(obj, scratch);
   masm.spectreBoundsCheck32(index, scratch, spectreTemp, failure->label());
 
   // Load the elements vector.
@@ -7716,7 +7726,7 @@ bool CacheIRCompiler::emitAtomicsStoreResult(ObjOperandId objId,
   }
 
   // Bounds check.
-  masm.unboxInt32(Address(obj, ArrayBufferViewObject::lengthOffset()), scratch);
+  masm.loadArrayBufferViewLengthInt32(obj, scratch);
   masm.spectreBoundsCheck32(index, scratch, spectreTemp, failure->label());
 
   // Load the elements vector.

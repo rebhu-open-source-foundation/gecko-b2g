@@ -4868,7 +4868,9 @@ AttachDecision TypeOfIRGenerator::tryAttachPrimitive(ValOperandId valId) {
     return AttachDecision::NoAction;
   }
 
-  if (val_.isNumber()) {
+  // Note: we don't use GuardIsNumber for int32 values because it's less
+  // efficient in Warp (unboxing to double instead of int32).
+  if (val_.isDouble()) {
     writer.guardIsNumber(valId);
   } else {
     writer.guardNonDoubleType(valId, val_.type());
@@ -8190,10 +8192,7 @@ AttachDecision CallIRGenerator::tryAttachArrayBufferByteLength(
     writer.guardIsNotProxy(objArgId);
   }
 
-  size_t offset =
-      NativeObject::getFixedSlotOffset(ArrayBufferObject::BYTE_LENGTH_SLOT);
-
-  writer.loadFixedSlotTypedResult(objArgId, offset, ValueType::Int32);
+  writer.loadArrayBufferByteLengthInt32Result(objArgId);
 
   // This stub does not need to be monitored because it always returns int32.
   writer.returnFromIC();
