@@ -257,6 +257,12 @@ partial interface B2G {
 
 [Exposed=Window]
 partial interface B2G {
+  /**
+   * Request to dispatch functional key events to the content process first. By
+   * default, the key events are dispatched on the chrome process and then the
+   * content. In some use cases, we want to give the content process has the
+   * chance to process and consume the events.
+   */
   [ChromeOnly]
   void setDispatchKeyToContentFirst(boolean enable);
 };
