@@ -982,7 +982,6 @@ var WifiManager = (function() {
     ["WPS_CONNECTION_PBC_OVERLAP", wps_pbc_overlap],
   ]);
 
-  var linkDebouncingId = null;
   var isDriverRoaming = false;
   // Handle events sent to us by the event worker.
   function handleEvent(event, iface) {
@@ -1046,26 +1045,6 @@ var WifiManager = (function() {
 
     fields.isDriverRoaming = isDriverRoaming;
 
-    if (manager.linkDebouncing) {
-      debug(
-        "State Change from " +
-          manager.state +
-          " to " +
-          fields.state +
-          ", linkDebouncing."
-      );
-
-      if (fields.state !== "COMPLETED") {
-        return;
-      }
-
-      if (linkDebouncingId !== null) {
-        clearTimeout(linkDebouncingId);
-        linkDebouncingId = null;
-      }
-      manager.linkDebouncing = false;
-    }
-
     notifyStateChange(fields);
     if (fields.state === "COMPLETED") {
       manager.lastDriverRoamAttempt = 0;
@@ -1120,11 +1099,9 @@ var WifiManager = (function() {
 
   function supplicantNetworkDisconnected(event) {
     var reason = event.reason;
-    var lastRoam = 0;
     fullBandConnectedTimeIntervalMilli =
       WifiConstants.WIFI_ASSOCIATED_SCAN_INTERVAL;
     if (manager.lastDriverRoamAttempt != 0) {
-      lastRoam = Date.now() - manager.lastDriverRoamAttempt;
       manager.lastDriverRoamAttempt = 0;
     }
 
@@ -1142,54 +1119,20 @@ var WifiManager = (function() {
       if (typeof configuredNetworks[networkKey] !== "undefined") {
         let networkEnabled = !configuredNetworks[networkKey]
           .networkSelectionStatus;
-        if (
-          screenOn &&
-          !manager.linkDebouncing &&
-          networkEnabled &&
-          !WifiConfigManager.isLastSelectedNetwork(lastNetwork.netId) &&
-          (reason != 3 || (lastRoam > 0 && lastRoam < 2000)) &&
-          ((wifiInfo.is24G &&
-            wifiInfo.rssi > WifiConstants.RSSI_THRESHOLD_LOW_24G) ||
-            (wifiInfo.is5G &&
-              wifiInfo.rssi > WifiConstants.RSSI_THRESHOLD_LOW_5G))
-        ) {
-          handleScanRequest(function() {});
-          manager.linkDebouncing = true;
-          linkDebouncingId = setTimeout(function() {
-            isDriverRoaming = false;
-            manager.linkDebouncing = false;
-            notifyStateChange({ state: "DISCONNECTED", BSSID: null, id: -1 });
-          }, 5000);
-          debug(
-            "Receive DISCONNECTED:" +
-              " BSSID=" +
-              wifiInfo.bssid +
-              " RSSI=" +
-              wifiInfo.rssi +
-              " freq=" +
-              wifiInfo.frequency +
-              " reason=" +
-              reason +
-              " -> debounce"
-          );
-        } else {
-          handleScanRequest(function() {});
-          debug(
-            "Receive DISCONNECTED:" +
-              " BSSID=" +
-              wifiInfo.bssid +
-              " RSSI=" +
-              wifiInfo.rssi +
-              " freq=" +
-              wifiInfo.frequency +
-              " was debouncing=" +
-              manager.linkDebouncing +
-              " reason=" +
-              reason +
-              " Network Enabled Status=" +
-              networkEnabled
-          );
-        }
+        handleScanRequest(function() {});
+        debug(
+          "Receive DISCONNECTED:" +
+            " BSSID=" +
+            wifiInfo.bssid +
+            " RSSI=" +
+            wifiInfo.rssi +
+            " freq=" +
+            wifiInfo.frequency +
+            " reason=" +
+            reason +
+            " Network Enabled Status=" +
+            networkEnabled
+        );
       } else {
         debug(networkKey + " is not defined in conifgured networks");
       }
@@ -1304,9 +1247,6 @@ var WifiManager = (function() {
 
     if (!screenOn && manager.state === "SCANNING") {
       enableBackgroundScan(true);
-    }
-    if (manager.linkDebouncing) {
-      manager.setAutoRoam(lastNetwork, function() {});
     }
     notify("scanresultsavailable", { type: USE_SINGLE_SCAN });
   }
@@ -1424,7 +1364,6 @@ var WifiManager = (function() {
   manager.lastKnownCountryCode = null;
   manager.telephonyServiceId = 0;
   manager.inObtainingIpState = false;
-  manager.linkDebouncing = false;
   manager.lastDriverRoamAttempt = 0;
   manager.loopDetectionCount = 0;
   manager.numRil = numRil;
@@ -3252,7 +3191,6 @@ WifiWorker.prototype = {
 
       WifiNetworkSelector.selectNetwork(
         scanResults,
-        WifiManager.linkDebouncing,
         translateState(WifiManager.state),
         wifiInfo,
         function(candidate) {
@@ -3400,10 +3338,6 @@ WifiWorker.prototype = {
           return;
         }
         self._lastConnectionInfo = info;
-        if (WifiManager.linkDebouncing) {
-          debug("linkDebouncing, don't fire connection info update");
-          return;
-        }
         debug("Firing connectioninfoupdate: " + uneval(info));
         self._fireEvent("connectioninfoupdate", info);
       });

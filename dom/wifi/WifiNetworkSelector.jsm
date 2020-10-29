@@ -82,13 +82,7 @@ this.WifiNetworkSelector = (function() {
     }
   }
 
-  function selectNetwork(
-    scanResults,
-    isLinkDebouncing,
-    wifiState,
-    wifiInfo,
-    callback
-  ) {
+  function selectNetwork(scanResults, wifiState, wifiInfo, callback) {
     debug("==========start Network Selection==========");
 
     if (scanResults.length == 0) {
@@ -98,7 +92,7 @@ this.WifiNetworkSelector = (function() {
     }
 
     // Shall we start network selection at all?
-    if (!isNetworkSelectionNeeded(isLinkDebouncing, wifiState, wifiInfo)) {
+    if (!isNetworkSelectionNeeded(wifiState, wifiInfo)) {
       callback(null);
       return;
     }
@@ -134,13 +128,7 @@ this.WifiNetworkSelector = (function() {
     callback(candidate);
   }
 
-  function isNetworkSelectionNeeded(isLinkDebouncing, wifiState, wifiInfo) {
-    // Do not trigger Network Selection during link debouncing procedure
-    if (isLinkDebouncing) {
-      debug("Need not Network Selection during link debouncing");
-      return false;
-    }
-
+  function isNetworkSelectionNeeded(wifiState, wifiInfo) {
     if (wifiState == "connected" || wifiState == "associated") {
       if (!wifiInfo) {
         return false;
