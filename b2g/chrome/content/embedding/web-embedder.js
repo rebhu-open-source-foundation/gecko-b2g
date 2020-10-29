@@ -441,24 +441,28 @@ XPCOMUtils.defineLazyServiceGetter(
       Services.obs.addObserver((subject, topic, data) => {
         _webembed_log(`receive captive-portal-login: ${data}`);
         this.dispatchEvent(
-          new CustomEvent("captive-portal-login-request", { detail: data })
+          new CustomEvent("captive-portal-login-request", {
+            detail: JSON.parse(data),
+          })
         );
       }, "captive-portal-login");
 
       Services.obs.addObserver((subject, topic, data) => {
         _webembed_log(`receive captive-portal-login-abort: ${data}`);
+        let obj = JSON.parse(data);
         this.dispatchEvent(
           new CustomEvent("captive-portal-login-result", {
-            detail: { result: false, id: data.id },
+            detail: { result: false, id: obj.id },
           })
         );
       }, "captive-portal-login-abort");
 
       Services.obs.addObserver((subject, topic, data) => {
         _webembed_log(`receive captive-portal-login-success: ${data}`);
+        let obj = JSON.parse(data);
         this.dispatchEvent(
           new CustomEvent("captive-portal-login-result", {
-            detail: { result: true, id: data.id },
+            detail: { result: true, id: obj.id },
           })
         );
       }, "captive-portal-login-success");
