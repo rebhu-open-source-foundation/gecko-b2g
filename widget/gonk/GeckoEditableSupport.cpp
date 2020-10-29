@@ -406,6 +406,9 @@ GeckoEditableSupport::Observe(nsISupports* aSubject, const char* aTopic,
                               const char16_t* aData) {
   IME_LOGD("GeckoEditableSupport[%p], Observe[%s]", this, aTopic);
   if (!strcmp(aTopic, "outer-window-destroyed")) {
+    if (!mChromeEventHandler) {
+      return NS_ERROR_FAILURE;
+    }
     mChromeEventHandler->RemoveEventListener(u"focus"_ns, this,
                                              /* useCapture = */ true);
     mChromeEventHandler->RemoveEventListener(u"blur"_ns, this,
