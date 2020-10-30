@@ -213,6 +213,43 @@ SystemMessageService::SendMessage(const nsAString& aMessageName,
                                      aMessageName, messageData);
 }
 
+NS_IMETHODIMP
+SystemMessageService::BroadcastMessage(const nsAString& aMessageName,
+                                       JS::HandleValue aMessage,
+                                       JSContext* aCx) {
+  LOG("BroadcastMessage: name=%s",
+      NS_LossyConvertUTF16toASCII(aMessageName).get());
+  SubscriberTable* table = mSubscribers.Get(aMessageName);
+  if (!table) {
+    LOG(" %s has no subscribers.",
+        NS_LossyConvertUTF16toASCII(aMessageName).get());
+    DebugPrintSubscribersTable();
+    return NS_OK;
+  }
+
+  nsAutoString messageData;
+  if (NS_FAILED(SerializeFromJSVal(aCx, aMessage, messageData))) {
+    return NS_OK;
+  }
+
+  RefPtr<ServiceWorkerManager> swm = ServiceWorkerManager::GetInstance();
+  if (!swm) {
+    return NS_ERROR_FAILURE;
+  }
+
+  for (auto iter = table->Iter(); !iter.Done(); iter.Next()) {
+    auto& info = iter.Data();
+
+    LOG("Sending message %s to %s",
+        NS_LossyConvertUTF16toASCII(aMessageName).get(), (info->mScope).get());
+
+    Unused << swm->SendSystemMessageEvent(info->mOriginSuffix, info->mScope,
+                                          aMessageName, messageData);
+  }
+
+  return NS_OK;
+}
+
 void SystemMessageService::DoSubscribe(const nsAString& aMessageName,
                                        const nsACString& aOrigin,
                                        const nsACString& aScope,

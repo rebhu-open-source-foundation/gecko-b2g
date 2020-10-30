@@ -26,6 +26,6 @@ interface nsISystemMessageService : nsISupports
   [implicit_jscontext]
   void sendMessage(in AString messageName, in jsval message, in ACString origin);
 
-  //[implicit_jscontext]
-  //void broadcastMessage(in AString messageName, in jsval message);
+  [implicit_jscontext]
+  void broadcastMessage(in AString messageName, in jsval message);
 };

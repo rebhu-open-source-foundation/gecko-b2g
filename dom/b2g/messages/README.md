@@ -118,11 +118,13 @@ self.onsystemmessage = evt => {
 
 ## For gecko developers
 
-`SystemMessageService` provides an interface for module developers to send system message to target application (broadcast messages is not yet implemented).
+`SystemMessageService` provides an interface for module developers to send system messages to target applications, or broadcasting messages to all subscribers.
 
 **Syntax**
 ```
 void sendMessage(in AString messageName, in jsval message, in ACString origin);
+
+void broadcastMessage(in AString messageName, in jsval message);
 ```
 
 **Example**
