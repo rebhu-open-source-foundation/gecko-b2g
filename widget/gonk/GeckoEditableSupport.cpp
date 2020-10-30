@@ -586,6 +586,11 @@ void GeckoEditableSupport::HandleBlur() {
 // nsIEditableSupportListener methods.
 NS_IMETHODIMP
 GeckoEditableSupport::DoSetComposition(const nsAString& aText) {
+  if (!mDispatcher) {
+    IME_LOGD("Invalid mDispatcher");
+    return NS_ERROR_ABORT;
+  }
+
   IME_LOGD("-- GeckoEditableSupport::DoSetComposition");
   IME_LOGD("-- EditableSupport aText:[%s]", NS_ConvertUTF16toUTF8(aText).get());
   IME_LOGD("-- EditableSupport mDispatcher:[%p]", mDispatcher.get());
@@ -610,6 +615,11 @@ GeckoEditableSupport::DoSetComposition(const nsAString& aText) {
 
 NS_IMETHODIMP
 GeckoEditableSupport::DoEndComposition(const nsAString& aText) {
+  if (!mDispatcher) {
+    IME_LOGD("Invalid mDispatcher");
+    return NS_ERROR_ABORT;
+  }
+
   IME_LOGD("-- GeckoEditableSupport::DoEndComposition");
   IME_LOGD("-- EditableSupport aText:[%s]", NS_ConvertUTF16toUTF8(aText).get());
   IME_LOGD("-- EditableSupport mDispatcher:[%p]", mDispatcher.get());
@@ -631,6 +641,11 @@ GeckoEditableSupport::DoEndComposition(const nsAString& aText) {
 
 NS_IMETHODIMP
 GeckoEditableSupport::DoKeydown(const nsAString& aKey) {
+  if (!mDispatcher) {
+    IME_LOGD("Invalid mDispatcher");
+    return NS_ERROR_ABORT;
+  }
+
   IME_LOGD("-- GeckoEditableSupport::DoKeydown");
   IME_LOGD("-- EditableSupport aKey:[%s]", NS_ConvertUTF16toUTF8(aKey).get());
   IME_LOGD("-- EditableSupport mDispatcher:[%p]", mDispatcher.get());
@@ -658,6 +673,11 @@ GeckoEditableSupport::DoKeydown(const nsAString& aKey) {
 
 NS_IMETHODIMP
 GeckoEditableSupport::DoKeyup(const nsAString& aKey) {
+  if (!mDispatcher) {
+    IME_LOGD("Invalid mDispatcher");
+    return NS_ERROR_ABORT;
+  }
+
   IME_LOGD("-- GeckoEditableSupport::DoKeyup");
   IME_LOGD("-- EditableSupport aKey:[%s]", NS_ConvertUTF16toUTF8(aKey).get());
   IME_LOGD("-- EditableSupport mDispatcher:[%p]", mDispatcher.get());
@@ -683,6 +703,11 @@ GeckoEditableSupport::DoKeyup(const nsAString& aKey) {
 
 NS_IMETHODIMP
 GeckoEditableSupport::DoSendKey(const nsAString& aKey) {
+  if (!mDispatcher) {
+    IME_LOGD("Invalid mDispatcher");
+    return NS_ERROR_ABORT;
+  }
+
   IME_LOGD("-- EditableSupport DoSendKey");
   IME_LOGD("-- EditableSupport aKey:[%s]", NS_ConvertUTF16toUTF8(aKey).get());
   IME_LOGD("-- EditableSupport mDispatcher:[%p]", mDispatcher.get());
