@@ -6,6 +6,7 @@
 #include "mozilla/dom/AlarmManager.h"
 #include "mozilla/dom/AlarmManagerWorker.h"
 #include "nsContentUtils.h"
+#include "nsIPermissionManager.h"
 
 static mozilla::LazyLogModule sAlarmManagerLog("AlarmManager");
 #define LOG(...) \
@@ -204,6 +205,12 @@ already_AddRefed<AlarmManager> AlarmManager::Create(nsIGlobalObject* aGlobal,
     return nullptr;
   }
 
+  if (!alarmManager->CheckPermission()) {
+    LOG("!CheckPermission");
+    aRv = NS_ERROR_DOM_SECURITY_ERR;
+    return nullptr;
+  }
+
   return alarmManager.forget();
 }
 
@@ -270,6 +277,15 @@ NS_IMETHODIMP AlarmManager::Init() {
   return NS_OK;
 }
 
+bool AlarmManager::CheckPermission() {
+  if (NS_WARN_IF(!mImpl)) {
+    LOG("!mImpl");
+    return false;
+  }
+
+  return mImpl->CheckPermission();
+}
+
 already_AddRefed<Promise> AlarmManager::GetAll() {
   LOG("AlarmManager::GetAll mUrl:[%s] NS_IsMainThread:[%s]", mUrl.get(),
       NS_IsMainThread() ? "true" : "false");
@@ -304,8 +320,6 @@ void AlarmManager::Remove(long aId) {
   return mImpl->Remove(aId);
 }
 
-nsresult AlarmManager::PermissionCheck() { return NS_OK; }
-
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(AlarmManager, mGlobal)
 NS_IMPL_CYCLE_COLLECTING_ADDREF(AlarmManager)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(AlarmManager)
@@ -317,6 +331,10 @@ NS_INTERFACE_MAP_END
 JSObject* AlarmManager::WrapObject(JSContext* aCx,
                                    JS::Handle<JSObject*> aGivenProto) {
   return AlarmManager_Binding::Wrap(aCx, this, aGivenProto);
+}
+
+bool AlarmManagerMain::CheckPermission() {
+  return alarm::DoCheckPermission(mUrl);
 }
 
 already_AddRefed<nsIAlarmProxy> alarm::CreateAlarmProxy() {
@@ -334,6 +352,38 @@ already_AddRefed<nsIAlarmProxy> alarm::CreateAlarmProxy() {
   }
 
   return alarmProxy.forget();
+}
+
+bool alarm::DoCheckPermission(nsCString aUrl) {
+  if (NS_WARN_IF(!NS_IsMainThread())) {
+    LOG("DoCheckPermission should not be called from non main threads.");
+    return false;
+  }
+
+  nsCOMPtr<nsIPermissionManager> permissionManager =
+      services::GetPermissionManager();
+  if (NS_WARN_IF(!permissionManager)) {
+    LOG("!permissionManager");
+    return false;
+  }
+
+  nsCOMPtr<nsIPrincipal> principal =
+      BasePrincipal::CreateContentPrincipal(aUrl);
+  if (NS_WARN_IF(!principal)) {
+    LOG("!principal aUrl:[%s]", aUrl.get());
+    return false;
+  }
+
+  uint32_t permission = nsIPermissionManager::DENY_ACTION;
+  nsresult rv = permissionManager->TestPermissionFromPrincipal(
+      principal, "alarms"_ns, &permission);
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    LOG("TestPermissionFromPrincipal failed. rv[%u] mUrl:[%s]", uint(rv),
+        aUrl.get());
+    return false;
+  }
+
+  return permission == nsIPermissionManager::ALLOW_ACTION;
 }
 }  // namespace dom
 }  // namespace mozilla

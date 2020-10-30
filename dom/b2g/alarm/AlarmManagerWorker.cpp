@@ -374,6 +374,28 @@ class AlarmRemoveRunnable final : public Runnable {
   nsCString mUrl;
 };
 
+class AlarmCheckPermissionRunnable final : public WorkerMainThreadRunnable {
+ public:
+  explicit AlarmCheckPermissionRunnable(const nsCString& aUrl)
+      : WorkerMainThreadRunnable(GetCurrentThreadWorkerPrivate(),
+                                 "dom::AlarmCheckPermissionRunnable"_ns),
+        mIsAllowed(false),
+        mUrl(aUrl) {
+    LOG("AlarmCheckPermissionRunnable constructor. mUrl:[%s]", mUrl.get());
+  }
+
+  bool MainThreadRun() override {
+    mIsAllowed = alarm::DoCheckPermission(mUrl);
+    return true;
+  }
+
+  bool mIsAllowed;
+
+ private:
+  ~AlarmCheckPermissionRunnable() = default;
+  nsCString mUrl;
+};
+
 AlarmManagerWorker::AlarmManagerWorker(nsCString aUrl,
                                        nsIGlobalObject* aOuterGlobal)
     : AlarmManagerImpl(aUrl, aOuterGlobal) {
@@ -487,6 +509,19 @@ void AlarmManagerWorker::Remove(long aId) {
   }
 
   return;
+}
+
+bool AlarmManagerWorker::CheckPermission() {
+  RefPtr<AlarmCheckPermissionRunnable> r =
+      new AlarmCheckPermissionRunnable(mUrl);
+
+  ErrorResult rv;
+  r->Dispatch(Canceling, rv);
+  if (rv.Failed()) {
+    return false;
+  }
+
+  return r->mIsAllowed;
 }
 
 }  // namespace dom

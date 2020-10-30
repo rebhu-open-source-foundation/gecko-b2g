@@ -21,6 +21,8 @@ class AlarmManagerWorker final : public AlarmManagerImpl {
                                         const AlarmOptions& aOptions) override;
   virtual void Remove(long aId) override;
 
+  virtual bool CheckPermission() override;
+
  private:
   ~AlarmManagerWorker() = default;
 };

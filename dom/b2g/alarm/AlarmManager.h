@@ -41,6 +41,7 @@ class AlarmManagerImpl {
                                         const AlarmOptions& aOptions) = 0;
   virtual void Remove(long aId) = 0;
 
+  virtual bool CheckPermission() = 0;
   NS_INLINE_DECL_PURE_VIRTUAL_REFCOUNTING
 
  protected:
@@ -56,6 +57,8 @@ class AlarmManagerMain final : public AlarmManagerImpl {
   virtual already_AddRefed<Promise> Add(JSContext* aCx,
                                         const AlarmOptions& aOptions) override;
   virtual void Remove(long aId) override;
+
+  bool CheckPermission() override;
 
  private:
   ~AlarmManagerMain() = default;
@@ -79,6 +82,7 @@ class AlarmManager final : public nsISupports,
 
   explicit AlarmManager(nsIGlobalObject* aGlobal);
   NS_IMETHODIMP Init();
+  bool CheckPermission();
 
   already_AddRefed<Promise> GetAll();
   already_AddRefed<Promise> Add(JSContext* aCx, const AlarmOptions& options);
@@ -86,7 +90,6 @@ class AlarmManager final : public nsISupports,
 
  protected:
   ~AlarmManager() = default;
-  nsresult PermissionCheck();
   nsCOMPtr<nsIGlobalObject> mGlobal;
   RefPtr<AlarmManagerImpl> mImpl;
   nsCString mUrl;
@@ -94,6 +97,7 @@ class AlarmManager final : public nsISupports,
 
 namespace alarm {
 already_AddRefed<nsIAlarmProxy> CreateAlarmProxy();
+bool DoCheckPermission(nsCString aUrl);
 }  // namespace alarm
 }  // namespace dom
 }  // namespace mozilla
