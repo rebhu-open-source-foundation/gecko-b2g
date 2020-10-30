@@ -47,6 +47,7 @@
 #endif
 #ifdef HAS_KOOST_MODULES
 #  include "mozilla/dom/AuthorizationManager.h"
+#  include "mozilla/dom/EngmodeManagerBinding.h"
 #endif
 
 #include "mozilla/dom/usb/UsbManager.h"
@@ -147,6 +148,7 @@ class B2G final : public nsIDOMMozWakeLockListener, public nsWrapperCache {
 #ifdef HAS_KOOST_MODULES
   AuthorizationManager* GetAuthorizationManager(ErrorResult& aRv);
   static bool HasAuthorizationManagerSupport(JSContext* /* unused */, JSObject* aGlobal);
+  EngmodeManager* GetEngmodeManager(ErrorResult& aRv) ;
 #endif
 
   UsbManager* GetUsbManager(ErrorResult& aRv);
@@ -227,6 +229,7 @@ class B2G final : public nsIDOMMozWakeLockListener, public nsWrapperCache {
 #endif
 #ifdef HAS_KOOST_MODULES
   RefPtr<AuthorizationManager> mAuthorizationManager;
+  RefPtr<EngmodeManager> mEngmodeManager;
 #endif
   RefPtr<UsbManager> mUsbManager;
   RefPtr<PowerSupplyManager> mPowerSupplyManager;
