@@ -28,12 +28,16 @@ class AlarmManager final : public nsISupports,
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(AlarmManager)
 
+  static already_AddRefed<AlarmManager> Create(nsIGlobalObject* aGlobal,
+                                               nsresult& aRv);
+
   nsIGlobalObject* GetParentObject() const { return mGlobal; }
 
   JSObject* WrapObject(JSContext* aCx,
                        JS::Handle<JSObject*> aGivenProto) override;
 
   explicit AlarmManager(nsIGlobalObject* aGlobal);
+  NS_IMETHODIMP Init();
 
   already_AddRefed<Promise> GetAll();
   already_AddRefed<Promise> Add(JSContext* aCx, const AlarmOptions& options);

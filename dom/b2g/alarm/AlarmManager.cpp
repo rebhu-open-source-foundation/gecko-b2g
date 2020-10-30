@@ -357,9 +357,39 @@ class AlarmRemoveRunnable : public Runnable {
   nsAutoCString mUrl;
 };
 
+// static
+already_AddRefed<AlarmManager> AlarmManager::Create(nsIGlobalObject* aGlobal,
+                                                    nsresult& aRv) {
+  if (NS_WARN_IF(!aGlobal)) {
+    LOG("!aGlobal");
+    aRv = NS_ERROR_DOM_ABORT_ERR;
+    return nullptr;
+  }
+
+  RefPtr<AlarmManager> alarmManager = new AlarmManager(aGlobal);
+
+  nsresult rv = alarmManager->Init();
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    LOG("Init failed. rv:[%u]", uint(rv));
+    aRv = rv;
+    return nullptr;
+  }
+
+  return alarmManager.forget();
+}
+
 AlarmManager::AlarmManager(nsIGlobalObject* aGlobal) : mGlobal(aGlobal) {
-  LOG("AlarmManager constructor. aGlobal:[%p]", aGlobal);
-  MOZ_ASSERT(aGlobal);
+  LOG("AlarmManager constructor.");
+}
+
+NS_IMETHODIMP AlarmManager::Init() {
+  LOG("AlarmManager Init. NS_IsMainThread:[%s]",
+      NS_IsMainThread() ? "true" : "false");
+
+  if (NS_WARN_IF(!mGlobal)) {
+    LOG("!mGlobal");
+    return NS_ERROR_DOM_ABORT_ERR;
+  }
 
   Maybe<ClientInfo> clientInfo = mGlobal->GetClientInfo();
   if (clientInfo.isSome()) {
@@ -381,14 +411,19 @@ AlarmManager::AlarmManager(nsIGlobalObject* aGlobal) : mGlobal(aGlobal) {
       nsCOMPtr<nsIURI> uri;
       nsresult rv =
           ios->NewURI(clientInfo->URL(), nullptr, nullptr, getter_AddRefs(uri));
-      NS_ENSURE_SUCCESS_VOID(rv);
+
+      if (NS_WARN_IF(NS_FAILED(rv)) || !uri) {
+        LOG("NewURI failed.");
+        return NS_ERROR_DOM_UNKNOWN_ERR;
+      }
+
       uri->GetPrePath(mUrl);
     }
   } else {
     LOG("Error: !clientInfo.isSome()");
+    return NS_ERROR_DOM_UNKNOWN_ERR;
   }
 
-  LOG("mUrl:[%s]", mUrl.get());
   // Alarms added by apps should be well-managed according to app urls.
   // Empty urls may cause ambiguity.
   if (NS_IsMainThread() && !mUrl.IsEmpty()) {
@@ -396,6 +431,7 @@ AlarmManager::AlarmManager(nsIGlobalObject* aGlobal) : mGlobal(aGlobal) {
     MOZ_ASSERT(mAlarmProxy);
     mAlarmProxy->Init();
   }
+  return NS_OK;
 }
 
 AlarmManager::~AlarmManager() {}

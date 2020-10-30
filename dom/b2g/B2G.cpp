@@ -94,7 +94,7 @@ void B2G::Shutdown() {
   }
 
 #ifdef MOZ_B2G_RIL
-  if(mMobileMessageManager) {
+  if (mMobileMessageManager) {
     mMobileMessageManager->Shutdown();
     mMobileMessageManager = nullptr;
   }
@@ -132,21 +132,32 @@ JSObject* B2G::WrapObject(JSContext* cx, JS::Handle<JSObject*> aGivenProto) {
   return B2G_Binding::Wrap(cx, this, aGivenProto);
 }
 
-bool B2G::CheckPermission(const nsACString& aType, nsPIDOMWindowInner* aWindow) {
+bool B2G::CheckPermission(const nsACString& aType,
+                          nsPIDOMWindowInner* aWindow) {
+  MOZ_RELEASE_ASSERT(NS_IsMainThread());
+
   // Grab the principal of the document
+  if (NS_WARN_IF(!aWindow)) {
+    return false;
+  }
+
   RefPtr<Document> doc = aWindow->GetDoc();
-  if (!doc) {
+  if (NS_WARN_IF(!doc)) {
     return false;
   }
   nsCOMPtr<nsIPrincipal> principal = doc->NodePrincipal();
+  if (NS_WARN_IF(!principal)) {
+    return false;
+  }
 
-  nsCOMPtr<nsIPermissionManager> permMgr =
-    services::GetPermissionManager();
-  NS_ENSURE_TRUE(permMgr, false);
+  nsCOMPtr<nsIPermissionManager> permMgr = services::GetPermissionManager();
+  if (NS_WARN_IF(!permMgr)) {
+    return false;
+  }
 
   uint32_t permission = nsIPermissionManager::DENY_ACTION;
-  nsresult rv = permMgr->TestPermissionFromPrincipal(
-    principal, aType, &permission);
+  nsresult rv =
+      permMgr->TestPermissionFromPrincipal(principal, aType, &permission);
   if (NS_FAILED(rv) || permission != nsIPermissionManager::ALLOW_ACTION) {
     return false;
   }
@@ -161,7 +172,13 @@ AlarmManager* B2G::GetAlarmManager(ErrorResult& aRv) {
       return nullptr;
     }
 
-    mAlarmManager = new AlarmManager(GetParentObject());
+    nsresult rv;
+    mAlarmManager = AlarmManager::Create(GetParentObject(), rv);
+
+    if (NS_WARN_IF(NS_FAILED(rv)) || !mAlarmManager) {
+      aRv.Throw(rv);
+      return nullptr;
+    }
   }
 
   return mAlarmManager;
@@ -355,7 +372,7 @@ MobileMessageManager* B2G::GetMobileMessageManager(ErrorResult& aRv) {
     }
 
     mMobileMessageManager = new MobileMessageManager(innerWindow);
-    if(mMobileMessageManager) {
+    if (mMobileMessageManager) {
       mMobileMessageManager->Init();
     }
   }
@@ -510,7 +527,8 @@ bool B2G::HasWifiManagerSupport(JSContext* /* unused */, JSObject* aGlobal) {
 }
 
 /* static */
-bool B2G::HasTetheringManagerSupport(JSContext* /* unused */, JSObject* aGlobal) {
+bool B2G::HasTetheringManagerSupport(JSContext* /* unused */,
+                                     JSObject* aGlobal) {
 #if !defined(MOZ_WIDGET_GONK)
   return false;
 #endif
