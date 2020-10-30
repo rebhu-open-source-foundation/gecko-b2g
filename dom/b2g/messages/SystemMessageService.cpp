@@ -50,6 +50,7 @@ void BuildPermissionsTable() {
    * key names (system message names) in alphabetical order.
    **/
   sSystemMessagePermissionsTable.Put(u"activity"_ns, EmptyCString());
+  sSystemMessagePermissionsTable.Put(u"alarm"_ns, "alarms"_ns);
   sSystemMessagePermissionsTable.Put(u"bluetooth-dialer-command"_ns,
                                      "bluetooth-privileged"_ns);
   sSystemMessagePermissionsTable.Put(

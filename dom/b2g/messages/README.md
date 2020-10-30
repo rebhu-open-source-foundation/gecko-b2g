@@ -7,7 +7,7 @@ System messages are messages from the system, they are sent by the system based 
 | **Name**                                  | **Permission**       |
 | :-                                        | :-                   |
 | activity                                  |                      |
-| alarm                                     |                      |
+| alarm                                     | alarms               |
 | bluetooth-dialer-command                  | bluetooth-privileged |
 | bluetooth-opp-receiving-file-confirmation | bluetooth-privileged |
 | bluetooth-opp-transfer-complete           | bluetooth-privileged |
