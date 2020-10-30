@@ -157,10 +157,11 @@ class AlarmGetAllRunnable : public Runnable {
     LOG("AlarmGetAllRunnable::Run");
     RefPtr<nsIAlarmGetAllCallback> callback =
         new AlarmGetAllCallback(mPromiseWorkerProxy);
-    nsCOMPtr<nsIAlarmProxy> alarmProxy =
-        do_CreateInstance("@mozilla.org/dom/alarm/proxy;1");
-    MOZ_ASSERT(alarmProxy);
-    alarmProxy->Init();
+    nsCOMPtr<nsIAlarmProxy> alarmProxy = alarm::CreateAlarmProxy();
+    if (NS_WARN_IF(!alarmProxy)) {
+      LOG("!alarmProxy");
+      return NS_ERROR_DOM_ABORT_ERR;
+    }
     alarmProxy->GetAll(mUrl, callback);
     return NS_OK;
   }
@@ -318,10 +319,11 @@ class AlarmAddRunnable : public Runnable, public StructuredCloneHolder {
 
     RefPtr<nsIAlarmAddCallback> callback =
         new AlarmAddCallback(mPromiseWorkerProxy);
-    nsCOMPtr<nsIAlarmProxy> alarmProxy =
-        do_CreateInstance("@mozilla.org/dom/alarm/proxy;1");
-    MOZ_ASSERT(alarmProxy);
-    alarmProxy->Init();
+    nsCOMPtr<nsIAlarmProxy> alarmProxy = alarm::CreateAlarmProxy();
+    if (NS_WARN_IF(!alarmProxy)) {
+      LOG("!alarmProxy");
+      return NS_ERROR_DOM_ABORT_ERR;
+    }
     alarmProxy->Add(mUrl, options, callback);
     return NS_OK;
   }
@@ -343,10 +345,11 @@ class AlarmRemoveRunnable : public Runnable {
   NS_IMETHOD
   Run() override {
     LOG("AlarmRemoveRunnable::Run");
-    nsCOMPtr<nsIAlarmProxy> alarmProxy =
-        do_CreateInstance("@mozilla.org/dom/alarm/proxy;1");
-    MOZ_ASSERT(alarmProxy);
-    alarmProxy->Init();
+    nsCOMPtr<nsIAlarmProxy> alarmProxy = alarm::CreateAlarmProxy();
+    if (NS_WARN_IF(!alarmProxy)) {
+      LOG("!alarmProxy");
+      return NS_ERROR_DOM_ABORT_ERR;
+    }
     alarmProxy->Remove(mUrl, mId);
     return NS_OK;
   }
@@ -426,11 +429,10 @@ NS_IMETHODIMP AlarmManager::Init() {
 
   // Alarms added by apps should be well-managed according to app urls.
   // Empty urls may cause ambiguity.
-  if (NS_IsMainThread() && !mUrl.IsEmpty()) {
-    mAlarmProxy = do_CreateInstance("@mozilla.org/dom/alarm/proxy;1");
-    MOZ_ASSERT(mAlarmProxy);
-    mAlarmProxy->Init();
+  if (mUrl.IsEmpty()) {
+    return NS_ERROR_DOM_UNKNOWN_ERR;
   }
+
   return NS_OK;
 }
 
@@ -450,13 +452,14 @@ already_AddRefed<Promise> AlarmManager::GetAll() {
 
   if (NS_IsMainThread()) {
     LOG("AlarmManager::GetAll NS_IsMainThread() %s", mUrl.get());
-    if (NS_WARN_IF(!mAlarmProxy)) {
-      LOG("!mAlarmProxy on GetAll");
+    nsCOMPtr<nsIAlarmProxy> alarmProxy = alarm::CreateAlarmProxy();
+    if (NS_WARN_IF(!alarmProxy)) {
+      LOG("!alarmProxy");
       promise->MaybeReject(NS_ERROR_DOM_ABORT_ERR);
       return promise.forget();
     }
     RefPtr<nsIAlarmGetAllCallback> callback = new AlarmGetAllCallback(promise);
-    mAlarmProxy->GetAll(mUrl, callback);
+    alarmProxy->GetAll(mUrl, callback);
   } else {
     LOG("AlarmManager::GetAll !NS_IsMainThread() mUrl:[%s]", mUrl.get());
     WorkerPrivate* worker = GetCurrentThreadWorkerPrivate();
@@ -493,8 +496,9 @@ already_AddRefed<Promise> AlarmManager::Add(JSContext* aCx,
 
   if (NS_IsMainThread()) {
     LOG("AlarmManager::Add NS_IsMainThread() mUrl[%s]", mUrl.get());
-    if (NS_WARN_IF(!mAlarmProxy)) {
-      LOG("!mAlarmProxy on Add");
+    nsCOMPtr<nsIAlarmProxy> alarmProxy = alarm::CreateAlarmProxy();
+    if (NS_WARN_IF(!alarmProxy)) {
+      LOG("!alarmProxy");
       promise->MaybeReject(NS_ERROR_DOM_ABORT_ERR);
       return promise.forget();
     }
@@ -518,7 +522,7 @@ already_AddRefed<Promise> AlarmManager::Add(JSContext* aCx,
     }
 
     RefPtr<nsIAlarmAddCallback> callback = new AlarmAddCallback(promise);
-    mAlarmProxy->Add(mUrl, optionsValue, callback);
+    alarmProxy->Add(mUrl, optionsValue, callback);
   } else {
     LOG("AlarmManager::Add !NS_IsMainThread() mUrl:[%s]", mUrl.get());
     WorkerPrivate* worker = GetCurrentThreadWorkerPrivate();
@@ -562,14 +566,17 @@ void AlarmManager::Remove(long aId) {
     return;
   }
   if (NS_IsMainThread()) {
-    LOG("AlarmManager::Remove NS_IsMainThread() mUrl:[%s] aId:[%d]", mUrl.get(), aId);
-    if (NS_WARN_IF(!mAlarmProxy)) {
-      LOG("!mAlarmProxy on Remove");
+    LOG("AlarmManager::Remove NS_IsMainThread() mUrl:[%s] aId:[%d]", mUrl.get(),
+        aId);
+    nsCOMPtr<nsIAlarmProxy> alarmProxy = alarm::CreateAlarmProxy();
+    if (NS_WARN_IF(!alarmProxy)) {
+      LOG("!alarmProxy");
       return;
     }
-    mAlarmProxy->Remove(mUrl, aId);
+    alarmProxy->Remove(mUrl, aId);
   } else {
-    LOG("AlarmManager::Remove !NS_IsMainThread() mUrl:[%s] aId:[%d]", mUrl.get(), aId);
+    LOG("AlarmManager::Remove !NS_IsMainThread() mUrl:[%s] aId:[%d]",
+        mUrl.get(), aId);
     RefPtr<AlarmRemoveRunnable> r = new AlarmRemoveRunnable(aId, mUrl);
     NS_DispatchToMainThread(r);
   }
@@ -590,5 +597,21 @@ JSObject* AlarmManager::WrapObject(JSContext* aCx,
   return AlarmManager_Binding::Wrap(aCx, this, aGivenProto);
 }
 
+already_AddRefed<nsIAlarmProxy> alarm::CreateAlarmProxy() {
+  if (NS_WARN_IF(!NS_IsMainThread())) {
+    LOG("CreateAlarmProxy should not be called from non main threads.");
+    return nullptr;
+  }
+
+  nsresult rv;
+  nsCOMPtr<nsIAlarmProxy> alarmProxy =
+      do_CreateInstance("@mozilla.org/dom/alarm/proxy;1", &rv);
+  if (NS_WARN_IF(NS_FAILED(rv)) || NS_WARN_IF(!alarmProxy)) {
+    LOG("do_CreateInstance of nsIAlarmProxy failed. rv:[%u]", uint(rv));
+    return nullptr;
+  }
+
+  return alarmProxy.forget();
+}
 }  // namespace dom
 }  // namespace mozilla

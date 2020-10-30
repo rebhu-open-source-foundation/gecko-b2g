@@ -179,7 +179,9 @@ this.AlarmService = {
     aRequestId,
     aData
   ) {
-    debug("_sendAsyncMessage()");
+    debug(
+      `_sendAsyncMessage ${aMessageName} ${aSuccess} ${aRequestId} ${aData}`
+    );
 
     if (!aMessageManager) {
       debug("Invalid message manager: null");
@@ -190,31 +192,22 @@ this.AlarmService = {
     switch (aMessageName) {
       case "Add":
         json = aSuccess
-          ? { requestId: aRequestId, id: aData }
-          : { requestId: aRequestId, errorMsg: aData };
+          ? { id: aData, success: true }
+          : { errorMsg: aData, success: false };
         break;
 
       case "GetAll":
         json = aSuccess
-          ? { requestId: aRequestId, alarms: aData }
-          : { requestId: aRequestId, errorMsg: aData };
+          ? { alarms: aData, success: true }
+          : { errorMsg: aData, success: false };
         break;
 
       default:
         throw Components.Exception("", Cr.NS_ERROR_NOT_IMPLEMENTED);
     }
 
-    debug(
-      "sendAsyncMessage " +
-        "Alarm:" +
-        aMessageName +
-        ":Return:" +
-        (aSuccess ? "OK" : "KO")
-    );
-    aMessageManager.sendAsyncMessage(
-      "Alarm:" + aMessageName + ":Return:" + (aSuccess ? "OK" : "KO"),
-      json
-    );
+    debug(`sendAsyncMessage ${aRequestId} ${json}`);
+    aMessageManager.sendAsyncMessage(aRequestId, json);
   },
 
   _removeAlarmFromDb: function _removeAlarmFromDb(

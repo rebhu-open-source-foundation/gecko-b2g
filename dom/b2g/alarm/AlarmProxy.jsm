@@ -41,29 +41,15 @@ XPCOMUtils.defineLazyServiceGetter(
  * back to AlarmManager.cpp.
  */
 
-function AlarmProxy() {}
+function AlarmProxy() {
+  this.uuid = Cc["@mozilla.org/uuid-generator;1"]
+    .getService(Ci.nsIUUIDGenerator)
+    .generateUUID()
+    .toString();
+  debug("AlarmProxy constructor. uuid:" + this.uuid);
+}
 
 AlarmProxy.prototype = {
-  init: function init() {
-    debug("init");
-
-    // A <requestId, {messageName, url, callback}> map.
-    this._alarmRequests = new Map();
-    // A <requestId, {cpuLock, timer}> map.
-    this._cpuLockDict = new Map();
-
-    this._listenedMessages = [
-      "Alarm:Add:Return:OK",
-      "Alarm:Add:Return:KO",
-      "Alarm:GetAll:Return:OK",
-      "Alarm:GetAll:Return:KO",
-    ];
-
-    this._listenedMessages.forEach(aName => {
-      Services.cpmm.addMessageListener(aName, this);
-    });
-  },
-
   add: function add(aUrl, aOptions, aCallback) {
     debug("add " + JSON.stringify(aOptions) + " " + aUrl);
     let date = aOptions.date;
@@ -73,11 +59,6 @@ AlarmProxy.prototype = {
     if (!date) {
       throw Components.Exception("", Cr.NS_ERROR_INVALID_ARG);
     }
-
-    let requestId = Cc["@mozilla.org/uuid-generator;1"]
-      .getService(Ci.nsIUUIDGenerator)
-      .generateUUID()
-      .toString();
 
     if (data && aUrl) {
       // Run eval() in the sand box with the principal of the calling
@@ -98,13 +79,36 @@ AlarmProxy.prototype = {
       }
     }
 
-    debug("_alarmRequests.set Alarm:Add " + requestId + " " + aUrl);
-    this._alarmRequests.set(requestId, {
-      messageName: "Alarm:Add",
-      url: aUrl,
-      callback: aCallback,
+    let requestId = `Alarm:Add:${this.uuid}`;
+    debug("requestId: " + requestId);
+
+    let cpuLock = gPowerManagerService.newWakeLock("cpu");
+    let timer = Cc["@mozilla.org/timer;1"].createInstance(Ci.nsITimer);
+
+    // Start a timer to prevent from non-responding request.
+    timer.initWithCallback(
+      () => {
+        debug("Request timeout! Release the cpu lock");
+        cpuLock.unlock();
+      },
+      REQUEST_CPU_LOCK_TIMEOUT,
+      Ci.nsITimer.TYPE_ONE_SHOT
+    );
+
+    Services.cpmm.addMessageListener(requestId, function alarmAdd(aMessage) {
+      debug("Receive " + JSON.stringify(aMessage));
+      Services.cpmm.removeMessageListener(requestId, alarmAdd);
+      timer.cancel();
+      cpuLock.unlock();
+
+      let json = aMessage.json ? aMessage.json : {};
+      if (json.success) {
+        aCallback.onAdd(Cr.NS_OK, Cu.cloneInto(json.id, {}));
+      } else {
+        aCallback.onAdd(Cr.NS_ERROR_FAILURE, Cu.cloneInto(json.errorMsg, {}));
+      }
     });
-    this._lockCpuForRequest(requestId);
+
     Services.cpmm.sendAsyncMessage("Alarm:Add", {
       requestId,
       date,
@@ -125,60 +129,15 @@ AlarmProxy.prototype = {
 
   getAll: function getAll(aUrl, aCallback) {
     debug("getAll " + aUrl);
-    let requestId = Cc["@mozilla.org/uuid-generator;1"]
-      .getService(Ci.nsIUUIDGenerator)
-      .generateUUID()
-      .toString();
 
-    debug("_alarmRequests.set Alarm:GetAll " + requestId + " " + aUrl);
-    this._alarmRequests.set(requestId, {
-      messageName: "Alarm:GetAll",
-      url: aUrl,
-      callback: aCallback,
-    });
+    let requestId = `Alarm:GetAll:${this.uuid}`;
+    debug("requestId: " + requestId);
 
-    Services.cpmm.sendAsyncMessage("Alarm:GetAll", {
-      requestId,
-      manifestURL: aUrl,
-    });
-  },
+    Services.cpmm.addMessageListener(requestId, function alarmGetAll(aMessage) {
+      Services.cpmm.removeMessageListener(requestId, alarmGetAll);
 
-  receiveMessage: function receiveMessage(aMessage) {
-    debug("receiveMessage: " + aMessage.name);
-    let json = aMessage.json ? aMessage.json : {};
-    let alarmRequest = this._alarmRequests.get(json.requestId);
-
-    if (!alarmRequest) {
-      debug(
-        "Request with given requestId not found, skip." +
-          aMessage.name +
-          " " +
-          JSON.stringify(json)
-      );
-      return;
-    }
-
-    if (!aMessage.name.startsWith(alarmRequest.messageName)) {
-      debug(
-        "Message name mismatch. " +
-          aMessage.name +
-          " " +
-          alarmRequest.msgName +
-          " " +
-          json.requestId
-      );
-      return;
-    }
-
-    debug("Handle " + aMessage.name + " json: " + JSON.stringify(json));
-    switch (aMessage.name) {
-      case "Alarm:Add:Return:OK":
-        this._unlockCpuForRequest(json.requestId);
-        alarmRequest.callback.onAdd(Cr.NS_OK, Cu.cloneInto(json.id, {}));
-        break;
-
-      case "Alarm:GetAll:Return:OK":
-        // We don't need to expose everything to the web content.
+      let json = aMessage.json ? aMessage.json : {};
+      if (json.success) {
         let alarms = [];
         json.alarms.forEach(function trimAlarmInfo(aAlarm) {
           let alarm = {
@@ -190,76 +149,19 @@ AlarmProxy.prototype = {
           alarms.push(alarm);
         });
 
-        alarmRequest.callback.onGetAll(Cr.NS_OK, Cu.cloneInto(alarms, {}));
-        break;
-
-      case "Alarm:Add:Return:KO":
-        this._unlockCpuForRequest(json.requestId);
-        alarmRequest.callback.onAdd(
+        aCallback.onGetAll(Cr.NS_OK, Cu.cloneInto(alarms, {}));
+      } else {
+        aCallback.onGetAll(
           Cr.NS_ERROR_FAILURE,
-          Cu.cloneInto(json.error, {})
+          Cu.cloneInto(json.errorMsg, {})
         );
-        break;
+      }
+    });
 
-      case "Alarm:GetAll:Return:KO":
-        alarmRequest.callback.onGetAll(
-          Cr.NS_ERROR_FAILURE,
-          Cu.cloneInto(json.error, {})
-        );
-        break;
-
-      default:
-        debug("Wrong message: " + aMessage.name);
-        break;
-    }
-  },
-
-  _lockCpuForRequest(aRequestId) {
-    if (this._cpuLockDict.has(aRequestId)) {
-      debug(
-        "Cpu wakelock for request " +
-          aRequestId +
-          " has been acquired. " +
-          "You may call this function repeatedly or requestId is collision."
-      );
-      return;
-    }
-
-    // Acquire a lock for given request and save for lookup lately.
-    debug("Acquire cpu lock for request " + aRequestId);
-    let cpuLockInfo = {
-      cpuLock: gPowerManagerService.newWakeLock("cpu"),
-      timer: Cc["@mozilla.org/timer;1"].createInstance(Ci.nsITimer),
-    };
-    this._cpuLockDict.set(aRequestId, cpuLockInfo);
-
-    // Start a timer to prevent from non-responding request.
-    cpuLockInfo.timer.initWithCallback(
-      () => {
-        debug("Request timeout! Release the cpu lock");
-        this._unlockCpuForRequest(aRequestId);
-      },
-      REQUEST_CPU_LOCK_TIMEOUT,
-      Ci.nsITimer.TYPE_ONE_SHOT
-    );
-  },
-
-  _unlockCpuForRequest(aRequestId) {
-    let cpuLockInfo = this._cpuLockDict.get(aRequestId);
-    if (!cpuLockInfo) {
-      debug(
-        "The cpu lock for requestId " +
-          aRequestId +
-          " is either invalid or has been released."
-      );
-      return;
-    }
-
-    // Release the cpu lock and cancel the timer.
-    debug("Release the cpu lock for " + aRequestId);
-    cpuLockInfo.cpuLock.unlock();
-    cpuLockInfo.timer.cancel();
-    this._cpuLockDict.delete(aRequestId);
+    Services.cpmm.sendAsyncMessage("Alarm:GetAll", {
+      requestId,
+      manifestURL: aUrl,
+    });
   },
 
   contractID: "@mozilla.org/alarm/proxy;1",

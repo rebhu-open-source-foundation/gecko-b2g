@@ -25,7 +25,6 @@ interface nsIAlarmGetAllCallback : nsISupports
 [scriptable, uuid(736b46dc-9bea-4f75-a567-0bec41980f0c)]
 interface nsIAlarmProxy : nsISupports
 {
-  void init();
   void getAll(in ACString url, in nsIAlarmGetAllCallback callback);
   void add(in ACString url,
            in jsval options,

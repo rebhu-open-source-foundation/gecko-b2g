@@ -52,10 +52,11 @@ class AlarmManager final : public nsISupports,
   nsCOMPtr<nsIGlobalObject> mGlobal;
 
   nsAutoCString mUrl;
-
-  nsCOMPtr<nsIAlarmProxy> mAlarmProxy;
 };
 
+namespace alarm {
+already_AddRefed<nsIAlarmProxy> CreateAlarmProxy();
+}  // namespace alarm
 }  // namespace dom
 }  // namespace mozilla
 
