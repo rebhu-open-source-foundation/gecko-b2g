@@ -36,10 +36,7 @@ TetheringConfigInfo.prototype = {
 
   classID: Components.ID("{1923236b-a9bc-4f54-a394-37487dac3a7b}"),
   contractID: "@mozilla.org/tetheringconfiginfo;1",
-  QueryInterface: ChromeUtils.generateQI([
-    Ci.nsISupports,
-    Ci.nsIDOMGlobalPropertyInitializer,
-  ]),
+  QueryInterface: ChromeUtils.generateQI([Ci.nsIDOMGlobalPropertyInitializer]),
 };
 
 function TetheringManager() {
@@ -63,6 +60,7 @@ TetheringManager.prototype = {
     const messages = [
       "WifiManager:setWifiTethering:Return:OK",
       "WifiManager:setWifiTethering:Return:NO",
+      "WifiManager:tetheringconfigchange",
       "TetheringService:setUsbTethering:Return:OK",
       "TetheringService:setUsbTethering:Return:NO",
       "TetheringService:tetheringstatuschange",
@@ -132,18 +130,20 @@ TetheringManager.prototype = {
         this._fireTetheringStatusChangeEvent(msg);
         break;
       case "TetheringService:tetheringconfigchange":
-        if (msg.wifiTetheringConfig) {
-          this._wifiTetheringConfig = this._convertTetheringConfigInfo(
-            TETHERING_TYPE_WIFI,
-            msg.wifiTetheringConfig
-          );
-        }
-        if (msg.usbTetheringConfig) {
-          this._usbTetheringConfig = this._convertTetheringConfigInfo(
-            TETHERING_TYPE_USB,
-            msg.usbTetheringConfig
-          );
-        }
+        this._usbTetheringConfig = this._convertTetheringConfigInfo(
+          TETHERING_TYPE_USB,
+          msg.usbTetheringConfig
+        );
+        this._fireTetheringConfigChangeEvent(
+          this._wifiTetheringConfig,
+          this._usbTetheringConfig
+        );
+        break;
+      case "WifiManager:tetheringconfigchange":
+        this._wifiTetheringConfig = this._convertTetheringConfigInfo(
+          TETHERING_TYPE_WIFI,
+          msg.wifiTetheringConfig
+        );
         this._fireTetheringConfigChangeEvent(
           this._wifiTetheringConfig,
           this._usbTetheringConfig
