@@ -8,28 +8,34 @@
 #define mozilla_dom_InputMethodServiceParent_h
 
 #include "mozilla/dom/PInputMethodServiceParent.h"
-#include "nsIInputMethodListener.h"
+#include "InputMethodServiceCommon.h"
+
 namespace mozilla {
 namespace dom {
 
-class InputMethodServiceParent final : public PInputMethodServiceParent,
-                                       public nsIInputMethodListener,
-                                       public nsIEditableSupportListener {
+using mozilla::ipc::IPCResult;
+
+class InputMethodServiceParent final
+    : public InputMethodServiceCommon<PInputMethodServiceParent>,
+      public nsIEditableSupport {
   friend class PInputMethodServiceParent;
 
  public:
   NS_DECL_ISUPPORTS
-  NS_DECL_NSIINPUTMETHODLISTENER
-  NS_DECL_NSIEDITABLESUPPORTLISTENER
+  NS_DECL_NSIEDITABLESUPPORT
 
   InputMethodServiceParent();
 
+  nsIEditableSupport* GetEditableSupport() override;
+  nsIEditableSupportListener* GetEditableSupportListener(uint32_t aId) override;
+
  protected:
-  mozilla::ipc::IPCResult RecvRequest(
-      const InputMethodServiceRequest& aRequest);
+  IPCResult RecvRequest(const InputMethodRequest& aRequest);
 
  private:
   ~InputMethodServiceParent();
+  nsDataHashtable<nsUint32HashKey, RefPtr<nsIEditableSupportListener>>
+      mRequestMap;
 };
 
 }  // namespace dom

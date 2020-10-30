@@ -12,14 +12,14 @@ DIRS += [
 EXPORTS.mozilla.dom += [
     "IMELog.h",
     "InputMethod.h",
-    "InputMethodListener.h",
+    "InputMethodHandler.h",
     "InputMethodService.h",
     "nsInputContext.h",
 ]
 
 UNIFIED_SOURCES += [
     "InputMethod.cpp",
-    "InputMethodListener.cpp",
+    "InputMethodHandler.cpp",
     "InputMethodService.cpp",
     "nsInputContext.cpp",
 ]

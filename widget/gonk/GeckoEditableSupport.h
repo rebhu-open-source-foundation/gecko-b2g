@@ -14,7 +14,7 @@
 #include "mozilla/TextEventDispatcher.h"
 #include "mozilla/TextEventDispatcherListener.h"
 #include "mozilla/UniquePtr.h"
-#include "nsIInputMethodListener.h"
+#include "nsIEditableSupport.h"
 #include "nsIDOMEventListener.h"
 #include "nsIObserver.h"
 class nsWindow;
@@ -35,12 +35,12 @@ class EventTarget;
 namespace widget {
 
 class GeckoEditableSupport final : public TextEventDispatcherListener,
-                                   public nsIEditableSupportListener,
+                                   public nsIEditableSupport,
                                    public nsIDOMEventListener,
                                    public nsIObserver {
  public:
   NS_DECL_ISUPPORTS
-  NS_DECL_NSIEDITABLESUPPORTLISTENER
+  NS_DECL_NSIEDITABLESUPPORT
   NS_DECL_NSIDOMEVENTLISTENER
   NS_DECL_NSIOBSERVER
 

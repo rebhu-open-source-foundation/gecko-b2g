@@ -44,4 +44,6 @@ interface InputMethod {
    */
   void removeFocus();
 
+  Promise<sequence<long>> getSelectionRange();
+
   };

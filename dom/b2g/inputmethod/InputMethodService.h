@@ -9,8 +9,8 @@
 
 #include "mozilla/ClearOnShutdown.h"
 
-class nsIInputMethodListener;
 class nsIEditableSupportListener;
+class nsIEditableSupport;
 class nsIInputContext;
 namespace mozilla {
 
@@ -18,37 +18,29 @@ namespace dom {
 
 class ContentParent;
 
-class InputMethodService final : public nsISupports {
+class InputMethodService final : public nsIEditableSupport {
  public:
   NS_DECL_ISUPPORTS
+  NS_DECL_NSIEDITABLESUPPORT
 
   static already_AddRefed<InputMethodService> GetInstance();
-  void SetComposition(const nsAString& aText,
-                      nsIInputMethodListener* aListener);
-  void EndComposition(const nsAString& aText,
-                      nsIInputMethodListener* aListener);
-  void Keydown(const nsAString& aKey, nsIInputMethodListener* aListener);
-  void Keyup(const nsAString& aKey, nsIInputMethodListener* aListener);
-  void SendKey(const nsAString& aKey, nsIInputMethodListener* aListener);
-  void DeleteBackward(nsIInputMethodListener* aListener);
-  void SetSelectedOption(int32_t optionIndex);
-  void SetSelectedOptions(const nsTArray<int32_t>& optionIndexes);
-  void RemoveFocus();
-  void HandleFocus(nsIEditableSupportListener* aListener,
+
+  void HandleFocus(nsIEditableSupport* aEditableSupport,
                    nsIInputContext* aPropBag);
-  void HandleBlur(nsIEditableSupportListener* aListener);
-  void RegisterEditableSupport(nsIEditableSupportListener* aSupport) {
-    mEditableSupportListener = aSupport;
+  void HandleBlur(nsIEditableSupport* aEditableSupport);
+  void RegisterEditableSupport(nsIEditableSupport* aEditableSupport) {
+    mEditableSupport = aEditableSupport;
   }
 
-  void UnregisterEditableSupport(nsIEditableSupportListener* aSupport) {
-    mEditableSupportListener = nullptr;
+  void UnregisterEditableSupport(nsIEditableSupport* aEditableSupport) {
+    MOZ_ASSERT(mEditableSupport == aEditableSupport);
+    mEditableSupport = nullptr;
   }
 
  private:
   InputMethodService() = default;
   ~InputMethodService() = default;
-  nsCOMPtr<nsIEditableSupportListener> mEditableSupportListener;
+  nsCOMPtr<nsIEditableSupport> mEditableSupport;
 };
 
 }  // namespace dom

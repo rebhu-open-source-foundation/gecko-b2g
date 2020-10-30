@@ -9,53 +9,55 @@ include protocol PContent;
 namespace mozilla {
 namespace dom {
 
-struct SetCompositionRequest
-{
+struct SetCompositionRequest {
+  uint32_t id;
   nsString text;
 };
 
-struct EndCompositionRequest
-{
+struct EndCompositionRequest {
+  uint32_t id;
   nsString text;
 };
 
-struct KeydownRequest
-{
+struct KeydownRequest {
+  uint32_t id;
   nsString key;
 };
 
-struct KeyupRequest
-{
+struct KeyupRequest {
+  uint32_t id;
   nsString key;
 };
 
-struct SendKeyRequest
-{
+struct SendKeyRequest {
+  uint32_t id;
   nsString key;
 };
 
-struct DeleteBackwardRequest
-{
-
+struct DeleteBackwardRequest {
+  uint32_t id;
 };
 
-struct SetSelectedOptionRequest
-{
+struct SetSelectedOptionRequest {
+  uint32_t id;
   int32_t optionIndex;
 };
 
-struct SetSelectedOptionsRequest
-{
+struct SetSelectedOptionsRequest {
+  uint32_t id;
   int32_t[] optionIndexes;
 };
 
-struct CommonRequest
-{
+struct CommonRequest {
+  uint32_t id;
   nsString requestName;
 };
 
-struct OptionDetail
-{
+struct GetSelectionRangeRequest {
+  uint32_t id;
+};
+
+struct OptionDetail {
   bool group;
   bool inGroup;
   nsString text;
@@ -65,27 +67,23 @@ struct OptionDetail
   int32_t optionIndex;
 };
 
-struct OptionGroupDetail
-{
+struct OptionGroupDetail {
   bool group;
   nsString label;
   bool disabled;
 };
 
-union OptionDetailCollection
-{
+union OptionDetailCollection {
   OptionDetail;
   OptionGroupDetail;
 };
 
-struct SelectionChoices
-{
+struct SelectionChoices {
   bool multiple;
   OptionDetailCollection[] choices;
 };
 
-struct HandleFocusRequest
-{
+struct HandleFocusRequest {
   nsString type;
   nsString inputType;
   nsString value;
@@ -100,13 +98,64 @@ struct HandleFocusRequest
   SelectionChoices choices;
 };
 
-struct HandleBlurRequest
-{
+struct HandleBlurRequest {
   uint64_t id;
 };
 
-union InputMethodServiceRequest
-{
+struct SetCompositionResponse {
+  uint32_t id;
+  nsresult status;
+};
+
+struct EndCompositionResponse {
+  uint32_t id;
+  nsresult status;
+};
+
+struct KeydownResponse {
+  uint32_t id;
+  nsresult status;
+};
+
+struct KeyupResponse {
+  uint32_t id;
+  nsresult status;
+};
+
+struct SendKeyResponse {
+  uint32_t id;
+  nsresult status;
+};
+
+struct DeleteBackwardResponse {
+  uint32_t id;
+  nsresult status;
+};
+
+struct SetSelectedOptionResponse {
+  uint32_t id;
+  nsresult status;
+};
+
+struct SetSelectedOptionsResponse {
+  uint32_t id;
+  nsresult status;
+};
+
+struct CommonResponse {
+  uint32_t id;
+  nsresult status;
+  nsString responseName;
+};
+
+struct GetSelectionRangeResponse {
+  uint32_t id;
+  nsresult status;
+  int32_t start;
+  int32_t end;
+};
+
+union InputMethodRequest {
   SetCompositionRequest;
   EndCompositionRequest;
   KeydownRequest;
@@ -118,84 +167,10 @@ union InputMethodServiceRequest
   SetSelectedOptionRequest;
   SetSelectedOptionsRequest;
   CommonRequest;
+  GetSelectionRangeRequest;
 };
 
-struct SetCompositionResponse
-{
-  nsresult status;
-};
-
-struct EndCompositionResponse
-{
-  nsresult status;
-};
-
-struct KeydownResponse
-{
-  nsresult status;
-};
-
-struct KeyupResponse
-{
-  nsresult status;
-};
-
-struct SendKeyResponse
-{
-  nsresult status;
-};
-
-struct DeleteBackwardResponse
-{
-  nsresult status;
-};
-
-struct CommonResponse
-{
-  nsString responseName;
-  nsresult status;
-};
-
-struct DoSetCompositionResponse
-{
-  nsString text;
-};
-
-struct DoEndCompositionResponse
-{
-  nsString text;
-};
-
-struct DoKeydownResponse
-{
-  nsString key;
-};
-
-struct DoKeyupResponse
-{
-  nsString key;
-};
-
-struct DoSendKeyResponse
-{
-  nsString key;
-};
-
-struct DoDeleteBackwardResponse
-{
-
-};
-
-struct DoSetSelectedOptionResponse
-{
-  int32_t optionIndex;
-};
-
-struct DoSetSelectedOptionsResponse
-{
-  int32_t[] optionIndexes;
-};
-union InputMethodServiceResponse
+union InputMethodResponse
 {
   SetCompositionResponse;
   EndCompositionResponse;
@@ -203,27 +178,21 @@ union InputMethodServiceResponse
   KeyupResponse;
   SendKeyResponse;
   DeleteBackwardResponse;
-  DoSetCompositionResponse;
-  DoEndCompositionResponse;
-  DoKeydownResponse;
-  DoKeyupResponse;
-  DoSendKeyResponse;
-  DoDeleteBackwardResponse;
-  DoSetSelectedOptionResponse;
-  DoSetSelectedOptionsResponse;
+  SetSelectedOptionResponse;
+  SetSelectedOptionsResponse;
   CommonResponse;
+  GetSelectionRangeResponse;
 };
 
-async protocol PInputMethodService
-{
+async protocol PInputMethodService {
   manager PContent;
 
-child:
-  async Response(InputMethodServiceResponse aResponse);
+both:
+  async Request(InputMethodRequest aRequest);
+  async Response(InputMethodResponse aResponse);
 
 parent:
   async __delete__();
-  async Request(InputMethodServiceRequest aRequest);
 };
 
 } // namespace dom

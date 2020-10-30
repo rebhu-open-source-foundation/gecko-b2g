@@ -7,7 +7,7 @@
 #include "mozilla/dom/ContentChild.h"
 #include "mozilla/dom/Document.h"
 #include "mozilla/dom/Promise.h"
-#include "mozilla/dom/InputMethodListener.h"
+#include "mozilla/dom/InputMethodHandler.h"
 #include "nsIDocShell.h"
 #include "nsIGlobalObject.h"
 #include "mozilla/dom/IMELog.h"
@@ -34,8 +34,8 @@ already_AddRefed<Promise> InputMethod::SetComposition(const nsAString& aText) {
 
   IME_LOGD("-- InputMethod::SetComposition");
 
-  RefPtr<InputMethodListener> listener = InputMethodListener::Create(promise);
-  nsresult result = listener->SetComposition(aText);
+  RefPtr<InputMethodHandler> handler = InputMethodHandler::Create(promise);
+  nsresult result = handler->SetComposition(aText);
   if (NS_FAILED(result)) {
     promise->MaybeReject(result);
   }
@@ -51,9 +51,9 @@ already_AddRefed<Promise> InputMethod::EndComposition(
 
   IME_LOGD("-- InputMethod::EndComposition");
 
-  RefPtr<InputMethodListener> listener = InputMethodListener::Create(promise);
-  nsresult result = listener->EndComposition(aText.WasPassed() ? aText.Value()
-                                                               : VoidString());
+  RefPtr<InputMethodHandler> handler = InputMethodHandler::Create(promise);
+  nsresult result =
+      handler->EndComposition(aText.WasPassed() ? aText.Value() : VoidString());
   if (NS_FAILED(result)) {
     promise->MaybeReject(result);
   }
@@ -69,8 +69,8 @@ already_AddRefed<Promise> InputMethod::Keydown(const nsAString& aKey) {
 
   IME_LOGD("-- InputMethod::Keydown");
 
-  RefPtr<InputMethodListener> listener = InputMethodListener::Create(promise);
-  nsresult result = listener->Keydown(aKey);
+  RefPtr<InputMethodHandler> handler = InputMethodHandler::Create(promise);
+  nsresult result = handler->Keydown(aKey);
   if (NS_FAILED(result)) {
     promise->MaybeReject(result);
   }
@@ -86,8 +86,8 @@ already_AddRefed<Promise> InputMethod::Keyup(const nsAString& aKey) {
 
   IME_LOGD("-- InputMethod::Keyup");
 
-  RefPtr<InputMethodListener> listener = InputMethodListener::Create(promise);
-  nsresult result = listener->Keyup(aKey);
+  RefPtr<InputMethodHandler> handler = InputMethodHandler::Create(promise);
+  nsresult result = handler->Keyup(aKey);
   if (NS_FAILED(result)) {
     promise->MaybeReject(result);
   }
@@ -103,8 +103,8 @@ already_AddRefed<Promise> InputMethod::SendKey(const nsAString& aKey) {
 
   IME_LOGD("-- InputMethod::SendKey");
 
-  RefPtr<InputMethodListener> listener = InputMethodListener::Create(promise);
-  nsresult result = listener->SendKey(aKey);
+  RefPtr<InputMethodHandler> handler = InputMethodHandler::Create(promise);
+  nsresult result = handler->SendKey(aKey);
   if (NS_FAILED(result)) {
     promise->MaybeReject(result);
   }
@@ -120,8 +120,8 @@ already_AddRefed<Promise> InputMethod::DeleteBackward() {
 
   IME_LOGD("-- InputMethod::DeleteBackward");
 
-  RefPtr<InputMethodListener> listener = InputMethodListener::Create(promise);
-  nsresult result = listener->DeleteBackward();
+  RefPtr<InputMethodHandler> handler = InputMethodHandler::Create(promise);
+  nsresult result = handler->DeleteBackward();
   if (NS_FAILED(result)) {
     promise->MaybeReject(result);
   }
@@ -132,23 +132,37 @@ already_AddRefed<Promise> InputMethod::DeleteBackward() {
 void InputMethod::SetSelectedOption(int32_t aOptionIndex) {
   IME_LOGD("-- InputMethod::SetSelectedOption [%ld]", aOptionIndex);
 
-  RefPtr<InputMethodListener> listener = InputMethodListener::Create();
-  listener->SetSelectedOption(aOptionIndex);
+  RefPtr<InputMethodHandler> handler = InputMethodHandler::Create();
+  handler->SetSelectedOption(aOptionIndex);
 }
 
 void InputMethod::SetSelectedOptions(const nsTArray<int32_t>& aOptionIndexes) {
   IME_LOGD("-- InputMethod::SetSelectedOptions length:[%d]",
            aOptionIndexes.Length());
 
-  RefPtr<InputMethodListener> listener = InputMethodListener::Create();
-  listener->SetSelectedOptions(aOptionIndexes);
+  RefPtr<InputMethodHandler> handler = InputMethodHandler::Create();
+  handler->SetSelectedOptions(aOptionIndexes);
 }
 
 void InputMethod::RemoveFocus() {
   IME_LOGD("-- InputMethod::RemoveFocus");
 
-  RefPtr<InputMethodListener> listener = InputMethodListener::Create();
-  listener->RemoveFocus();
+  RefPtr<InputMethodHandler> handler = InputMethodHandler::Create();
+  handler->RemoveFocus();
+}
+
+already_AddRefed<Promise> InputMethod::GetSelectionRange() {
+  ErrorResult rv;
+  RefPtr<Promise> promise = Promise::Create(mGlobal, rv);
+  ENSURE_SUCCESS(rv, nullptr);
+  IME_LOGD("-- InputMethod::GetSelectionRange");
+
+  RefPtr<InputMethodHandler> handler = InputMethodHandler::Create(promise);
+  nsresult result = handler->GetSelectionRange();
+  if (NS_FAILED(result)) {
+    promise->MaybeReject(result);
+  }
+  return promise.forget();
 }
 
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(InputMethod, mGlobal)

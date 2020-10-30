@@ -5,8 +5,8 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 XPIDL_SOURCES += [
+    "nsIEditableSupport.idl",
     "nsIInputContext.idl",
-    "nsIInputMethodListener.idl",
 ]
 
 XPIDL_MODULE = "dom_inputmethod"

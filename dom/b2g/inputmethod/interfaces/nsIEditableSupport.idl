@@ -1,0 +1,35 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+#include "nsISupports.idl"
+
+[scriptable, uuid(0c046c04-f5cf-11ea-86f6-b355bbbba80f)]
+interface nsIEditableSupportListener : nsISupports
+{
+  void onSetComposition(in uint32_t aId, in nsresult aStatus);
+  void onEndComposition(in uint32_t aId, in nsresult aStatus);
+  void onKeydown(in uint32_t aId, in nsresult aStatus);
+  void onKeyup(in uint32_t aId, in nsresult aStatus);
+  void onSendKey(in uint32_t aId, in nsresult aStatus);
+  void onDeleteBackward(in uint32_t aId, in nsresult aStatus);
+  void onSetSelectedOption(in uint32_t aId, in nsresult aStatus);
+  void onSetSelectedOptions(in uint32_t aId, in nsresult aStatus);
+  void onRemoveFocus(in uint32_t aId, in nsresult aStatus);
+  void onGetSelectionRange(in uint32_t aId, in nsresult aStatus, in int32_t aStart, in int32_t aEnd);
+};
+
+[scriptable, uuid(44bf6cea-f5db-11ea-b598-ff5a3d009e25)]
+interface nsIEditableSupport : nsISupports
+{
+  void SetComposition(in uint32_t aId, in nsIEditableSupportListener aListener, in AString aText);
+  void EndComposition(in uint32_t aId, in nsIEditableSupportListener aListener, in AString aText);
+  void Keydown(in uint32_t aId, in nsIEditableSupportListener aListener, in AString aKey);
+  void Keyup(in uint32_t aId, in nsIEditableSupportListener aListener, in AString aKey);
+  void SendKey(in uint32_t aId, in nsIEditableSupportListener aListener, in AString aKey);
+  void DeleteBackward(in uint32_t aId, in nsIEditableSupportListener aListener);
+  void SetSelectedOption(in uint32_t aId, in nsIEditableSupportListener aListener, in int32_t aOptionindex);
+  void SetSelectedOptions(in uint32_t aId, in nsIEditableSupportListener aListener, in Array<int32_t> aOptionindexes);
+  void RemoveFocus(in uint32_t aId, in nsIEditableSupportListener aListener);
+  void GetSelectionRange(in uint32_t aId, in nsIEditableSupportListener aListener);
+};

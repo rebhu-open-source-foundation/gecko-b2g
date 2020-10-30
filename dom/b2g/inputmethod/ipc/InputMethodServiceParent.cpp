@@ -87,8 +87,8 @@ void CarryIntoInputContext(const HandleFocusRequest& aRequest,
   aInputContext->SetInputContextChoices(inputContextChoices);
 }
 
-NS_IMPL_ISUPPORTS(InputMethodServiceParent, nsIInputMethodListener,
-                  nsIEditableSupportListener)
+NS_IMPL_ISUPPORTS(InputMethodServiceParent, nsIEditableSupportListener,
+                  nsIEditableSupport)
 
 InputMethodServiceParent::InputMethodServiceParent() {
   IME_LOGD("InputMethodServiceParent::Constructor[%p]", this);
@@ -98,50 +98,29 @@ InputMethodServiceParent::~InputMethodServiceParent() {
   IME_LOGD("InputMethodServiceParent::Destructor[%p]", this);
 }
 
-mozilla::ipc::IPCResult InputMethodServiceParent::RecvRequest(
-    const InputMethodServiceRequest& aRequest) {
-  IME_LOGD("InputMethodServiceParent::RecvRequest");
+nsIEditableSupport* InputMethodServiceParent::GetEditableSupport() {
+  RefPtr<InputMethodService> instance = InputMethodService::GetInstance();
+  return instance;
+}
+
+nsIEditableSupportListener*
+InputMethodServiceParent::GetEditableSupportListener(uint32_t aId) {
+  auto entry = mRequestMap.Lookup(aId);
+  MOZ_ASSERT(entry);
+  auto listener = entry.Data();
+  mRequestMap.Remove(aId);
+  IME_LOGD("InputMethodServiceParent::GetEditableSupportListener count [%d]",
+           mRequestMap.Count());
+  return listener;
+}
+
+IPCResult InputMethodServiceParent::RecvRequest(
+    const InputMethodRequest& aRequest) {
   RefPtr<InputMethodService> service = InputMethodService::GetInstance();
   MOZ_ASSERT(service);
 
   switch (aRequest.type()) {
-    case InputMethodServiceRequest::TSetCompositionRequest: {
-      IME_LOGD("InputMethodServiceParent::RecvRequest:SetCompositionRequest");
-      const SetCompositionRequest& request = aRequest;
-      service->SetComposition(request.text(), this);
-      break;
-    }
-    case InputMethodServiceRequest::TEndCompositionRequest: {
-      IME_LOGD("InputMethodServiceParent::RecvRequest:EndCompositionRequest");
-      const EndCompositionRequest& request = aRequest;
-      service->EndComposition(request.text(), this);
-      break;
-    }
-    case InputMethodServiceRequest::TKeydownRequest: {
-      IME_LOGD("InputMethodServiceParent::RecvRequest:KeydownRequest");
-      const KeydownRequest& request = aRequest;
-      service->Keydown(request.key(), this);
-      break;
-    }
-    case InputMethodServiceRequest::TKeyupRequest: {
-      IME_LOGD("InputMethodServiceParent::RecvRequest:KeyupRequest");
-      const KeyupRequest& request = aRequest;
-      service->Keyup(request.key(), this);
-      break;
-    }
-    case InputMethodServiceRequest::TSendKeyRequest: {
-      IME_LOGD("InputMethodServiceParent::RecvRequest:SendKeyRequest");
-      const SendKeyRequest& request = aRequest;
-      service->SendKey(request.key(), this);
-      break;
-    }
-    case InputMethodServiceRequest::TDeleteBackwardRequest: {
-      IME_LOGD("InputMethodServiceParent::RecvRequest:DeleteBackwardRequest");
-      const DeleteBackwardRequest& request = aRequest;
-      service->DeleteBackward(this);
-      break;
-    }
-    case InputMethodServiceRequest::THandleFocusRequest: {
+    case InputMethodRequest::THandleFocusRequest: {
       IME_LOGD("InputMethodServiceParent::RecvRequest:HandleFocusRequest");
       const HandleFocusRequest& request = aRequest;
       RefPtr<nsInputContext> inputContext = new nsInputContext();
@@ -149,168 +128,122 @@ mozilla::ipc::IPCResult InputMethodServiceParent::RecvRequest(
       service->HandleFocus(this, static_cast<nsIInputContext*>(inputContext));
       break;
     }
-    case InputMethodServiceRequest::THandleBlurRequest: {
+    case InputMethodRequest::THandleBlurRequest: {
       IME_LOGD("InputMethodServiceParent::RecvRequest:HandleBlurRequest");
       service->HandleBlur(this);
       break;
     }
-    case InputMethodServiceRequest::TSetSelectedOptionRequest: {
-      IME_LOGD(
-          "InputMethodServiceParent::RecvRequest:SetSelectedOptionRequest");
-      const SetSelectedOptionRequest& request = aRequest;
-      service->SetSelectedOption(request.optionIndex());
-      break;
-    }
-    case InputMethodServiceRequest::TSetSelectedOptionsRequest: {
-      IME_LOGD(
-          "InputMethodServiceParent::RecvRequest:SetSelectedOptionsRequest");
-      const SetSelectedOptionsRequest& request = aRequest;
-      service->SetSelectedOptions(request.optionIndexes());
-      break;
-    }
-    case InputMethodServiceRequest::TCommonRequest: {
-      IME_LOGD(
-          "InputMethodServiceParent::RecvRequest:CommonRequest");
-      const CommonRequest& request = aRequest;
-      if (request.requestName() == u"RemoveFocus"_ns) {
-        service->RemoveFocus();
-      }
-      break;
-    }
     default: {
-      return IPC_FAIL(this, "Unknown InputMethodService action type.");
+      return InputMethodServiceCommon<PInputMethodServiceParent>::RecvRequest(
+          aRequest);
     }
   }
-
   return IPC_OK();
 }
 
-// nsIInputMethodListener methods.
+// nsIEditableSupport methods.
+// When this is triggered on the chrome process, forward requests to the remote
+// content.
+
+// unique id on the chrome process to identify the request. When receiving the
+// response from the child side, we get the listener by id and invoke the
+// listener
+static uint32_t sRequestId = 0;
+
 NS_IMETHODIMP
-InputMethodServiceParent::OnSetComposition(nsresult aStatus) {
-  IME_LOGD("InputMethodServiceParent::OnSetComposition");
-  SetCompositionResponse response(aStatus);
-  Unused << SendResponse(response);
+InputMethodServiceParent::SetComposition(uint32_t aId,
+                                         nsIEditableSupportListener* aListener,
+                                         const nsAString& aText) {
+  IME_LOGD("InputMethodServiceParent::SetComposition");
+  mRequestMap.Put(++sRequestId, aListener);
+  Unused << SendRequest(SetCompositionRequest(sRequestId, nsString(aText)));
   return NS_OK;
 }
 
 NS_IMETHODIMP
-InputMethodServiceParent::OnEndComposition(nsresult aStatus) {
-  IME_LOGD("InputMethodServiceParent::OnEndComposition");
-  EndCompositionResponse response(aStatus);
-  Unused << SendResponse(response);
+InputMethodServiceParent::EndComposition(uint32_t aId,
+                                         nsIEditableSupportListener* aListener,
+                                         const nsAString& aText) {
+  IME_LOGD("InputMethodServiceParent::EndComposition");
+  mRequestMap.Put(++sRequestId, aListener);
+  Unused << SendRequest(EndCompositionRequest(sRequestId, nsString(aText)));
   return NS_OK;
 }
 
 NS_IMETHODIMP
-InputMethodServiceParent::OnKeydown(nsresult aStatus) {
-  IME_LOGD("InputMethodServiceParent::OnKeydown");
-  KeydownResponse response(aStatus);
-  Unused << SendResponse(response);
+InputMethodServiceParent::Keydown(uint32_t aId,
+                                  nsIEditableSupportListener* aListener,
+                                  const nsAString& aKey) {
+  IME_LOGD("InputMethodServiceParent::Keydown");
+  mRequestMap.Put(++sRequestId, aListener);
+  Unused << SendRequest(KeydownRequest(sRequestId, nsString(aKey)));
   return NS_OK;
 }
 
 NS_IMETHODIMP
-InputMethodServiceParent::OnKeyup(nsresult aStatus) {
-  IME_LOGD("InputMethodServiceParent::OnKeyup");
-  KeyupResponse response(aStatus);
-  Unused << SendResponse(response);
+InputMethodServiceParent::Keyup(uint32_t aId,
+                                nsIEditableSupportListener* aListener,
+                                const nsAString& aKey) {
+  IME_LOGD("InputMethodServiceParent::Keyup");
+  mRequestMap.Put(++sRequestId, aListener);
+  Unused << SendRequest(KeyupRequest(sRequestId, nsString(aKey)));
   return NS_OK;
 }
 
 NS_IMETHODIMP
-InputMethodServiceParent::OnSendKey(nsresult aStatus) {
-  IME_LOGD("InputMethodServiceParent::OnSendKey");
-  SendKeyResponse response(aStatus);
-  Unused << SendResponse(response);
+InputMethodServiceParent::SendKey(uint32_t aId,
+                                  nsIEditableSupportListener* aListener,
+                                  const nsAString& aKey) {
+  IME_LOGD("InputMethodServiceParent::SendKey");
+  mRequestMap.Put(++sRequestId, aListener);
+  Unused << SendRequest(SendKeyRequest(sRequestId, nsString(aKey)));
   return NS_OK;
 }
 
 NS_IMETHODIMP
-InputMethodServiceParent::OnDeleteBackward(nsresult aStatus) {
-  IME_LOGD("InputMethodServiceParent::OnDeleteBackward");
-  DeleteBackwardResponse response(aStatus);
-  Unused << SendResponse(response);
-  return NS_OK;
-}
-
-// nsIEditableSupportListener methods.
-NS_IMETHODIMP
-InputMethodServiceParent::DoSetComposition(const nsAString& aText) {
-  IME_LOGD("InputMethodServiceParent::DoSetComposition");
-  nsString text(aText);
-  DoSetCompositionResponse response(text);
-  Unused << SendResponse(response);
+InputMethodServiceParent::DeleteBackward(
+    uint32_t aId, nsIEditableSupportListener* aListener) {
+  IME_LOGD("InputMethodServiceParent::DeleteBackward");
+  mRequestMap.Put(++sRequestId, aListener);
+  Unused << SendRequest(DeleteBackwardRequest(sRequestId));
   return NS_OK;
 }
 
 NS_IMETHODIMP
-InputMethodServiceParent::DoEndComposition(const nsAString& aText) {
-  IME_LOGD("InputMethodServiceParent::DoEndComposition");
-  nsString text(aText);
-  DoEndCompositionResponse response(text);
-  Unused << SendResponse(response);
+InputMethodServiceParent::SetSelectedOption(
+    uint32_t aId, nsIEditableSupportListener* aListener, int32_t aOptionIndex) {
+  IME_LOGD("InputMethodServiceParent::SetSelectedOption");
+  mRequestMap.Put(++sRequestId, aListener);
+  Unused << SendRequest(SetSelectedOptionRequest(sRequestId, aOptionIndex));
   return NS_OK;
 }
 
 NS_IMETHODIMP
-InputMethodServiceParent::DoKeydown(const nsAString& aKey) {
-  IME_LOGD("InputMethodServiceParent::DoKeydown");
-  nsString key(aKey);
-  DoKeydownResponse response(key);
-  Unused << SendResponse(response);
-  return NS_OK;
-}
-
-NS_IMETHODIMP
-InputMethodServiceParent::DoKeyup(const nsAString& aKey) {
-  IME_LOGD("InputMethodServiceParent::DoKeyup");
-  nsString key(aKey);
-  DoKeyupResponse response(key);
-  Unused << SendResponse(response);
-  return NS_OK;
-}
-
-NS_IMETHODIMP
-InputMethodServiceParent::DoSendKey(const nsAString& aKey) {
-  IME_LOGD("InputMethodServiceParent::DoSendKey");
-  nsString key(aKey);
-  DoSendKeyResponse response(key);
-  Unused << SendResponse(response);
-  return NS_OK;
-}
-
-NS_IMETHODIMP
-InputMethodServiceParent::DoDeleteBackward() {
-  IME_LOGD("InputMethodServiceParent::DoDeleteBackward");
-  DoDeleteBackwardResponse response;
-  Unused << SendResponse(response);
-  return NS_OK;
-}
-
-NS_IMETHODIMP
-InputMethodServiceParent::DoSetSelectedOption(int32_t aOptionIndex) {
-  IME_LOGD("InputMethodServiceParent::DoSetSelectedOption");
-  DoSetSelectedOptionResponse response(aOptionIndex);
-  Unused << SendResponse(response);
-  return NS_OK;
-}
-
-NS_IMETHODIMP
-InputMethodServiceParent::DoSetSelectedOptions(
+InputMethodServiceParent::SetSelectedOptions(
+    uint32_t aId, nsIEditableSupportListener* aListener,
     const nsTArray<int32_t>& aOptionIndexes) {
-  IME_LOGD("InputMethodServiceParent::DoSetSelectedOptions");
-  DoSetSelectedOptionsResponse response(aOptionIndexes);
-  Unused << SendResponse(response);
+  IME_LOGD("InputMethodServiceParent::SetSelectedOptions");
+  mRequestMap.Put(++sRequestId, aListener);
+  Unused << SendRequest(SetSelectedOptionsRequest(sRequestId, aOptionIndexes));
   return NS_OK;
 }
 
 NS_IMETHODIMP
-InputMethodServiceParent::DoRemoveFocus() {
-  IME_LOGD("InputMethodServiceParent::DoRemoveFocus");
-  CommonResponse response;
-  response.responseName() = u"DoRemoveFocus"_ns;
-  Unused << SendResponse(response);
+InputMethodServiceParent::RemoveFocus(uint32_t aId,
+                                      nsIEditableSupportListener* aListener) {
+  IME_LOGD("InputMethodServiceParent::RemoveFocus");
+  mRequestMap.Put(++sRequestId, aListener);
+  CommonRequest request(sRequestId, u"RemoveFocus"_ns);
+  Unused << SendRequest(request);
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+InputMethodServiceParent::GetSelectionRange(
+    uint32_t aId, nsIEditableSupportListener* aListener) {
+  IME_LOGD("InputMethodServiceParent::GetSelectionRange");
+  mRequestMap.Put(++sRequestId, aListener);
+  Unused << SendRequest(GetSelectionRangeRequest(sRequestId));
   return NS_OK;
 }
 

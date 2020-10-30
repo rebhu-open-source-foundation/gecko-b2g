@@ -44,6 +44,8 @@ class InputMethod final : public nsISupports, public nsWrapperCache {
   void SetSelectedOptions(const nsTArray<int32_t>& optionIndexes);
 
   void RemoveFocus();
+  already_AddRefed<Promise> GetSelectionRange();
+
  protected:
   ~InputMethod() = default;
 

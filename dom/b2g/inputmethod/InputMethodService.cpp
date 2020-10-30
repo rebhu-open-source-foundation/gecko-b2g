@@ -6,7 +6,7 @@
 
 #include "mozilla/dom/InputMethodService.h"
 #include "mozilla/dom/InputMethodServiceChild.h"
-#include "nsIInputMethodListener.h"
+#include "nsIEditableSupport.h"
 #include "nsIInputContext.h"
 #include "mozilla/dom/ContentParent.h"
 #include "mozilla/StaticPtr.h"
@@ -43,93 +43,138 @@ already_AddRefed<InputMethodService> InputMethodService::GetInstance() {
   return service.forget();
 }
 
-void InputMethodService::SetComposition(const nsAString& aText,
-                                        nsIInputMethodListener* aListener) {
+// interfaces of nsIEditableSupport
+NS_IMETHODIMP InputMethodService::SetComposition(
+    uint32_t aId, nsIEditableSupportListener* aListener,
+    const nsAString& aText) {
   IME_LOGD("InputMethodService::SetComposition");
-  if (!mEditableSupportListener) return;
-  mEditableSupportListener->DoSetComposition(aText);
-  // TODO resolve/reject on result of DoSetComposition.
-  aListener->OnSetComposition(NS_OK);
+  if (mEditableSupport) {
+    mEditableSupport->SetComposition(aId, aListener, aText);
+  } else if (aListener) {
+    aListener->OnSetComposition(aId, NS_ERROR_ABORT);
+  }
+  return NS_OK;
 }
 
-void InputMethodService::EndComposition(const nsAString& aText,
-                                        nsIInputMethodListener* aListener) {
-  IME_LOGD("InputMethodService::EndComposition. mEditableSupportListener:[%p]",
-           mEditableSupportListener.get());
-  if (!mEditableSupportListener) return;
-  mEditableSupportListener->DoEndComposition(aText);
-  // TODO resolve/reject on result of DoEndComposition.
-  aListener->OnEndComposition(NS_OK);
+NS_IMETHODIMP InputMethodService::EndComposition(
+    uint32_t aId, nsIEditableSupportListener* aListener,
+    const nsAString& aText) {
+  IME_LOGD("InputMethodService::EndComposition. mEditableSupport:[%p]",
+           mEditableSupport.get());
+  if (mEditableSupport) {
+    mEditableSupport->EndComposition(aId, aListener, aText);
+  } else if (aListener) {
+    aListener->OnEndComposition(aId, NS_ERROR_ABORT);
+  }
+  return NS_OK;
 }
 
-void InputMethodService::Keydown(const nsAString& aKey,
-                                 nsIInputMethodListener* aListener) {
+NS_IMETHODIMP InputMethodService::Keydown(uint32_t aId,
+                                          nsIEditableSupportListener* aListener,
+                                          const nsAString& aKey) {
   IME_LOGD("InputMethodService::Keydown");
-  if (!mEditableSupportListener) return;
-  mEditableSupportListener->DoKeydown(aKey);
-  // TODO resolve/reject on result of DoKeydown.
-  aListener->OnKeydown(NS_OK);
+  if (mEditableSupport) {
+    mEditableSupport->Keydown(aId, aListener, aKey);
+  } else if (aListener) {
+    aListener->OnKeydown(aId, NS_ERROR_ABORT);
+  }
+  return NS_OK;
 }
 
-void InputMethodService::Keyup(const nsAString& aKey,
-                               nsIInputMethodListener* aListener) {
+NS_IMETHODIMP InputMethodService::Keyup(uint32_t aId,
+                                        nsIEditableSupportListener* aListener,
+                                        const nsAString& aKey) {
   IME_LOGD("InputMethodService::Keyup");
-  if (!mEditableSupportListener) return;
-  mEditableSupportListener->DoKeyup(aKey);
-  // TODO resolve/reject on result of DoKeyup.
-  aListener->OnKeyup(NS_OK);
+  if (mEditableSupport) {
+    mEditableSupport->Keyup(aId, aListener, aKey);
+  } else if (aListener) {
+    aListener->OnKeyup(aId, NS_ERROR_ABORT);
+  }
+  return NS_OK;
 }
 
-void InputMethodService::SendKey(const nsAString& aKey,
-                                 nsIInputMethodListener* aListener) {
+NS_IMETHODIMP InputMethodService::SendKey(uint32_t aId,
+                                          nsIEditableSupportListener* aListener,
+                                          const nsAString& aKey) {
   IME_LOGD("InputMethodService::SendKey");
-  if (!mEditableSupportListener) return;
-  mEditableSupportListener->DoSendKey(aKey);
-  // TODO resolve/reject on result of DoSendKey.
-  aListener->OnSendKey(NS_OK);
+  if (mEditableSupport) {
+    mEditableSupport->SendKey(aId, aListener, aKey);
+  } else if (aListener) {
+    aListener->OnSendKey(aId, NS_ERROR_ABORT);
+  }
+  return NS_OK;
 }
 
-void InputMethodService::DeleteBackward(nsIInputMethodListener* aListener) {
+NS_IMETHODIMP InputMethodService::DeleteBackward(
+    uint32_t aId, nsIEditableSupportListener* aListener) {
   IME_LOGD("InputMethodService::DeleteBackward");
-  if (!mEditableSupportListener) return;
-  mEditableSupportListener->DoDeleteBackward();
-  // TODO resolve/reject on result of DoDeleteBackward.
-  aListener->OnDeleteBackward(NS_OK);
+  if (mEditableSupport) {
+    mEditableSupport->DeleteBackward(aId, aListener);
+  } else if (aListener) {
+    aListener->OnDeleteBackward(aId, NS_ERROR_ABORT);
+  }
+  return NS_OK;
 }
 
-void InputMethodService::SetSelectedOption(int32_t aOptionIndex) {
+NS_IMETHODIMP InputMethodService::SetSelectedOption(
+    uint32_t aId, nsIEditableSupportListener* aListener, int32_t aOptionIndex) {
   IME_LOGD("InputMethodService::SetSelectedOption:[%ld]", aOptionIndex);
-  if (!mEditableSupportListener) return;
-  mEditableSupportListener->DoSetSelectedOption(aOptionIndex);
+  if (mEditableSupport) {
+    mEditableSupport->SetSelectedOption(aId, aListener, aOptionIndex);
+  } else if (aListener) {
+    aListener->OnSetSelectedOption(aId, NS_ERROR_ABORT);
+  }
+  return NS_OK;
 }
 
-void InputMethodService::SetSelectedOptions(
+NS_IMETHODIMP InputMethodService::SetSelectedOptions(
+    uint32_t aId, nsIEditableSupportListener* aListener,
     const nsTArray<int32_t>& aOptionIndexes) {
   IME_LOGD("InputMethodService::SetSelectedOptions, length:[%d]",
            aOptionIndexes.Length());
-  if (!mEditableSupportListener) return;
-  mEditableSupportListener->DoSetSelectedOptions(aOptionIndexes);
+  if (mEditableSupport) {
+    mEditableSupport->SetSelectedOptions(aId, aListener, aOptionIndexes);
+  } else if (aListener) {
+    aListener->OnSetSelectedOptions(aId, NS_ERROR_ABORT);
+  }
+  return NS_OK;
 }
 
-void InputMethodService::RemoveFocus() {
+NS_IMETHODIMP InputMethodService::RemoveFocus(
+    uint32_t aId, nsIEditableSupportListener* aListener) {
   IME_LOGD("InputMethodService::RemoveFocus");
-  if (!mEditableSupportListener) return;
-  mEditableSupportListener->DoRemoveFocus();
+  if (mEditableSupport) {
+    mEditableSupport->RemoveFocus(aId, aListener);
+  } else if (aListener) {
+    aListener->OnRemoveFocus(aId, NS_ERROR_ABORT);
+  }
+  return NS_OK;
 }
 
-void InputMethodService::HandleFocus(nsIEditableSupportListener* aListener,
+NS_IMETHODIMP InputMethodService::GetSelectionRange(
+    uint32_t aId, nsIEditableSupportListener* aListener) {
+  IME_LOGD("InputMethodService::GetSelectionRange");
+  if (mEditableSupport) {
+    mEditableSupport->GetSelectionRange(aId, aListener);
+  } else if (aListener) {
+    aListener->OnGetSelectionRange(aId, NS_ERROR_ABORT, 0, 0);
+  }
+  return NS_OK;
+}
+
+void InputMethodService::HandleFocus(nsIEditableSupport* aEditableSupport,
                                      nsIInputContext* aPropBag) {
   IME_LOGD("InputMethodService::HandleFocus");
-  RegisterEditableSupport(aListener);
+  RegisterEditableSupport(aEditableSupport);
   nsCOMPtr<nsIObserverService> obs = mozilla::services::GetObserverService();
   if (obs) {
     obs->NotifyObservers(aPropBag, "inputmethod-contextchange", u"focus");
   }
 }
 
-void InputMethodService::HandleBlur(nsIEditableSupportListener* aListener) {
+void InputMethodService::HandleBlur(nsIEditableSupport* aEditableSupport) {
   IME_LOGD("InputMethodService::HandleBlur");
-  UnregisterEditableSupport(aListener);
+  UnregisterEditableSupport(aEditableSupport);
   nsCOMPtr<nsIObserverService> obs = mozilla::services::GetObserverService();
   if (obs) {
     // Blur does not need input field information.

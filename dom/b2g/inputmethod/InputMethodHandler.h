@@ -4,24 +4,25 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef mozilla_dom_InputMethodListener_h
-#define mozilla_dom_InputMethodListener_h
+#ifndef mozilla_dom_InputMethodHandler_h
+#define mozilla_dom_InputMethodHandler_h
 
 #include "mozilla/AlreadyAddRefed.h"
-#include "nsIInputMethodListener.h"
+#include "nsIEditableSupport.h"
 
 namespace mozilla {
 namespace dom {
 
 class Promise;
+class InputMethodRequest;
 
-class InputMethodListener final : public nsIInputMethodListener {
+class InputMethodHandler final : public nsIEditableSupportListener {
  public:
   NS_DECL_ISUPPORTS
-  NS_DECL_NSIINPUTMETHODLISTENER
+  NS_DECL_NSIEDITABLESUPPORTLISTENER
 
-  static already_AddRefed<InputMethodListener> Create(Promise* aPromise);
-  static already_AddRefed<InputMethodListener> Create();
+  static already_AddRefed<InputMethodHandler> Create(Promise* aPromise);
+  static already_AddRefed<InputMethodHandler> Create();
 
   nsresult SetComposition(const nsAString& aText);
   nsresult EndComposition(const nsAString& aText);
@@ -33,18 +34,20 @@ class InputMethodListener final : public nsIInputMethodListener {
   void SetSelectedOption(int32_t optionIndex);
   void SetSelectedOptions(const nsTArray<int32_t>& optionIndexes);
   void RemoveFocus();
+  nsresult GetSelectionRange();
 
  private:
-  explicit InputMethodListener(Promise* aPromise);
-  explicit InputMethodListener() = default;
-  ~InputMethodListener() = default;
+  explicit InputMethodHandler(Promise* aPromise);
+  InputMethodHandler() = default;
+  ~InputMethodHandler() = default;
 
   void Initialize();
-
+  void SendRequest(ContentChild* aContentChild,
+                   const InputMethodRequest& aRequest);
   RefPtr<Promise> mPromise;
 };
 
 }  // namespace dom
 }  // namespace mozilla
 
-#endif  // mozilla_dom_InputMethodListener_h
+#endif  // mozilla_dom_InputMethodHandler_h

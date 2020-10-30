@@ -8,31 +8,53 @@
 #define mozilla_dom_InputMethodServiceChild_h
 
 #include "mozilla/dom/PInputMethodServiceChild.h"
+#include "InputMethodServiceCommon.h"
 
-class nsIInputMethodListener;
 class nsIEditableSupportListener;
+class nsIEditableSupport;
 
 namespace mozilla {
 namespace dom {
 
-class InputMethodServiceChild final : public PInputMethodServiceChild {
+using mozilla::ipc::IPCResult;
+
+class InputMethodServiceChild final
+    : public InputMethodServiceCommon<PInputMethodServiceChild> {
   friend class PInputMethodServiceChild;
 
  public:
-  NS_INLINE_DECL_REFCOUNTING(InputMethodServiceChild)
+  NS_DECL_ISUPPORTS
 
-  explicit InputMethodServiceChild();
-  void SetEditableSupportListener(nsIEditableSupportListener* aListener);
-  void SetInputMethodListener(nsIInputMethodListener* aListener);
+  explicit InputMethodServiceChild(nsIEditableSupportListener* aListener);
+  InputMethodServiceChild();
+
+  // setup the real 'EditableSupport' object to handle the requests
+  void SetEditableSupport(nsIEditableSupport* aEditableSupport) {
+    mEditableSupport = aEditableSupport;
+  }
+
+  // The real 'EditableSupport' object to handle the requests
+  nsIEditableSupport* GetEditableSupport() override { return mEditableSupport; }
+
+  // The 'requester' that should be informed once the requests are done.
+  nsIEditableSupportListener* GetEditableSupportListener(
+      uint32_t aId) override {
+    return mRequester;
+  }
 
  protected:
-  mozilla::ipc::IPCResult RecvResponse(
-      const InputMethodServiceResponse& aResponse);
+  IPCResult RecvResponse(const InputMethodResponse& aResponse) {
+    IPCResult result =
+        InputMethodServiceCommon<PInputMethodServiceChild>::RecvResponse(
+            aResponse);
+    Unused << Send__delete__(this);
+    return result;
+  }
 
  private:
   ~InputMethodServiceChild();
-  RefPtr<nsIInputMethodListener> mInputMethodListener;
-  RefPtr<nsIEditableSupportListener> mEditableSupportListener;
+  RefPtr<nsIEditableSupportListener> mRequester;
+  RefPtr<nsIEditableSupport> mEditableSupport;
 };
 
 }  // namespace dom
