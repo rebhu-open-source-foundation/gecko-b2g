@@ -81,10 +81,7 @@ class WebProgressListener final : public nsIWebProgressListener,
       return NS_OK;
     }
 
-    // Our caller keeps a strong reference, so it is safe to remove the listener
-    // from the BrowsingContext's nsIWebProgress.
     nsCOMPtr<nsIWebProgress> webProgress = browsingContext->GetWebProgress();
-    webProgress->RemoveProgressListener(this);
 
     RefPtr<dom::WindowGlobalParent> wgp =
         browsingContext->GetCurrentWindowGlobal();
@@ -93,8 +90,20 @@ class WebProgressListener final : public nsIWebProgressListener,
       rv.ThrowInvalidStateError("Unable to open window");
       mPromise->Reject(rv, __func__);
       mPromise = nullptr;
+      webProgress->RemoveProgressListener(this);
       return NS_OK;
     }
+
+    nsAutoCString documentURI;
+    wgp->GetDocumentURI()->GetSpec(documentURI);
+
+    if (documentURI.EqualsASCII("about:blank")) {
+      return NS_OK;
+    }
+
+    // Our caller keeps a strong reference, so it is safe to remove the listener
+    // from the BrowsingContext's nsIWebProgress.
+    webProgress->RemoveProgressListener(this);
 
     // Check same origin. If the origins do not match, resolve with null (per
     // step 7.2.7.1 of the openWindow spec).
