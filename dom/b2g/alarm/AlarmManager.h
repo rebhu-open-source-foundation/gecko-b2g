@@ -9,16 +9,57 @@
 #include "mozilla/AlreadyAddRefed.h"
 #include "mozilla/ErrorResult.h"
 #include "mozilla/dom/AlarmManagerBinding.h"
+#include "mozilla/dom/Promise.h"
 #include "nsIAlarmProxy.h"
-#include "nsPIDOMWindow.h"
 #include "nsWrapperCache.h"
 
-class nsIGlobalObject;
+/*
+  - AlarmManager:
+    The AlarmManager webidl implementation.
+  - AlarmManagerImpl:
+    The abstract class for AlarmManager to handle requests from both main
+    threads and worker threads.
+  - AlarmManagerMain:
+    The AlarmManagerImpl implementation on main threads, creates an AlarmProxy
+    instance by itself, and uses the AlarmProxy to send requests to
+    AlarmService.
+  - AlarmManagerWorker:
+    The AlarmManagerImpl implementation on worker threads, cannot create
+    AlarmProxy instances by itself, so dispatches all requests to main thread
+    by runnables.
+*/
 
 namespace mozilla {
 namespace dom {
 
-class Promise;
+class AlarmManagerImpl {
+ public:
+  explicit AlarmManagerImpl(nsCString aUrl, nsIGlobalObject* aOuterGlobal)
+      : mUrl(aUrl), mOuterGlobal(aOuterGlobal) {}
+  virtual already_AddRefed<Promise> GetAll() = 0;
+  virtual already_AddRefed<Promise> Add(JSContext* aCx,
+                                        const AlarmOptions& aOptions) = 0;
+  virtual void Remove(long aId) = 0;
+
+  NS_INLINE_DECL_PURE_VIRTUAL_REFCOUNTING
+
+ protected:
+  nsCString mUrl;
+  nsCOMPtr<nsIGlobalObject> mOuterGlobal;
+};
+
+class AlarmManagerMain final : public AlarmManagerImpl {
+ public:
+  NS_INLINE_DECL_REFCOUNTING(AlarmManagerMain, override)
+  explicit AlarmManagerMain(nsCString aUrl, nsIGlobalObject* aOuterGlobal);
+  virtual already_AddRefed<Promise> GetAll() override;
+  virtual already_AddRefed<Promise> Add(JSContext* aCx,
+                                        const AlarmOptions& aOptions) override;
+  virtual void Remove(long aId) override;
+
+ private:
+  ~AlarmManagerMain() = default;
+};
 
 class AlarmManager final : public nsISupports,
                            public nsWrapperCache
@@ -41,17 +82,14 @@ class AlarmManager final : public nsISupports,
 
   already_AddRefed<Promise> GetAll();
   already_AddRefed<Promise> Add(JSContext* aCx, const AlarmOptions& options);
-
   void Remove(long aId);
 
  protected:
-  ~AlarmManager();
-
+  ~AlarmManager() = default;
   nsresult PermissionCheck();
-
   nsCOMPtr<nsIGlobalObject> mGlobal;
-
-  nsAutoCString mUrl;
+  RefPtr<AlarmManagerImpl> mImpl;
+  nsCString mUrl;
 };
 
 namespace alarm {

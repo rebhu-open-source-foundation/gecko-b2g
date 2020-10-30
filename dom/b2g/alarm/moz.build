@@ -17,11 +17,13 @@ EXPORTS.mozilla.dom.alarm += [
 
 EXPORTS.mozilla.dom += [
     "AlarmManager.h",
+    "AlarmManagerWorker.h",
 ]
 
 SOURCES += [
     "AlarmHalService.cpp",
     "AlarmManager.cpp",
+    "AlarmManagerWorker.cpp",
 ]
 
 EXTRA_JS_MODULES += [
