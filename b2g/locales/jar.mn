@@ -16,7 +16,6 @@
 relativesrcdir toolkit/locales:
 #  locale/@AB_CD@/b2g-l10n/overrides/about.dtd                       (%chrome/global/about.dtd)
   locale/@AB_CD@/b2g-l10n/overrides/commonDialogs.properties        (%chrome/global/commonDialogs.properties)
-  locale/@AB_CD@/b2g-l10n/overrides/handling/handling.properties    (%chrome/mozapps/handling/handling.properties)
   locale/@AB_CD@/b2g-l10n/overrides/intl.properties                 (%chrome/global/intl.properties)
   locale/@AB_CD@/b2g-l10n/overrides/intl.css                        (%chrome/global/intl.css)
   locale/@AB_CD@/b2g-l10n/overrides/passwordmgr.properties          (%chrome/passwordmgr/passwordmgr.properties)
@@ -32,7 +31,6 @@ relativesrcdir toolkit/locales:
 
 % override chrome://global/locale/about.dtd chrome://b2g-l10n/locale/overrides/about.dtd
 % override chrome://global/locale/commonDialogs.properties chrome://b2g-l10n/locale/overrides/commonDialogs.properties
-% override chrome://mozapps/locale/handling/handling.properties chrome://b2g-l10n/locale/overrides/handling/handling.properties
 % override chrome://global/locale/intl.properties chrome://b2g-l10n/locale/overrides/intl.properties
 % override chrome://global/locale/intl.css chrome://b2g-l10n/locale/overrides/intl.css
 % override chrome://passwordmgr/locale/passwordmgr.properties chrome://b2g-l10n/locale/overrides/passwordmgr/passwordmgr.properties
