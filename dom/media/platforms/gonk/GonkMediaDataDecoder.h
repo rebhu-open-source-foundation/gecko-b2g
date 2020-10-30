@@ -27,6 +27,8 @@ class GonkDecoderManagerCallback {
   // Called by GonkDecoderManager when samples have been decoded.
   virtual void Output(MediaDataDecoder::DecodedData& aDataArray) = 0;
 
+  virtual void FlushOutput() = 0;
+
   // Denotes that the last input sample has been inserted into the decoder,
   // and no more output can be produced unless more input is sent.
   virtual void InputExhausted() = 0;
@@ -214,6 +216,10 @@ class GonkMediaDataDecoder : public MediaDataDecoder {
   // For GonkDecoderManagerCallback interfaces:
   //  Called by GonkDecoderManager when a sample has been decoded.
   virtual void Output(DecodedData& aDataArray);
+  //  Flush decoded data queued in our buffer. It should be called after
+  //  GonkDecoderManager's internal decoder has been flushed and before the
+  //  whole flush process finishes.
+  virtual void FlushOutput();
   //  Denotes that the last input sample has been inserted into the decoder,
   //  and no more output can be produced unless more input is sent.
   virtual void InputExhausted();
@@ -246,6 +252,7 @@ class DecoderManagerCallback : public GonkDecoderManagerCallback {
   void Output(MediaDataDecoder::DecodedData& aDataArray) override {
     mMediaDataDecoder->Output(aDataArray);
   }
+  void FlushOutput() override { mMediaDataDecoder->FlushOutput(); }
   void InputExhausted() override { mMediaDataDecoder->InputExhausted(); }
   void DrainComplete() override { mMediaDataDecoder->DrainComplete(); }
   void ReleaseMediaResources() override {

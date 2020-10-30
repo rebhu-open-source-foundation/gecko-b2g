@@ -197,6 +197,7 @@ void GonkDecoderManager::ProcessFlush() {
     mToGonkMediaDataDecoderCallback->NotifyError(
         __func__, MediaResult(NS_ERROR_DOM_MEDIA_DECODE_ERR, __func__));
   }
+  mToGonkMediaDataDecoderCallback->FlushOutput();
   mIsFlushing = false;
   lock.NotifyAll();
 }
@@ -409,6 +410,8 @@ void GonkMediaDataDecoder::Output(DecodedData& aDataArray) {
   }
   ResolveDecodePromise();
 }
+
+void GonkMediaDataDecoder::FlushOutput() { mDecodedData = DecodedData(); }
 
 void GonkMediaDataDecoder::InputExhausted() { ResolveDecodePromise(); }
 
