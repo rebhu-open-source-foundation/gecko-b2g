@@ -1186,6 +1186,7 @@ RadioInterface.prototype = {
         if (DEBUG) {
           this.debug("RILJ: [UNSL]< RIL_UNSOL_RESPONSE_SIM_STATUS_CHANGED");
         }
+        this.sendRilRequest("getICCStatus", null);
         break;
       case "resendIncallMute":
         if (DEBUG) {

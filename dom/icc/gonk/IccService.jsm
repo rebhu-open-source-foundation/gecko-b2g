@@ -449,7 +449,9 @@ Icc.prototype = {
     this._radioInterface.sendWorkerMessage(aOperation, aOptions, aResponse => {
       if (aResponse.errorMsg) {
         let retryCount =
-          aResponse.retryCount !== undefined ? aResponse.retryCount : -1;
+          aResponse.remainingRetries !== undefined
+            ? aResponse.remainingRetries
+            : -1;
         debug(
           "_modifyCardLock aOperation:" +
             aOperation +
