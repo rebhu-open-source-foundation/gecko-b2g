@@ -102,7 +102,6 @@ class GonkDecoderManager : public android::AHandler {
   void ProcessInput(bool aEndOfStream);
   virtual void ProcessFlush();
   void ProcessToDo(bool aEndOfStream);
-  virtual void ResetEOS();
 
   RefPtr<MediaByteBuffer> mCodecSpecificData;
 
@@ -228,6 +227,7 @@ class GonkMediaDataDecoder : public MediaDataDecoder {
 
  private:
   void ResolveDecodePromise();
+  void ResolveDrainPromise();
 
   android::sp<GonkDecoderManager> mManager;
 

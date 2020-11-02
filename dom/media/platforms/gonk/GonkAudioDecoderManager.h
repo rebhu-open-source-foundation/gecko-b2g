@@ -33,7 +33,6 @@ class GonkAudioDecoderManager : public GonkDecoderManager {
                      MediaDataDecoder::DecodedData& aOutput) override;
 
   void ProcessFlush() override;
-  virtual void ResetEOS() override;
 
   const char* GetDescriptionName() const override {
     return "gonk audio decoder";

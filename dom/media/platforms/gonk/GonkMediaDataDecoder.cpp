@@ -250,7 +250,6 @@ void GonkDecoderManager::ProcessToDo(bool aEndOfStream) {
       MOZ_ASSERT(mWaitOutput.Length() == 1);
       mWaitOutput.RemoveElementAt(0);
       mToGonkMediaDataDecoderCallback->DrainComplete();
-      ResetEOS();
       return;
     } else if (rv == NS_ERROR_NOT_AVAILABLE) {
       break;
@@ -274,16 +273,6 @@ void GonkDecoderManager::ProcessToDo(bool aEndOfStream) {
       mToDo->setInt32("input-eos", 1);
     }
     mDecoder->requestActivityNotification(mToDo);
-  }
-}
-
-void GonkDecoderManager::ResetEOS() {
-  // After eos, android::MediaCodec needs to be flushed to receive next input
-  mWaitOutput.Clear();
-  if (mDecoder->flush() != OK) {
-    GDM_LOGE("flush error");
-    mToGonkMediaDataDecoderCallback->NotifyError(
-        __func__, MediaResult(NS_ERROR_DOM_MEDIA_DECODE_ERR, __func__));
   }
 }
 
@@ -415,7 +404,10 @@ void GonkMediaDataDecoder::FlushOutput() { mDecodedData = DecodedData(); }
 
 void GonkMediaDataDecoder::InputExhausted() { ResolveDecodePromise(); }
 
-void GonkMediaDataDecoder::DrainComplete() { ResolveDecodePromise(); }
+void GonkMediaDataDecoder::DrainComplete() {
+  ResolveDecodePromise();
+  ResolveDrainPromise();
+}
 
 void GonkMediaDataDecoder::ReleaseMediaResources() {}
 
@@ -429,8 +421,15 @@ void GonkMediaDataDecoder::NotifyError(const char* aLine,
 }
 
 void GonkMediaDataDecoder::ResolveDecodePromise() {
-  if (mDecodePromise.IsEmpty() == false) {
+  if (!mDecodePromise.IsEmpty()) {
     mDecodePromise.Resolve(std::move(mDecodedData), __func__);
+    mDecodedData = DecodedData();
+  }
+}
+
+void GonkMediaDataDecoder::ResolveDrainPromise() {
+  if (!mDrainPromise.IsEmpty()) {
+    mDrainPromise.Resolve(std::move(mDecodedData), __func__);
     mDecodedData = DecodedData();
   }
 }

@@ -159,6 +159,9 @@ nsresult GonkAudioDecoderManager::CreateAudioData(MediaBuffer* aBuffer,
 nsresult GonkAudioDecoderManager::GetOutput(
     int64_t aStreamOffset, MediaDataDecoder::DecodedData& aOutData) {
   aOutData.Clear();
+  if (mAudioQueue.AtEndOfStream()) {
+    return NS_ERROR_ABORT;
+  }
   if (mAudioQueue.GetSize() > 0) {
     while (mAudioQueue.GetSize() > 0) {
       aOutData.AppendElement(mAudioQueue.PopFront());
@@ -244,13 +247,6 @@ void GonkAudioDecoderManager::ProcessFlush() {
   mAudioQueue.Reset();
   LOG(">>>FLUSH");
   GonkDecoderManager::ProcessFlush();
-}
-
-void GonkAudioDecoderManager::ResetEOS() {
-  LOG("ResetEOS(<<<");
-  mAudioQueue.Reset();
-  LOG(">>>ResetEOS(");
-  GonkDecoderManager::ResetEOS();
 }
 
 }  // namespace mozilla
