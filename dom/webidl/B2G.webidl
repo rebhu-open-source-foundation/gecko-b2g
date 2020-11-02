@@ -148,12 +148,6 @@ partial interface B2G {
   [Throws, Func="B2G::HasAuthorizationManagerSupport"]
   readonly attribute AuthorizationManager authorizationManager;
 };
-
-[Exposed=Window]
-partial interface B2G {
-  [Throws]
-  readonly attribute EngmodeManager engmodeManager;
-};
 #endif
 
 [Exposed=Window]

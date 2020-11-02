@@ -74,7 +74,6 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(B2G)
 #endif
 #ifdef HAS_KOOST_MODULES
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mAuthorizationManager)
-  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mEngmodeManager)
 #endif
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mListeners)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mUsbManager)
@@ -631,21 +630,6 @@ bool B2G::HasAuthorizationManagerSupport(JSContext* /* unused */, JSObject* aGlo
     // TODO: to limit the access from worker thread
     return true;
   }
-}
-
-EngmodeManager* B2G::GetEngmodeManager(ErrorResult& aRv) {
-  if (!mEngmodeManager) {
-     if (!mOwner) {
-      aRv.Throw(NS_ERROR_UNEXPECTED);
-      return nullptr;
-    }
-    mEngmodeManager = ConstructJSImplementation<EngmodeManager>(
-        "@kaiostech.com/engmode/manager;1", GetParentObject(), aRv);
-    if (aRv.Failed()) {
-      return nullptr;
-    }
-  }
-  return mEngmodeManager;
 }
 #endif
 
