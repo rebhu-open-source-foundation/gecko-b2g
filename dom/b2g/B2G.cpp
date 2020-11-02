@@ -6,6 +6,8 @@
 
 #include "mozilla/dom/B2G.h"
 #include "mozilla/dom/B2GBinding.h"
+#include "mozilla/dom/WorkerPrivate.h"
+#include "mozilla/dom/WorkerRunnable.h"
 #include "mozilla/EventStateManager.h"
 #include "nsIPermissionManager.h"
 
@@ -163,6 +165,47 @@ bool B2G::CheckPermission(const nsACString& aType,
   }
 
   return true;
+}
+
+class CheckPermissionRunnable final : public WorkerMainThreadRunnable {
+ public:
+  explicit CheckPermissionRunnable(const nsCString& aType)
+      : WorkerMainThreadRunnable(GetCurrentThreadWorkerPrivate(),
+                                 "B2G::CheckPermissionRunnable"_ns),
+        mType(aType),
+        mIsAllowed(false) {}
+
+  bool MainThreadRun() override {
+    nsCOMPtr<nsIPrincipal> principal = mWorkerPrivate->GetPrincipal();
+    nsCOMPtr<nsIPermissionManager> permMgr = services::GetPermissionManager();
+
+    uint32_t permission = nsIPermissionManager::DENY_ACTION;
+    nsresult rv = permMgr->TestPermissionFromPrincipal(principal, mType, &permission);
+    if (NS_FAILED(rv) || permission != nsIPermissionManager::ALLOW_ACTION) {
+      mIsAllowed = false;
+    } else {
+      mIsAllowed = true;
+    }
+    return true;
+  }
+
+  bool mIsAllowed;
+
+ private:
+  ~CheckPermissionRunnable() = default;
+  nsCString mType;
+};
+
+bool B2G::CheckPermissionOnWorkerThread(const nsACString& aType) {
+  RefPtr<CheckPermissionRunnable> r = new CheckPermissionRunnable((nsCString)aType);
+
+  ErrorResult rv;
+  r->Dispatch(Canceling, rv);
+  if (rv.Failed()) {
+    return false;
+  }
+
+  return r->mIsAllowed;
 }
 
 AlarmManager* B2G::GetAlarmManager(ErrorResult& aRv) {
@@ -627,8 +670,7 @@ bool B2G::HasAuthorizationManagerSupport(JSContext* /* unused */, JSObject* aGlo
   if (NS_IsMainThread()) {
     return innerWindow ? CheckPermission("cloud-authorization"_ns, innerWindow) : false;
   } else {
-    // TODO: to limit the access from worker thread
-    return true;
+    return CheckPermissionOnWorkerThread("cloud-authorization"_ns);
   }
 }
 #endif
