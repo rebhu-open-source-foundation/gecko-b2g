@@ -23,6 +23,13 @@ XPCOMUtils.defineLazyGetter(this, "Screenshot", function() {
   return Screenshot;
 });
 
+XPCOMUtils.defineLazyServiceGetter(
+  this,
+  "IdleService",
+  "@mozilla.org/widget/useridleservice;1",
+  "nsIUserIdleService"
+);
+
 (function() {
   const { Services } = ChromeUtils.import(
     "resource://gre/modules/Services.jsm"
@@ -53,6 +60,35 @@ XPCOMUtils.defineLazyGetter(this, "Screenshot", function() {
     },
     stopOutput: () => {
       Services.obs.notifyObservers({}, "stop-custom-access-output");
+    },
+  };
+
+  const userIdleObserverMap = new Map();
+  const userIdle = {
+    addObserver: (observer, idleTime) => {
+      let observerXpcom = (subject, topic, idleTime) => {
+        observer(topic, idleTime);
+      };
+      _webembed_log(`userIdle addObserver time: ${idleTime}`);
+      IdleService.addIdleObserver(observerXpcom, idleTime);
+      userIdleObserverMap.set([observer, idleTime], observerXpcom);
+    },
+    removeObserver: (observer, idleTime) => {
+      let observerXpcom, removeKey;
+      for (let [key, value] of userIdleObserverMap) {
+        if (key[0] === observer && key[1] === idleTime) {
+          removeKey = key;
+          observerXpcom = value;
+          break;
+        }
+      }
+      if (observerXpcom) {
+        _webembed_log(`userIdle removeObserver time: ${idleTime}`);
+        IdleService.removeIdleObserver(observerXpcom, idleTime);
+        userIdleObserverMap.delete(removeKey);
+      } else {
+        _webembed_log(`removeObserver failed`);
+      }
     },
   };
 
@@ -251,6 +287,7 @@ XPCOMUtils.defineLazyGetter(this, "Screenshot", function() {
 
       this.systemAlerts = systemAlerts;
       this.customAccessible = customAccessible;
+      this.userIdle = userIdle;
 
       Services.obs.addObserver(shell_window => {
         this.shellWindow = shell_window;

@@ -49,6 +49,15 @@ The `WebEmbedder` object exposes the following methods:
     - `domNode`: the dom node for custom accessible.
   - `startOutput()`: enable custom accessible output.
   - `stopOutput()`: disable custom accessible output.
+- `userIdle`: this object exposes methods for invoking userIdle features.
+  - `addObserver(observer, idleTime)`: add an observer to be notified when the user is `idle` or `active`.
+    - `observer`: callback function `observer(topic, idleTime)`.
+      - `topic`: `idle` or `active`.
+      - `idleTime`: user idle time.
+    - `idleTime`: the amount of time in seconds the user should be idle.
+  - `removeObserver(observer, idleTime)`: remove an observer registered with addObserver.
+    - `observer`: callback function that needs to be removed.
+    - `idleTime`: the amount of time in seconds.
 
 ### Events
 
