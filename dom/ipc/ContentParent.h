@@ -1316,9 +1316,9 @@ class ContentParent final
 
   mozilla::ipc::IPCResult RecvGetDeviceStorageLocations(
       DeviceStorageLocationInfo* info);
-  mozilla::ipc::IPCResult RecvGetHyphDict(
-      nsIURI* aURIParams, base::SharedMemoryHandle* aOutHandle,
-      uint32_t* aOutSize);
+  mozilla::ipc::IPCResult RecvGetHyphDict(nsIURI* aURIParams,
+                                          base::SharedMemoryHandle* aOutHandle,
+                                          uint32_t* aOutSize);
 
   mozilla::ipc::IPCResult RecvNotifyBenchmarkResult(const nsString& aCodecName,
                                                     const uint32_t& aDecodeFPS);
@@ -1486,8 +1486,7 @@ class ContentParent final
   mozilla::ipc::IPCResult RecvSetActiveSessionHistoryEntry(
       const MaybeDiscarded<BrowsingContext>& aContext,
       const Maybe<nsPoint>& aPreviousScrollPos, SessionHistoryInfo&& aInfo,
-      uint32_t aLoadType, int32_t aChildOffset, uint32_t aUpdatedCacheKey,
-      const nsID& aChangeID);
+      uint32_t aLoadType, uint32_t aUpdatedCacheKey, const nsID& aChangeID);
 
   mozilla::ipc::IPCResult RecvReplaceActiveSessionHistoryEntry(
       const MaybeDiscarded<BrowsingContext>& aContext,

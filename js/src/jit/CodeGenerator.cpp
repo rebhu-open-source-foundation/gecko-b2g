@@ -8606,8 +8606,7 @@ void CodeGenerator::visitWasmCall(LWasmCall* lir) {
   MOZ_ASSERT(!lir->safepoint()->isWasmTrap());
 
   if (reloadRegs) {
-    masm.loadPtr(Address(masm.getStackPointer(), WasmCallerTLSOffsetBeforeCall),
-                 WasmTlsReg);
+    masm.loadWasmTlsRegFromFrame();
     masm.loadWasmPinnedRegsFromTls();
     if (switchRealm) {
       masm.switchToWasmTlsRealm(ABINonArgReturnReg0, ABINonArgReturnReg1);
@@ -9009,6 +9008,62 @@ void CodeGenerator::visitModD(LModD* ins) {
   masm.passABIArg(lhs, MoveOp::DOUBLE);
   masm.passABIArg(rhs, MoveOp::DOUBLE);
   masm.callWithABI<Fn, NumberMod>(MoveOp::DOUBLE);
+}
+
+void CodeGenerator::visitModPowTwoD(LModPowTwoD* ins) {
+  FloatRegister lhs = ToFloatRegister(ins->lhs());
+  uint32_t divisor = ins->divisor();
+  MOZ_ASSERT(mozilla::IsPowerOfTwo(divisor));
+
+  FloatRegister output = ToFloatRegister(ins->output());
+
+  // Compute |n % d| using |copysign(n - (d * trunc(n / d)), n)|.
+  //
+  // This doesn't work if |d| isn't a power of two, because we may lose too much
+  // precision. For example |Number.MAX_VALUE % 3 == 2|, but
+  // |3 * trunc(Number.MAX_VALUE / 3) == Infinity|.
+
+  Label done;
+  {
+    ScratchDoubleScope scratch(masm);
+
+    // Subnormals can lead to performance degradation, which can make calling
+    // |fmod| faster than this inline implementation. Work around this issue by
+    // directly returning the input for any value in the interval ]-1, +1[.
+    Label notSubnormal;
+    masm.loadConstantDouble(1.0, scratch);
+    masm.loadConstantDouble(-1.0, output);
+    masm.branchDouble(Assembler::DoubleGreaterThanOrEqual, lhs, scratch,
+                      &notSubnormal);
+    masm.branchDouble(Assembler::DoubleLessThanOrEqual, lhs, output,
+                      &notSubnormal);
+
+    masm.moveDouble(lhs, output);
+    masm.jump(&done);
+
+    masm.bind(&notSubnormal);
+
+    if (divisor == 1) {
+      // The pattern |n % 1 == 0| is used to detect integer numbers. We can skip
+      // the multiplication by one in this case.
+      masm.moveDouble(lhs, output);
+      masm.nearbyIntDouble(RoundingMode::TowardsZero, output, scratch);
+      masm.subDouble(scratch, output);
+    } else {
+      masm.loadConstantDouble(1.0 / double(divisor), scratch);
+      masm.loadConstantDouble(double(divisor), output);
+
+      masm.mulDouble(lhs, scratch);
+      masm.nearbyIntDouble(RoundingMode::TowardsZero, scratch, scratch);
+      masm.mulDouble(output, scratch);
+
+      masm.moveDouble(lhs, output);
+      masm.subDouble(scratch, output);
+    }
+  }
+
+  masm.copySignDouble(output, lhs, output);
+  masm.bind(&done);
 }
 
 void CodeGenerator::visitWasmBuiltinModD(LWasmBuiltinModD* ins) {
@@ -10715,8 +10770,8 @@ void CodeGenerator::visitOutOfLineStoreElementHole(
       valueType != MIRType::Double) {
     // The inline path for StoreElementHoleT and FallibleStoreElementT does not
     // always store the type tag, so we do the store on the OOL path. We use
-    // MIRType::None for the element type so that storeElementTyped will always
-    // store the type tag.
+    // MIRType::None for the element type so that emitStoreElementTyped will
+    // always store the type tag.
     if (ins->isStoreElementHoleT()) {
       emitStoreElementTyped(ins->toStoreElementHoleT()->value(), valueType,
                             MIRType::None, elements, index);
@@ -15324,7 +15379,7 @@ void CodeGenerator::emitIonToWasmCallBase(LIonToWasmCallBase<NumDefs>* lir) {
   const wasm::FuncExport& funcExport = lir->mir()->funcExport();
   const wasm::FuncType& sig = funcExport.funcType();
 
-  WasmABIArgGenerator abi;
+  ABIArgGenerator abi;
   for (size_t i = 0; i < lir->numOperands(); i++) {
     MIRType argMir;
     switch (sig.args()[i].kind()) {

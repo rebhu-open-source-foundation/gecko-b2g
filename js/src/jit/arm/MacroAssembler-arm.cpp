@@ -4359,7 +4359,7 @@ void MacroAssembler::popReturnAddress() { pop(lr); }
 // ABI function calls.
 
 void MacroAssembler::setupUnalignedABICall(Register scratch) {
-  setupNativeABICall();
+  setupABICall();
   dynamicAlignment_ = true;
 
   ma_mov(sp, scratch);
@@ -5843,6 +5843,11 @@ void MacroAssembler::nearbyIntDouble(RoundingMode mode, FloatRegister src,
 
 void MacroAssembler::nearbyIntFloat32(RoundingMode mode, FloatRegister src,
                                       FloatRegister dest) {
+  MOZ_CRASH("not supported on this platform");
+}
+
+void MacroAssembler::copySignDouble(FloatRegister lhs, FloatRegister rhs,
+                                    FloatRegister output) {
   MOZ_CRASH("not supported on this platform");
 }
 
