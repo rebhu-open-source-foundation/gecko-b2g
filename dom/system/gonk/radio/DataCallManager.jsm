@@ -701,6 +701,9 @@ DataCallHandler.prototype = {
   _dataCalls: null,
   _dataInfo: null,
 
+  // Active Apn settings.
+  _activeApnSettings: null,
+
   // Apn settings to be setup after data call are cleared.
   _pendingApnSettings: null,
 
@@ -733,8 +736,12 @@ DataCallHandler.prototype = {
     this._dataCalls = [];
     this.clientId = null;
 
+    this._activeApnSettings = null;
+    this.needRecoverAfterReset = false;
+
     this.dataCallInterface.unregisterListener(this);
     this.dataCallInterface = null;
+    this.mobileWhiteList = null;
 
     let mobileConnection = gMobileConnectionService.getItemByServiceId(
       this.clientId
@@ -813,6 +820,9 @@ DataCallHandler.prototype = {
     this.dataNetworkInterfaces.clear();
     this._dataCalls = [];
     let apnContextsList = new Map();
+
+    // Store the apn setting.
+    this._activeApnSettings = aNewApnSettings;
 
     //1. Create mapping table for apn setting and DataCall.
     for (let inputApnSetting of aNewApnSettings) {
@@ -901,7 +911,7 @@ DataCallHandler.prototype = {
         }
       }
     }
-    console.log("_setupApnSettings done. ");
+    this.debug("_setupApnSettings done. ");
   },
 
   /**
@@ -934,6 +944,17 @@ DataCallHandler.prototype = {
     if (!aNewApnSettings) {
       return;
     }
+
+    if (
+      JSON.stringify(this._activeApnSettings) == JSON.stringify(aNewApnSettings)
+    ) {
+      this.debug(
+        "apn setting not change, skip the update. this._activeApnSettings = " +
+          JSON.stringify(this._activeApnSettings)
+      );
+      return;
+    }
+
     if (this._pendingApnSettings) {
       // Change of apn settings in process, just update to the newest.
       this._pengingApnSettings = aNewApnSettings;
@@ -1322,7 +1343,7 @@ DataCallHandler.prototype = {
       if (DEBUG) {
         this.debug(aNetworkType + " is not a mobile network type!");
       }
-      throw Components.Exception("", Cr.NS_ERROR_INVALID_ARG);
+      return NETWORK_STATE_UNKNOWN;
     }
 
     let networkInterface = this.dataNetworkInterfaces.get(aNetworkType);
@@ -1341,7 +1362,7 @@ DataCallHandler.prototype = {
       if (DEBUG) {
         this.debug(aNetworkType + " is not a mobile network type!");
       }
-      throw Components.Exception("", Cr.NS_ERROR_INVALID_ARG);
+      return;
     }
 
     let networkInterface = this.dataNetworkInterfaces.get(aNetworkType);
@@ -1370,7 +1391,7 @@ DataCallHandler.prototype = {
       if (DEBUG) {
         this.debug(aNetworkType + " is not a mobile network type!");
       }
-      throw Components.Exception("", Cr.NS_ERROR_INVALID_ARG);
+      return;
     }
 
     let networkInterface = this.dataNetworkInterfaces.get(aNetworkType);
@@ -2704,7 +2725,7 @@ RILNetworkInfo.prototype = {
       if (DEBUG) {
         this.debug("Error! Only MMS network can get MMSC.");
       }
-      throw Components.Exception("", Cr.NS_ERROR_UNEXPECTED);
+      return "";
     }
     let apnSetting = this.getApnSetting();
     if (apnSetting) {
@@ -2718,7 +2739,7 @@ RILNetworkInfo.prototype = {
       if (DEBUG) {
         this.debug("Error! Only MMS network can get MMS proxy.");
       }
-      throw Components.Exception("", Cr.NS_ERROR_UNEXPECTED);
+      return "";
     }
     let apnSetting = this.getApnSetting();
     if (apnSetting) {
@@ -2732,7 +2753,7 @@ RILNetworkInfo.prototype = {
       if (DEBUG) {
         this.debug("Error! Only MMS network can get MMS port.");
       }
-      throw Components.Exception("", Cr.NS_ERROR_UNEXPECTED);
+      return -1;
     }
 
     // Note: Port 0 is reserved, so we treat it as invalid as well.
@@ -2751,7 +2772,7 @@ RILNetworkInfo.prototype = {
       if (DEBUG) {
         this.debug("Error! Only IMS network can get pcscf.");
       }
-      throw Components.Exception("", Cr.NS_ERROR_UNEXPECTED);
+      return [];
     }
     let dataCall = this.getDataCall();
     let linkInfo = []; //default value
