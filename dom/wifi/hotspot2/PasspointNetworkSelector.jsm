@@ -109,6 +109,11 @@ PasspointNetworkSelector.prototype = {
       return null;
     }
 
+    if (!PasspointManager.passpointEnabled) {
+      debug("passpoint is disabled");
+      return null;
+    }
+
     if (PasspointManager.isProviderEmpty()) {
       debug("no saved providers");
       return null;

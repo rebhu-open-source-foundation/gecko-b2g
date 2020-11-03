@@ -282,6 +282,34 @@ interface WifiManager : EventTarget {
   DOMRequest deleteCert(DOMString certNickname);
 
   /**
+   * Add or update a Passpoint configuration, and save configuration in storage.
+   * @param config A passpoint configuration object contains homeSp and credential.
+   *        - homeSp: contains fqdn, friendlyName, roamingConsortiumOis, etc.
+   *        - credential: contains realm, imsi, eapType, etc.
+   * onsuccess: We have added the configuration successfully.
+   *            request.result is a string of FQDN to identify the configuration.
+   * onerror: We have failed to add passpoint configuration.
+   */
+  DOMRequest setPasspointConfig(optional PasspointConfiguration config = {});
+
+  /**
+   * Get the list of installed Passpoint configurations added by setPasspointConfig().
+   * onsuccess: We have successfully gotten the installed configuration list.
+   *            request.result is an array of PasspointConfiguration objects.
+   * onerror: We have failed to get configuration list.
+   */
+  DOMRequest getPasspointConfigs();
+
+  /**
+   * Remove the Passpoint configuration identified by its FQDN.
+   * @param fqdn The FQDN of the Passpoint configuration added by
+   *             setPasspointConfig().
+   * onsuccess: We have successfully remove the configuration.
+   * onerror: We have failed to remove the configuration..
+   */
+  DOMRequest removePasspointConfig(DOMString fqdn);
+
+  /**
    * Attribute to enable or disable open network notification.
    */
   attribute boolean openNetworkNotificationEnabled;

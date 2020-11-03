@@ -72,7 +72,7 @@ function WifiCapabilities(obj) {
 }
 
 WifiCapabilities.prototype = {
-  classID: Components.ID("08c88ece-8092-481b-863b-5515a52e411a"),
+  classID: Components.ID("{08c88ece-8092-481b-863b-5515a52e411a}"),
   contractID: "@mozilla.org/wificapabilities;1",
 
   getSecurity() {
@@ -154,6 +154,12 @@ DOMWifiManager.prototype = {
       "WifiManager:deleteCert:Return:NO",
       "WifiManager:setWifiEnabled:Return:OK",
       "WifiManager:setWifiEnabled:Return:NO",
+      "WifiManager:setPasspointConfig:Return:OK",
+      "WifiManager:setPasspointConfig:Return:NO",
+      "WifiManager:getPasspointConfigs:Return:OK",
+      "WifiManager:getPasspointConfigs:Return:NO",
+      "WifiManager:removePasspointConfig:Return:OK",
+      "WifiManager:removePasspointConfig:Return:NO",
       "WifiManager:wifiDown",
       "WifiManager:wifiUp",
       "WifiManager:onconnecting",
@@ -367,6 +373,33 @@ DOMWifiManager.prototype = {
         break;
 
       case "WifiManager:deleteCert:Return:NO":
+        Services.DOMRequest.fireError(request, msg.data);
+        break;
+
+      case "WifiManager:setPasspointConfig:Return:OK":
+        Services.DOMRequest.fireSuccess(request, msg.data);
+        break;
+
+      case "WifiManager:setPasspointConfig:Return:NO":
+        Services.DOMRequest.fireError(request, msg.data);
+        break;
+
+      case "WifiManager:getPasspointConfigs:Return:OK":
+        Services.DOMRequest.fireSuccess(
+          request,
+          Cu.cloneInto(msg.data, this._window)
+        );
+        break;
+
+      case "WifiManager:getPasspointConfigs:Return:NO":
+        Services.DOMRequest.fireError(request, msg.data);
+        break;
+
+      case "WifiManager:removePasspointConfig:Return:OK":
+        Services.DOMRequest.fireSuccess(request, msg.data);
+        break;
+
+      case "WifiManager:removePasspointConfig:Return:NO":
         Services.DOMRequest.fireError(request, msg.data);
         break;
 
@@ -657,6 +690,36 @@ DOMWifiManager.prototype = {
       {
         certNickname,
       },
+      request
+    );
+    return request;
+  },
+
+  setPasspointConfig: function setPasspointConfig(config) {
+    var request = this.createRequest();
+    this._sendMessageForRequest(
+      "WifiManager:setPasspointConfig",
+      config,
+      request
+    );
+    return request;
+  },
+
+  getPasspointConfigs: function getPasspointConfigs() {
+    var request = this.createRequest();
+    this._sendMessageForRequest(
+      "WifiManager:getPasspointConfigs",
+      null,
+      request
+    );
+    return request;
+  },
+
+  removePasspointConfig: function removePasspointConfig(fqdn) {
+    var request = this.createRequest();
+    this._sendMessageForRequest(
+      "WifiManager:removePasspointConfig",
+      fqdn,
       request
     );
     return request;

@@ -29,9 +29,11 @@ var gDebug = false;
 
 this.PasspointManager = (function() {
   var passpointManager = {};
+  var passpointEnabled = false;
   var mAnqpCache = new AnqpCache();
   var mWifiManager = null;
 
+  passpointManager.passpointEnabled = passpointEnabled;
   passpointManager.setDebug = setDebug;
   passpointManager.setWifiManager = setWifiManager;
   passpointManager.isPasspointSupported = isPasspointSupported;
@@ -41,7 +43,9 @@ this.PasspointManager = (function() {
   passpointManager.matchProvider = matchProvider;
   passpointManager.hasCarrierProvider = hasCarrierProvider;
   passpointManager.getAnqpElements = getAnqpElements;
-  passpointManager.addProviderFromCustomization = addProviderFromCustomization;
+  passpointManager.setConfiguration = setConfiguration;
+  passpointManager.getConfigurations = getConfigurations;
+  passpointManager.removeConfiguration = removeConfiguration;
   passpointManager.loadFromStore = loadFromStore;
 
   function debug(aMsg) {
@@ -62,7 +66,6 @@ this.PasspointManager = (function() {
     mWifiManager = manager;
   }
 
-  // TODO: should consider a boolean saved in storage to turn on/off passpoint feature dynamically.
   function isPasspointSupported() {
     return Services.prefs.getBoolPref("dom.passpoint.supported", false);
   }
@@ -213,55 +216,33 @@ this.PasspointManager = (function() {
     return anqpData ? anqpData.getElements() : null;
   }
 
-  function addProviderFromCustomization() {
-    // Store customized configuration if exists.
-    let custom = Cc["@kaiostech.com/customizationinfo;1"].getService(
-      Ci.nsICustomizationInfo
-    );
-    if (!custom) {
+  function setConfiguration(passpointConfig, callback) {
+    let config = new PasspointConfig(passpointConfig);
+    if (!config.homeSp.fqdn) {
+      debug("Invalid passpoint configuration");
+      callback(false);
       return;
     }
 
-    let customizedConfig = custom.getCustomizedValue(
-      0,
-      "passpointConfig",
-      null
-    );
-    if (
-      !customizedConfig ||
-      !customizedConfig.homeSp ||
-      !customizedConfig.credential
-    ) {
-      // Demo passpoint configuration
-      // customizedConfig = {
-      //   homeSp: {
-      //     fqdn : "wlan.mnc097.mcc466.3gppnetwork.org",
-      //     friendlyName : "Demo Network",
-      //     roamingConsortiumOis : []
-      //   },
-      //   credential : {
-      //     realm : "wlan.mnc097.mcc466.3gppnetwork.org",
-      //     imsi : "46697*",
-      //     eapType : 18
-      //   }
-      // };
-      debug("No valid passpoint configuration in customization resources");
-      return;
-    }
+    let provider = new PasspointProvider(config);
+    PasspointConfigManager.addOrUpdateProvider(provider, callback);
+  }
 
-    let config = new PasspointConfig(customizedConfig);
-    if (config.homeSp.fqdn) {
-      let costomizedProvider = new PasspointProvider(config);
-      PasspointConfigManager.addOrUpdateProvider(costomizedProvider, function(
-        success
-      ) {
-        if (!success) {
-          debug("Failed to write passpoint providers into store");
-        }
-      });
-    } else {
-      debug("Invalid customized passpoint configuration");
+  function getConfigurations() {
+    let configs = [];
+    let providers = PasspointConfigManager.providers;
+
+    for (let key in providers) {
+      let provider = providers[key];
+      if (provider.passpointConfig) {
+        configs.push(new PasspointConfig(provider.passpointConfig));
+      }
     }
+    return configs;
+  }
+
+  function removeConfiguration(fqdn, callback) {
+    PasspointConfigManager.removeProvider(fqdn, callback);
   }
 
   function loadFromStore() {

@@ -153,6 +153,9 @@ const SETTINGS_AIRPLANE_MODE_STATUS = "airplaneMode.status";
 // Settings DB for the list of imported wifi certificate nickname
 const SETTINGS_WIFI_CERT_NICKNAME = "wifi.certificate.nickname";
 
+// Settings DB for passpoint
+const SETTINGS_PASSPOINT_ENABLED = "wifi.passpoint.enabled";
+
 // Preference for wifi persist state
 const PREFERENCE_WIFI_ENABLED = "persist.wifi.enabled";
 // Preference for open network notification persist state
@@ -1847,12 +1850,6 @@ var WifiManager = (function() {
     manager.setPowerSave(true, function() {});
     manager.setWpsDetail(function() {});
 
-    // TODO: add here before we find other better place to hook.
-    if (PasspointManager) {
-      debug("Try to add provider from customization");
-      PasspointManager.addProviderFromCustomization();
-    }
-
     // FIXME: window.navigator.mozPower is undefined
     // let window = Services.wm.getMostRecentWindow("navigator:browser");
     // if (window !== null) {
@@ -2278,6 +2275,9 @@ function WifiWorker() {
     "WifiManager:importCert",
     "WifiManager:getImportedCerts",
     "WifiManager:deleteCert",
+    "WifiManager:setPasspointConfig",
+    "WifiManager:getPasspointConfigs",
+    "WifiManager:removePasspointConfig",
     "WifiManager:setWifiEnabled",
     "WifiManager:setWifiTethering",
     "WifiManager:setOpenNetworkNotification",
@@ -2525,7 +2525,7 @@ function WifiWorker() {
           Ci.nsIWifiCertService
         );
         if (wifiCertService.hasPrivateKey(userCertName)) {
-          net.engine = 1;
+          net.engine = true;
           net.engineId = quote("keystore");
           net.privateKeyId = quote("WIFI_USERKEY_" + net.userCertificate);
         }
@@ -3016,11 +3016,13 @@ function WifiWorker() {
   this.getSettings(SETTINGS_WIFI_DEBUG_ENABLED);
   this.getSettings(SETTINGS_AIRPLANE_MODE);
   this.getSettings(SETTINGS_WIFI_CERT_NICKNAME);
+  this.getSettings(SETTINGS_PASSPOINT_ENABLED);
 
   // Add settings observers.
   this.addSettingsObserver(SETTINGS_WIFI_DEBUG_ENABLED);
   this.addSettingsObserver(SETTINGS_AIRPLANE_MODE);
   this.addSettingsObserver(SETTINGS_AIRPLANE_MODE_STATUS);
+  this.addSettingsObserver(SETTINGS_PASSPOINT_ENABLED);
 
   // Initialize configured network from config file.
   WifiConfigManager.loadFromStore();
@@ -3488,6 +3490,15 @@ WifiWorker.prototype = {
         break;
       case "WifiManager:setOpenNetworkNotification":
         this.setOpenNetworkNotificationEnabled(msg);
+        break;
+      case "WifiManager:setPasspointConfig":
+        this.setPasspointConfig(msg);
+        break;
+      case "WifiManager:getPasspointConfigs":
+        this.getPasspointConfigs(msg);
+        break;
+      case "WifiManager:removePasspointConfig":
+        this.removePasspointConfig(msg);
         break;
       case "WifiManager:getState": {
         if (!this._domManagers.includes(msg.manager)) {
@@ -4425,6 +4436,98 @@ WifiWorker.prototype = {
     });
   },
 
+  setPasspointConfig(msg) {
+    const message = "WifiManager:setPasspointConfig:Return";
+    let self = this;
+
+    if (!PasspointManager) {
+      this._sendMessage(message, false, "PasspointManager is null", msg);
+      return;
+    }
+
+    if (
+      !PasspointManager.isPasspointSupported() ||
+      !PasspointManager.passpointEnabled
+    ) {
+      this._sendMessage(
+        message,
+        false,
+        "Passpoint not supported or disabled",
+        msg
+      );
+      return;
+    }
+
+    let config = msg.data;
+    if (!config || !config.homeSp || !config.credential) {
+      this._sendMessage(message, false, "Invalid passpoint configuration", msg);
+      return;
+    }
+
+    PasspointManager.setConfiguration(msg.data, function(success) {
+      self._sendMessage(
+        message,
+        success,
+        success
+          ? msg.data.homeSp.fqdn
+          : "Failed to set passpoint configuration",
+        msg
+      );
+    });
+  },
+
+  getPasspointConfigs(msg) {
+    const message = "WifiManager:getPasspointConfigs:Return";
+
+    if (!PasspointManager) {
+      this._sendMessage(message, false, "PasspointManager is null", msg);
+      return;
+    }
+
+    if (
+      !PasspointManager.isPasspointSupported() ||
+      !PasspointManager.passpointEnabled
+    ) {
+      this._sendMessage(
+        message,
+        false,
+        "Passpoint not supported or disabled",
+        msg
+      );
+      return;
+    }
+
+    let passpointConfigs = PasspointManager.getConfigurations();
+    this._sendMessage(message, true, passpointConfigs, msg);
+  },
+
+  removePasspointConfig(msg) {
+    const message = "WifiManager:removePasspointConfig:Return";
+    let self = this;
+
+    if (!PasspointManager) {
+      this._sendMessage(message, false, "PasspointManager is null", msg);
+      return;
+    }
+
+    if (
+      !PasspointManager.isPasspointSupported() ||
+      !PasspointManager.passpointEnabled
+    ) {
+      this._sendMessage(
+        message,
+        false,
+        "Passpoint not supported or disabled",
+        msg
+      );
+      return;
+    }
+
+    PasspointManager.removeConfiguration(msg.data, function(success) {
+      self._sendMessage(message, success, success ? "Success" : "Failure", msg);
+    });
+  },
+
   setOpenNetworkNotificationEnabled(msg) {
     let enabled = msg.data;
     Services.prefs.setBoolPref(PREFERENCE_WIFI_NOTIFICATION, enabled);
@@ -4466,6 +4569,7 @@ WifiWorker.prototype = {
     this.removeSettingsObserver(SETTINGS_WIFI_DEBUG_ENABLED);
     this.removeSettingsObserver(SETTINGS_AIRPLANE_MODE);
     this.removeSettingsObserver(SETTINGS_AIRPLANE_MODE_STATUS);
+    this.removeSettingsObserver(SETTINGS_PASSPOINT_ENABLED);
 
     Services.obs.removeObserver(this, kFinalUiStartUpTopic);
     Services.obs.removeObserver(this, kXpcomShutdownChangedTopic);
@@ -4826,6 +4930,10 @@ WifiWorker.prototype = {
       case SETTINGS_AIRPLANE_MODE_STATUS:
         debug("'" + SETTINGS_AIRPLANE_MODE_STATUS + "' is now " + aValue);
         this._airplaneMode_status = aValue === null ? "" : aValue;
+        break;
+      case SETTINGS_PASSPOINT_ENABLED:
+        debug("'" + SETTINGS_PASSPOINT_ENABLED + "' is now " + aValue);
+        PasspointManager.passpointEnabled = aValue;
         break;
       case SETTINGS_WIFI_CERT_NICKNAME:
         this._certNicknames = aValue;
