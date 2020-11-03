@@ -52,12 +52,14 @@ static bool IsTypeValid(const MediaContainerType& aType) {
   // On B2G, treat 3GPP as MP4 when Gonk PDM is available.
 #ifdef MOZ_WIDGET_GONK
          aType.Type() == MEDIAMIMETYPE("audio/3gpp") ||
+         aType.Type() == MEDIAMIMETYPE("audio/3gpp2") ||
 #endif
          aType.Type() == MEDIAMIMETYPE("audio/x-m4a") ||
          aType.Type() == MEDIAMIMETYPE("video/mp4") ||
   // On B2G, treat 3GPP as MP4 when Gonk PDM is available.
 #ifdef MOZ_WIDGET_GONK
          aType.Type() == MEDIAMIMETYPE("video/3gpp") ||
+         aType.Type() == MEDIAMIMETYPE("video/3gpp2") ||
 #endif
          aType.Type() == MEDIAMIMETYPE("video/quicktime") ||
          aType.Type() == MEDIAMIMETYPE("video/x-m4v");
@@ -86,6 +88,7 @@ nsTArray<UniquePtr<TrackInfo>> MP4Decoder::GetTracksInfo(
   // On B2G, treat 3GPP as MP4 when Gonk PDM is available.
 #ifdef MOZ_WIDGET_GONK
                        aType.Type() == MEDIAMIMETYPE("video/3gpp") ||
+                       aType.Type() == MEDIAMIMETYPE("video/3gpp2") ||
 #endif
                        aType.Type() == MEDIAMIMETYPE("video/quicktime") ||
                        aType.Type() == MEDIAMIMETYPE("video/x-m4v");
