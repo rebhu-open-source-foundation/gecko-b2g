@@ -24,17 +24,15 @@ namespace mobilemessage {
 NS_IMPL_CYCLE_COLLECTION_CLASS(MmsMessageInternal)
 
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(MmsMessageInternal)
-  for (uint32_t i = 0; i < tmp->mAttachments.Length(); i++) {
-    NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mAttachments[i].mContent)
+  for (uint32_t i = 0; i < tmp->mBlobImpls.Length(); i++) {
+    NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mBlobImpls[i])
   }
-  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mBlobImpls)
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(MmsMessageInternal)
-  for (uint32_t i = 0; i < tmp->mAttachments.Length(); i++) {
-    NS_IMPL_CYCLE_COLLECTION_UNLINK(mAttachments[i].mContent)
+  for (uint32_t i = 0; i < tmp->mBlobImpls.Length(); i++) {
+    NS_IMPL_CYCLE_COLLECTION_UNLINK(mBlobImpls[i])
   }
-  NS_IMPL_CYCLE_COLLECTION_UNLINK(mBlobImpls)
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(MmsMessageInternal)
