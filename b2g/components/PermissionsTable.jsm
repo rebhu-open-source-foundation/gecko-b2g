@@ -152,6 +152,11 @@ this.PermissionsTable = {
     core: ALLOW_ACTION,
     access: ["read", "write", "create"],
   },
+  engmode: {
+    pwa: DENY_ACTION,
+    signed: DENY_ACTION,
+    core: ALLOW_ACTION,
+  },
   "feature-detection": {
     pwa: DENY_ACTION,
     signed: ALLOW_ACTION,
