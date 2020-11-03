@@ -13,14 +13,14 @@
 #include "mozilla/LazyIdleThread.h"
 #include "mozilla/Preferences.h"
 #include "mozilla/Services.h"
-//#include "mozilla/dom/SettingChangeNotificationBinding.h"  // FIXME
 #include "mozilla/dom/WakeLock.h"
 #include "nsContentUtils.h"
 #include "nsIAudioManager.h"
-#include "nsIObserverService.h"
-//#include "nsISettingsService.h"  // FIXME
 #include "nsJSUtils.h"
 #include "nsXULAppAPI.h"
+
+#undef LOG
+#define LOG(args...) FM_LOG("FMRadio", args)
 
 #define TUNE_THREAD_TIMEOUT_MS 5000
 
@@ -28,8 +28,7 @@
 #define BAND_76000_108000_kHz 2
 #define BAND_76000_90000_kHz 3
 
-#define MOZSETTINGS_CHANGED_ID "mozsettings-changed"
-#define SETTING_KEY_AIRPLANEMODE_ENABLED "airplaneMode.enabled"
+#define SETTING_KEY_AIRPLANEMODE_ENABLED u"airplaneMode.enabled"_ns
 
 #define DOM_PARSED_RDS_GROUPS ((0x2 << 30) | (0x3 << 4) | (0x3 << 0))
 
@@ -138,14 +137,14 @@ FMRadioService::FMRadioService()
       break;
   }
 
-#if 0  // FIXME
-  nsCOMPtr<nsIObserverService> obs = services::GetObserverService();
-
-  if (obs && NS_FAILED(obs->AddObserver(this, MOZSETTINGS_CHANGED_ID,
-                                        /* useWeak */ false))) {
-    NS_WARNING("Failed to add settings change observer!");
+  nsCOMPtr<nsISettingsManager> settings =
+      do_GetService("@mozilla.org/sidl-native/settings;1");
+  if (settings) {
+    settings->Get(SETTING_KEY_AIRPLANEMODE_ENABLED, this);
+    settings->AddObserver(SETTING_KEY_AIRPLANEMODE_ENABLED, this, this);
+  } else {
+    LOG("Failed to get SettingsManager");
   }
-#endif
 
   hal::RegisterFMRadioObserver(this);
   hal::RegisterFMRadioRDSObserver(this);
@@ -155,6 +154,14 @@ FMRadioService::FMRadioService()
 }
 
 FMRadioService::~FMRadioService() {
+  nsCOMPtr<nsISettingsManager> settings =
+      do_GetService("@mozilla.org/sidl-native/settings;1");
+  if (settings) {
+    settings->RemoveObserver(SETTING_KEY_AIRPLANEMODE_ENABLED, this, this);
+  } else {
+    LOG("Failed to get SettingsManager");
+  }
+
 #if defined(PRODUCT_MANUFACTURER_SPRD) || defined(PRODUCT_MANUFACTURER_MTK)
   hal::UnregisterSwitchObserver(hal::SWITCH_HEADPHONES, mObserver.get());
 #endif
@@ -178,67 +185,43 @@ void FMRadioService::EnableFMRadio() {
   }
 }
 
-#if 0  // FIXME
-/**
- * Read the airplane-mode setting, if the airplane-mode is not enabled, we
- * enable the FM radio.
- */
-class ReadAirplaneModeSettingTask final : public nsISettingsServiceCallback {
- public:
-  NS_DECL_ISUPPORTS
+nsresult FMRadioService::SettingCallback(nsISettingInfo* aInfo) {
+  MOZ_ASSERT(NS_IsMainThread());
+  MOZ_ASSERT(aInfo);
 
-  ReadAirplaneModeSettingTask(RefPtr<FMRadioReplyRunnable> aPendingRequest)
-      : mPendingRequest(aPendingRequest) {}
+  nsString name, value;
+  aInfo->GetName(name);
+  aInfo->GetValue(value);
+  if (name.Equals(SETTING_KEY_AIRPLANEMODE_ENABLED)) {
+    mHasReadAirplaneModeSetting = true;
+    mAirplaneModeEnabled = value.EqualsLiteral("true");
 
-  NS_IMETHOD
-  Handle(const nsAString& aName, JS::Handle<JS::Value> aResult) {
-    RefPtr<FMRadioService> fmRadioService = FMRadioService::Singleton();
-    MOZ_ASSERT(mPendingRequest == fmRadioService->mPendingRequest);
-
-    fmRadioService->mHasReadAirplaneModeSetting = true;
-
-    if (!aResult.isBoolean()) {
-      // Failed to read the setting value, set the state back to Disabled.
-      fmRadioService->TransitionState(
-          ErrorResponse(u"Unexpected error"_ns), Disabled);
-      return NS_OK;
+    // Disable FM radio HW if Airplane mode is enabled.
+    if (mAirplaneModeEnabled) {
+      Disable(nullptr);
     }
-
-    fmRadioService->mAirplaneModeEnabled = aResult.toBoolean();
-    if (!fmRadioService->mAirplaneModeEnabled) {
-      NS_DispatchToMainThread(NS_NewRunnableFunction(
-          "ReadAirplaneModeSettingTask::Handle",
-          [fmRadioService]() -> void { fmRadioService->EnableFMRadio(); }));
-    } else {
-      // Airplane mode is enabled, set the state back to Disabled.
-      fmRadioService->TransitionState(
-          ErrorResponse(u"Airplane mode currently enabled"_ns),
-          Disabled);
-    }
-
-    return NS_OK;
   }
+  return NS_OK;
+}
 
-  NS_IMETHOD
-  HandleError(const nsAString& aName) {
-    FMRadioService* fmRadioService = FMRadioService::Singleton();
-    MOZ_ASSERT(mPendingRequest == fmRadioService->mPendingRequest);
+// Implements nsISettingsGetResponse::Resolve()
+NS_IMETHODIMP FMRadioService::Resolve(nsISettingInfo* aInfo) {
+  return SettingCallback(aInfo);
+}
 
-    fmRadioService->TransitionState(
-        ErrorResponse(u"Unexpected error"_ns), Disabled);
+// Implements nsISettingsGetResponse::Reject()
+NS_IMETHODIMP FMRadioService::Reject(nsISettingError* aError) {
+  return NS_OK;
+}
 
-    return NS_OK;
-  }
+// Implements nsISettingsObserver::ObserveSetting()
+NS_IMETHODIMP FMRadioService::ObserveSetting(nsISettingInfo* aInfo) {
+  return SettingCallback(aInfo);
+}
 
- protected:
-  ~ReadAirplaneModeSettingTask() {}
-
- private:
-  RefPtr<FMRadioReplyRunnable> mPendingRequest;
-};
-
-NS_IMPL_ISUPPORTS(ReadAirplaneModeSettingTask, nsISettingsServiceCallback)
-#endif
+// Implements nsISidlDefaultResponse
+NS_IMETHODIMP FMRadioService::Resolve() { return NS_OK; }
+NS_IMETHODIMP FMRadioService::Reject() { return NS_OK; }
 
 void FMRadioService::DisableFMRadio() {
   if (mTuneThread) {
@@ -456,34 +439,6 @@ void FMRadioService::Enable(double aFrequencyInMHz,
 
   // Cache the frequency value, and set it after the FM radio HW is enabled
   mPendingFrequencyInKHz = roundedFrequency;
-
-#if 0  // FIXME
-  if (!mHasReadAirplaneModeSetting) {
-    nsCOMPtr<nsISettingsService> settings =
-        do_GetService("@mozilla.org/settingsService;1");
-
-    nsCOMPtr<nsISettingsServiceLock> settingsLock;
-    nsresult rv = settings->CreateLock(nullptr, getter_AddRefs(settingsLock));
-    if (NS_FAILED(rv)) {
-      TransitionState(
-          ErrorResponse(u"Can't create settings lock"_ns),
-          Disabled);
-      return;
-    }
-
-    RefPtr<ReadAirplaneModeSettingTask> callback =
-        new ReadAirplaneModeSettingTask(mPendingRequest);
-
-    rv = settingsLock->Get(SETTING_KEY_AIRPLANEMODE_ENABLED, callback);
-    if (NS_FAILED(rv)) {
-      TransitionState(
-          ErrorResponse(u"Can't get settings lock"_ns),
-          Disabled);
-    }
-
-    return;
-  }
-#endif
 
   RefPtr<FMRadioService> self = this;
   NS_DispatchToMainThread(NS_NewRunnableFunction(
@@ -728,43 +683,6 @@ void FMRadioService::DisableRDS(FMRadioReplyRunnable* aReplyRunnable) {
 
     DispatchFMRadioEventToMainThread(RDSEnabledChanged);
   }
-}
-
-NS_IMETHODIMP
-FMRadioService::Observe(nsISupports* aSubject, const char* aTopic,
-                        const char16_t* aData) {
-  MOZ_ASSERT(NS_IsMainThread());
-  MOZ_ASSERT(sFMRadioService);
-
-#if 0  // FIXME
-  if (strcmp(aTopic, MOZSETTINGS_CHANGED_ID) != 0) {
-    return NS_OK;
-  }
-
-  // The string that we're interested in will be a JSON string looks like:
-  //  {"key":"airplaneMode.enabled","value":true}
-  RootedDictionary<dom::SettingChangeNotification> setting(
-      nsContentUtils::RootingCx());
-  if (!WrappedJSToDictionary(aSubject, setting)) {
-    return NS_OK;
-  }
-  if (!setting.mKey.EqualsASCII(SETTING_KEY_AIRPLANEMODE_ENABLED)) {
-    return NS_OK;
-  }
-  if (!setting.mValue.isBoolean()) {
-    return NS_OK;
-  }
-
-  mAirplaneModeEnabled = setting.mValue.toBoolean();
-  mHasReadAirplaneModeSetting = true;
-
-  // Disable the FM radio HW if Airplane mode is enabled.
-  if (mAirplaneModeEnabled) {
-    Disable(nullptr);
-  }
-#endif
-
-  return NS_OK;
 }
 
 void FMRadioService::NotifyFMRadioEvent(FMRadioEventType aType) {
@@ -1398,6 +1316,7 @@ FMRadioService* FMRadioService::Singleton() {
   return sFMRadioService;
 }
 
-NS_IMPL_ISUPPORTS(FMRadioService, nsIObserver)
+NS_IMPL_ISUPPORTS(FMRadioService, nsISettingsGetResponse, nsISettingsObserver,
+                  nsISidlDefaultResponse)
 
 END_FMRADIO_NAMESPACE

@@ -13,7 +13,7 @@
 #include "mozilla/HalTypes.h"
 #include "mozilla/Mutex.h"
 #include "mozilla/StaticPtr.h"
-#include "nsIObserver.h"
+#include "nsISettings.h"
 #include "nsThreadUtils.h"
 
 BEGIN_FMRADIO_NAMESPACE
@@ -142,7 +142,9 @@ enum FMRadioState { Disabled, Disabling, Enabling, Enabled, Seeking };
 class FMRadioService final : public IFMRadioService,
                              public hal::FMRadioObserver,
                              public hal::FMRadioRDSObserver,
-                             public nsIObserver {
+                             public nsISettingsGetResponse,
+                             public nsISettingsObserver,
+                             public nsISidlDefaultResponse {
   friend class IFMRadioService;
   friend class ReadAirplaneModeSettingTask;
   friend class EnableRunnable;
@@ -151,6 +153,9 @@ class FMRadioService final : public IFMRadioService,
 
  public:
   NS_DECL_ISUPPORTS
+  NS_DECL_NSISETTINGSGETRESPONSE
+  NS_DECL_NSISETTINGSOBSERVER
+  NS_DECL_NSISIDLDEFAULTRESPONSE
 
   virtual bool IsEnabled() const override;
   virtual bool IsRDSEnabled() const override;
@@ -190,8 +195,6 @@ class FMRadioService final : public IFMRadioService,
   void DisableFMRadio();
   void DispatchFMRadioEventToMainThread(enum FMRadioEventType aType);
 
-  NS_DECL_NSIOBSERVER
-
  protected:
   FMRadioService();
   virtual ~FMRadioService();
@@ -210,6 +213,7 @@ class FMRadioService final : public IFMRadioService,
   void UpdateFrequency();
   void WakeLockCreate();
   void WakeLockRelease();
+  nsresult SettingCallback(nsISettingInfo* aInfo);
 
  private:
   bool mEnabled;
