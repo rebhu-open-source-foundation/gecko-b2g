@@ -6565,16 +6565,6 @@
   value: true
   mirror: always
 
-- name: layout.display-list.retain.verify
-  type: RelaxedAtomicBool
-  value: false
-  mirror: always
-
-- name: layout.display-list.retain.verify.order
-  type: RelaxedAtomicBool
-  value: false
-  mirror: always
-
 # Set the maximum number of modified frames allowed before doing a full
 # display list rebuild.
 - name: layout.display-list.rebuild-frame-limit
@@ -8895,6 +8885,15 @@
   type: bool
   value: true
   mirror: always
+
+# Manually enter the NAT64 prefix that will be used if IPv4 is unavailable.
+# The value is formatted as IPv6 with the least significant bits to be dropped.
+# For example, 64:ff9b:: is a common prefix. This will not disable
+# the NAT64 check, although the value of this pref will be prioritized.
+- name: network.connectivity-service.nat64-prefix
+  type: String
+  value: ""
+  mirror: never
 
 # Whether to enable echconfig.
 - name: network.dns.echconfig.enabled
