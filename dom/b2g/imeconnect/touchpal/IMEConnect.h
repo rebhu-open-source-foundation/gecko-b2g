@@ -363,6 +363,7 @@ class IMEConnect final : public nsISupports, public nsWrapperCache {
 
   nsresult Init(uint32_t aLid);
 
+  static bool HasSupport(JSContext* /* unused */, JSObject* aGlobal);
   static void SetLetter(const unsigned long aHexPrefix,
                         const unsigned long aHexLetter, ErrorResult& aRv);
   static void SetLetterMultiTap(const unsigned long aKeyCode,

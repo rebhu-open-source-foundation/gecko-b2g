@@ -2,6 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+#include "mozilla/dom/B2G.h"
 #include "mozilla/dom/IMEConnect.h"
 #include "mozilla/dom/IMEConnectBinding.h"
 #include "nsCycleCollectionParticipant.h"
@@ -41,6 +42,11 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(IMEConnect)
   NS_WRAPPERCACHE_INTERFACE_MAP_ENTRY
   NS_INTERFACE_MAP_ENTRY(nsISupports)
 NS_INTERFACE_MAP_END
+
+bool IMEConnect::HasSupport(JSContext* /* unused */, JSObject* aGlobal) {
+  nsCOMPtr<nsPIDOMWindowInner> innerWindow = xpc::WindowOrNull(aGlobal);
+  return innerWindow ? B2G::CheckPermission("ime-connect"_ns, innerWindow) : false;
+}
 
 IMEConnect::IMEConnect(nsPIDOMWindowInner* aWindow) : mWindow(aWindow) {
   MOZ_ASSERT(mWindow);

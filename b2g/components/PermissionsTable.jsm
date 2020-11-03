@@ -174,6 +174,11 @@ this.PermissionsTable = {
     pwa: PROMPT_ACTION,
     signed: PROMPT_ACTION,
   },
+  "ime-connect": {
+    pwa: DENY_ACTION,
+    signed: DENY_ACTION,
+    core: ALLOW_ACTION,
+  },
   mobilenetwork: {
     pwa: DENY_ACTION,
     signed: ALLOW_ACTION,
