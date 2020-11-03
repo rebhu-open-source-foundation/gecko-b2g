@@ -68,7 +68,7 @@ function RILSystemMessengerHelper() {
     if (aOrigin) {
       gSystemMessenger.sendMessage(aType, aMessage, aOrigin);
     } else {
-      // gSystemMessenger.broadcastMessage(aType, aMessage);
+      gSystemMessenger.broadcastMessage(aType, aMessage);
     }
   };
 

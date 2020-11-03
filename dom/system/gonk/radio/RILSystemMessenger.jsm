@@ -95,11 +95,7 @@ RILSystemMessenger.prototype = {
       data.secondNumber = aCdmaWaitingNumber;
     }
 
-    this.broadcastMessage(
-      "telephony-call-ended",
-      data,
-      "https://communications.local"
-    );
+    this.broadcastMessage("telephony-call-ended", data);
   },
 
   /**
