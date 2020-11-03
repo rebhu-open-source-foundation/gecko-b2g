@@ -170,10 +170,6 @@ var shell = {
     debug(`Setting system url to ${startURL}`);
 
     this.contentBrowser.src = startURL;
-
-    try {
-      ChromeUtils.import("resource://gre/modules/ExternalAPIService.jsm");
-    } catch (e) {}
   },
 
   stop() {

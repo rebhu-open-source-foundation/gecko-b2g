@@ -13,10 +13,6 @@ UNIFIED_SOURCES += [
     "ExternalAPI.cpp",
 ]
 
-EXTRA_JS_MODULES += [
-    "ExternalAPIService.jsm",
-]
-
 LOCAL_INCLUDES += [
     "/dom/workers",
 ]
