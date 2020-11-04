@@ -3317,7 +3317,7 @@ BrowserGlue.prototype = {
   _migrateUI: function BG__migrateUI() {
     // Use an increasing number to keep track of the current migration state.
     // Completely unrelated to the current Firefox release number.
-    const UI_VERSION = 101;
+    const UI_VERSION = 103;
     const BROWSER_DOCURL = AppConstants.BROWSER_CHROME_URL;
 
     if (!Services.prefs.prefHasUserValue("browser.migration.version")) {
@@ -3943,9 +3943,21 @@ BrowserGlue.prototype = {
       Services.prefs.clearUserPref("security.tls.version.enable-deprecated");
     }
 
-    // Set a pref if the bookmarks toolbar was already visible,
-    // so we can keep it visible when navigating away from newtab
-    if (currentUIVersion < 100) {
+    if (currentUIVersion < 102) {
+      // In Firefox 83, we moved to a dynamic button, so it needs to be removed
+      // from default placement. This is done early enough that it doesn't
+      // impact adding new managed bookmarks.
+      const { CustomizableUI } = ChromeUtils.import(
+        "resource:///modules/CustomizableUI.jsm"
+      );
+      CustomizableUI.removeWidgetFromArea("managed-bookmarks");
+    }
+
+    // We have to rerun these because we had to use 102 on beta.
+    // They were 101 and 102 before.
+    if (currentUIVersion < 103) {
+      // Set a pref if the bookmarks toolbar was already visible,
+      // so we can keep it visible when navigating away from newtab
       let bookmarksToolbarWasVisible =
         Services.xulStore.getValue(
           BROWSER_DOCURL,
@@ -3965,9 +3977,7 @@ BrowserGlue.prototype = {
         "PersonalToolbar",
         "collapsed"
       );
-    }
 
-    if (currentUIVersion < 101) {
       Services.prefs.clearUserPref(
         "browser.livebookmarks.migrationAttemptsLeft"
       );
@@ -5316,7 +5326,15 @@ var AboutHomeStartupCache = {
     }
 
     this._cacheProgress = "Writing to cache";
-    await this.populateCache(pageInputStream, scriptInputStream);
+
+    try {
+      await this.populateCache(pageInputStream, scriptInputStream);
+    } catch (e) {
+      this._cacheProgress = "Failed to populate cache";
+      this.log.error("Populating the cache failed: ", e);
+      return;
+    }
+
     this._cacheProgress = "Done";
     this.log.trace("Done writing to cache.");
     this._hasWrittenThisSession = true;
@@ -5688,7 +5706,7 @@ var AboutHomeStartupCache = {
 
   /**
    * Called when a content process is destroyed. Either it shut down normally,
-   * or it crshed. If this is the "privileged about content process", then some
+   * or it crashed. If this is the "privileged about content process", then some
    * internal state is cleared.
    *
    * @param childID (Number)
@@ -5697,6 +5715,17 @@ var AboutHomeStartupCache = {
    */
   onContentProcessShutdown(childID) {
     if (this._procManagerID == childID) {
+      if (this._cacheDeferred) {
+        this.log.error(
+          "A privileged about content process shut down while cache streams " +
+            "were still en route."
+        );
+        // The crash occurred while we were waiting on cache input streams to
+        // be returned to us. Resolve with null streams instead.
+        this._cacheDeferred({ pageInputStream: null, scriptInputStream: null });
+        this._cacheDeferred = null;
+      }
+
       this._procManager.removeMessageListener(
         this.CACHE_RESPONSE_MESSAGE,
         this

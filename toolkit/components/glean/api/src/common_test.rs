@@ -4,22 +4,25 @@
 
 use std::sync::{Mutex, MutexGuard};
 
-use fog::once_cell::sync::Lazy;
+use once_cell::sync::Lazy;
 
 const GLOBAL_APPLICATION_ID: &str = "org.mozilla.firefox.test";
 
 /// UGLY HACK.
 /// We use a global lock to force synchronization of all tests, even if run multi-threaded.
 /// This allows us to run without `--test-threads 1`.`
-pub fn lock_test() -> MutexGuard<'static, ()> {
+pub fn lock_test() -> (MutexGuard<'static, ()>, tempfile::TempDir) {
     static GLOBAL_LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
 
-    GLOBAL_LOCK.lock().unwrap()
+    let lock = GLOBAL_LOCK.lock().unwrap();
+
+    let dir = setup_glean(None);
+    (lock, dir)
 }
 
 // Create a new instance of Glean with a temporary directory.
 // We need to keep the `TempDir` alive, so that it's not deleted before we stop using it.
-pub fn setup_glean(tempdir: Option<tempfile::TempDir>) -> tempfile::TempDir {
+fn setup_glean(tempdir: Option<tempfile::TempDir>) -> tempfile::TempDir {
     let dir = match tempdir {
         Some(tempdir) => tempdir,
         None => tempfile::tempdir().unwrap(),
@@ -39,7 +42,7 @@ pub fn setup_glean(tempdir: Option<tempfile::TempDir>) -> tempfile::TempDir {
 
     // This might have been flushed by other tests already, so we ignore the return value.
     // The dispatch queue is definitely unblocked after this, no matter what.
-    let _ = fog::flush_init();
+    let _ = super::flush_init();
 
     dir
 }

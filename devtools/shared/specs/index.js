@@ -134,6 +134,11 @@ const Types = (exports.__TypesForTests = [
     front: "devtools/client/fronts/manifest",
   },
   {
+    types: ["mediarule"],
+    spec: "devtools/shared/specs/media-rule",
+    front: "devtools/client/fronts/media-rule",
+  },
+  {
     types: ["memory"],
     spec: "devtools/shared/specs/memory",
     front: "devtools/client/fronts/memory",
@@ -253,9 +258,14 @@ const Types = (exports.__TypesForTests = [
     front: "devtools/client/fronts/style-rule",
   },
   {
-    types: ["mediarule", "stylesheet", "stylesheets"],
-    spec: "devtools/shared/specs/stylesheets",
-    front: "devtools/client/fronts/stylesheets",
+    types: ["stylesheet"],
+    spec: "devtools/shared/specs/style-sheet",
+    front: "devtools/client/fronts/style-sheet",
+  },
+  {
+    types: ["stylesheets"],
+    spec: "devtools/shared/specs/style-sheets",
+    front: "devtools/client/fronts/style-sheets",
   },
   {
     types: ["symbol"],
