@@ -667,8 +667,9 @@ void NetworkUtils::addDefaultRouteToNetwork(CommandChain* aChain,
 void NetworkUtils::removeDefaultRoute(CommandChain* aChain,
                                       CommandCallback aCallback,
                                       NetworkResultOptions& aResult) {
-  for (GET_FIELD(mLoopIndex) = 0; GET_FIELD(mLoopIndex)++;
-       GET_FIELD(mLoopIndex) < GET_FIELD(mGateways).Length()) {
+  for (GET_FIELD(mLoopIndex) = 0;
+       GET_FIELD(mLoopIndex) < GET_FIELD(mGateways).Length();
+       GET_FIELD(mLoopIndex)++) {
     char destination[BUF_SIZE];
     nsTArray<nsString>& gateways = GET_FIELD(mGateways);
     NS_ConvertUTF16toUTF8 autoGateway(gateways[GET_FIELD(mLoopIndex)]);
@@ -1212,8 +1213,9 @@ void NetworkUtils::updateIpv6Tethering(CommandChain* aChain,
 void NetworkUtils::addIpv6RouteToLocalNetwork(CommandChain* aChain,
                                               CommandCallback aCallback,
                                               NetworkResultOptions& aResult) {
-  for (GET_FIELD(mLoopIndex) = 0; GET_FIELD(mLoopIndex)++;
-       GET_FIELD(mLoopIndex) < GET_FIELD(mIPv6Routes).Length()) {
+  for (GET_FIELD(mLoopIndex) = 0;
+       GET_FIELD(mLoopIndex) < GET_FIELD(mIPv6Routes).Length();
+       GET_FIELD(mLoopIndex)++) {
     nsTArray<nsString>& ipv6routes = GET_FIELD(mIPv6Routes);
     NS_ConvertUTF16toUTF8 autoIpv6Routes(ipv6routes[GET_FIELD(mLoopIndex)]);
     Status status = gNetd->networkAddRoute(INetd::LOCAL_NET_ID,
@@ -1231,8 +1233,9 @@ void NetworkUtils::addIpv6RouteToLocalNetwork(CommandChain* aChain,
 void NetworkUtils::removeIpv6LocalNetworkRoute(CommandChain* aChain,
                                                CommandCallback aCallback,
                                                NetworkResultOptions& aResult) {
-  for (GET_FIELD(mLoopIndex) = 0; GET_FIELD(mLoopIndex)++;
-       GET_FIELD(mLoopIndex) < GET_FIELD(mIPv6Routes).Length()) {
+  for (GET_FIELD(mLoopIndex) = 0;
+       GET_FIELD(mLoopIndex) < GET_FIELD(mIPv6Routes).Length();
+       GET_FIELD(mLoopIndex)++) {
     nsTArray<nsString>& ipv6routes = GET_FIELD(mIPv6Routes);
     NS_ConvertUTF16toUTF8 autoIpv6Routes(ipv6routes[GET_FIELD(mLoopIndex)]);
     Status status = gNetd->networkRemoveRoute(INetd::LOCAL_NET_ID,
