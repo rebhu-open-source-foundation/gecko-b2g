@@ -131,14 +131,13 @@ void BluetoothPairingListener::TryListeningToBluetoothSignal() {
   // Listen to bluetooth signal only if all pairing event handlers have been
   // attached. All pending pairing requests queued in BluetoothService would
   // be fired when pairing listener starts listening to bluetooth signal.
-  // TODO: Pend the pairing signal
-  // if (!HasListenersFor(nsGkAtoms::ondisplaypasskeyreq) ||
-  //     !HasListenersFor(nsGkAtoms::onenterpincodereq) ||
-  //     !HasListenersFor(nsGkAtoms::onpairingconfirmationreq) ||
-  //     !HasListenersFor(nsGkAtoms::onpairingconsentreq)) {
-  //   BT_LOGD("Pairing listener is not ready to handle pairing requests!");
-  //   return;
-  // }
+  if (!HasListenersFor(nsGkAtoms::ondisplaypasskeyreq) ||
+      !HasListenersFor(nsGkAtoms::onenterpincodereq) ||
+      !HasListenersFor(nsGkAtoms::onpairingconfirmationreq) ||
+      !HasListenersFor(nsGkAtoms::onpairingconsentreq)) {
+    BT_LOGD("Pairing listener is not ready to handle pairing requests!");
+    return;
+  }
 
   // Start listening to bluetooth signal to handle pairing requests
   RegisterBluetoothSignalHandler(KEY_PAIRING_LISTENER, this);
