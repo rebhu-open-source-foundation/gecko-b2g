@@ -33,6 +33,10 @@ this.defaultPermissions = ["vibration"];
  * revised by the lint tools automatically.
  **/
 this.PermissionsTable = {
+  alarms: {
+    pwa: ALLOW_ACTION,
+    signed: ALLOW_ACTION,
+  },
   "audio-channel-alarm": {
     pwa: DENY_ACTION,
     signed: ALLOW_ACTION,
