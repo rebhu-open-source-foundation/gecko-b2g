@@ -27,21 +27,17 @@ MailtoProtocolHandler.prototype = {
     Ci.nsIProtocolHandler.URI_DOES_NOT_RETURN_DATA,
   allowPort: () => false,
 
-  newURI: function Proto_newURI(aSpec, aOriginCharset) {
+  newURI(aSpec, aOriginCharset) {
     let uri = Cc["@mozilla.org/network/simple-uri;1"].createInstance(Ci.nsIURI);
     uri.spec = aSpec;
     return uri;
   },
 
-  newChannel2: function Proto_newChannel2(aURI, aLoadInfo) {
+  newChannel(aURI, aLoadInfo) {
     return new ActivityChannel(aURI, aLoadInfo, "mail-handler", {
       URI: aURI.spec,
       type: "mail",
     });
-  },
-
-  newChannel: function Proto_newChannel(aURI) {
-    return this.newChannel2(aURI, null);
   },
 
   classID: Components.ID("{50777e53-0331-4366-a191-900999be386c}"),
