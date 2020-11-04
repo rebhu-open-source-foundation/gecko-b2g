@@ -303,8 +303,6 @@ bool BroadcastSystemMessage(const nsAString& aType,
 bool BroadcastSystemMessage(const nsAString& aType,
                             const nsTArray<BluetoothNamedValue>& aData);
 
-bool DispatchSystemMessage(const nsAString& aType, JS::HandleValue aValue,
-                           JSContext* aCx);
 //
 // Dispatch bluetooth reply to main thread
 //
