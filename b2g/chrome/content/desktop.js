@@ -111,6 +111,7 @@ window.addEventListener("systemappframeprepended", () => {
   }
 
   const systemAppFrame = document.getElementById("systemapp");
+  systemAppFrame.setAttribute("kind", typeFlag);
   switch (typeFlag) {
     case "bartype":
       systemAppFrame.style.width = "240px";

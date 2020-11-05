@@ -249,6 +249,10 @@ var shell = {
   // and <script defer>s are loaded and run.
   notifyContentWindowLoaded() {
     debug("notifyContentWindowLoaded");
+    if (this.contentBrowser.getAttribute("kind") == "touch") {
+      this.contentBrowser.classList.add("fullscreen");
+      this.contentBrowser.removeAttribute("style");
+    }
     // This will cause Gonk Widget to remove boot animation from the screen
     // and reveals the page.
     Services.obs.notifyObservers(null, "browser-ui-startup-complete");
