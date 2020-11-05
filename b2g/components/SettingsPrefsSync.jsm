@@ -108,35 +108,37 @@ this.SettingsPrefsSync = {
 
     return new Promise(resolve => {
       this.getSettingWithDefault("language.current", "en-US").then(setting => {
-        let value = setting.value;
-        Services.prefs.setCharPref("general.useragent.locale", value);
-
-        let prefName = "intl.accept_languages";
-        let defaultBranch = Services.prefs.getDefaultBranch(null);
-
-        let intl = "";
-        try {
-          intl = defaultBranch.getComplexValue(
-            prefName,
-            Ci.nsIPrefLocalizedString
-          ).data;
-        } catch (e) {}
-
-        // Bug 830782 - Homescreen is in English instead of selected locale after
-        // the first run experience.
-        // In order to ensure the current intl value is reflected on the child
-        // process let's always write a user value, even if this one match the
-        // current localized pref value.
-        if (!new RegExp("^" + value + "[^a-z-_] *[,;]?", "i").test(intl)) {
-          value = value + ", " + intl;
-        } else {
-          value = intl;
-        }
-        Services.prefs.setCharPref(prefName, value);
-
+        this.updateLanguage(setting.value, true);
         resolve();
       });
     });
+  },
+
+  // Update the setting "language.current" to Services.locale.requestedLocales and
+  // "intl.accept_languages" preference.
+  updateLanguage(value, forceSetPref) {
+    // We only request a single locale, but need an array.
+    Services.locale.requestedLocales = [value];
+
+    let prefName = "intl.accept_languages";
+    let defaultBranch = Services.prefs.getDefaultBranch(null);
+
+    let intl = "";
+    try {
+      intl = defaultBranch.getComplexValue(prefName, Ci.nsIPrefLocalizedString)
+        .data;
+    } catch (e) {}
+
+    if (!new RegExp("^" + value + "[^a-z-_] *[,;]?", "i").test(intl)) {
+      Services.prefs.setCharPref(prefName, value + ", " + intl);
+    } else if (forceSetPref) {
+      // Bug 830782 - Homescreen is in English instead of selected locale after
+      // the first run experience.
+      // In order to ensure the current intl value is reflected on the child
+      // process let's always write a user value, even if this one match the
+      // current localized pref value.
+      Services.prefs.setCharPref(prefName, intl);
+    }
   },
 
   // For nsIObserver
@@ -189,6 +191,7 @@ this.SettingsPrefsSync = {
     this.managePrivacy();
     this.setupAccessibility();
     this.synchronizePrefs();
+    this.setupLanguageSettingObserver();
   },
 
   // Returns a Commercial Unit Reference which is vendor dependent.
@@ -468,5 +471,22 @@ this.SettingsPrefsSync = {
         `Failed to add observer for ${key}`
       );
     }
+  },
+
+  // Setup setting observer for language
+  setupLanguageSettingObserver() {
+    this.addSettingsObserver(
+      "language.current",
+      {
+        observeSetting: info => {
+          if (!info) {
+            return;
+          }
+          let value = JSON.parse(info.value);
+          this.updateLanguage(value, false);
+        },
+      },
+      "Failed to add observer for language.current"
+    );
   },
 };
