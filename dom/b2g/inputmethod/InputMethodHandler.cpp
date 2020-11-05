@@ -174,6 +174,25 @@ InputMethodHandler::OnGetSelectionRange(uint32_t aId, nsresult aStatus,
   return NS_OK;
 }
 
+NS_IMETHODIMP
+InputMethodHandler::OnGetText(uint32_t aId, nsresult aStatus,
+                              const nsAString& aText) {
+  IME_LOGD("--InputMethodHandler::OnGetText");
+  if (mPromise) {
+    if (NS_SUCCEEDED(aStatus)) {
+      IME_LOGD("--InputMethodHandler::OnGetText:[%s]",
+               NS_ConvertUTF16toUTF8(aText).get());
+      nsString text(aText);
+      mPromise->MaybeResolve(text);
+    } else {
+      IME_LOGD("--InputMethodHandler::OnGetText failed");
+      mPromise->MaybeReject(aStatus);
+    }
+    mPromise = nullptr;
+  }
+  return NS_OK;
+}
+
 nsresult InputMethodHandler::SetComposition(const nsAString& aText) {
   nsString text(aText);
   // TODO use a pure interface, and make it point to either the remote version
@@ -335,6 +354,23 @@ nsresult InputMethodHandler::GetSelectionRange() {
     RefPtr<InputMethodService> service = InputMethodService::GetInstance();
     MOZ_ASSERT(service);
     service->GetSelectionRange(0, this);
+  }
+  return NS_OK;
+}
+
+nsresult InputMethodHandler::GetText(int32_t aOffset, int32_t aLength) {
+  ContentChild* contentChild = ContentChild::GetSingleton();
+  if (contentChild) {
+    IME_LOGD("--InputMethodHandler::GetText content process");
+    // Call from content process.
+    GetTextRequest request(0, aOffset, aLength);
+    SendRequest(contentChild, request);
+  } else {
+    IME_LOGD("--InputMethodHandler::GetText in-process");
+    // Call from parent process (or in-proces app).
+    RefPtr<InputMethodService> service = InputMethodService::GetInstance();
+    MOZ_ASSERT(service);
+    service->GetText(0, this, aOffset, aLength);
   }
   return NS_OK;
 }

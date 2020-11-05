@@ -57,6 +57,12 @@ struct GetSelectionRangeRequest {
   uint32_t id;
 };
 
+struct GetTextRequest {
+  uint32_t id;
+  int32_t offset;
+  int32_t length;
+};
+
 struct OptionDetail {
   bool group;
   bool inGroup;
@@ -155,6 +161,12 @@ struct GetSelectionRangeResponse {
   int32_t end;
 };
 
+struct GetTextResponse {
+  uint32_t id;
+  nsresult status;
+  nsString text;
+};
+
 union InputMethodRequest {
   SetCompositionRequest;
   EndCompositionRequest;
@@ -168,6 +180,7 @@ union InputMethodRequest {
   SetSelectedOptionsRequest;
   CommonRequest;
   GetSelectionRangeRequest;
+  GetTextRequest;
 };
 
 union InputMethodResponse
@@ -182,6 +195,7 @@ union InputMethodResponse
   SetSelectedOptionsResponse;
   CommonResponse;
   GetSelectionRangeResponse;
+  GetTextResponse;
 };
 
 async protocol PInputMethodService {

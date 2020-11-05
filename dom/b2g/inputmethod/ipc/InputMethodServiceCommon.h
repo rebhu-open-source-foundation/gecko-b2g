@@ -87,6 +87,12 @@ class InputMethodServiceCommon : public EditableSupportListenerCommon<T> {
         GetEditableSupport()->GetSelectionRange(request.id(), this);
         break;
       }
+      case InputMethodRequest::TGetTextRequest: {
+        const GetTextRequest& request = aRequest;
+        GetEditableSupport()->GetText(request.id(), this, request.offset(),
+                                      request.length());
+        break;
+      }
       default:
         return IPC_FAIL(
             this, "InputMethodServiceCommon RecvRequest unknown request type.");
@@ -177,6 +183,15 @@ class InputMethodServiceCommon : public EditableSupportListenerCommon<T> {
                 GetEditableSupportListener(response.id())) {
           listener->OnGetSelectionRange(response.id(), response.status(),
                                         response.start(), response.end());
+        }
+        break;
+      }
+      case InputMethodResponse::TGetTextResponse: {
+        const GetTextResponse& response = aResponse;
+        if (RefPtr<nsIEditableSupportListener> listener =
+                GetEditableSupportListener(response.id())) {
+          listener->OnGetText(response.id(), response.status(),
+                              response.text());
         }
         break;
       }

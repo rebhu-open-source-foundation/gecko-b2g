@@ -162,6 +162,18 @@ NS_IMETHODIMP InputMethodService::GetSelectionRange(
   return NS_OK;
 }
 
+NS_IMETHODIMP InputMethodService::GetText(uint32_t aId,
+                                          nsIEditableSupportListener* aListener,
+                                          int32_t aOffset, int32_t aLength) {
+  IME_LOGD("InputMethodService::GetText");
+  if (mEditableSupport) {
+    mEditableSupport->GetText(aId, aListener, aOffset, aLength);
+  } else if (aListener) {
+    aListener->OnGetText(aId, NS_ERROR_ABORT, EmptyString());
+  }
+  return NS_OK;
+}
+
 void InputMethodService::HandleFocus(nsIEditableSupport* aEditableSupport,
                                      nsIInputContext* aPropBag) {
   IME_LOGD("InputMethodService::HandleFocus");

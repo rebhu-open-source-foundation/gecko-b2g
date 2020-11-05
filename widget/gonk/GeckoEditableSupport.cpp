@@ -982,6 +982,54 @@ GeckoEditableSupport::GetSelectionRange(uint32_t aId,
   return rv;
 }
 
+NS_IMETHODIMP
+GeckoEditableSupport::GetText(uint32_t aId,
+                              nsIEditableSupportListener* aListener,
+                              int32_t aOffset, int32_t aLength) {
+  IME_LOGD("-- EditableSupport mDispatcher:[%p]", mDispatcher.get());
+
+  nsresult rv = NS_ERROR_ABORT;
+  nsAutoString text;
+  do {
+    nsFocusManager* focusManager = nsFocusManager::GetFocusManager();
+    if (!focusManager) {
+      break;
+    }
+
+    Element* focusedElement = focusManager->GetFocusedElement();
+    if (!focusedElement) {
+      break;
+    }
+    if (isPlainTextField(focusedElement)) {
+      RefPtr<HTMLTextAreaElement> textArea =
+          HTMLTextAreaElement::FromNodeOrNull(focusedElement);
+      RefPtr<HTMLInputElement> input =
+          HTMLInputElement::FromNodeOrNull(focusedElement);
+      if (textArea) {
+        textArea->GetValue(text);
+        rv = NS_OK;
+      } else if (input) {
+        input->GetValue(text, CallerType::NonSystem);
+        rv = NS_OK;
+      } else {
+        IME_LOGD("GeckoEditableSupport: GetText: Fail, unknow plain text");
+      }
+    } else if (isContentEditable(focusedElement)) {
+      rv = getContentEditableText(focusedElement, text);
+    } else {
+      IME_LOGD(
+          "GeckoEditableSupport: GetText: Fail due to not supported input");
+    }
+  } while (0);
+  text = Substring(text, aOffset, aLength);
+  IME_LOGD("GeckoEditableSupport: GetText: rv:[%d] text:[%s]", rv,
+           NS_ConvertUTF16toUTF8(text).get());
+  if (aListener) {
+    aListener->OnGetText(aId, rv, text);
+  }
+  return rv;
+}
+
 nsresult GeckoEditableSupport::GetInputContextBag(
     nsInputContext* aInputContext) {
   nsFocusManager* focusManager = nsFocusManager::GetFocusManager();

@@ -165,6 +165,25 @@ already_AddRefed<Promise> InputMethod::GetSelectionRange() {
   return promise.forget();
 }
 
+already_AddRefed<Promise> InputMethod::GetText(
+    const Optional<int32_t>& aOffset, const Optional<int32_t>& aLength) {
+  ErrorResult rv;
+  RefPtr<Promise> promise;
+  promise = Promise::Create(mGlobal, rv);
+  ENSURE_SUCCESS(rv, nullptr);
+  IME_LOGD("-- InputMethod::GetText");
+
+  RefPtr<InputMethodHandler> handler = InputMethodHandler::Create(promise);
+  int32_t offset = aOffset.WasPassed() ? aOffset.Value() : 0;
+  int32_t length = aLength.WasPassed() ? aLength.Value() : -1;
+  nsresult result = handler->GetText(offset, length);
+  if (NS_FAILED(result)) {
+    promise->MaybeReject(result);
+  }
+
+  return promise.forget();
+}
+
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(InputMethod, mGlobal)
 NS_IMPL_CYCLE_COLLECTING_ADDREF(InputMethod)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(InputMethod)

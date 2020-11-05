@@ -247,5 +247,15 @@ InputMethodServiceParent::GetSelectionRange(
   return NS_OK;
 }
 
+NS_IMETHODIMP
+InputMethodServiceParent::GetText(uint32_t aId,
+                                  nsIEditableSupportListener* aListener,
+                                  int32_t aOffset, int32_t aLength) {
+  IME_LOGD("InputMethodServiceParent::GetText");
+  mRequestMap.Put(++sRequestId, aListener);
+  Unused << SendRequest(GetTextRequest(sRequestId, aOffset, aLength));
+  return NS_OK;
+}
+
 }  // namespace dom
 }  // namespace mozilla

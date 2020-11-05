@@ -45,6 +45,8 @@ class InputMethod final : public nsISupports, public nsWrapperCache {
 
   void RemoveFocus();
   already_AddRefed<Promise> GetSelectionRange();
+  already_AddRefed<Promise> GetText(const Optional<int32_t>& aOffset,
+                                    const Optional<int32_t>& aLength);
 
  protected:
   ~InputMethod() = default;

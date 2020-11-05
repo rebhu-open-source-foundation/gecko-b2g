@@ -46,4 +46,10 @@ interface InputMethod {
 
   Promise<sequence<long>> getSelectionRange();
 
+  /**
+   * Get the whole text content of the input field.
+   * @return DOMString
+   */
+  Promise<DOMString> getText(optional long offset, optional long length);
+
   };

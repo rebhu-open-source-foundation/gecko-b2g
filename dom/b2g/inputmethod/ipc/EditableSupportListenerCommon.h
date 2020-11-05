@@ -90,6 +90,14 @@ class EditableSupportListenerCommon : public nsIEditableSupportListener,
     IME_LOGD("Listener::OnGetSelectionRange: %lu %lu", aStart, aEnd);
     return NS_OK;
   }
+
+  NS_IMETHODIMP
+  OnGetText(uint32_t aId, nsresult aStatus, const nsAString& aText) {
+    IME_LOGD("Listener::OnGetText:[%s]", NS_ConvertUTF16toUTF8(aText).get());
+    nsString text(aText);
+    Unused << T::SendResponse(GetTextResponse(aId, aStatus, text));
+    return NS_OK;
+  }
 };
 
 }  // namespace dom
