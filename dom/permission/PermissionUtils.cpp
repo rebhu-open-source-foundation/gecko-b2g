@@ -7,8 +7,7 @@
 #include "PermissionUtils.h"
 #include "nsIPermissionManager.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 static const nsLiteralCString kPermissionTypes[] = {
 #ifdef MOZ_B2G
@@ -59,5 +58,4 @@ PermissionState ActionToPermissionState(uint32_t aAction) {
   }
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

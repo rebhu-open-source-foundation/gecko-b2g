@@ -24,20 +24,7 @@
 #include "mozilla/dom/OSFileSystem.h"
 #include "mozilla/dom/WorkerPrivate.h"
 
-// Resolve the name collision of Microsoft's API name with macros defined in
-// Windows header files. Undefine the macro of CreateDirectory to avoid
-// Directory#CreateDirectory being replaced by Directory#CreateDirectoryW.
-#ifdef CreateDirectory
-#  undef CreateDirectory
-#endif
-// Undefine the macro of CreateFile to avoid Directory#CreateFile being replaced
-// by Directory#CreateFileW.
-#ifdef CreateFile
-#  undef CreateFile
-#endif
-
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 NS_IMPL_CYCLE_COLLECTION_CLASS(Directory)
 
@@ -598,5 +585,4 @@ bool Directory::ClonableToDifferentThreadOrProcess() const {
   return mFileSystem->ClonableToDifferentThreadOrProcess();
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

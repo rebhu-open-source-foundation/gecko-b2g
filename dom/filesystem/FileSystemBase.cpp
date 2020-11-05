@@ -11,8 +11,7 @@
 #include "nsCharSeparatedTokenizer.h"
 #include "OSFileSystem.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 // static
 already_AddRefed<FileSystemBase> FileSystemBase::DeserializeDOMPath(
@@ -173,5 +172,4 @@ void FileSystemBase::AssertIsOnOwningThread() const {
   NS_ASSERT_OWNINGTHREAD(FileSystemBase);
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

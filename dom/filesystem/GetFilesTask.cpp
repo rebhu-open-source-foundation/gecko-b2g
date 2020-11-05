@@ -18,8 +18,7 @@
 #include "nsIFile.h"
 #include "nsString.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 /**
  * GetFilesTaskChild
@@ -252,5 +251,4 @@ void GetFilesTaskParent::GetPermissionAccessType(nsCString& aAccess) const {
   aAccess.AssignLiteral(DIRECTORY_READ_PERMISSION);
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

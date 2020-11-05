@@ -19,8 +19,7 @@
 #include "nsIFile.h"
 #include "nsString.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 /**
  * GetDirectoryListingTaskChild
@@ -374,5 +373,4 @@ void GetDirectoryListingTaskParent::GetPermissionAccessType(
   aAccess.AssignLiteral(DIRECTORY_READ_PERMISSION);
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

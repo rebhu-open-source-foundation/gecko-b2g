@@ -64,8 +64,7 @@
 #  include "nsIDOMDesktopNotification.h"
 #endif
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 static const char* kPrefNotificationMaxActions =
     "dom.webnotifications.serviceworker.maxActions";
@@ -2500,5 +2499,4 @@ nsresult Notification::DispatchToMainThread(
                               nsIEventTarget::DISPATCH_NORMAL);
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

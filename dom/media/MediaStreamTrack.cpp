@@ -27,8 +27,7 @@ static mozilla::LazyLogModule gMediaStreamTrackLog("MediaStreamTrack");
 
 using namespace mozilla::media;
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 NS_IMPL_CYCLE_COLLECTING_ADDREF(MediaStreamTrackSource)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(MediaStreamTrackSource)
@@ -636,5 +635,4 @@ already_AddRefed<MediaInputPort> MediaStreamTrack::ForwardTrackContentsTo(
   return aTrack->AllocateInputPort(mTrack);
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

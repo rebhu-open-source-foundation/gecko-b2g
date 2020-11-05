@@ -17,8 +17,7 @@
 
 using namespace mozilla::hal;
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE_0(WakeLock)
 
@@ -254,5 +253,4 @@ nsPIDOMWindowInner* WakeLock::GetParentObject() const {
   return window;
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

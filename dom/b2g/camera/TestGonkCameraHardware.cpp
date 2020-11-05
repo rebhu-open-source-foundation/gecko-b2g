@@ -97,7 +97,7 @@ TestGonkCameraHardwareListener::HandleEvent(Event* aEvent) {
     BlobEvent* event = aEvent->AsBlobEvent();
 
     if (!NS_WARN_IF(!event)) {
-      Blob* blob = event->GetData();
+      Blob* blob = event->Data();
 
       if (blob) {
         static const uint64_t MAX_FILE_SIZE = 2147483647;

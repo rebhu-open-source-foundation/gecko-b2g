@@ -14,8 +14,7 @@
 #include "nsDebug.h"
 #include "nsIFile.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 OSFileSystem::OSFileSystem(const nsAString& aRootDir) {
   mLocalOrDeviceStorageRootPath = aRootDir;
@@ -88,5 +87,4 @@ OSFileSystemParent::OSFileSystemParent(const nsAString& aRootDir) {
   mPermissionCheckType = ePermissionCheckNotRequired;
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

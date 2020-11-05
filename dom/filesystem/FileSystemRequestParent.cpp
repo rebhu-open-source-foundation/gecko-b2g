@@ -22,8 +22,9 @@
 #include "mozilla/Unused.h"
 #include "nsProxyRelease.h"
 
-namespace mozilla {
-namespace dom {
+using namespace mozilla::ipc;
+
+namespace mozilla::dom {
 
 FileSystemRequestParent::FileSystemRequestParent() : mDestroyed(false) {
   AssertIsOnBackgroundThread();
@@ -195,5 +196,4 @@ void FileSystemRequestParent::ActorDestroy(ActorDestroyReason aWhy) {
   mDestroyed = true;
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom
