@@ -48,6 +48,10 @@ var RIL_DEBUG = ChromeUtils.import(
   "resource://gre/modules/ril_consts_debug.js"
 );
 
+var TelephonyRequestQueue = ChromeUtils.import(
+  "resource://gre/modules/TelephonyRequestQueue.jsm"
+);
+
 // Ril quirk to always turn the radio off for the client without SIM card
 // except hw default client.
 var RILQUIRKS_RADIO_OFF_WO_CARD =
@@ -91,7 +95,7 @@ const HW_DEFAULT_CLIENT_ID = 0;
 
 const ICC_MAX_LINEAR_FIXED_RECORDS = 0xfe;
 
-// set to true in ril_consts.js to see debug messages
+// set to true in ril_consts_debug.js to see debug messages
 var DEBUG = RIL_DEBUG.DEBUG_RIL;
 
 function updateDebugFlag() {
@@ -645,7 +649,9 @@ function RadioInterface(aClientId) {
   this.simIOcontext = new SIM.Context(this);
 
   this.tokenCallbackMap = {};
-
+  this.telephonyRequestQueue = new TelephonyRequestQueue.TelephonyRequestQueue(
+    this
+  );
   // For IccIO
   this.tokenOptionsMap = {};
 
@@ -717,6 +723,9 @@ RadioInterface.prototype = {
 
   // Maps tokens we send out with messages to the message callback.
   tokenCallbackMap: null,
+
+  // Telephony request control queue.
+  telephonyRequestQueue: null,
 
   // Maps tokens we stroe the command type for mapping the handler function.
   tokenOptionsMap: null,
@@ -4380,6 +4389,10 @@ RadioInterface.prototype = {
         );
     }
 
+    if (this.telephonyRequestQueue.isValidRequest(response.rilMessageType)) {
+      this.telephonyRequestQueue.pop(response.rilMessageType);
+    }
+
     let token = response.rilMessageToken;
     let callback = this.tokenCallbackMap[token];
 
@@ -5896,14 +5909,7 @@ RadioInterface.prototype = {
       case "enterDepersonalization":
         break;
       case "getCurrentCalls":
-        if (DEBUG) {
-          this.debug(
-            "RILJ: [" +
-              message.rilMessageToken +
-              "] > RIL_REQUEST_GET_CURRENT_CALLS"
-          );
-        }
-        this.rilworker.getCurrentCalls(message.rilMessageToken);
+        this.processGetCurrentCalls(message);
         break;
       case "dial":
         this.processRequestDial(message);
@@ -6373,17 +6379,7 @@ RadioInterface.prototype = {
         this.rilworker.getBasebandVersion(message.rilMessageToken);
         break;
       case "separateCall":
-        if (DEBUG) {
-          this.debug(
-            "RILJ: [" +
-              message.rilMessageToken +
-              "] > RIL_REQUEST_SEPARATE_CONNECTION"
-          );
-        }
-        this.rilworker.separateConnection(
-          message.rilMessageToken,
-          message.callIndex
-        );
+        this.processSeparateCall(message);
         break;
       case "setMute":
         if (DEBUG) {
@@ -6796,14 +6792,16 @@ RadioInterface.prototype = {
       this.exitEmergencyCbMode();
     }
 
-    this.rilworker.requestDial(
-      message.rilMessageToken,
-      message.number || "",
-      message.clirMode,
-      message.uusInfo ? message.uusInfo.uusType || 0 : 0,
-      message.uusInfo ? message.uusInfo.uusDcs || 0 : 0,
-      message.uusInfo ? message.uusInfo.uusData || "" : ""
-    );
+    this.telephonyRequestQueue.push("dial", () => {
+      this.rilworker.requestDial(
+        message.rilMessageToken,
+        message.number || "",
+        message.clirMode,
+        message.uusInfo ? message.uusInfo.uusType || 0 : 0,
+        message.uusInfo ? message.uusInfo.uusDcs || 0 : 0,
+        message.uusInfo ? message.uusInfo.uusData || "" : ""
+      );
+    });
   },
 
   processHangUpCall(message) {
@@ -6815,7 +6813,12 @@ RadioInterface.prototype = {
           message.callIndex
       );
     }
-    this.rilworker.hangupConnection(message.rilMessageToken, message.callIndex);
+    this.telephonyRequestQueue.push("hangUpCall", () => {
+      this.rilworker.hangupConnection(
+        message.rilMessageToken,
+        message.callIndex
+      );
+    });
   },
 
   processAnswerCall(message) {
@@ -6824,7 +6827,9 @@ RadioInterface.prototype = {
         "RILJ: [" + message.rilMessageToken + "] > RIL_REQUEST_ANSWER"
       );
     }
-    this.rilworker.acceptCall(message.rilMessageToken, message.callIndex);
+    this.telephonyRequestQueue.push("answerCall", () => {
+      this.rilworker.acceptCall(message.rilMessageToken, message.callIndex);
+    });
   },
 
   processHangUpBackgroundCall(message) {
@@ -6835,7 +6840,9 @@ RadioInterface.prototype = {
           "] > RIL_REQUEST_HANGUP_WAITING_OR_BACKGROUND"
       );
     }
-    this.rilworker.hangupWaitingOrBackground(message.rilMessageToken);
+    this.telephonyRequestQueue.push("hangUpBackground", () => {
+      this.rilworker.hangupWaitingOrBackground(message.rilMessageToken);
+    });
   },
 
   processHangUpForegroundCall(message) {
@@ -6846,7 +6853,9 @@ RadioInterface.prototype = {
           "] > RIL_REQUEST_HANGUP_FOREGROUND_RESUME_BACKGROUND"
       );
     }
-    this.rilworker.hangupForegroundResumeBackground(message.rilMessageToken);
+    this.telephonyRequestQueue.push("hangUpForeground", () => {
+      this.rilworker.hangupForegroundResumeBackground(message.rilMessageToken);
+    });
   },
 
   processSwitchActiveCall(message) {
@@ -6857,7 +6866,9 @@ RadioInterface.prototype = {
           "] > RIL_REQUEST_SWITCH_WAITING_OR_HOLDING_AND_ACTIVE"
       );
     }
-    this.rilworker.switchWaitingOrHoldingAndActive(message.rilMessageToken);
+    this.telephonyRequestQueue.push("switchActiveCall", () => {
+      this.rilworker.switchWaitingOrHoldingAndActive(message.rilMessageToken);
+    });
   },
 
   processConferenceCall(message) {
@@ -6866,14 +6877,18 @@ RadioInterface.prototype = {
         "RILJ: [" + message.rilMessageToken + "] > RIL_REQUEST_CONFERENCE"
       );
     }
-    this.rilworker.conference(message.rilMessageToken);
+    this.telephonyRequestQueue(RIL.REQUEST_CONFERENCE, () => {
+      this.rilworker.conference(message.rilMessageToken);
+    });
   },
 
   processRejectCall(message) {
     if (DEBUG) {
       this.debug("RILJ: [" + message.rilMessageToken + "] > RIL_REQUEST_UDUB");
     }
-    this.rilworker.rejectCall(message.rilMessageToken);
+    this.telephonyRequestQueue.push("udub", () => {
+      this.rilworker.rejectCall(message.rilMessageToken);
+    });
   },
 
   processExplicitCallTransfer(message) {
@@ -6884,7 +6899,9 @@ RadioInterface.prototype = {
           "] > RIL_REQUEST_EXPLICIT_CALL_TRANSFER"
       );
     }
-    this.rilworker.explicitCallTransfer(message.rilMessageToken);
+    this.telephonyRequestQueue.push("explicitCallTransfer", () => {
+      this.rilworker.explicitCallTransfer(message.rilMessageToken);
+    });
   },
 
   processGetIccAuthentication(message) {
@@ -6903,6 +6920,33 @@ RadioInterface.prototype = {
       message.data,
       message.aid
     );
+  },
+
+  processSeparateCall(message) {
+    if (DEBUG) {
+      this.debug(
+        "RILJ: [" +
+          message.rilMessageToken +
+          "] > RIL_REQUEST_SEPARATE_CONNECTION"
+      );
+    }
+    this.rilworker.separateConnection(
+      message.rilMessageToken,
+      message.callIndex
+    );
+  },
+
+  processGetCurrentCalls(message) {
+    if (DEBUG) {
+      this.debug(
+        "RILJ: [" +
+          message.rilMessageToken +
+          "] > RIL_REQUEST_GET_CURRENT_CALLS"
+      );
+    }
+    this.telephonyRequestQueue.push("getCurrentCalls", () => {
+      this.rilworker.getCurrentCalls(message.rilMessageToken);
+    });
   },
 
   _getAidByAppType(appType) {

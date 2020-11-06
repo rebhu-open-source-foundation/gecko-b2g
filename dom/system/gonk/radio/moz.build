@@ -50,6 +50,7 @@ EXTRA_JS_MODULES += [
     "RILSystemMessenger.jsm",
     "RILSystemMessengerHelper.jsm",
     "simIOHelper.js",
+    "TelephonyRequestQueue.jsm",
 ]
 
 EXTRA_COMPONENTS += [
