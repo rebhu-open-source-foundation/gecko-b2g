@@ -84,30 +84,26 @@ FunctionFlags InitialFunctionFlags(FunctionSyntaxKind kind,
                                    bool isSelfHosting = false,
                                    bool hasUnclonedName = false);
 
-// This owns a set of characters, previously syntax checked as a RegExp. Used
-// to avoid allocating the RegExp on the GC heap during parsing.
+// A syntax-checked regular expression string.
 class RegExpStencil {
   friend class StencilXDR;
 
-  UniqueTwoByteChars buf_;
-  size_t length_ = 0;
+  const ParserAtom* atom_;
   JS::RegExpFlags flags_;
 
  public:
   RegExpStencil() = default;
 
-  MOZ_MUST_USE bool init(JSContext* cx, mozilla::Range<const char16_t> range,
-                         JS::RegExpFlags flags) {
-    length_ = range.length();
-    buf_ = js::DuplicateString(cx, range.begin().get(), range.length());
-    if (!buf_) {
-      return false;
-    }
-    flags_ = flags;
-    return true;
-  }
+  RegExpStencil(const ParserAtom* atom, JS::RegExpFlags flags)
+      : atom_(atom), flags_(flags) {}
 
-  RegExpObject* createRegExp(JSContext* cx) const;
+  RegExpObject* createRegExp(JSContext* cx,
+                             CompilationAtomCache& atomCache) const;
+
+  // This is used by `Reflect.parse` when we need the RegExpObject but are not
+  // doing a complete instantiation of the CompilationStencil.
+  RegExpObject* createRegExpAndEnsureAtom(
+      JSContext* cx, CompilationAtomCache& atomCache) const;
 
 #if defined(DEBUG) || defined(JS_JITSPEW)
   void dump();
@@ -180,10 +176,11 @@ class ScopeStencil {
   // True if this is a FunctionScope for an arrow function.
   bool isArrow_ = false;
 
-  // The list of binding and scope-specific data. Note that the back pointers to
-  // the owning JSFunction / ModuleObject are not set until Stencils are
-  // converted to GC allocations.
-  js::UniquePtr<BaseParserScopeData> data_;
+  // The list of binding and scope-specific data.
+  // Note: The back pointers to the owning JSFunction / ModuleObject are not set
+  //       until Stencils are converted to GC allocations.
+  // Note: This allocation is owned by CompilationStencil.
+  BaseParserScopeData* data_ = nullptr;
 
  public:
   // For XDR only.
@@ -202,8 +199,6 @@ class ScopeStencil {
         functionIndex_(functionIndex),
         isArrow_(isArrow),
         data_(data) {}
-
-  js::UniquePtr<BaseParserScopeData>& data() { return data_; }
 
   static bool createForFunctionScope(JSContext* cx, CompilationStencil& stencil,
                                      ParserFunctionScopeData* dataArg,
@@ -281,7 +276,7 @@ class ScopeStencil {
         typename SpecificScopeType ::template AbstractData<const ParserAtom>;
 
     MOZ_ASSERT(data_);
-    return *static_cast<Data*>(data_.get());
+    return *static_cast<Data*>(data_);
   }
 
   // Transfer ownership into a new UniquePtr.

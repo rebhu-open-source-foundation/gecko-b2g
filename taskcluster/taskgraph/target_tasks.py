@@ -7,7 +7,7 @@
 from __future__ import absolute_import, print_function, unicode_literals
 
 import copy
-from re import search
+import re
 
 import six
 from taskgraph import try_option_syntax
@@ -140,7 +140,24 @@ def filter_by_uncommon_try_tasks(task, optional_filters=None):
         filters = copy.deepcopy(filters)
         filters.extend(optional_filters)
 
-    return not any(search(pattern, task) for pattern in UNCOMMON_TRY_TASK_LABELS)
+    return not any(re.search(pattern, task) for pattern in UNCOMMON_TRY_TASK_LABELS)
+
+
+def filter_by_regex(task_label, regexes, mode="include"):
+    """Filters tasks according to a list of pre-compiled reguar expressions.
+
+    If mode is "include", a task label must match any regex to pass.
+    If it is "exclude", a task label must _not_ match any regex to pass.
+    """
+    if not regexes:
+        return True
+
+    assert mode in ["include", "exclude"]
+
+    any_match = any(r.search(task_label) for r in regexes)
+    if any_match:
+        return mode == "include"
+    return mode != "include"
 
 
 def filter_release_tasks(task, parameters):
@@ -381,6 +398,13 @@ def target_tasks_try_auto(full_task_graph, parameters, graph_config):
     params = dict(parameters)
     params["project"] = "autoland"
     parameters = Parameters(**params)
+
+    regex_filters = parameters["try_task_config"].get("tasks-regex")
+    include_regexes = exclude_regexes = []
+    if regex_filters:
+        include_regexes = [re.compile(r) for r in regex_filters.get("include", [])]
+        exclude_regexes = [re.compile(r) for r in regex_filters.get("exclude", [])]
+
     return [
         l
         for l, t in six.iteritems(full_task_graph.tasks)
@@ -388,6 +412,8 @@ def target_tasks_try_auto(full_task_graph, parameters, graph_config):
         and filter_out_shipping_phase(t, parameters)
         and filter_out_devedition(t, parameters)
         and filter_by_uncommon_try_tasks(t.label)
+        and filter_by_regex(t.label, include_regexes, mode="include")
+        and filter_by_regex(t.label, exclude_regexes, mode="exclude")
     ]
 
 
@@ -749,6 +775,8 @@ def target_tasks_fennec_v68(full_task_graph, parameters, graph_config):
             return False
         if not accept_raptor_android_build(test_platform):
             return False
+        if "-wr" not in try_name:
+            return False
 
         if "-fennec" in try_name:
             if "-power" in try_name:
@@ -791,6 +819,8 @@ def target_tasks_live_site_perf_testing(full_task_graph, parameters, graph_confi
 
         if not accept_raptor_android_build(platform):
             return False
+        if "-wr" not in try_name:
+            return False
         if "fenix" not in try_name:
             return False
         if "browsertime" not in try_name:
@@ -798,7 +828,7 @@ def target_tasks_live_site_perf_testing(full_task_graph, parameters, graph_confi
         if "live" not in try_name:
             return False
         for test in LIVE_SITES:
-            if try_name.endswith(test) or try_name.endswith(test + "-e10s"):
+            if try_name.endswith(test + "-wr") or try_name.endswith(test + "-wr-e10s"):
                 # These tests run 3 times a week, ignore them
                 return False
 
@@ -828,7 +858,11 @@ def target_tasks_general_perf_testing(full_task_graph, parameters, graph_config)
 
         def _run_live_site():
             for test in LIVE_SITES:
-                if try_name.endswith(test) or try_name.endswith(test + "-e10s"):
+                if try_name.endswith(test + "-wr") or try_name.endswith(
+                    test + "-wr-e10s"
+                ):
+                    return True
+                elif try_name.endswith(test) or try_name.endswith(test + "-e10s"):
                     return True
             return False
 
@@ -867,6 +901,9 @@ def target_tasks_general_perf_testing(full_task_graph, parameters, graph_config)
         elif accept_raptor_android_build(platform):
             # Ignore all fennec tests here, we run those weekly
             if "fennec" in try_name:
+                return False
+            # Only run webrender tests
+            if "chrome-m" not in try_name and "-wr" not in try_name:
                 return False
             # Select live site tests
             if "-live" in try_name and ("fenix" in try_name or "chrome-m" in try_name):

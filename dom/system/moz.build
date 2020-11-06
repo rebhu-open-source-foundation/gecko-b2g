@@ -77,6 +77,7 @@ EXPORTS.mozilla += [
 
 EXPORTS.mozilla.dom += [
     "IOUtils.h",
+    "PathUtils.h",
 ]
 
 UNIFIED_SOURCES += [
@@ -84,6 +85,7 @@ UNIFIED_SOURCES += [
     "nsDeviceSensors.cpp",
     "nsOSPermissionRequestBase.cpp",
     "OSFileConstants.cpp",
+    "PathUtils.cpp",
 ]
 
 EXTRA_JS_MODULES += [
