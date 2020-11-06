@@ -306,6 +306,7 @@
     "metachange",
     "opensearch",
     "pagetitlechanged",
+    "promptpermission",
     "resize",
     "scroll",
   ];
@@ -525,6 +526,26 @@
             event.detail.backgroundcolor
           );
           break;
+        case "promptpermission": {
+          // Receive "promptpermission" event from ContentPermissionPrompt.
+          // Dispatch "mozbrowserpromptpermission" event to system app,
+          // wait for the reply event from system app of event type requestId,
+          // and dispatch back to ContentPermissionPrompt through this.browser.
+          this.addEventListener(
+            event.detail.requestId,
+            e => {
+              this.browser.dispatchEvent(
+                new CustomEvent(event.detail.requestId, {
+                  bubbles: true,
+                  detail: e.detail,
+                })
+              );
+            },
+            { once: true }
+          );
+          this.dispatchCustomEvent(event.type, event.detail);
+          break;
+        }
         default:
           this.error(`Unexpected event ${event.type}`);
       }
@@ -593,7 +614,16 @@
         let current = this.browser.docShellIsActive;
         this.browser.docShellIsActive = val;
         if (current !== val) {
+          this.log(`change docShellIsActive from ${current} to ${val}`);
           this.dispatchCustomEvent("visibilitychange", { visible: val });
+          // "visibilitychange" event is dispatched on webview itself.
+          // To notify its browser element, dispatch "webview-visibilitychange"
+          // event on this.browser.
+          let event = new CustomEvent("webview-visibilitychange", {
+            bubbles: true,
+            detail: { visible: val },
+          });
+          this.browser.dispatchEvent(event);
         }
       }
     }

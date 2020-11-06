@@ -48,6 +48,21 @@ Each event type is prefixed with `mozbrowser` for historical compatibility reaso
 - `manifestchange` : `{ href: string}`
 - `opensearch` : `{ title: string, href: string}`
 - `processready`: `{ processid: int}`
+- `promptpermission` :
+  - `detail` object of the `promptpermission` event:
+    - `requestId` : string type, a unique request id, such as "permission-prompt-{4bd60020-01aa-4f77-ace6-a1ee28f021f1}".
+    - `origin` : string type, the origin of the permission requester.
+    - `requestAction` : string type, "prompt" means to prompt to user, "cancel" means to cancel the request.
+    - `permissions` : an object with keys of permission types, such as `{"video-capture": {"action": "prompt", "options": ["back", "front"]}}`.
+      - `action` : string type, the current permission setting of the permission type for the origin, might be "prompt" or "allow".
+      - `options` : an array of options, such as ["back", "front"] for "video-capture" permission type, could be empty if no choice to make.
+  - expected event after sending `promptpermission` with requestAction == "prompt":
+    - event type : `requestId`
+    - event detail: `{ origin: string, choices: {}, granted: bool, remember: bool }`
+      - `origin` : string type, the origin of the permission requester.
+      - `granted` : bool type, granted or not.
+      - `remember` : bool type, remember the decision or not.
+      - `choice` : an object with keys of permission types, such as `{"video-capture": "back"}`.
 - `resize` : `{ width: int, height: int}`
 - `scroll` : `{ top: int, left: int}`
 - `securitychange` : `{ state: string, mixedState: string, extendedValidation: boolean, mixedContent: boolean }`

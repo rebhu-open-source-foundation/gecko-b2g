@@ -4,44 +4,48 @@
 
 "use strict";
 
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
+
 function debug(str) {
-  //dump("-*- ContentPermissionPrompt: " + str + "\n");
+  dump("-*- ContentPermissionPrompt: " + str + "\n");
 }
 
+const PERM_VALUES = ["unknown", "allow", "deny", "prompt"];
 const PROMPT_FOR_UNKNOWN = [
   "audio-capture",
   "desktop-notification",
   "geolocation",
   "video-capture",
 ];
-
-const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
+// Due to privary issue, permission requests like GetUserMedia should prompt
+// every time instead of providing session persistence.
+const PERMISSION_NO_SESSION = ["audio-capture", "video-capture"];
 
 /**
  * Determine if a permission should be prompt to user or not.
  *
- * @param aPerm requested permission
- * @param aAction the action according to principal
+ * @param perm requested permission
+ * @param action the action according to principal
  * @return true if prompt is required
  */
-function shouldPrompt(aPerm, aAction) {
+function shouldPrompt(perm, action) {
   return (
-    aAction == Ci.nsIPermissionManager.PROMPT_ACTION ||
-    (aAction == Ci.nsIPermissionManager.UNKNOWN_ACTION &&
-      PROMPT_FOR_UNKNOWN.includes(aPerm))
+    action == Ci.nsIPermissionManager.PROMPT_ACTION ||
+    (action == Ci.nsIPermissionManager.UNKNOWN_ACTION &&
+      PROMPT_FOR_UNKNOWN.includes(perm))
   );
 }
 
 /**
  * Create the default choices for the requested permissions
  *
- * @param aTypesInfo requested permissions
+ * @param typesInfo requested permissions
  * @return the default choices for permissions with options, return
  *         undefined if no option in all requested permissions.
  */
-function buildDefaultChoices(aTypesInfo) {
+function buildDefaultChoices(typesInfo) {
   let choices;
-  for (let type of aTypesInfo) {
+  for (let type of typesInfo) {
     if (type.options.length) {
       if (!choices) {
         choices = {};
@@ -50,6 +54,108 @@ function buildDefaultChoices(aTypesInfo) {
     }
   }
   return choices;
+}
+
+/**
+ * Update the permissions to PermissionManager
+ * @param typesInfo requested permissions and their properties
+ * @param remember: permanently remember the decision or not
+ * @param granted: granted or not
+ * @param principal: principal of the permission requester
+ */
+function rememberPermission(typesInfo, remember, granted, principal) {
+  debug(
+    `rememberPermission ${JSON.stringify(
+      typesInfo
+    )} remember:${remember} granted:${granted} ${principal.origin}`
+  );
+  let action = granted
+    ? Ci.nsIPermissionManager.ALLOW_ACTION
+    : Ci.nsIPermissionManager.DENY_ACTION;
+
+  typesInfo.forEach(perm => {
+    if (remember) {
+      Services.perms.addFromPrincipal(principal, perm.permission, action);
+    } else if (!PERMISSION_NO_SESSION.includes(perm.permission)) {
+      Services.perms.addFromPrincipal(
+        principal,
+        perm.permission,
+        action,
+        Ci.nsIPermissionManager.EXPIRE_SESSION,
+        0
+      );
+    }
+  });
+}
+
+function getRequestTarget(request) {
+  // request.element is defined for OOP content, while request.window
+  // is defined for In-Process content.
+  if (request.element) {
+    return request.element;
+  } else if (
+    request.window &&
+    request.window.docShell &&
+    request.window.docShell.chromeEventHandler
+  ) {
+    return request.window.docShell.chromeEventHandler;
+  }
+  debug(`Unexpected target: ${request.element} ${request.window}`);
+  return null;
+}
+
+function sendToBrowserWindow(requestAction, request, typesInfo, callback) {
+  let target = getRequestTarget(request);
+  if (!target) {
+    debug("!target, cancel directly");
+    request.cancel();
+    return;
+  }
+
+  let uuid = Cc["@mozilla.org/uuid-generator;1"]
+    .getService(Ci.nsIUUIDGenerator)
+    .generateUUID()
+    .toString();
+  let requestId = `permission-prompt-${uuid}`;
+
+  let permissions = {};
+  for (let i in typesInfo) {
+    permissions[typesInfo[i].permission] = {
+      action: PERM_VALUES[typesInfo[i].action],
+      options: typesInfo[i].options,
+    };
+  }
+
+  if (requestAction == "prompt") {
+    debug("requestAction == prompt, addEventListener on " + requestId);
+    target.addEventListener(requestId, callback, { once: true });
+  }
+
+  if (target && target.dispatchEvent) {
+    target.dispatchEvent(
+      new CustomEvent("promptpermission", {
+        bubbles: true,
+        detail: {
+          requestAction,
+          permissions,
+          requestId,
+          origin: request.principal.origin,
+        },
+      })
+    );
+  } else {
+    debug("Error: !target or !target.dispatchEvent");
+  }
+}
+
+function getIsVisible(request) {
+  if (request.element) {
+    return request.element.docShellIsActive;
+  } else if (request.window && request.window.document) {
+    return request.window.document.hidden === false;
+  }
+  debug(`Unexpected target: ${request.element} ${request.window}`);
+  return false;
 }
 
 function ContentPermissionPrompt() {}
@@ -64,53 +170,62 @@ ContentPermissionPrompt.prototype = {
         request.principal,
         type.permission
       );
+      // Switch UNKNOWN_ACTION to PROMPT_ACTION for permissions in PROMPT_FOR_UNKNOWN.
       if (shouldPrompt(type.permission, type.action)) {
         type.action = Ci.nsIPermissionManager.PROMPT_ACTION;
       }
     });
 
     // If all permissions are allowed already, call allow() without prompting.
-    let checkAllowPermission = function(type) {
-      if (type.action == Ci.nsIPermissionManager.ALLOW_ACTION) {
-        return true;
-      }
-      return false;
-    };
-    if (typesInfo.every(checkAllowPermission)) {
-      debug("all permission requests are allowed");
+    if (
+      typesInfo.every(
+        type => type.action == Ci.nsIPermissionManager.ALLOW_ACTION
+      )
+    ) {
+      debug("all permissions in the request are allowed.");
       request.allow(buildDefaultChoices(typesInfo));
       return true;
     }
 
-    // If all permissions are DENY_ACTION or UNKNOWN_ACTION, call cancel()
-    // without prompting.
-    let checkDenyPermission = function(type) {
-      if (
-        type.action == Ci.nsIPermissionManager.DENY_ACTION ||
-        type.action == Ci.nsIPermissionManager.UNKNOWN_ACTION
-      ) {
-        return true;
-      }
-      return false;
-    };
-    if (typesInfo.every(checkDenyPermission)) {
-      debug("all permission requests are denied");
+    // If some of the permissions are DENY_ACTION or UNKNOWN_ACTION,
+    // call cancel() without prompting.
+    if (
+      typesInfo.some(type =>
+        [
+          Ci.nsIPermissionManager.DENY_ACTION,
+          Ci.nsIPermissionManager.UNKNOWN_ACTION,
+        ].includes(type.action)
+      )
+    ) {
+      debug(
+        "some of permissions in the request are denied, or !shouldPrompt()."
+      );
       request.cancel();
       return true;
     }
+
     return false;
   },
 
   prompt(request) {
     // Initialize the typesInfo and set the default value.
+    /**
+     * typesInfo is an array of {permission, action, options} which keeps
+     * the information of each permission. This arrary is initialized in
+     * ContentPermissionPrompt.prompt and used among functions.
+     *
+     * typesInfo[].permission : permission name
+     * typesInfo[].action     : the action of this permission
+     * typesInfo[].options    : the array of available options for user to choose from
+     */
     let typesInfo = [];
     let perms = request.types.QueryInterface(Ci.nsIArray);
     for (let idx = 0; idx < perms.length; idx++) {
       let perm = perms.queryElementAt(idx, Ci.nsIContentPermissionType);
+      debug(`prompt request.types[${idx}]: ${JSON.stringify(perm)}`);
       let tmp = {
         permission: perm.type,
         options: [],
-        deny: true,
         action: Ci.nsIPermissionManager.UNKNOWN_ACTION,
       };
 
@@ -118,6 +233,7 @@ ContentPermissionPrompt.prototype = {
       let options = perm.options.QueryInterface(Ci.nsIArray);
       for (let i = 0; i < options.length; i++) {
         let option = options.queryElementAt(i, Ci.nsISupportsString).data;
+        debug(`options[${i}]: ${option}`);
         tmp.options.push(option);
       }
       typesInfo.push(tmp);
@@ -134,7 +250,60 @@ ContentPermissionPrompt.prototype = {
     }
 
     // returns true if the request was handled
-    this.handleExistingPermission(request, typesInfo);
+    // All type.action in typesInfo are also obtained from Services.perms in this function.
+    if (this.handleExistingPermission(request, typesInfo)) {
+      return;
+    }
+
+    let target = getRequestTarget(request);
+    if (!target) {
+      debug("!target, cancel directly");
+      request.cancel();
+      return;
+    }
+
+    let visibilitychangeHandler = function(event) {
+      debug(`callback of ${event.type} ${JSON.stringify(event.detail)}`);
+      if (!getIsVisible(request)) {
+        debug("visibilitychange !getIsVisible, cancel.");
+        target.removeEventListener(
+          "webview-visibilitychange",
+          visibilitychangeHandler
+        );
+        request.cancel();
+        sendToBrowserWindow("cancel", request, typesInfo);
+      }
+    };
+
+    if (getIsVisible(request)) {
+      target.addEventListener(
+        "webview-visibilitychange",
+        visibilitychangeHandler
+      );
+      sendToBrowserWindow("prompt", request, typesInfo, event => {
+        debug(`callback of ${event.type} ${JSON.stringify(event.detail)}`);
+        target.removeEventListener(
+          "webview-visibilitychange",
+          visibilitychangeHandler
+        );
+        let result = event.detail;
+        rememberPermission(
+          typesInfo,
+          result.remember,
+          result.granted,
+          request.principal
+        );
+
+        if (result.granted) {
+          request.allow(result.choices);
+        } else {
+          request.cancel();
+        }
+      });
+    } else {
+      debug("target is not visible, cancel request.");
+      request.cancel();
+    }
   },
 
   classID: Components.ID("{8c719f03-afe0-4aac-91ff-6c215895d467}"),
@@ -143,4 +312,4 @@ ContentPermissionPrompt.prototype = {
 };
 
 //module initialization
-var EXPORTED_SYMBOLS = ["ContentPermissionPrompt"];
+this.EXPORTED_SYMBOLS = ["ContentPermissionPrompt"];
