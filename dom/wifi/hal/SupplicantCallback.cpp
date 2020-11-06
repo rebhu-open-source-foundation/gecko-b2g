@@ -31,11 +31,13 @@ static mozilla::Mutex sLock("supplicant-callback");
 SupplicantStaIfaceCallback::SupplicantStaIfaceCallback(
     const std::string& aInterfaceName,
     const android::sp<WifiEventCallback>& aCallback,
-    const android::sp<PasspointEventCallback>& aPasspointCallback)
+    const android::sp<PasspointEventCallback>& aPasspointCallback,
+    const android::sp<SupplicantStaManager> aSupplicantManager)
     : mFourwayHandshake(false),
       mInterfaceName(aInterfaceName),
       mCallback(aCallback),
-      mPasspointCallback(aPasspointCallback) {}
+      mPasspointCallback(aPasspointCallback),
+      mSupplicantManager(aSupplicantManager) {}
 
 Return<void> SupplicantStaIfaceCallback::onNetworkAdded(uint32_t id) {
   WIFI_LOGD(LOG_TAG, "ISupplicantStaIfaceCallback.onNetworkAdded()");
@@ -154,21 +156,31 @@ Return<void> SupplicantStaIfaceCallback::onAssociationRejected(
   MutexAutoLock lock(sLock);
   WIFI_LOGD(LOG_TAG, "ISupplicantStaIfaceCallback.onAssociationRejected()");
 
-  if (statusCode ==
-      ISupplicantStaIfaceCallback::StatusCode::UNSPECIFIED_FAILURE) {
-    // Special handling for WPA3-Personal networks. If the password is
-    // incorrect, the AP will send association rejection, with status code 1
-    // (unspecified failure). In SAE networks, the password authentication
-    // is not related to the 4-way handshake. In this case, we will send an
-    // authentication failure event up.
-
-    // TODO: check if current connecting network is WPA3-Personal
-    // NotifyAuthenticationFailure(nsIWifiEvent::AUTH_FAILURE_WRONG_KEY,
-    //                             nsIWifiEvent::ERROR_CODE_NONE);
+  bool wrongKey = false;
+  if (mSupplicantManager) {
+    if (mSupplicantManager->IsCurrentSaeNetwork() &&
+        statusCode ==
+            ISupplicantStaIfaceCallback::StatusCode::UNSPECIFIED_FAILURE) {
+      // In SAE networks, the password authentication is not related to the
+      // 4-way handshake. In this case, we will send an authentication failure
+      // event up if status code 1 (unspecified failure).
+      WIFI_LOGD(LOG_TAG, "Incorrect password for SAE");
+      wrongKey = true;
+    } else if (mSupplicantManager->IsCurrentWepNetwork() &&
+               statusCode ==
+                   ISupplicantStaIfaceCallback::StatusCode::CHALLENGE_FAIL) {
+      WIFI_LOGD(LOG_TAG, "Incorrect password for WEP");
+      wrongKey = true;
+    }
   }
 
-  std::string bssidStr = ConvertMacToString(bssid);
-  NotifyAssociationReject(bssidStr, (uint32_t)statusCode, timedOut);
+  if (wrongKey) {
+    NotifyAuthenticationFailure(nsIWifiEvent::AUTH_FAILURE_WRONG_KEY,
+                                nsIWifiEvent::ERROR_CODE_NONE);
+  } else {
+    std::string bssidStr = ConvertMacToString(bssid);
+    NotifyAssociationReject(bssidStr, (uint32_t)statusCode, timedOut);
+  }
   return android::hardware::Void();
 }
 

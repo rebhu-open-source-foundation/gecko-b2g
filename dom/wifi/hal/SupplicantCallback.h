@@ -29,7 +29,8 @@ class SupplicantStaIfaceCallback : public ISupplicantStaIfaceCallbackV1_0 {
   explicit SupplicantStaIfaceCallback(
       const std::string& aInterfaceName,
       const android::sp<WifiEventCallback>& aCallback,
-      const android::sp<PasspointEventCallback>& aPasspointCallback);
+      const android::sp<PasspointEventCallback>& aPasspointCallback,
+      const android::sp<SupplicantStaManager> aSupplicantManager);
 
   /**
    * Used to indicate that a new network has been added.
@@ -224,6 +225,7 @@ class SupplicantStaIfaceCallback : public ISupplicantStaIfaceCallbackV1_0 {
   std::string mInterfaceName;
   android::sp<WifiEventCallback> mCallback;
   android::sp<PasspointEventCallback> mPasspointCallback;
+  android::sp<SupplicantStaManager> mSupplicantManager;
 };
 
 /**

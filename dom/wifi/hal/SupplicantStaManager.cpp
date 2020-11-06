@@ -422,7 +422,7 @@ Result_t SupplicantStaManager::SetupStaInterface(
   // Instantiate supplicant callback
   android::sp<SupplicantStaIfaceCallback> supplicantCallback =
       new SupplicantStaIfaceCallback(mInterfaceName, mCallback,
-                                     mPasspointCallback);
+                                     mPasspointCallback, this);
   if (IsSupplicantV1_2()) {
     android::sp<SupplicantStaIfaceCallbackV1_1> supplicantCallbackV1_1 =
         new SupplicantStaIfaceCallbackV1_1(mInterfaceName, mCallback,
@@ -575,6 +575,35 @@ android::sp<SupplicantStaNetwork> SupplicantStaManager::GetCurrentNetwork() {
     return nullptr;
   }
   return mCurrentNetwork.at(mInterfaceName);
+}
+
+NetworkConfiguration SupplicantStaManager::GetCurrentConfiguration() {
+  std::unordered_map<std::string, NetworkConfiguration>::const_iterator config =
+      mCurrentConfiguration.find(mInterfaceName);
+  if (config == mCurrentConfiguration.end()) {
+    return NetworkConfiguration();
+  }
+  return mCurrentConfiguration.at(mInterfaceName);
+}
+
+bool SupplicantStaManager::IsCurrentEapNetwork() {
+  NetworkConfiguration current = GetCurrentConfiguration();
+  return current.IsValidNetwork() ? current.IsEapNetwork() : false;
+}
+
+bool SupplicantStaManager::IsCurrentPskNetwork() {
+  NetworkConfiguration current = GetCurrentConfiguration();
+  return current.IsValidNetwork() ? current.IsPskNetwork() : false;
+}
+
+bool SupplicantStaManager::IsCurrentSaeNetwork() {
+  NetworkConfiguration current = GetCurrentConfiguration();
+  return current.IsValidNetwork() ? current.IsSaeNetwork() : false;
+}
+
+bool SupplicantStaManager::IsCurrentWepNetwork() {
+  NetworkConfiguration current = GetCurrentConfiguration();
+  return current.IsValidNetwork() ? current.IsWepNetwork() : false;
 }
 
 Result_t SupplicantStaManager::ConnectToNetwork(ConfigurationOptions* aConfig) {
@@ -736,6 +765,9 @@ Result_t SupplicantStaManager::RemoveNetworks() {
       return nsIWifiResult::ERROR_COMMAND_FAILED;
     }
   }
+
+  mCurrentConfiguration.erase(mInterfaceName);
+  mCurrentNetwork.erase(mInterfaceName);
   return nsIWifiResult::SUCCESS;
 }
 

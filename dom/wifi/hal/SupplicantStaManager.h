@@ -134,6 +134,12 @@ class SupplicantStaManager
   android::sp<SupplicantStaNetwork> CreateStaNetwork();
   android::sp<SupplicantStaNetwork> GetStaNetwork(uint32_t aNetId);
   android::sp<SupplicantStaNetwork> GetCurrentNetwork();
+  NetworkConfiguration GetCurrentConfiguration();
+
+  bool IsCurrentEapNetwork();
+  bool IsCurrentPskNetwork();
+  bool IsCurrentSaeNetwork();
+  bool IsCurrentWepNetwork();
 
   // death event handler
   void RegisterDeathHandler(SupplicantDeathEventHandler* aHandler);

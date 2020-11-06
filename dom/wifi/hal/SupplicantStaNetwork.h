@@ -77,7 +77,7 @@ class NetworkConfiguration {
     mAltSubjectMatch = aConfig.mAltSubjectMatch;
     mDomainSuffixMatch = aConfig.mDomainSuffixMatch;
     mProactiveKeyCaching = aConfig.mProactiveKeyCaching;
-    mSimIndex = mSimIndex;
+    mSimIndex = aConfig.mSimIndex;
   }
 
   NetworkConfiguration(const ConfigurationOptions* aConfig) {
@@ -168,8 +168,25 @@ class NetworkConfiguration {
 
   bool IsEapNetwork() {
     return !mKeyMgmt.empty() && !mEap.empty() &&
-           mKeyMgmt.find("WPA-EAP") != std::string::npos;
+           (mKeyMgmt.find("WPA-EAP") != std::string::npos ||
+            mKeyMgmt.find("IEEE8021X") != std::string::npos);
   }
+
+  bool IsPskNetwork() {
+    return !mKeyMgmt.empty() && mKeyMgmt.find("WPA-PSK") != std::string::npos;
+  }
+
+  bool IsSaeNetwork() {
+    return !mKeyMgmt.empty() && mKeyMgmt.find("SAE") != std::string::npos;
+  }
+
+  bool IsWepNetwork() {
+    return !mKeyMgmt.empty() && mKeyMgmt.find("NONE") != std::string::npos &&
+           (!mWepKey0.empty() || !mWepKey1.empty() || !mWepKey2.empty() ||
+            !mWepKey3.empty());
+  }
+
+  bool IsValidNetwork() { return !mSsid.empty() && !mKeyMgmt.empty(); }
 
   int32_t mNetworkId;
   std::string mSsid;

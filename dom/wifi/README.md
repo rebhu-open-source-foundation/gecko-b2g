@@ -81,11 +81,21 @@ var net = {
 navigator.b2g.wifiManager.associate(new window.WifiNetwork(net));
 ```
 
-### Connect to WPA-PSK network
+### Connect to WPA/WPA2-PSK network
 ```javascript
 var net = {
     ssid: "KaiOS",
     security: "WPA-PSK",
+    psk: "password",
+};
+navigator.b2g.wifiManager.associate(new window.WifiNetwork(net));
+```
+
+### Connect to WPA3-Personal (SAE) network
+```javascript
+var net = {
+    ssid: "KaiOS",
+    security: "SAE",
     psk: "password",
 };
 navigator.b2g.wifiManager.associate(new window.WifiNetwork(net));
@@ -96,7 +106,7 @@ navigator.b2g.wifiManager.associate(new window.WifiNetwork(net));
 var net = {
     ssid: "KaiOS",
     security: "WEP",
-    wepKey0: "12345",
+    wep: "12345",
     keyIndex: 1,
 };
 navigator.b2g.wifiManager.associate(new window.WifiNetwork(net));
@@ -116,11 +126,25 @@ navigator.b2g.wifiManager.associate(new window.WifiNetwork(net));
 ```javascript
 var net = {
     ssid: "KaiOS",
-    keyManagement: "WPA-EAP",
+    security: "WPA-EAP",
     eap: "PEAP",        // "TTLS"
     phase2: "MSCHAPV2", // "PAP", "GTC", "MSCHAP", ...
     identity: "demo@kaiostech.com",
     password: "password",
+    serverCertificate: "ca",
+};
+navigator.b2g.wifiManager.associate(new window.WifiNetwork(net));
+```
+
+### Connect to EAP-TLS network
+```javascript
+var net = {
+    ssid: "KaiOS",
+    security: "WPA-EAP",
+    eap: "TLS",
+    identity: "demo",
+    serverCertificate: "ca",
+    userCertificate: "user",
 };
 navigator.b2g.wifiManager.associate(new window.WifiNetwork(net));
 ```

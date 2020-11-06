@@ -156,7 +156,16 @@ SavedNetworkSelector.prototype = {
       return null;
     }
 
+    let config = candidate;
+    let saved = WifiConfigManager.getNetworkConfiguration(config.netId);
+
+    for (let item in saved) {
+      if (item in config === false) {
+        config[item] = saved[item];
+      }
+    }
+
     // Return existing configured network.
-    return WifiConfigManager.getNetworkConfiguration(candidate.netId);
+    return config;
   },
 };
