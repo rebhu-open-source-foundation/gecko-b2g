@@ -554,7 +554,7 @@ nsresult MediaEngineGonkVideoSource::Reconfigure(
 }
 
 void MediaEngineGonkVideoSource::SetTrack(
-    const RefPtr<SourceMediaTrack>& aTrack, const PrincipalHandle& aPrincipal) {
+    const RefPtr<MediaTrack>& aTrack, const PrincipalHandle& aPrincipal) {
   LOG("%s", __PRETTY_FUNCTION__);
   AssertIsOnOwningThread();
 
@@ -575,7 +575,7 @@ void MediaEngineGonkVideoSource::SetTrack(
 
   {
     MutexAutoLock lock(mMutex);
-    mTrack = aTrack;
+    mTrack = aTrack->AsSourceTrack();
     mPrincipal = aPrincipal;
   }
 }

@@ -184,6 +184,8 @@ void CameraPreviewMediaStream::ClearCurrentFrame() {
   }
 }
 
+uint32_t CameraPreviewMediaStream::NumberOfChannels() const { return 1; };
+
 /*void
 CameraPreviewMediaStream::AddListener(MediaStreamListener* aListener)
 {

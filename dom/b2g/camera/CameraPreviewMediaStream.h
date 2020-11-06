@@ -63,6 +63,8 @@ class CameraPreviewMediaStream : public ProcessedMediaTrack {
 
   void ProcessInput(GraphTime aFrom, GraphTime aTo, uint32_t aFlags) override;
 
+  uint32_t NumberOfChannels() const override;
+
   // Call these on any thread.
   void SetCurrentFrame(const gfx::IntSize& aIntrinsicSize, Image* aImage);
   void ClearCurrentFrame();

@@ -30,7 +30,7 @@ class MediaEngineGonkVideoSource : public MediaEngineCameraVideoSource,
                        const char** aOutBadConstraint) override;
   void Shutdown() override;
 
-  void SetTrack(const RefPtr<SourceMediaTrack>& aTrack,
+  void SetTrack(const RefPtr<MediaTrack>& aTrack,
                 const PrincipalHandle& aPrincipal) override;
 
   bool OnNewPreviewFrame(layers::Image* aImage, uint32_t aWidth,
