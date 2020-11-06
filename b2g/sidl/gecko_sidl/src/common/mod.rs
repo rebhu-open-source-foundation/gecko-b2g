@@ -105,3 +105,66 @@ impl From<JsonValue> for nsString {
         s.into()
     }
 }
+
+// The generated code from sidl project includes SystemTime. Copy from sidl project.
+//A wrapper around a std::time::SystemTime to provide serde support as u64 milliseconds since epoch.
+#[derive(Clone, Debug)]
+pub struct SystemTime(pub std::time::SystemTime);
+
+impl<'de> Deserialize<'de> for SystemTime {
+    fn deserialize<D>(deserializer: D) -> Result<SystemTime, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct TimeVisitor;
+        impl<'de> Visitor<'de> for TimeVisitor {
+            type Value = u64;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                write!(formatter, "u64: time in ms since eopch")
+            }
+
+            fn visit_u64<E>(self, val: u64) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                Ok(val)
+            }
+        }
+
+        let val = deserializer.deserialize_u64(TimeVisitor)?;
+        log::debug!("Got Date as u64={}", val);
+        let time = std::time::UNIX_EPOCH;
+        Ok(SystemTime(
+            time.checked_add(std::time::Duration::from_millis(val))
+                .unwrap(),
+        ))
+    }
+}
+
+impl Serialize for SystemTime {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        if let Ok(from_epoch) = self.0.duration_since(std::time::UNIX_EPOCH) {
+            serializer.serialize_u64(from_epoch.as_millis() as _)
+        } else {
+            serializer.serialize_u64(0)
+        }
+    }
+}
+
+impl Deref for SystemTime {
+    type Target = std::time::SystemTime;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl From<std::time::SystemTime> for SystemTime {
+    fn from(v: std::time::SystemTime) -> Self {
+        SystemTime(v)
+    }
+}

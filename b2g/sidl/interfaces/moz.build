@@ -2,6 +2,7 @@ XPIDL_SOURCES += [
     "nsIGeckoBridge.idl",
     "nsISettings.idl",
     "nsISidl.idl",
+    "nsITime.idl",
 ]
 
 XPIDL_MODULE = "sidl"

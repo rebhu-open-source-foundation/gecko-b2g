@@ -8,6 +8,7 @@
 
 #include "nsIGeckoBridge.h"
 #include "nsISettings.h"
+#include "nsITime.h"
 #include "nsCOMPtr.h"
 
 namespace sidl {
@@ -17,6 +18,8 @@ already_AddRefed<nsIGeckoBridge> ConstructGeckoBridge();
 already_AddRefed<nsISettingsManager> ConstructSettingsManager();
 
 already_AddRefed<nsIDaemonManager> ConstructDaemonManager();
+
+already_AddRefed<nsITime> ConstructTime();
 
 }  // namespace sidl
 

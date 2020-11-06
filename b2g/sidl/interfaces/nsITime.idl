@@ -1,0 +1,28 @@
+#include "nsISupports.idl"
+#include "nsISidl.idl"
+#include "domstubs.idl"
+
+[scriptable, uuid(7313bf96-0225-11eb-b345-7fccda278561)]
+interface nsITimeObserver : nsISupports {
+  void notify(in short reason);
+};
+
+[scriptable, uuid(84fb12c0-0dc6-11eb-ad74-17f50e35b29e)]
+interface nsITimeGetElapsedRealTime : nsISupports {
+  void resolve(in DOMTimeStamp elapseTime);
+  void reject();
+};
+
+[scriptable, uuid(0b68d686-0137-11eb-b599-97f30b6d4366)]
+interface nsITime : nsISupports
+{
+  const short TIME_CHANGED = 1;
+  const short TIMEZONE_CHANGED = 2;
+
+  void addObserver(in short reason, in nsITimeObserver observer, in nsISidlDefaultResponse callback);
+  void removeObserver(in short reason, in nsITimeObserver observer, in nsISidlDefaultResponse callback);
+
+  void setTimezone(in AString timezone, in nsISidlDefaultResponse callback);
+  void setTime(in DOMTimeStamp time, in nsISidlDefaultResponse callback);
+  void getElapsedRealTime(in nsITimeGetElapsedRealTime callback);
+};
