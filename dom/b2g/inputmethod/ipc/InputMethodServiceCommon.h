@@ -93,6 +93,11 @@ class InputMethodServiceCommon : public EditableSupportListenerCommon<T> {
                                       request.length());
         break;
       }
+      case InputMethodRequest::TSetValueRequest: {
+        const SetValueRequest& request = aRequest;
+        GetEditableSupport()->SetValue(request.id(), this, request.value());
+        break;
+      }
       default:
         return IPC_FAIL(
             this, "InputMethodServiceCommon RecvRequest unknown request type.");
@@ -173,6 +178,8 @@ class InputMethodServiceCommon : public EditableSupportListenerCommon<T> {
                 GetEditableSupportListener(response.id())) {
           if (response.responseName() == u"RemoveFocus"_ns) {
             listener->OnRemoveFocus(response.id(), response.status());
+          } else if (response.responseName() == u"SetValue"_ns) {
+            listener->OnSetValue(response.id(), response.status());
           }
         }
         break;

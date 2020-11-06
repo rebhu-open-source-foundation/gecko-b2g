@@ -184,6 +184,14 @@ already_AddRefed<Promise> InputMethod::GetText(
   return promise.forget();
 }
 
+void InputMethod::SetValue(const nsAString& aValue) {
+  IME_LOGD("-- InputMethod::SetValue:[%s]",
+           NS_ConvertUTF16toUTF8(aValue).get());
+
+  RefPtr<InputMethodHandler> handler = InputMethodHandler::Create();
+  handler->SetValue(aValue);
+}
+
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(InputMethod, mGlobal)
 NS_IMPL_CYCLE_COLLECTING_ADDREF(InputMethod)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(InputMethod)

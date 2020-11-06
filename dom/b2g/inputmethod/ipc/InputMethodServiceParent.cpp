@@ -257,5 +257,15 @@ InputMethodServiceParent::GetText(uint32_t aId,
   return NS_OK;
 }
 
+NS_IMETHODIMP
+InputMethodServiceParent::SetValue(uint32_t aId,
+                                   nsIEditableSupportListener* aListener,
+                                   const nsAString& aValue) {
+  IME_LOGD("InputMethodServiceParent::SetValue");
+  mRequestMap.Put(++sRequestId, aListener);
+  Unused << SendRequest(SetValueRequest(sRequestId, nsString(aValue)));
+  return NS_OK;
+}
+
 }  // namespace dom
 }  // namespace mozilla

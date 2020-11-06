@@ -174,6 +174,19 @@ NS_IMETHODIMP InputMethodService::GetText(uint32_t aId,
   return NS_OK;
 }
 
+NS_IMETHODIMP InputMethodService::SetValue(
+    uint32_t aId, nsIEditableSupportListener* aListener,
+    const nsAString& aValue) {
+  IME_LOGD("InputMethodService::SetValue:[%s]",
+           NS_ConvertUTF16toUTF8(aValue).get());
+  if (mEditableSupport) {
+    mEditableSupport->SetValue(aId, aListener, aValue);
+  } else if (aListener) {
+    aListener->OnSetValue(aId, NS_ERROR_ABORT);
+  }
+  return NS_OK;
+}
+
 void InputMethodService::HandleFocus(nsIEditableSupport* aEditableSupport,
                                      nsIInputContext* aPropBag) {
   IME_LOGD("InputMethodService::HandleFocus");

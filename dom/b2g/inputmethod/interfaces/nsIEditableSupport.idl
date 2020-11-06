@@ -18,6 +18,7 @@ interface nsIEditableSupportListener : nsISupports
   void onRemoveFocus(in uint32_t aId, in nsresult aStatus);
   void onGetSelectionRange(in uint32_t aId, in nsresult aStatus, in int32_t aStart, in int32_t aEnd);
   void onGetText(in uint32_t aId, in nsresult aStatus, in AString aText);
+  void onSetValue(in uint32_t aId, in nsresult aStatus);
 };
 
 [scriptable, uuid(44bf6cea-f5db-11ea-b598-ff5a3d009e25)]
@@ -34,4 +35,5 @@ interface nsIEditableSupport : nsISupports
   void RemoveFocus(in uint32_t aId, in nsIEditableSupportListener aListener);
   void GetSelectionRange(in uint32_t aId, in nsIEditableSupportListener aListener);
   void GetText(in uint32_t aId, in nsIEditableSupportListener aListener, in int32_t aOffset, in int32_t aLength);
+  void SetValue(in uint32_t aId, in nsIEditableSupportListener aListener, in AString aValue);
 };

@@ -52,4 +52,13 @@ interface InputMethod {
    */
   Promise<DOMString> getText(optional long offset, optional long length);
 
+  /**
+   * Set the value on the currently focused element. This has to be used
+   * for special situations where the value had to be chosen amongst a
+   * list (type=month) or a widget (type=date, time, etc.).
+   * If the value passed in parameter isn't valid (in the term of HTML5
+   * Forms Validation), the value will simply be ignored by the element.
+   */
+  void setValue(DOMString value);
+
   };

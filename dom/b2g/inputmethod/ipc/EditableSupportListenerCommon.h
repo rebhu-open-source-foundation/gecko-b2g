@@ -98,6 +98,13 @@ class EditableSupportListenerCommon : public nsIEditableSupportListener,
     Unused << T::SendResponse(GetTextResponse(aId, aStatus, text));
     return NS_OK;
   }
+
+  NS_IMETHODIMP
+  OnSetValue(uint32_t aId, nsresult aStatus) {
+    IME_LOGD("Listener::OnSetValue");
+    Unused << T::SendResponse(CommonResponse(aId, aStatus, u"SetValue"_ns));
+    return NS_OK;
+  }
 };
 
 }  // namespace dom

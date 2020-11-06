@@ -36,6 +36,7 @@ class InputMethodHandler final : public nsIEditableSupportListener {
   void RemoveFocus();
   nsresult GetSelectionRange();
   nsresult GetText(int32_t aOffset, int32_t aLength);
+  void SetValue(const nsAString& aValue);
 
  private:
   explicit InputMethodHandler(Promise* aPromise);

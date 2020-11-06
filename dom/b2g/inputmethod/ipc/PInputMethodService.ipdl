@@ -63,6 +63,11 @@ struct GetTextRequest {
   int32_t length;
 };
 
+struct SetValueRequest {
+  uint32_t id;
+  nsString value;
+};
+
 struct OptionDetail {
   bool group;
   bool inGroup;
@@ -181,6 +186,7 @@ union InputMethodRequest {
   CommonRequest;
   GetSelectionRangeRequest;
   GetTextRequest;
+  SetValueRequest;
 };
 
 union InputMethodResponse

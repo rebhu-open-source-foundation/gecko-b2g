@@ -193,6 +193,12 @@ InputMethodHandler::OnGetText(uint32_t aId, nsresult aStatus,
   return NS_OK;
 }
 
+NS_IMETHODIMP
+InputMethodHandler::OnSetValue(uint32_t aId, nsresult aStatus) {
+  IME_LOGD("--InputMethodHandler::OnSetValue");
+  return NS_OK;
+}
+
 nsresult InputMethodHandler::SetComposition(const nsAString& aText) {
   nsString text(aText);
   // TODO use a pure interface, and make it point to either the remote version
@@ -310,6 +316,7 @@ void InputMethodHandler::SetSelectedOption(int32_t aOptionIndex) {
     service->SetSelectedOption(0, this, aOptionIndex);
   }
 }
+
 void InputMethodHandler::SetSelectedOptions(
     const nsTArray<int32_t>& aOptionIndexes) {
   ContentChild* contentChild = ContentChild::GetSingleton();
@@ -373,6 +380,22 @@ nsresult InputMethodHandler::GetText(int32_t aOffset, int32_t aLength) {
     service->GetText(0, this, aOffset, aLength);
   }
   return NS_OK;
+}
+
+void InputMethodHandler::SetValue(const nsAString& aValue) {
+  nsString value(aValue);
+  ContentChild* contentChild = ContentChild::GetSingleton();
+  if (contentChild) {
+    IME_LOGD("--InputMethodHandler::SetValue content process");
+    // Call from content process.
+    SendRequest(contentChild, SetValueRequest(0, value));
+  } else {
+    IME_LOGD("--InputMethodHandler::SetValue in-process");
+    // Call from parent process (or in-proces app).
+    RefPtr<InputMethodService> service = InputMethodService::GetInstance();
+    MOZ_ASSERT(service);
+    service->SetValue(0, this, aValue);
+  }
 }
 
 void InputMethodHandler::SendRequest(ContentChild* aContentChild,

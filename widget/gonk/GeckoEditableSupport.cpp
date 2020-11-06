@@ -76,7 +76,6 @@ bool isContentEditable(Element* aElement) {
 }
 
 bool isIgnoredInputTypes(nsAString& inputType) {
-  // nsAutoString inputType(aType);
   return inputType.EqualsIgnoreCase("button") ||
          inputType.EqualsIgnoreCase("file") ||
          inputType.EqualsIgnoreCase("checkbox") ||
@@ -85,6 +84,13 @@ bool isIgnoredInputTypes(nsAString& inputType) {
          inputType.EqualsIgnoreCase("submit") ||
          inputType.EqualsIgnoreCase("image") ||
          inputType.EqualsIgnoreCase("range");
+}
+
+bool isDateTimeTypes(nsAString& inputType) {
+  return inputType.EqualsIgnoreCase("datetime") ||
+         inputType.EqualsIgnoreCase("datetime-local") ||
+         inputType.EqualsIgnoreCase("time") ||
+         inputType.EqualsIgnoreCase("date");
 }
 
 bool isFocusableElement(Element* aElement) {
@@ -839,7 +845,7 @@ GeckoEditableSupport::SetSelectedOption(uint32_t aId,
     event->SetTrusted(true);
 
     ErrorResult result;
-    selectElement->DispatchEvent(*event);
+    selectElement->DispatchEvent(*event, result);
     if (result.Failed()) {
       IME_LOGD("Failed to dispatch change event!!!");
       rv = NS_ERROR_ABORT;
@@ -907,7 +913,7 @@ GeckoEditableSupport::SetSelectedOptions(
     event->SetTrusted(true);
 
     ErrorResult result;
-    selectElement->DispatchEvent(*event);
+    selectElement->DispatchEvent(*event, result);
     if (result.Failed()) {
       IME_LOGD("Failed to dispatch change event!!!");
       rv = NS_ERROR_ABORT;
@@ -1026,6 +1032,87 @@ GeckoEditableSupport::GetText(uint32_t aId,
            NS_ConvertUTF16toUTF8(text).get());
   if (aListener) {
     aListener->OnGetText(aId, rv, text);
+  }
+  return rv;
+}
+
+NS_IMETHODIMP
+GeckoEditableSupport::SetValue(uint32_t aId,
+                               nsIEditableSupportListener* aListener,
+                               const nsAString& aValue) {
+  IME_LOGD("-- EditableSupport mDispatcher:[%p]", mDispatcher.get());
+  nsresult rv = NS_ERROR_ABORT;
+  do {
+    // End current composition
+    if (mDispatcher) {
+      if (mDispatcher->IsComposing()) {
+        rv = EndComposition(0, nullptr, EmptyString());
+        if (NS_WARN_IF(NS_FAILED(rv))) {
+          break;
+        }
+      }
+    }
+
+    RefPtr<nsFocusManager> focusManager = nsFocusManager::GetFocusManager();
+    if (!focusManager) {
+      break;
+    }
+    RefPtr<Element> focusedElement = focusManager->GetFocusedElement();
+    if (!focusedElement) {
+      break;
+    }
+    nsCOMPtr<Document> doc = focusedElement->GetComposedDoc();
+    if (!doc) {
+      break;
+    }
+    RefPtr<Element> activeElement = doc->GetActiveElement();
+    if (!activeElement) {
+      break;
+    }
+    RefPtr<HTMLInputElement> inputElement =
+        HTMLInputElement::FromNodeOrNull(activeElement);
+    if (!inputElement) {
+      break;
+    }
+
+    ErrorResult erv;
+    // Only file input need systemtype.
+    inputElement->SetValue(aValue, CallerType::NonSystem, erv);
+    if (NS_WARN_IF(erv.Failed())) {
+      IME_LOGD(
+          "-- GeckoEditableSupport::DoSetValue, Fail to set value for "
+          "inputElement");
+      break;
+    }
+    RefPtr<Event> event = NS_NewDOMEvent(doc, nullptr, nullptr);
+    event->InitEvent(u"input"_ns, true, false);
+    event->SetTrusted(true);
+    activeElement->DispatchEvent(*event, erv);
+    if (NS_WARN_IF(erv.Failed())) {
+      IME_LOGD(
+          "GeckoEditableSupport::DoSetValue, Failed to dispatch input event.");
+      break;
+    }
+    nsAutoString type;
+    activeElement->GetAttribute(u"type"_ns, type);
+    if (isDateTimeTypes(type)) {
+      RefPtr<Event> changeEvent = NS_NewDOMEvent(doc, nullptr, nullptr);
+      changeEvent->InitEvent(u"change"_ns, true, false);
+      changeEvent->SetTrusted(true);
+      activeElement->DispatchEvent(*changeEvent, erv);
+      if (NS_WARN_IF(erv.Failed())) {
+        IME_LOGD(
+            "GeckoEditableSupport::DoSetValue, Failed to dispatch change "
+            "event.");
+        break;
+      }
+    }
+    rv = NS_OK;
+  } while (0);
+  IME_LOGD("GeckoEditableSupport: SetValue:[rv:%d, value:[%s]", rv,
+           NS_ConvertUTF16toUTF8(aValue).get());
+  if (aListener) {
+    aListener->OnSetValue(aId, rv);
   }
   return rv;
 }
