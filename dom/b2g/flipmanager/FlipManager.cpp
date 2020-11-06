@@ -23,24 +23,13 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(FlipManager)
 NS_INTERFACE_MAP_END_INHERITING(DOMEventTargetHelper)
 
 FlipManager::FlipManager(nsPIDOMWindowInner* aWindow)
-  : DOMEventTargetHelper(aWindow)
-  , mFlipOpened(false)
-{
-}
+    : DOMEventTargetHelper(aWindow), mFlipOpened(false) {}
 
-FlipManager::~FlipManager()
-{
-}
+FlipManager::~FlipManager() {}
 
-void
-FlipManager::Init()
-{
-  hal::RegisterFlipObserver(this);
-}
+void FlipManager::Init() { hal::RegisterFlipObserver(this); }
 
-void
-FlipManager::Shutdown()
-{
+void FlipManager::Shutdown() {
   hal::UnregisterFlipObserver(this);
 
   for (uint32_t i = 0; i < mPendingFlipPromises.Length(); ++i) {
@@ -49,15 +38,12 @@ FlipManager::Shutdown()
   mPendingFlipPromises.Clear();
 }
 
-JSObject*
-FlipManager::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
-{
+JSObject* FlipManager::WrapObject(JSContext* aCx,
+                                  JS::Handle<JSObject*> aGivenProto) {
   return FlipManager_Binding::Wrap(aCx, this, aGivenProto);
 }
 
-void
-FlipManager::Notify(const bool& aIsOpened)
-{
+void FlipManager::Notify(const bool& aIsOpened) {
   bool hasChanged = aIsOpened != mFlipOpened;
   mFlipOpened = aIsOpened;
 
@@ -71,9 +57,7 @@ FlipManager::Notify(const bool& aIsOpened)
   }
 }
 
-already_AddRefed<Promise>
-FlipManager::GetPromise(ErrorResult& aRv)
-{
+already_AddRefed<Promise> FlipManager::GetPromise(ErrorResult& aRv) {
   nsCOMPtr<nsIGlobalObject> go = do_QueryInterface(GetOwner());
   if (!go) {
     aRv.Throw(NS_ERROR_FAILURE);
@@ -91,5 +75,5 @@ FlipManager::GetPromise(ErrorResult& aRv)
   return promise.forget();
 }
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla

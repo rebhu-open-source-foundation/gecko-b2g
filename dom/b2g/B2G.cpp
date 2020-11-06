@@ -181,7 +181,8 @@ class CheckPermissionRunnable final : public WorkerMainThreadRunnable {
     nsCOMPtr<nsIPermissionManager> permMgr = services::GetPermissionManager();
 
     uint32_t permission = nsIPermissionManager::DENY_ACTION;
-    nsresult rv = permMgr->TestPermissionFromPrincipal(principal, mType, &permission);
+    nsresult rv =
+        permMgr->TestPermissionFromPrincipal(principal, mType, &permission);
     if (NS_FAILED(rv) || permission != nsIPermissionManager::ALLOW_ACTION) {
       mIsAllowed = false;
     } else {
@@ -198,7 +199,8 @@ class CheckPermissionRunnable final : public WorkerMainThreadRunnable {
 };
 
 bool B2G::CheckPermissionOnWorkerThread(const nsACString& aType) {
-  RefPtr<CheckPermissionRunnable> r = new CheckPermissionRunnable((nsCString)aType);
+  RefPtr<CheckPermissionRunnable> r =
+      new CheckPermissionRunnable((nsCString)aType);
 
   ErrorResult rv;
   r->Dispatch(Canceling, rv);
@@ -665,11 +667,13 @@ AuthorizationManager* B2G::GetAuthorizationManager(ErrorResult& aRv) {
 }
 
 /* static */
-bool B2G::HasAuthorizationManagerSupport(JSContext* /* unused */, JSObject* aGlobal) {
+bool B2G::HasAuthorizationManagerSupport(JSContext* /* unused */,
+                                         JSObject* aGlobal) {
   nsCOMPtr<nsPIDOMWindowInner> innerWindow = xpc::WindowOrNull(aGlobal);
 
   if (NS_IsMainThread()) {
-    return innerWindow ? CheckPermission("cloud-authorization"_ns, innerWindow) : false;
+    return innerWindow ? CheckPermission("cloud-authorization"_ns, innerWindow)
+                       : false;
   } else {
     return CheckPermissionOnWorkerThread("cloud-authorization"_ns);
   }
@@ -677,7 +681,7 @@ bool B2G::HasAuthorizationManagerSupport(JSContext* /* unused */, JSObject* aGlo
 
 EngmodeManager* B2G::GetEngmodeManager(ErrorResult& aRv) {
   if (!mEngmodeManager) {
-     if (!mOwner) {
+    if (!mOwner) {
       aRv.Throw(NS_ERROR_UNEXPECTED);
       return nullptr;
     }
@@ -691,8 +695,7 @@ EngmodeManager* B2G::GetEngmodeManager(ErrorResult& aRv) {
 }
 
 /* static */
-bool B2G::HasEngmodeManagerSupport(JSContext* /* unused */,
-                                       JSObject* aGlobal) {
+bool B2G::HasEngmodeManagerSupport(JSContext* /* unused */, JSObject* aGlobal) {
   nsCOMPtr<nsPIDOMWindowInner> innerWindow = xpc::WindowOrNull(aGlobal);
   return B2G::CheckPermission("engmode"_ns, innerWindow);
 }

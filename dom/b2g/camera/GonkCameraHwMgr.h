@@ -131,7 +131,7 @@ class GonkCameraHardware
   virtual void PullParameters(CameraParameters& aParams);
   virtual int SetListener(const sp<GonkCameraListener>& aListener);
   virtual void ReleaseRecordingFrame(const sp<IMemory>& aFrame);
-  virtual void ReleaseRecordingFrameHandle(native_handle_t *handle);
+  virtual void ReleaseRecordingFrameHandle(native_handle_t* handle);
 #endif
   virtual int StartRecording();
   virtual int StopRecording();

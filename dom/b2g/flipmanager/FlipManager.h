@@ -20,10 +20,8 @@ class Promise;
 
 typedef Observer<bool> FlipObserver;
 
-class FlipManager final : public DOMEventTargetHelper
-                        , public FlipObserver
-{
-public:
+class FlipManager final : public DOMEventTargetHelper, public FlipObserver {
+ public:
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(FlipManager, DOMEventTargetHelper)
 
@@ -36,28 +34,23 @@ public:
 
   void Notify(const bool& aIsOpened) override;
 
-  nsPIDOMWindowInner* GetParentObject() const
-  {
-     return GetOwner();
-  }
+  nsPIDOMWindowInner* GetParentObject() const { return GetOwner(); }
 
-  virtual JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
-  bool FlipOpened() const
-  {
-    return mFlipOpened;
-  }
+  bool FlipOpened() const { return mFlipOpened; }
 
   IMPL_EVENT_HANDLER(flipchange)
 
-private:
+ private:
   ~FlipManager();
 
   bool mFlipOpened;
   nsTArray<RefPtr<Promise>> mPendingFlipPromises;
 };
 
-} // namespace dom
-} // namespace mozilla
+}  // namespace dom
+}  // namespace mozilla
 
-#endif // mozilla_dom_FlipManager_h
+#endif  // mozilla_dom_FlipManager_h

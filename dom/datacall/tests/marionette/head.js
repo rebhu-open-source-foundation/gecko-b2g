@@ -1,7 +1,10 @@
 /* Any copyright is dedicated to the Public Domain.
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
-const {Cc: Cc, Ci: Ci, Cr: Cr, Cu: Cu} = SpecialPowers;
+/* global SpecialPowers, ok, is, log, waitFor, finish, runEmulatorCmd, runEmulatorShell */
+
+// eslint-disable-next-line mozilla/no-define-cc-etc
+const { Cc: Cc, Ci: Ci, Cr: Cr, Cu: Cu } = SpecialPowers;
 
 const SETTINGS_KEY_DATA_ENABLED = "ril.data.enabled";
 const SETTINGS_KEY_DATA_APN_SETTINGS = "ril.data.apnSettings";
@@ -9,10 +12,14 @@ const SETTINGS_KEY_DATA_APN_SETTINGS = "ril.data.apnSettings";
 const PREF_KEY_RIL_DEBUGGING_ENABLED = "ril.debugging.enabled";
 
 const TEST_APN_SETTINGS = [
-  [{ "carrier": "T-Mobile US",
-     "apn": "epc.tmobile.com",
-     "mmsc": "http://mms.msg.eng.t-mobile.com/mms/wapenc",
-     "types": ["default","supl","mms", "ims", "dun"] }]
+  [
+    {
+      carrier: "T-Mobile US",
+      apn: "epc.tmobile.com",
+      mmsc: "http://mms.msg.eng.t-mobile.com/mms/wapenc",
+      types: ["default", "supl", "mms", "ims", "dun"],
+    },
+  ],
 ];
 
 const TEST_HOST_ROUTE = "10.1.2.200";
@@ -46,8 +53,7 @@ function runEmulatorCmdSafe(aCommand) {
       --_pendingEmulatorCmdCount;
 
       log("Emulator response: " + JSON.stringify(aResult));
-      if (Array.isArray(aResult) &&
-          aResult[aResult.length - 1] === "OK") {
+      if (Array.isArray(aResult) && aResult[aResult.length - 1] === "OK") {
         aResolve(aResult);
       } else {
         aReject(aResult);
@@ -103,12 +109,15 @@ function runEmulatorShellCmdSafe(aCommands) {
  */
 function getSettings(aKey, aAllowError) {
   let request = window.navigator.mozSettings.createLock().get(aKey);
-  return request.then(function resolve(aValue) {
+  return request.then(
+    function resolve(aValue) {
       ok(true, "getSettings(" + aKey + ") - success");
       return aValue[aKey];
-    }, function reject(aError) {
+    },
+    function reject(aError) {
       ok(aAllowError, "getSettings(" + aKey + ") - error");
-    });
+    }
+  );
 }
 
 /**
@@ -130,14 +139,14 @@ function getSettings(aKey, aAllowError) {
 
 function setSettings(aSettings, aAllowError) {
   let lock = window.navigator.mozSettings.createLock();
-  let request = lock.set(aSettings);
+  lock.set(aSettings);
 
   return new Promise(function(aResolve, aReject) {
-    lock.onsettingstransactionsuccess = function () {
+    lock.onsettingstransactionsuccess = function() {
       ok(true, "setSettings(" + JSON.stringify(aSettings) + ")");
       aResolve();
     };
-    lock.onsettingstransactionfailure = function (aEvent) {
+    lock.onsettingstransactionfailure = function(aEvent) {
       ok(aAllowError, "setSettings(" + JSON.stringify(aSettings) + ")");
       aReject();
     };
@@ -186,7 +195,11 @@ function getDataApnSettings(aAllowError) {
  * Convenient MozSettings setter for SETTINGS_KEY_DATA_APN_SETTINGS.
  */
 function setDataApnSettings(aApnSettings, aAllowError) {
-  return setSettings1(SETTINGS_KEY_DATA_APN_SETTINGS, aApnSettings, aAllowError);
+  return setSettings1(
+    SETTINGS_KEY_DATA_APN_SETTINGS,
+    aApnSettings,
+    aAllowError
+  );
 }
 
 /**
@@ -264,12 +277,25 @@ function setRadioEnabled(aEnabled, aServiceId) {
   let mobileConn = navigator.mozMobileConnections[aServiceId];
 
   let request = mobileConn.setRadioEnabled(aEnabled);
-  return request.then(function onsuccess() {
-      ok(true, "setRadioEnabled " + aEnabled + " on " + aServiceId + " success.");
-    }, function onerror() {
-      ok(false, "setRadioEnabled " + aEnabled + " on " + aServiceId + " " +
-         request.error.name);
-    });
+  return request.then(
+    function onsuccess() {
+      ok(
+        true,
+        "setRadioEnabled " + aEnabled + " on " + aServiceId + " success."
+      );
+    },
+    function onerror() {
+      ok(
+        false,
+        "setRadioEnabled " +
+          aEnabled +
+          " on " +
+          aServiceId +
+          " " +
+          request.error.name
+      );
+    }
+  );
 }
 
 /**
@@ -292,11 +318,13 @@ function setRadioEnabledAndWait(aEnabled, aServiceId) {
   let mobileConn = navigator.mozMobileConnections[aServiceId];
   let promises = [];
 
-  promises.push(waitForTargetEvent(mobileConn, "radiostatechange", function() {
-    // To ignore some transient states, we only resolve that deferred promise
-    // when |radioState| equals to the expected one.
-    return mobileConn.radioState === (aEnabled ? "enabled" : "disabled");
-  }));
+  promises.push(
+    waitForTargetEvent(mobileConn, "radiostatechange", function() {
+      // To ignore some transient states, we only resolve that deferred promise
+      // when |radioState| equals to the expected one.
+      return mobileConn.radioState === (aEnabled ? "enabled" : "disabled");
+    })
+  );
   promises.push(setRadioEnabled(aEnabled, aServiceId));
 
   return Promise.all(promises);
@@ -313,24 +341,25 @@ function setRadioEnabledAndWait(aEnabled, aServiceId) {
  *        Indicates whether this host route should exist or not.
  */
 function verifyHostRoute(aHost, aInterfaceName, aShouldExist) {
-  return runEmulatorShellCmdSafe(['ip', 'route'])
-    .then(function (aLines) {
-      let exists = aLines.some(aLine => {
-        let tokens = aLine.trim().split(/\s+/);
-        let host = tokens[0];
-        let devIndex = tokens.indexOf('dev');
-        if (devIndex < 0 || devIndex + 1 >= tokens.length) {
-          return false;
-        }
-        let ifname = tokens[devIndex + 1];
+  return runEmulatorShellCmdSafe(["ip", "route"]).then(function(aLines) {
+    let exists = aLines.some(aLine => {
+      let tokens = aLine.trim().split(/\s+/);
+      let host = tokens[0];
+      let devIndex = tokens.indexOf("dev");
+      if (devIndex < 0 || devIndex + 1 >= tokens.length) {
+        return false;
+      }
+      let ifname = tokens[devIndex + 1];
 
-        if (host == aHost && ifname == aInterfaceName) {
-          return true;
-        }
-      });
+      if (host == aHost && ifname == aInterfaceName) {
+        return true;
+      }
 
-      is(aShouldExist, exists, "Host route (should not) exists.");
+      return false;
     });
+
+    is(aShouldExist, exists, "Host route (should not) exists.");
+  });
 }
 
 /**
@@ -371,8 +400,8 @@ function verifyDataCallAttributes(aDataCall, aIsAvailable) {
 function requestDataCall(aType, aServiceId) {
   aServiceId = aServiceId || 0;
 
-  return dataCallManager.requestDataCall(aType, aServiceId)
-    .then(aDataCall => {
+  return dataCallManager.requestDataCall(aType, aServiceId).then(
+    aDataCall => {
       is(aDataCall.state, "connected", "check state");
       is(aDataCall.type, aType, "check type");
       ok(aDataCall.addresses.length > 0, "check addresses");
@@ -380,9 +409,11 @@ function requestDataCall(aType, aServiceId) {
       ok(aDataCall.dnses.length > 0, "check dnses");
 
       return aDataCall;
-    }, aReason => {
+    },
+    aReason => {
       throw new Error(aReason);
-    });
+    }
+  );
 }
 
 /**
@@ -416,12 +447,12 @@ function releaseDataCall(aDataCall) {
  */
 let dataCallManager;
 function ensureDataCallManager(aAdditionalPermissions) {
-  if (aAdditionalPermissions.indexOf("datacall") < 0) {
+  if (!aAdditionalPermissions.includes("datacall")) {
     aAdditionalPermissions.push("datacall");
   }
   let permissions = [];
   for (let perm of aAdditionalPermissions) {
-    permissions.push({ "type": perm, "allow": 1, "context": document });
+    permissions.push({ type: perm, allow: 1, context: document });
   }
 
   return new Promise(function(aResolve, aReject) {
@@ -429,6 +460,7 @@ function ensureDataCallManager(aAdditionalPermissions) {
       ok(true, "permissions pushed: " + JSON.stringify(permissions));
 
       dataCallManager = window.navigator.dataCallManager;
+      // eslint-disable-next-line no-undef
       if (dataCallManager instanceof DataCallManager) {
         aResolve();
       } else {
@@ -447,8 +479,9 @@ function cleanUp() {
   ok(true, ":: CLEANING UP ::");
 
   waitFor(finish, function() {
-    return _pendingEmulatorCmdCount === 0 &&
-           _pendingEmulatorShellCmdCount === 0;
+    return (
+      _pendingEmulatorCmdCount === 0 && _pendingEmulatorShellCmdCount === 0
+    );
   });
 }
 
@@ -465,7 +498,7 @@ function startTestBase(aTestCaseMain) {
 
   return Promise.resolve()
     .then(aTestCaseMain)
-    .catch((aError) => {
+    .catch(aError => {
       ok(false, "promise rejects during test: " + aError);
     })
     .then(() => {
@@ -489,7 +522,6 @@ function startTestBase(aTestCaseMain) {
  */
 function startTestCommon(aTestCaseMain, aAdditionalPermissions) {
   startTestBase(function() {
-    return ensureDataCallManager(aAdditionalPermissions)
-      .then(aTestCaseMain);
+    return ensureDataCallManager(aAdditionalPermissions).then(aTestCaseMain);
   });
 }

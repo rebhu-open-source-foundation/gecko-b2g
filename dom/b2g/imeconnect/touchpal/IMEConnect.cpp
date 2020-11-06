@@ -45,7 +45,8 @@ NS_INTERFACE_MAP_END
 
 bool IMEConnect::HasSupport(JSContext* /* unused */, JSObject* aGlobal) {
   nsCOMPtr<nsPIDOMWindowInner> innerWindow = xpc::WindowOrNull(aGlobal);
-  return innerWindow ? B2G::CheckPermission("ime-connect"_ns, innerWindow) : false;
+  return innerWindow ? B2G::CheckPermission("ime-connect"_ns, innerWindow)
+                     : false;
 }
 
 IMEConnect::IMEConnect(nsPIDOMWindowInner* aWindow) : mWindow(aWindow) {

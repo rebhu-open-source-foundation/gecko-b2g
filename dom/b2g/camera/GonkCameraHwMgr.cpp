@@ -186,7 +186,8 @@ void GonkCameraHardware::postRecordingFrameHandleTimestamp(
   if (mListener.get()) {
     DOM_CAMERA_LOGI("Listener registered, posting recording frame handle!");
     if (!mListener->postRecordingFrameHandleTimestamp(aTimestamp, aHandle)) {
-      DOM_CAMERA_LOGW("Listener unable to process. Drop a recording frame handle.");
+      DOM_CAMERA_LOGW(
+          "Listener unable to process. Drop a recording frame handle.");
       mCamera->releaseRecordingFrameHandle(aHandle);
     }
   } else {
@@ -545,7 +546,7 @@ void GonkCameraHardware::ReleaseRecordingFrame(const sp<IMemory>& aFrame) {
   }
 }
 
-void GonkCameraHardware::ReleaseRecordingFrameHandle(native_handle_t *aHandle) {
+void GonkCameraHardware::ReleaseRecordingFrameHandle(native_handle_t* aHandle) {
   if (!NS_WARN_IF(mClosing)) {
     mCamera->releaseRecordingFrameHandle(aHandle);
   }

@@ -355,16 +355,16 @@ DataCallManager.prototype = {
 
     // Once got the apn, loading the white list config if any.
     if (aApnList && aApnList.length > 0) {
-      let whiteList = null;
+      let allowed = null;
       if (gCustomizationInfo) {
-        whiteList = gCustomizationInfo.getCustomizedValue(
+        allowed = gCustomizationInfo.getCustomizedValue(
           aClientId,
           "mobileSettingWhiteList",
           []
         );
       }
-      if (whiteList.length > 0) {
-        handler.mobileWhiteList = whiteList;
+      if (allowed.length > 0) {
+        handler.mobileWhiteList = allowed;
         if (DEBUG) {
           this.debug(
             "mobileWhiteList[" +

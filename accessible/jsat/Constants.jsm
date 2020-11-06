@@ -2,18 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-var { XPCOMUtils } = ChromeUtils.import(
+const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
-
-this.EXPORTED_SYMBOLS = [
-  "Roles",
-  "Events",
-  "Relations",
-  "Filters",
-  "States",
-  "Prefilters",
-];
 
 function ConstantsMap(aObject, aPrefix, aMap = {}, aModifier = null) {
   let offset = aPrefix.length;
@@ -57,3 +48,12 @@ XPCOMUtils.defineLazyGetter(this, "States", function() {
   });
   return statesMap;
 });
+
+this.EXPORTED_SYMBOLS = [
+  "Roles",
+  "Events",
+  "Relations",
+  "Filters",
+  "States",
+  "Prefilters",
+];

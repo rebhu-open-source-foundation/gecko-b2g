@@ -729,7 +729,6 @@ class TcpStunHandler(protocol.Protocol):
         self.transport.write(bytes(data))
 
 
-
 def get_default_route(family):
     dummy_socket = socket.socket(family, socket.SOCK_DGRAM)
     if family is socket.AF_INET:

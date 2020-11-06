@@ -23,9 +23,7 @@ class MessageEvent;
 class PrepareMessageRunnable;
 class GetWebSocketServerInfoRunnable;
 
-class ExternalAPI final : public nsISidlDefaultResponse,
-                          public nsWrapperCache
-{
+class ExternalAPI final : public nsISidlDefaultResponse, public nsWrapperCache {
  public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_NSISIDLDEFAULTRESPONSE

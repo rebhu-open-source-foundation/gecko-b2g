@@ -118,11 +118,10 @@ bool GonkCameraSourceListener::postDataTimestamp(nsecs_t timestamp,
 }
 
 bool GonkCameraSourceListener::postRecordingFrameHandleTimestamp(
-    nsecs_t timestamp,
-    native_handle_t* handle) {
+    nsecs_t timestamp, native_handle_t* handle) {
   sp<GonkCameraSource> source = mSource.promote();
   if (source.get() != nullptr) {
-    source->recordingFrameHandleCallbackTimestamp(timestamp/1000, handle);
+    source->recordingFrameHandleCallbackTimestamp(timestamp / 1000, handle);
     return true;
   }
   return false;
@@ -800,7 +799,7 @@ void GonkCameraSource::releaseRecordingFrame(const sp<IMemory>& frame) {
 
     // Check if frame contains a VideoNativeHandleMetadata.
     if (frame->size() == sizeof(VideoNativeHandleMetadata)) {
-      VideoNativeHandleMetadata *metadata =
+      VideoNativeHandleMetadata* metadata =
           (VideoNativeHandleMetadata*)(frame->pointer());
       if (metadata->eType == kMetadataBufferTypeNativeHandleSource) {
         handle = metadata->pHandle;
@@ -1037,8 +1036,7 @@ void GonkCameraSource::releaseRecordingFrameHandle(native_handle_t* handle) {
 }
 
 void GonkCameraSource::recordingFrameHandleCallbackTimestamp(
-    int64_t timestampUs,
-    native_handle_t* handle) {
+    int64_t timestampUs, native_handle_t* handle) {
   ALOGV("%s: timestamp %lld us", __FUNCTION__, (long long)timestampUs);
   Mutex::Autolock autoLock(mLock);
   if (handle == nullptr) return;
@@ -1049,10 +1047,11 @@ void GonkCameraSource::recordingFrameHandleCallbackTimestamp(
   }
 
   while (mMemoryBases.empty()) {
-    if (mMemoryBaseAvailableCond.waitRelative(mLock,
-        kMemoryBaseAvailableTimeoutNs) == TIMED_OUT) {
-      ALOGW("Waiting on an available memory base timed out. "
-        "Dropping a recording frame.");
+    if (mMemoryBaseAvailableCond.waitRelative(
+            mLock, kMemoryBaseAvailableTimeoutNs) == TIMED_OUT) {
+      ALOGW(
+          "Waiting on an available memory base timed out. "
+          "Dropping a recording frame.");
       releaseRecordingFrameHandle(handle);
       return;
     }
@@ -1064,7 +1063,7 @@ void GonkCameraSource::recordingFrameHandleCallbackTimestamp(
   mMemoryBases.erase(mMemoryBases.begin());
 
   // Wrap native handle in sp<IMemory> so it can be pushed to mFramesReceived.
-  VideoNativeHandleMetadata *metadata =
+  VideoNativeHandleMetadata* metadata =
       (VideoNativeHandleMetadata*)(data->pointer());
   metadata->eType = kMetadataBufferTypeNativeHandleSource;
   metadata->pHandle = handle;

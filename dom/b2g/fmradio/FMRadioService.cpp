@@ -210,9 +210,7 @@ NS_IMETHODIMP FMRadioService::Resolve(nsISettingInfo* aInfo) {
 }
 
 // Implements nsISettingsGetResponse::Reject()
-NS_IMETHODIMP FMRadioService::Reject(nsISettingError* aError) {
-  return NS_OK;
-}
+NS_IMETHODIMP FMRadioService::Reject(nsISettingError* aError) { return NS_OK; }
 
 // Implements nsISettingsObserver::ObserveSetting()
 NS_IMETHODIMP FMRadioService::ObserveSetting(nsISettingInfo* aInfo) {

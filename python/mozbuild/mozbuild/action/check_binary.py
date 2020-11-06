@@ -221,12 +221,12 @@ def check_networking(target, binary):
     networking_functions = set(
         [
             # socketpair is not concerning; it is restricted to AF_UNIX
-            #"connect",
+            # "connect",
             "accept",
             "listen",
             "getsockname",
             "getsockopt",
-            #"recv",
+            # "recv",
             "send",
             # We would be concerned by recvmsg and sendmsg; but we believe
             # they are okay as documented in 1376621#c23

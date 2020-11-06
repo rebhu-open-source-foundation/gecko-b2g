@@ -1,8 +1,12 @@
 /* Any copyright is dedicated to the Public Domain.
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
-MARIONETTE_TIMEOUT = 60000;
-MARIONETTE_HEAD_JS = "head.js";
+/* global log, is, ok, startTestCommon, getDataEnabled,
+   getDataApnSettings, setDataApnSettings, TEST_APN_SETTINGS, requestDataCall,
+   TEST_HOST_ROUTE, releaseDataCall */
+
+const MARIONETTE_TIMEOUT = 60000;
+const MARIONETTE_HEAD_JS = "head.js";
 
 let TEST_DATA = [
   // Mobile network type, expected success.
@@ -23,67 +27,81 @@ function verifyInitialState() {
   return Promise.resolve()
     .then(getDataEnabled)
     .then(function(aResult) {
-      is(aResult, false, "Data must be off by default.")
+      is(aResult, false, "Data must be off by default.");
     });
 }
 
 function testRequestDataCall(aType, aExpectFailure) {
   log("= testRequestDataCall - type: " + aType) + " =";
 
-  return requestDataCall(aType)
-    .then(aDataCall => {
-      ok(!aExpectFailure, "requestDataCall should not fail.")
-      return aDataCall
-    }, aErrorMsg => {
-      ok(aExpectFailure, "requestDataCall expected to fail.")
-    });
+  return requestDataCall(aType).then(
+    aDataCall => {
+      ok(!aExpectFailure, "requestDataCall should not fail.");
+      return aDataCall;
+    },
+    aErrorMsg => {
+      ok(aExpectFailure, "requestDataCall expected to fail.");
+    }
+  );
 }
 
 function testReleaseDataCall(aDataCall) {
-  log(" = testReleaseDataCall - type: " + (aDataCall ? aDataCall.type : "") + " =");
+  log(
+    " = testReleaseDataCall - type: " + (aDataCall ? aDataCall.type : "") + " ="
+  );
 
   return releaseDataCall(aDataCall)
     .then(() => aDataCall.addHostRoute(TEST_HOST_ROUTE))
-    .then(() => {
-      ok(false, "Should not success on released data call.");
-    }, aReason => {
-      ok(true, "Expected error on released data call.");
-    })
+    .then(
+      () => {
+        ok(false, "Should not success on released data call.");
+      },
+      aReason => {
+        ok(true, "Expected error on released data call.");
+      }
+    )
     .then(() => aDataCall.removeHostRoute(TEST_HOST_ROUTE))
-    .then(() => {
-      ok(false, "Should not success on released data call.");
-    }, aReason => {
-      ok(true, "Expected error on released data call.");
-    });
+    .then(
+      () => {
+        ok(false, "Should not success on released data call.");
+      },
+      aReason => {
+        ok(true, "Expected error on released data call.");
+      }
+    );
 }
 
-startTestCommon(function() {
-  let origApnSettings;
+startTestCommon(
+  function() {
+    let origApnSettings;
 
-  return verifyInitialState()
-  .then(() => getDataApnSettings())
-  .then(value => {
-    origApnSettings = value;
-  })
-  .then(() => setDataApnSettings(TEST_APN_SETTINGS))
-  .then(() => {
-    let promise = Promise.resolve();
-    for (let i = 0; i < TEST_DATA.length; i++) {
-      let entry = TEST_DATA[i];
-      promise = promise.then(() => testRequestDataCall(entry.type,
-                                                       !entry.expectSuccess))
-        .then(aDataCall => {
-          if (!entry.expectSuccess) {
-            return;
-          }
-          return testReleaseDataCall(aDataCall);
-        });
-    }
-    return promise;
-  }).then(() => {
-    if (origApnSettings) {
-      return setDataApnSettings(origApnSettings);
-    }
-  });
-
-}, ["settings-read", "settings-write", "settings-api-read", "settings-api-write"]);
+    return verifyInitialState()
+      .then(() => getDataApnSettings())
+      .then(value => {
+        origApnSettings = value;
+      })
+      .then(() => setDataApnSettings(TEST_APN_SETTINGS))
+      .then(() => {
+        let promise = Promise.resolve();
+        for (let i = 0; i < TEST_DATA.length; i++) {
+          let entry = TEST_DATA[i];
+          promise = promise
+            .then(() => testRequestDataCall(entry.type, !entry.expectSuccess))
+            .then(aDataCall => {
+              if (!entry.expectSuccess) {
+                return null;
+              }
+              return testReleaseDataCall(aDataCall);
+            });
+        }
+        return promise;
+      })
+      .then(() => {
+        if (origApnSettings) {
+          return setDataApnSettings(origApnSettings);
+        }
+        return null;
+      });
+  },
+  ["settings-read", "settings-write", "settings-api-read", "settings-api-write"]
+);

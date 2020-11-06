@@ -258,12 +258,12 @@ set_config("L10NBASEDIR", l10n_base)
 # ==============================================================
 @depends(target)
 def toolkit_choices(target):
-    if target.os == 'WINNT':
-        return ('cairo-windows',)
-    elif target.os == 'OSX':
-        return ('cairo-cocoa',)
-    elif target.os == 'Android':
-        return ('cairo-android', 'cairo-gonk')
+    if target.os == "WINNT":
+        return ("cairo-windows",)
+    elif target.os == "OSX":
+        return ("cairo-cocoa",)
+    elif target.os == "Android":
+        return ("cairo-android", "cairo-gonk")
     else:
         return ("cairo-gtk3", "cairo-gtk3-wayland")
 
@@ -385,7 +385,7 @@ set_define(gl_provider_define, True)
 # ==============================================================
 @depends(toolkit)
 def pdf_printing(toolkit):
-    if toolkit in ('windows', 'gtk', 'android', 'gonk'):
+    if toolkit in ("windows", "gtk", "android", "gonk"):
         return True
 
 
@@ -820,8 +820,8 @@ id_and_secret_keyfile("Leanplum SDK")
 
 simple_keyfile("Pocket API")
 
-simple_keyfile('KaiOS Push API')
-simple_keyfile('KaiOS Service API')
+simple_keyfile("KaiOS Push API")
+simple_keyfile("KaiOS Service API")
 
 # WebRender Debugger integration
 # ==============================================================

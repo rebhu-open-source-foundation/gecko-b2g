@@ -81,7 +81,8 @@ class B2G final : public nsIDOMMozWakeLockListener, public nsWrapperCache {
   nsIGlobalObject* GetParentObject() const { return mOwner; }
   virtual JSObject* WrapObject(JSContext* aCtx,
                                JS::Handle<JSObject*> aGivenProto) override;
-  static bool CheckPermission(const nsACString& aType, nsPIDOMWindowInner* aWindow);
+  static bool CheckPermission(const nsACString& aType,
+                              nsPIDOMWindowInner* aWindow);
   static bool CheckPermissionOnWorkerThread(const nsACString& aType);
 
   AlarmManager* GetAlarmManager(ErrorResult& aRv);
@@ -128,7 +129,8 @@ class B2G final : public nsIDOMMozWakeLockListener, public nsWrapperCache {
 #endif
   static bool HasCameraSupport(JSContext* /* unused */, JSObject* aGlobal);
   static bool HasWifiManagerSupport(JSContext* /* unused */, JSObject* aGlobal);
-  static bool HasTetheringManagerSupport(JSContext* /* unused */, JSObject* aGlobal);
+  static bool HasTetheringManagerSupport(JSContext* /* unused */,
+                                         JSObject* aGlobal);
   static bool HasUsbManagerSupport(JSContext* /* unused */, JSObject* aGlobal);
   static bool HasPowerSupplyManagerSupport(JSContext* /* unused */,
                                            JSObject* aGlobal);
@@ -148,9 +150,11 @@ class B2G final : public nsIDOMMozWakeLockListener, public nsWrapperCache {
 #endif
 #ifdef HAS_KOOST_MODULES
   AuthorizationManager* GetAuthorizationManager(ErrorResult& aRv);
-  static bool HasAuthorizationManagerSupport(JSContext* /* unused */, JSObject* aGlobal);
+  static bool HasAuthorizationManagerSupport(JSContext* /* unused */,
+                                             JSObject* aGlobal);
   EngmodeManager* GetEngmodeManager(ErrorResult& aRv);
-  static bool HasEngmodeManagerSupport(JSContext* /* unused */, JSObject* aGlobal);
+  static bool HasEngmodeManagerSupport(JSContext* /* unused */,
+                                       JSObject* aGlobal);
 #endif
 
   UsbManager* GetUsbManager(ErrorResult& aRv);
