@@ -728,18 +728,7 @@ DataCallService.prototype = {
       return;
     }
 
-    if (DATACALL_IPC_MSG_ENTRIES.includes(aMessage.name)) {
-      if (!aMessage.target.assertPermission("datacall")) {
-        if (DEBUG) {
-          this.debug(
-            "DataCall message " +
-              aMessage.name +
-              " from a content process with no 'datacall' privileges."
-          );
-        }
-        return;
-      }
-    } else {
+    if (!DATACALL_IPC_MSG_ENTRIES.includes(aMessage.name)) {
       if (DEBUG) {
         this.debug("Ignoring unknown message type: " + aMessage.name);
       }
