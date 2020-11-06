@@ -78,6 +78,7 @@ struct ScreenConfiguration {
 
 struct FlashlightInformation {
   bool enabled;
+  bool present;
 };
 
 struct FMRadioOperationInformation {
@@ -125,7 +126,7 @@ parent:
 
     async EnableFlashlightNotifications();
     async DisableFlashlightNotifications();
-    async GetFlashlightEnabled();
+    async RequestCurrentFlashlightState();
     async SetFlashlightEnabled(bool enabled);
 
     async EnableFlipNotifications();

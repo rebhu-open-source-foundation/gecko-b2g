@@ -27,7 +27,9 @@ FlashlightManager::FlashlightManager(nsPIDOMWindowInner* aWindow)
 
 FlashlightManager::~FlashlightManager() {}
 
-void FlashlightManager::Init() { hal::RegisterFlashlightObserver(this); }
+void FlashlightManager::Init() {
+  hal::RegisterFlashlightObserver(this);
+}
 
 void FlashlightManager::Shutdown() {
   hal::UnregisterFlashlightObserver(this);
@@ -45,16 +47,23 @@ JSObject* FlashlightManager::WrapObject(JSContext* aCx,
 
 void FlashlightManager::Notify(
     const hal::FlashlightInformation& aFlashlightInfo) {
-  bool hasChanged = aFlashlightInfo.enabled() != mFlashlightEnabled;
-  mFlashlightEnabled = aFlashlightInfo.enabled();
+  if (!aFlashlightInfo.present()) {
+    for (uint32_t i = 0; i < mPendingFlashlightPromises.Length(); ++i) {
+      mPendingFlashlightPromises[i]->MaybeReject(NS_ERROR_NOT_AVAILABLE);
+    }
+    mPendingFlashlightPromises.Clear();
+  } else {
+    bool hasChanged = aFlashlightInfo.enabled() != mFlashlightEnabled;
+    mFlashlightEnabled = aFlashlightInfo.enabled();
 
-  for (uint32_t i = 0; i < mPendingFlashlightPromises.Length(); ++i) {
-    mPendingFlashlightPromises[i]->MaybeResolve(this);
-  }
-  mPendingFlashlightPromises.Clear();
+    for (uint32_t i = 0; i < mPendingFlashlightPromises.Length(); ++i) {
+      mPendingFlashlightPromises[i]->MaybeResolve(this);
+    }
+    mPendingFlashlightPromises.Clear();
 
-  if (hasChanged) {
-    DispatchTrustedEvent(u"flashlightchange"_ns);
+    if (hasChanged) {
+      DispatchTrustedEvent(u"flashlightchange"_ns);
+    }
   }
 }
 

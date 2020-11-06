@@ -23,6 +23,10 @@ SetFlashlightEnabled(bool aEnabled)
 {
 }
 
+bool IsFlashlightPresent() {
+  return true;
+}
+
 void
 RequestCurrentFlashlightState()
 {

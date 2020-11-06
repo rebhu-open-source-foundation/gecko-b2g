@@ -1304,6 +1304,7 @@ class FlashlightListener : public BnCameraServiceListener {
     if (mFlashlightEnabled != flashlightEnabled) {
       hal::FlashlightInformation flashlightInfo;
       flashlightInfo.enabled() = mFlashlightEnabled = flashlightEnabled;
+      flashlightInfo.present() = true;
       RefPtr<FlashlightStateEvent> runnable =
           new FlashlightStateEvent(flashlightInfo);
       NS_DispatchToMainThread(runnable);
@@ -1367,9 +1368,27 @@ void SetFlashlightEnabled(bool aEnabled) {
   }
 }
 
+bool IsFlashlightPresent() {
+  if (gCameraService) {
+    Status res;
+    res = gCameraService->setTorchMode(String16("0"), false, gBinder);
+    if (res.isOk() ||
+       (!strstr(res.toString8().string(), "does not have a flash unit") &&
+        !strstr(res.toString8().string(), "has no flashlight"))) {
+      return true;
+    }
+    HAL_ERR("CameraService setTorchMode failed:%s", res.toString8().string());
+  } else {
+    HAL_ERR("CameraService haven't initialized yet, return directly!");
+  }
+
+  return false;
+}
+
 void RequestCurrentFlashlightState() {
   hal::FlashlightInformation flashlightInfo;
   flashlightInfo.enabled() = GetFlashlightEnabled();
+  flashlightInfo.present() = IsFlashlightPresent();
   hal::UpdateFlashlightState(flashlightInfo);
 }
 

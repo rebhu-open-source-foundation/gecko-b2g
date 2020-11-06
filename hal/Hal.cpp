@@ -407,6 +407,11 @@ void SetFlashlightEnabled(bool aEnabled) {
   PROXY_IF_SANDBOXED(SetFlashlightEnabled(aEnabled));
 }
 
+bool IsFlashlightPresent() {
+  AssertMainThread();
+  RETURN_PROXY_IF_SANDBOXED(IsFlashlightPresent(), true);
+}
+
 void RegisterUsbObserver(UsbObserver* aUsbObserver) {
   AssertMainThread();
   sUsbObservers.AddObserver(aUsbObserver);

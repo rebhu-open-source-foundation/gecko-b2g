@@ -195,7 +195,9 @@ void DisableFlashlightNotifications() {
   Hal()->SendDisableFlashlightNotifications();
 }
 
-void RequestCurrentFlashlightState() { Hal()->SendGetFlashlightEnabled(); }
+void RequestCurrentFlashlightState() {
+  Hal()->SendRequestCurrentFlashlightState();
+}
 
 bool GetFlashlightEnabled() {
   MOZ_CRASH("GetFlashlightEnabled() can't be called from sandboxed contexts.");
@@ -204,6 +206,11 @@ bool GetFlashlightEnabled() {
 
 void SetFlashlightEnabled(bool aEnabled) {
   Hal()->SendSetFlashlightEnabled(aEnabled);
+}
+
+bool IsFlashlightPresent() {
+  MOZ_CRASH("IsFlashlightPresent() can't be called from sandboxed contexts.");
+  return true;
 }
 
 void NotifyFlipStateFromInputDevice(bool aFlipStatus)
@@ -396,10 +403,10 @@ class HalParent : public PHalParent,
     return IPC_OK();
   }
 
-  virtual mozilla::ipc::IPCResult RecvGetFlashlightEnabled() override {
-    bool flashlightState = hal::GetFlashlightEnabled();
+  virtual mozilla::ipc::IPCResult RecvRequestCurrentFlashlightState() override {
     FlashlightInformation flashlightInfo;
-    flashlightInfo.enabled() = flashlightState;
+    flashlightInfo.enabled() = hal::GetFlashlightEnabled();
+    flashlightInfo.present() = hal::IsFlashlightPresent();
     Unused << SendNotifyFlashlightState(flashlightInfo);
     return IPC_OK();
   }
@@ -728,7 +735,7 @@ class HalChild : public PHalChild {
     return IPC_OK();
   }
 
-  mozilla::ipc::IPCResult RecvNotifyFlashlightState(
+  virtual mozilla::ipc::IPCResult RecvNotifyFlashlightState(
       const FlashlightInformation& aFlashlightState) override {
     hal::UpdateFlashlightState(aFlashlightState);
     return IPC_OK();

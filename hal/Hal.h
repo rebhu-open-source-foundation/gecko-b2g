@@ -213,6 +213,11 @@ bool GetFlashlightEnabled();
 void SetFlashlightEnabled(bool aEnabled);
 
 /**
+ * Determine the Flashlight is present or not.
+ */
+bool IsFlashlightPresent();
+
+/**
  * Determine the Flip is open or not
  */
 bool IsFlipOpened();

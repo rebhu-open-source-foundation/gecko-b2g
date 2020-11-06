@@ -244,6 +244,7 @@ already_AddRefed<Promise> B2G::GetFlashlightManager(ErrorResult& aRv) {
     }
 
     if (!CheckPermission("flashlight"_ns, innerWindow)) {
+      aRv.Throw(NS_ERROR_DOM_SECURITY_ERR);
       return nullptr;
     }
 
@@ -269,6 +270,7 @@ already_AddRefed<Promise> B2G::GetFlipManager(ErrorResult& aRv) {
     }
 
     if (!CheckPermission("flip"_ns, innerWindow)) {
+      aRv.Throw(NS_ERROR_DOM_SECURITY_ERR);
       return nullptr;
     }
 
