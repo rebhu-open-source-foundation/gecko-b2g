@@ -895,6 +895,8 @@ NS_IMETHODIMP GonkGPSGeolocationProvider::HandleSettings(
   }
 #ifdef MOZ_B2G_RIL
   else if (name.Equals(kSettingRilSuplApn)) {
+    // Remove the surrounding " " of setting string
+    value.Trim("\"");
     DBG("ObserveSetting: supl APN: %s", NS_ConvertUTF16toUTF8(value).get());
     // When we get the APN, we attempt to call data_call_open of AGPS.
     if (!value.IsEmpty()) {
@@ -902,6 +904,8 @@ NS_IMETHODIMP GonkGPSGeolocationProvider::HandleSettings(
     }
 
   } else if (name.Equals(kSettingRilDataApn)) {
+    // Remove the surrounding " " of setting string
+    value.Trim("\"");
     gRilDataApn = NS_ConvertUTF16toUTF8(value);
     DBG("ObserveSetting: data APN: %s", gRilDataApn.get());
   } else if (name.Equals(kSettingRilDefaultServiceId)) {
