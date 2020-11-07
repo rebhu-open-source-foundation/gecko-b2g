@@ -2313,15 +2313,6 @@ const ASRouterUtils = {
     });
   },
 
-  dismissById(id) {
-    return ASRouterUtils.sendMessage({
-      type: common_ActorConstants_jsm__WEBPACK_IMPORTED_MODULE_0__["MESSAGE_TYPE_HASH"].DISMISS_MESSAGE_BY_ID,
-      data: {
-        id
-      }
-    });
-  },
-
   executeAction(button_action) {
     return ASRouterUtils.sendMessage({
       type: common_ActorConstants_jsm__WEBPACK_IMPORTED_MODULE_0__["MESSAGE_TYPE_HASH"].USER_ACTION,
@@ -2805,6 +2796,14 @@ class ASRouterUISurface extends react__WEBPACK_IMPORTED_MODULE_7___default.a.Pur
     }
   }
 
+  clearProvider(id) {
+    if (this.state.message.provider === id) {
+      this.setState({
+        message: {}
+      });
+    }
+  }
+
   onMessageFromParent({
     type,
     data
@@ -2814,6 +2813,20 @@ class ASRouterUISurface extends react__WEBPACK_IMPORTED_MODULE_7___default.a.Pur
       case "ClearMessages":
         {
           data.forEach(id => this.clearMessage(id));
+          break;
+        }
+
+      case "ClearProviders":
+        {
+          data.forEach(id => this.clearProvider(id));
+          break;
+        }
+
+      case "EnterSnippetsPreviewMode":
+        {
+          this.props.dispatch({
+            type: common_Actions_jsm__WEBPACK_IMPORTED_MODULE_1__["actionTypes"].SNIPPETS_PREVIEW_MODE
+          });
           break;
         }
     }

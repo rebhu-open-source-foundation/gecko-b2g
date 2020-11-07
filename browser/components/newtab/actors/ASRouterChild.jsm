@@ -54,7 +54,9 @@ class ASRouterChild extends JSWindowActorChild {
 
   receiveMessage({ name, data }) {
     switch (name) {
+      case "EnterSnippetsPreviewMode":
       case "UpdateAdminState":
+      case "ClearProviders":
       case "ClearMessages": {
         this.observers.forEach(listener => {
           let result = Cu.cloneInto(
