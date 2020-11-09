@@ -91,6 +91,7 @@ def old_configure_options(*options):
     "--enable-b2g-bt",
     "--enable-b2g-camera",
     "--enable-b2g-fm",
+    "--enable-b2g-ims",
     "--enable-b2g-ril",
     "--enable-crashreporter",
     "--enable-dbus",

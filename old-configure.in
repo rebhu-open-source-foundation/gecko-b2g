@@ -3006,6 +3006,19 @@ fi
 
 AC_SUBST(PRODUCT_MANUFACTURER_MTK)
 
+dnl =========================================
+dnl = Enable IMS for B2G (Gonk usually)
+dnl =========================================
+MOZ_ARG_ENABLE_BOOL(b2g-ims,
+[  --enable-b2g-ims      Enable b2g-ims ],
+    B2G_IMS=1,
+    B2G_IMS= )
+
+if test "$B2G_IMS"; then
+    AC_DEFINE(B2G_IMS)
+fi
+AC_SUBST(B2G_IMS)
+
 MOZ_CREATE_CONFIG_STATUS()
 
 rm -fr confdefs* $ac_clean_files
