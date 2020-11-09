@@ -4255,12 +4255,15 @@ bool ContentParent::DeallocPTestShellParent(PTestShellParent* shell) {
 #ifdef MOZ_B2G_RIL
 PMobileConnectionParent* ContentParent::AllocPMobileConnectionParent(
     const uint32_t& aClientId) {
-  return new mozilla::dom::mobileconnection::MobileConnectionParent(aClientId);
+  RefPtr<MobileConnectionParent> actor = new MobileConnectionParent(aClientId);
+
+  return actor.forget().take();
 }
 
 bool ContentParent::DeallocPMobileConnectionParent(
     PMobileConnectionParent* aActor) {
-  delete aActor;
+  RefPtr<MobileConnectionParent> actor =
+    dont_AddRef(static_cast<MobileConnectionParent*>(aActor));
   return true;
 }
 
@@ -4269,7 +4272,6 @@ PImsRegServiceFinderParent* ContentParent::AllocPImsRegServiceFinderParent() {
   // if (!AssertAppProcessPermission(this, "mobileconnection")) {
   //    return nullptr;
   //}
-
   return new mozilla::dom::mobileconnection::ImsRegServiceFinderParent();
 }
 
@@ -4285,12 +4287,17 @@ PImsRegistrationParent* ContentParent::AllocPImsRegistrationParent(
   // if (!AssertAppProcessPermission(this, "mobileconnection")) {
   //    return nullptr;
   //}
-  return new mozilla::dom::mobileconnection::ImsRegistrationParent(aServiceId);
+  RefPtr<ImsRegistrationParent> actor = new ImsRegistrationParent(aServiceId);
+
+  return actor.forget().take();
 }
 
 bool ContentParent::DeallocPImsRegistrationParent(
     PImsRegistrationParent* aActor) {
-  delete aActor;
+
+  RefPtr<ImsRegistrationParent> actor =
+    dont_AddRef(static_cast<ImsRegistrationParent*>(aActor));
+
   return true;
 }
 
@@ -4299,11 +4306,13 @@ PTelephonyParent* ContentParent::AllocPTelephonyParent() {
   //  return nullptr;
   //}
 
-  return new mozilla::dom::telephony::TelephonyParent();
+  RefPtr<TelephonyParent> actor = new TelephonyParent();
+  return actor.forget().take();
 }
 
 bool ContentParent::DeallocPTelephonyParent(PTelephonyParent* aActor) {
-  delete aActor;
+  RefPtr<TelephonyParent> actor =
+    dont_AddRef(static_cast<TelephonyParent*>(aActor));
   return true;
 }
 
@@ -4329,21 +4338,26 @@ PIccParent* ContentParent::AllocPIccParent(const uint32_t& aServiceId) {
   // if (!AssertAppProcessPermission(this, "mobileconnection")) {
   //   return nullptr;
   // }
-  return new mozilla::dom::icc::IccParent(aServiceId);
+  RefPtr<IccParent> actor = new IccParent(aServiceId);
+  return actor.forget().take();
 }
 
 bool ContentParent::DeallocPIccParent(PIccParent* aActor) {
-  delete aActor;
+  RefPtr<IccParent> actor =
+    dont_AddRef(static_cast<IccParent*>(aActor));
   return true;
 }
 
 PSubsidyLockParent* ContentParent::AllocPSubsidyLockParent(
     const uint32_t& aClientId) {
-  return new SubsidyLockParent(aClientId);
+  RefPtr<SubsidyLockParent> actor = new SubsidyLockParent(aClientId);
+  return actor.forget().take();
+
 }
 
 bool ContentParent::DeallocPSubsidyLockParent(PSubsidyLockParent* aActor) {
-  delete aActor;
+  RefPtr<SubsidyLockParent> actor =
+    dont_AddRef(static_cast<SubsidyLockParent*>(aActor));
   return true;
 }
 
