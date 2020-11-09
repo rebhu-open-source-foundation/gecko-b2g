@@ -199,6 +199,12 @@ InputMethodHandler::OnSetValue(uint32_t aId, nsresult aStatus) {
   return NS_OK;
 }
 
+NS_IMETHODIMP
+InputMethodHandler::OnClearAll(uint32_t aId, nsresult aStatus) {
+  IME_LOGD("--InputMethodHandler::OnClearAll");
+  return NS_OK;
+}
+
 nsresult InputMethodHandler::SetComposition(const nsAString& aText) {
   nsString text(aText);
   // TODO use a pure interface, and make it point to either the remote version
@@ -395,6 +401,22 @@ void InputMethodHandler::SetValue(const nsAString& aValue) {
     RefPtr<InputMethodService> service = InputMethodService::GetInstance();
     MOZ_ASSERT(service);
     service->SetValue(0, this, aValue);
+  }
+}
+
+void InputMethodHandler::ClearAll() {
+  ContentChild* contentChild = ContentChild::GetSingleton();
+  if (contentChild) {
+    IME_LOGD("--InputMethodHandler::ClearAll content process");
+    // Call from content process.
+    CommonRequest request(0, u"ClearAll"_ns);
+    SendRequest(contentChild, request);
+  } else {
+    IME_LOGD("--InputMethodHandler::ClearAll in-process");
+    // Call from parent process (or in-proces app).
+    RefPtr<InputMethodService> service = InputMethodService::GetInstance();
+    MOZ_ASSERT(service);
+    service->ClearAll(0, this);
   }
 }
 

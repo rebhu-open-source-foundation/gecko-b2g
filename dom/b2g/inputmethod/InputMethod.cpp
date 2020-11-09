@@ -192,6 +192,13 @@ void InputMethod::SetValue(const nsAString& aValue) {
   handler->SetValue(aValue);
 }
 
+void InputMethod::ClearAll() {
+  IME_LOGD("-- InputMethod::ClearAll");
+
+  RefPtr<InputMethodHandler> handler = InputMethodHandler::Create();
+  handler->ClearAll();
+}
+
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(InputMethod, mGlobal)
 NS_IMPL_CYCLE_COLLECTING_ADDREF(InputMethod)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(InputMethod)

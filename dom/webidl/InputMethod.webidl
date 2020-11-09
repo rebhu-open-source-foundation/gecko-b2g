@@ -61,4 +61,7 @@ interface InputMethod {
    */
   void setValue(DOMString value);
 
+  // Select and delete all editable content including selection|text|node.
+  void clearAll();
+
   };

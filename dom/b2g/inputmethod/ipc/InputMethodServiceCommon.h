@@ -79,6 +79,8 @@ class InputMethodServiceCommon : public EditableSupportListenerCommon<T> {
         const CommonRequest& request = aRequest;
         if (request.requestName() == u"RemoveFocus"_ns) {
           GetEditableSupport()->RemoveFocus(request.id(), this);
+        } else if (request.requestName() == u"ClearAll"_ns) {
+          GetEditableSupport()->ClearAll(request.id(), this);
         }
         break;
       }
@@ -180,6 +182,8 @@ class InputMethodServiceCommon : public EditableSupportListenerCommon<T> {
             listener->OnRemoveFocus(response.id(), response.status());
           } else if (response.responseName() == u"SetValue"_ns) {
             listener->OnSetValue(response.id(), response.status());
+          } else if (response.responseName() == u"ClearAll"_ns) {
+            listener->OnClearAll(response.id(), response.status());
           }
         }
         break;

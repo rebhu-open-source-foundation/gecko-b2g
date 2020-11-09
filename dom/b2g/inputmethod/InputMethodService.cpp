@@ -187,6 +187,17 @@ NS_IMETHODIMP InputMethodService::SetValue(
   return NS_OK;
 }
 
+NS_IMETHODIMP InputMethodService::ClearAll(
+    uint32_t aId, nsIEditableSupportListener* aListener) {
+  IME_LOGD("InputMethodService::ClearAll");
+  if (mEditableSupport) {
+    mEditableSupport->ClearAll(aId, aListener);
+  } else if (aListener) {
+    aListener->OnClearAll(aId, NS_ERROR_ABORT);
+  }
+  return NS_OK;
+}
+
 void InputMethodService::HandleFocus(nsIEditableSupport* aEditableSupport,
                                      nsIInputContext* aPropBag) {
   IME_LOGD("InputMethodService::HandleFocus");

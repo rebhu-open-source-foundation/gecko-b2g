@@ -267,5 +267,15 @@ InputMethodServiceParent::SetValue(uint32_t aId,
   return NS_OK;
 }
 
+NS_IMETHODIMP
+InputMethodServiceParent::ClearAll(uint32_t aId,
+                                   nsIEditableSupportListener* aListener) {
+  IME_LOGD("InputMethodServiceParent::ClearAll");
+  mRequestMap.Put(++sRequestId, aListener);
+  CommonRequest request(sRequestId, u"ClearAll"_ns);
+  Unused << SendRequest(request);
+  return NS_OK;
+}
+
 }  // namespace dom
 }  // namespace mozilla

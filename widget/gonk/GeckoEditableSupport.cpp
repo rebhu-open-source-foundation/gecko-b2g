@@ -1122,6 +1122,72 @@ GeckoEditableSupport::SetValue(uint32_t aId,
   return rv;
 }
 
+NS_IMETHODIMP
+GeckoEditableSupport::ClearAll(uint32_t aId,
+                               nsIEditableSupportListener* aListener) {
+  IME_LOGD("-- GeckoEditableSupport::ClearAll");
+  nsresult rv = NS_ERROR_ABORT;
+  do {
+    nsFocusManager* focusManager = nsFocusManager::GetFocusManager();
+    if (!focusManager) {
+      break;
+    }
+
+    Element* focusedElement = focusManager->GetFocusedElement();
+    if (!focusedElement) {
+      break;
+    }
+    nsCOMPtr<Document> doc = focusedElement->GetComposedDoc();
+    if (!doc) {
+      break;
+    }
+    RefPtr<Element> activeElement = doc->GetActiveElement();
+    if (!activeElement) {
+      break;
+    }
+    RefPtr<HTMLInputElement> inputElement =
+        HTMLInputElement::FromNodeOrNull(activeElement);
+    if (inputElement) {
+      rv = SetValue(0, nullptr, EmptyString());
+      if (NS_WARN_IF(NS_FAILED(rv))) {
+        break;
+      }
+    } else {
+      // non-input type such as TextAreaElement
+      nsCOMPtr<nsIEditor> editor = getEditor(focusedElement);
+      if (!editor) {
+        break;
+      }
+      rv = editor->SelectAll();
+      if (NS_WARN_IF(NS_FAILED(rv))) {
+        break;
+      }
+      rv = editor->DeleteSelection(nsIEditor::ePrevious, nsIEditor::eStrip);
+      if (NS_WARN_IF(NS_FAILED(rv))) {
+        break;
+      }
+    }
+    // Fire change event.
+    ErrorResult erv;
+    RefPtr<Event> changeEvent = NS_NewDOMEvent(doc, nullptr, nullptr);
+    changeEvent->InitEvent(u"change"_ns, true, false);
+    changeEvent->SetTrusted(true);
+    activeElement->DispatchEvent(*changeEvent, erv);
+    if (NS_WARN_IF(erv.Failed())) {
+      IME_LOGD(
+          "GeckoEditableSupport::ClearAll, Failed to dispatch change "
+          "event.");
+      break;
+    }
+
+  } while (0);
+
+  if (aListener) {
+    aListener->OnClearAll(aId, rv);
+  }
+  return rv;
+}
+
 nsresult GeckoEditableSupport::GetInputContextBag(
     nsInputContext* aInputContext) {
   nsFocusManager* focusManager = nsFocusManager::GetFocusManager();

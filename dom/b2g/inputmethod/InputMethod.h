@@ -48,6 +48,7 @@ class InputMethod final : public nsISupports, public nsWrapperCache {
   already_AddRefed<Promise> GetText(const Optional<int32_t>& aOffset,
                                     const Optional<int32_t>& aLength);
   void SetValue(const nsAString& aValue);
+  void ClearAll();
 
  protected:
   ~InputMethod() = default;
