@@ -148,11 +148,7 @@ var PrintEventHandler = {
 
   // These settings do not have an associated pref value or flag, but
   // changing them requires us to update the print preview.
-  _nonFlaggedUpdatePreviewSettings: new Set([
-    "printAllOrCustomRange",
-    "startPageRange",
-    "endPageRange",
-  ]),
+  _nonFlaggedUpdatePreviewSettings: new Set(["pageRanges"]),
 
   async init() {
     Services.telemetry.scalarAdd("printing.preview_opened_tm", 1);
@@ -1191,11 +1187,6 @@ var PrintSettingsViewProxy = {
           name => !!target[name]
         );
 
-      case "printAllOrCustomRange":
-        return target.printRange == Ci.nsIPrintSettings.kRangeAllPages
-          ? "all"
-          : "custom";
-
       case "supportsColor":
         return this.availablePrinters[target.printerName].supportsColor;
 
@@ -1282,13 +1273,6 @@ var PrintSettingsViewProxy = {
         )) {
           target[settingName] = value ? defaultValue : "";
         }
-        break;
-
-      case "printAllOrCustomRange":
-        target.printRange =
-          value == "all"
-            ? Ci.nsIPrintSettings.kRangeAllPages
-            : Ci.nsIPrintSettings.kRangeSpecifiedPageRange;
         break;
 
       case "customMargins":
@@ -1792,14 +1776,14 @@ class PageRangeInput extends PrintUIControlMixin(HTMLElement) {
 
   updatePageRange() {
     this.dispatchSettingsChange({
-      printAllOrCustomRange: this._rangePicker.value,
-      startPageRange: this._startRange.value,
-      endPageRange: this._endRange.value,
+      pageRanges: this._rangePicker.value
+        ? [this._startRange.value, this._endRange.value]
+        : [],
     });
   }
 
   update(settings) {
-    this.toggleAttribute("all-pages", settings.printRange == 0);
+    this.toggleAttribute("all-pages", !settings.pageRanges.length);
   }
 
   handleEvent(e) {
@@ -1845,8 +1829,7 @@ class PageRangeInput extends PrintUIControlMixin(HTMLElement) {
 
         if (this._startRange.validity.valid && this._endRange.validity.valid) {
           this.dispatchSettingsChange({
-            startPageRange: this._startRange.value,
-            endPageRange: this._endRange.value,
+            pageRanges: [this._startRange.value, this._endRange.value],
           });
           this._rangeError.hidden = true;
           this._startRangeOverflowError.hidden = true;

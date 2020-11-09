@@ -72,7 +72,7 @@ qcms = { path = "../../../../gfx/qcms" }
 
 # Build it on Gonk for now.
 # [target.'cfg(not(target_os = "android"))'.dependencies]
-viaduct = { git = "https://github.com/mozilla/application-services", rev = "641353a8648602ce17d23c89b88e2a22d108fb03"}
+viaduct = { git = "https://github.com/mozilla/application-services", rev = "8a576fbe79199fa8664f64285524017f74ebcc5f"}
 webext_storage_bridge = { path = "../../../components/extensions/storage/webext_storage_bridge" }
 
 # Gecko <-> SIDL integration
