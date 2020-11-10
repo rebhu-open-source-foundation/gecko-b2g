@@ -4321,7 +4321,9 @@ PVoicemailParent* ContentParent::AllocPVoicemailParent() {
     return nullptr;
   }*/
 
-  return new mozilla::dom::voicemail::VoicemailParent();
+  RefPtr<VoicemailParent> actor = new VoicemailParent();
+
+  return actor.forget().take();
 }
 
 mozilla::ipc::IPCResult ContentParent::RecvPVoicemailConstructor(
@@ -4330,7 +4332,9 @@ mozilla::ipc::IPCResult ContentParent::RecvPVoicemailConstructor(
 }
 
 bool ContentParent::DeallocPVoicemailParent(PVoicemailParent* aActor) {
-  delete aActor;
+  RefPtr<VoicemailParent> actor =
+      dont_AddRef(static_cast<VoicemailParent*>(aActor));
+
   return true;
 }
 
@@ -4366,11 +4370,15 @@ PCellBroadcastParent* ContentParent::AllocPCellBroadcastParent() {
   //   return nullptr;
   // }
 
-  return new mozilla::dom::cellbroadcast::CellBroadcastParent();
+  RefPtr<CellBroadcastParent> actor = new CellBroadcastParent();
+
+  return actor.forget().take();
 }
 
 bool ContentParent::DeallocPCellBroadcastParent(PCellBroadcastParent* aActor) {
-  delete aActor;
+  RefPtr<CellBroadcastParent> actor =
+      dont_AddRef(static_cast<CellBroadcastParent*>(aActor));
+
   return true;
 }
 
@@ -4384,13 +4392,13 @@ PSmsParent* ContentParent::AllocPSmsParent() {
   //  return nullptr;
   //}
 
-  SmsParent* parent = new SmsParent();
-  parent->AddRef();
-  return parent;
+  RefPtr<SmsParent> actor = new SmsParent();
+
+  return actor.forget().take();
 }
 
 bool ContentParent::DeallocPSmsParent(PSmsParent* aActor) {
-  delete aActor;
+  RefPtr<SmsParent> actor = dont_AddRef(static_cast<SmsParent*>(aActor));
   return true;
 }
 
