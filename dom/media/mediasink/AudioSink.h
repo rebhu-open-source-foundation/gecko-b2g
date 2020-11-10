@@ -18,6 +18,7 @@
 #include "mozilla/Monitor.h"
 #include "mozilla/MozPromise.h"
 #include "mozilla/RefPtr.h"
+#include "mozilla/Result.h"
 #include "nsISupportsImpl.h"
 
 namespace mozilla {
@@ -42,10 +43,10 @@ class AudioSink : private AudioStream::DataSource {
 
   ~AudioSink();
 
-  // Return a promise which will be resolved when AudioSink
-  // finishes playing, or rejected if any error.
-  nsresult Init(const PlaybackParams& aParams,
-                RefPtr<MediaSink::EndedPromise>& aEndedPromise);
+  // Start audio playback and return a promise which will be resolved when the
+  // playback finishes, or return an error result if any error occurs.
+  Result<already_AddRefed<MediaSink::EndedPromise>, nsresult> Start(
+      const PlaybackParams& aParams);
 
   /*
    * All public functions are not thread-safe.
@@ -80,8 +81,6 @@ class AudioSink : private AudioStream::DataSource {
   // Called on the callback thread of cubeb.
   UniquePtr<AudioStream::Chunk> PopFrames(uint32_t aFrames) override;
   bool Ended() const override;
-  void Drained() override;
-  void Errored() override;
 
   void CheckIsAudible(const AudioData* aData);
 
@@ -109,8 +108,6 @@ class AudioSink : private AudioStream::DataSource {
   // Used on the task queue of MDSM only.
   bool mPlaying;
 
-  MozPromiseHolder<MediaSink::EndedPromise> mEndedPromise;
-
   /*
    * Members to implement AudioStream::DataSource.
    * Used on the callback thread of cubeb.
@@ -131,9 +128,6 @@ class AudioSink : private AudioStream::DataSource {
 
   // True if there is any error in processing audio data like overflow.
   Atomic<bool> mErrored;
-
-  // Set on the callback thread of cubeb once the stream has drained.
-  Atomic<bool> mPlaybackComplete;
 
   const RefPtr<AbstractThread> mOwnerThread;
 
