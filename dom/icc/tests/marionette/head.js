@@ -1,7 +1,7 @@
 /* Any copyright is dedicated to the Public Domain.
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
-const {Cc: Cc, Ci: Ci, Cr: Cr, Cu: Cu} = SpecialPowers;
+/* global is, ok, finish, waitFor, MozIccManager, runEmulatorCmd, SpecialPowers */
 
 const PREF_KEY_RIL_DEBUGGING_ENABLED = "ril.debugging.enabled";
 
@@ -10,11 +10,11 @@ const DEFAULT_PIN = "0000";
 // The puk code hard coded in emulator is "12345678".
 const DEFAULT_PUK = "12345678";
 
-const WHT = 0xFFFFFFFF;
-const BLK = 0x000000FF;
-const RED = 0xFF0000FF;
-const GRN = 0x00FF00FF;
-const BLU = 0x0000FFFF;
+const WHT = 0xffffffff;
+const BLK = 0x000000ff;
+const RED = 0xff0000ff;
+const GRN = 0x00ff00ff;
+const BLU = 0x0000ffff;
 const TSP = 0;
 
 // Basic Image, see record number 1 in EFimg.
@@ -22,42 +22,216 @@ const BASIC_ICON = {
   width: 8,
   height: 8,
   codingScheme: "basic",
-  pixels: [WHT, WHT, WHT, WHT, WHT, WHT, WHT, WHT,
-           BLK, BLK, BLK, BLK, BLK, BLK, WHT, WHT,
-           WHT, BLK, WHT, BLK, BLK, WHT, BLK, WHT,
-           WHT, BLK, BLK, WHT, WHT, BLK, BLK, WHT,
-           WHT, BLK, BLK, WHT, WHT, BLK, BLK, WHT,
-           WHT, BLK, WHT, BLK, BLK, WHT, BLK, WHT,
-           WHT, WHT, BLK, BLK, BLK, BLK, WHT, WHT,
-           WHT, WHT, WHT, WHT, WHT, WHT, WHT, WHT]
+  pixels: [
+    WHT,
+    WHT,
+    WHT,
+    WHT,
+    WHT,
+    WHT,
+    WHT,
+    WHT,
+    BLK,
+    BLK,
+    BLK,
+    BLK,
+    BLK,
+    BLK,
+    WHT,
+    WHT,
+    WHT,
+    BLK,
+    WHT,
+    BLK,
+    BLK,
+    WHT,
+    BLK,
+    WHT,
+    WHT,
+    BLK,
+    BLK,
+    WHT,
+    WHT,
+    BLK,
+    BLK,
+    WHT,
+    WHT,
+    BLK,
+    BLK,
+    WHT,
+    WHT,
+    BLK,
+    BLK,
+    WHT,
+    WHT,
+    BLK,
+    WHT,
+    BLK,
+    BLK,
+    WHT,
+    BLK,
+    WHT,
+    WHT,
+    WHT,
+    BLK,
+    BLK,
+    BLK,
+    BLK,
+    WHT,
+    WHT,
+    WHT,
+    WHT,
+    WHT,
+    WHT,
+    WHT,
+    WHT,
+    WHT,
+    WHT,
+  ],
 };
 // Color Image, see record number 3 in EFimg.
 const COLOR_ICON = {
   width: 8,
   height: 8,
   codingScheme: "color",
-  pixels: [BLU, BLU, BLU, BLU, BLU, BLU, BLU, BLU,
-           BLU, RED, RED, RED, RED, RED, RED, BLU,
-           BLU, RED, GRN, GRN, GRN, RED, RED, BLU,
-           BLU, RED, RED, GRN, GRN, RED, RED, BLU,
-           BLU, RED, RED, GRN, GRN, RED, RED, BLU,
-           BLU, RED, RED, GRN, GRN, GRN, RED, BLU,
-           BLU, RED, RED, RED, RED, RED, RED, BLU,
-           BLU, BLU, BLU, BLU, BLU, BLU, BLU, BLU]
+  pixels: [
+    BLU,
+    BLU,
+    BLU,
+    BLU,
+    BLU,
+    BLU,
+    BLU,
+    BLU,
+    BLU,
+    RED,
+    RED,
+    RED,
+    RED,
+    RED,
+    RED,
+    BLU,
+    BLU,
+    RED,
+    GRN,
+    GRN,
+    GRN,
+    RED,
+    RED,
+    BLU,
+    BLU,
+    RED,
+    RED,
+    GRN,
+    GRN,
+    RED,
+    RED,
+    BLU,
+    BLU,
+    RED,
+    RED,
+    GRN,
+    GRN,
+    RED,
+    RED,
+    BLU,
+    BLU,
+    RED,
+    RED,
+    GRN,
+    GRN,
+    GRN,
+    RED,
+    BLU,
+    BLU,
+    RED,
+    RED,
+    RED,
+    RED,
+    RED,
+    RED,
+    BLU,
+    BLU,
+    BLU,
+    BLU,
+    BLU,
+    BLU,
+    BLU,
+    BLU,
+    BLU,
+  ],
 };
 // Color Image with Transparency, see record number 5 in EFimg.
 const COLOR_TRANSPARENCY_ICON = {
   width: 8,
   height: 8,
   codingScheme: "color-transparency",
-  pixels: [TSP, TSP, TSP, TSP, TSP, TSP, TSP, TSP,
-           TSP, RED, RED, RED, RED, RED, RED, TSP,
-           TSP, RED, GRN, GRN, GRN, RED, RED, TSP,
-           TSP, RED, RED, GRN, GRN, RED, RED, TSP,
-           TSP, RED, RED, GRN, GRN, RED, RED, TSP,
-           TSP, RED, RED, GRN, GRN, GRN, RED, TSP,
-           TSP, RED, RED, RED, RED, RED, RED, TSP,
-           TSP, TSP, TSP, TSP, TSP, TSP, TSP, TSP]
+  pixels: [
+    TSP,
+    TSP,
+    TSP,
+    TSP,
+    TSP,
+    TSP,
+    TSP,
+    TSP,
+    TSP,
+    RED,
+    RED,
+    RED,
+    RED,
+    RED,
+    RED,
+    TSP,
+    TSP,
+    RED,
+    GRN,
+    GRN,
+    GRN,
+    RED,
+    RED,
+    TSP,
+    TSP,
+    RED,
+    RED,
+    GRN,
+    GRN,
+    RED,
+    RED,
+    TSP,
+    TSP,
+    RED,
+    RED,
+    GRN,
+    GRN,
+    RED,
+    RED,
+    TSP,
+    TSP,
+    RED,
+    RED,
+    GRN,
+    GRN,
+    GRN,
+    RED,
+    TSP,
+    TSP,
+    RED,
+    RED,
+    RED,
+    RED,
+    RED,
+    RED,
+    TSP,
+    TSP,
+    TSP,
+    TSP,
+    TSP,
+    TSP,
+    TSP,
+    TSP,
+    TSP,
+  ],
 };
 
 /**
@@ -86,8 +260,11 @@ function isIcons(aIcons, aExpectedIcons) {
 function isStkText(aStkText, aExpectedStkText) {
   is(aStkText.text, aExpectedStkText.text, "stkText.text");
   if (aExpectedStkText.icons) {
-    is(aStkText.iconSelfExplanatory, aExpectedStkText.iconSelfExplanatory,
-       "stkText.iconSelfExplanatory");
+    is(
+      aStkText.iconSelfExplanatory,
+      aExpectedStkText.iconSelfExplanatory,
+      "stkText.iconSelfExplanatory"
+    );
     isIcons(aStkText.icons, aExpectedStkText.icons);
   }
 }
@@ -118,8 +295,7 @@ function runEmulatorCmdSafe(aCommand) {
       --_pendingEmulatorCmdCount;
 
       ok(true, "Emulator response: " + JSON.stringify(aResult));
-      if (Array.isArray(aResult) &&
-          aResult[aResult.length - 1] === "OK") {
+      if (Array.isArray(aResult) && aResult[aResult.length - 1] === "OK") {
         aResolve(aResult);
       } else {
         aReject(aResult);
@@ -156,8 +332,7 @@ function sendEmulatorStkPdu(aPdu) {
  * @return A deferred promise.
  */
 function peekLastStkResponse() {
-  return runEmulatorCmdSafe("stk lastresponse")
-    .then(aResult => aResult[0]);
+  return runEmulatorCmdSafe("stk lastresponse").then(aResult => aResult[0]);
 }
 
 /**
@@ -171,8 +346,7 @@ function peekLastStkResponse() {
  * @return A deferred promise.
  */
 function peekLastStkEnvelope() {
-  return runEmulatorCmdSafe("stk lastenvelope")
-    .then(aResult => aResult[0]);
+  return runEmulatorCmdSafe("stk lastenvelope").then(aResult => aResult[0]);
 }
 
 /**
@@ -246,12 +420,12 @@ function ensureIccManager(aAdditionalPermissions) {
   return new Promise(function(aResolve, aReject) {
     aAdditionalPermissions = aAdditionalPermissions || [];
 
-    if (aAdditionalPermissions.indexOf("mobileconnection") < 0) {
+    if (!aAdditionalPermissions.includes("mobileconnection")) {
       aAdditionalPermissions.push("mobileconnection");
     }
     let permissions = [];
     for (let perm of aAdditionalPermissions) {
-      permissions.push({ "type": perm, "allow": 1, "context": document });
+      permissions.push({ type: perm, allow: 1, context: document });
     }
 
     SpecialPowers.pushPermissions(permissions, function() {
@@ -260,23 +434,28 @@ function ensureIccManager(aAdditionalPermissions) {
       // Permission changes can't change existing Navigator.prototype
       // objects, so grab our objects from a new Navigator.
       workingFrame = document.createElement("iframe");
-      workingFrame.addEventListener("load", function load() {
-        workingFrame.removeEventListener("load", load);
+      workingFrame.addEventListener(
+        "load",
+        function load() {
+          iccManager = workingFrame.contentWindow.navigator.mozIccManager;
 
-        iccManager = workingFrame.contentWindow.navigator.mozIccManager;
+          if (iccManager) {
+            ok(
+              true,
+              "navigator.mozIccManager is instance of " + iccManager.constructor
+            );
+          } else {
+            ok(true, "navigator.mozIccManager is undefined");
+          }
 
-        if (iccManager) {
-          ok(true, "navigator.mozIccManager is instance of " + iccManager.constructor);
-        } else {
-          ok(true, "navigator.mozIccManager is undefined");
-        }
-
-        if (iccManager instanceof MozIccManager) {
-          aResolve(iccManager);
-        } else {
-          aReject();
-        }
-      });
+          if (iccManager instanceof MozIccManager) {
+            aResolve(iccManager);
+          } else {
+            aReject();
+          }
+        },
+        { once: true }
+      );
 
       document.body.appendChild(workingFrame);
     });
@@ -330,13 +509,27 @@ function getMozMobileConnectionByServiceId(aServiceId) {
  * @return A deferred promise.
  */
 function setRadioEnabled(aEnabled, aServiceId) {
-  return getMozMobileConnectionByServiceId(aServiceId).setRadioEnabled(aEnabled)
-    .then(() => {
-      ok(true, "setRadioEnabled " + aEnabled + " on " + aServiceId + " success.");
-    }, (aError) => {
-      ok(false, "setRadioEnabled " + aEnabled + " on " + aServiceId + " " +
-         aError.name);
-    });
+  return getMozMobileConnectionByServiceId(aServiceId)
+    .setRadioEnabled(aEnabled)
+    .then(
+      () => {
+        ok(
+          true,
+          "setRadioEnabled " + aEnabled + " on " + aServiceId + " success."
+        );
+      },
+      aError => {
+        ok(
+          false,
+          "setRadioEnabled " +
+            aEnabled +
+            " on " +
+            aServiceId +
+            " " +
+            aError.name
+        );
+      }
+    );
 }
 
 /**
@@ -416,11 +609,13 @@ function setRadioEnabledAndWait(aEnabled, aServiceId) {
   let mobileConn = getMozMobileConnectionByServiceId(aServiceId);
   let promises = [];
 
-  promises.push(waitForTargetEvent(mobileConn, "radiostatechange", function() {
-    // To ignore some transient states, we only resolve that deferred promise
-    // when |radioState| equals to the expected one.
-    return mobileConn.radioState === (aEnabled ? "enabled" : "disabled");
-  }));
+  promises.push(
+    waitForTargetEvent(mobileConn, "radiostatechange", function() {
+      // To ignore some transient states, we only resolve that deferred promise
+      // when |radioState| equals to the expected one.
+      return mobileConn.radioState === (aEnabled ? "enabled" : "disabled");
+    })
+  );
   promises.push(setRadioEnabled(aEnabled, aServiceId));
 
   return Promise.all(promises);
@@ -442,15 +637,17 @@ function restartRadioAndWait(aCardState) {
   return setRadioEnabledAndWait(false).then(() => {
     let promises = [];
 
-    promises.push(waitForTargetEvent(iccManager, "iccdetected")
-      .then((aEvent) => {
+    promises.push(
+      waitForTargetEvent(iccManager, "iccdetected").then(aEvent => {
         let icc = getMozIcc(aEvent.iccId);
         if (icc.cardState !== aCardState) {
           return waitForTargetEvent(icc, "cardstatechange", function() {
             return icc.cardState === aCardState;
           });
         }
-      }));
+        return null;
+      })
+    );
     promises.push(setRadioEnabledAndWait(true));
 
     return Promise.all(promises);
@@ -476,7 +673,7 @@ function setPinLockEnabled(aIcc, aEnabled) {
   let options = {
     lockType: "pin",
     enabled: aEnabled,
-    pin: DEFAULT_PIN
+    pin: DEFAULT_PIN,
   };
 
   return aIcc.setCardLock(options);
@@ -509,7 +706,7 @@ function startTestBase(aTestCaseMain) {
 
   Promise.resolve()
     .then(aTestCaseMain)
-    .catch((aError) => {
+    .catch(aError => {
       ok(false, "promise rejects during test: " + aError);
     })
     .then(() => {
@@ -533,7 +730,6 @@ function startTestBase(aTestCaseMain) {
  */
 function startTestCommon(aTestCaseMain, aAdditionalPermissions) {
   startTestBase(function() {
-    return ensureIccManager(aAdditionalPermissions)
-      .then(aTestCaseMain);
+    return ensureIccManager(aAdditionalPermissions).then(aTestCaseMain);
   });
 }

@@ -4,27 +4,19 @@
 
 "use strict";
 
-const {classes: Cc, interfaces: Ci, utils: Cu, results: Cr} = Components;
-
 const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
 
-const { Services } = ChromeUtils.import(
-  "resource://gre/modules/Services.jsm"
-);
-
-const { PromiseUtils } = ChromeUtils.import(
-  "resource://gre/modules/PromiseUtils.jsm"
-);
-
-XPCOMUtils.defineLazyGetter(this, "RIL", function () {
-  let obj = Cu.import("resource://gre/modules/ril_consts.js", null);
+XPCOMUtils.defineLazyGetter(this, "RIL", function() {
+  // eslint-disable-next-line mozilla/reject-chromeutils-import-null
+  let obj = ChromeUtils.import("resource://gre/modules/ril_consts.js", null);
   return obj;
 });
 
-const GONK_STKCMDFACTORY_CONTRACTID = "@mozilla.org/icc/stkcmdfactory;1";
-const GONK_STKCMDFACTORY_CID = Components.ID("{7a663440-e336-11e4-8fd5-c3140a7ff307}");
+const GONK_STKCMDFACTORY_CID = Components.ID(
+  "{7a663440-e336-11e4-8fd5-c3140a7ff307}"
+);
 
 /**
  * Helper Utilities to convert JS Objects to IDL Objects.
@@ -34,7 +26,7 @@ const GONK_STKCMDFACTORY_CID = Components.ID("{7a663440-e336-11e4-8fd5-c3140a7ff
  * To map { timeUnit, timeInterval } into StkDuration.
  */
 function mapDurationToStkDuration(aDuration) {
-  return (aDuration)
+  return aDuration
     ? new StkDuration(aDuration.timeUnit, aDuration.timeInterval)
     : null;
 }
@@ -44,15 +36,21 @@ function mapDurationToStkDuration(aDuration) {
  */
 function mapIconInfoToStkIconInfo(aIconInfo) {
   let mapIconToStkIcon = function(aIcon) {
-    return new StkIcon(aIcon.width, aIcon.height,
-                       aIcon.codingScheme, aIcon.pixels);
+    return new StkIcon(
+      aIcon.width,
+      aIcon.height,
+      aIcon.codingScheme,
+      aIcon.pixels
+    );
   };
 
-  return (aIconInfo &&
-          aIconInfo.icons !== undefined &&
-          aIconInfo.iconSelfExplanatory !== undefined)
-    ? new StkIconInfo(aIconInfo.iconSelfExplanatory,
-                      aIconInfo.icons.map(mapIconToStkIcon))
+  return aIconInfo &&
+    aIconInfo.icons !== undefined &&
+    aIconInfo.iconSelfExplanatory !== undefined
+    ? new StkIconInfo(
+        aIconInfo.iconSelfExplanatory,
+        aIconInfo.icons.map(mapIconToStkIcon)
+      )
     : null;
 }
 
@@ -72,7 +70,7 @@ function appendIconInfo(aTarget, aStkIconInfo) {
       width: aStkIcon.width,
       height: aStkIcon.height,
       codingScheme: RIL.ICC_IMG_CODING_SCHEME_TO_GECKO[aStkIcon.codingScheme],
-      pixels: aStkIcon.getPixels()
+      pixels: aStkIcon.getPixels(),
     };
   });
 }
@@ -91,7 +89,7 @@ StkDuration.prototype = {
 
   // nsIStkDuration
   timeUnit: 0,
-  timeInterval: 0
+  timeInterval: 0,
 };
 
 function StkIcon(aWidth, aHeight, aCodingScheme, aPixels) {
@@ -108,16 +106,16 @@ StkIcon.prototype = {
 
   // Scheme mapping.
   IMG_CODING_SCHEME: {
-    "basic": Ci.nsIStkIcon.CODING_SCHEME_BASIC,
-    "color": Ci.nsIStkIcon.CODING_SCHEME_COLOR,
-    "color-transparency": Ci.nsIStkIcon.CODING_SCHEME_COLOR_TRANSPARENCY
+    basic: Ci.nsIStkIcon.CODING_SCHEME_BASIC,
+    color: Ci.nsIStkIcon.CODING_SCHEME_COLOR,
+    "color-transparency": Ci.nsIStkIcon.CODING_SCHEME_COLOR_TRANSPARENCY,
   },
 
   // StkIcon
   width: 0,
   height: 0,
   codingScheme: 0,
-  getPixels: function(aCount) {
+  getPixels(aCount) {
     if (!this.pixels) {
       if (aCount) {
         aCount.value = 0;
@@ -130,7 +128,7 @@ StkIcon.prototype = {
     }
 
     return this.pixels.slice();
-  }
+  },
 };
 
 function StkIconInfo(aIconSelfExplanatory, aStkIcons) {
@@ -146,7 +144,7 @@ StkIconInfo.prototype = {
   // nsIStkIconInfo
   iconSelfExplanatory: false,
 
-  getIcons: function(aCount) {
+  getIcons(aCount) {
     if (!this.icons) {
       if (aCount) {
         aCount.value = 0;
@@ -159,7 +157,7 @@ StkIconInfo.prototype = {
     }
 
     return this.icons.slice();
-  }
+  },
 };
 
 function StkItem(aIdentifier, aText, aStkIconInfo) {
@@ -175,13 +173,12 @@ StkItem.prototype = {
   // nsIStkItem
   identifier: 0,
   text: null,
-  iconInfo: null
+  iconInfo: null,
 };
 
 function StkTimer(aTimerId, aTimerValue, aTimerAction) {
   this.timerId = aTimerId;
-  if (aTimerValue !== undefined &&
-      aTimerValue !== null) {
+  if (aTimerValue !== undefined && aTimerValue !== null) {
     this.timerValue = aTimerValue;
   }
   this.timerAction = aTimerAction;
@@ -192,7 +189,7 @@ StkTimer.prototype = {
   // nsIStkTimer
   timerId: 0,
   timerValue: Ci.nsIStkTimer.TIMER_VALUE_INVALID,
-  timerAction: Ci.nsIStkTimer.TIMER_ACTION_INVALID
+  timerAction: Ci.nsIStkTimer.TIMER_ACTION_INVALID,
 };
 
 function StkLocationInfo(aMcc, aMnc, aGsmLocationAreaCode, aGsmCellId) {
@@ -208,7 +205,7 @@ StkLocationInfo.prototype = {
   mcc: null,
   mnc: null,
   gsmLocationAreaCode: -1,
-  gsmCellId: -1
+  gsmCellId: -1,
 };
 
 /**
@@ -225,7 +222,7 @@ StkProactiveCommand.prototype = {
   // nsIStkProactiveCmd
   commandNumber: 0,
   typeOfCommand: 0,
-  commandQualifier: 0
+  commandQualifier: 0,
 };
 
 function StkCommandMessage(aStkProactiveCmd) {
@@ -237,7 +234,7 @@ StkCommandMessage.prototype = {
   commandNumber: 0,
   typeOfCommand: 0,
   commandQualifier: 0,
-  options: null
+  options: null,
 };
 
 function StkPollIntervalCmd(aCommandDetails) {
@@ -248,12 +245,14 @@ function StkPollIntervalCmd(aCommandDetails) {
 }
 StkPollIntervalCmd.prototype = Object.create(StkProactiveCommand.prototype, {
   QueryInterface: {
-    value: ChromeUtils.generateQI([Ci.nsIStkProactiveCmd,
-                                  Ci.nsIStkPollIntervalCmd])
+    value: ChromeUtils.generateQI([
+      Ci.nsIStkProactiveCmd,
+      Ci.nsIStkPollIntervalCmd,
+    ]),
   },
 
   // nsIStkPollIntervalCmd
-  duration: { value: null, writable: true }
+  duration: { value: null, writable: true },
 });
 
 function StkPollIntervalMessage(aStkPollIntervalCmd) {
@@ -271,25 +270,32 @@ function StkProvideLocalInfoCmd(aCommandDetails) {
 
   this.localInfoType = aCommandDetails.options.localInfoType;
 }
-StkProvideLocalInfoCmd.prototype = Object.create(StkProactiveCommand.prototype, {
-  QueryInterface: {
-    value: ChromeUtils.generateQI([Ci.nsIStkProactiveCmd,
-                                  Ci.nsIStkProvideLocalInfoCmd])
-  },
+StkProvideLocalInfoCmd.prototype = Object.create(
+  StkProactiveCommand.prototype,
+  {
+    QueryInterface: {
+      value: ChromeUtils.generateQI([
+        Ci.nsIStkProactiveCmd,
+        Ci.nsIStkProvideLocalInfoCmd,
+      ]),
+    },
 
-  // nsIStkPollIntervalCmd
-  localInfoType: { value: 0x00, writable: true }
-});
+    // nsIStkPollIntervalCmd
+    localInfoType: { value: 0x00, writable: true },
+  }
+);
 
 function StkProvideLocalInfoMessage(aStkProvideLocalInfoCmd) {
   // Call |StkCommandMessage| constructor.
   StkCommandMessage.call(this, aStkProvideLocalInfoCmd);
 
   this.options = {
-    localInfoType: aStkProvideLocalInfoCmd.localInfoType
+    localInfoType: aStkProvideLocalInfoCmd.localInfoType,
   };
 }
-StkProvideLocalInfoMessage.prototype = Object.create(StkCommandMessage.prototype);
+StkProvideLocalInfoMessage.prototype = Object.create(
+  StkCommandMessage.prototype
+);
 
 function StkSetupEventListCmd(aCommandDetails) {
   // Call |StkProactiveCommand| constructor.
@@ -301,8 +307,10 @@ function StkSetupEventListCmd(aCommandDetails) {
 }
 StkSetupEventListCmd.prototype = Object.create(StkProactiveCommand.prototype, {
   QueryInterface: {
-    value: ChromeUtils.generateQI([Ci.nsIStkProactiveCmd,
-                                  Ci.nsIStkSetupEventListCmd])
+    value: ChromeUtils.generateQI([
+      Ci.nsIStkProactiveCmd,
+      Ci.nsIStkSetupEventListCmd,
+    ]),
   },
 
   // Cache eventList for getEventList()
@@ -310,7 +318,7 @@ StkSetupEventListCmd.prototype = Object.create(StkProactiveCommand.prototype, {
 
   // nsIStkSetupEventListCmd
   getEventList: {
-    value: function(aCount) {
+    value(aCount) {
       if (!this.eventList) {
         if (aCount) {
           aCount.value = 0;
@@ -323,8 +331,8 @@ StkSetupEventListCmd.prototype = Object.create(StkProactiveCommand.prototype, {
       }
 
       return this.eventList.slice();
-    }
-  }
+    },
+  },
 });
 
 function StkSetupEventListMessage(aStkSetupEventListCmd) {
@@ -332,7 +340,7 @@ function StkSetupEventListMessage(aStkSetupEventListCmd) {
   StkCommandMessage.call(this, aStkSetupEventListCmd);
 
   this.options = {
-    eventList: null
+    eventList: null,
   };
 
   let eventList = aStkSetupEventListCmd.getEventList();
@@ -357,10 +365,13 @@ function StkSetUpMenuCmd(aCommandDetails) {
     // For |SET-UP MENU|, the 1st item in |aItems| could be null as an
     // indication to the ME to remove the existing menu from the menu
     // system in the ME.
-    return (aItem) ? new StkItem(aItem.identifier,
-                                 aItem.text,
-                                 mapIconInfoToStkIconInfo(aItem))
-                   : null;
+    return aItem
+      ? new StkItem(
+          aItem.identifier,
+          aItem.text,
+          mapIconInfoToStkIconInfo(aItem)
+        )
+      : null;
   });
 
   if (options.nextActionList) {
@@ -369,12 +380,14 @@ function StkSetUpMenuCmd(aCommandDetails) {
 
   this.iconInfo = mapIconInfoToStkIconInfo(options);
 
-  this.isHelpAvailable = !!(options.isHelpAvailable);
+  this.isHelpAvailable = !!options.isHelpAvailable;
 }
 StkSetUpMenuCmd.prototype = Object.create(StkProactiveCommand.prototype, {
   QueryInterface: {
-    value: ChromeUtils.generateQI([Ci.nsIStkProactiveCmd,
-                                  Ci.nsIStkSetUpMenuCmd])
+    value: ChromeUtils.generateQI([
+      Ci.nsIStkProactiveCmd,
+      Ci.nsIStkSetUpMenuCmd,
+    ]),
   },
 
   // Cache items for getItems()
@@ -387,7 +400,7 @@ StkSetUpMenuCmd.prototype = Object.create(StkProactiveCommand.prototype, {
   title: { value: null, writable: true },
 
   getItems: {
-    value: function(aCount) {
+    value(aCount) {
       if (!this.items) {
         if (aCount) {
           aCount.value = 0;
@@ -400,11 +413,11 @@ StkSetUpMenuCmd.prototype = Object.create(StkProactiveCommand.prototype, {
       }
 
       return this.items.slice();
-    }
+    },
   },
 
   getNextActionList: {
-    value: function(aCount) {
+    value(aCount) {
       if (!this.nextActionList) {
         if (aCount) {
           aCount.value = 0;
@@ -417,11 +430,11 @@ StkSetUpMenuCmd.prototype = Object.create(StkProactiveCommand.prototype, {
       }
 
       return this.nextActionList.slice();
-    }
+    },
   },
 
   iconInfo: { value: null, writable: true },
-  isHelpAvailable: { value: false, writable: true }
+  isHelpAvailable: { value: false, writable: true },
 });
 
 function StkSetUpMenuMessage(aStkSetUpMenuCmd) {
@@ -436,7 +449,7 @@ function StkSetUpMenuMessage(aStkSetUpMenuCmd) {
 
       let item = {
         identifier: aStkItem.identifier,
-        text: aStkItem.text
+        text: aStkItem.text,
       };
 
       if (aStkItem.iconInfo) {
@@ -446,7 +459,7 @@ function StkSetUpMenuMessage(aStkSetUpMenuCmd) {
       return item;
     }),
     isHelpAvailable: aStkSetUpMenuCmd.isHelpAvailable,
-    title: aStkSetUpMenuCmd.title
+    title: aStkSetUpMenuCmd.title,
   };
 
   let nextActionList = aStkSetUpMenuCmd.getNextActionList();
@@ -468,28 +481,29 @@ function StkSelectItemCmd(aCommandDetails) {
 
   this.presentationType = options.presentationType;
 
-  if (options.defaultItem !== undefined &&
-      options.defaultItem !== null) {
+  if (options.defaultItem !== undefined && options.defaultItem !== null) {
     this.defaultItem = options.defaultItem;
   }
 }
 StkSelectItemCmd.prototype = Object.create(StkSetUpMenuCmd.prototype, {
   QueryInterface: {
-    value: ChromeUtils.generateQI([Ci.nsIStkProactiveCmd,
-                                  Ci.nsIStkSetUpMenuCmd,
-                                  Ci.nsIStkSelectItemCmd])
+    value: ChromeUtils.generateQI([
+      Ci.nsIStkProactiveCmd,
+      Ci.nsIStkSetUpMenuCmd,
+      Ci.nsIStkSelectItemCmd,
+    ]),
   },
 
   // nsIStkSelectItemCmd
   presentationType: {
     value: 0,
-    writable: true
+    writable: true,
   },
 
   defaultItem: {
     value: Ci.nsIStkSelectItemCmd.DEFAULT_ITEM_INVALID,
-    writable: true
-  }
+    writable: true,
+  },
 });
 
 function StkSelectItemMessage(aStkSelectItemCmd) {
@@ -498,7 +512,10 @@ function StkSelectItemMessage(aStkSelectItemCmd) {
 
   this.options.presentationType = aStkSelectItemCmd.presentationType;
 
-  if (aStkSelectItemCmd.defaultItem !== Ci.nsIStkSelectItemCmd.DEFAULT_ITEM_INVALID) {
+  if (
+    aStkSelectItemCmd.defaultItem !==
+    Ci.nsIStkSelectItemCmd.DEFAULT_ITEM_INVALID
+  ) {
     this.options.defaultItem = aStkSelectItemCmd.defaultItem;
   }
 }
@@ -518,13 +535,15 @@ function StkTextMessageCmd(aCommandDetails) {
 }
 StkTextMessageCmd.prototype = Object.create(StkProactiveCommand.prototype, {
   QueryInterface: {
-    value: ChromeUtils.generateQI([Ci.nsIStkProactiveCmd,
-                                  Ci.nsIStkTextMessageCmd])
+    value: ChromeUtils.generateQI([
+      Ci.nsIStkProactiveCmd,
+      Ci.nsIStkTextMessageCmd,
+    ]),
   },
 
   // nsIStkTextMessageCmd
   text: { value: null, writable: true },
-  iconInfo: { value: null, writable: true }
+  iconInfo: { value: null, writable: true },
 });
 
 function StkTextMessage(aStkTextMessageCmd) {
@@ -532,7 +551,7 @@ function StkTextMessage(aStkTextMessageCmd) {
   StkCommandMessage.call(this, aStkTextMessageCmd);
 
   this.options = {
-    text: aStkTextMessageCmd.text
+    text: aStkTextMessageCmd.text,
   };
 
   if (aStkTextMessageCmd.iconInfo) {
@@ -549,22 +568,24 @@ function StkDisplayTextCmd(aCommandDetails) {
 
   this.duration = mapDurationToStkDuration(options.duration);
 
-  this.isHighPriority = !!(options.isHighPriority);
-  this.userClear = !!(options.userClear);
-  this.responseNeeded = !!(options.responseNeeded);
+  this.isHighPriority = !!options.isHighPriority;
+  this.userClear = !!options.userClear;
+  this.responseNeeded = !!options.responseNeeded;
 }
 StkDisplayTextCmd.prototype = Object.create(StkTextMessageCmd.prototype, {
   QueryInterface: {
-    value: ChromeUtils.generateQI([Ci.nsIStkProactiveCmd,
-                                  Ci.nsIStkTextMessageCmd,
-                                  Ci.nsIStkDisplayTextCmd])
+    value: ChromeUtils.generateQI([
+      Ci.nsIStkProactiveCmd,
+      Ci.nsIStkTextMessageCmd,
+      Ci.nsIStkDisplayTextCmd,
+    ]),
   },
 
   // nsIStkDisplayTextCmd
   duration: { value: null, writable: true },
   isHighPriority: { value: false, writable: true },
   userClear: { value: false, writable: true },
-  responseNeeded: { value: false, writable: true }
+  responseNeeded: { value: false, writable: true },
 });
 
 function StkDisplayTextMessage(aStkDisplayTextCmd) {
@@ -598,16 +619,15 @@ function StkInputCmd(aCommandDetails) {
     this.defaultText = options.defaultText;
   }
 
-  this.isAlphabet = !!(options.isAlphabet);
-  this.isUCS2 = !!(options.isUCS2);
-  this.isHelpAvailable = !!(options.isHelpAvailable);
+  this.isAlphabet = !!options.isAlphabet;
+  this.isUCS2 = !!options.isUCS2;
+  this.isHelpAvailable = !!options.isHelpAvailable;
 
   this.iconInfo = mapIconInfoToStkIconInfo(options);
 }
 StkInputCmd.prototype = Object.create(StkProactiveCommand.prototype, {
   QueryInterface: {
-    value: ChromeUtils.generateQI([Ci.nsIStkProactiveCmd,
-                                  Ci.nsIStkInputCmd])
+    value: ChromeUtils.generateQI([Ci.nsIStkProactiveCmd, Ci.nsIStkInputCmd]),
   },
 
   // nsIStkInputCmd
@@ -619,7 +639,7 @@ StkInputCmd.prototype = Object.create(StkProactiveCommand.prototype, {
   isAlphabet: { value: false, writable: true },
   isUCS2: { value: false, writable: true },
   isHelpAvailable: { value: false, writable: true },
-  iconInfo: { value: null, writable: true }
+  iconInfo: { value: null, writable: true },
 });
 
 function StkInputMessage(aStkInputCmd) {
@@ -633,7 +653,7 @@ function StkInputMessage(aStkInputCmd) {
     isAlphabet: aStkInputCmd.isAlphabet,
     isUCS2: aStkInputCmd.isUCS2,
     isHelpAvailable: aStkInputCmd.isHelpAvailable,
-    defaultText: aStkInputCmd.defaultText
+    defaultText: aStkInputCmd.defaultText,
   };
 
   if (aStkInputCmd.duration) {
@@ -656,17 +676,19 @@ function StkInputKeyCmd(aCommandDetails) {
   // Note: For STK_CMD_INKEY,
   // this.minLength = this.maxLength = 1;
 
-  this.isYesNoRequested = !!(options.isYesNoRequested);
+  this.isYesNoRequested = !!options.isYesNoRequested;
 }
 StkInputKeyCmd.prototype = Object.create(StkInputCmd.prototype, {
   QueryInterface: {
-    value: ChromeUtils.generateQI([Ci.nsIStkProactiveCmd,
-                                  Ci.nsIStkInputCmd,
-                                  Ci.nsIStkInputKeyCmd])
+    value: ChromeUtils.generateQI([
+      Ci.nsIStkProactiveCmd,
+      Ci.nsIStkInputCmd,
+      Ci.nsIStkInputKeyCmd,
+    ]),
   },
 
   // nsIStkInputKeyCmd
-  isYesNoRequested: { value: false, writable: true }
+  isYesNoRequested: { value: false, writable: true },
 });
 
 function StkInputKeyMessage(aStkInputKeyCmd) {
@@ -686,19 +708,21 @@ function StkInputTextCmd(aCommandDetails) {
   this.minLength = options.minLength;
   this.maxLength = options.maxLength;
 
-  this.hideInput = !!(options.hideInput);
-  this.isPacked = !!(options.isPacked);
+  this.hideInput = !!options.hideInput;
+  this.isPacked = !!options.isPacked;
 }
 StkInputTextCmd.prototype = Object.create(StkInputCmd.prototype, {
   QueryInterface: {
-    value: ChromeUtils.generateQI([Ci.nsIStkProactiveCmd,
-                                  Ci.nsIStkInputCmd,
-                                  Ci.nsIStkInputTextCmd])
+    value: ChromeUtils.generateQI([
+      Ci.nsIStkProactiveCmd,
+      Ci.nsIStkInputCmd,
+      Ci.nsIStkInputTextCmd,
+    ]),
   },
 
   // nsIStkInputTextCmd
   hideInput: { value: false, writable: true },
-  isPacked: { value: false, writable: true }
+  isPacked: { value: false, writable: true },
 });
 
 function StkInputTextMessage(aStkInputTextCmd) {
@@ -721,14 +745,14 @@ function StkSetUpCallCmd(aCommandDetails) {
 
   this.address = options.address;
 
-  if(confirmMessage) {
+  if (confirmMessage) {
     if (confirmMessage.text !== undefined) {
       this.confirmText = confirmMessage.text;
     }
     this.confirmIconInfo = mapIconInfoToStkIconInfo(confirmMessage);
   }
 
-  if(callMessage) {
+  if (callMessage) {
     if (callMessage.text !== undefined) {
       this.callText = callMessage.text;
     }
@@ -739,8 +763,10 @@ function StkSetUpCallCmd(aCommandDetails) {
 }
 StkSetUpCallCmd.prototype = Object.create(StkProactiveCommand.prototype, {
   QueryInterface: {
-    value: ChromeUtils.generateQI([Ci.nsIStkProactiveCmd,
-                                  Ci.nsIStkSetUpCallCmd])
+    value: ChromeUtils.generateQI([
+      Ci.nsIStkProactiveCmd,
+      Ci.nsIStkSetUpCallCmd,
+    ]),
   },
 
   // nsIStkSetUpCallCmd
@@ -749,7 +775,7 @@ StkSetUpCallCmd.prototype = Object.create(StkProactiveCommand.prototype, {
   confirmIconInfo: { value: null, writable: true },
   callText: { value: null, writable: true },
   callIconInfo: { value: null, writable: true },
-  duration: { value: null, writable: true }
+  duration: { value: null, writable: true },
 });
 
 function StkSetUpCallMessage(aStkSetUpCallCmd) {
@@ -757,13 +783,15 @@ function StkSetUpCallMessage(aStkSetUpCallCmd) {
   StkCommandMessage.call(this, aStkSetUpCallCmd);
 
   this.options = {
-    address: aStkSetUpCallCmd.address
+    address: aStkSetUpCallCmd.address,
   };
 
-  if (aStkSetUpCallCmd.confirmText !== null ||
-      aStkSetUpCallCmd.confirmIconInfo) {
+  if (
+    aStkSetUpCallCmd.confirmText !== null ||
+    aStkSetUpCallCmd.confirmIconInfo
+  ) {
     let confirmMessage = {
-      text: aStkSetUpCallCmd.confirmText
+      text: aStkSetUpCallCmd.confirmText,
     };
     if (aStkSetUpCallCmd.confirmIconInfo) {
       appendIconInfo(confirmMessage, aStkSetUpCallCmd.confirmIconInfo);
@@ -771,10 +799,9 @@ function StkSetUpCallMessage(aStkSetUpCallCmd) {
     this.options.confirmMessage = confirmMessage;
   }
 
-  if (aStkSetUpCallCmd.callText !== null ||
-      aStkSetUpCallCmd.callIconInfo) {
+  if (aStkSetUpCallCmd.callText !== null || aStkSetUpCallCmd.callIconInfo) {
     let callMessage = {
-      text: aStkSetUpCallCmd.callText
+      text: aStkSetUpCallCmd.callText,
     };
     if (aStkSetUpCallCmd.callIconInfo) {
       appendIconInfo(callMessage, aStkSetUpCallCmd.callIconInfo);
@@ -801,7 +828,7 @@ function StkBrowserSettingCmd(aCommandDetails) {
 
   let confirmMessage = options.confirmMessage;
 
-  if(confirmMessage) {
+  if (confirmMessage) {
     if (confirmMessage.text !== undefined) {
       this.confirmText = confirmMessage.text;
     }
@@ -810,15 +837,17 @@ function StkBrowserSettingCmd(aCommandDetails) {
 }
 StkBrowserSettingCmd.prototype = Object.create(StkProactiveCommand.prototype, {
   QueryInterface: {
-    value: ChromeUtils.generateQI([Ci.nsIStkProactiveCmd,
-                                  Ci.nsIStkBrowserSettingCmd])
+    value: ChromeUtils.generateQI([
+      Ci.nsIStkProactiveCmd,
+      Ci.nsIStkBrowserSettingCmd,
+    ]),
   },
 
   // nsIStkBrowserSettingCmd
   url: { value: null, writable: true },
   mode: { value: 0, writable: true },
   confirmText: { value: null, writable: true },
-  confirmIconInfo: { value: null, writable: true }
+  confirmIconInfo: { value: null, writable: true },
 });
 
 function StkBrowserSettingMessage(aStkBrowserSettingCmd) {
@@ -827,13 +856,15 @@ function StkBrowserSettingMessage(aStkBrowserSettingCmd) {
 
   this.options = {
     url: aStkBrowserSettingCmd.url,
-    mode: aStkBrowserSettingCmd.mode
+    mode: aStkBrowserSettingCmd.mode,
   };
 
-  if (aStkBrowserSettingCmd.confirmText !== null ||
-      aStkBrowserSettingCmd.confirmIconInfo) {
+  if (
+    aStkBrowserSettingCmd.confirmText !== null ||
+    aStkBrowserSettingCmd.confirmIconInfo
+  ) {
     let confirmMessage = {
-      text: aStkBrowserSettingCmd.confirmText
+      text: aStkBrowserSettingCmd.confirmText,
     };
     if (aStkBrowserSettingCmd.confirmIconInfo) {
       appendIconInfo(confirmMessage, aStkBrowserSettingCmd.confirmIconInfo);
@@ -849,12 +880,11 @@ function StkPlayToneCmd(aCommandDetails) {
 
   let options = aCommandDetails.options;
 
-  if(options.text !== undefined) {
+  if (options.text !== undefined) {
     this.text = options.text;
   }
 
-  if (options.tone !== undefined &&
-      options.tone !== null) {
+  if (options.tone !== undefined && options.tone !== null) {
     this.tone = options.tone;
   }
 
@@ -868,8 +898,10 @@ function StkPlayToneCmd(aCommandDetails) {
 }
 StkPlayToneCmd.prototype = Object.create(StkProactiveCommand.prototype, {
   QueryInterface: {
-    value: ChromeUtils.generateQI([Ci.nsIStkProactiveCmd,
-                                  Ci.nsIStkPlayToneCmd])
+    value: ChromeUtils.generateQI([
+      Ci.nsIStkProactiveCmd,
+      Ci.nsIStkPlayToneCmd,
+    ]),
   },
 
   // nsIStkPlayToneCmd
@@ -877,7 +909,7 @@ StkPlayToneCmd.prototype = Object.create(StkProactiveCommand.prototype, {
   tone: { value: Ci.nsIStkPlayToneCmd.TONE_TYPE_INVALID, writable: true },
   duration: { value: null, writable: true },
   isVibrate: { value: false, writable: true },
-  iconInfo: { value: null, writable: true }
+  iconInfo: { value: null, writable: true },
 });
 
 function StkPlayToneMessage(aStkPlayToneCmd) {
@@ -886,7 +918,7 @@ function StkPlayToneMessage(aStkPlayToneCmd) {
 
   this.options = {
     isVibrate: aStkPlayToneCmd.isVibrate,
-    text: aStkPlayToneCmd.text
+    text: aStkPlayToneCmd.text,
   };
 
   if (aStkPlayToneCmd.tone != Ci.nsIStkPlayToneCmd.TONE_TYPE_INVALID) {
@@ -910,19 +942,22 @@ function StkTimerManagementCmd(aCommandDetails) {
 
   let options = aCommandDetails.options;
 
-  this.timerInfo = new StkTimer(options.timerId,
-                                options.timerValue,
-                                options.timerAction);
-
+  this.timerInfo = new StkTimer(
+    options.timerId,
+    options.timerValue,
+    options.timerAction
+  );
 }
 StkTimerManagementCmd.prototype = Object.create(StkProactiveCommand.prototype, {
   QueryInterface: {
-    value: ChromeUtils.generateQI([Ci.nsIStkProactiveCmd,
-                                  Ci.nsIStkTimerManagementCmd])
+    value: ChromeUtils.generateQI([
+      Ci.nsIStkProactiveCmd,
+      Ci.nsIStkTimerManagementCmd,
+    ]),
   },
 
   // nsIStkTimerManagementCmd
-  timerInfo: { value: null, writable: true }
+  timerInfo: { value: null, writable: true },
 });
 
 function StkTimerMessage(aStkTimerManagementCmd) {
@@ -933,7 +968,7 @@ function StkTimerMessage(aStkTimerManagementCmd) {
 
   this.options = {
     timerId: timerInfo.timerId,
-    timerAction: timerInfo.timerAction
+    timerAction: timerInfo.timerAction,
   };
 
   if (timerInfo.timerValue !== Ci.nsIStkTimer.TIMER_VALUE_INVALID) {
@@ -1040,18 +1075,20 @@ StkTerminalResponse.prototype = {
 
   // nsIStkTerminalResponse
   resultCode: 0,
-  additionalInformation: Ci.nsIStkTerminalResponse.ADDITIONAL_INFO_INVALID
+  additionalInformation: Ci.nsIStkTerminalResponse.ADDITIONAL_INFO_INVALID,
 };
 
 function StkResponseMessage(aStkTerminalResponse) {
   this.resultCode = aStkTerminalResponse.resultCode;
-  if (aStkTerminalResponse.additionalInformation
-      !== Ci.nsIStkTerminalResponse.ADDITIONAL_INFO_INVALID) {
+  if (
+    aStkTerminalResponse.additionalInformation !==
+    Ci.nsIStkTerminalResponse.ADDITIONAL_INFO_INVALID
+  ) {
     this.additionalInformation = aStkTerminalResponse.additionalInformation;
   }
 }
 StkResponseMessage.prototype = {
-  resultCode: Ci.nsIStkTerminalResponse.RESULT_OK
+  resultCode: Ci.nsIStkTerminalResponse.RESULT_OK,
 };
 
 function StkSelectItemResponse(aStkSelectItemResponseMessage) {
@@ -1061,12 +1098,14 @@ function StkSelectItemResponse(aStkSelectItemResponseMessage) {
 }
 StkSelectItemResponse.prototype = Object.create(StkTerminalResponse.prototype, {
   QueryInterface: {
-    value: ChromeUtils.generateQI([Ci.nsIStkTerminalResponse,
-                                  Ci.nsIStkSelectItemResponse])
+    value: ChromeUtils.generateQI([
+      Ci.nsIStkTerminalResponse,
+      Ci.nsIStkSelectItemResponse,
+    ]),
   },
 
   // nsIStkSelectItemResponse
-  itemIdentifier: { value: 0, writable: true }
+  itemIdentifier: { value: 0, writable: true },
 });
 
 function StkSelectItemResponseMessage(aStkSelectItemResponse) {
@@ -1075,13 +1114,15 @@ function StkSelectItemResponseMessage(aStkSelectItemResponse) {
 
   this.itemIdentifier = aStkSelectItemResponse.itemIdentifier;
 }
-StkSelectItemResponseMessage.prototype = Object.create(StkResponseMessage.prototype);
+StkSelectItemResponseMessage.prototype = Object.create(
+  StkResponseMessage.prototype
+);
 
 function StkGetInputResponse(aStkGetInputResponseMessage) {
   // Call |StkTerminalResponse| constructor.
   StkTerminalResponse.call(this, aStkGetInputResponseMessage);
   if (aStkGetInputResponseMessage.isYesNo !== undefined) {
-    this.isYesNo = (aStkGetInputResponseMessage.isYesNo)
+    this.isYesNo = aStkGetInputResponseMessage.isYesNo
       ? Ci.nsIStkGetInputResponse.YES
       : Ci.nsIStkGetInputResponse.NO;
   }
@@ -1092,24 +1133,27 @@ function StkGetInputResponse(aStkGetInputResponseMessage) {
     // between nsIStkTerminalResponse and JS objects.
     this.input = aStkGetInputResponseMessage.input || "";
   }
-
 }
 StkGetInputResponse.prototype = Object.create(StkTerminalResponse.prototype, {
   QueryInterface: {
-    value: ChromeUtils.generateQI([Ci.nsIStkTerminalResponse,
-                                  Ci.nsIStkGetInputResponse])
+    value: ChromeUtils.generateQI([
+      Ci.nsIStkTerminalResponse,
+      Ci.nsIStkGetInputResponse,
+    ]),
   },
 
   // nsIStkGetInputResponse
   isYesNo: { value: Ci.nsIStkGetInputResponse.YES_NO_INVALID, writable: true },
-  input: { value: null, writable: true }
+  input: { value: null, writable: true },
 });
 
 function StkGetInputResponseMessage(aStkGetInputResponse) {
   // Call |StkResponseMessage| constructor.
   StkResponseMessage.call(this, aStkGetInputResponse);
 
-  if (aStkGetInputResponse.isYesNo !== Ci.nsIStkGetInputResponse.YES_NO_INVALID) {
+  if (
+    aStkGetInputResponse.isYesNo !== Ci.nsIStkGetInputResponse.YES_NO_INVALID
+  ) {
     this.isYesNo = !!aStkGetInputResponse.isYesNo;
   }
 
@@ -1117,21 +1161,25 @@ function StkGetInputResponseMessage(aStkGetInputResponse) {
     this.input = aStkGetInputResponse.input;
   }
 }
-StkGetInputResponseMessage.prototype = Object.create(StkResponseMessage.prototype);
+StkGetInputResponseMessage.prototype = Object.create(
+  StkResponseMessage.prototype
+);
 
 function StkCallSetupResponse(aStkCallSetupResponseMessage) {
   // Call |StkTerminalResponse| constructor.
   StkTerminalResponse.call(this, aStkCallSetupResponseMessage);
-  this.hasConfirmed = !! aStkCallSetupResponseMessage.hasConfirmed;
+  this.hasConfirmed = !!aStkCallSetupResponseMessage.hasConfirmed;
 }
 StkCallSetupResponse.prototype = Object.create(StkTerminalResponse.prototype, {
   QueryInterface: {
-    value: ChromeUtils.generateQI([Ci.nsIStkTerminalResponse,
-                                  Ci.nsIStkCallSetupResponse])
+    value: ChromeUtils.generateQI([
+      Ci.nsIStkTerminalResponse,
+      Ci.nsIStkCallSetupResponse,
+    ]),
   },
 
   // nsIStkCallSetupResponse
-  hasConfirmed: { value: false, writable: true }
+  hasConfirmed: { value: false, writable: true },
 });
 
 function StkCallSetupResponseMessage(aStkCallSetupResponse) {
@@ -1140,7 +1188,9 @@ function StkCallSetupResponseMessage(aStkCallSetupResponse) {
 
   this.hasConfirmed = aStkCallSetupResponse.hasConfirmed;
 }
-StkCallSetupResponseMessage.prototype = Object.create(StkResponseMessage.prototype);
+StkCallSetupResponseMessage.prototype = Object.create(
+  StkResponseMessage.prototype
+);
 
 function StkLocalInfoResponse(aStkLocalInfoResponseMessage) {
   // Call |StkTerminalResponse| constructor.
@@ -1156,10 +1206,12 @@ function StkLocalInfoResponse(aStkLocalInfoResponseMessage) {
   if (localInfo.locationInfo) {
     let info = localInfo.locationInfo;
 
-    this.locationInfo = new StkLocationInfo(info.mcc,
-                                            info.mnc,
-                                            info.gsmLocationAreaCode,
-                                            info.gsmCellId);
+    this.locationInfo = new StkLocationInfo(
+      info.mcc,
+      info.mnc,
+      info.gsmLocationAreaCode,
+      info.gsmCellId
+    );
     return;
   }
 
@@ -1179,13 +1231,14 @@ function StkLocalInfoResponse(aStkLocalInfoResponseMessage) {
 
   if (localInfo.language) {
     this.language = localInfo.language;
-    return;
   }
 }
 StkLocalInfoResponse.prototype = Object.create(StkTerminalResponse.prototype, {
   QueryInterface: {
-    value: ChromeUtils.generateQI([Ci.nsIStkTerminalResponse,
-                                  Ci.nsIStkLocalInfoResponse])
+    value: ChromeUtils.generateQI([
+      Ci.nsIStkTerminalResponse,
+      Ci.nsIStkLocalInfoResponse,
+    ]),
   },
 
   // nsIStkLocalInfoResponse
@@ -1199,7 +1252,7 @@ function StkLocalInfoResponseMessage(aStkLocalInfoResponse) {
   // Call |StkResponseMessage| constructor.
   StkResponseMessage.call(this, aStkLocalInfoResponse);
 
-  let localInfo = this.localInfo = {};
+  let localInfo = (this.localInfo = {});
 
   if (aStkLocalInfoResponse.imei) {
     localInfo.imei = aStkLocalInfoResponse.imei;
@@ -1208,7 +1261,7 @@ function StkLocalInfoResponseMessage(aStkLocalInfoResponse) {
 
   if (aStkLocalInfoResponse.locationInfo) {
     let srcInfo = aStkLocalInfoResponse.locationInfo;
-    let destInfo = localInfo.locationInfo = {};
+    let destInfo = (localInfo.locationInfo = {});
 
     destInfo.mcc = srcInfo.mcc;
     destInfo.mnc = srcInfo.mnc;
@@ -1225,10 +1278,11 @@ function StkLocalInfoResponseMessage(aStkLocalInfoResponse) {
 
   if (aStkLocalInfoResponse.language) {
     localInfo.language = aStkLocalInfoResponse.language;
-    return;
   }
 }
-StkLocalInfoResponseMessage.prototype = Object.create(StkResponseMessage.prototype);
+StkLocalInfoResponseMessage.prototype = Object.create(
+  StkResponseMessage.prototype
+);
 
 function StkTimerResponse(aStkTimerResponseMessage) {
   // Call |StkTerminalResponse| constructor.
@@ -1236,25 +1290,29 @@ function StkTimerResponse(aStkTimerResponseMessage) {
   let timer = aStkTimerResponseMessage.timer;
   // timerAction is useless in Terminal Response,
   // so we always set it to TIMER_ACTION_INVALID.
-  this.timer = new StkTimer(timer.timerId,
-                            Math.floor(timer.timerValue),
-                            Ci.nsIStkTimer.TIMER_ACTION_INVALID);
+  this.timer = new StkTimer(
+    timer.timerId,
+    Math.floor(timer.timerValue),
+    Ci.nsIStkTimer.TIMER_ACTION_INVALID
+  );
 }
 StkTimerResponse.prototype = Object.create(StkTerminalResponse.prototype, {
   QueryInterface: {
-    value: ChromeUtils.generateQI([Ci.nsIStkTerminalResponse,
-                                  Ci.nsIStkTimerResponse])
+    value: ChromeUtils.generateQI([
+      Ci.nsIStkTerminalResponse,
+      Ci.nsIStkTimerResponse,
+    ]),
   },
 
   // nsIStkTimerResponse
-  timer: { value: null, writable: true }
+  timer: { value: null, writable: true },
 });
 
 function StkTimerResponseMessage(aStkTimerResponse) {
   // Call |StkResponseMessage| constructor.
   StkResponseMessage.call(this, aStkTimerResponse);
 
-  let timer = this.timer = {};
+  let timer = (this.timer = {});
   // timerAction is meaningless for terminal response.
   timer.timerId = aStkTimerResponse.timer.timerId;
   timer.timerValue = aStkTimerResponse.timer.timerValue;
@@ -1271,14 +1329,14 @@ StkDownloadEvent.prototype = {
   QueryInterface: ChromeUtils.generateQI([Ci.nsIStkDownloadEvent]),
 
   // nsIStkDownloadEvent
-  eventType: 0
+  eventType: 0,
 };
 
 function StkEventMessage(aStkDownloadEvent) {
   this.eventType = aStkDownloadEvent.eventType;
 }
 StkEventMessage.prototype = {
-  eventType: 0
+  eventType: 0,
 };
 
 function StkLocationEvent(aStkLocationEventMessage) {
@@ -1286,25 +1344,34 @@ function StkLocationEvent(aStkLocationEventMessage) {
   StkDownloadEvent.call(this, aStkLocationEventMessage);
   this.locationStatus = aStkLocationEventMessage.locationStatus;
 
-  if (this.locationStatus == Ci.nsIStkLocationEvent.SERVICE_STATE_NORMAL &&
-      aStkLocationEventMessage.locationInfo) {
+  if (
+    this.locationStatus == Ci.nsIStkLocationEvent.SERVICE_STATE_NORMAL &&
+    aStkLocationEventMessage.locationInfo
+  ) {
     let info = aStkLocationEventMessage.locationInfo;
 
-    this.locationInfo = new StkLocationInfo(info.mcc,
-                                            info.mnc,
-                                            info.gsmLocationAreaCode,
-                                            info.gsmCellId);
+    this.locationInfo = new StkLocationInfo(
+      info.mcc,
+      info.mnc,
+      info.gsmLocationAreaCode,
+      info.gsmCellId
+    );
   }
 }
 StkLocationEvent.prototype = Object.create(StkDownloadEvent.prototype, {
   QueryInterface: {
-    value: ChromeUtils.generateQI([Ci.nsIStkDownloadEvent,
-                                  Ci.nsIStkLocationEvent])
+    value: ChromeUtils.generateQI([
+      Ci.nsIStkDownloadEvent,
+      Ci.nsIStkLocationEvent,
+    ]),
   },
 
   // nsIStkLocationEvent
-  locationStatus: { value: Ci.nsIStkLocationEvent.SERVICE_STATE_UNAVAILABLE, writable: true },
-  locationInfo: { value: null, writable: true }
+  locationStatus: {
+    value: Ci.nsIStkLocationEvent.SERVICE_STATE_UNAVAILABLE,
+    writable: true,
+  },
+  locationInfo: { value: null, writable: true },
 });
 
 function StkLocationEventMessage(aStkLocationEvent) {
@@ -1314,10 +1381,12 @@ function StkLocationEventMessage(aStkLocationEvent) {
   if (aStkLocationEvent.locationInfo) {
     let info = aStkLocationEvent.locationInfo;
 
-    this.locationInfo = new StkLocationInfo(info.mcc,
-                                            info.mnc,
-                                            info.gsmLocationAreaCode,
-                                            info.gsmCellId);
+    this.locationInfo = new StkLocationInfo(
+      info.mcc,
+      info.mnc,
+      info.gsmLocationAreaCode,
+      info.gsmCellId
+    );
   }
 }
 StkLocationEventMessage.prototype = Object.create(StkEventMessage.prototype);
@@ -1338,14 +1407,13 @@ function StkCallEvent(aStkCallEventMessage) {
 }
 StkCallEvent.prototype = Object.create(StkDownloadEvent.prototype, {
   QueryInterface: {
-    value: ChromeUtils.generateQI([Ci.nsIStkDownloadEvent,
-                                  Ci.nsIStkCallEvent])
+    value: ChromeUtils.generateQI([Ci.nsIStkDownloadEvent, Ci.nsIStkCallEvent]),
   },
 
   // nsIStkCallEvent
   number: { value: null, writable: true },
   isIssuedByRemote: { value: false, writable: true },
-  error: { value: null, writable: true }
+  error: { value: null, writable: true },
 });
 
 function StkCallEventMessage(aStkCallEvent) {
@@ -1365,22 +1433,29 @@ function StkLanguageSelectionEvent(aStkLanguageSelectionEventMessage) {
     this.language = aStkLanguageSelectionEventMessage.language;
   }
 }
-StkLanguageSelectionEvent.prototype = Object.create(StkDownloadEvent.prototype, {
-  QueryInterface: {
-    value: ChromeUtils.generateQI([Ci.nsIStkDownloadEvent,
-                                  Ci.nsIStkLanguageSelectionEvent])
-  },
+StkLanguageSelectionEvent.prototype = Object.create(
+  StkDownloadEvent.prototype,
+  {
+    QueryInterface: {
+      value: ChromeUtils.generateQI([
+        Ci.nsIStkDownloadEvent,
+        Ci.nsIStkLanguageSelectionEvent,
+      ]),
+    },
 
-  // nsIStkLanguageSelectionEvent
-  language: { value: null, writable: true }
-});
+    // nsIStkLanguageSelectionEvent
+    language: { value: null, writable: true },
+  }
+);
 
 function StkLanguageSelectionEventMessage(aStkLanguageSelectionEvent) {
   // Call |StkEventMessage| constructor.
   StkEventMessage.call(this, aStkLanguageSelectionEvent);
   this.language = aStkLanguageSelectionEvent.language;
 }
-StkLanguageSelectionEventMessage.prototype = Object.create(StkEventMessage.prototype);
+StkLanguageSelectionEventMessage.prototype = Object.create(
+  StkEventMessage.prototype
+);
 
 function StkBrowserTerminationEvent(aStkBrowserTerminationEventMessage) {
   // Call |StkDownloadEvent| constructor.
@@ -1390,22 +1465,32 @@ function StkBrowserTerminationEvent(aStkBrowserTerminationEventMessage) {
     this.terminationCause = aStkBrowserTerminationEventMessage.terminationCause;
   }
 }
-StkBrowserTerminationEvent.prototype = Object.create(StkDownloadEvent.prototype, {
-  QueryInterface: {
-    value: ChromeUtils.generateQI([Ci.nsIStkDownloadEvent,
-                                  Ci.nsIStkBrowserTerminationEvent])
-  },
+StkBrowserTerminationEvent.prototype = Object.create(
+  StkDownloadEvent.prototype,
+  {
+    QueryInterface: {
+      value: ChromeUtils.generateQI([
+        Ci.nsIStkDownloadEvent,
+        Ci.nsIStkBrowserTerminationEvent,
+      ]),
+    },
 
-  // nsIStkBrowserTerminationEvent
-  terminationCause: { value: Ci.nsIStkBrowserTerminationEvent.BROWSER_TERMINATION_CAUSE_USER, writable: true }
-});
+    // nsIStkBrowserTerminationEvent
+    terminationCause: {
+      value: Ci.nsIStkBrowserTerminationEvent.BROWSER_TERMINATION_CAUSE_USER,
+      writable: true,
+    },
+  }
+);
 
 function StkBrowserTerminationEventMessage(aStkBrowserTerminationEvent) {
   // Call |StkEventMessage| constructor.
   StkEventMessage.call(this, aStkBrowserTerminationEvent);
   this.terminationCause = aStkBrowserTerminationEvent.terminationCause;
 }
-StkBrowserTerminationEventMessage.prototype = Object.create(StkEventMessage.prototype);
+StkBrowserTerminationEventMessage.prototype = Object.create(
+  StkEventMessage.prototype
+);
 
 /**
  * Event Prototype Mappings.
@@ -1417,8 +1502,12 @@ EventPrototypes[RIL.STK_EVENT_TYPE_MT_CALL] = StkCallEvent;
 EventPrototypes[RIL.STK_EVENT_TYPE_CALL_CONNECTED] = StkCallEvent;
 EventPrototypes[RIL.STK_EVENT_TYPE_CALL_DISCONNECTED] = StkCallEvent;
 EventPrototypes[RIL.STK_EVENT_TYPE_LOCATION_STATUS] = StkLocationEvent;
-EventPrototypes[RIL.STK_EVENT_TYPE_LANGUAGE_SELECTION] = StkLanguageSelectionEvent;
-EventPrototypes[RIL.STK_EVENT_TYPE_BROWSER_TERMINATION] = StkBrowserTerminationEvent;
+EventPrototypes[
+  RIL.STK_EVENT_TYPE_LANGUAGE_SELECTION
+] = StkLanguageSelectionEvent;
+EventPrototypes[
+  RIL.STK_EVENT_TYPE_BROWSER_TERMINATION
+] = StkBrowserTerminationEvent;
 
 /**
  * Event Message Prototype Mappings.
@@ -1429,22 +1518,31 @@ EventMsgPrototypes[RIL.STK_EVENT_TYPE_IDLE_SCREEN_AVAILABLE] = StkEventMessage;
 EventMsgPrototypes[RIL.STK_EVENT_TYPE_MT_CALL] = StkCallEventMessage;
 EventMsgPrototypes[RIL.STK_EVENT_TYPE_CALL_CONNECTED] = StkCallEventMessage;
 EventMsgPrototypes[RIL.STK_EVENT_TYPE_CALL_DISCONNECTED] = StkCallEventMessage;
-EventMsgPrototypes[RIL.STK_EVENT_TYPE_LOCATION_STATUS] = StkLocationEventMessage;
-EventMsgPrototypes[RIL.STK_EVENT_TYPE_LANGUAGE_SELECTION] = StkLanguageSelectionEventMessage;
-EventMsgPrototypes[RIL.STK_EVENT_TYPE_BROWSER_TERMINATION] = StkBrowserTerminationEventMessage;
+EventMsgPrototypes[
+  RIL.STK_EVENT_TYPE_LOCATION_STATUS
+] = StkLocationEventMessage;
+EventMsgPrototypes[
+  RIL.STK_EVENT_TYPE_LANGUAGE_SELECTION
+] = StkLanguageSelectionEventMessage;
+EventMsgPrototypes[
+  RIL.STK_EVENT_TYPE_BROWSER_TERMINATION
+] = StkBrowserTerminationEventMessage;
 
 /**
  * Event QueryInterface Mappings.
  */
 var QueriedEventIFs = {};
 QueriedEventIFs[RIL.STK_EVENT_TYPE_USER_ACTIVITY] = Ci.nsIStkDownloadEvent;
-QueriedEventIFs[RIL.STK_EVENT_TYPE_IDLE_SCREEN_AVAILABLE] = Ci.nsIStkDownloadEvent;
+QueriedEventIFs[RIL.STK_EVENT_TYPE_IDLE_SCREEN_AVAILABLE] =
+  Ci.nsIStkDownloadEvent;
 QueriedEventIFs[RIL.STK_EVENT_TYPE_MT_CALL] = Ci.nsIStkCallEvent;
 QueriedEventIFs[RIL.STK_EVENT_TYPE_CALL_CONNECTED] = Ci.nsIStkCallEvent;
 QueriedEventIFs[RIL.STK_EVENT_TYPE_CALL_DISCONNECTED] = Ci.nsIStkCallEvent;
 QueriedEventIFs[RIL.STK_EVENT_TYPE_LOCATION_STATUS] = Ci.nsIStkLocationEvent;
-QueriedEventIFs[RIL.STK_EVENT_TYPE_LANGUAGE_SELECTION] = Ci.nsIStkLanguageSelectionEvent;
-QueriedEventIFs[RIL.STK_EVENT_TYPE_BROWSER_TERMINATION] = Ci.nsIStkBrowserTerminationEvent;
+QueriedEventIFs[RIL.STK_EVENT_TYPE_LANGUAGE_SELECTION] =
+  Ci.nsIStkLanguageSelectionEvent;
+QueriedEventIFs[RIL.STK_EVENT_TYPE_BROWSER_TERMINATION] =
+  Ci.nsIStkBrowserTerminationEvent;
 
 /**
  * StkCmdFactory
@@ -1460,7 +1558,7 @@ StkCmdFactory.prototype = {
   /**
    * nsIStkCmdFactory interface.
    */
-  createCommand: function(aCommandDetails) {
+  createCommand(aCommandDetails) {
     let cmdType = CmdPrototypes[aCommandDetails.typeOfCommand];
 
     if (typeof cmdType != "function") {
@@ -1470,19 +1568,23 @@ StkCmdFactory.prototype = {
     return new cmdType(aCommandDetails);
   },
 
-  createCommandMessage: function(aStkProactiveCmd) {
+  createCommandMessage(aStkProactiveCmd) {
     let cmd = null;
 
     let msgType = MsgPrototypes[aStkProactiveCmd.typeOfCommand];
 
     if (typeof msgType != "function") {
-      throw new Error("Unknown Command Type: " + aStkProactiveCmd.typeOfCommand);
+      throw new Error(
+        "Unknown Command Type: " + aStkProactiveCmd.typeOfCommand
+      );
     }
 
     // convert aStkProactiveCmd to it's concrete interface before creating
     // system message.
     try {
-      cmd = aStkProactiveCmd.QueryInterface(QueriedIFs[aStkProactiveCmd.typeOfCommand]);
+      cmd = aStkProactiveCmd.QueryInterface(
+        QueriedIFs[aStkProactiveCmd.typeOfCommand]
+      );
     } catch (e) {
       throw new Error("Failed to convert command into concrete class: " + e);
     }
@@ -1490,25 +1592,29 @@ StkCmdFactory.prototype = {
     return new msgType(cmd);
   },
 
-  deflateCommand: function(aStkProactiveCmd) {
+  deflateCommand(aStkProactiveCmd) {
     return JSON.stringify(this.createCommandMessage(aStkProactiveCmd));
   },
 
-  inflateCommand: function(aJSON) {
+  inflateCommand(aJSON) {
     return this.createCommand(JSON.parse(aJSON));
   },
 
-  createResponse: function(aResponseMessage) {
+  createResponse(aResponseMessage) {
     if (!aResponseMessage || aResponseMessage.resultCode === undefined) {
-      throw new Error("Invalid response message: " + JSON.stringify(aResponseMessage));
+      throw new Error(
+        "Invalid response message: " + JSON.stringify(aResponseMessage)
+      );
     }
 
     if (aResponseMessage.itemIdentifier !== undefined) {
       return new StkSelectItemResponse(aResponseMessage);
     }
 
-    if (aResponseMessage.input !== undefined ||
-        aResponseMessage.isYesNo !== undefined) {
+    if (
+      aResponseMessage.input !== undefined ||
+      aResponseMessage.isYesNo !== undefined
+    ) {
       return new StkGetInputResponse(aResponseMessage);
     }
 
@@ -1527,14 +1633,18 @@ StkCmdFactory.prototype = {
     return new StkTerminalResponse(aResponseMessage);
   },
 
-  createResponseMessage: function(aStkTerminalResponse) {
+  createResponseMessage(aStkTerminalResponse) {
     if (!aStkTerminalResponse) {
-      throw new Error("Invalid terminal response: " + JSON.stringify(aStkTerminalResponse));
+      throw new Error(
+        "Invalid terminal response: " + JSON.stringify(aStkTerminalResponse)
+      );
     }
 
     let response;
     if (aStkTerminalResponse instanceof Ci.nsIStkSelectItemResponse) {
-      response = aStkTerminalResponse.QueryInterface(Ci.nsIStkSelectItemResponse);
+      response = aStkTerminalResponse.QueryInterface(
+        Ci.nsIStkSelectItemResponse
+      );
       return new StkSelectItemResponseMessage(response);
     }
 
@@ -1544,12 +1654,16 @@ StkCmdFactory.prototype = {
     }
 
     if (aStkTerminalResponse instanceof Ci.nsIStkCallSetupResponse) {
-      response = aStkTerminalResponse.QueryInterface(Ci.nsIStkCallSetupResponse);
+      response = aStkTerminalResponse.QueryInterface(
+        Ci.nsIStkCallSetupResponse
+      );
       return new StkCallSetupResponseMessage(response);
     }
 
     if (aStkTerminalResponse instanceof Ci.nsIStkLocalInfoResponse) {
-      response = aStkTerminalResponse.QueryInterface(Ci.nsIStkLocalInfoResponse);
+      response = aStkTerminalResponse.QueryInterface(
+        Ci.nsIStkLocalInfoResponse
+      );
       return new StkLocalInfoResponseMessage(response);
     }
 
@@ -1561,15 +1675,15 @@ StkCmdFactory.prototype = {
     return new StkResponseMessage(aStkTerminalResponse);
   },
 
-  deflateResponse: function(aStkTerminalResponse) {
+  deflateResponse(aStkTerminalResponse) {
     return JSON.stringify(this.createResponseMessage(aStkTerminalResponse));
   },
 
-  inflateResponse: function(aJSON) {
+  inflateResponse(aJSON) {
     return this.createResponse(JSON.parse(aJSON));
   },
 
-  createEvent: function(aEventMessage) {
+  createEvent(aEventMessage) {
     let eventType = EventPrototypes[aEventMessage.eventType];
 
     if (typeof eventType != "function") {
@@ -1579,7 +1693,7 @@ StkCmdFactory.prototype = {
     return new eventType(aEventMessage);
   },
 
-  createEventMessage: function(aStkDownloadEvent) {
+  createEventMessage(aStkDownloadEvent) {
     let event = null;
 
     let eventType = EventMsgPrototypes[aStkDownloadEvent.eventType];
@@ -1590,7 +1704,9 @@ StkCmdFactory.prototype = {
 
     // convert aStkDownloadEvent to it's concrete interface before creating message.
     try {
-      event = aStkDownloadEvent.QueryInterface(QueriedEventIFs[aStkDownloadEvent.eventType]);
+      event = aStkDownloadEvent.QueryInterface(
+        QueriedEventIFs[aStkDownloadEvent.eventType]
+      );
     } catch (e) {
       throw new Error("Failed to convert event into concrete class: " + e);
     }
@@ -1598,26 +1714,29 @@ StkCmdFactory.prototype = {
     return new eventType(event);
   },
 
-  deflateDownloadEvent: function(aStkDownloadEvent) {
+  deflateDownloadEvent(aStkDownloadEvent) {
     return JSON.stringify(this.createEventMessage(aStkDownloadEvent));
   },
 
-  inflateDownloadEvent: function(aJSON) {
+  inflateDownloadEvent(aJSON) {
     return this.createEvent(JSON.parse(aJSON));
   },
 
-  createTimer: function(aStkTimerMessage) {
-    if (!aStkTimerMessage ||
-        aStkTimerMessage.timerId === undefined) {
-      throw new Error("Invalid timer object: " + JSON.stringify(aStkTimerMessage));
+  createTimer(aStkTimerMessage) {
+    if (!aStkTimerMessage || aStkTimerMessage.timerId === undefined) {
+      throw new Error(
+        "Invalid timer object: " + JSON.stringify(aStkTimerMessage)
+      );
     }
 
     // timerAction is useless in TIMER EXPIRATION envelope,
     // so we always set it to TIMER_ACTION_INVALID.
-    return new StkTimer(aStkTimerMessage.timerId,
-                        Math.floor(aStkTimerMessage.timerValue),
-                        Ci.nsIStkTimer.TIMER_ACTION_INVALID);
-  }
+    return new StkTimer(
+      aStkTimerMessage.timerId,
+      Math.floor(aStkTimerMessage.timerValue),
+      Ci.nsIStkTimer.TIMER_ACTION_INVALID
+    );
+  },
 };
 
 var EXPORTED_SYMBOLS = ["StkCmdFactory"];
