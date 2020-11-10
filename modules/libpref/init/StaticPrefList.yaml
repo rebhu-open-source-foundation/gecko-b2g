@@ -8063,7 +8063,7 @@
 
 - name: media.block-autoplay-until-in-foreground
   type: bool
-#if !defined(MOZ_WIDGET_ANDROID)
+#if !defined(MOZ_WIDGET_ANDROID) && !defined(MOZ_WIDGET_GONK)
   value: true
 #else
   value: false
