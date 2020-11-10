@@ -38,8 +38,6 @@
 #include <unordered_set>
 #include <vector>
 
-#include <mozilla/Types.h>
-
 namespace android {
     struct DisplayedFrameStats;
     class Fence;
@@ -104,7 +102,7 @@ public:
             android::ui::PixelFormat* format, Display** outDisplay);
     void destroyDisplay(hwc2_display_t displayId);
 
-    MOZ_EXPORT void onHotplug(hwc2_display_t displayId, Connection connection);
+    void onHotplug(hwc2_display_t displayId, Connection connection);
 
     // Other Device methods
 
@@ -252,7 +250,16 @@ public:
             const std::shared_ptr<const Config>& config) = 0;
     [[clang::warn_unused_result]] virtual Error setClientTarget(
             uint32_t slot, const android::sp<android::GraphicBuffer>& target,
-            const android::sp<android::Fence>& acquireFence, android::ui::Dataspace dataspace) = 0;
+            const android::sp<android::Fence>& acquireFence,
+            android::ui::Dataspace dataspace,
+            const android::Region& damage) = 0;
+    [[clang::warn_unused_result]] virtual Error setClientTarget(
+            uint32_t slot, const android::sp<android::GraphicBuffer>& target,
+            const android::sp<android::Fence>& acquireFence,
+            android::ui::Dataspace dataspace) {
+        android::Region damage;
+        return setClientTarget(slot, target, acquireFence, dataspace, damage);
+    }
     [[clang::warn_unused_result]] virtual Error setColorMode(
             android::ui::ColorMode mode, android::ui::RenderIntent renderIntent) = 0;
     [[clang::warn_unused_result]] virtual Error setColorTransform(
@@ -315,7 +322,8 @@ public:
     Error setActiveConfig(const std::shared_ptr<const HWC2::Display::Config>& config) override;
     Error setClientTarget(uint32_t slot, const android::sp<android::GraphicBuffer>& target,
                           const android::sp<android::Fence>& acquireFence,
-                          android::ui::Dataspace dataspace) override;
+                          android::ui::Dataspace dataspace,
+                          const android::Region& damage) override;
     Error setColorMode(android::ui::ColorMode mode,
                        android::ui::RenderIntent renderIntent) override;
     Error setColorTransform(const android::mat4& matrix, android_color_transform_t hint) override;
@@ -456,15 +464,5 @@ private:
 } // namespace impl
 
 } // namespace HWC2
-
-extern "C" MOZ_EXPORT __attribute__ ((weak))
-HWC2::Display* hwc2_getDisplayById(HWC2::Device *p, hwc2_display_t id);
-
-extern "C" MOZ_EXPORT __attribute__ ((weak))
-void hwc2_registerCallback(HWC2::Device *p, HWC2::ComposerCallback* callback, int32_t sequenceId);
-
-extern "C" MOZ_EXPORT __attribute__ ((weak))
-HWC2::Error hwc2_setVsyncEnabled(HWC2::Display *p, HWC2::Vsync enabled);
-
 
 #endif // ANDROID_SF_HWC2_H

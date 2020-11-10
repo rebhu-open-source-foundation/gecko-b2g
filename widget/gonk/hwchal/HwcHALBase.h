@@ -19,6 +19,7 @@
 #ifndef mozilla_HwcHALBase
 #define mozilla_HwcHALBase
 
+#include <mozilla/Types.h>
 #include "mozilla/UniquePtr.h"
 #include "nsRect.h"
 

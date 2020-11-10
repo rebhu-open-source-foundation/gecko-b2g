@@ -612,12 +612,19 @@ Error Display::setActiveConfig(const std::shared_ptr<const Config>& config) {
 
 Error Display::setClientTarget(uint32_t slot, const sp<GraphicBuffer>& target,
                                const sp<Fence>& acquireFence,
-                               Dataspace dataspace) {
-  // TODO: Properly encode client target surface damage
+                               Dataspace dataspace,
+                               const android::Region& damage) {
+  size_t size;
+  const android::Rect* rects = damage.getArray(&size);
+  std::vector<android::Hwc2::IComposerClient::Rect> damageI(size);
+  for (size_t i = 0; i < size; ++i) {
+    auto& rect = rects[i];
+    damageI.push_back({rect.left, rect.top, rect.right, rect.bottom});
+  }
+
   int32_t fenceFd = acquireFence->dup();
   auto intError =
-      mComposer.setClientTarget(mId, slot, target, fenceFd, dataspace,
-                                std::vector<Hwc2::IComposerClient::Rect>());
+      mComposer.setClientTarget(mId, slot, target, fenceFd, dataspace, damageI);
   return static_cast<Error>(intError);
 }
 
@@ -1036,23 +1043,3 @@ Error Layer::setColorTransform(const android::mat4& matrix) {
 
 }  // namespace impl
 }  // namespace HWC2
-
-extern "C" MOZ_EXPORT __attribute__((weak)) HWC2::Display* hwc2_getDisplayById(
-    HWC2::Device* p, hwc2_display_t id) {
-  return p->getDisplayById(id);
-}
-
-extern "C" MOZ_EXPORT __attribute__((weak)) void hwc2_registerCallback(
-    HWC2::Device* p, HWC2::ComposerCallback* callback, int32_t sequenceId) {
-  return p->registerCallback(callback, sequenceId);
-}
-
-extern "C" MOZ_EXPORT __attribute__((weak)) HWC2::Error hwc2_setVsyncEnabled(
-    HWC2::Display* p, HWC2::Vsync enabled) {
-  return p->setVsyncEnabled(enabled);
-}
-
-extern "C" MOZ_EXPORT __attribute__((weak)) void hwc2_onHotplug(
-    HWC2::Device* p, hwc2_display_t displayId, HWC2::Connection connection) {
-  return p->onHotplug(displayId, connection);
-}
