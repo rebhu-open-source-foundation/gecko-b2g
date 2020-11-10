@@ -90,8 +90,8 @@ nsresult IccManager::NotifyIccRemove(const nsAString& aIccId) {
   init.mCancelable = false;
   init.mIccId = aIccId;
 
-  RefPtr<IccChangeEvent> event = IccChangeEvent::Constructor(
-      this, u"iccundetected"_ns, init);
+  RefPtr<IccChangeEvent> event =
+      IccChangeEvent::Constructor(this, u"iccundetected"_ns, init);
   event->SetTrusted(true);
 
   RefPtr<AsyncEventDispatcher> asyncDispatcher =

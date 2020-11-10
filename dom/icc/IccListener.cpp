@@ -70,8 +70,7 @@ IccListener::NotifyStkCommand(nsIStkProactiveCmd* aStkProactiveCmd) {
     return NS_OK;
   }
 
-  return mIcc->NotifyStkEvent(u"stkcommand"_ns,
-                              aStkProactiveCmd);
+  return mIcc->NotifyStkEvent(u"stkcommand"_ns, aStkProactiveCmd);
 }
 
 NS_IMETHODIMP

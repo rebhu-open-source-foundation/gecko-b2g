@@ -1,8 +1,11 @@
 /* Any copyright is dedicated to the Public Domain.
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
-MARIONETTE_TIMEOUT = 30000;
-MARIONETTE_HEAD_JS = "head.js";
+/* global MozIccManager, is, log, startTestCommon, getMozIcc, waitForTargetEvent
+   waitForSystemMessage, sendEmulatorStkPdu, MozGsmIccInfo, setRadioEnabled, iccManager */
+
+const MARIONETTE_TIMEOUT = 30000;
+const MARIONETTE_HEAD_JS = "head.js";
 
 /* Basic test */
 function basicTest(aIcc) {
@@ -41,24 +44,28 @@ function basicTest(aIcc) {
 startTestCommon(function() {
   let icc = getMozIcc();
 
-  return Promise.resolve()
-    // Basic test
-    .then(() => basicTest(icc))
-    // Test iccInfo when card becomes undetected
-    .then(() => {
-      let promises = [];
-      promises.push(setRadioEnabled(false));
-      promises.push(waitForTargetEvent(icc, "iccinfochange", function() {
-        // Expect iccInfo changes to null
-        return icc.iccInfo === null;
-      }));
-      return Promise.all(promises);
-    })
-    // Restore radio status and expect to get iccdetected event.
-    .then(() => {
-      let promises = [];
-      promises.push(setRadioEnabled(true));
-      promises.push(waitForTargetEvent(iccManager, "iccdetected"));
-      return Promise.all(promises);
-    });
+  return (
+    Promise.resolve()
+      // Basic test
+      .then(() => basicTest(icc))
+      // Test iccInfo when card becomes undetected
+      .then(() => {
+        let promises = [];
+        promises.push(setRadioEnabled(false));
+        promises.push(
+          waitForTargetEvent(icc, "iccinfochange", function() {
+            // Expect iccInfo changes to null
+            return icc.iccInfo === null;
+          })
+        );
+        return Promise.all(promises);
+      })
+      // Restore radio status and expect to get iccdetected event.
+      .then(() => {
+        let promises = [];
+        promises.push(setRadioEnabled(true));
+        promises.push(waitForTargetEvent(iccManager, "iccdetected"));
+        return Promise.all(promises);
+      })
+  );
 });

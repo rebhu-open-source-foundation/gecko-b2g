@@ -1,43 +1,72 @@
 /* Any copyright is dedicated to the Public Domain.
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
-MARIONETTE_TIMEOUT = 60000;
-MARIONETTE_HEAD_JS = "head.js";
+/* global MozIccManager, is, log, startTestCommon, getMozIcc, waitForTargetEvent
+   waitForSystemMessage, sendEmulatorStkPdu */
+
+const MARIONETTE_TIMEOUT = 60000;
+const MARIONETTE_HEAD_JS = "head.js";
 
 const TEST_DATA = [
   // Location
-  {command: "D009" + // Length
-            "8103012600" + // Command details
-            "82028182", // Device identities
-   expect: {commandQualifier: MozIccManager.STK_LOCAL_INFO_LOCATION_INFO,
-            localInfoType: MozIccManager.STK_LOCAL_INFO_LOCATION_INFO}},
+  {
+    command:
+      "D009" + // Length
+      "8103012600" + // Command details
+      "82028182", // Device identities
+    expect: {
+      commandQualifier: MozIccManager.STK_LOCAL_INFO_LOCATION_INFO,
+      localInfoType: MozIccManager.STK_LOCAL_INFO_LOCATION_INFO,
+    },
+  },
   // Imei
-  {command: "D009" + // Length
-            "8103012601" + // Command details
-            "82028182", // Device identities
-   expect: {commandQualifier: MozIccManager.STK_LOCAL_INFO_IMEI,
-            localInfoType: MozIccManager.STK_LOCAL_INFO_IMEI}},
+  {
+    command:
+      "D009" + // Length
+      "8103012601" + // Command details
+      "82028182", // Device identities
+    expect: {
+      commandQualifier: MozIccManager.STK_LOCAL_INFO_IMEI,
+      localInfoType: MozIccManager.STK_LOCAL_INFO_IMEI,
+    },
+  },
   // Data
-  {command: "D009" + // Length
-            "8103012603" + // Command details
-            "82028182", // Device identities
-   expect: {commandQualifier: MozIccManager.STK_LOCAL_INFO_DATE_TIME_ZONE,
-            localInfoType: MozIccManager.STK_LOCAL_INFO_DATE_TIME_ZONE}},
+  {
+    command:
+      "D009" + // Length
+      "8103012603" + // Command details
+      "82028182", // Device identities
+    expect: {
+      commandQualifier: MozIccManager.STK_LOCAL_INFO_DATE_TIME_ZONE,
+      localInfoType: MozIccManager.STK_LOCAL_INFO_DATE_TIME_ZONE,
+    },
+  },
   // Language
-  {command: "D009" + // Length
-            "8103012604" + // Command details
-            "82028182", // Device identities
-   expect: {commandQualifier: MozIccManager.STK_LOCAL_INFO_LANGUAGE,
-            localInfoType: MozIccManager.STK_LOCAL_INFO_LANGUAGE}},
+  {
+    command:
+      "D009" + // Length
+      "8103012604" + // Command details
+      "82028182", // Device identities
+    expect: {
+      commandQualifier: MozIccManager.STK_LOCAL_INFO_LANGUAGE,
+      localInfoType: MozIccManager.STK_LOCAL_INFO_LANGUAGE,
+    },
+  },
 ];
 
 function testLocalInfo(aCommand, aExpect) {
   is(aCommand.commandNumber, 0x01, "commandNumber");
-  is(aCommand.typeOfCommand, MozIccManager.STK_CMD_PROVIDE_LOCAL_INFO,
-     "typeOfCommand");
+  is(
+    aCommand.typeOfCommand,
+    MozIccManager.STK_CMD_PROVIDE_LOCAL_INFO,
+    "typeOfCommand"
+  );
   is(aCommand.commandQualifier, aExpect.commandQualifier, "commandQualifier");
-  is(aCommand.options.localInfoType, aExpect.localInfoType,
-     "options.localInfoType");
+  is(
+    aCommand.options.localInfoType,
+    aExpect.localInfoType,
+    "options.localInfoType"
+  );
 }
 
 // Start tests
@@ -51,14 +80,18 @@ startTestCommon(function() {
 
       let promises = [];
       // Wait onstkcommand event.
-      promises.push(waitForTargetEvent(icc, "stkcommand")
-        .then((aEvent) => testLocalInfo(aEvent.command, data.expect)));
+      promises.push(
+        waitForTargetEvent(icc, "stkcommand").then(aEvent =>
+          testLocalInfo(aEvent.command, data.expect)
+        )
+      );
       // Wait icc-stkcommand system message.
-      promises.push(waitForSystemMessage("icc-stkcommand")
-        .then((aMessage) => {
+      promises.push(
+        waitForSystemMessage("icc-stkcommand").then(aMessage => {
           is(aMessage.iccId, icc.iccInfo.iccid, "iccId");
           testLocalInfo(aMessage.command, data.expect);
-        }));
+        })
+      );
       // Send emulator command to generate stk unsolicited event.
       promises.push(sendEmulatorStkPdu(data.command));
 

@@ -1,16 +1,17 @@
 /* Any copyright is dedicated to the Public Domain.
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
-MARIONETTE_TIMEOUT = 60000;
-MARIONETTE_HEAD_JS = "head.js";
-MARIONETTE_CONTEXT = "chrome";
+/* global log, is, ok, mozContact, startTestCommon, getMozIcc */
+
+const MARIONETTE_TIMEOUT = 60000;
+const MARIONETTE_HEAD_JS = "head.js";
+const MARIONETTE_CONTEXT = "chrome";
 
 function testReadContacts(aIcc, aType) {
   log("testReadContacts: type=" + aType);
   let iccId = aIcc.iccInfo.iccid;
-  return aIcc.readContacts(aType)
-    .then((aResult) => {
-
+  return aIcc.readContacts(aType).then(
+    aResult => {
       is(Array.isArray(aResult), true);
       is(aResult.length, 6, "Check contact number.");
 
@@ -45,20 +46,23 @@ function testReadContacts(aIcc, aType) {
       is(aResult[5].name[0], "Contact002");
       is(aResult[5].tel[0].value, "0123456789012345678999887766554433221100");
       is(aResult[5].id, iccId + "6");
-    }, (aError) => {
+    },
+    aError => {
       ok(false, "Cannot get " + aType + " contacts");
-    });
+    }
+  );
 }
-
 
 // Start tests
 startTestCommon(function() {
   let icc = getMozIcc();
 
   // Test read adn contacts
-  return testReadContacts(icc, "adn")
-    // Test read fdn contact
-    .then(() => testReadContacts(icc, "fdn"))
-    // Test read sdn contacts
-    .then(() => testReadContacts(icc, "sdn"));
+  return (
+    testReadContacts(icc, "adn")
+      // Test read fdn contact
+      .then(() => testReadContacts(icc, "fdn"))
+      // Test read sdn contacts
+      .then(() => testReadContacts(icc, "sdn"))
+  );
 });

@@ -1,8 +1,10 @@
 /* Any copyright is dedicated to the Public Domain.
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
-MARIONETTE_TIMEOUT = 60000;
-MARIONETTE_HEAD_JS = "head.js";
+/* global ok, is, icc, startTestCommon, getMozIcc */
+
+const MARIONETTE_TIMEOUT = 60000;
+const MARIONETTE_HEAD_JS = "head.js";
 
 function testUnsupportedService() {
   try {
@@ -18,11 +20,14 @@ startTestCommon(function() {
   let icc = getMozIcc();
 
   // Check fdn service state
-  return icc.getServiceState("fdn")
-    .then((aResult) => {
-      is(aResult, true, "check fdn service state");
-    })
+  return (
+    icc
+      .getServiceState("fdn")
+      .then(aResult => {
+        is(aResult, true, "check fdn service state");
+      })
 
-    // Test unsupported service
-    .then(() => testUnsupportedService());
+      // Test unsupported service
+      .then(() => testUnsupportedService())
+  );
 });
