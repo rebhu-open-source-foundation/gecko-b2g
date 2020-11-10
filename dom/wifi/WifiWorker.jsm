@@ -441,7 +441,7 @@ var WifiManager = (function() {
       enableBackgroundScan(false);
       if (!manager.isHandShakeState(manager.state)) {
         // Scan after 500ms
-        setTimeout(handleScanRequest, 500, function() {});
+        setTimeout(handleScanRequest, 500, true, function() {});
       }
     } else {
       setSuspendOptimizationsMode(POWER_MODE_SCREEN_STATE, true, function() {});
@@ -475,24 +475,7 @@ var WifiManager = (function() {
         let config = configuredNetworks[networkKey];
         network.ssid = config.ssid;
         network.isHidden = config.scanSsid;
-
-        // TODO: temporarily add all 2G channels in list,
-        //       should confirm where to update the frequencies
-        // network.frequencies = [config.frequency];
-        network.frequencies = [
-          2412,
-          2417,
-          2422,
-          2427,
-          2432,
-          2437,
-          2442,
-          2447,
-          2452,
-          2457,
-          2462,
-        ];
-
+        network.frequencies = manager.configurationChannels.get(config.netId);
         WifiPnoSettings.pnoNetworks.push(network);
       }
       pnoSettings.pnoNetworks = WifiPnoSettings.pnoNetworks;
@@ -520,25 +503,47 @@ var WifiManager = (function() {
   }
 
   function updateChannels(callback) {
+    WifiScanSettings.bandMask = WifiScanSettings.BAND_2_4_GHZ;
+    if (manager.isFeatureSupported(FEATURE_STA_5G)) {
+      WifiScanSettings.bandMask |=
+        WifiScanSettings.BAND_5_GHZ | WifiScanSettings.BAND_5_GHZ_DFS;
+    }
+
     wifiCommand.getChannelsForBand(WifiScanSettings.bandMask, function(result) {
       let channels = result.getChannels();
       if (channels.length > 0) {
         WifiScanSettings.channels = channels;
-        callback(true);
-        return;
       }
-      callback(false);
+      callback(result.status == SUCCESS);
     });
   }
 
-  function handleScanRequest(callback) {
+  function handleScanRequest(fullScan, callback) {
     updateChannels(function(ok) {
+      if (!ok) {
+        debug("Failed to get supported channels");
+      }
+
+      if (OpenNetworkNotifier && OpenNetworkNotifier.isEnabled()) {
+        fullScan = true;
+      }
+
+      // Concat all channels into an array.
+      let configChannels = [];
+      function concatChannels(value, key, map) {
+        configChannels = configChannels.concat(value);
+      }
+      manager.configurationChannels.forEach(concatChannels);
+      configChannels = configChannels.filter(
+        (value, index) => configChannels.indexOf(value) === index
+      );
+
       let scanSettings = WifiScanSettings.singleScanSettings;
       scanSettings.scanType = WifiScanSettings.SCAN_TYPE_HIGH_ACCURACY;
       scanSettings.channels =
-        manager.currentConfigChannels.length > 0
-          ? manager.currentConfigChannels
-          : WifiScanSettings.channels;
+        fullScan || configChannels.length === 0
+          ? WifiScanSettings.channels
+          : configChannels;
       scanSettings.hiddenNetworks = WifiConfigManager.getHiddenNetworks();
 
       if (scanSettings.channels.length == 0) {
@@ -559,7 +564,7 @@ var WifiManager = (function() {
     WifiConstants.WIFI_ASSOCIATED_SCAN_INTERVAL;
   var maxFullBandConnectedTimeIntervalMilli = 5 * 60 * 1000;
   var lastFullBandConnectedTimeMilli = -1;
-  manager.currentConfigChannels = [];
+  manager.configurationChannels = new Map();
   manager.startDelayScan = function() {
     debug(
       "startDelayScan: manager.state=" + manager.state + " screenOn=" + screenOn
@@ -592,9 +597,8 @@ var WifiManager = (function() {
         }
         // TODO: 1. too much traffic, hence no full band scan.
         //       2. Don't scan if lots of packets are being sent.
-
-        if (!tryFullBandScan && manager.currentConfigChannels) {
-          handleScanRequest(function() {});
+        if (!tryFullBandScan && manager.configurationChannels.size > 0) {
+          handleScanRequest(false, function() {});
         } else {
           lastFullBandConnectedTimeMilli = now_ms;
           if (
@@ -605,11 +609,11 @@ var WifiManager = (function() {
             fullBandConnectedTimeIntervalMilli =
               (fullBandConnectedTimeIntervalMilli * 12) / 8;
           }
-          handleScanRequest(function() {});
+          handleScanRequest(false, function() {});
         }
       } else if (!manager.isConnectState(manager.state)) {
         delayScanInterval = WifiConstants.WIFI_SCHEDULED_SCAN_INTERVAL;
-        handleScanRequest(function() {});
+        handleScanRequest(true, function() {});
       }
     }
 
@@ -1127,7 +1131,7 @@ var WifiManager = (function() {
       if (typeof configuredNetworks[networkKey] !== "undefined") {
         let networkEnabled = !configuredNetworks[networkKey]
           .networkSelectionStatus;
-        handleScanRequest(function() {});
+        handleScanRequest(true, function() {});
         debug(
           "Receive DISCONNECTED:" +
             " BSSID=" +
@@ -1145,7 +1149,7 @@ var WifiManager = (function() {
         debug(networkKey + " is not defined in conifgured networks");
       }
     }
-    manager.currentConfigChannels = [];
+
     wifiInfo.reset();
     // Restore power save and suspend optimizations when dhcp failed.
     postDhcpSetup(function(ok) {});
@@ -1896,6 +1900,7 @@ var WifiManager = (function() {
   };
 
   manager.removeNetwork = function(netId, callback) {
+    manager.configurationChannels.delete(netId);
     WifiConfigManager.removeNetwork(netId, callback);
   };
 
@@ -2827,7 +2832,6 @@ function WifiWorker() {
       // Now that we have scan results, there's no more need to continue
       // scanning. Ignore any errors from this command.
       self.networksArray = [];
-      var channelSet = new Set();
       let numOpenNetworks = 0;
       for (let i = 0; i < scanResults.length; i++) {
         let result = scanResults[i];
@@ -2905,7 +2909,6 @@ function WifiWorker() {
             result.associated
           ) {
             network.connected = true;
-            channelSet.add(result.frequency);
             if (lastNetwork.everValidated) {
               network.hasInternet = true;
               network.captivePortalDetected = false;
@@ -2931,6 +2934,15 @@ function WifiWorker() {
           ) {
             network.password = "*";
           }
+
+          if (!WifiManager.configurationChannels.has(network.netId)) {
+            WifiManager.configurationChannels.set(network.netId, []);
+          }
+
+          let channels = WifiManager.configurationChannels.get(network.netId);
+          if (!channels.includes(result.frequency)) {
+            channels.push(result.frequency);
+          }
         }
 
         let signal = WifiConfigUtils.calculateSignal(Number(signalLevel));
@@ -2951,11 +2963,6 @@ function WifiWorker() {
           OpenNetworkNotifier.handleOpenNetworkFound();
         }
       }
-
-      WifiManager.currentConfigChannels = [];
-      channelSet.forEach(function(channel) {
-        WifiManager.currentConfigChannels.push(channel);
-      });
 
       if (!WifiManager.wpsStarted) {
         self.handleScanResults(self.networksArray);
@@ -3535,9 +3542,8 @@ WifiWorker.prototype = {
     }.bind(this);
     this.waitForScan(callback);
 
-    // TODO: set 2.4G only, should check if device support 5G
-    WifiScanSettings.bandMask = WifiScanSettings.BAND_2_4_GHZ;
     WifiManager.handleScanRequest(
+      true,
       function(ok) {
         // If the scan command succeeded, we're done.
         if (ok) {
@@ -3587,7 +3593,7 @@ WifiWorker.prototype = {
     self.waitForScan(waitForScanCallback);
     doScan();
     function doScan() {
-      WifiManager.handleScanRequest(function(ok) {
+      WifiManager.handleScanRequest(true, function(ok) {
         if (!ok) {
           if (!timer) {
             count = 0;
@@ -3832,10 +3838,6 @@ WifiWorker.prototype = {
     this.nextRequest();
   },
 
-  getWifiTetheringParameters(enable) {
-    return this.getWifiTetheringConfiguration(enable);
-  },
-
   fillWifiTetheringConfiguration(aConfig) {
     let config = {};
     let check = function(field, _default) {
@@ -3941,7 +3943,7 @@ WifiWorker.prototype = {
   },
 
   handleHotspotEnabled(enabled, callback) {
-    let configuration = this.getWifiTetheringParameters(enabled);
+    let configuration = this.getWifiTetheringConfiguration(enabled);
 
     if (!configuration) {
       debug("Invalid Wifi Tethering configuration.");

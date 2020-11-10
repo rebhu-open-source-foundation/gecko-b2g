@@ -468,7 +468,7 @@ Result_t WificondControl::GetChannelsForBand(uint32_t aBandMask,
   }
 
   if (aBandMask & nsIScanSettings::BAND_5_GHZ_DFS) {
-    mWificond->getAvailable5gNonDFSChannels(&channels);
+    mWificond->getAvailableDFSChannels(&channels);
     aChannels.insert(aChannels.end(), (*channels).begin(), (*channels).end());
   }
   return nsIWifiResult::SUCCESS;
