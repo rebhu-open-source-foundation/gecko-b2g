@@ -883,10 +883,6 @@ GeckoEditableSupport::SetSelectedOptions(
       break;
     }
 
-    if (aOptionIndexes.Length() == 0) {
-      break;
-    }
-
     RefPtr<HTMLSelectElement> selectElement =
         HTMLSelectElement::FromNodeOrNull(focusedElement);
     if (!selectElement) {
@@ -895,16 +891,16 @@ GeckoEditableSupport::SetSelectedOptions(
 
     // only fire onchange event if any selected option is changed
     bool changed = false;
-    for (const auto& index : aOptionIndexes) {
-      if (index < 0) {
-        continue;
-      }
-      if (!selectElement->Item(index)) {
-        continue;
-      }
-      if (!selectElement->Item(index)->Selected()) {
+    RefPtr<dom::HTMLOptionsCollection> options = selectElement->GetOptions();
+    uint32_t numOptions = options->Length();
+    for (uint32_t idx = 0; idx < numOptions; idx++) {
+      bool newValue = (aOptionIndexes.IndexOf(idx) != -1);
+      bool oldValue = options->ItemAsOption(idx)->Selected();
+      IME_LOGD("-- SetSelectedOptions options[%ld] old:[%d] -> new:[%d]", idx,
+               oldValue, newValue);
+      if (oldValue != newValue) {
+        options->ItemAsOption(idx)->SetSelected(newValue);
         changed = true;
-        selectElement->Item(index)->SetSelected(true);
       }
     }
     rv = NS_OK;
