@@ -25,7 +25,6 @@ class AudioDestinationNode final : public AudioNode,
   // This node type knows what MediaTrackGraph to use based on
   // whether it's in offline mode.
   AudioDestinationNode(AudioContext* aContext, bool aIsOffline,
-                       bool aAllowedToStart, AudioChannel aChannel,
                        uint32_t aNumberOfChannels, uint32_t aLength);
 
   void DestroyMediaTrack() override;
@@ -42,7 +41,7 @@ class AudioDestinationNode final : public AudioNode,
   uint32_t MaxChannelCount() const;
   void SetChannelCount(uint32_t aChannelCount, ErrorResult& aRv) override;
 
-  void Init(AudioChannel aChannel);
+  void Init();
   void Close();
 
   // Returns the track or null after unlink.
@@ -57,8 +56,6 @@ class AudioDestinationNode final : public AudioNode,
   void StartRendering(Promise* aPromise);
 
   void OfflineShutdown();
-
-  AudioChannel MozAudioChannelType() const;
 
   void NotifyMainThreadTrackEnded() override;
   void FireOfflineCompletionEvent();
@@ -119,16 +116,11 @@ class AudioDestinationNode final : public AudioNode,
   void ReleaseAudioWakeLockIfExists();
   RefPtr<WakeLock> mWakeLock;
 
-  void SetMozAudioChannelType(AudioChannel aValue, ErrorResult& aRv);
-  bool CheckAudioChannelPermissions(AudioChannel aValue);
-
   SelfReference<AudioDestinationNode> mOfflineRenderingRef;
   uint32_t mFramesToProduce;
 
   RefPtr<Promise> mOfflineRenderingPromise;
 
-  // Audio Channel Type.
-  AudioChannel mAudioChannel;
   bool mIsOffline;
 
   // These varaibles are used to know how long AudioContext would become audible

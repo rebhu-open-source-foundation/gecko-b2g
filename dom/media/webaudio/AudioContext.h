@@ -329,7 +329,7 @@ class AudioContext final : public DOMEventTargetHelper,
   void Mute() const;
   void Unmute() const;
 
-  AudioChannel MozAudioChannelType() const;
+  AudioChannel MozAudioChannelType() const { return mAudioChannel; }
 
   AudioChannel TestAudioChannelInAudioNodeStream();
 
@@ -388,6 +388,8 @@ class AudioContext final : public DOMEventTargetHelper,
   void MaybeUpdateAutoplayTelemetry();
   void MaybeUpdateAutoplayTelemetryWhenShutdown();
 
+  bool CheckAudioChannelPermissions(AudioChannel aValue);
+
  private:
   // Each AudioContext has an id, that is passed down the MediaTracks that
   // back the AudioNodes, so we can easily compute the set of all the
@@ -396,6 +398,7 @@ class AudioContext final : public DOMEventTargetHelper,
   // Note that it's important for mSampleRate to be initialized before
   // mDestination, as mDestination's constructor needs to access it!
   const float mSampleRate;
+  AudioChannel mAudioChannel;
   AudioContextState mAudioContextState;
   RefPtr<AudioDestinationNode> mDestination;
   RefPtr<AudioListener> mListener;

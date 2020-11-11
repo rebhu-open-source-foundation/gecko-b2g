@@ -27,7 +27,6 @@
 #include "mozilla/TelemetryHistogramEnums.h"
 #include "nsContentUtils.h"
 #include "nsIInterfaceRequestorUtils.h"
-#include "nsIPermissionManager.h"
 #include "nsIScriptObjectPrincipal.h"
 #include "nsServiceManagerUtils.h"
 
@@ -288,13 +287,13 @@ const AudioNodeTrack::Flags kTrackFlags =
     AudioNodeTrack::NEED_MAIN_THREAD_CURRENT_TIME |
     AudioNodeTrack::NEED_MAIN_THREAD_ENDED | AudioNodeTrack::EXTERNAL_OUTPUT;
 
-AudioDestinationNode::AudioDestinationNode(
-    AudioContext* aContext, bool aIsOffline, bool aAllowedToStart,
-    AudioChannel aChannel, uint32_t aNumberOfChannels, uint32_t aLength)
+AudioDestinationNode::AudioDestinationNode(AudioContext* aContext,
+                                           bool aIsOffline,
+                                           uint32_t aNumberOfChannels,
+                                           uint32_t aLength)
     : AudioNode(aContext, aNumberOfChannels, ChannelCountMode::Explicit,
                 ChannelInterpretation::Speakers),
       mFramesToProduce(aLength),
-      mAudioChannel(AudioChannel::Normal),
       mIsOffline(aIsOffline),
       mCreatedTime(TimeStamp::Now()) {
   if (aIsOffline) {
@@ -306,7 +305,7 @@ AudioDestinationNode::AudioDestinationNode(
   // GetParentObject can return nullptr here. This will end up creating another
   // MediaTrackGraph
   MediaTrackGraph* graph = MediaTrackGraph::GetInstance(
-      MediaTrackGraph::AUDIO_THREAD_DRIVER, aChannel,
+      MediaTrackGraph::AUDIO_THREAD_DRIVER, Context()->MozAudioChannelType(),
       aContext->GetParentObject(), aContext->SampleRate(),
       MediaTrackGraph::DEFAULT_OUTPUT_DEVICE);
   AudioNodeEngine* engine = new DestinationNodeEngine(this);
@@ -317,7 +316,7 @@ AudioDestinationNode::AudioDestinationNode(
   mTrack->AddAudioOutput(nullptr);
 }
 
-void AudioDestinationNode::Init(AudioChannel aChannel) {
+void AudioDestinationNode::Init() {
   // The reason we don't do that in ctor is because we have to keep AudioContext
   // holding a strong reference to the destination node first. If we don't do
   // that, initializing the agent would cause an unexpected destroy of the
@@ -325,11 +324,6 @@ void AudioDestinationNode::Init(AudioChannel aChannel) {
   // `InitWithWeakCallback()`.
   if (!mIsOffline) {
     CreateAndStartAudioChannelAgent();
-  }
-
-  if (aChannel != AudioChannel::Normal) {
-    ErrorResult rv;
-    SetMozAudioChannelType(aChannel, rv);
   }
 }
 
@@ -344,7 +338,7 @@ void AudioDestinationNode::CreateAndStartAudioChannelAgent() {
 
   AudioChannelAgent* agent = new AudioChannelAgent();
   nsresult rv = agent->InitWithWeakCallback(
-      GetOwner(), static_cast<int32_t>(mAudioChannel), this);
+      GetOwner(), static_cast<int32_t>(Context()->MozAudioChannelType()), this);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     AUDIO_CHANNEL_LOG("Failed to init audio channel agent");
     return;
@@ -598,62 +592,6 @@ bool AudioDestinationNode::IsCapturingAudio() const {
   return mCaptureTrackPort != nullptr;
 }
 
-AudioChannel AudioDestinationNode::MozAudioChannelType() const {
-  return mAudioChannel;
-}
-
-void AudioDestinationNode::SetMozAudioChannelType(AudioChannel aValue,
-                                                  ErrorResult& aRv) {
-  if (Context()->IsOffline()) {
-    aRv.Throw(NS_ERROR_DOM_INVALID_STATE_ERR);
-    return;
-  }
-
-  if (aValue != mAudioChannel && CheckAudioChannelPermissions(aValue)) {
-    mAudioChannel = aValue;
-
-    if (mTrack) {
-      mTrack->SetAudioChannelType(mAudioChannel);
-    }
-
-    if (!mAudioChannelAgent) {
-      CreateAndStartAudioChannelAgent();
-    }
-  }
-}
-
-bool AudioDestinationNode::CheckAudioChannelPermissions(AudioChannel aValue) {
-  // Only normal channel doesn't need permission.
-  if (aValue == AudioChannel::Normal) {
-    return true;
-  }
-
-  // Maybe this audio channel is equal to the default one.
-  if (aValue == AudioChannelService::GetDefaultAudioChannel()) {
-    return true;
-  }
-
-  nsCOMPtr<nsIPermissionManager> permissionManager =
-      services::GetPermissionManager();
-  if (!permissionManager) {
-    return false;
-  }
-
-  nsCOMPtr<nsIScriptObjectPrincipal> sop = do_QueryInterface(GetOwner());
-  NS_ASSERTION(sop, "Window didn't QI to nsIScriptObjectPrincipal!");
-  nsCOMPtr<nsIPrincipal> principal = sop->GetPrincipal();
-
-  uint32_t perm = nsIPermissionManager::UNKNOWN_ACTION;
-
-  nsAutoCString channel("audio-channel-");
-  channel.AppendASCII(AudioChannelValues::strings[uint32_t(aValue)].value,
-                      AudioChannelValues::strings[uint32_t(aValue)].length);
-  permissionManager->TestExactPermissionFromPrincipal(principal, channel,
-                                                      &perm);
-
-  return perm == nsIPermissionManager::ALLOW_ACTION;
-}
-
 void AudioDestinationNode::StartAudioCapturingTrack() {
   MOZ_ASSERT(!IsCapturingAudio());
   nsCOMPtr<nsPIDOMWindowInner> window = Context()->GetParentObject();
@@ -688,13 +626,6 @@ void AudioDestinationNode::ReleaseAudioWakeLockIfExists() {
 
 void AudioDestinationNode::NotifyDataAudibleStateChanged(bool aAudible) {
   MOZ_ASSERT(!mIsOffline);
-
-  if (!mAudioChannelAgent) {
-    if (!aAudible) {
-      return;
-    }
-    CreateAndStartAudioChannelAgent();
-  }
 
   AUDIO_CHANNEL_LOG(
       "AudioDestinationNode %p NotifyDataAudibleStateChanged, audible=%d", this,

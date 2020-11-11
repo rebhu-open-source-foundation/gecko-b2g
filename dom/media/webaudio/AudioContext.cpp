@@ -67,6 +67,7 @@
 #include "MediaTrackGraph.h"
 #include "MediaStreamTrackAudioSourceNode.h"
 #include "nsContentUtils.h"
+#include "nsIPermissionManager.h"
 #include "nsIScriptError.h"
 #include "nsNetCID.h"
 #include "nsNetUtil.h"
@@ -153,6 +154,7 @@ AudioContext::AudioContext(nsPIDOMWindowInner* aWindow, bool aIsOffline,
     : DOMEventTargetHelper(aWindow),
       mId(gAudioContextId++),
       mSampleRate(GetSampleRateForAudioContext(aIsOffline, aSampleRate)),
+      mAudioChannel(AudioChannelService::GetDefaultAudioChannel()),
       mAudioContextState(AudioContextState::Suspended),
       mNumberOfChannels(aNumberOfChannels),
       mIsOffline(aIsOffline),
@@ -170,12 +172,16 @@ AudioContext::AudioContext(nsPIDOMWindowInner* aWindow, bool aIsOffline,
       mWouldBeAllowedToStart(true) {
   bool mute = aWindow->AddAudioContext(this);
 
+  if (!aIsOffline && CheckAudioChannelPermissions(aChannel)) {
+    mAudioChannel = aChannel;
+  }
+
   // Note: AudioDestinationNode needs an AudioContext that must already be
   // bound to the window.
   const bool allowedToStart = AutoplayPolicy::IsAllowedToPlay(*this);
-  mDestination = new AudioDestinationNode(this, aIsOffline, allowedToStart,
-                                          aChannel, aNumberOfChannels, aLength);
-  mDestination->Init(aChannel);
+  mDestination =
+      new AudioDestinationNode(this, aIsOffline, aNumberOfChannels, aLength);
+  mDestination->Init();
   // If an AudioContext is not allowed to start, we would postpone its state
   // transition from `suspended` to `running` until sites explicitly call
   // AudioContext.resume() or AudioScheduledSourceNode.start().
@@ -1253,10 +1259,6 @@ void AudioContext::SetParamMapForWorkletName(
   Unused << mWorkletParamDescriptors.Put(aName, move(*aParamMap), fallible);
 }
 
-AudioChannel AudioContext::MozAudioChannelType() const {
-  return mDestination->MozAudioChannelType();
-}
-
 AudioChannel AudioContext::TestAudioChannelInAudioNodeStream() {
   mozilla::MediaTrack* track = mDestination->Track();
   MOZ_ASSERT(track);
@@ -1302,6 +1304,38 @@ AudioContext::CollectReports(nsIHandleReportCallback* aHandleReport,
                      "Memory used by AudioContext objects (Web Audio).");
 
   return NS_OK;
+}
+
+bool AudioContext::CheckAudioChannelPermissions(AudioChannel aValue) {
+  // Only normal channel doesn't need permission.
+  if (aValue == AudioChannel::Normal) {
+    return true;
+  }
+
+  // Maybe this audio channel is equal to the default one.
+  if (aValue == AudioChannelService::GetDefaultAudioChannel()) {
+    return true;
+  }
+
+  nsCOMPtr<nsIPermissionManager> permissionManager =
+      services::GetPermissionManager();
+  if (!permissionManager) {
+    return false;
+  }
+
+  nsCOMPtr<nsIScriptObjectPrincipal> sop = do_QueryInterface(GetOwner());
+  NS_ASSERTION(sop, "Window didn't QI to nsIScriptObjectPrincipal!");
+  nsCOMPtr<nsIPrincipal> principal = sop->GetPrincipal();
+
+  uint32_t perm = nsIPermissionManager::UNKNOWN_ACTION;
+
+  nsAutoCString channel("audio-channel-");
+  channel.AppendASCII(AudioChannelValues::strings[uint32_t(aValue)].value,
+                      AudioChannelValues::strings[uint32_t(aValue)].length);
+  permissionManager->TestExactPermissionFromPrincipal(principal, channel,
+                                                      &perm);
+
+  return perm == nsIPermissionManager::ALLOW_ACTION;
 }
 
 BasicWaveFormCache* AudioContext::GetBasicWaveFormCache() {
