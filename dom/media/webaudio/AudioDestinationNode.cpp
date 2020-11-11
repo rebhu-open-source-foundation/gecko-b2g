@@ -488,10 +488,18 @@ void AudioDestinationNode::Unmute() {
 
 void AudioDestinationNode::Suspend() {
   SendInt32ParameterToTrack(DestinationNodeEngine::SUSPENDED, 1);
+#ifdef MOZ_B2G
+  DestroyAudioChannelAgentIfExists();
+#endif
 }
 
 void AudioDestinationNode::Resume() {
   SendInt32ParameterToTrack(DestinationNodeEngine::SUSPENDED, 0);
+#ifdef MOZ_B2G
+  if (!mIsOffline && !mAudioChannelAgent) {
+    CreateAndStartAudioChannelAgent();
+  }
+#endif
 }
 
 void AudioDestinationNode::NotifyAudioContextStateChanged() {
@@ -541,19 +549,23 @@ AudioDestinationNode::WindowSuspendChanged(nsSuspendedTypes aSuspend) {
     return NS_OK;
   }
 
-  const bool shouldDisable = aSuspend == nsISuspendedTypes::SUSPENDED_BLOCK;
+  const bool shouldDisable = aSuspend != nsISuspendedTypes::NONE_SUSPENDED;
   if (mAudioChannelDisabled == shouldDisable) {
     return NS_OK;
   }
   mAudioChannelDisabled = shouldDisable;
 
   AUDIO_CHANNEL_LOG(
-      "AudioDestinationNode %p WindowSuspendChanged, "
-      "aSuspend = %s\n",
-      this, SuspendTypeToStr(aSuspend));
+      "AudioDestinationNode %p WindowSuspendChanged, shouldDisable = %d\n",
+      this, mAudioChannelDisabled);
 
-  Context()->DispatchTrustedEvent(!shouldDisable ? u"mozinterruptend"_ns
-                                                 : u"mozinterruptbegin"_ns);
+#ifdef MOZ_B2G
+  if (!shouldDisable) {
+    Context()->StartBlockedAudioContextIfAllowed();
+  }
+  Context()->DispatchTrustedEvent(shouldDisable ? u"mozinterruptbegin"_ns
+                                                : u"mozinterruptend"_ns);
+#endif
 
   DisabledTrackMode disabledMode = mAudioChannelDisabled
                                        ? DisabledTrackMode::SILENCE_BLACK

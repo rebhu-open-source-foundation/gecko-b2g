@@ -75,6 +75,8 @@ class AudioDestinationNode final : public AudioNode,
 
   void NotifyAudioContextStateChanged();
 
+  bool AudioChannelDisabled() { return mAudioChannelDisabled; }
+
  protected:
   virtual ~AudioDestinationNode();
 

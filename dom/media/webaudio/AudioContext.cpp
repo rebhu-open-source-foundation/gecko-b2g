@@ -178,10 +178,19 @@ AudioContext::AudioContext(nsPIDOMWindowInner* aWindow, bool aIsOffline,
 
   // Note: AudioDestinationNode needs an AudioContext that must already be
   // bound to the window.
+#ifndef MOZ_B2G
   const bool allowedToStart = AutoplayPolicy::IsAllowedToPlay(*this);
+#endif
   mDestination =
       new AudioDestinationNode(this, aIsOffline, aNumberOfChannels, aLength);
   mDestination->Init();
+
+#ifdef MOZ_B2G
+  // Don't resume if audio channel is suspended.  Must be checked after
+  // AudioDestinationNode::Init() has been called.
+  const bool allowedToStart = !mDestination->AudioChannelDisabled();
+#endif
+
   // If an AudioContext is not allowed to start, we would postpone its state
   // transition from `suspended` to `running` until sites explicitly call
   // AudioContext.resume() or AudioScheduledSourceNode.start().
@@ -211,7 +220,11 @@ void AudioContext::StartBlockedAudioContextIfAllowed() {
     return;
   }
 
+#ifdef MOZ_B2G
+  const bool isAllowedToPlay = !mDestination->AudioChannelDisabled();
+#else
   const bool isAllowedToPlay = AutoplayPolicy::IsAllowedToPlay(*this);
+#endif
   AUTOPLAY_LOG("Trying to start AudioContext %p, IsAllowedToPlay=%d", this,
                isAllowedToPlay);
 
@@ -964,6 +977,25 @@ already_AddRefed<Promise> AudioContext::Suspend(ErrorResult& aRv) {
 }
 
 void AudioContext::SuspendFromChrome() {
+#ifdef MOZ_B2G
+  // On B2G, when this function is called but the document is still active and
+  // visible, it just means our <web-view> has been put into background. In this
+  // case, we don't want to be suspended, because B2G background playback should
+  // only be controlled by system app through audio channel. Note that this
+  // logic is from HTMLMediaElement::NotifyOwnerDocumentActivityChanged().
+  Document* doc = GetParentObject()->GetExtantDoc();
+  if (doc->IsActive() && doc->IsVisible()) {
+    return;
+  }
+
+  // On B2G, suspend/resume may destroy/create AudioChannelAgent, so don't do
+  // anything here if we have already been closed. Since this function doesn't
+  // expect any promise to be handled, it's ok to skip the remaining flow.
+  if (mCloseCalled) {
+    return;
+  }
+#endif
+
   if (mIsOffline || mIsShutDown) {
     return;
   }
@@ -1002,6 +1034,15 @@ void AudioContext::SuspendInternal(void* aPromise,
 }
 
 void AudioContext::ResumeFromChrome() {
+#ifdef MOZ_B2G
+  // On B2G, suspend/resume may destroy/create AudioChannelAgent, so don't do
+  // anything here if we have already been closed. Since this function doesn't
+  // expect any promise to be handled, it's ok to skip the remaining flow.
+  if (mCloseCalled) {
+    return;
+  }
+#endif
+
   if (mIsOffline || mIsShutDown) {
     return;
   }
@@ -1031,7 +1072,11 @@ already_AddRefed<Promise> AudioContext::Resume(ErrorResult& aRv) {
   mSuspendedByContent = false;
   mPendingResumePromises.AppendElement(promise);
 
+#ifdef MOZ_B2G
+  const bool isAllowedToPlay = !mDestination->AudioChannelDisabled();
+#else
   const bool isAllowedToPlay = AutoplayPolicy::IsAllowedToPlay(*this);
+#endif
   AUTOPLAY_LOG("Trying to resume AudioContext %p, IsAllowedToPlay=%d", this,
                isAllowedToPlay);
   if (isAllowedToPlay) {
