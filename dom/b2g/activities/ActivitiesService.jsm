@@ -274,6 +274,15 @@ var Activities = {
     let successCb = function successCb(aResults) {
       debug(JSON.stringify(aResults));
 
+      // We have no matching activity registered, let's fire an error.
+      if (aResults.options.length === 0) {
+        self.trySendAndCleanup(aMsg.id, "Activity:FireError", {
+          id: aMsg.id,
+          error: "NO_PROVIDER",
+        });
+        return;
+      }
+
       // TODO: We are suppose to check whether aMsg.getFilterResults is true
       // and caller is a certified app, if so, send back the activities'
       // manifest url, icon url, app name directly without passing results to
@@ -281,15 +290,6 @@ var Activities = {
 
       let getActivityChoice = function(aResult) {
         debug("Activity choice: " + aResult);
-
-        // We have no matching activity registered, let's fire an error.
-        if (aResults.options.length === 0) {
-          self.trySendAndCleanup(aMsg.id, "Activity:FireError", {
-            id: aMsg.id,
-            error: "NO_PROVIDER",
-          });
-          return;
-        }
 
         // The user has cancelled the choice, fire an error.
         if (aResult === -1) {
