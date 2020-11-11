@@ -184,12 +184,9 @@ ProcessGlobal.prototype = {
           Services.appinfo.processType == Ci.nsIXULRuntime.PROCESS_TYPE_DEFAULT;
         if (inParent) {
           // Initialize the ActorManagerParent
-          const { ActorManagerParent } = ChromeUtils.import(
-            "resource://gre/modules/ActorManagerParent.jsm"
-          );
-          ActorManagerParent.flush();
+          ChromeUtils.import("resource://gre/modules/ActorManagerParent.jsm");
 
-          Services.ppmm.addMessageListener("getProfD", function(message) {
+          Services.ppmm.addMessageListener("getProfD", () => {
             return Services.dirsvc.get("ProfD", Ci.nsIFile).path;
           });
 
