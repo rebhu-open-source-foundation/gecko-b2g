@@ -24,6 +24,7 @@ const GONK_ICCSERVICE_CID = Components.ID(
 
 const NS_XPCOM_SHUTDOWN_OBSERVER_ID = "xpcom-shutdown";
 const NS_PREFBRANCH_PREFCHANGE_TOPIC_ID = "nsPref:changed";
+const B2G_SW_REGISTRATION_DONE_TOPIC_ID = "b2g-sw-registration-done";
 
 XPCOMUtils.defineLazyServiceGetter(
   this,
@@ -173,6 +174,10 @@ function IccService() {
 
   Services.prefs.addObserver(RIL_DEBUG.PREF_RIL_DEBUG_ENABLED, this);
   Services.obs.addObserver(this, NS_XPCOM_SHUTDOWN_OBSERVER_ID);
+  Services.obs.addObserver(this, B2G_SW_REGISTRATION_DONE_TOPIC_ID);
+
+  this._b2gSWRegistered = false;
+  this._cachedStkCmds = {};
 }
 IccService.prototype = {
   classID: GONK_ICCSERVICE_CID,
@@ -184,6 +189,9 @@ IccService.prototype = {
 
   // An array of Icc instances.
   _iccs: null,
+
+  _b2gSWRegistered: false,
+  _cachedStkCmds: null, // {iccid: []}
 
   _updateDebugFlag() {
     try {
@@ -219,7 +227,16 @@ IccService.prototype = {
       return;
     }
 
-    gIccMessenger.notifyStkProactiveCommand(icc.iccInfo.iccid, aStkcommand);
+    if (this._b2gSWRegistered) {
+      gIccMessenger.notifyStkProactiveCommand(icc.iccInfo.iccid, aStkcommand);
+    } else {
+      // Cache command since SW registration is not ready yet.
+      // TODO we should create getter api instead of delay broadcast.
+      if (!this._cachedStkCmds[icc.iccInfo.iccid]) {
+        this._cachedStkCmds[icc.iccInfo.iccid] = [];
+      }
+      this._cachedStkCmds[icc.iccInfo.iccid].push(aStkcommand);
+    }
 
     icc._deliverListenerEvent("notifyStkCommand", [aStkcommand]);
   },
@@ -291,7 +308,7 @@ IccService.prototype = {
   /**
    * nsIObserver interface.
    */
-  observe(aSubject, aTopic, aData) {
+  observe(_aSubject, aTopic, aData) {
     switch (aTopic) {
       case NS_PREFBRANCH_PREFCHANGE_TOPIC_ID:
         if (aData === RIL_DEBUG.PREF_RIL_DEBUG_ENABLED) {
@@ -301,8 +318,24 @@ IccService.prototype = {
       case NS_XPCOM_SHUTDOWN_OBSERVER_ID:
         Services.prefs.removeObserver(RIL_DEBUG.PREF_RIL_DEBUG_ENABLED, this);
         Services.obs.removeObserver(this, NS_XPCOM_SHUTDOWN_OBSERVER_ID);
+        Services.obs.removeObserver(this, B2G_SW_REGISTRATION_DONE_TOPIC_ID);
+        break;
+      case B2G_SW_REGISTRATION_DONE_TOPIC_ID:
+        this._b2gSWRegistered = true;
+        this._flushCachedStkCmds();
+        Services.obs.removeObserver(this, B2G_SW_REGISTRATION_DONE_TOPIC_ID);
         break;
     }
+  },
+
+  _flushCachedStkCmds() {
+    for (let iccid in this._cachedStkCmds) {
+      let cmds = this._cachedStkCmds[iccid];
+      cmds.forEach(stkCmd => {
+        gIccMessenger.notifyStkProactiveCommand(iccid, stkCmd);
+      });
+    }
+    this._cachedStkCmds = {};
   },
 };
 
