@@ -147,6 +147,11 @@ class nsWindow : public nsBaseWidget {
   virtual void SetMouseCursorPosition(const ScreenIntPoint& aScreenIntPoint);
 
   TextEventDispatcherListener* GetNativeTextEventDispatcherListener() override;
+  void SetNativeTextEventDispatcherListener(
+      mozilla::widget::GeckoEditableSupport* aListener) {
+    MOZ_ASSERT(!mEditableSupport);
+    mEditableSupport = aListener;
+  }
 
  protected:
   nsWindow* mParent;
