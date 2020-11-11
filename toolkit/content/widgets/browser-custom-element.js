@@ -640,12 +640,6 @@
         .contentBlockingAllowListPrincipal;
     }
 
-    get cookieJarSettings() {
-      return this.isRemoteBrowser
-        ? this.contentDocument.cookieJarSettings
-        : this.browsingContext?.currentWindowGlobal?.cookieJarSettings;
-    }
-
     get csp() {
       return this.isRemoteBrowser ? this._csp : this.contentDocument.csp;
     }

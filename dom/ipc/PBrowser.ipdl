@@ -22,7 +22,6 @@ include protocol PWindowGlobal;
 include protocol PBrowserBridge;
 
 include DOMTypes;
-include NeckoChannelParams;
 include WindowGlobalTypes;
 include IPCBlob;
 include IPCStream;
@@ -683,8 +682,7 @@ parent:
                             Shmem? visualData,
                             uint32_t stride, SurfaceFormat format,
                             LayoutDeviceIntRect dragRect,
-                            nsIPrincipal principal, nsIContentSecurityPolicy csp,
-                            CookieJarSettingsArgs cookieJarSettings);
+                            nsIPrincipal principal, nsIContentSecurityPolicy csp);
 
     async AudioChannelActivityNotification(uint32_t aAudioChannel,
                                            bool aActive);

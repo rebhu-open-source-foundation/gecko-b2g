@@ -48,7 +48,6 @@
 #include "mozilla/LookAndFeel.h"
 #include "mozilla/MouseEvents.h"
 #include "mozilla/net/NeckoChild.h"
-#include "mozilla/net/CookieJarSettings.h"
 #include "mozilla/Preferences.h"
 #include "mozilla/PresShell.h"
 #include "mozilla/ProcessHangMonitor.h"
@@ -68,7 +67,6 @@
 #include "nsIBrowser.h"
 #include "nsIBrowserController.h"
 #include "nsIContent.h"
-#include "nsICookieJarSettings.h"
 #include "nsIDocShell.h"
 #include "nsIDocShellTreeOwner.h"
 #include "nsImportModule.h"
@@ -3922,8 +3920,7 @@ mozilla::ipc::IPCResult BrowserParent::RecvInvokeDragSession(
     nsTArray<IPCDataTransfer>&& aTransfers, const uint32_t& aAction,
     Maybe<Shmem>&& aVisualDnDData, const uint32_t& aStride,
     const gfx::SurfaceFormat& aFormat, const LayoutDeviceIntRect& aDragRect,
-    nsIPrincipal* aPrincipal, nsIContentSecurityPolicy* aCsp,
-    const CookieJarSettingsArgs& aCookieJarSettingsArgs) {
+    nsIPrincipal* aPrincipal, nsIContentSecurityPolicy* aCsp) {
   PresShell* presShell = mFrameElement->OwnerDoc()->GetPresShell();
   if (!presShell) {
     Unused << Manager()->SendEndDragSession(true, true, LayoutDeviceIntPoint(),
@@ -3934,13 +3931,8 @@ mozilla::ipc::IPCResult BrowserParent::RecvInvokeDragSession(
     return IPC_OK();
   }
 
-  nsCOMPtr<nsICookieJarSettings> cookieJarSettings;
-  net::CookieJarSettings::Deserialize(aCookieJarSettingsArgs,
-                                      getter_AddRefs(cookieJarSettings));
-
-  RefPtr<RemoteDragStartData> dragStartData =
-      new RemoteDragStartData(this, std::move(aTransfers), aDragRect,
-                              aPrincipal, aCsp, cookieJarSettings);
+  RefPtr<RemoteDragStartData> dragStartData = new RemoteDragStartData(
+      this, std::move(aTransfers), aDragRect, aPrincipal, aCsp);
 
   if (!aVisualDnDData.isNothing() && aVisualDnDData.ref().IsReadable() &&
       aVisualDnDData.ref().Size<char>() >= aDragRect.height * aStride) {
