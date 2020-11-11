@@ -129,6 +129,7 @@ void LocalStorageCache::Init(LocalStorageManager* aManager, bool aPersistent,
 
   mInitialized = true;
   aPrincipal->OriginAttributesRef().CreateSuffix(mOriginSuffix);
+  mPrivateBrowsingId = aPrincipal->GetPrivateBrowsingId();
   mPersistent = aPersistent;
   if (aQuotaOriginScope.IsEmpty()) {
     mQuotaOriginScope = Origin();
@@ -147,7 +148,7 @@ void LocalStorageCache::Init(LocalStorageManager* aManager, bool aPersistent,
   MOZ_ASSERT(mOriginSuffix.IsEmpty() !=
              StringBeginsWith(mQuotaOriginScope, "^"_ns));
 
-  mUsage = aManager->GetOriginUsage(mQuotaOriginScope);
+  mUsage = aManager->GetOriginUsage(mQuotaOriginScope, mPrivateBrowsingId);
 }
 
 void LocalStorageCache::NotifyObservers(const LocalStorage* aStorage,
@@ -220,7 +221,8 @@ void LocalStorageCache::Preload() {
     return;
   }
 
-  StorageDBChild* storageChild = StorageDBChild::GetOrCreate();
+  StorageDBChild* storageChild =
+      StorageDBChild::GetOrCreate(mPrivateBrowsingId);
   if (!storageChild) {
     mLoaded = true;
     mLoadResult = NS_ERROR_FAILURE;
@@ -260,7 +262,7 @@ void LocalStorageCache::WaitForPreload(Telemetry::HistogramID aTelemetryID) {
   // No need to check sDatabase for being non-null since preload is either
   // done before we've shut the DB down or when the DB could not start,
   // preload has not even be started.
-  StorageDBChild::Get()->SyncPreload(this);
+  StorageDBChild::Get(mPrivateBrowsingId)->SyncPreload(this);
 }
 
 nsresult LocalStorageCache::GetLength(const LocalStorage* aStorage,
@@ -380,7 +382,7 @@ nsresult LocalStorageCache::SetItem(const LocalStorage* aStorage,
 #endif
 
   if (Persist(aStorage)) {
-    StorageDBChild* storageChild = StorageDBChild::Get();
+    StorageDBChild* storageChild = StorageDBChild::Get(mPrivateBrowsingId);
     if (!storageChild) {
       NS_ERROR(
           "Writing to localStorage after the database has been shut down"
@@ -429,7 +431,7 @@ nsresult LocalStorageCache::RemoveItem(const LocalStorage* aStorage,
 #endif
 
   if (Persist(aStorage)) {
-    StorageDBChild* storageChild = StorageDBChild::Get();
+    StorageDBChild* storageChild = StorageDBChild::Get(mPrivateBrowsingId);
     if (!storageChild) {
       NS_ERROR(
           "Writing to localStorage after the database has been shut down"
@@ -480,7 +482,7 @@ nsresult LocalStorageCache::Clear(const LocalStorage* aStorage,
 #endif
 
   if (Persist(aStorage) && (refresh || hadData)) {
-    StorageDBChild* storageChild = StorageDBChild::Get();
+    StorageDBChild* storageChild = StorageDBChild::Get(mPrivateBrowsingId);
     if (!storageChild) {
       NS_ERROR(
           "Writing to localStorage after the database has been shut down"
