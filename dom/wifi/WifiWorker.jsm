@@ -4096,6 +4096,22 @@ WifiWorker.prototype = {
           return;
         }
 
+        // Sync configuration before connect, otherwise, we may get not enough parameters
+        // from DOM for the configured network.
+        let config = WifiConfigManager.getNetworkConfiguration(privnet.netId);
+        if (!config) {
+          debug("getNetworkConfiguration failed");
+          this._sendMessage(
+            message,
+            false,
+            "Get configured network failed",
+            msg
+          );
+          return;
+        }
+
+        privnet = config;
+
         // Supplicant will connect to access point directly without disconnect
         // if we are currently associated, hence trigger a disconnect
         if (
