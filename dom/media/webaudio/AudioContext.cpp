@@ -258,14 +258,6 @@ static bool CheckFullyActive(nsPIDOMWindowInner* aWindow, ErrorResult& aRv) {
 already_AddRefed<AudioContext> AudioContext::Constructor(
     const GlobalObject& aGlobal, const AudioContextOptions& aOptions,
     ErrorResult& aRv) {
-  return Constructor(aGlobal, AudioChannelService::GetDefaultAudioChannel(),
-                     aOptions, aRv);
-}
-
-/* static */
-already_AddRefed<AudioContext> AudioContext::Constructor(
-    const GlobalObject& aGlobal, AudioChannel aChannel,
-    const AudioContextOptions& aOptions, ErrorResult& aRv) {
   nsCOMPtr<nsPIDOMWindowInner> window =
       do_QueryInterface(aGlobal.GetAsSupports());
   if (!window) {
@@ -293,12 +285,25 @@ already_AddRefed<AudioContext> AudioContext::Constructor(
                          ? aOptions.mSampleRate.Value()
                          : MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE;
 
+  AudioChannel audioChannel =
+      aOptions.mAudioChannel.WasPassed()
+          ? aOptions.mAudioChannel.Value()
+          : AudioChannelService::GetDefaultAudioChannel();
+
   RefPtr<AudioContext> object =
-      new AudioContext(window, false, aChannel, 2, 0, sampleRate);
+      new AudioContext(window, false, audioChannel, 2, 0, sampleRate);
 
   RegisterWeakMemoryReporter(object);
 
   return object.forget();
+}
+
+/* static */
+already_AddRefed<AudioContext> AudioContext::Constructor(
+    const GlobalObject& aGlobal, AudioChannel aChannel, ErrorResult& aRv) {
+  AudioContextOptions options;
+  options.mAudioChannel.Construct(aChannel);
+  return Constructor(aGlobal, options, aRv);
 }
 
 /* static */

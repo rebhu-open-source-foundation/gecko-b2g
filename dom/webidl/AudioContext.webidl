@@ -12,6 +12,7 @@
 
 dictionary AudioContextOptions {
              float        sampleRate;
+             AudioChannel audioChannel;
 };
 
 dictionary AudioTimestamp {
@@ -25,8 +26,9 @@ interface AudioContext : BaseAudioContext {
     [Throws]
     constructor(optional AudioContextOptions contextOptions = {});
 
+    // Deprecated. Use AudioContextOptions to set AudioChannel instead.
     [Throws]
-    constructor(AudioChannel aChannel, optional AudioContextOptions contextOptions = {});
+    constructor(AudioChannel aChannel);
 
     readonly        attribute double               baseLatency;
     readonly        attribute double               outputLatency;

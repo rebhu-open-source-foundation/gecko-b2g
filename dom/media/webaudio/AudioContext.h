@@ -163,9 +163,10 @@ class AudioContext final : public DOMEventTargetHelper,
       ErrorResult& aRv);
 
   // Constructor for regular AudioContext with AudioChannel specified
-  static already_AddRefed<AudioContext> Constructor(
-      const GlobalObject& aGlobal, AudioChannel aChannel,
-      const AudioContextOptions& aOptions, ErrorResult& aRv);
+  // (Deprecated)
+  static already_AddRefed<AudioContext> Constructor(const GlobalObject& aGlobal,
+                                                    AudioChannel aChannel,
+                                                    ErrorResult& aRv);
 
   // Constructor for offline AudioContext with options object
   static already_AddRefed<AudioContext> Constructor(
