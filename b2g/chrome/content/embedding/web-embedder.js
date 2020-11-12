@@ -132,6 +132,12 @@ XPCOMUtils.defineLazyServiceGetter(
   BrowserDOMWindow.prototype = {
     QueryInterface: ChromeUtils.generateQI([Ci.nsIBrowserDOMWindow]),
 
+    get tabCount() {
+      _webembed_log(`BrowserDOMWindow::tabCount`);
+
+      return window.document.querySelectorAll("<web-view>").length;
+    },
+
     // Returns a BrowsingContext
     openURI(aURI, aOpenWindowInfo, aWhere, aFlags, aTriggeringPrincipal, aCsp) {
       _webembed_log(
@@ -184,13 +190,7 @@ XPCOMUtils.defineLazyServiceGetter(
     },
 
     // Returns an Element
-    openURIInFrame(aURI, aParams, aWhere, aFlags, aNextRemoteTabId, aName) {
-      // We currently ignore aNextRemoteTabId on mobile.  This needs to change
-      // when Fennec starts to support e10s.  Assertions will fire if this code
-      // isn't fixed by then.
-      //
-      // We also ignore aName if it is set, as it is currently only used on the
-      // e10s codepath.
+    openURIInFrame(aURI, aParams, aWhere, aFlags, aName) {
       _webembed_log(
         `BrowserDOMWindow::openURIInFrame ${aURI ? aURI.spec : "<no uri>"}`
       );
@@ -200,7 +200,6 @@ XPCOMUtils.defineLazyServiceGetter(
           aParams,
           aWhere,
           aFlags,
-          aNextRemoteTabId,
           aName
         );
         if (res) {
@@ -212,14 +211,7 @@ XPCOMUtils.defineLazyServiceGetter(
     },
 
     // Returns an Element
-    createContentWindowInFrame(
-      aURI,
-      aParams,
-      aWhere,
-      aFlags,
-      aNextRemoteTabId,
-      aName
-    ) {
+    createContentWindowInFrame(aURI, aParams, aWhere, aFlags, aName) {
       _webembed_log(
         `BrowserDOMWindow::createContentWindowInFrame ${
           aURI ? aURI.spec : "<no uri>"
@@ -231,7 +223,6 @@ XPCOMUtils.defineLazyServiceGetter(
           aParams,
           aWhere,
           aFlags,
-          aNextRemoteTabId,
           aName
         );
         if (res) {
@@ -240,14 +231,6 @@ XPCOMUtils.defineLazyServiceGetter(
       }
       _webembed_error("createContentWindowInFrame NOT IMPLEMENTED");
       throw new Error("NOT IMPLEMENTED");
-    },
-
-    isTabContentWindow(aWindow) {
-      _webembed_log(`BrowserDOMWindow::isTabContentWindow`);
-      if (this.embedder && this.embedder.browserDomWindow) {
-        return this.embedder.browserDomWindow.isTabContentWindow(aWindow);
-      }
-      return false;
     },
 
     canClose() {
