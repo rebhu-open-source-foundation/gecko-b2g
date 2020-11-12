@@ -56,11 +56,12 @@ class GonkVideoDecoderManager : public GonkDecoderManager {
   static void RecycleCallback(TextureClient* aClient, void* aClosure);
 
  protected:
-  // Bug 1199809: workaround to avoid sending the graphic buffer by making a
-  // copy of output buffer after calling flush(). Bug 1203859 was created to
-  // reimplementing Gonk PDM on top of OpenMax IL directly. Its buffer
-  // management will work better with Gecko and solve problems like this.
   void ProcessFlush() override {
+    mEOSSent = false;
+    // Bug 1199809: workaround to avoid sending the graphic buffer by making a
+    // copy of output buffer after calling flush(). Bug 1203859 was created to
+    // reimplementing Gonk PDM on top of OpenMax IL directly. Its buffer
+    // management will work better with Gecko and solve problems like this.
     mNeedsCopyBuffer = true;
     GonkDecoderManager::ProcessFlush();
   }
@@ -138,6 +139,15 @@ class GonkVideoDecoderManager : public GonkDecoderManager {
   // Bug 1199809: do we need to make a copy of output buffer? Used only when
   // the decoder outputs graphic buffers.
   bool mNeedsCopyBuffer;
+
+  // MediaCodec can not handle double EOS flag before flushing it.
+  // But MediaFormatReader will send Drain() again command when it is in 
+  // PartialDrainPending state.
+  // In that case, GonkVideoDecoderManager returns EOS directly instead of sends
+  // EOS flag to MediaCodec.
+  // The mEOSSent flag will be reset when GonkVideoDecoderManager::ProcessFlush()
+  // is called.
+  bool mEOSSent;
 };
 
 }  // namespace mozilla

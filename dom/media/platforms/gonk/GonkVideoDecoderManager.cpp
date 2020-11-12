@@ -113,7 +113,8 @@ GonkVideoDecoderManager::GonkVideoDecoderManager(
       mColorConverterBufferSize(0),
       mPendingReleaseItemsLock(
           "GonkVideoDecoderManager::mPendingReleaseItemsLock"),
-      mNeedsCopyBuffer(false) {
+      mNeedsCopyBuffer(false),
+      mEOSSent(false) {
   MOZ_COUNT_CTOR(GonkVideoDecoderManager);
 }
 
@@ -611,6 +612,9 @@ bool GonkVideoDecoderManager::SetVideoFormat() {
 nsresult GonkVideoDecoderManager::GetOutput(
     int64_t aStreamOffset, MediaDataDecoder::DecodedData& aOutData) {
   aOutData.Clear();
+  if (mEOSSent) {
+    return NS_ERROR_ABORT;
+  }
   status_t err;
   if (mDecoder == nullptr) {
     LOGE("Decoder is not inited");
@@ -654,6 +658,7 @@ nsresult GonkVideoDecoderManager::GetOutput(
     }
     case android::ERROR_END_OF_STREAM: {
       LOGE("Got the EOS frame!");
+      mEOSSent = true;
       RefPtr<VideoData> data;
       nsresult rv =
           CreateVideoData(outputBuffer, aStreamOffset, getter_AddRefs(data));
