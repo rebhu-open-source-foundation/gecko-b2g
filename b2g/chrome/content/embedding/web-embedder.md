@@ -87,9 +87,8 @@ This delegate is used when the plaform needs to create a new top level window. I
 
 - `openURI(aURI, aOpener, aWhere, aFlags, aTriggeringPrincipal, aCsp)`.
 - `createContentWindow(aURI, aOpener, aWhere, aFlags, aTriggeringPrincipal, aCsp)`.
-- `openURIInFrame(aURI, aParams, aWhere, aFlags, aNextRemoteTabId, aName)`.
-- `createContentWindowInFrame(aURI, aParams, aWhere, aFlags, aNextRemoteTabId, aName)`.
-- `isTabContentWindow(aWindow)`.
+- `openURIInFrame(aURI, aParams, aWhere, aFlags, aName)`.
+- `createContentWindowInFrame(aURI, aParams, aWhere, aFlags, aName)`.
 - `canClose()`.
 
 ## ProcessSelector delegate
