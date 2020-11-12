@@ -1403,7 +1403,7 @@ pref("browser.newtabpage.activity-stream.discoverystream.region-stories-block", 
 // List of locales that get stories, regardless of region-stories-config.
 pref("browser.newtabpage.activity-stream.discoverystream.locale-list-config", "en-US,en-CA,en-GB");
 // List of regions that get stories by default.
-pref("browser.newtabpage.activity-stream.discoverystream.region-stories-config", "US,DE,CA,GB,IE,CH,AT,BE");
+pref("browser.newtabpage.activity-stream.discoverystream.region-stories-config", "US,DE,CA,GB,IE,CH,AT,BE,IN");
 
 // List of regions that get spocs by default.
 pref("browser.newtabpage.activity-stream.discoverystream.region-spocs-config", "US,CA,DE,GB");
@@ -2080,7 +2080,7 @@ pref("browser.toolbars.bookmarks.visibility", "newtab");
 // When true, this pref will always show the bookmarks bar on
 // the New Tab Page, allowing showing/hiding via keyboard shortcut,
 // and other functionality to improve the usage of the Bookmarks Toolbar.
-#ifdef NIGHTLY_BUILD
+#ifdef EARLY_BETA_OR_EARLIER
 pref("browser.toolbars.bookmarks.2h2020", true);
 #else
 pref("browser.toolbars.bookmarks.2h2020", false);

@@ -943,6 +943,14 @@ pref("print.print_footerleft", "&PT");
 pref("print.print_footercenter", "");
 pref("print.print_footerright", "&D");
 
+// A list of comma separated key:value pairs, so:
+//
+//   key1:value1,key2:value2
+//
+// Which allows testing extra CUPS-related printer settings for monochrome
+// printing.
+pref("print.cups.monochrome.extra_settings", "");
+
 // xxxbsmedberg: more toolkit prefs
 
 // Save the Printings after each print job
@@ -1103,25 +1111,12 @@ pref("javascript.options.wasm_trustedprincipals", true);
 pref("javascript.options.wasm_verbose",           false);
 pref("javascript.options.wasm_baselinejit",       true);
 
-#if defined(MOZ_AARCH64) && !defined(ENABLE_WASM_CRANELIFT)
-  pref("javascript.options.wasm_optimizingjit",   false);
-#else
-  pref("javascript.options.wasm_optimizingjit",   true);
-#endif
-
 #ifdef ENABLE_WASM_REFTYPES
   pref("javascript.options.wasm_reftypes",        true);
   pref("javascript.options.wasm_gc",              false);
 #endif
 #ifdef ENABLE_WASM_MULTI_VALUE
   pref("javascript.options.wasm_multi_value",     true);
-#endif
-#ifdef ENABLE_WASM_SIMD
-  #ifdef NIGHTLY_BUILD
-    pref("javascript.options.wasm_simd",            true);
-  #else
-    pref("javascript.options.wasm_simd",            false);
-  #endif
 #endif
 pref("javascript.options.native_regexp",    true);
 pref("javascript.options.parallel_parsing", true);
