@@ -11,7 +11,7 @@ interface PermissionsManager
 
   void set(DOMString permission, DOMString value, DOMString origin);
 
-  boolean isExplicit(DOMString permission, DOMString origin);
+  Promise<boolean> isExplicit(DOMString permission, DOMString origin);
 
   void remove(DOMString permission, DOMString origin);
 };

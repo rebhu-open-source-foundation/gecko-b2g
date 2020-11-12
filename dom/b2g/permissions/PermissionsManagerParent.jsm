@@ -49,7 +49,9 @@ class PermissionsManagerParent extends JSWindowActorParent {
       case "PermissionsManager:GetPermission":
         return Promise.resolve(this.getPermission(msg.origin, msg.type));
       case "PermissionsManager:IsExplicit":
-        return this.isExplicitInPermissionsTable(msg.origin, msg.type);
+        return Promise.resolve(
+          this.isExplicitInPermissionsTable(msg.origin, msg.type)
+        );
     }
     return undefined;
   }

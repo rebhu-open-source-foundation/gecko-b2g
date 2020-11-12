@@ -63,14 +63,18 @@ PermissionsManager.prototype = {
     );
   },
 
-  async isExplicit(aPermName, aOrigin) {
-    let actor = this.window.windowGlobalChild.getActor("PermissionsManager");
-    let v = await actor.isExplicit({
-      type: aPermName,
-      origin: aOrigin,
-    });
-    debug(`isExplicit: ${aPermName} ${aOrigin} ${v}`);
-    return v;
+  isExplicit(aPermName, aOrigin) {
+    return this.createPromise(
+      function(aResolve, aReject) {
+        let actor = this.window.windowGlobalChild.getActor(
+          "PermissionsManager"
+        );
+        actor.isExplicit({ type: aPermName, origin: aOrigin }).then(result => {
+          debug(`isExplicit: ${aPermName} ${aOrigin} ${result}`);
+          aResolve(result);
+        });
+      }.bind(this)
+    );
   },
 
   set(aPermName, aPermValue, aOrigin) {
