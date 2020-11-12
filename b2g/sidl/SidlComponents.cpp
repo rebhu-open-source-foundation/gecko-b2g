@@ -13,6 +13,7 @@ void gecko_bridge_construct(nsIGeckoBridge** aResult);
 void settings_manager_construct(nsISettingsManager** aResult);
 void daemon_manager_construct(nsIDaemonManager** aResult);
 void time_construct(nsITime** aResult);
+void contacts_manager_construct(nsIContactsManager** aResult);
 }
 
 }  // namespace
@@ -41,6 +42,12 @@ already_AddRefed<nsITime> ConstructTime() {
   nsCOMPtr<nsITime> time;
   time_construct(getter_AddRefs(time));
   return time.forget();
+}
+
+already_AddRefed<nsIContactsManager> ConstructContactsManager() {
+  nsCOMPtr<nsIContactsManager> manager;
+  contacts_manager_construct(getter_AddRefs(manager));
+  return manager.forget();
 }
 
 }  // namespace sidl

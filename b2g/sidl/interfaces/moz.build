@@ -1,4 +1,5 @@
 XPIDL_SOURCES += [
+    "nsIContacts.idl",
     "nsIGeckoBridge.idl",
     "nsISettings.idl",
     "nsISidl.idl",
