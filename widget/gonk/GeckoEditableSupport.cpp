@@ -1072,17 +1072,20 @@ GeckoEditableSupport::SetValue(uint32_t aId,
     }
     RefPtr<HTMLInputElement> inputElement =
         HTMLInputElement::FromNodeOrNull(activeElement);
-    if (!inputElement) {
+    RefPtr<HTMLTextAreaElement> textArea =
+        HTMLTextAreaElement::FromNodeOrNull(activeElement);
+    ErrorResult erv;
+    if (inputElement) {
+      // Only file input need systemtype.
+      inputElement->SetValue(aValue, CallerType::NonSystem, erv);
+    } else if (textArea) {
+      textArea->SetValue(aValue, erv);
+    } else {
+      IME_LOGD("GeckoEditableSupport::SetValue, element type not supported.");
       break;
     }
-
-    ErrorResult erv;
-    // Only file input need systemtype.
-    inputElement->SetValue(aValue, CallerType::NonSystem, erv);
     if (NS_WARN_IF(erv.Failed())) {
-      IME_LOGD(
-          "-- GeckoEditableSupport::DoSetValue, Fail to set value for "
-          "inputElement");
+      IME_LOGD("-- GeckoEditableSupport::SetValue, Fail to set value");
       break;
     }
     RefPtr<Event> event = NS_NewDOMEvent(doc, nullptr, nullptr);
@@ -1091,7 +1094,7 @@ GeckoEditableSupport::SetValue(uint32_t aId,
     activeElement->DispatchEvent(*event, erv);
     if (NS_WARN_IF(erv.Failed())) {
       IME_LOGD(
-          "GeckoEditableSupport::DoSetValue, Failed to dispatch input event.");
+          "GeckoEditableSupport::SetValue, Failed to dispatch input event.");
       break;
     }
     nsAutoString type;
@@ -1192,7 +1195,10 @@ nsresult GeckoEditableSupport::GetInputContextBag(
   if (!focusedElement) return NS_ERROR_ABORT;
   nsCOMPtr<Document> doc = focusedElement->GetComposedDoc();
   Element* activeElement = doc->GetActiveElement();
-
+  RefPtr<HTMLInputElement> inputElement =
+      HTMLInputElement::FromNodeOrNull(activeElement);
+  RefPtr<HTMLTextAreaElement> textArea =
+      HTMLTextAreaElement::FromNodeOrNull(activeElement);
   nsAutoString attributeValue;
 
   // type
@@ -1208,7 +1214,13 @@ nsresult GeckoEditableSupport::GetInputContextBag(
            NS_ConvertUTF16toUTF8(attributeValue).get());
 
   // value
-  focusedElement->GetAttribute(u"value"_ns, attributeValue);
+  if (inputElement) {
+    inputElement->GetValue(attributeValue, CallerType::NonSystem);
+  } else if (textArea) {
+    textArea->GetValue(attributeValue);
+  } else {
+    attributeValue = EmptyString();
+  }
   aInputContext->SetValue(attributeValue);
   IME_LOGD("InputContext: value:[%s]",
            NS_ConvertUTF16toUTF8(attributeValue).get());
