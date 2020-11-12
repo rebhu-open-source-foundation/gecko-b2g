@@ -199,14 +199,15 @@ var NotificationDB = {
         break;
 
       case "Notification:GetAllCrossOrigin":
-        this.queueTask("getallaccrossorigin", message.data).then(
-          function (notifications) {
+        this.queueTask("getallaccrossorigin", message.data)
+          .then(function(notifications) {
             returnMessage("Notification:GetAllCrossOrigin:Return:OK", {
-              notifications: notifications
+              notifications,
             });
-          }).catch(function (error) {
+          })
+          .catch(function(error) {
             returnMessage("Notification:GetAllCrossOrigin:Return:KO", {
-              errorMsg: error
+              errorMsg: error,
             });
           });
         break;
@@ -355,7 +356,9 @@ var NotificationDB = {
   },
 
   taskGetAllCrossOrigin() {
-    if (DEBUG) { debug("Task, getting all whatever origin"); }
+    if (DEBUG) {
+      debug("Task, getting all whatever origin");
+    }
     var notifications = [];
     for (var origin in this.notifications) {
       if (!this.notifications[origin]) {
@@ -368,7 +371,7 @@ var NotificationDB = {
         // Notifications without the alertName field cannot be resent by
         // mozResendAllNotifications, so we just skip them. They will
         // still be available to applications via Notification.get()
-        if (!('alertName' in notification)) {
+        if (!("alertName" in notification)) {
           continue;
         }
 
