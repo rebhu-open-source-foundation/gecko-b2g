@@ -1046,6 +1046,8 @@
           "resize",
           "scroll",
           "contextmenu",
+          "fullscreen::request",
+          "fullscreen::exit",
         ].forEach(item => {
           this.messageManager.addMessageListener(`WebView::${item}`, this);
         });
@@ -1186,6 +1188,14 @@
             break;
           case "WebView::scroll":
             this.webViewDispatchEventFromData("scroll", data, ["top", "left"]);
+            break;
+          case "WebView::fullscreen::request":
+            window.addEventListener("MozDOMFullscreen:Entered", this, true);
+            window.addEventListener("MozDOMFullscreen:Exited", this, true);
+            window.windowUtils.remoteFrameFullscreenChanged(this);
+            break;
+          case "WebView::fullscreen::exit":
+            window.windowUtils.remoteFrameFullscreenReverted();
             break;
           default:
             break;
@@ -1663,6 +1673,20 @@
     }
 
     handleEvent(aEvent) {
+      switch (aEvent.type) {
+        case "MozDOMFullscreen:Exited":
+          window.removeEventListener("MozDOMFullscreen:Exited", this, true);
+          window.removeEventListener("MozDOMFullscreen:Entered", this, true);
+        // fall through
+        case "MozDOMFullscreen:Entered":
+          let mm = this.messageManager;
+          if (mm) {
+            console.log(`sending WebView::${aEvent.type}`);
+            mm.sendAsyncMessage(`WebView::${aEvent.type}`, {});
+          }
+          break;
+      }
+
       if (this._autoScrollBrowsingContext) {
         switch (aEvent.type) {
           case "mousemove": {

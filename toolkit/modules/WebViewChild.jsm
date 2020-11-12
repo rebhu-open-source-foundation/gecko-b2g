@@ -67,6 +67,14 @@ var WebViewChild = {
       "WebView::fire-ctx-callback",
       this.recvFireCtxCallback.bind(this)
     );
+    global.addMessageListener(
+      "WebView::MozDOMFullscreen:Entered",
+      this.recvFullscreenEntered.bind(this)
+    );
+    global.addMessageListener(
+      "WebView::MozDOMFullscreen:Exited",
+      this.recvFullscreenExited.bind(this)
+    );
 
     let metachangeHandler = this.metaChangeHandler.bind(this);
     global.addEventListener(
@@ -93,6 +101,20 @@ var WebViewChild = {
     global.addEventListener(
       "DOMLinkAdded",
       this.linkAddedHandler.bind(this),
+      /* useCapture = */ true,
+      /* wantsUntrusted = */ false
+    );
+
+    let fullscreenHandler = this.fullscreenHandler.bind(this);
+    global.addEventListener(
+      "MozDOMFullscreen:Request",
+      fullscreenHandler,
+      /* useCapture = */ true,
+      /* wantsUntrusted = */ false
+    );
+    global.addEventListener(
+      "MozDOMFullscreen:Exit",
+      fullscreenHandler,
       /* useCapture = */ true,
       /* wantsUntrusted = */ false
     );
@@ -777,6 +799,29 @@ var WebViewChild = {
     }
   },
 
+  recvFullscreenEntered(data) {
+    this.log(`Received WebView::MozDOMFullscreen:Entered`);
+    let content = this.global.content;
+    if (!content || !content.windowUtils) {
+      return;
+    }
+    if (
+      !content.windowUtils.handleFullscreenRequests() &&
+      !content.document.fullscreenElement
+    ) {
+      this.global.sendAsyncMessage(`WebView::fullscreen::exit`, {});
+    }
+  },
+
+  recvFullscreenExited(data) {
+    this.log(`Received WebView::MozDOMFullscreen:Exited`);
+    let content = this.global.content;
+    if (!content || !content.windowUtils) {
+      return;
+    }
+    content.windowUtils.exitFullscreen();
+  },
+
   scrollEventHandler(event) {
     let win = event.target;
     if (win != this.global.content || event.defaultPrevented) {
@@ -788,5 +833,18 @@ var WebViewChild = {
       top: win.scrollY,
       left: win.scrollX,
     });
+  },
+
+  fullscreenHandler(event) {
+    this.log(`Handle ${event.type}`);
+    switch (event.type) {
+      case "MozDOMFullscreen:Request":
+      case "MozDOMFullscreen:Exit": {
+        let name = "WebView::fullscreen::";
+        let type = event.type.split(":")[1].toLowerCase();
+        this.log(`sending: ${name}${type}`);
+        this.global.sendAsyncMessage(`${name}${type}`, {});
+      }
+    }
   },
 };
