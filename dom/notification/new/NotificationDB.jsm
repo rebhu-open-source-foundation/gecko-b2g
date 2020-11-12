@@ -11,6 +11,10 @@ function debug(s) {
   dump("-*- NotificationDB component: " + s + "\n");
 }
 
+const { AppConstants } = ChromeUtils.import(
+  "resource://gre/modules/AppConstants.jsm"
+);
+
 ChromeUtils.defineModuleGetter(
   this,
   "FileUtils",
@@ -89,6 +93,12 @@ var NotificationDB = {
   },
 
   filterNonAppNotifications(notifications) {
+    // B2GOS only allow notification source is from app type to put into
+    // data base. No need to filter it again.
+    if (AppConstants.MOZ_B2G) {
+      return notifications;
+    }
+
     for (let origin in notifications) {
       let persistentNotificationCount = 0;
       for (let id in notifications[origin]) {
