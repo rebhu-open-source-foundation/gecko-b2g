@@ -231,8 +231,32 @@ GonkSensorsHal::ActivateSensor(const SensorType aSensorType) {
     return false;
   }
 
+  int64_t samplingPeriodNs;
+  switch (aSensorType) {
+    // no sampling period for on-change sensors
+    case SENSOR_PROXIMITY:
+    case SENSOR_LIGHT:
+      samplingPeriodNs = 0;
+      break;
+    // default sampling period for most continuous sensors
+    case SENSOR_ORIENTATION:
+    case SENSOR_ACCELERATION:
+    case SENSOR_LINEAR_ACCELERATION:
+    case SENSOR_GYROSCOPE:
+    case SENSOR_ROTATION_VECTOR:
+    case SENSOR_GAME_ROTATION_VECTOR:
+    default:
+      samplingPeriodNs = kDefaultSamplingPeriodNs;
+      break;
+  }
+
+  int64_t minDelayNs = mSensorInfoList[aSensorType].minDelay * 1000;
+  if (samplingPeriodNs < minDelayNs) {
+    samplingPeriodNs = minDelayNs;
+  }
+
   // config sampling period and reporting latency to specified sensor
-  if (!mSensors->batch(handle, kSamplingPeriodNs, kReportLatencyNs).isOk()) {
+  if (!mSensors->batch(handle, samplingPeriodNs, kReportLatencyNs).isOk()) {
     HAL_ERR("sensors batch failed aSensorType=%d", aSensorType);
     return false;
   }

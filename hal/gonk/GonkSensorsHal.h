@@ -54,7 +54,7 @@ private:
   base::Thread* mPollingThread;
   SensorDataCallback mSensorDataCallback;
 
-  const int64_t kSamplingPeriodNs = 200000000;
+  const int64_t kDefaultSamplingPeriodNs = 200000000;
   const int64_t kReportLatencyNs = 0;
 };
 
