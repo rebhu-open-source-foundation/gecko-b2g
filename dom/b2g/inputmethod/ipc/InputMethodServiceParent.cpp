@@ -108,7 +108,6 @@ InputMethodServiceParent::GetEditableSupportListener(uint32_t aId) {
   auto entry = mRequestMap.Lookup(aId);
   MOZ_ASSERT(entry);
   auto listener = entry.Data();
-  mRequestMap.Remove(aId);
   IME_LOGD("InputMethodServiceParent::GetEditableSupportListener count [%d]",
            mRequestMap.Count());
   return listener;
