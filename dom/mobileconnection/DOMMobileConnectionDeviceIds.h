@@ -24,7 +24,6 @@ class DOMMobileConnectionDeviceIds final : public nsISupports,
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(DOMMobileConnectionDeviceIds)
 
- public:
   explicit DOMMobileConnectionDeviceIds(nsPIDOMWindowInner* aWindow);
   DOMMobileConnectionDeviceIds(nsPIDOMWindowInner* aWindow,
                                const nsAString& aImei, const nsAString& aImeisv,

@@ -14,15 +14,13 @@ namespace mozilla {
 namespace dom {
 
 class MobileConnectionArray final : public nsISupports, public nsWrapperCache {
-  nsCOMPtr<nsIGlobalObject> mOwner;
-
  public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(MobileConnectionArray)
 
-  explicit MobileConnectionArray(nsIGlobalObject* aGlobal);
+  explicit MobileConnectionArray(nsPIDOMWindowInner* aWindow);
 
-  nsIGlobalObject* GetParentObject() const;
+  nsPIDOMWindowInner* GetParentObject() const;
 
   // WrapperCache
   virtual JSObject* WrapObject(JSContext* aCx,
@@ -40,6 +38,7 @@ class MobileConnectionArray final : public nsISupports, public nsWrapperCache {
 
   bool mLengthInitialized;
 
+  nsCOMPtr<nsPIDOMWindowInner> mWindow;
   nsTArray<RefPtr<MobileConnection>> mMobileConnections;
 };
 

@@ -357,7 +357,14 @@ MobileConnectionArray* B2G::GetMobileConnections(ErrorResult& aRv) {
       aRv.Throw(NS_ERROR_UNEXPECTED);
       return nullptr;
     }
-    mMobileConnections = new MobileConnectionArray(GetParentObject());
+
+    nsPIDOMWindowInner* innerWindow = mOwner->AsInnerWindow();
+    if (!innerWindow) {
+      aRv.Throw(NS_ERROR_UNEXPECTED);
+      return nullptr;
+    }
+
+    mMobileConnections = new MobileConnectionArray(innerWindow);
   }
 
   return mMobileConnections;

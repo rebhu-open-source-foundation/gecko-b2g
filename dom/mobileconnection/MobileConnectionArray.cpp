@@ -20,7 +20,7 @@
 
 using namespace mozilla::dom;
 
-NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(MobileConnectionArray, mOwner,
+NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(MobileConnectionArray, mWindow,
                                       mMobileConnections)
 
 NS_IMPL_CYCLE_COLLECTING_ADDREF(MobileConnectionArray)
@@ -31,8 +31,8 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(MobileConnectionArray)
   NS_INTERFACE_MAP_ENTRY(nsISupports)
 NS_INTERFACE_MAP_END
 
-MobileConnectionArray::MobileConnectionArray(nsIGlobalObject* aGlobal)
-    : mLengthInitialized(false), mOwner(aGlobal) {}
+MobileConnectionArray::MobileConnectionArray(nsPIDOMWindowInner* aWindow)
+    : mLengthInitialized(false), mWindow(aWindow) {}
 
 MobileConnectionArray::~MobileConnectionArray() {
   uint32_t len = mMobileConnections.Length();
@@ -46,9 +46,9 @@ MobileConnectionArray::~MobileConnectionArray() {
   }
 }
 
-nsIGlobalObject* MobileConnectionArray::GetParentObject() const {
-  MOZ_ASSERT(mOwner);
-  return mOwner;
+nsPIDOMWindowInner* MobileConnectionArray::GetParentObject() const {
+  MOZ_ASSERT(mWindow);
+  return mWindow;
 }
 
 JSObject* MobileConnectionArray::WrapObject(JSContext* aCx,
@@ -87,8 +87,7 @@ MobileConnection* MobileConnectionArray::IndexedGetter(uint32_t aIndex,
   }
 
   if (!mMobileConnections[aIndex]) {
-    mMobileConnections[aIndex] =
-        new MobileConnection(GetParentObject(), aIndex);
+    mMobileConnections[aIndex] = new MobileConnection(mWindow, aIndex);
   }
 
   return mMobileConnections[aIndex];
