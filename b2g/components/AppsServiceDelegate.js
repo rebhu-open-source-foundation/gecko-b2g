@@ -75,6 +75,11 @@ AppsServiceDelegate.prototype = {
     }
   },
 
+  onBootDone() {
+    log(`onBootDone`);
+    ServiceWorkerAssistant.waitForRegistrations();
+  },
+
   onInstall(aManifestUrl, aFeatures) {
     // TODO: call to the related components to finish the registration
     log(`onInstall: ${aManifestUrl}`);

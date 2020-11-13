@@ -4,6 +4,7 @@
 [scriptable, uuid(40c07250-b984-4ba7-8420-85d27a02ebf6)]
 interface nsIAppsServiceDelegate : nsISupports {
     void onBoot(in AString aManifestUrl, in AString value);
+    void onBootDone();
     void onInstall(in AString aManifestUrl, in AString value);
     void onUpdate(in AString aManifestUrl, in AString value);
     void onUninstall(in AString aManifestUrl);

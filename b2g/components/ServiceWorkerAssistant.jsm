@@ -31,6 +31,13 @@ this.ServiceWorkerAssistant = {
 
   _hasContentReady: false,
 
+  // The list of promises of pending service worker registrations.
+  // Once we receive onBootDone, we wait for these to
+  // settle before dispatching an observer notification
+  // to signal that all service workers are ready.
+  _pendingRegistrations: [],
+  _waitForRegistrations: false,
+
   init() {
     Services.obs.addObserver(this, "ipc:first-content-process-created");
   },
@@ -51,6 +58,11 @@ this.ServiceWorkerAssistant = {
     }
     delete this._timers;
     Services.obs.removeObserver(this, "ipc:first-content-process-created");
+
+    // If we need to, wait for pending registrations to settle.
+    if (this._waitForRegistrations) {
+      this.waitForRegistrations();
+    }
   },
 
   /**
@@ -174,18 +186,37 @@ this.ServiceWorkerAssistant = {
     this.register(aManifestURL, aFeatures);
   },
 
+  waitForRegistrations() {
+    // If we didn't have yet the opportunity to register service workers,
+    // wait for the content process to be ready.
+    if (!this._hasContentReady) {
+      this._waitForRegistrations = true;
+      return;
+    }
+
+    Promise.allSettled(this._pendingRegistrations).then(() => {
+      debug(`waitForRegistration done.`);
+      this._pendingRegistrations = [];
+      // Note: if this is only used to delay system messages, maybe
+      // we should use an explicit api instead.
+      Services.obs.notifyObservers(null, "b2g-sw-registration-done");
+    });
+  },
+
   _doRegisterServiceWorker(aPrincipal, aScope, aScript, aUpdateViaCache) {
     debug(`_doRegisterServiceWorker: ${aScript}`);
-    serviceWorkerManagegr
+    let promise = serviceWorkerManagegr
       .register(aPrincipal, aScope, aScript, aUpdateViaCache)
       .then(
         swRegInfo => {
-          debug(`register ${aScript} success!`);
+          debug(`register ${aScript} success! ${JSON.stringify(swRegInfo)}`);
         },
         err => {
           debug(`register ${aScript} failed for error ${err}`);
         }
       );
+
+    this._pendingRegistrations.push(promise);
   },
 
   _subscribeSystemMessages(aFeatures, aPrincipal, aScope) {
