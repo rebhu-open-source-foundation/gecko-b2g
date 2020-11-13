@@ -39,8 +39,6 @@
 #include "nsWindow.h"
 //#include "pixelflinger/format.h"
 #include "nsIDisplayInfo.h"
-#include "libui/cutils_log.h"
-
 #include "libdisplay/DisplaySurface.h"
 
 #define LOG(args...) \
@@ -49,12 +47,9 @@
   __android_log_print(ANDROID_LOG_WARN, "nsScreenGonk", ##args)
 #define LOGE(args...) \
   __android_log_print(ANDROID_LOG_ERROR, "nsScreenGonk", ##args)
-
-#ifdef LOG_TAG
-#  undef LOG_TAG
-#endif
-// Tag used by LOGE
-#define LOG_TAG "Gecko"
+#define SLOGI(...)                                                         \
+  ((void)__android_log_buf_print(LOG_ID_SYSTEM, ANDROID_LOG_INFO, "Gecko", \
+                                 __VA_ARGS__))
 
 using namespace mozilla;
 using namespace mozilla::hal;
@@ -704,22 +699,22 @@ ScreenHelperGonk::ScreenHelperGonk()
   char propValue[PROPERTY_VALUE_MAX];
   property_get("ro.build.type", propValue, NULL);
   if (strcmp(propValue, "user") != 0) {
-    LOGE("============ B2G device information ============");
+    SLOGI("============ B2G device information ============");
 
     property_get("ro.build.kaios_uid", propValue, NULL);
-    LOGE("Build UID         = %s", propValue);
+    SLOGI("Build UID         = %s", propValue);
 
     property_get("ro.build.description", propValue, NULL);
-    LOGE("Build Description = %s", propValue);
+    SLOGI("Build Description = %s", propValue);
 
     property_get("ro.bootloader", propValue, NULL);
-    LOGE("Bootloader        = %s", propValue);
+    SLOGI("Bootloader        = %s", propValue);
 
     nsCString osVersion(
         MOZ_STRINGIFY(MOZ_B2G_OS_NAME) " " MOZ_STRINGIFY(MOZ_B2G_VERSION));
-    LOGE("OS Version        = %s", osVersion.get());
+    SLOGI("OS Version        = %s", osVersion.get());
 
-    LOGE("==================================================");
+    SLOGI("==================================================");
   }
 
   LOGE("Setting the global pointer");
