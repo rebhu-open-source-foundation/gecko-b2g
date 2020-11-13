@@ -21,6 +21,7 @@ use moz_task::{TaskRunnable, ThreadPtrHandle, ThreadPtrHolder};
 use nserror::{nsresult, NS_ERROR_INVALID_ARG, NS_OK};
 use nsstring::*;
 use parking_lot::Mutex;
+use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use thin_vec::ThinVec;
@@ -32,6 +33,18 @@ use xpcom::{
     },
     RefPtr,
 };
+
+#[derive(Default)]
+pub struct ObjectIdGenerator {
+    current_id: TrackerId,
+}
+
+impl ObjectIdGenerator {
+    pub fn next_id(&mut self) -> TrackerId {
+        self.current_id += 1;
+        self.current_id
+    }
+}
 
 type SetAppsServiceDelegateTask = (
     SidlCallTask<(), (), nsISidlDefaultResponse>,
@@ -94,6 +107,8 @@ struct GeckoBridgeImpl {
     sender: TaskSender,
     // The next usable object_id when we create delegates.
     current_object_id: TrackerId,
+
+    object_id_generator: Shared<ObjectIdGenerator>,
     // The apps_service delegate.
     apps_service_delegate: Option<ClientObject>,
     // The power manager delegate.
@@ -129,6 +144,7 @@ impl ServiceClientImpl<GeckoBridgeTask> for GeckoBridgeImpl {
             sender,
             // current_object_id starts at 1 since 0 is reserved for the service object itself.
             current_object_id: 1,
+            object_id_generator: Shared::adopt(ObjectIdGenerator { current_id: 1 }),
             power_manager_delegate: None,
             apps_service_delegate: None,
             mobile_manager_delegate: None,
@@ -304,11 +320,17 @@ impl GeckoBridgeImpl {
     ) -> Result<(), nsresult> {
         debug!("GeckoBridge::set_power_manager_delegate");
         let object_id = self.next_object_id();
-
         let (task, delegate) = task;
 
         // Create a lightweight xpcom wrapper + session proxy that manages object release for us.
-        let wrapper = PowerManagerDelegate::new(delegate, self.service_id, object_id);
+        let wrapper = PowerManagerDelegate::new(
+            delegate,
+            self.service_id,
+            object_id,
+            self.object_id_generator.clone(),
+            Shared::adopt(HashMap::default()),
+            &self.transport,
+        );
         self.power_manager_delegate = Some(ClientObject::new(wrapper, &mut self.transport));
 
         let request = GeckoBridgeFromClient::GeckoFeaturesSetPowerManagerDelegate(object_id.into());
@@ -370,8 +392,7 @@ impl GeckoBridgeImpl {
     }
 
     fn next_object_id(&mut self) -> TrackerId {
-        let res = self.current_object_id;
-        self.current_object_id += 1;
+        let res = self.object_id_generator.lock().next_id();
         res
     }
 }

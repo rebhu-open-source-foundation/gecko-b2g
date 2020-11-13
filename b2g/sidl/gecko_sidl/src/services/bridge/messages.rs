@@ -10,7 +10,7 @@ use crate::common::{JsonValue, ObjectRef, SystemTime};
 use serde::{Deserialize, Serialize};
 
 pub static SERVICE_FINGERPRINT: &str =
-    "3b27f8b867dc94abea2f8fb7d383e59c5be1c6d76c63b716581436e036a490";
+    "4c6f69dbb4db9e4c26a66e1241c44f409883333209bdc1aa24ccf4687183118";
 
 #[derive(Clone, PartialEq, Deserialize, Serialize, Debug)]
 pub enum CardInfoType {
@@ -103,8 +103,14 @@ pub enum GeckoBridgeFromClient {
     MobileManagerDelegateGetMncMccError,          // 24
     NetworkManagerDelegateGetNetworkInfoSuccess(NetworkInfo), // 25
     NetworkManagerDelegateGetNetworkInfoError,    // 26
-    PowerManagerDelegateSetScreenEnabledSuccess,  // 27
-    PowerManagerDelegateSetScreenEnabledError,    // 28
+    PowerManagerDelegateRequestWakelockSuccess(ObjectRef), // 27
+    PowerManagerDelegateRequestWakelockError,     // 28
+    PowerManagerDelegateSetScreenEnabledSuccess,  // 29
+    PowerManagerDelegateSetScreenEnabledError,    // 30
+    WakelockGetTopicSuccess(String),              // 31
+    WakelockGetTopicError,                        // 32
+    WakelockUnlockSuccess,                        // 33
+    WakelockUnlockError,                          // 34
 }
 
 #[derive(Debug, Deserialize)]
@@ -136,5 +142,8 @@ pub enum GeckoBridgeToClient {
     MobileManagerDelegateGetCardInfo(i64, CardInfoType), // 24
     MobileManagerDelegateGetMncMcc(i64, bool),           // 25
     NetworkManagerDelegateGetNetworkInfo,                // 26
-    PowerManagerDelegateSetScreenEnabled(bool, bool),    // 27
+    PowerManagerDelegateRequestWakelock(String),         // 27
+    PowerManagerDelegateSetScreenEnabled(bool, bool),    // 28
+    WakelockGetTopic,                                    // 29
+    WakelockUnlock,                                      // 30
 }
