@@ -1434,6 +1434,7 @@ class Marionette(object):
             )
             self.window = handle
         elif origin:
+            # For B2G, to switch app by its origin like http://{app_name}.localhost
             import re
 
             regex = re.compile(
@@ -1441,7 +1442,7 @@ class Marionette(object):
             )  # only match URL origin, no '/'
             if not re.match(regex, origin):
                 raise ValueError(
-                    "origin only accepts format like 'https://launcher.local' and without '/' in the end!"
+                    "origin only accepts format like 'http://launcher.localhost' and without '/' in the end!"
                 )
 
             self.window = self._send_message(
