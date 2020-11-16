@@ -492,7 +492,7 @@ const GfxDeviceFamily* GfxDriverInfo::GetDeviceFamily(DeviceFamily id) {
       APPEND_DEVICE(0x0a7c);
       break;
     case DeviceFamily::NvidiaRolloutWebRender:
-#ifdef NIGHTLY_BUILD
+#ifdef EARLY_BETA_OR_EARLIER
       APPEND_RANGE(0x0400, 0x04ff);
       APPEND_RANGE(0x05e0, 0x05ff);
       APPEND_RANGE(0x0600, INT32_MAX);
@@ -501,13 +501,11 @@ const GfxDeviceFamily* GfxDriverInfo::GetDeviceFamily(DeviceFamily id) {
 #endif
       break;
     case DeviceFamily::IntelRolloutWebRender:
-#ifdef NIGHTLY_BUILD
+#ifdef EARLY_BETA_OR_EARLIER
       // gen5 (ironlake)
       APPEND_DEVICE(0x0042);
       APPEND_DEVICE(0x0046);
-#endif
 
-#ifdef EARLY_BETA_OR_EARLIER
       // cherryview
       APPEND_DEVICE(0x22b0);
       APPEND_DEVICE(0x22b1);
@@ -763,9 +761,13 @@ const GfxDeviceFamily* GfxDriverInfo::GetDeviceFamily(DeviceFamily id) {
       APPEND_RANGE(0x9870, 0x9877);
 
 #ifdef EARLY_BETA_OR_EARLIER
+      // Kaveri
+      APPEND_RANGE(0x1304, 0x131d);
+
       // R700
       APPEND_RANGE(0x9440, 0x949f);
       APPEND_RANGE(0x94a0, 0x94b9);
+      APPEND_RANGE(0x9540, 0x955f);
 #endif
 
       break;

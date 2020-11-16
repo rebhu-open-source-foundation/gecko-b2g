@@ -371,8 +371,8 @@ nsresult nsDOMCameraControl::SelectPreviewSize(
     /* Use the window width and height if no preview size is provided.
        Note that the width and height are actually reversed from the
        camera perspective. */
-    int32_t width = 0;
-    int32_t height = 0;
+    double width = 0;
+    double height = 0;
     float ratio = 0.0;
     nsresult rv;
 

@@ -1978,6 +1978,19 @@
   value: @IS_EARLY_BETA_OR_EARLIER@
   mirror: always
 
+# Whether innerWidth / innerHeight return rounded or fractional sizes.
+#
+# NOTE(emilio): Fractional sizes are not web-compatible, see the regressions
+# from bug 1676843, but we want to expose the fractional sizes (probably in
+# another API) one way or another, see [1], so we're keeping the code for the
+# time being.
+#
+# [1]: https://github.com/w3c/csswg-drafts/issues/5260
+- name: dom.innerSize.rounded
+  type: bool
+  value: true
+  mirror: always
+
 # Whether we conform to Input Events Level 1 or Input Events Level 2.
 # true:  conforming to Level 1
 # false: conforming to Level 2
@@ -4647,11 +4660,7 @@
 #ifdef XP_WIN
 - name: gfx.webrender.enabled-no-gpu-process-with-angle-win
   type: bool
-#ifdef NIGHTLY_BUILD
-  value: true
-#else
-  value: false
-#endif
+  value: @IS_EARLY_BETA_OR_EARLIER@
   mirror: once
 #endif
 
@@ -6017,6 +6026,11 @@
 - name: layout.accessiblecaret.margin-left
   type: float
   value: -18.5f
+  mirror: always
+
+- name: layout.accessiblecaret.transition-duration
+  type: float
+  value: 250.0f
   mirror: always
 
 # Simulate long tap events to select words. Mainly used in manual testing

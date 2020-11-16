@@ -35,10 +35,6 @@ class ParserAtomsTable;
 
 mozilla::GenericErrorResult<OOM> RaiseParserAtomsOOMError(JSContext* cx);
 
-// An index into CompilationAtomCache.
-// This is local to the current compilation.
-using AtomIndex = TypedIndex<JSAtom*>;
-
 // An index to map WellKnownParserAtoms to cx->names().
 // This is consistent across multiple compilation.
 //
@@ -58,6 +54,137 @@ enum class WellKnownAtomId : uint32_t {
 // These types correspond into indices in the StaticStrings arrays.
 enum class StaticParserString1 : uint8_t;
 enum class StaticParserString2 : uint16_t;
+
+class ParserAtom;
+using ParserAtomIndex = TypedIndex<ParserAtom>;
+
+// ParserAtomIndex, WellKnownAtomId, StaticParserString1, StaticParserString2,
+// or null.
+//
+// 0x0000_0000  Null atom
+//
+// 0x1YYY_YYYY  28-bit ParserAtom
+//
+// 0x2000_YYYY  Well-known atom ID
+// 0x2001_YYYY  Static length-1 atom
+// 0x2002_YYYY  Static length-2 atom
+class TaggedParserAtomIndex {
+  uint32_t data_;
+
+ public:
+  static constexpr size_t IndexBit = 28;
+  static constexpr size_t IndexMask = BitMask(IndexBit);
+
+  static constexpr size_t TagShift = IndexBit;
+  static constexpr size_t TagBit = 4;
+  static constexpr size_t TagMask = BitMask(TagBit) << TagShift;
+
+  enum class Kind : uint32_t {
+    Null = 0,
+    ParserAtomIndex,
+    WellKnown,
+  };
+
+ private:
+  static constexpr size_t SmallIndexBit = 16;
+  static constexpr size_t SmallIndexMask = BitMask(SmallIndexBit);
+
+  static constexpr size_t SubTagShift = SmallIndexBit;
+  static constexpr size_t SubTagBit = 2;
+  static constexpr size_t SubTagMask = BitMask(SubTagBit) << SubTagShift;
+
+ public:
+  static constexpr uint32_t NullTag = uint32_t(Kind::Null) << TagShift;
+  static constexpr uint32_t ParserAtomIndexTag = uint32_t(Kind::ParserAtomIndex)
+                                                 << TagShift;
+  static constexpr uint32_t WellKnownTag = uint32_t(Kind::WellKnown)
+                                           << TagShift;
+
+ private:
+  static constexpr uint32_t WellKnownSubTag = 0 << SubTagShift;
+  static constexpr uint32_t Static1SubTag = 1 << SubTagShift;
+  static constexpr uint32_t Static2SubTag = 2 << SubTagShift;
+
+ public:
+  static constexpr uint32_t IndexLimit = Bit(IndexBit);
+  static constexpr uint32_t SmallIndexLimit = Bit(SmallIndexBit);
+
+ private:
+  explicit TaggedParserAtomIndex(uint32_t data) : data_(data) {}
+
+ public:
+  constexpr TaggedParserAtomIndex() : data_(NullTag) {}
+
+  explicit constexpr TaggedParserAtomIndex(ParserAtomIndex index)
+      : data_(index.index | ParserAtomIndexTag) {
+    MOZ_ASSERT(index.index < IndexLimit);
+  }
+  explicit constexpr TaggedParserAtomIndex(WellKnownAtomId index)
+      : data_(uint32_t(index) | WellKnownTag | WellKnownSubTag) {
+    MOZ_ASSERT(uint32_t(index) < SmallIndexLimit);
+
+    // Static1/Static2 string shouldn't use WellKnownAtomId.
+#define CHECK_(_, name, _2) MOZ_ASSERT(index != WellKnownAtomId::name);
+    FOR_EACH_NON_EMPTY_TINY_PROPERTYNAME(CHECK_)
+#undef CHECK_
+  }
+  explicit constexpr TaggedParserAtomIndex(StaticParserString1 index)
+      : data_(uint32_t(index) | WellKnownTag | Static1SubTag) {}
+  explicit constexpr TaggedParserAtomIndex(StaticParserString2 index)
+      : data_(uint32_t(index) | WellKnownTag | Static2SubTag) {}
+
+  static TaggedParserAtomIndex star() {
+    return TaggedParserAtomIndex(StaticParserString1('*'));
+  }
+  static TaggedParserAtomIndex null() { return TaggedParserAtomIndex(); }
+
+  static TaggedParserAtomIndex fromRaw(uint32_t data) {
+    return TaggedParserAtomIndex(data);
+  }
+
+  bool isParserAtomIndex() const {
+    return (data_ & TagMask) == ParserAtomIndexTag;
+  }
+  bool isWellKnownAtomId() const {
+    return (data_ & (TagMask | SubTagMask)) == (WellKnownTag | WellKnownSubTag);
+  }
+  bool isStaticParserString1() const {
+    return (data_ & (TagMask | SubTagMask)) == (WellKnownTag | Static1SubTag);
+  }
+  bool isStaticParserString2() const {
+    return (data_ & (TagMask | SubTagMask)) == (WellKnownTag | Static2SubTag);
+  }
+  bool isNull() const {
+    bool result = !data_;
+    MOZ_ASSERT_IF(result, (data_ & TagMask) == NullTag);
+    return result;
+  }
+
+  ParserAtomIndex toParserAtomIndex() const {
+    MOZ_ASSERT(isParserAtomIndex());
+    return ParserAtomIndex(data_ & IndexMask);
+  }
+  WellKnownAtomId toWellKnownAtomId() const {
+    MOZ_ASSERT(isWellKnownAtomId());
+    return WellKnownAtomId(data_ & SmallIndexMask);
+  }
+  StaticParserString1 toStaticParserString1() const {
+    MOZ_ASSERT(isStaticParserString1());
+    return StaticParserString1(data_ & SmallIndexMask);
+  }
+  StaticParserString2 toStaticParserString2() const {
+    MOZ_ASSERT(isStaticParserString2());
+    return StaticParserString2(data_ & SmallIndexMask);
+  }
+
+  uint32_t* rawData() { return &data_; }
+
+  bool operator==(const TaggedParserAtomIndex& rhs) const {
+    return data_ == rhs.data_;
+  }
+
+  explicit operator bool() const { return !isNull(); }
+};
 
 /**
  * A ParserAtomEntry is an in-parser representation of an interned atomic
@@ -103,30 +230,13 @@ class alignas(alignof(uint32_t)) ParserAtomEntry {
   // The length of the buffer in chars_.
   uint32_t length_ = 0;
 
-  // Mapping into from ParserAtoms to JSAtoms.
-  enum class AtomIndexKind : uint8_t {
-    // Not yet instantiated, and not yet marked as used by stencil data.
-    NotInstantiatedAndNotMarked,
-    // Not yet instantiated, and already marked as used by stencil data.
-    // While creating stencil, not-instantiated atom is marked while storing
-    // into stencil field.
-    // While XDR decoding, all not-instantiated atoms are marked while decoding,
-    // given they should be used.
-    NotInstantiatedAndMarked,
-    // Index into CompilationAtomCache
-    AtomIndex,
-    // WellKnownAtomId to index into cx->names() set
-    WellKnown,
-    // Index into StaticStrings length-1 set
-    Static1,
-    // Index into StaticStrings length-2 set
-    Static2,
-  };
-  uint32_t atomIndex_ = 0;
-  AtomIndexKind atomIndexKind_ = AtomIndexKind::NotInstantiatedAndNotMarked;
+  TaggedParserAtomIndex index_;
 
   // Encoding type.
   bool hasTwoByteChars_ = false;
+
+  // Mutable flags.
+  bool usedByStencil_ = false;
 
   // End of fields.
 
@@ -203,19 +313,12 @@ class alignas(alignof(uint32_t)) ParserAtomEntry {
   HashNumber hash() const { return hash_; }
   uint32_t length() const { return length_; }
 
-  bool isNotInstantiatedAndNotMarked() const {
-    return atomIndexKind_ == AtomIndexKind::NotInstantiatedAndNotMarked;
-  }
-  bool isNotInstantiatedAndMarked() const {
-    return atomIndexKind_ == AtomIndexKind::NotInstantiatedAndMarked;
-  }
-
+  bool isUsedByStencil() const { return usedByStencil_; }
   void markUsedByStencil() const {
-    if (isNotInstantiatedAndNotMarked()) {
+    if (isParserAtomIndex()) {
       // Use const method + const_cast here to avoid marking static strings'
       // field mutable.
-      const_cast<ParserAtomEntry*>(this)->atomIndexKind_ =
-          AtomIndexKind::NotInstantiatedAndMarked;
+      const_cast<ParserAtomEntry*>(this)->usedByStencil_ = true;
     }
   }
 
@@ -224,48 +327,39 @@ class alignas(alignof(uint32_t)) ParserAtomEntry {
   template <typename CharT>
   bool equalsSeq(HashNumber hash, InflatedChar16Sequence<CharT> seq) const;
 
+  TaggedParserAtomIndex toIndex() const { return index_; }
+
+  ParserAtomIndex toParserAtomIndex() const {
+    return index_.toParserAtomIndex();
+  }
   WellKnownAtomId toWellKnownAtomId() const {
-    MOZ_ASSERT(isWellKnownAtomId());
-    return WellKnownAtomId(atomIndex_);
+    return index_.toWellKnownAtomId();
   }
   StaticParserString1 toStaticParserString1() const {
-    MOZ_ASSERT(isStaticParserString1());
-    return StaticParserString1(atomIndex_);
+    return index_.toStaticParserString1();
   }
   StaticParserString2 toStaticParserString2() const {
-    MOZ_ASSERT(isStaticParserString2());
-    return StaticParserString2(atomIndex_);
+    return index_.toStaticParserString2();
   }
 
-  bool isAtomIndex() const {
-    return atomIndexKind_ == AtomIndexKind::AtomIndex;
-  }
-  bool isWellKnownAtomId() const {
-    return atomIndexKind_ == AtomIndexKind::WellKnown;
-  }
-  bool isStaticParserString1() const {
-    return atomIndexKind_ == AtomIndexKind::Static1;
-  }
-  bool isStaticParserString2() const {
-    return atomIndexKind_ == AtomIndexKind::Static2;
+  bool isParserAtomIndex() const { return index_.isParserAtomIndex(); }
+  bool isWellKnownAtomId() const { return index_.isWellKnownAtomId(); }
+  bool isStaticParserString1() const { return index_.isStaticParserString1(); }
+  bool isStaticParserString2() const { return index_.isStaticParserString2(); }
+
+  void setParserAtomIndex(ParserAtomIndex index) {
+    index_ = TaggedParserAtomIndex(index);
   }
 
  private:
-  void setAtomIndex(AtomIndex index) {
-    atomIndex_ = index;
-    atomIndexKind_ = AtomIndexKind::AtomIndex;
-  }
   constexpr void setWellKnownAtomId(WellKnownAtomId atomId) {
-    atomIndex_ = static_cast<uint32_t>(atomId);
-    atomIndexKind_ = AtomIndexKind::WellKnown;
+    index_ = TaggedParserAtomIndex(atomId);
   }
   constexpr void setStaticParserString1(StaticParserString1 s) {
-    atomIndex_ = static_cast<uint32_t>(s);
-    atomIndexKind_ = AtomIndexKind::Static1;
+    index_ = TaggedParserAtomIndex(s);
   }
   constexpr void setStaticParserString2(StaticParserString2 s) {
-    atomIndex_ = static_cast<uint32_t>(s);
-    atomIndexKind_ = AtomIndexKind::Static2;
+    index_ = TaggedParserAtomIndex(s);
   }
   constexpr void setHashAndLength(HashNumber hash, uint32_t length,
                                   bool hasTwoByteChars = false) {
@@ -283,7 +377,7 @@ class alignas(alignof(uint32_t)) ParserAtomEntry {
   JSAtom* toExistingJSAtom(JSContext* cx,
                            CompilationAtomCache& atomCache) const;
 
-  // Convert NotInstantiatedAndMarked entry to a js-atom.
+  // Convert NotInstantiated and usedByStencil entry to a js-atom.
   JSAtom* instantiate(JSContext* cx, CompilationAtomCache& atomCache) const;
 
   // Convert this entry to a number.
@@ -492,7 +586,6 @@ class WellKnownParserAtoms_ROM {
   }
 };
 
-using ParserAtomIndex = TypedIndex<ParserAtom>;
 using ParserAtomVector = Vector<ParserAtomEntry*, 0, js::SystemAllocPolicy>;
 
 /**
@@ -549,11 +642,11 @@ class WellKnownParserAtoms {
   const ParserAtom* lookupTiny(CharsT chars, size_t length) const {
     return rom_.lookupTiny(chars, length);
   }
-};
 
-// The number of atoms with either NotInstantiatedAndMarked or AtomIndex kind,
-// that requires space in CompilationAtomCache.atoms during instantiation.
-size_t RequiredNonStaticAtomCount(const ParserAtomVector& entries);
+  const ParserAtom* getWellKnown(WellKnownAtomId atomId) const;
+  static const ParserAtom* getStatic1(StaticParserString1 s);
+  static const ParserAtom* getStatic2(StaticParserString2 s);
+};
 
 bool InstantiateMarkedAtoms(JSContext* cx, const ParserAtomVector& entries,
                             CompilationAtomCache& atomCache);
@@ -569,9 +662,9 @@ class ParserAtomsTable {
   LifoAlloc& alloc_;
 
   // The ParserAtomEntry are owned by the LifoAlloc.
-  using EntryMap = HashMap<ParserAtomEntry*, ParserAtomIndex,
-                           ParserAtomLookupHasher, js::SystemAllocPolicy>;
-  EntryMap entryMap_;
+  using EntrySet = HashSet<const ParserAtomEntry*, ParserAtomLookupHasher,
+                           js::SystemAllocPolicy>;
+  EntrySet entrySet_;
   ParserAtomVector& entries_;
 
  public:
@@ -582,16 +675,14 @@ class ParserAtomsTable {
   // Internal APIs for interning to the table after well-known atoms cases have
   // been tested.
   JS::Result<const ParserAtom*, OOM> addEntry(JSContext* cx,
-                                              EntryMap::AddPtr& addPtr,
+                                              EntrySet::AddPtr& addPtr,
                                               ParserAtomEntry* entry);
   template <typename AtomCharT, typename SeqCharT>
   JS::Result<const ParserAtom*, OOM> internChar16Seq(
-      JSContext* cx, EntryMap::AddPtr& addPtr, HashNumber hash,
+      JSContext* cx, EntrySet::AddPtr& addPtr, HashNumber hash,
       InflatedChar16Sequence<SeqCharT> seq, uint32_t length);
 
  public:
-  bool empty() const { return entryMap_.empty(); }
-
   JS::Result<const ParserAtom*, OOM> internAscii(JSContext* cx,
                                                  const char* asciiPtr,
                                                  uint32_t length);
@@ -611,6 +702,12 @@ class ParserAtomsTable {
 
   JS::Result<const ParserAtom*, OOM> concatAtoms(
       JSContext* cx, mozilla::Range<const ParserAtom*> atoms);
+
+  const ParserAtom* getWellKnown(WellKnownAtomId atomId) const;
+  const ParserAtom* getStatic1(StaticParserString1 s) const;
+  const ParserAtom* getStatic2(StaticParserString2 s) const;
+  const ParserAtom* getParserAtom(ParserAtomIndex index) const;
+  const ParserAtom* getParserAtom(TaggedParserAtomIndex index) const;
 };
 
 // Lightweight version of ParserAtomsTable.
@@ -626,27 +723,29 @@ class ParserAtomVectorBuilder {
   ParserAtomVectorBuilder(JSRuntime* rt, LifoAlloc& alloc,
                           ParserAtomVector& entries);
 
-  bool reserve(JSContext* cx, size_t count);
+  bool resize(JSContext* cx, size_t count);
   size_t length() const { return entries_.length(); }
-  ParserAtom* get(size_t index) { return entries_[index]->asAtom(); }
 
-  JS::Result<const ParserAtom*, OOM> internLatin1(
+  JS::Result<const ParserAtom*, OOM> internLatin1At(
       JSContext* cx, const JS::Latin1Char* latin1Ptr, HashNumber hash,
-      uint32_t length);
+      uint32_t length, ParserAtomIndex index);
 
-  JS::Result<const ParserAtom*, OOM> internChar16(
+  JS::Result<const ParserAtom*, OOM> internChar16At(
       JSContext* cx, const LittleEndianChars twoByteLE, HashNumber hash,
-      uint32_t length);
+      uint32_t length, ParserAtomIndex index);
 
  private:
   template <typename CharT, typename SeqCharT, typename InputCharsT>
-  JS::Result<const ParserAtom*, OOM> intern(JSContext* cx, InputCharsT chars,
-                                            HashNumber hash, uint32_t length);
+  JS::Result<const ParserAtom*, OOM> internAt(JSContext* cx, InputCharsT chars,
+                                              HashNumber hash, uint32_t length,
+                                              ParserAtomIndex index);
 
  public:
   const ParserAtom* getWellKnown(WellKnownAtomId atomId) const;
   const ParserAtom* getStatic1(StaticParserString1 s) const;
   const ParserAtom* getStatic2(StaticParserString2 s) const;
+  const ParserAtom* getParserAtom(ParserAtomIndex index) const;
+  const ParserAtom* getParserAtom(TaggedParserAtomIndex index) const;
 };
 
 template <typename CharT>
@@ -694,6 +793,8 @@ inline bool ParserAtomEntry::equalsSeq(
   }
   return !seq.hasMore();
 }
+
+JSAtom* GetWellKnownAtom(JSContext* cx, WellKnownAtomId atomId);
 
 } /* namespace frontend */
 } /* namespace js */

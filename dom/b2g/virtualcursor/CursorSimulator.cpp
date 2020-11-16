@@ -87,11 +87,11 @@ CursorSimulator::~CursorSimulator() {
 }
 
 void CursorSimulator::UpdatePos() {
-  CSSIntSize windowSize;
-  mOuterWindow->GetInnerWidth(&windowSize.width);
-  mOuterWindow->GetInnerHeight(&windowSize.height);
+  double width, height;
+  mOuterWindow->GetInnerWidth(&width);
+  mOuterWindow->GetInnerHeight(&height);
   LayoutDeviceIntPoint windowDevSize;
-  CSSPoint cssSize(windowSize.width, windowSize.height);
+  CSSPoint cssSize(width, height);
   CSSToDevPixel(cssSize, windowDevSize);
 
   MOZ_LOG(gVirtualCursorLog, LogLevel::Debug,
@@ -346,9 +346,12 @@ nsresult CursorSimulator::HandleNavigationKey(WidgetKeyboardEvent* aKeyEvent) {
   DevToCSSPixel(mDevCursorPos, cursorPos);
   CSSPoint offset(0, 0);
   // Update window size before caculating offset.
+  double width, height;
+  mOuterWindow->GetInnerWidth(&width);
+  mOuterWindow->GetInnerHeight(&height);
   CSSIntSize windowSize;
-  mOuterWindow->GetInnerWidth(&windowSize.width);
-  mOuterWindow->GetInnerHeight(&windowSize.height);
+  windowSize.width = width;
+  windowSize.height = height;
   MOZ_LOG(gVirtualCursorLog, LogLevel::Debug,
           ("CursorSimulator::HandleNavigationKey start"));
   mIsKeyPressed = (aKeyEvent->mMessage == eKeyDown);
@@ -404,9 +407,13 @@ void CursorSimulator::CheckFullScreenElement() {
 }
 
 void CursorSimulator::CenterizeCursorIfNecessary() {
+  double width, height;
+  mOuterWindow->GetInnerWidth(&width);
+  mOuterWindow->GetInnerHeight(&height);
   CSSIntSize windowSize;
-  mOuterWindow->GetInnerWidth(&windowSize.width);
-  mOuterWindow->GetInnerHeight(&windowSize.height);
+  windowSize.width = width;
+  windowSize.height = height;
+
   LayoutDeviceIntPoint devSize;
   CSSPoint cssSize(windowSize.width, windowSize.height);
   CSSToDevPixel(cssSize, devSize);
@@ -439,9 +446,12 @@ nsresult CursorSimulator::Notify(nsITimer* aTimer) {
   // Timer is only scheduled during key pressed.
   CSSPoint offset(0, 0);
   // Update window size before caculating offset.
+  double width, height;
+  mOuterWindow->GetInnerWidth(&width);
+  mOuterWindow->GetInnerHeight(&height);
   CSSIntSize windowSize;
-  mOuterWindow->GetInnerWidth(&windowSize.width);
-  mOuterWindow->GetInnerHeight(&windowSize.height);
+  windowSize.width = width;
+  windowSize.height = height;
   MOZ_LOG(gVirtualCursorLog, LogLevel::Debug,
           ("CursorSimulator::HandleNavigationKey (trigger by timer) start"));
   MovePolicy(offset);

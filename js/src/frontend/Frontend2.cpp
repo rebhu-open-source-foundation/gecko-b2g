@@ -24,7 +24,7 @@
 #include "frontend/ParserAtom.h"        // ParserAtomsTable
 #include "frontend/smoosh_generated.h"  // CVec, Smoosh*, smoosh_*
 #include "frontend/SourceNotes.h"       // SrcNote
-#include "frontend/Stencil.h"  // ScopeStencil, RegExpIndex, FunctionIndex, NullScriptThing
+#include "frontend/Stencil.h"      // ScopeStencil, RegExpIndex, FunctionIndex
 #include "frontend/TokenStream.h"  // TokenStreamAnyChars
 #include "irregexp/RegExpAPI.h"    // irregexp::CheckPatternSyntax
 #include "js/CharacterEncoding.h"  // JS::UTF8Chars, UTF8CharsToNewTwoByteCharsZ
@@ -116,6 +116,11 @@ bool ConvertScopeStencil(JSContext* cx, const SmooshResult& result,
                          Vector<const ParserAtom*>& allAtoms,
                          CompilationInfo& compilationInfo) {
   LifoAlloc& alloc = compilationInfo.stencil.alloc;
+
+  if (result.scopes.len > TaggedScriptThingIndex::IndexLimit) {
+    ReportAllocationOverflow(cx);
+    return false;
+  }
 
   for (size_t i = 0; i < result.scopes.len; i++) {
     SmooshScopeData& scopeData = result.scopes.data[i];
@@ -250,6 +255,11 @@ bool ConvertScopeStencil(JSContext* cx, const SmooshResult& result,
 bool ConvertRegExpData(JSContext* cx, const SmooshResult& result,
                        CompilationInfo& compilationInfo,
                        CompilationState& compilationState) {
+  if (result.regexps.len > TaggedScriptThingIndex::IndexLimit) {
+    ReportAllocationOverflow(cx);
+    return false;
+  }
+
   for (size_t i = 0; i < result.regexps.len; i++) {
     SmooshRegExpItem& item = result.regexps.data[i];
     auto s = smoosh_get_slice_at(result, item.pattern);
@@ -309,7 +319,7 @@ bool ConvertRegExpData(JSContext* cx, const SmooshResult& result,
 
     RegExpIndex index(compilationInfo.stencil.regExpData.length());
     if (!compilationInfo.stencil.regExpData.emplaceBack(
-            atom, JS::RegExpFlags(flags))) {
+            atom->toIndex(), JS::RegExpFlags(flags))) {
       js::ReportOutOfMemory(cx);
       return false;
     }
@@ -362,7 +372,7 @@ bool ConvertGCThings(JSContext* cx, const SmooshResult& result,
     return true;
   }
 
-  mozilla::Span<ScriptThingVariant> stencilThings =
+  mozilla::Span<TaggedScriptThingIndex> stencilThings =
       NewScriptThingSpanUninitialized(cx, stencilAlloc, ngcthings);
   if (stencilThings.empty()) {
     return false;
@@ -376,23 +386,23 @@ bool ConvertGCThings(JSContext* cx, const SmooshResult& result,
 
     switch (item.tag) {
       case SmooshGCThing::Tag::Null: {
-        new (raw) ScriptThingVariant(NullScriptThing());
+        new (raw) TaggedScriptThingIndex();
         break;
       }
       case SmooshGCThing::Tag::Atom: {
-        new (raw) ScriptThingVariant(allAtoms[item.AsAtom()]);
+        new (raw) TaggedScriptThingIndex(allAtoms[item.AsAtom()]->toIndex());
         break;
       }
       case SmooshGCThing::Tag::Function: {
-        new (raw) ScriptThingVariant(FunctionIndex(item.AsFunction()));
+        new (raw) TaggedScriptThingIndex(FunctionIndex(item.AsFunction()));
         break;
       }
       case SmooshGCThing::Tag::Scope: {
-        new (raw) ScriptThingVariant(ScopeIndex(item.AsScope()));
+        new (raw) TaggedScriptThingIndex(ScopeIndex(item.AsScope()));
         break;
       }
       case SmooshGCThing::Tag::RegExp: {
-        new (raw) ScriptThingVariant(RegExpIndex(item.AsRegExp()));
+        new (raw) TaggedScriptThingIndex(RegExpIndex(item.AsRegExp()));
         break;
       }
     }
@@ -461,7 +471,7 @@ bool ConvertScriptStencil(JSContext* cx, const SmooshResult& result,
 
   if (isFunction) {
     if (smooshScript.fun_name.IsSome()) {
-      script.functionAtom = allAtoms[smooshScript.fun_name.AsSome()];
+      script.functionAtom = allAtoms[smooshScript.fun_name.AsSome()]->toIndex();
     }
     script.functionFlags = FunctionFlags(smooshScript.fun_flags);
     script.nargs = smooshScript.fun_nargs;
@@ -576,6 +586,11 @@ bool Smoosh::compileGlobalScriptToStencil(JSContext* cx,
   }
 
   if (!ConvertRegExpData(cx, result, compilationInfo, compilationState)) {
+    return false;
+  }
+
+  if (result.scripts.len > TaggedScriptThingIndex::IndexLimit) {
+    ReportAllocationOverflow(cx);
     return false;
   }
 

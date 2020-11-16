@@ -452,7 +452,6 @@ div:-moz-native-anonymous.moz-accessiblecaret {
 
 div:-moz-native-anonymous.moz-accessiblecaret {
   /* Add transition effect to make caret size changing smoother. */
-  transition-duration: 250ms;
   transition-property: width, height, margin-left;
 
   position: absolute;
@@ -496,6 +495,10 @@ div:-moz-native-anonymous.moz-accessiblecaret.right > #image {
 
 div:-moz-native-anonymous.moz-accessiblecaret.none {
   display: none;
+}
+
+div:-moz-native-anonymous.moz-accessiblecaret.hidden {
+  visibility: hidden;
 }
 
 @media (min-resolution: 1.5dppx) {

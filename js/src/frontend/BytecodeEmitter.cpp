@@ -1661,6 +1661,10 @@ bool BytecodeEmitter::iteratorResultShape(GCThingIndex* shape) {
   ObjLiteralFlags flags{ObjLiteralFlag::NoValues};
 
   ObjLiteralIndex objIndex(compilationInfo.stencil.objLiteralData.length());
+  if (uint32_t(objIndex) >= TaggedScriptThingIndex::IndexLimit) {
+    ReportAllocationOverflow(cx);
+    return false;
+  }
   if (!compilationInfo.stencil.objLiteralData.emplaceBack()) {
     js::ReportOutOfMemory(cx);
     return false;
@@ -4626,6 +4630,10 @@ bool BytecodeEmitter::emitCallSiteObjectArray(ListNode* cookedOrRaw,
   }
 
   ObjLiteralIndex objIndex(compilationInfo.stencil.objLiteralData.length());
+  if (uint32_t(objIndex) >= TaggedScriptThingIndex::IndexLimit) {
+    ReportAllocationOverflow(cx);
+    return false;
+  }
   if (!compilationInfo.stencil.objLiteralData.emplaceBack()) {
     js::ReportOutOfMemory(cx);
     return false;
@@ -5729,6 +5737,7 @@ MOZ_NEVER_INLINE bool BytecodeEmitter::emitFunction(
                                   FieldPlacement::Instance);
       if (!memberInitializers) {
         ReportAllocationOverflow(cx);
+        return false;
       }
       funbox->setMemberInitializers(*memberInitializers);
     }
@@ -8839,6 +8848,10 @@ bool BytecodeEmitter::emitPropertyList(ListNode* obj, PropertyEmitter& pe,
 bool BytecodeEmitter::emitPropertyListObjLiteral(ListNode* obj,
                                                  ObjLiteralFlags flags) {
   ObjLiteralIndex objIndex(compilationInfo.stencil.objLiteralData.length());
+  if (uint32_t(objIndex) >= TaggedScriptThingIndex::IndexLimit) {
+    ReportAllocationOverflow(cx);
+    return false;
+  }
   if (!compilationInfo.stencil.objLiteralData.emplaceBack()) {
     js::ReportOutOfMemory(cx);
     return false;
@@ -8911,6 +8924,10 @@ bool BytecodeEmitter::emitDestructuringRestExclusionSetObjLiteral(
   ObjLiteralFlags flags{ObjLiteralFlag::NoValues};
 
   ObjLiteralIndex objIndex(compilationInfo.stencil.objLiteralData.length());
+  if (uint32_t(objIndex) >= TaggedScriptThingIndex::IndexLimit) {
+    ReportAllocationOverflow(cx);
+    return false;
+  }
   if (!compilationInfo.stencil.objLiteralData.emplaceBack()) {
     js::ReportOutOfMemory(cx);
     return false;
@@ -8964,6 +8981,10 @@ bool BytecodeEmitter::emitDestructuringRestExclusionSetObjLiteral(
 
 bool BytecodeEmitter::emitObjLiteralArray(ParseNode* arrayHead, bool isCow) {
   ObjLiteralIndex objIndex(compilationInfo.stencil.objLiteralData.length());
+  if (uint32_t(objIndex) >= TaggedScriptThingIndex::IndexLimit) {
+    ReportAllocationOverflow(cx);
+    return false;
+  }
   if (!compilationInfo.stencil.objLiteralData.emplaceBack()) {
     js::ReportOutOfMemory(cx);
     return false;
@@ -11257,8 +11278,8 @@ bool BytecodeEmitter::intoScriptStencil(ScriptStencil* script) {
   auto& things = perScriptData().gcThingList().objects();
   size_t ngcthings = things.length();
 
-  // Copy the ScriptThingVariant data from the emitter to the stencil.
-  mozilla::Span<ScriptThingVariant> stencilThings =
+  // Copy the TaggedScriptThingIndex data from the emitter to the stencil.
+  mozilla::Span<TaggedScriptThingIndex> stencilThings =
       NewScriptThingSpanUninitialized(cx, compilationInfo.stencil.alloc,
                                       ngcthings);
   if (stencilThings.empty()) {

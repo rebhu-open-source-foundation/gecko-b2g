@@ -93,7 +93,6 @@
 #include "SmoothMsdScrollAnimation.h"
 #include "SmoothScrollAnimation.h"
 #include "WheelScrollAnimation.h"
-#include "KeyboardScrollAnimation.h"
 #if defined(MOZ_WIDGET_ANDROID)
 #  include "AndroidAPZ.h"
 #endif  // defined(MOZ_WIDGET_ANDROID)
@@ -2030,8 +2029,9 @@ nsEventStatus AsyncPanZoomController::OnKeyboard(const KeyboardInput& aEvent) {
 
     nsPoint initialPosition =
         CSSPoint::ToAppUnits(Metrics().GetVisualScrollOffset());
-    StartAnimation(new KeyboardScrollAnimation(*this, initialPosition,
-                                               aEvent.mAction.mType));
+    StartAnimation(new SmoothScrollAnimation(
+        *this, initialPosition,
+        SmoothScrollAnimation::GetScrollOriginForAction(aEvent.mAction.mType)));
   }
 
   // Convert velocity from ParentLayerPoints/ms to ParentLayerPoints/s and then
@@ -2040,7 +2040,7 @@ nsEventStatus AsyncPanZoomController::OnKeyboard(const KeyboardInput& aEvent) {
       ParentLayerPoint(mX.GetVelocity() * 1000.0f, mY.GetVelocity() * 1000.0f) /
       Metrics().GetZoom());
 
-  KeyboardScrollAnimation* animation = mAnimation->AsKeyboardScrollAnimation();
+  SmoothScrollAnimation* animation = mAnimation->AsSmoothScrollAnimation();
   MOZ_ASSERT(animation);
 
   animation->UpdateDestination(aEvent.mTimeStamp,
@@ -3451,7 +3451,7 @@ Maybe<CSSPoint> AsyncPanZoomController::GetCurrentAnimationDestination(
     return Some(mAnimation->AsSmoothMsdScrollAnimation()->GetDestination());
   }
   if (mState == KEYBOARD_SCROLL) {
-    return Some(mAnimation->AsKeyboardScrollAnimation()->GetDestination());
+    return Some(mAnimation->AsSmoothScrollAnimation()->GetDestination());
   }
 
   return Nothing();
@@ -4697,7 +4697,7 @@ void AsyncPanZoomController::NotifyLayersUpdated(
     // case we'll update our scroll generation when processing the scroll update
     // array below. If there are no scroll updates, take the generation from the
     // incoming metrics. Bug 1662019 will simplify this later.
-    uint32_t oldScrollGeneration = Metrics().GetScrollGeneration();
+    ScrollGeneration oldScrollGeneration = Metrics().GetScrollGeneration();
     mScrollMetadata = aScrollMetadata;
     if (!aScrollMetadata.GetScrollUpdates().IsEmpty()) {
       Metrics().SetScrollGeneration(oldScrollGeneration);
@@ -4813,10 +4813,8 @@ void AsyncPanZoomController::NotifyLayersUpdated(
   for (const auto& scrollUpdate : aScrollMetadata.GetScrollUpdates()) {
     APZC_LOG("%p processing scroll update %s\n", this,
              ToString(scrollUpdate).c_str());
-    if (scrollUpdate.GetGeneration() <= Metrics().GetScrollGeneration()) {
+    if (!(Metrics().GetScrollGeneration() < scrollUpdate.GetGeneration())) {
       // This is stale, let's ignore it
-      // XXX maybe use a 64-bit value for the scroll generation, or add some
-      // overflow detection heuristic here
       APZC_LOG("%p scrollupdate generation stale, dropping\n", this);
       continue;
     }

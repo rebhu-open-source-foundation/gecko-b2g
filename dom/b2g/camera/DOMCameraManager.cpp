@@ -119,8 +119,7 @@ class CameraPermissionRequest : public nsIContentPermissionRequest,
         mCameraManager(aManager),
         mCameraId(aCameraId),
         mInitialConfig(aInitialConfig),
-        mPromise(aPromise),
-        mRequester(new nsContentPermissionRequester(mWindow)) {}
+        mPromise(aPromise) {}
 
  protected:
   virtual ~CameraPermissionRequest() {}
@@ -134,7 +133,6 @@ class CameraPermissionRequest : public nsIContentPermissionRequest,
   uint32_t mCameraId;
   CameraConfiguration mInitialConfig;
   RefPtr<Promise> mPromise;
-  nsCOMPtr<nsIContentPermissionRequester> mRequester;
 };
 
 NS_IMPL_CYCLE_COLLECTION(CameraPermissionRequest, mWindow, mPromise)
@@ -180,16 +178,6 @@ NS_IMETHODIMP
 CameraPermissionRequest::Allow(JS::HandleValue aChoices) {
   MOZ_ASSERT(aChoices.isUndefined());
   return DispatchCallback(nsIPermissionManager::ALLOW_ACTION);
-}
-
-NS_IMETHODIMP
-CameraPermissionRequest::GetRequester(
-    nsIContentPermissionRequester** aRequester) {
-  NS_ENSURE_ARG_POINTER(aRequester);
-
-  nsCOMPtr<nsIContentPermissionRequester> requester = mRequester;
-  requester.forget(aRequester);
-  return NS_OK;
 }
 
 nsresult CameraPermissionRequest::DispatchCallback(uint32_t aPermission) {

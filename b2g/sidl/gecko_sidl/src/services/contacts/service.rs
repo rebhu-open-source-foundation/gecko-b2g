@@ -123,7 +123,7 @@ impl SessionObject for ContactsManagerImpl {
         None
     }
 
-    fn on_event(&mut self, event_data: Vec<u8>) {
+    fn on_event(&mut self, _event_data: Vec<u8>) {
         debug!("ContactsManagerImpl::on_event");
     }
 

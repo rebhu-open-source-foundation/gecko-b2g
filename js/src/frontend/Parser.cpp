@@ -259,7 +259,10 @@ FunctionBox* PerHandlerParser<ParseHandler>::newFunctionBox(
 
   FunctionIndex index =
       FunctionIndex(compilationInfo_.stencil.scriptData.length());
-
+  if (uint32_t(index) >= TaggedScriptThingIndex::IndexLimit) {
+    ReportAllocationOverflow(cx_);
+    return nullptr;
+  }
   if (!compilationInfo_.stencil.scriptData.emplaceBack()) {
     js::ReportOutOfMemory(cx_);
     return nullptr;
@@ -1749,7 +1752,8 @@ ModuleNode* Parser<FullParseHandler, Unit>::moduleBody(
   StencilModuleMetadata& moduleMetadata =
       this->compilationInfo_.stencil.moduleMetadata;
   for (auto entry : moduleMetadata.localExportEntries) {
-    const ParserAtom* nameId = entry.localName;
+    const ParserAtom* nameId =
+        this->compilationInfo_.stencil.getParserAtomAt(cx_, entry.localName);
     MOZ_ASSERT(nameId);
 
     DeclaredNamePtr p = modulepc.varScope().lookupDeclaredName(nameId);
@@ -1985,7 +1989,7 @@ bool PerHandlerParser<SyntaxParseHandler>::finishFunction(
   }
 
   // Allocate the `stencilThings` array without initializing it yet.
-  mozilla::Span<ScriptThingVariant> stencilThings =
+  mozilla::Span<TaggedScriptThingIndex> stencilThings =
       NewScriptThingSpanUninitialized(cx_, compilationInfo_.stencil.alloc,
                                       ngcthings.value());
   if (stencilThings.empty()) {
@@ -2002,15 +2006,15 @@ bool PerHandlerParser<SyntaxParseHandler>::finishFunction(
   auto cursor = stencilThings.begin();
   for (const FunctionIndex& index : pc_->innerFunctionIndexesForLazy) {
     void* raw = &(*cursor++);
-    new (raw) ScriptThingVariant(index);
+    new (raw) TaggedScriptThingIndex(index);
   }
-  for (const ScriptAtom& binding : pc_->closedOverBindingsForLazy()) {
+  for (const ParserAtom* binding : pc_->closedOverBindingsForLazy()) {
     void* raw = &(*cursor++);
     if (binding) {
       binding->markUsedByStencil();
-      new (raw) ScriptThingVariant(binding);
+      new (raw) TaggedScriptThingIndex(binding->toIndex());
     } else {
-      new (raw) ScriptThingVariant(NullScriptThing());
+      new (raw) TaggedScriptThingIndex();
     }
   }
   MOZ_ASSERT(cursor == stencilThings.end());
@@ -10301,7 +10305,12 @@ RegExpLiteral* Parser<FullParseHandler, Unit>::newRegExp() {
   atom->markUsedByStencil();
 
   RegExpIndex index(this->getCompilationInfo().stencil.regExpData.length());
-  if (!this->getCompilationInfo().stencil.regExpData.emplaceBack(atom, flags)) {
+  if (uint32_t(index) >= TaggedScriptThingIndex::IndexLimit) {
+    ReportAllocationOverflow(cx_);
+    return nullptr;
+  }
+  if (!this->getCompilationInfo().stencil.regExpData.emplaceBack(
+          atom->toIndex(), flags)) {
     js::ReportOutOfMemory(cx_);
     return nullptr;
   }
@@ -10349,6 +10358,10 @@ BigIntLiteral* Parser<FullParseHandler, Unit>::newBigInt() {
   const auto& chars = tokenStream.getCharBuffer();
 
   BigIntIndex index(this->getCompilationInfo().stencil.bigIntData.length());
+  if (uint32_t(index) >= TaggedScriptThingIndex::IndexLimit) {
+    ReportAllocationOverflow(cx_);
+    return null();
+  }
   if (!this->getCompilationInfo().stencil.bigIntData.emplaceBack()) {
     js::ReportOutOfMemory(cx_);
     return null();
