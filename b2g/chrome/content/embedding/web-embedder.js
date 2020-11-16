@@ -382,6 +382,13 @@ XPCOMUtils.defineLazyServiceGetter(
         );
       }, "volume-state-changed");
 
+      Services.obs.addObserver((detail, subject, data) => {
+        _webembed_log(`receive almost-low-disk-space: ${data}`);
+        this.dispatchEvent(
+          new CustomEvent("almost-low-disk-space", { detail: data })
+        );
+      }, "almost-low-disk-space");
+
       // whether geolocation service is active
       this.geolocationActive = false;
 
