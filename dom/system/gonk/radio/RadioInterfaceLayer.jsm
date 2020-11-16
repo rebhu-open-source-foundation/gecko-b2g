@@ -31,9 +31,6 @@ const { libcutils } = ChromeUtils.import(
 
 ChromeUtils.import("resource://gre/modules/systemlibs.js");
 const { Promise } = ChromeUtils.import("resource://gre/modules/Promise.jsm");
-const { FileUtils } = ChromeUtils.import(
-  "resource://gre/modules/FileUtils.jsm"
-);
 
 XPCOMUtils.defineLazyGetter(this, "SIM", function() {
   return ChromeUtils.import("resource://gre/modules/simIOHelper.js");
@@ -65,18 +62,7 @@ const RADIOINTERFACE_CID = Components.ID(
 );
 
 const NS_XPCOM_SHUTDOWN_OBSERVER_ID = "xpcom-shutdown";
-const kNetworkConnStateChangedTopic = "network-connection-state-changed";
-const kMozSettingsChangedObserverTopic = "mozsettings-changed";
-const kSysClockChangeObserverTopic = "system-clock-change";
-const kScreenStateChangedTopic = "screen-state-changed";
-
-const kSettingsClockAutoUpdateEnabled = "time.clock.automatic-update.enabled";
-const kSettingsClockAutoUpdateAvailable =
-  "time.clock.automatic-update.available";
-const kSettingsTimezoneAutoUpdateEnabled =
-  "time.timezone.automatic-update.enabled";
-const kSettingsTimezoneAutoUpdateAvailable =
-  "time.timezone.automatic-update.available";
+// const kScreenStateChangedTopic = "screen-state-changed";
 
 const NS_PREFBRANCH_PREFCHANGE_TOPIC_ID = "nsPref:changed";
 
@@ -87,9 +73,6 @@ const kPrefAppCBConfigurationEnabled = "dom.app_cb_configuration";
 const EMERGENCY_CB_MODE_TIMEOUT_MS = 5 * 60 * 1000;
 const RADIO_POWER_OFF_TIMEOUT = 30000;
 const HW_DEFAULT_CLIENT_ID = 0;
-
-// const NETWORK_TYPE_WIFI = Ci.nsINetworkInfo.NETWORK_TYPE_WIFI;
-// const NETWORK_TYPE_MOBILE = Ci.nsINetworkInfo.NETWORK_TYPE_MOBILE;
 
 // const INVALID_UPTIME = undefined;
 
@@ -136,21 +119,6 @@ XPCOMUtils.defineLazyServiceGetter(
 // XPCOMUtils.defineLazyServiceGetter(this, "ppmm",
 //                                    "@mozilla.org/parentprocessmessagemanager;1",
 //                                    "nsIMessageBroadcaster");
-
-// XPCOMUtils.defineLazyServiceGetter(this, "gSettingsService",
-//                                    "@mozilla.org/settingsService;1",
-//                                    "nsISettingsService");
-
-XPCOMUtils.defineLazyServiceGetter(
-  this,
-  "gNetworkManager",
-  "@mozilla.org/network/manager;1",
-  "nsINetworkManager"
-);
-
-// XPCOMUtils.defineLazyServiceGetter(this, "gTimeService",
-//                                    "@mozilla.org/time/timeservice;1",
-//                                    "nsITimeService");
 
 // XPCOMUtils.defineLazyServiceGetter(this, "gSystemWorkerManager",
 //                                    "@mozilla.org/telephony/system-worker-manager;1",
@@ -203,6 +171,13 @@ XPCOMUtils.defineLazyServiceGetter(
   "gRilWorkerService",
   "@mozilla.org/rilworkerservice;1",
   "nsIRilWorkerService"
+);
+
+XPCOMUtils.defineLazyServiceGetter(
+  this,
+  "gNetworkTimeService",
+  "@b2g/time/networktimeservice;1",
+  "nsINetworkTimeService"
 );
 
 XPCOMUtils.defineLazyGetter(this, "gRadioEnabledController", function() {
@@ -673,38 +648,7 @@ function RadioInterface(aClientId) {
     Ci.nsITimer
   );
 
-  //Cameron mark first.
-  /*
-  let lock = gSettingsService.createLock();
-
-  // Read the "time.clock.automatic-update.enabled" setting to see if
-  // we need to adjust the system clock time by NITZ or SNTP.
-  lock.get(kSettingsClockAutoUpdateEnabled, this);
-
-  // Read the "time.timezone.automatic-update.enabled" setting to see if
-  // we need to adjust the system timezone by NITZ.
-  lock.get(kSettingsTimezoneAutoUpdateEnabled, this);
-  */
-
-  // Set "time.clock.automatic-update.available" to false when starting up.
-  this.setClockAutoUpdateAvailable(false);
-
-  // Set "time.timezone.automatic-update.available" to false when starting up.
-  this.setTimezoneAutoUpdateAvailable(false);
-
-  Services.obs.addObserver(this, kMozSettingsChangedObserverTopic);
-  Services.obs.addObserver(this, kSysClockChangeObserverTopic);
-  Services.obs.addObserver(this, kScreenStateChangedTopic);
-
-  Services.obs.addObserver(this, kNetworkConnStateChangedTopic);
-
-  //Cameron mark first.
-  /*this._sntp = new Sntp(this.setClockBySntp.bind(this),
-                        Services.prefs.getIntPref("network.sntp.maxRetryCount"),
-                        Services.prefs.getIntPref("network.sntp.refreshPeriod"),
-                        Services.prefs.getIntPref("network.sntp.timeout"),
-                        Services.prefs.getCharPref("network.sntp.pools").split(";"),
-                        Services.prefs.getIntPref("network.sntp.port"));*/
+  // Services.obs.addObserver(this, kScreenStateChangedTopic);
 }
 
 RadioInterface.prototype = {
@@ -713,7 +657,6 @@ RadioInterface.prototype = {
     Ci.nsIRadioInterface,
     Ci.nsIObserver,
     Ci.nsIRilCallback,
-    Ci.nsISettingsServiceCallback,
   ]),
 
   rilworker: null,
@@ -867,10 +810,7 @@ RadioInterface.prototype = {
   },
 
   shutdown() {
-    Services.obs.removeObserver(this, kMozSettingsChangedObserverTopic);
-    Services.obs.removeObserver(this, kSysClockChangeObserverTopic);
-    Services.obs.removeObserver(this, kScreenStateChangedTopic);
-    Services.obs.removeObserver(this, kNetworkConnStateChangedTopic);
+    // Services.obs.removeObserver(this, kScreenStateChangedTopic);
   },
 
   _initIccInfo() {
@@ -2361,97 +2301,53 @@ RadioInterface.prototype = {
   },
 
   /**
-   * Set the setting value of "time.clock.automatic-update.available".
-   */
-  setClockAutoUpdateAvailable(value) {
-    //gSettingsService.createLock().set(kSettingsClockAutoUpdateAvailable, value, null);
-  },
-
-  /**
-   * Set the setting value of "time.timezone.automatic-update.available".
-   */
-  setTimezoneAutoUpdateAvailable(value) {
-    //gSettingsService.createLock().set(kSettingsTimezoneAutoUpdateAvailable, value, null);
-  },
-
-  /**
-   * Set the system clock by NITZ.
-   */
-  setClockByNitz(message) {
-    // To set the system clock time. Note that there could be a time diff
-    // between when the NITZ was received and when the time is actually set.
-    let systemUpTime = this._getSystemUpTime();
-    let upTimeDiff = systemUpTime ? systemUpTime - message.receiveTimeInMS : -1;
-    if (upTimeDiff < 0) {
-      this.debug("setClockByNitz upTimeDiff is invalid, skip!");
-    }
-    // gTimeService.set(message.networkTimeInMS + upTimeDiff);
-  },
-
-  /**
-   * Set the system time zone by NITZ.
-   */
-  setTimezoneByNitz(message) {
-    // To set the sytem timezone. Note that we need to convert the time zone
-    // value to a UTC repesentation string in the format of "UTC(+/-)hh:mm".
-    // Ex, time zone -480 is "UTC+08:00"; time zone 630 is "UTC-10:30".
-    // DST can only be 0|1|2 hr according to 3GPP TS 22.042, besides, there is
-    // no need to unapply the DST correction because FE should be able to get
-    // the correct time zone offset by using "time.timezone.dst" value.
-    // Cameron mark fisrt.
-    /*gSettingsService.createLock().set("time.timezone.dst",
-                                      message.networkDSTInHr,
-                                      null);
-
-    if (message.networkTimeZoneInMinutes != (new Date()).getTimezoneOffset()) {
-      let absTimeZoneInMinutes = Math.abs(message.networkTimeZoneInMinutes);
-      let timeZoneStr = "UTC";
-      timeZoneStr += (message.networkTimeZoneInMinutes > 0 ? "-" : "+");
-      timeZoneStr += ("0" + Math.floor(absTimeZoneInMinutes / 60)).slice(-2);
-      timeZoneStr += ":";
-      timeZoneStr += ("0" + absTimeZoneInMinutes % 60).slice(-2);
-      gSettingsService.createLock().set("time.timezone", timeZoneStr, null);
-    }*/
-  },
-
-  /**
    * Handle the NITZ message.
+   * The data contained in the NITZ message is
+   * in the form "yy/mm/dd,hh:mm:ss(+/-)tz,dt"
+   * for example: 12/02/16,03:36:08-20,00,310410
+   * See also bug 714352 - Listen for NITZ updates from rild.
    */
+
   handleNitzTime(message) {
-    //Cameron mark first
-    /*
-    // Got the NITZ info received from the ril_worker.
-    this.setClockAutoUpdateAvailable(true);
-    this.setTimezoneAutoUpdateAvailable(true);
+    let dateString = message.dateString;
+    let year = parseInt(dateString.substr(0, 2), 10);
+    let month = parseInt(dateString.substr(3, 2), 10);
+    let day = parseInt(dateString.substr(6, 2), 10);
+    let hours = parseInt(dateString.substr(9, 2), 10);
+    let minutes = parseInt(dateString.substr(12, 2), 10);
+    let seconds = parseInt(dateString.substr(15, 2), 10);
+    // Note that |tz| is in 15-min units.
+    let tz = parseInt(dateString.substr(17, 3), 10);
+    // Note that |dst| is in 1-hour units and is already applied in |tz|.
+    let dst = parseInt(dateString.substr(21, 2), 10);
 
-    // Cache the latest NITZ message whenever receiving it.
-    this._lastNitzMessage = message;
+    let timeInMS = Date.UTC(
+      year + RIL.PDU_TIMESTAMP_YEAR_OFFSET,
+      month - 1,
+      day,
+      hours,
+      minutes,
+      seconds
+    );
 
-    // Set the received NITZ clock if the setting is enabled.
-    if (this._clockAutoUpdateEnabled) {
-      this.setClockByNitz(message);
-    }
-    // Set the received NITZ timezone if the setting is enabled.
-    if (this._timezoneAutoUpdateEnabled) {
-      this.setTimezoneByNitz(message);
-    }*/
-  },
-
-  /**
-   * Set the system clock by SNTP.
-   */
-  setClockBySntp(offset) {
-    // Got the SNTP info.
-    this.setClockAutoUpdateAvailable(true);
-    if (!this._clockAutoUpdateEnabled) {
+    if (isNaN(timeInMS)) {
+      this.debug("NITZ failed to convert date");
       return;
     }
-    if (this._lastNitzMessage) {
-      if (DEBUG) {
-        debug("SNTP: NITZ available, discard SNTP");
-      }
+
+    let nitzData = {
+      QueryInterface: ChromeUtils.generateQI([Ci.nsINitzData]),
+      time: timeInMS,
+      timeZone: -(tz * 15),
+      dst,
+      receiveTime: message.receiveTimeInMS,
+    };
+
+    if (DEBUG) {
+      this.debug("setTelephonyTime: " + nitzData);
     }
-    // gTimeService.set(Date.now() + offset);
+    gNetworkTimeService.setTelephonyTime(this.clientId, nitzData);
+    this.debug("setTelephonyTime end");
   },
 
   handleIccMbdn(message) {
@@ -2626,55 +2522,13 @@ RadioInterface.prototype = {
   },
 
   // nsIObserver
-
   observe(subject, topic, data) {
-    switch (topic) {
-      case kMozSettingsChangedObserverTopic:
-        if ("wrappedJSObject" in subject) {
-          subject = subject.wrappedJSObject;
-        }
-        this.handleSettingsChange(
-          subject.key,
-          subject.value,
-          subject.isInternalChange
-        );
-        break;
-      case kSysClockChangeObserverTopic:
-        // let offset = parseInt(data, 10);
-        //Cameron mark fist.
-        //this._sntp.updateOffset(offset);
-        break;
-      // case kNetworkConnStateChangedTopic:
-      //   let networkInfo = subject.QueryInterface(Ci.nsINetworkInfo);
-      //   if (networkInfo.state != Ci.nsINetworkInfo.NETWORK_STATE_CONNECTED) {
-      //     return;
-      //   }
-
-      // SNTP can only update when we have mobile or Wifi connections.
-      // if (
-      //   networkInfo.type != NETWORK_TYPE_WIFI &&
-      //   networkInfo.type != NETWORK_TYPE_MOBILE
-      // ) {
-      // }
-
-      // If the network comes from RIL, make sure the RIL service is matched.
-      // if (subject instanceof Ci.nsIRilNetworkInfo) {
-      //   networkInfo = subject.QueryInterface(Ci.nsIRilNetworkInfo);
-      //   if (networkInfo.serviceId != this.clientId) {
-      //   }
-      // }
-
-      //Cameron mark first.
-      // SNTP won't update unless the SNTP is already expired.
-      // if (this._sntp.isExpired()) {
-      //   this._sntp.request();
-      // }
-      // break;
-      case kScreenStateChangedTopic:
-        //Q do not support this command.
-        //this.workerMessenger.send("setScreenState", { on: (data === "on") });
-        break;
-    }
+    // switch (topic) {
+    //   case kScreenStateChangedTopic:
+    //     // Q do not support this command.
+    //     this.workerMessenger.send("setScreenState", { on: (data === "on") });
+    //     // break;
+    // }
   },
 
   // Flag to determine whether to update system clock automatically. It
@@ -2694,93 +2548,6 @@ RadioInterface.prototype = {
 
   // Cell Broadcast settings values.
   _cellBroadcastSearchList: null,
-
-  handleSettingsChange(aName, aResult, aIsInternalSetting) {
-    // Don't allow any content processes to modify the setting
-    // "time.clock.automatic-update.available" except for the chrome process.
-    if (aName === kSettingsClockAutoUpdateAvailable && !aIsInternalSetting) {
-      let isClockAutoUpdateAvailable =
-        this._lastNitzMessage !== null || this._sntp.isAvailable();
-      if (aResult !== isClockAutoUpdateAvailable) {
-        if (DEBUG) {
-          debug(
-            "Content processes cannot modify 'time.clock.automatic-update.available'. Restore!"
-          );
-        }
-        // Restore the setting to the current value.
-        this.setClockAutoUpdateAvailable(isClockAutoUpdateAvailable);
-      }
-    }
-
-    // Don't allow any content processes to modify the setting
-    // "time.timezone.automatic-update.available" except for the chrome
-    // process.
-    if (aName === kSettingsTimezoneAutoUpdateAvailable && !aIsInternalSetting) {
-      let isTimezoneAutoUpdateAvailable = this._lastNitzMessage !== null;
-      if (aResult !== isTimezoneAutoUpdateAvailable) {
-        if (DEBUG) {
-          this.debug(
-            "Content processes cannot modify 'time.timezone.automatic-update.available'. Restore!"
-          );
-        }
-        // Restore the setting to the current value.
-        this.setTimezoneAutoUpdateAvailable(isTimezoneAutoUpdateAvailable);
-      }
-    }
-
-    this.handle(aName, aResult);
-  },
-
-  // nsISettingsServiceCallback
-  handle(aName, aResult) {
-    switch (aName) {
-      case kSettingsClockAutoUpdateEnabled:
-        this._clockAutoUpdateEnabled = aResult;
-        if (!this._clockAutoUpdateEnabled) {
-          break;
-        }
-
-        // Set the latest cached NITZ time if it's available.
-        if (this._lastNitzMessage) {
-          this.setClockByNitz(this._lastNitzMessage);
-        } else if (
-          gNetworkManager.activeNetworkInfo &&
-          gNetworkManager.activeNetworkInfo.state ==
-            Ci.nsINetworkInfo.NETWORK_STATE_CONNECTED
-        ) {
-          //Cameron mark first.
-          // Set the latest cached SNTP time if it's available.
-          /*if (!this._sntp.isExpired()) {
-            this.setClockBySntp(this._sntp.getOffset());
-          } else {
-            // Or refresh the SNTP.
-            this._sntp.request();
-          }*/
-        } else {
-          // Set a sane minimum time.
-          let buildTime =
-            libcutils.property_get("ro.build.date.utc", "0") * 1000;
-          let file = FileUtils.File("/system/b2g/b2g");
-          if (file.lastModifiedTime > buildTime) {
-            buildTime = file.lastModifiedTime;
-          }
-          if (buildTime > Date.now()) {
-            // gTimeService.set(buildTime);
-          }
-        }
-        break;
-      case kSettingsTimezoneAutoUpdateEnabled:
-        this._timezoneAutoUpdateEnabled = aResult;
-
-        if (this._timezoneAutoUpdateEnabled) {
-          // Apply the latest cached NITZ for timezone if it's available.
-          if (this._timezoneAutoUpdateEnabled && this._lastNitzMessage) {
-            this.setTimezoneByNitz(this._lastNitzMessage);
-          }
-        }
-        break;
-    }
-  },
 
   handleError(aErrorMessage) {
     if (DEBUG) {
@@ -7393,20 +7160,6 @@ RadioInterface.prototype = {
     } else {
       this.sendRilRequest(rilMessageType, message);
     }
-  },
-
-  _getSystemUpTime() {
-    // FIXME
-    return 0;
-    // let upTime;
-    // try {
-    //   upTime = gTimeService.elapsedRealtime;
-    // } catch (e) {
-    //   this.debug("_getSystemUpTime error: " + e);
-    //   upTime = INVALID_UPTIME;
-    // }
-
-    // return upTime;
   },
 };
 

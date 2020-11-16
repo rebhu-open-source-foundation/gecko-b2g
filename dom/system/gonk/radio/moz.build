@@ -20,6 +20,7 @@ XPIDL_SOURCES += [
     "nsIDataCallInterfaceService.idl",
     "nsIDataCallManager.idl",
     "nsIGonkDataCallInterfaceService.idl",
+    'nsINetworkTimeService.idl',
     "nsIRadioInterfaceLayer.idl",
     "nsIRilIndicationResult.idl",
     "nsIRilResponseResult.idl",
@@ -44,12 +45,14 @@ XPCOM_MANIFESTS += [
 EXTRA_JS_MODULES += [
     "DataCallInterfaceService.jsm",
     "DataCallManager.jsm",
+    "NetworkTimeService.jsm",
     "RadioInterfaceLayer.jsm",
     "ril_consts.js",
     "ril_consts_debug.js",
     "RILSystemMessenger.jsm",
     "RILSystemMessengerHelper.jsm",
     "simIOHelper.js",
+    "Sntp.jsm",
     "TelephonyRequestQueue.jsm",
 ]
 

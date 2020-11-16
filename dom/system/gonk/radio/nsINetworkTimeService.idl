@@ -1,0 +1,82 @@
+/* -*- indent-tabs-mode: nil; js-indent-level: 2 -*- */
+/* (c) 2020 KAI OS TECHNOLOGIES (HONG KONG) LIMITED All rights reserved. This
+ * file or any portion thereof may not be reproduced or used in any manner
+ * whatsoever without the express written permission of KAI OS TECHNOLOGIES
+ * (HONG KONG) LIMITED. KaiOS is the trademark of KAI OS TECHNOLOGIES (HONG
+ * KONG) LIMITED or its affiliate company and may be registered in some
+ * jurisdictions. All other trademarks are the property of their respective
+ * owners.
+ */
+
+#include "nsISupports.idl"
+#include "domstubs.idl"
+
+%{C++
+#define NS_NETWORKTIMESERVICE_CID { 0x08e5d35e, 0x40fc, 0x4404, { 0xad, 0x42, 0xb6, 0xc5, 0xef, 0xa5, 0x9d, 0x68 } }
+#define NETWORKTIME_SERVICE "@b2g/time/networktimeservice;1"
+%}
+
+[scriptable, uuid(d6e35c30-2bc2-4118-9972-9617dad8d68a)]
+interface nsINitzData : nsISupports
+{
+  /**
+   * The nitz time which already includes dst and timezone.
+   * uint: MS.
+   */
+  readonly attribute DOMTimeStamp time;
+
+  /**
+   * The time zone.
+   * unit: minute.
+   */
+  readonly attribute long timeZone;
+
+  /**
+   * In 1-hour units and is already applied in |tz|.
+   * unit: hour.
+   */
+  readonly attribute DOMTimeStamp dst;
+
+  /**
+   * This is used to calculate the time diff between the received time from
+   * modem and time to be set to system.
+   * Unit: MS.
+   */
+  readonly attribute DOMTimeStamp receiveTime;
+};
+
+[scriptable, uuid(ae2565f0-eb29-43e4-81a1-2b7d3ec37827)]
+/**
+ * Call back to receive request result.
+ */
+interface nsINetworkTimeCallback : nsISupports{
+  /**
+   * Notifies nsINetworkTimeService#getSuggestedNetworkTime() result.
+   */
+  void onSuggestedNetworkTimeResponse(in DOMTimeStamp aTime);
+};
+
+[scriptable, uuid(a0df8a36-efb3-4ad1-aa52-a9c01b082981)]
+/**
+ * The interface to handle network time information (nitz, sntp).
+ */
+interface nsINetworkTimeService : nsISupports
+{
+  /**
+   * To set nitz time from telephony framework.
+   * If setting auto time or auto timzone is disabled, the telephony time will be cached in
+   * service only and not set to hal.
+   * @param aSlotId The slot id. Start from 0.
+   * @param aTimeInMS The telephony time received from nitz.
+   */
+  void setTelephonyTime(in uint64_t slotId, in nsINitzData nitzData);
+
+  /**
+   * To get suggested network time in ms.
+   * Differ to the time you retrieved from time() or Date.getTime(), the result
+   * is returned in follow order, nitz > sntp > system.
+   *
+   * @param requestCallback The result will be notified via nsINetworkTimeCallback#onSuggestedNetworkTimeResponse().
+   */
+  void getSuggestedNetworkTime(in nsINetworkTimeCallback requestCallback);
+};
