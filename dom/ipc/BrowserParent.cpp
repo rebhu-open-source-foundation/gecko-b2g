@@ -605,6 +605,11 @@ void BrowserParent::RemoveWindowListeners() {
       eventTarget->RemoveEventListener(u"fullscreenchange"_ns, this, false);
     }
   }
+
+  RefPtr<AudioChannelService> acs = AudioChannelService::GetOrCreate();
+  if (acs) {
+    acs->UnregisterBrowserParent(this);
+  }
 }
 
 void BrowserParent::DestroyInternal() {
