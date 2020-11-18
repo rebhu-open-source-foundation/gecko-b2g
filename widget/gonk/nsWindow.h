@@ -61,6 +61,7 @@ class nsWindow : public nsBaseWidget {
   static void SetMouseDevice(bool aMouse);
   static void NotifyHoverMove(const ScreenIntPoint& point);
   static void KickOffComposition();
+  static void KickOffCompositionImpl(CompositorBridgeParent* aCompositorBridge);
 
   using nsBaseWidget::Create;  // for Create signature not overridden here
   NS_IMETHOD Create(nsIWidget* aParent, void* aNativeParent,

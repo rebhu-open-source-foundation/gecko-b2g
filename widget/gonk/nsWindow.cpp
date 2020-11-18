@@ -80,9 +80,7 @@ static nsWindow* gFocusedWindow = nullptr;
 
 NS_IMPL_ISUPPORTS_INHERITED0(nsWindow, nsBaseWidget)
 
-nsWindow::nsWindow()
-  : mGLCursorImageManager(nullptr)
-{
+nsWindow::nsWindow() : mGLCursorImageManager(nullptr) {
   // This is a hack to force initialization of the compositor
   // resources, if we're going to use omtc.
   //
@@ -172,8 +170,7 @@ void nsWindow::SetMouseCursorPosition(const ScreenIntPoint& aScreenIntPoint) {
     // our one and only top widget is already in a stable state by
     // the time we start receiving mousemove events.
     gFocusedWindow->SetScreenIntPoint(aScreenIntPoint);
-    gFocusedWindow->mCompositorBridgeParent->InvalidateOnCompositorThread();
-    gFocusedWindow->mCompositorBridgeParent->ScheduleRenderOnCompositorThread();
+    KickOffComposition();
   }
 #endif
 }
@@ -227,8 +224,7 @@ TextEventDispatcherListener* nsWindow::GetNativeTextEventDispatcherListener() {
     // our one and only top widget is already in a stable state by
     // the time we start receiving hover-move events.
     gFocusedWindow->SetScreenIntPoint(point);
-    gFocusedWindow->mCompositorBridgeParent->InvalidateOnCompositorThread();
-    gFocusedWindow->mCompositorBridgeParent->ScheduleRenderOnCompositorThread();
+    KickOffComposition();
   }
 #endif
 }
@@ -261,8 +257,23 @@ class DispatchTouchInputOnMainThread : public mozilla::Runnable {
     return;
   }
 
-  gFocusedWindow->mCompositorSession->GetInProcessBridge()->InvalidateOnCompositorThread();
-  gFocusedWindow->mCompositorSession->GetInProcessBridge()->ScheduleRenderOnCompositorThread();
+  if (auto compositorBridge =
+          gFocusedWindow->mCompositorSession->GetInProcessBridge()) {
+    if (!CompositorThreadHolder::IsInCompositorThread()) {
+      CompositorThread()->Dispatch(NewRunnableFunction(
+          "nsWindow::KickOffCompositionImpl", &nsWindow::KickOffCompositionImpl,
+          compositorBridge));
+      return;
+    }
+
+    KickOffCompositionImpl(compositorBridge);
+  }
+}
+
+/*static*/ void nsWindow::KickOffCompositionImpl(
+    CompositorBridgeParent* aCompositorBridge) {
+  aCompositorBridge->Invalidate();
+  aCompositorBridge->ScheduleComposition();
 }
 
 void nsWindow::DispatchTouchInputViaAPZ(MultiTouchInput& aInput) {
@@ -598,15 +609,14 @@ void nsWindow::EnsureGLCursorImageManager() {
 }
 
 void nsWindow::SetCursor(nsCursor aDefaultCursor, imgIContainer* aCursorImage,
-                         uint32_t aHotspotX, uint32_t aHotspotY)
-{
-    nsBaseWidget::SetCursor(aDefaultCursor, aCursorImage, aHotspotX, aHotspotY);
-    if (mGLCursorImageManager) {
-        // Prepare GLCursor if it doesn't exist
-        mGLCursorImageManager->PrepareCursorImage(aDefaultCursor, this);
-        mGLCursorImageManager->HasSetCursor();
-        KickOffComposition();
-    }
+                         uint32_t aHotspotX, uint32_t aHotspotY) {
+  nsBaseWidget::SetCursor(aDefaultCursor, aCursorImage, aHotspotX, aHotspotY);
+  if (mGLCursorImageManager) {
+    // Prepare GLCursor if it doesn't exist
+    mGLCursorImageManager->PrepareCursorImage(aDefaultCursor, this);
+    mGLCursorImageManager->HasSetCursor();
+    KickOffComposition();
+  }
 }
 
 static void StopRenderWithHwc(bool aStop) {
@@ -616,32 +626,20 @@ static void StopRenderWithHwc(bool aStop) {
 
 NS_IMETHODIMP
 nsWindow::DispatchEvent(WidgetGUIEvent* aEvent, nsEventStatus& aStatus) {
-  if (aEvent->mMessage == eMouseMove) {
-    LayoutDeviceIntPoint position(aEvent->mRefPoint.x, aEvent->mRefPoint.y);
+  if (StaticPrefs::dom_virtualcursor_enabled()) {
+    if (aEvent->mMessage == eMouseMove) {
+      LayoutDeviceIntPoint position(
+          std::clamp(aEvent->mRefPoint.x, 0, mBounds.width),
+          std::clamp(aEvent->mRefPoint.y, 0, mBounds.height));
 
-    // Validate whether refPoint exceeds window boundary.
-    position.x =
-        position.x < 0
-            ? 0
-            : (position.x > (mBounds.width) ? (mBounds.width) : position.x);
-
-    position.y =
-        position.y < 0
-            ? 0
-            : (position.y > (mBounds.height) ? (mBounds.height) : position.y);
-
-    EnsureGLCursorImageManager();
-    mGLCursorImageManager->SetGLCursorPosition(position);
-
-    if (StaticPrefs::dom_virtualcursor_enabled()) {
+      EnsureGLCursorImageManager();
+      mGLCursorImageManager->SetGLCursorPosition(position);
       KickOffComposition();
-    }
-  } else if (aEvent->mMessage == eMouseExitFromWidget) {
-    EnsureGLCursorImageManager();
-    mGLCursorImageManager->SetGLCursorPosition(
-      GLCursorImageManager::kOffscreenCursorPosition);
 
-    if (StaticPrefs::dom_virtualcursor_enabled()) {
+    } else if (aEvent->mMessage == eMouseExitFromWidget) {
+      EnsureGLCursorImageManager();
+      mGLCursorImageManager->SetGLCursorPosition(
+          GLCursorImageManager::kOffscreenCursorPosition);
       KickOffComposition();
     }
   }
@@ -691,24 +689,20 @@ nsWindow::MakeFullScreen(bool aFullScreen, nsIScreen*) {
   return NS_OK;
 }
 
-void nsWindow::DrawWindowOverlay(
-    LayerManagerComposite* aManager,
-    LayoutDeviceIntRect aRect) {
+void nsWindow::DrawWindowOverlay(LayerManagerComposite* aManager,
+                                 LayoutDeviceIntRect aRect) {
   if (aManager && mGLCursorImageManager) {
     CompositorOGL* compositor =
-      static_cast<CompositorOGL*>(aManager->GetCompositor());
+        static_cast<CompositorOGL*>(aManager->GetCompositor());
     if (compositor) {
       if (mGLCursorImageManager->ShouldDrawGLCursor() &&
           mGLCursorImageManager->IsCursorImageReady(mCursor)) {
         GLCursorImageManager::GLCursorImage cursorImage =
-          mGLCursorImageManager->GetGLCursorImage(mCursor);
+            mGLCursorImageManager->GetGLCursorImage(mCursor);
         LayoutDeviceIntPoint position =
-          mGLCursorImageManager->GetGLCursorPosition();
-        compositor->DrawGLCursor(aRect,
-                                 position,
-                                 cursorImage.mSurface,
-                                 cursorImage.mImgSize,
-                                 cursorImage.mHotspot);
+            mGLCursorImageManager->GetGLCursorPosition();
+        compositor->DrawGLCursor(aRect, position, cursorImage.mSurface,
+                                 cursorImage.mImgSize, cursorImage.mHotspot);
       }
     }
   }
