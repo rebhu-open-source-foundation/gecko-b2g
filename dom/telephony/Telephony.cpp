@@ -99,8 +99,7 @@ Telephony::Telephony(nsIGlobalObject* aGlobal)
     : DOMEventTargetHelper(aGlobal),
       mIsAudioStartPlaying(false),
       mHaveDispatchedInterruptBeginEvent(false),
-      // mMuted(AudioChannelService::IsAudioChannelMutedByDefault())
-      mMuted(false) {
+      mAudioChannelSuspended(true) {
   MOZ_ASSERT(aGlobal);
 
   ErrorResult rv;
@@ -662,70 +661,60 @@ void Telephony::StopTone(const Optional<uint32_t>& aServiceId,
 }
 
 void Telephony::OwnAudioChannel(ErrorResult& aRv) {
-  /* TODO:
-    if (mAudioAgent) {
-      return;
-    }
-    mAudioAgent = do_CreateInstance("@mozilla.org/audiochannelagent;1");
-    MOZ_ASSERT(mAudioAgent);
-    aRv = mAudioAgent->Init(GetParentObject(),
-                           (int32_t)AudioChannel::Telephony, this);
-    if (NS_WARN_IF(aRv.Failed())) {
-      return;
-    }
-    aRv = HandleAudioAgentState();
-    if (NS_WARN_IF(aRv.Failed())) {
-      return;
-    }
-  */
+  if (mAudioChannelAgent) {
+    return;
+  }
+  mAudioChannelAgent = new AudioChannelAgent();
+  MOZ_ASSERT(mAudioChannelAgent);
+  aRv = mAudioChannelAgent->Init(
+      GetOwner(), static_cast<int32_t>(AudioChannel::Telephony), this);
+  if (NS_WARN_IF(aRv.Failed())) {
+    return;
+  }
+  aRv = HandleAudioChannelState();
+  if (NS_WARN_IF(aRv.Failed())) {
+    return;
+  }
 }
 
-nsresult Telephony::HandleAudioAgentState() {
-  /* TODO
-    if (!mAudioAgent) {
-      return NS_OK;
+nsresult Telephony::HandleAudioChannelState() {
+  if (!mAudioChannelAgent) {
+    return NS_OK;
+  }
+
+  Nullable<OwningTelephonyCallOrTelephonyCallGroup> activeCall;
+  GetActive(activeCall);
+  nsresult rv;
+  // Only stop the agent when there's no call.
+  RefPtr<TelephonyCall> conferenceParentCall =
+      mGroup->GetConferenceParentCall();
+  if ((!mCalls.Length() && !mGroup->CallsArray().Length() &&
+       !conferenceParentCall) &&
+      mIsAudioStartPlaying) {
+    mIsAudioStartPlaying = false;
+    rv = mAudioChannelAgent->NotifyStoppedPlaying();
+    mAudioChannelAgent = nullptr;
+    if (NS_WARN_IF(NS_FAILED(rv))) {
+      return rv;
+    }
+  } else if (!activeCall.IsNull() && !mIsAudioStartPlaying) {
+    mIsAudioStartPlaying = true;
+    rv = mAudioChannelAgent->NotifyStartedPlaying(
+        AudioChannelService::AudibleState::eAudible);
+    if (NS_WARN_IF(NS_FAILED(rv))) {
+      return rv;
     }
 
-    Nullable<OwningTelephonyCallOrTelephonyCallGroup> activeCall;
-    GetActive(activeCall);
-    nsresult rv;
-    // Only stop the agent when there's no call.
-    RefPtr<TelephonyCall> conferenceParentCall =
-    mGroup->GetConferenceParentCall(); if ((!mCalls.Length() &&
-    !mGroup->CallsArray().Length() && !conferenceParentCall) &&
-         mIsAudioStartPlaying) {
-      mIsAudioStartPlaying = false;
-      rv = mAudioAgent->NotifyStoppedPlaying();
-      mAudioAgent = nullptr;
-      if (NS_WARN_IF(NS_FAILED(rv))) {
-        return rv;
-      }
-    } else if (!activeCall.IsNull() && !mIsAudioStartPlaying) {
-      mIsAudioStartPlaying = true;
-      float volume;
-      bool muted;
-      rv = mAudioAgent->NotifyStartedPlaying(&volume, &muted);
-      if (NS_WARN_IF(NS_FAILED(rv))) {
-        return rv;
-      }
-
-      // In B2G, the system app manages audio playback policy. If there is a new
-      // sound want to be playback, it must wait for the permission from the
-      // system app. It means that the sound would be muted first, and then be
-      // unmuted. For telephony, the behaviors are hold() first, then resume().
-      // However, the telephony service can't handle all these requests within a
-      // short period. The telephony service would reject our resume request,
-      // because the modem have not changed the call state yet. It causes that
-      // the telephony can't be resumed. Therefore, we don't mute the telephony
-      // at the beginning.
-      volume = 1.0;
-      muted = false;
-      rv = WindowVolumeChanged(volume, muted);
-      if (NS_WARN_IF(NS_FAILED(rv))) {
-        return rv;
-      }
-    }
-  */
+    // In B2G, the system app manages audio playback policy. If there is a new
+    // sound want to be playback, it must wait for the permission from the
+    // system app. It means that the sound would be suspended first, and then be
+    // resumed. For telephony, the behaviors are hold() first, then resume().
+    // However, the telephony service can't handle all these requests within a
+    // short period. The telephony service would reject our resume request,
+    // because the modem have not changed the call state yet. It causes that the
+    // telephony can't be resumed. Therefore, we don't call PullInitialUpdate()
+    // so we won't be suspended at the beginning.
+  }
   return NS_OK;
 }
 /*
@@ -849,28 +838,7 @@ already_AddRefed<Promise> Telephony::GetReady(ErrorResult& aRv) const {
 
 NS_IMETHODIMP
 Telephony::WindowVolumeChanged(float aVolume, bool aMuted) {
-  // It's impossible to put all the calls on-hold in the multi-call case.
-  if (mCalls.Length() > 1 ||
-      (mCalls.Length() == 1 && mGroup->CallsArray().Length())) {
-    return NS_ERROR_FAILURE;
-  }
-
-  // These events will be triggered when the telephony is interrupted by other
-  // audio channel.
-  if (mMuted != aMuted) {
-    mMuted = aMuted;
-    // We should not dispatch "mozinterruptend" when the system app initializes
-    // the telephony audio from muted to unmuted at the first time. The event
-    // "mozinterruptend" must be dispatched after the "mozinterruptbegin".
-    if (!mHaveDispatchedInterruptBeginEvent && mMuted) {
-      DispatchTrustedEvent(u"mozinterruptbegin"_ns);
-      mHaveDispatchedInterruptBeginEvent = mMuted;
-    } else if (mHaveDispatchedInterruptBeginEvent && !mMuted) {
-      DispatchTrustedEvent(u"mozinterruptend"_ns);
-      mHaveDispatchedInterruptBeginEvent = mMuted;
-    }
-  }
-
+  // Do nothing, it's useless for the telephony object.
   return NS_OK;
 }
 
@@ -882,7 +850,28 @@ Telephony::WindowAudioCaptureChanged(bool aCapture) {
 
 NS_IMETHODIMP
 Telephony::WindowSuspendChanged(uint32_t aSuspend) {
-  // Do nothing, it's useless for the telephony object.
+  // It's impossible to put all the calls on-hold in the multi-call case.
+  if (mCalls.Length() > 1 ||
+      (mCalls.Length() == 1 && mGroup->CallsArray().Length())) {
+    return NS_ERROR_FAILURE;
+  }
+
+  // These events will be triggered when the telephony is interrupted by other
+  // audio channel.
+  bool suspended = aSuspend != nsISuspendedTypes::NONE_SUSPENDED;
+  if (mAudioChannelSuspended != suspended) {
+    mAudioChannelSuspended = suspended;
+    // We should not dispatch "mozinterruptend" when the system app initializes
+    // the telephony audio from muted to unmuted at the first time. The event
+    // "mozinterruptend" must be dispatched after the "mozinterruptbegin".
+    if (!mHaveDispatchedInterruptBeginEvent && mAudioChannelSuspended) {
+      DispatchTrustedEvent(u"mozinterruptbegin"_ns);
+      mHaveDispatchedInterruptBeginEvent = mAudioChannelSuspended;
+    } else if (mHaveDispatchedInterruptBeginEvent && !mAudioChannelSuspended) {
+      DispatchTrustedEvent(u"mozinterruptend"_ns);
+      mHaveDispatchedInterruptBeginEvent = mAudioChannelSuspended;
+    }
+  }
   return NS_OK;
 }
 
@@ -902,7 +891,7 @@ Telephony::CallStateChanged(uint32_t aLength, nsITelephonyCallInfo** aAllInfo) {
   // Update conference state
   mGroup->ChangeState();
 
-  rv = HandleAudioAgentState();
+  rv = HandleAudioChannelState();
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
@@ -919,7 +908,7 @@ Telephony::EnumerateCallStateComplete() {
   // Set conference state.
   mGroup->ChangeState();
 
-  HandleAudioAgentState();
+  HandleAudioChannelState();
   if (mReadyPromise) {
     mReadyPromise->MaybeResolve(JS::UndefinedHandleValue);
   }

@@ -52,7 +52,7 @@ class Telephony final : public DOMEventTargetHelper,
   friend class telephony::TelephonyDialCallback;
 
   // The audio agent is needed to communicate with the audio channel service.
-  nsCOMPtr<nsIAudioChannelAgent> mAudioAgent;
+  RefPtr<AudioChannelAgent> mAudioChannelAgent;
   nsCOMPtr<nsITelephonyService> mService;
   RefPtr<Listener> mListener;
 
@@ -68,7 +68,7 @@ class Telephony final : public DOMEventTargetHelper,
 
   bool mIsAudioStartPlaying;
   bool mHaveDispatchedInterruptBeginEvent;
-  bool mMuted;
+  bool mAudioChannelSuspended;
 
  public:
   NS_DECL_ISUPPORTS_INHERITED
@@ -251,7 +251,7 @@ class Telephony final : public DOMEventTargetHelper,
   nsresult HandleCallInfo(nsITelephonyCallInfo* aInfo);
 
   // Check the call states to decide whether need to send the notificaiton.
-  nsresult HandleAudioAgentState();
+  nsresult HandleAudioChannelState();
 };
 
 }  // namespace dom
