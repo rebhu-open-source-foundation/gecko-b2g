@@ -290,6 +290,34 @@ nsIEditor* getEditor(Element* aElement) {
   return editor;
 }
 
+TextEventDispatcher* getTextEventDispatcherFromFocus() {
+  RefPtr<nsFocusManager> focusManager = nsFocusManager::GetFocusManager();
+  if (!focusManager) {
+    return nullptr;
+  }
+  RefPtr<Element> focusedElement = focusManager->GetFocusedElement();
+  if (!focusedElement) {
+    return nullptr;
+  }
+  nsCOMPtr<Document> doc = focusedElement->GetComposedDoc();
+  if (!doc) {
+    return nullptr;
+  }
+  PresShell* presShell = doc->GetPresShell();
+  if (!presShell) {
+    return nullptr;
+  }
+  nsPresContext* presContext = presShell->GetPresContext();
+  if (!presContext) {
+    return nullptr;
+  }
+  RefPtr<nsIWidget> widget = presContext->GetTextInputHandlingWidget();
+  if (!widget) {
+    return nullptr;
+  }
+  return widget->GetTextEventDispatcher();
+}
+
 HandleFocusRequest CreateFocusRequestFromInputContext(
     nsIInputContext* aInputContext) {
   nsAutoString typeValue, inputTypeValue, valueValue, maxValue, minValue,
@@ -545,11 +573,25 @@ GeckoEditableSupport::HandleEvent(Event* aEvent) {
   if (eventType.EqualsLiteral("focus")) {
     IME_LOGD("-- GeckoEditableSupport::HandleEvent : focus %p", node.get());
     HandleFocus();
+    RefPtr<TextEventDispatcher> dispatcher = getTextEventDispatcherFromFocus();
+    if (dispatcher && dispatcher != mDispatcher) {
+      mDispatcher = dispatcher;
+      nsresult result = BeginInputTransaction(mDispatcher);
+      if (NS_WARN_IF(NS_FAILED(result))) {
+        IME_LOGD("mDispatcher fails to BeginInputTransaction");
+      }
+    }
   }
 
   if (eventType.EqualsLiteral("blur")) {
     IME_LOGD("-- GeckoEditableSupport::HandleEvent : blur %p", node.get());
     HandleBlur();
+    RefPtr<TextEventDispatcher> dispatcher = getTextEventDispatcherFromFocus();
+    if (dispatcher && dispatcher != mDispatcher) {
+      mDispatcher = dispatcher;
+      mDispatcher->EndInputTransaction(this);
+      OnRemovedFrom(mDispatcher);
+    }
   }
   return NS_OK;
 }
