@@ -47,7 +47,7 @@ this.AccessFu = {
 
     settingsManager.get(SCREENREADER_SETTING, {
       resolve: v => {
-        this._systemPref = Number(v.value);
+        this._systemPref = v.value;
         this._enableOrDisable();
       },
       reject: v => Logger.debug("reject " + v.name + " " + v.reason),
@@ -71,7 +71,7 @@ this.AccessFu = {
    * For settingsManager observe
    */
   observeSetting: function observeSetting(v) {
-    this._systemPref = Number(v.value);
+    this._systemPref = v.value;
     this._enableOrDisable();
   },
 

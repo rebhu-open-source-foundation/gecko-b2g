@@ -381,7 +381,7 @@ this.SettingsPrefsSync = {
               );
             }
 
-            if (value == 1) {
+            if (value) {
               accessibilityScope.AccessFu.attach(this.window);
             } else {
               accessibilityScope.AccessFu.detach();
