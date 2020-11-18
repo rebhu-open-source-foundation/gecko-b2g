@@ -24,7 +24,7 @@ const DENY_ACTION = Ci.nsIPermissionManager.DENY_ACTION;
 const PROMPT_ACTION = Ci.nsIPermissionManager.PROMPT_ACTION;
 
 // Permissions that are granted to all installed apps.
-this.defaultPermissions = ["vibration", "notification-storage"];
+this.defaultPermissions = ["vibration"];
 
 /**
  * For efficient lookup and systematic indexing, please help to arrange the

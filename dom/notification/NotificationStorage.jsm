@@ -9,10 +9,6 @@ function debug(s) {
   dump("-*- NotificationStorage.js: " + s + "\n");
 }
 
-const { AppConstants } = ChromeUtils.import(
-  "resource://gre/modules/AppConstants.jsm"
-);
-
 ChromeUtils.defineModuleGetter(
   this,
   "Services",
@@ -64,25 +60,6 @@ NotificationStorage.prototype = {
     }
   },
 
-  canPut(aOrigin) {
-    // Firefox browser always put notifications into DB
-    if (!AppConstants.MOZ_B2G) {
-      return true;
-    }
-
-    let principal = Services.scriptSecurityManager.createContentPrincipalFromOrigin(
-      aOrigin
-    );
-    let permission = Services.perms.testExactPermissionFromPrincipal(
-      principal,
-      "notification-storage"
-    );
-    if (permission == Ci.nsIPermissionManager.ALLOW_ACTION) {
-      return true;
-    }
-    return false;
-  },
-
   put(
     origin,
     id,
@@ -124,12 +101,10 @@ NotificationStorage.prototype = {
       serviceWorkerRegistrationScope,
     };
 
-    if (this.canPut(origin)) {
-      Services.cpmm.sendAsyncMessage("Notification:Save", {
-        origin,
-        notification,
-      });
-    }
+    Services.cpmm.sendAsyncMessage("Notification:Save", {
+      origin,
+      notification,
+    });
   },
 
   get(origin, tag, callback) {
