@@ -2909,8 +2909,7 @@ if test -n "$MOZ_B2G"; then
         MOZ_B2G_BT_DAEMON=1
     fi
 fi
-# FIXME(fabrice)
-# AC_DEFINE(MOZ_B2G)
+AC_SUBST(MOZ_B2G)
 
 dnl ========================================================
 dnl = Enable Bluetooth Interface for B2G (Gonk usually)
