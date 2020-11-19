@@ -416,6 +416,7 @@ bool GonkDisplayP::SwapBuffers(DisplayType aDisplayType) {
 
 bool GonkDisplayP::Post(buffer_handle_t buf, int fence,
                         DisplayType aDisplayType) {
+  sp<Fence> fenceObj = new Fence(fence);
   if (aDisplayType == DisplayType::DISPLAY_PRIMARY) {
     // UpdateDispSurface(0, EGL_NO_SURFACE);
     return true;
@@ -423,10 +424,7 @@ bool GonkDisplayP::Post(buffer_handle_t buf, int fence,
     // Only support fb1 for certain device, use hwc to control
     // external screen in general case.
     if (mExtFBDevice) {
-      if (fence >= 0) {
-        sp<Fence> fenceObj = new Fence(fence);
-        fenceObj->waitForever("GonkDisplay::Post");
-      }
+      fenceObj->waitForever("GonkDisplay::Post");
       return mExtFBDevice->Post(buf);
     }
     return false;
