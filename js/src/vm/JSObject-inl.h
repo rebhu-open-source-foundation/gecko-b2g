@@ -283,10 +283,6 @@ inline bool JSObject::staticPrototypeIsImmutable() const {
   return hasAllFlags(js::BaseShape::IMMUTABLE_PROTOTYPE);
 }
 
-inline bool JSObject::isIteratedSingleton() const {
-  return hasAllFlags(js::BaseShape::ITERATED_SINGLETON);
-}
-
 inline bool JSObject::isNewGroupUnknown() const {
   return hasAllFlags(js::BaseShape::NEW_GROUP_UNKNOWN);
 }
@@ -404,11 +400,6 @@ inline gc::InitialHeap GetInitialHeap(NewObjectKind newKind,
 
 inline gc::InitialHeap GetInitialHeap(NewObjectKind newKind,
                                       ObjectGroup* group) {
-  AutoSweepObjectGroup sweep(group);
-  if (group->shouldPreTenure(sweep)) {
-    return gc::TenuredHeap;
-  }
-
   return GetInitialHeap(newKind, group->clasp());
 }
 

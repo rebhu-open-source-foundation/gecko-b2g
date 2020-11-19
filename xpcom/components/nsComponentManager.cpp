@@ -209,39 +209,6 @@ class MOZ_STACK_CLASS EntryWrapper final {
   Variant<nsFactoryEntry*, const StaticModule*> mEntry;
 };
 
-// GetService and a few other functions need to exit their mutex mid-function
-// without reentering it later in the block. This class supports that
-// style of early-exit that MutexAutoUnlock doesn't.
-
-class MOZ_STACK_CLASS MutexLock {
- public:
-  explicit MutexLock(SafeMutex& aMutex) : mMutex(aMutex), mLocked(false) {
-    Lock();
-  }
-
-  ~MutexLock() {
-    if (mLocked) {
-      Unlock();
-    }
-  }
-
-  void Lock() {
-    NS_ASSERTION(!mLocked, "Re-entering a mutex");
-    mMutex.Lock();
-    mLocked = true;
-  }
-
-  void Unlock() {
-    NS_ASSERTION(mLocked, "Exiting a mutex that isn't held!");
-    mMutex.Unlock();
-    mLocked = false;
-  }
-
- private:
-  SafeMutex& mMutex;
-  bool mLocked;
-};
-
 }  // namespace
 
 // this is safe to call during InitXPCOM
@@ -595,7 +562,7 @@ void nsComponentManagerImpl::RegisterModule(const mozilla::Module* aModule) {
   {
     // Scope the monitor so that we don't hold it while calling into the
     // category manager.
-    MutexLock lock(mLock);
+    MonitorAutoLock lock(mLock);
 
     KnownModule* m = new KnownModule(aModule);
     mKnownStaticModules.AppendElement(m);
@@ -656,7 +623,7 @@ void nsComponentManagerImpl::RegisterCIDEntryLocked(
     } else {
       existing = "<unknown module>";
     }
-    SafeMutexAutoUnlock unlock(mLock);
+    MonitorAutoUnlock unlock(mLock);
     LogMessage(
         "While registering XPCOM module %s, trying to re-register CID '%s' "
         "already registered by %s.",
@@ -695,7 +662,7 @@ void nsComponentManagerImpl::RegisterContractIDLocked(
   if (!f) {
     NS_WARNING("No CID found when attempting to map contract ID");
 
-    SafeMutexAutoUnlock unlock(mLock);
+    MonitorAutoUnlock unlock(mLock);
     LogMessage(
         "Could not map contract ID '%s' to CID %s because no implementation of "
         "the CID is registered.",
@@ -761,11 +728,11 @@ void nsComponentManagerImpl::ManifestComponent(ManifestProcessingContext& aCx,
   nsCString hash;
   fl.GetURIString(hash);
 
-  MutexLock lock(mLock);
-  if (Maybe<EntryWrapper> f = LookupByCID(lock, cid)) {
+  Maybe<MonitorAutoLock> lock(std::in_place, mLock);
+  if (Maybe<EntryWrapper> f = LookupByCID(*lock, cid)) {
     nsCString existing(f->ModuleDescription());
 
-    lock.Unlock();
+    lock.reset();
 
     LogMessageWithContext(
         aCx.mFile, aLineNo,
@@ -806,10 +773,10 @@ void nsComponentManagerImpl::ManifestContract(ManifestProcessingContext& aCx,
     return;
   }
 
-  MutexLock lock(mLock);
+  Maybe<MonitorAutoLock> lock(std::in_place, mLock);
   nsFactoryEntry* f = mFactories.Get(&cid);
   if (!f) {
-    lock.Unlock();
+    lock.reset();
     LogMessageWithContext(aCx.mFile, aLineNo,
                           "Could not map contract ID '%s' to CID %s because no "
                           "implementation of the CID is registered.",
@@ -944,10 +911,10 @@ nsresult nsComponentManagerImpl::GetInterface(const nsIID& aUuid,
 }
 
 Maybe<EntryWrapper> nsComponentManagerImpl::LookupByCID(const nsID& aCID) {
-  return LookupByCID(MutexLock(mLock), aCID);
+  return LookupByCID(MonitorAutoLock(mLock), aCID);
 }
 
-Maybe<EntryWrapper> nsComponentManagerImpl::LookupByCID(const MutexLock&,
+Maybe<EntryWrapper> nsComponentManagerImpl::LookupByCID(const MonitorAutoLock&,
                                                         const nsID& aCID) {
   if (const StaticModule* module = StaticComponents::LookupByCID(aCID)) {
     return Some(EntryWrapper(module));
@@ -960,11 +927,11 @@ Maybe<EntryWrapper> nsComponentManagerImpl::LookupByCID(const MutexLock&,
 
 Maybe<EntryWrapper> nsComponentManagerImpl::LookupByContractID(
     const nsACString& aContractID) {
-  return LookupByContractID(MutexLock(mLock), aContractID);
+  return LookupByContractID(MonitorAutoLock(mLock), aContractID);
 }
 
 Maybe<EntryWrapper> nsComponentManagerImpl::LookupByContractID(
-    const MutexLock&, const nsACString& aContractID) {
+    const MonitorAutoLock&, const nsACString& aContractID) {
   if (const StaticModule* module =
           StaticComponents::LookupByContractID(aContractID)) {
     return Some(EntryWrapper(module));
@@ -1246,12 +1213,14 @@ nsComponentManagerImpl::AddPendingService(const nsCID& aServiceCID,
 }
 
 // This should only ever be called within the monitor!
-void nsComponentManagerImpl::RemovePendingService(const nsCID& aServiceCID) {
+void nsComponentManagerImpl::RemovePendingService(MonitorAutoLock& aLock,
+                                                  const nsCID& aServiceCID) {
   uint32_t pendingCount = mPendingServices.Length();
   for (uint32_t index = 0; index < pendingCount; ++index) {
     const PendingServiceInfo& info = mPendingServices.ElementAt(index);
     if (info.cid->Equals(aServiceCID)) {
       mPendingServices.RemoveElementAt(index);
+      aLock.NotifyAll();
       return;
     }
   }
@@ -1270,20 +1239,22 @@ PRThread* nsComponentManagerImpl::GetPendingServiceThread(
   return nullptr;
 }
 
-nsresult nsComponentManagerImpl::GetServiceLocked(MutexLock& aLock,
+nsresult nsComponentManagerImpl::GetServiceLocked(Maybe<MonitorAutoLock>& aLock,
                                                   EntryWrapper& aEntry,
                                                   const nsIID& aIID,
                                                   void** aResult) {
+  MOZ_ASSERT(aLock.isSome());
+  if (!aLock.isSome()) {
+    return NS_ERROR_INVALID_ARG;
+  }
+
   if (auto* service = aEntry.ServiceInstance()) {
-    aLock.Unlock();
+    aLock.reset();
     return service->QueryInterface(aIID, aResult);
   }
 
   PRThread* currentPRThread = PR_GetCurrentThread();
   MOZ_ASSERT(currentPRThread, "This should never be null!");
-
-  // Needed to optimize the event loop below.
-  nsIThread* currentThread = nullptr;
 
   PRThread* pendingPRThread;
   while ((pendingPRThread = GetPendingServiceThread(aEntry.CID()))) {
@@ -1292,32 +1263,13 @@ nsresult nsComponentManagerImpl::GetServiceLocked(MutexLock& aLock,
       return NS_ERROR_NOT_AVAILABLE;
     }
 
-    SafeMutexAutoUnlock unlockPending(mLock);
-
-    // If the current thread doesn't have an associated nsThread, then it's a
-    // thread that doesn't have an event loop to process, so we'll just try
-    // to yield to another thread in an attempt to make progress.
-    if (!nsThreadManager::get().IsNSThread()) {
-      PR_Sleep(PR_INTERVAL_NO_WAIT);
-      continue;
-    }
-
-    if (!currentThread) {
-      currentThread = NS_GetCurrentThread();
-      MOZ_ASSERT(currentThread, "This should never be null!");
-    }
-
-    // This will process a single event or yield the thread if no event is
-    // pending.
-    if (!NS_ProcessNextEvent(currentThread, false)) {
-      PR_Sleep(PR_INTERVAL_NO_WAIT);
-    }
+    aLock->Wait();
   }
 
   // It's still possible that the other thread failed to create the
   // service so we're not guaranteed to have an entry or service yet.
   if (auto* service = aEntry.ServiceInstance()) {
-    aLock.Unlock();
+    aLock.reset();
     return service->QueryInterface(aIID, aResult);
   }
 
@@ -1332,16 +1284,16 @@ nsresult nsComponentManagerImpl::GetServiceLocked(MutexLock& aLock,
   nsCOMPtr<nsISupports> service;
   auto cleanup = MakeScopeExit([&]() {
     // `service` must be released after the lock is released, so if we fail and
-    // still have a reference, release the lock before relasing it.
+    // still have a reference, release the lock before releasing it.
     if (service) {
-      aLock.Unlock();
+      MOZ_ASSERT(aLock.isSome());
+      aLock.reset();
       service = nullptr;
     }
   });
-
   nsresult rv;
   {
-    SafeMutexAutoUnlock unlock(mLock);
+    MonitorAutoUnlock unlock(mLock);
     AUTO_PROFILER_MARKER_TEXT(
         "GetService", OTHER, MarkerStack::Capture(),
         nsDependentCString(nsIDToCString(aEntry.CID()).get()));
@@ -1357,7 +1309,8 @@ nsresult nsComponentManagerImpl::GetServiceLocked(MutexLock& aLock,
   MOZ_ASSERT(pendingPRThread == currentPRThread,
              "Pending service array has been changed!");
 #endif
-  RemovePendingService(aEntry.CID());
+  MOZ_ASSERT(aLock.isSome());
+  RemovePendingService(*aLock, aEntry.CID());
 
   if (NS_FAILED(rv)) {
     return rv;
@@ -1368,7 +1321,8 @@ nsresult nsComponentManagerImpl::GetServiceLocked(MutexLock& aLock,
 
   aEntry.SetServiceInstance(service.forget());
 
-  aLock.Unlock();
+  aLock.reset();
+
   *aResult = do_AddRef(aEntry.ServiceInstance()).take();
   return NS_OK;
 }
@@ -1390,9 +1344,9 @@ nsComponentManagerImpl::GetService(const nsCID& aClass, const nsIID& aIID,
     return NS_ERROR_UNEXPECTED;
   }
 
-  MutexLock lock(mLock);
+  Maybe<MonitorAutoLock> lock(std::in_place, mLock);
 
-  Maybe<EntryWrapper> entry = LookupByCID(lock, aClass);
+  Maybe<EntryWrapper> entry = LookupByCID(*lock, aClass);
   if (!entry) {
     return NS_ERROR_FACTORY_NOT_REGISTERED;
   }
@@ -1418,13 +1372,13 @@ nsresult nsComponentManagerImpl::GetService(ModuleID aId, const nsIID& aIID,
     return NS_ERROR_UNEXPECTED;
   }
 
-  MutexLock lock(mLock);
+  Maybe<MonitorAutoLock> lock(std::in_place, mLock);
 
   Maybe<EntryWrapper> wrapper;
   if (entry.Overridable()) {
     // If we expect this service to be overridden by test code, we need to look
     // it up by contract ID every time.
-    wrapper = LookupByContractID(lock, entry.ContractID());
+    wrapper = LookupByContractID(*lock, entry.ContractID());
     if (!wrapper) {
       return NS_ERROR_FACTORY_NOT_REGISTERED;
     }
@@ -1524,10 +1478,10 @@ nsComponentManagerImpl::GetServiceByContractID(const char* aContractID,
 
   AUTO_PROFILER_LABEL_DYNAMIC_CSTR_NONSENSITIVE("GetServiceByContractID", OTHER,
                                                 aContractID);
-  MutexLock lock(mLock);
+  Maybe<MonitorAutoLock> lock(std::in_place, mLock);
 
   Maybe<EntryWrapper> entry =
-      LookupByContractID(lock, nsDependentCString(aContractID));
+      LookupByContractID(*lock, nsDependentCString(aContractID));
   if (!entry) {
     return NS_ERROR_FACTORY_NOT_REGISTERED;
   }
@@ -1548,7 +1502,7 @@ nsComponentManagerImpl::RegisterFactory(const nsCID& aClass, const char* aName,
 
     nsDependentCString contractID(aContractID);
 
-    SafeMutexAutoLock lock(mLock);
+    MonitorAutoLock lock(mLock);
     nsFactoryEntry* oldf = mFactories.Get(&aClass);
     if (oldf) {
       StaticComponents::InvalidateContractID(contractID);
@@ -1570,7 +1524,7 @@ nsComponentManagerImpl::RegisterFactory(const nsCID& aClass, const char* aName,
 
   auto f = MakeUnique<nsFactoryEntry>(aClass, aFactory);
 
-  SafeMutexAutoLock lock(mLock);
+  MonitorAutoLock lock(mLock);
   if (auto entry = mFactories.LookupForAdd(f->mCIDEntry->cid)) {
     return NS_ERROR_FACTORY_EXISTS;
   } else {
@@ -1600,7 +1554,7 @@ nsComponentManagerImpl::UnregisterFactory(const nsCID& aClass,
   nsCOMPtr<nsISupports> dyingServiceObject;
 
   {
-    SafeMutexAutoLock lock(mLock);
+    MonitorAutoLock lock(mLock);
     auto entry = mFactories.Lookup(&aClass);
     nsFactoryEntry* f = entry ? entry.Data() : nullptr;
     if (!f || f->mFactory != aFactory) {
@@ -1693,7 +1647,7 @@ NS_IMETHODIMP
 nsComponentManagerImpl::ContractIDToCID(const char* aContractID,
                                         nsCID** aResult) {
   {
-    MutexLock lock(mLock);
+    MonitorAutoLock lock(mLock);
     Maybe<EntryWrapper> entry =
         LookupByContractID(lock, nsDependentCString(aContractID));
     if (entry) {
@@ -1811,7 +1765,7 @@ already_AddRefed<nsIFactory> nsFactoryEntry::GetFactory() {
       return nullptr;
     }
 
-    SafeMutexAutoLock lock(nsComponentManagerImpl::gComponentManager->mLock);
+    MonitorAutoLock lock(nsComponentManagerImpl::gComponentManager->mLock);
     // Threads can race to set mFactory
     if (!mFactory) {
       factory.swap(mFactory);

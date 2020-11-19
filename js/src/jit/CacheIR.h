@@ -1286,9 +1286,6 @@ class MOZ_RAII GetPropIRGenerator : public IRGenerator {
   HandleValue receiver_;
   GetPropertyResultFlags resultFlags_;
 
-  enum class PreliminaryObjectAction { None, Unlink, NotePreliminary };
-  PreliminaryObjectAction preliminaryObjectAction_;
-
   AttachDecision tryAttachNative(HandleObject obj, ObjOperandId objId,
                                  HandleId id, ValOperandId receiverId);
   AttachDecision tryAttachUnboxed(HandleObject obj, ObjOperandId objId,
@@ -1399,14 +1396,6 @@ class MOZ_RAII GetPropIRGenerator : public IRGenerator {
 
   AttachDecision tryAttachStub();
   AttachDecision tryAttachIdempotentStub();
-
-  bool shouldUnlinkPreliminaryObjectStubs() const {
-    return preliminaryObjectAction_ == PreliminaryObjectAction::Unlink;
-  }
-
-  bool shouldNotePreliminaryObjectStub() const {
-    return preliminaryObjectAction_ == PreliminaryObjectAction::NotePreliminary;
-  }
 };
 
 // GetNameIRGenerator generates CacheIR for a GetName IC.
@@ -1447,6 +1436,7 @@ class MOZ_RAII BindNameIRGenerator : public IRGenerator {
 };
 
 // Information used by SetProp/SetElem stubs to check/update property types.
+// TODO(no-TI): remove.
 class MOZ_RAII PropertyTypeCheckInfo {
   RootedObjectGroup group_;
   RootedId id_;
@@ -1492,11 +1482,7 @@ class MOZ_RAII SetPropIRGenerator : public IRGenerator {
   HandleValue idVal_;
   HandleValue rhsVal_;
   PropertyTypeCheckInfo typeCheckInfo_;
-
-  enum class PreliminaryObjectAction { None, Unlink, NotePreliminary };
-  PreliminaryObjectAction preliminaryObjectAction_;
   bool attachedTypedArrayOOBStub_;
-
   bool maybeHasExtraIndexedProps_;
 
  public:
@@ -1592,14 +1578,6 @@ class MOZ_RAII SetPropIRGenerator : public IRGenerator {
   AttachDecision tryAttachAddSlotStub(HandleObjectGroup oldGroup,
                                       HandleShape oldShape);
   void trackAttached(const char* name);
-
-  bool shouldUnlinkPreliminaryObjectStubs() const {
-    return preliminaryObjectAction_ == PreliminaryObjectAction::Unlink;
-  }
-
-  bool shouldNotePreliminaryObjectStub() const {
-    return preliminaryObjectAction_ == PreliminaryObjectAction::NotePreliminary;
-  }
 
   const PropertyTypeCheckInfo* typeCheckInfo() const { return &typeCheckInfo_; }
 
@@ -1745,7 +1723,6 @@ class MOZ_RAII CallIRGenerator : public IRGenerator {
   HandleValue newTarget_;
   HandleValueArray args_;
   PropertyTypeCheckInfo typeCheckInfo_;
-  BaselineCacheIRStubKind cacheIRStubKind_;
 
   ScriptedThisResult getThisForScripted(HandleFunction calleeFunc,
                                         MutableHandleObject result);
@@ -1886,8 +1863,6 @@ class MOZ_RAII CallIRGenerator : public IRGenerator {
   AttachDecision tryAttachStub();
 
   AttachDecision tryAttachDeferredStub(HandleValue result);
-
-  BaselineCacheIRStubKind cacheIRStubKind() const { return cacheIRStubKind_; }
 
   const PropertyTypeCheckInfo* typeCheckInfo() const { return &typeCheckInfo_; }
 };

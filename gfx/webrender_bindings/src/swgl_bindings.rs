@@ -10,7 +10,7 @@ use std::ops::{Deref, DerefMut};
 use std::os::raw::c_void;
 use std::ptr;
 use std::rc::Rc;
-use std::sync::atomic::{AtomicIsize, AtomicU32, AtomicU8, Ordering};
+use std::sync::atomic::{AtomicIsize, AtomicPtr, AtomicU32, AtomicU8, Ordering};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard};
 use std::thread;
 use webrender::{
@@ -530,6 +530,10 @@ impl SwCompositeGraphNodeRef {
     fn get_mut(&self) -> &mut SwCompositeGraphNode {
         unsafe { &mut *self.0.get() }
     }
+
+    fn get_ptr_mut(&self) -> *mut SwCompositeGraphNode {
+        self.0.get()
+    }
 }
 
 unsafe impl Send for SwCompositeGraphNodeRef {}
@@ -615,9 +619,13 @@ impl SwCompositeGraphNode {
         self.parents.fetch_sub(1, Ordering::SeqCst) <= 1
     }
 
-    fn take_band(&self) -> (u8, bool) {
+    fn take_band(&self) -> Option<u8> {
         let band_index = self.band_index.fetch_add(1, Ordering::SeqCst);
-        (band_index, band_index + 1 >= self.max_bands)
+        if band_index < self.max_bands {
+            Some(band_index)
+        } else {
+            None
+        }
     }
 
     /// Try to take the job from this node for processing and then process it within the current band.
@@ -643,7 +651,7 @@ impl SwCompositeGraphNode {
                 if lock.is_none() {
                     lock = Some(thread.lock());
                 }
-                thread.send_job(lock.as_mut().unwrap(), child, false);
+                thread.send_job(lock.as_mut().unwrap(), child);
             }
         }
     }
@@ -655,12 +663,18 @@ impl SwCompositeGraphNode {
 struct SwCompositeThread {
     /// Queue of available composite jobs
     jobs: Mutex<SwCompositeJobQueue>,
+    /// Cache of the current job being processed. This maintains a pointer to
+    /// the contents of the SwCompositeGraphNodeRef, which is safe due to the
+    /// fact that SwCompositor maintains a strong reference to the contents
+    /// in an SwTile to keep it alive while this is in use.
+    current_job: AtomicPtr<SwCompositeGraphNode>,
     /// Count of unprocessed jobs still in the queue
     job_count: AtomicIsize,
-    /// Condition signaled when there are jobs available to process.
+    /// Condition signaled when either there are jobs available to process or
+    /// there are no more jobs left to process. Otherwise stated, this signals
+    /// when the job queue transitions from an empty to non-empty state or from
+    /// a non-empty to empty state.
     jobs_available: Condvar,
-    /// Condition signaled when there are no more jobs left to process.
-    jobs_completed: Condvar,
 }
 
 /// The SwCompositeThread struct is shared between the SwComposite thread
@@ -679,9 +693,9 @@ impl SwCompositeThread {
     fn new() -> Arc<SwCompositeThread> {
         let info = Arc::new(SwCompositeThread {
             jobs: Mutex::new(SwCompositeJobQueue::new()),
+            current_job: AtomicPtr::new(ptr::null_mut()),
             job_count: AtomicIsize::new(0),
             jobs_available: Condvar::new(),
-            jobs_completed: Condvar::new(),
         });
         let result = info.clone();
         let thread_name = "SwComposite";
@@ -718,7 +732,7 @@ impl SwCompositeThread {
     /// Process a job contained in a dependency graph node received from the job queue.
     /// Any child dependencies will be unblocked as appropriate after processing. The
     /// job count will be updated to reflect this.
-    fn process_job(&self, mut graph_node: SwCompositeGraphNodeRef, band: u8) {
+    fn process_job(&self, graph_node: &mut SwCompositeGraphNode, band: u8) {
         // Do the actual processing of the job contained in this node.
         graph_node.process_job(band);
         // Unblock any child dependencies now that this job has been processed.
@@ -759,7 +773,7 @@ impl SwCompositeThread {
         };
         self.job_count.fetch_add(num_bands as isize, Ordering::SeqCst);
         if graph_node.set_job(job, num_bands) {
-            self.send_job(job_queue, graph_node, true);
+            self.send_job(job_queue, graph_node);
         }
     }
 
@@ -776,46 +790,76 @@ impl SwCompositeThread {
     }
 
     /// Send a job to the composite thread by adding it to the job queue.
-    /// Optionally signal that this job has been added in case the queue
-    /// was empty and the SwComposite thread is waiting for jobs.
-    fn send_job(&self, queue: &mut SwCompositeJobQueue, job: SwCompositeGraphNodeRef, signal: bool) {
-        if signal && queue.is_empty() {
+    /// Signal that this job has been added in case the queue was empty and the
+    /// SwComposite thread is waiting for jobs.
+    fn send_job(&self, queue: &mut SwCompositeJobQueue, job: SwCompositeGraphNodeRef) {
+        if queue.is_empty() {
             self.jobs_available.notify_all();
         }
         queue.push_back(job);
     }
 
+    /// Try to get a band of work from the currently cached job when available.
+    /// If there is a job, but it has no available bands left, null out the job
+    /// so that other threads do not bother checking the job.
+    fn try_take_job(&self) -> Option<(&mut SwCompositeGraphNode, u8)> {
+        let current_job_ptr = self.current_job.load(Ordering::SeqCst);
+        if let Some(current_job) = unsafe { current_job_ptr.as_mut() } {
+            if let Some(band) = current_job.take_band() {
+                return Some((current_job, band));
+            }
+            self.current_job
+                .compare_and_swap(current_job_ptr, ptr::null_mut(), Ordering::Relaxed);
+        }
+        return None;
+    }
+
     /// Take a job from the queue. Optionally block waiting for jobs to become
     /// available if this is called from the SwComposite thread.
-    fn take_job(&self, wait: bool) -> Option<(SwCompositeGraphNodeRef, u8)> {
+    fn take_job(&self, wait: bool) -> Option<(&mut SwCompositeGraphNode, u8)> {
+        // First try checking the cached job outside the scope of the mutex.
+        // For jobs that have multiple bands, this allows us to avoid having
+        // to lock the mutex multiple times to check the job for each band.
+        if let Some((job, band)) = self.try_take_job() {
+            return Some((job, band));
+        }
         // Lock the job queue while checking for available jobs. The lock
         // won't be held while the job is processed later outside of this
         // function so that other threads can pull from the queue meanwhile.
         let mut jobs = self.lock();
-        if wait {
-            while jobs.is_empty() {
-                match self.job_count.load(Ordering::SeqCst) {
-                    // If waiting inside the SwCompositeThread and we completed all
-                    // available jobs, signal completion.
-                    0 => self.jobs_completed.notify_all(),
-                    // A negative job count signals to exit immediately.
-                    job_count if job_count < 0 => return None,
-                    _ => {}
-                }
-                // The SwCompositeThread needs to wait for jobs to become
-                // available to avoid busy waiting on the queue.
-                jobs = self.jobs_available.wait(jobs).unwrap();
+        loop {
+            // While inside the mutex, check the cached job again to see if it
+            // has been updated.
+            if let Some((job, band)) = self.try_take_job() {
+                return Some((job, band));
             }
-        }
-        // Look for a job at the front of the queue. If there is one, take the
-        // next unprocessed band from the job. If this was the last band in the
-        // job, then finally remove it from the queue.
-        if let Some(job) = jobs.front() {
-            let (band, done) = job.take_band();
-            let job = if done { jobs.pop_front().unwrap() } else { job.clone() };
-            Some((job, band))
-        } else {
-            None
+            // If no cached job was available, try to take a job from the queue
+            // and install it as the current job.
+            if let Some(job) = jobs.pop_front() {
+                self.current_job.store(job.get_ptr_mut(), Ordering::SeqCst);
+                continue;
+            }
+            // Otherwise, the job queue is currently empty. Depending on the
+            // value of the job count we may either wait for jobs to become
+            // available or exit.
+            match self.job_count.load(Ordering::SeqCst) {
+                // If we completed all available jobs, signal completion. If
+                // waiting inside the SwCompositeThread, then block waiting for
+                // more jobs to become available in a new frame. Otherwise,
+                // return immediately.
+                0 => {
+                    self.jobs_available.notify_all();
+                    if !wait {
+                        return None;
+                    }
+                }
+                // A negative job count signals to exit immediately.
+                job_count if job_count < 0 => return None,
+                _ => {}
+            }
+            // The SwCompositeThread needs to wait for jobs to become
+            // available to avoid busy waiting on the queue.
+            jobs = self.jobs_available.wait(jobs).unwrap();
         }
     }
 
@@ -846,12 +890,9 @@ impl SwCompositeThread {
         // If processing synchronously, just wait for the composite thread
         // to complete processing any in-flight jobs, then bail.
         let mut jobs = self.lock();
-        // Wake up the composite thread in case it is blocked waiting on a 0
-        // job count resulting from job stealing while it was blocked.
-        self.jobs_available.notify_all();
         // If the job count is non-zero here, then there are in-flight jobs.
         while self.job_count.load(Ordering::SeqCst) > 0 {
-            jobs = self.jobs_completed.wait(jobs).unwrap();
+            jobs = self.jobs_available.wait(jobs).unwrap();
         }
     }
 
@@ -1092,7 +1133,7 @@ impl SwCompositor {
                     color_depth: ColorDepth::Color8,
                     size: DeviceIntSize::zero(),
                 };
-                assert!(surface.tiles.len() > 0);
+                assert!(!surface.tiles.is_empty());
                 let mut tile = &mut surface.tiles[0];
                 if unsafe { wr_swgl_lock_composite_surface(self.gl.into(), external_image, &mut info) } {
                     tile.valid_rect = DeviceIntRect::from_size(info.size);
@@ -1307,7 +1348,7 @@ impl Compositor for SwCompositor {
                 native_gl.bind_buffer(gl::PIXEL_UNPACK_BUFFER, tile.pbo_id);
                 native_gl.buffer_data_untyped(
                     gl::PIXEL_UNPACK_BUFFER,
-                    surface.tile_size.area() as isize * 4 + 16,
+                    surface.tile_size.area() as isize * 4,
                     ptr::null(),
                     gl::DYNAMIC_DRAW,
                 );
@@ -1385,7 +1426,7 @@ impl Compositor for SwCompositor {
                         buf = native_gl.map_buffer_range(
                             gl::PIXEL_UNPACK_BUFFER,
                             0,
-                            valid_rect.size.area() as isize * 4 + 16,
+                            valid_rect.size.area() as isize * 4,
                             gl::MAP_WRITE_BIT | gl::MAP_INVALIDATE_BUFFER_BIT,
                         ); // | gl::MAP_UNSYNCHRONIZED_BIT);
                         if buf != ptr::null_mut() {
@@ -1466,7 +1507,7 @@ impl Compositor for SwCompositor {
                 assert!(stride % 4 == 0);
                 let buf = if tile.pbo_id != 0 {
                     native_gl.unmap_buffer(gl::PIXEL_UNPACK_BUFFER);
-                    0 as *mut c_void
+                    std::ptr::null_mut::<c_void>()
                 } else {
                     swbuf
                 };

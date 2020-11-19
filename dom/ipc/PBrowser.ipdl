@@ -626,7 +626,7 @@ child:
     /**
      * Parent informs the child to release all pointer capture.
      */
-    async ReleaseAllPointerCapture();
+    prio(input) async ReleaseAllPointerCapture();
 
 parent:
     async UpdateCursorPos(LayoutDeviceIntPoint aPoint);
@@ -730,9 +730,9 @@ child:
     /**
      * Sending an activate message moves focus to the child.
      */
-    async Activate();
+    async Activate(uint64_t aActionId);
 
-    async Deactivate();
+    async Deactivate(uint64_t aActionId);
 
     async ScrollbarPreferenceChanged(ScrollbarPreference pref);
 

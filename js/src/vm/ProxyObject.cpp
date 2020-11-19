@@ -132,15 +132,11 @@ ProxyObject* ProxyObject::New(JSContext* cx, const BaseProxyHandler* handler,
   // Ensure that the wrapper has the same lifetime assumptions as the
   // wrappee. Prefer to allocate in the nursery, when possible.
   gc::InitialHeap heap;
-  {
-    AutoSweepObjectGroup sweep(group);
-    if (group->shouldPreTenure(sweep) ||
-        (priv.isGCThing() && priv.toGCThing()->isTenured()) ||
-        !handler->canNurseryAllocate()) {
-      heap = gc::TenuredHeap;
-    } else {
-      heap = gc::DefaultHeap;
-    }
+  if ((priv.isGCThing() && priv.toGCThing()->isTenured()) ||
+      !handler->canNurseryAllocate()) {
+    heap = gc::TenuredHeap;
+  } else {
+    heap = gc::DefaultHeap;
   }
 
   debugCheckNewObject(group, shape, allocKind, heap);
@@ -161,11 +157,6 @@ ProxyObject* ProxyObject::New(JSContext* cx, const BaseProxyHandler* handler,
   gc::gcprobes::CreateObject(proxy);
 
   proxy->init(handler, priv, cx);
-
-  // Don't track types of properties of non-DOM and non-singleton proxies.
-  if (!clasp->isDOMClass()) {
-    MarkObjectGroupUnknownProperties(cx, proxy->group());
-  }
 
   return proxy;
 }

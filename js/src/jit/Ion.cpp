@@ -21,7 +21,6 @@
 #include "jit/AutoWritableJitCode.h"
 #include "jit/BacktrackingAllocator.h"
 #include "jit/BaselineFrame.h"
-#include "jit/BaselineInspector.h"
 #include "jit/BaselineJIT.h"
 #include "jit/CacheIRSpewer.h"
 #include "jit/CodeGenerator.h"
@@ -33,7 +32,6 @@
 #include "jit/InlineScriptTree.h"
 #include "jit/InstructionReordering.h"
 #include "jit/IonAnalysis.h"
-#include "jit/IonBuilder.h"
 #include "jit/IonCompileTask.h"
 #include "jit/IonIC.h"
 #include "jit/IonOptimizationLevels.h"
@@ -71,6 +69,7 @@
 
 #include "debugger/DebugAPI-inl.h"
 #include "gc/GC-inl.h"
+#include "jit/InlineScriptTree-inl.h"
 #include "jit/MacroAssembler-inl.h"
 #include "jit/SafepointIndex-inl.h"
 #include "jit/shared/Lowering-shared-inl.h"
@@ -333,15 +332,13 @@ void JitRealm::performStubReadBarriers(uint32_t stubsToBarrier) const {
 }
 
 static bool LinkCodeGen(JSContext* cx, CodeGenerator* codegen,
-                        HandleScript script,
-                        CompilerConstraintList* constraints,
-                        const WarpSnapshot* snapshot) {
+                        HandleScript script, const WarpSnapshot* snapshot) {
   TraceLoggerThread* logger = TraceLoggerForCurrentThread(cx);
   TraceLoggerEvent event(TraceLogger_AnnotateScripts, script);
   AutoTraceLog logScript(logger, event);
   AutoTraceLog logLink(logger, TraceLogger_IonLinking);
 
-  if (!codegen->link(cx, constraints, snapshot)) {
+  if (!codegen->link(cx, snapshot)) {
     return false;
   }
 
@@ -356,8 +353,7 @@ static bool LinkBackgroundCodeGen(JSContext* cx, IonCompileTask* task) {
 
   JitContext jctx(cx, &task->alloc());
   RootedScript script(cx, task->script());
-  return LinkCodeGen(cx, codegen, script, task->constraints(),
-                     task->snapshot());
+  return LinkCodeGen(cx, codegen, script, task->snapshot());
 }
 
 void jit::LinkIonScript(JSContext* cx, HandleScript calleeScript) {
@@ -1528,79 +1524,6 @@ static void TrackAndSpewIonAbort(JSContext* cx, JSScript* script,
   TrackIonAbort(cx, script, script->code(), message);
 }
 
-static AbortReason BuildMIR(JSContext* cx, MIRGenerator* mirGen,
-                            CompileInfo* info,
-                            CompilerConstraintList* constraints,
-                            BaselineFrame* baselineFrame,
-                            uint32_t baselineFrameSize) {
-  BaselineFrameInspector* baselineFrameInspector = nullptr;
-  if (baselineFrame) {
-    baselineFrameInspector = NewBaselineFrameInspector(
-        &mirGen->alloc(), baselineFrame, baselineFrameSize);
-    if (!baselineFrameInspector) {
-      return AbortReason::Alloc;
-    }
-  }
-
-  SpewBeginFunction(mirGen, info->script());
-
-  BaselineInspector inspector(info->script());
-  IonBuilder builder((JSContext*)nullptr, *mirGen, info, constraints,
-                     &inspector, baselineFrameInspector);
-
-  AbortReasonOr<Ok> buildResult = Ok();
-  {
-    AutoEnterAnalysis enter(cx);
-    buildResult = builder.build();
-  }
-
-  if (buildResult.isErr()) {
-    AbortReason reason = buildResult.unwrapErr();
-    mirGen->graphSpewer().endFunction();
-    if (reason == AbortReason::PreliminaryObjects) {
-      // Some group was accessed which has associated preliminary objects
-      // to analyze. Do this now and we will try to build again shortly.
-      const IonBuilder::ObjectGroupVector& groups =
-          builder.abortedPreliminaryGroups();
-      for (size_t i = 0; i < groups.length(); i++) {
-        ObjectGroup* group = groups[i];
-        AutoRealm ar(cx, group);
-        AutoSweepObjectGroup sweep(group);
-        if (auto* newScript = group->newScript(sweep)) {
-          if (!newScript->maybeAnalyze(cx, group, nullptr,
-                                       /* force = */ true)) {
-            return AbortReason::Alloc;
-          }
-        } else if (auto* preliminaryObjects =
-                       group->maybePreliminaryObjects(sweep)) {
-          preliminaryObjects->maybeAnalyze(cx, group, /* force = */ true);
-        } else {
-          MOZ_CRASH("Unexpected aborted preliminary group");
-        }
-      }
-    }
-
-    if (builder.hadActionableAbort()) {
-      JSScript* abortScript;
-      jsbytecode* abortPc;
-      const char* abortMessage;
-      builder.actionableAbortLocationAndMessage(&abortScript, &abortPc,
-                                                &abortMessage);
-      TrackIonAbort(cx, abortScript, abortPc, abortMessage);
-    }
-
-    if (cx->isThrowingOverRecursed()) {
-      // Non-analysis compilations should never fail with stack overflow.
-      MOZ_CRASH("Stack overflow during compilation");
-    }
-
-    return reason;
-  }
-
-  AssertBasicGraphCoherency(mirGen->graph());
-  return AbortReason::NoAbort;
-}
-
 static AbortReasonOr<WarpSnapshot*> CreateWarpSnapshot(JSContext* cx,
                                                        MIRGenerator* mirGen,
                                                        HandleScript script) {
@@ -1673,11 +1596,6 @@ static AbortReason IonCompile(JSContext* cx, HandleScript script,
     return AbortReason::Alloc;
   }
 
-  CompilerConstraintList* constraints = NewCompilerConstraintList(*temp);
-  if (!constraints) {
-    return AbortReason::Alloc;
-  }
-
   const OptimizationInfo* optimizationInfo =
       IonOptimizations.get(optimizationLevel);
   const JitCompileOptions options(cx);
@@ -1706,21 +1624,11 @@ static AbortReason IonCompile(JSContext* cx, HandleScript script,
     script->jitScript()->setHadIonOSR();
   }
 
-  WarpSnapshot* snapshot = nullptr;
-  if (JitOptions.warpBuilder) {
-    AbortReasonOr<WarpSnapshot*> result =
-        CreateWarpSnapshot(cx, mirGen, script);
-    if (result.isErr()) {
-      return result.unwrapErr();
-    }
-    snapshot = result.unwrap();
-  } else {
-    AbortReason reason = BuildMIR(cx, mirGen, info, constraints, baselineFrame,
-                                  baselineFrameSize);
-    if (reason != AbortReason::NoAbort) {
-      return reason;
-    }
+  AbortReasonOr<WarpSnapshot*> result = CreateWarpSnapshot(cx, mirGen, script);
+  if (result.isErr()) {
+    return result.unwrapErr();
   }
+  WarpSnapshot* snapshot = result.unwrap();
 
   // If possible, compile the script off thread.
   if (options.offThreadCompilationAvailable()) {
@@ -1729,8 +1637,8 @@ static AbortReason IonCompile(JSContext* cx, HandleScript script,
             ". (Compiled on background thread.)",
             script->filename(), script->lineno(), script->column());
 
-    IonCompileTask* task = alloc->new_<IonCompileTask>(
-        *mirGen, scriptHasIonScript, constraints, snapshot);
+    IonCompileTask* task =
+        alloc->new_<IonCompileTask>(*mirGen, scriptHasIonScript, snapshot);
     if (!task) {
       return AbortReason::Alloc;
     }
@@ -1771,7 +1679,7 @@ static AbortReason IonCompile(JSContext* cx, HandleScript script,
       return AbortReason::Disable;
     }
 
-    succeeded = LinkCodeGen(cx, codegen.get(), script, constraints, snapshot);
+    succeeded = LinkCodeGen(cx, codegen.get(), script, snapshot);
   }
 
   if (succeeded) {

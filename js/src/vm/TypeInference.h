@@ -31,10 +31,7 @@
 
 namespace js {
 
-class TypeConstraint;
 class TypeZone;
-class CompilerConstraintList;
-class HeapTypeSetKey;
 class PlainObject;
 
 namespace jit {
@@ -69,22 +66,6 @@ class MOZ_RAII AutoSweepBase {
   JS::AutoCheckCannotGC nogc;
 };
 
-// Sweep an ObjectGroup. Functions that expect a swept group should take a
-// reference to this class.
-class MOZ_RAII AutoSweepObjectGroup : public AutoSweepBase {
-#ifdef DEBUG
-  ObjectGroup* group_;
-#endif
-
- public:
-  inline explicit AutoSweepObjectGroup(ObjectGroup* group);
-#ifdef DEBUG
-  inline ~AutoSweepObjectGroup();
-
-  ObjectGroup* group() const { return group_; }
-#endif
-};
-
 // Sweep the type inference data in a JitScript. Functions that expect a swept
 // script should take a reference to this class.
 class MOZ_RAII AutoSweepJitScript : public AutoSweepBase {
@@ -101,122 +82,6 @@ class MOZ_RAII AutoSweepJitScript : public AutoSweepBase {
   jit::JitScript* jitScript() const { return jitScript_; }
   Zone* zone() const { return zone_; }
 #endif
-};
-
-CompilerConstraintList* NewCompilerConstraintList(jit::TempAllocator& alloc);
-
-// Stack class to record information about constraints that need to be added
-// after finishing the Definite Properties Analysis. When the analysis succeeds
-// the |finishConstraints| method must be called to add the constraints to the
-// TypeSets.
-//
-// There are two constraint types managed here:
-//
-//   1. Proto constraints for HeapTypeSets, to guard against things like getters
-//      and setters on the proto chain.
-//
-//   2. Inlining constraints for StackTypeSets, to invalidate when additional
-//      functions could be called at call sites where we inlined a function.
-//
-// This class uses bare GC-thing pointers because GC is suppressed when the
-// analysis runs.
-class MOZ_RAII DPAConstraintInfo {
-  struct ProtoConstraint {
-    JSObject* proto;
-    jsid id;
-    ProtoConstraint(JSObject* proto, jsid id) : proto(proto), id(id) {}
-  };
-  struct InliningConstraint {
-    JSScript* caller;
-    JSScript* callee;
-    InliningConstraint(JSScript* caller, JSScript* callee)
-        : caller(caller), callee(callee) {}
-  };
-
-  JS::AutoCheckCannotGC nogc_;
-  Vector<ProtoConstraint, 8> protoConstraints_;
-  Vector<InliningConstraint, 4> inliningConstraints_;
-
- public:
-  explicit DPAConstraintInfo(JSContext* cx)
-      : nogc_(cx), protoConstraints_(cx), inliningConstraints_(cx) {}
-
-  DPAConstraintInfo(const DPAConstraintInfo&) = delete;
-  void operator=(const DPAConstraintInfo&) = delete;
-
-  MOZ_MUST_USE bool addProtoConstraint(JSObject* proto, jsid id) {
-    return protoConstraints_.emplaceBack(proto, id);
-  }
-  MOZ_MUST_USE bool addInliningConstraint(JSScript* caller, JSScript* callee) {
-    return inliningConstraints_.emplaceBack(caller, callee);
-  }
-
-  MOZ_MUST_USE bool finishConstraints(JSContext* cx, ObjectGroup* group);
-};
-
-bool AddClearDefiniteGetterSetterForPrototypeChain(
-    JSContext* cx, DPAConstraintInfo& constraintInfo, ObjectGroup* group,
-    HandleId id, bool* added);
-
-bool AddClearDefiniteFunctionUsesInScript(JSContext* cx, ObjectGroup* group,
-                                          JSScript* script,
-                                          JSScript* calleeScript);
-
-// For groups where only a small number of objects have been allocated, this
-// structure keeps track of all objects in the group. Once COUNT objects have
-// been allocated, this structure is cleared and the objects are analyzed, to
-// perform the new script properties analyses or determine if an unboxed
-// representation can be used.
-class PreliminaryObjectArray {
- public:
-  static const uint32_t COUNT = 20;
-
- private:
-  // All objects with the type which have been allocated. The pointers in
-  // this array are weak.
-  JSObject* objects[COUNT] = {};  // zeroes
-
- public:
-  PreliminaryObjectArray() = default;
-
-  void registerNewObject(PlainObject* res);
-
-  JSObject* get(size_t i) const {
-    MOZ_ASSERT(i < COUNT);
-    return objects[i];
-  }
-
-  bool full() const;
-  void sweep();
-};
-
-class PreliminaryObjectArrayWithTemplate : public PreliminaryObjectArray {
-  HeapPtr<Shape*> shape_;
-
- public:
-  explicit PreliminaryObjectArrayWithTemplate(Shape* shape) : shape_(shape) {}
-
-  Shape* shape() { return shape_; }
-
-  void maybeAnalyze(JSContext* cx, ObjectGroup* group, bool force = false);
-
-  void trace(JSTracer* trc);
-
-  static void preWriteBarrier(
-      PreliminaryObjectArrayWithTemplate* preliminaryObjects);
-};
-
-/**
- * A type representing the initializer of a property within a script being
- * 'new'd.
- */
-class TypeNewScriptInitializer {
- public:
-  enum Kind { SETPROP, SETPROP_FRAME } kind;
-  uint32_t offset;
-
-  TypeNewScriptInitializer(Kind kind, uint32_t offset)
-      : kind(kind), offset(offset) {}
 };
 
 /* Is this a reasonable PC to be doing inlining on? */
@@ -246,17 +111,6 @@ class RecompileInfo {
 // The RecompileInfoVector has a MinInlineCapacity of one so that invalidating a
 // single IonScript doesn't require an allocation.
 typedef Vector<RecompileInfo, 1, SystemAllocPolicy> RecompileInfoVector;
-
-// Generate the type constraints for the compilation. Sets |isValidOut| based on
-// whether the type constraints still hold.
-bool FinishCompilation(JSContext* cx, HandleScript script,
-                       CompilerConstraintList* constraints,
-                       IonCompilationId compilationId, bool* isValidOut);
-
-// Update the actual types in any scripts queried by constraints with any
-// speculative types added during the definite properties analysis.
-void FinishDefinitePropertiesAnalysis(JSContext* cx,
-                                      CompilerConstraintList* constraints);
 
 struct AutoEnterAnalysis;
 
@@ -303,7 +157,6 @@ class TypeZone {
 
   void beginSweep();
   void endSweep(JSRuntime* rt);
-  void clearAllNewScriptsOnOOM();
 
   /* Mark a script as needing recompilation once inference has finished. */
   void addPendingRecompile(JSContext* cx, const RecompileInfo& info);
@@ -334,47 +187,6 @@ class TypeZone {
     return currentCompilationId_.ref();
   }
 };
-
-enum TypeSpewChannel {
-  ISpewOps,    /* ops: New constraints and types. */
-  ISpewResult, /* result: Final type sets. */
-  SPEW_COUNT
-};
-
-#ifdef DEBUG
-
-bool InferSpewActive(TypeSpewChannel channel);
-const char* InferSpewColorReset();
-const char* InferSpewColor(TypeConstraint* constraint);
-const char* InferSpewColor(TypeSet* types);
-
-#  define InferSpew(channel, ...)   \
-    if (InferSpewActive(channel)) { \
-      InferSpewImpl(__VA_ARGS__);   \
-    } else {                        \
-    }
-void InferSpewImpl(const char* fmt, ...) MOZ_FORMAT_PRINTF(1, 2);
-
-/* Check that the type property for id in group contains value. */
-bool ObjectGroupHasProperty(JSContext* cx, ObjectGroup* group, jsid id,
-                            const Value& value);
-
-#else
-
-inline const char* InferSpewColorReset() { return nullptr; }
-inline const char* InferSpewColor(TypeConstraint* constraint) {
-  return nullptr;
-}
-inline const char* InferSpewColor(TypeSet* types) { return nullptr; }
-
-#  define InferSpew(channel, ...) \
-    do {                          \
-    } while (0)
-
-#endif
-
-// Prints type information for a context if spew is enabled or force is set.
-void PrintTypes(JSContext* cx, JS::Compartment* comp, bool force);
 
 } /* namespace js */
 

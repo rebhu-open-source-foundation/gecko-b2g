@@ -2966,12 +2966,11 @@ static const char* ToSource(JSContext* cx, HandleValue vp, UniqueChars* bytes) {
 static bool AssertEq(JSContext* cx, unsigned argc, Value* vp) {
   CallArgs args = CallArgsFromVp(argc, vp);
   if (!(args.length() == 2 || (args.length() == 3 && args[2].isString()))) {
-    JS_ReportErrorNumberASCII(
-        cx, my_GetErrorMessage, nullptr,
-        (args.length() < 2)
-            ? JSSMSG_NOT_ENOUGH_ARGS
-            : (args.length() == 3) ? JSSMSG_INVALID_ARGS : JSSMSG_TOO_MANY_ARGS,
-        "assertEq");
+    JS_ReportErrorNumberASCII(cx, my_GetErrorMessage, nullptr,
+                              (args.length() < 2)    ? JSSMSG_NOT_ENOUGH_ARGS
+                              : (args.length() == 3) ? JSSMSG_INVALID_ARGS
+                                                     : JSSMSG_TOO_MANY_ARGS,
+                              "assertEq");
     return false;
   }
 
@@ -4842,22 +4841,6 @@ static bool SetJitCompilerOption(JSContext* cx, unsigned argc, Value* vp) {
                         "Enabling or disabling the Baseline Interpreter at "
                         "runtime is not supported.");
     return false;
-  }
-
-  // Similarly, don't allow enabling or disabling Warp at runtime. Bytecode and
-  // VM data structures depend on whether TI is enabled/disabled.
-  if (opt == JSJITCOMPILER_WARP_ENABLE) {
-    uint32_t warpEnabled;
-    if (!JS_GetGlobalJitCompilerOption(cx, JSJITCOMPILER_WARP_ENABLE,
-                                       &warpEnabled)) {
-      return false;
-    }
-    if (bool(number) != warpEnabled) {
-      JS_ReportErrorASCII(
-          cx, "Enabling or disabling Warp at runtime is not supported.");
-      return false;
-    }
-    return true;
   }
 
   // Throw if disabling the JITs and there's JIT code on the stack, to avoid
@@ -10483,11 +10466,8 @@ static bool SetContextOptions(JSContext* cx, const OptionParser& op) {
 
   JS::SetUseOffThreadParseGlobal(useOffThreadParseGlobal);
 
-  // First check some options that set default warm-up thresholds, so these
-  // thresholds can be overridden below by --ion-eager and other flags.
-  if (op.getBoolOption("no-warp")) {
-    jit::JitOptions.setWarpEnabled(false);
-  }
+  // Check --fast-warmup first because it sets default warm-up thresholds. These
+  // thresholds can then be overridden below by --ion-eager and other flags.
   if (op.getBoolOption("fast-warmup")) {
     jit::JitOptions.setFastWarmUp();
   }
@@ -11095,14 +11075,6 @@ static int Shell(JSContext* cx, OptionParser* op, char** envp) {
     }
   }
 
-  /*
-   * Dump remaining type inference results while we still have a context.
-   * This printing depends on atoms still existing.
-   */
-  for (CompartmentsIter c(cx->runtime()); !c.done(); c.next()) {
-    PrintTypes(cx, c, false);
-  }
-
   return result;
 }
 
@@ -11258,8 +11230,6 @@ int main(int argc, char** argv, char** envp) {
       !op.addBoolOption('\0', "no-ion", "Disable IonMonkey") ||
       !op.addBoolOption('\0', "no-ion-for-main-context",
                         "Disable IonMonkey for the main context only") ||
-      !op.addBoolOption('\0', "warp", "Enable WarpBuilder (default)") ||
-      !op.addBoolOption('\0', "no-warp", "Disable WarpBuilder") ||
       !op.addIntOption('\0', "inlining-entry-threshold", "COUNT",
                        "The minimum stub entry count before trial-inlining a"
                        " call",

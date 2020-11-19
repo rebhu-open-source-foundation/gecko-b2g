@@ -122,7 +122,7 @@ use crate::print_tree::{PrintTree, PrintTreePrinter};
 use crate::render_backend::{DataStores, FrameId};
 use crate::render_task_graph::RenderTaskId;
 use crate::render_target::RenderTargetKind;
-use crate::render_task::{RenderTask, RenderTaskLocation, BlurTaskCache, ClearMode};
+use crate::render_task::{RenderTask, RenderTaskLocation, BlurTaskCache};
 use crate::resource_cache::{ResourceCache, ImageGeneration};
 use crate::space::{SpaceMapper, SpaceSnapper};
 use crate::scene::SceneProperties;
@@ -4959,7 +4959,6 @@ impl PicturePrimitive {
                             picture_task_id,
                             frame_state.render_tasks,
                             RenderTargetKind::Color,
-                            ClearMode::Transparent,
                             None,
                             original_size.to_i32(),
                         );
@@ -5041,7 +5040,6 @@ impl PicturePrimitive {
                                 picture_task_id,
                                 frame_state.render_tasks,
                                 RenderTargetKind::Color,
-                                ClearMode::Transparent,
                                 Some(&mut blur_tasks),
                                 device_rect.size.to_i32(),
                             );
@@ -5435,10 +5433,7 @@ impl PicturePrimitive {
                                     )
                                 );
 
-                                frame_state.render_tasks.add_dependency(
-                                    frame_state.surfaces[parent_surface_index.0].render_tasks.unwrap().port,
-                                    render_task_id,
-                                );
+                                frame_state.render_task_roots.push(render_task_id);
 
                                 if first {
                                     // TODO(gw): Maybe we can restructure this code to avoid the

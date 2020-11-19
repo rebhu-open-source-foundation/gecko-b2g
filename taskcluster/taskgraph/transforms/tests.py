@@ -286,7 +286,7 @@ TEST_VARIANTS = {
         },
     },
     "webgl-ipc": {
-        # TODO: After November 1st 2020, verify this variant is still needed.
+        # TODO: After 2021-02-01, verify this variant is still needed.
         "description": "{description} with WebGL IPC process enabled",
         "suffix": "gli",
         "replace": {
@@ -936,19 +936,6 @@ def set_tier(config, tasks):
             else:
                 task["tier"] = 2
 
-        yield task
-
-
-@transforms.add
-def set_expires_after(config, tasks):
-    """Try jobs expire after 2 weeks; everything else lasts 1 year.  This helps
-    keep storage costs low."""
-    for task in tasks:
-        if "expires-after" not in task:
-            if config.params.is_try():
-                task["expires-after"] = "14 days"
-            else:
-                task["expires-after"] = "1 year"
         yield task
 
 
@@ -1880,7 +1867,9 @@ def make_job_description(config, tasks):
         if task["mozharness"]["requires-signed-builds"] is True:
             jobdesc["dependencies"]["build-signing"] = task["build-signing-label"]
 
-        jobdesc["expires-after"] = task["expires-after"]
+        if "expires-after" in task:
+            jobdesc["expires-after"] = task["expires-after"]
+
         jobdesc["routes"] = []
         jobdesc["run-on-projects"] = sorted(task["run-on-projects"])
         jobdesc["scopes"] = []

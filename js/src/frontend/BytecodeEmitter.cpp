@@ -1549,12 +1549,9 @@ bool BytecodeEmitter::isInLoop() {
   return findInnermostNestableControl<LoopControl>();
 }
 
-bool BytecodeEmitter::checkRunOnceContext() {
-  return sc->treatAsRunOnce() && !isInLoop();
-}
-
 bool BytecodeEmitter::checkSingletonContext() {
-  return sc->isTopLevelContext() && checkRunOnceContext();
+  MOZ_ASSERT_IF(sc->treatAsRunOnce(), sc->isTopLevelContext());
+  return sc->treatAsRunOnce() && !isInLoop();
 }
 
 bool BytecodeEmitter::needsImplicitThis() {
@@ -1858,11 +1855,11 @@ bool BytecodeEmitter::emitPropIncDec(UnaryNode* incDec) {
       this,
       kind == ParseNodeKind::PostIncrementExpr
           ? PropOpEmitter::Kind::PostIncrement
-          : kind == ParseNodeKind::PreIncrementExpr
-                ? PropOpEmitter::Kind::PreIncrement
-                : kind == ParseNodeKind::PostDecrementExpr
-                      ? PropOpEmitter::Kind::PostDecrement
-                      : PropOpEmitter::Kind::PreDecrement,
+      : kind == ParseNodeKind::PreIncrementExpr
+          ? PropOpEmitter::Kind::PreIncrement
+      : kind == ParseNodeKind::PostDecrementExpr
+          ? PropOpEmitter::Kind::PostDecrement
+          : PropOpEmitter::Kind::PreDecrement,
       isSuper ? PropOpEmitter::ObjKind::Super : PropOpEmitter::ObjKind::Other);
   if (!poe.prepareForObj()) {
     return false;
@@ -1896,11 +1893,11 @@ bool BytecodeEmitter::emitNameIncDec(UnaryNode* incDec) {
   NameOpEmitter noe(this, nameAtom,
                     kind == ParseNodeKind::PostIncrementExpr
                         ? NameOpEmitter::Kind::PostIncrement
-                        : kind == ParseNodeKind::PreIncrementExpr
-                              ? NameOpEmitter::Kind::PreIncrement
-                              : kind == ParseNodeKind::PostDecrementExpr
-                                    ? NameOpEmitter::Kind::PostDecrement
-                                    : NameOpEmitter::Kind::PreDecrement);
+                    : kind == ParseNodeKind::PreIncrementExpr
+                        ? NameOpEmitter::Kind::PreIncrement
+                    : kind == ParseNodeKind::PostDecrementExpr
+                        ? NameOpEmitter::Kind::PostDecrement
+                        : NameOpEmitter::Kind::PreDecrement);
   if (!noe.emitIncDec()) {
     return false;
   }
@@ -1976,11 +1973,11 @@ bool BytecodeEmitter::emitElemIncDec(UnaryNode* incDec) {
       this,
       kind == ParseNodeKind::PostIncrementExpr
           ? ElemOpEmitter::Kind::PostIncrement
-          : kind == ParseNodeKind::PreIncrementExpr
-                ? ElemOpEmitter::Kind::PreIncrement
-                : kind == ParseNodeKind::PostDecrementExpr
-                      ? ElemOpEmitter::Kind::PostDecrement
-                      : ElemOpEmitter::Kind::PreDecrement,
+      : kind == ParseNodeKind::PreIncrementExpr
+          ? ElemOpEmitter::Kind::PreIncrement
+      : kind == ParseNodeKind::PostDecrementExpr
+          ? ElemOpEmitter::Kind::PostDecrement
+          : ElemOpEmitter::Kind::PreDecrement,
       isSuper ? ElemOpEmitter::ObjKind::Super : ElemOpEmitter::ObjKind::Other,
       isPrivate ? NameVisibility::Private : NameVisibility::Public);
   if (!emitElemObjAndKey(elemExpr, isSuper, eoe)) {
@@ -4174,8 +4171,8 @@ bool BytecodeEmitter::emitAssignmentOrInit(ParseNodeKind kind, ParseNode* lhs,
       bool isSuper = prop->isSuper();
       poe.emplace(this,
                   isCompound ? PropOpEmitter::Kind::CompoundAssignment
-                             : isInit ? PropOpEmitter::Kind::PropInit
-                                      : PropOpEmitter::Kind::SimpleAssignment,
+                  : isInit   ? PropOpEmitter::Kind::PropInit
+                             : PropOpEmitter::Kind::SimpleAssignment,
                   isSuper ? PropOpEmitter::ObjKind::Super
                           : PropOpEmitter::ObjKind::Other);
       if (!poe->prepareForObj()) {
@@ -4205,8 +4202,8 @@ bool BytecodeEmitter::emitAssignmentOrInit(ParseNodeKind kind, ParseNode* lhs,
       bool isPrivate = elem->key().isKind(ParseNodeKind::PrivateName);
       eoe.emplace(this,
                   isCompound ? ElemOpEmitter::Kind::CompoundAssignment
-                             : isInit ? ElemOpEmitter::Kind::PropInit
-                                      : ElemOpEmitter::Kind::SimpleAssignment,
+                  : isInit   ? ElemOpEmitter::Kind::PropInit
+                             : ElemOpEmitter::Kind::SimpleAssignment,
                   isSuper ? ElemOpEmitter::ObjKind::Super
                           : ElemOpEmitter::ObjKind::Other,
                   isPrivate ? NameVisibility::Private : NameVisibility::Public);
@@ -5741,33 +5738,6 @@ MOZ_NEVER_INLINE bool BytecodeEmitter::emitFunction(
       }
       funbox->setMemberInitializers(*memberInitializers);
     }
-
-    // A function is a run-once lambda if the following all hold:
-    //  - Enclosing script must be run-once lambda or run-once top-level.
-    //        `SharedContext::treatAsRunOnce()`
-    //  - Function definition must not be in a loop.
-    //        `BytecodeEmitter::isInLoop() == false`
-    //  - Function must be an IIFE like "(function(){ })()".
-    //        `CallOrNewEmitter::state == State::FunctionCallee`
-    //  - Function must not match `shouldSuppressRunOnce` conditions.
-    //
-    // NOTE: This is a heuristic and through trick such as `fun.caller` it may
-    //       still be run more than once. The VM must accomodate this.
-    // NOTE: For a lazy function, this will be applied to any existing function
-    //       in UpdateEmittedInnerFunctions().
-    bool isRunOnceLambda =
-        emittingRunOnceLambda && !funbox->shouldSuppressRunOnce();
-    funbox->setTreatAsRunOnce(isRunOnceLambda);
-
-    // Mark functions which are expected to only have one instance as singletons
-    // functions. These function instances will then always have a unique script
-    // of which they are the canonical function. This improves type-inferrence
-    // precision. CloneFunctionObject will make a deep clone of the function and
-    // script as needed if our prediction is wrong.
-    //
-    // NOTE: This heuristic is arbitrary, but some debugger tests rely on the
-    //       current behaviour and need to be updated if the condiditons change.
-    funbox->setIsSingleton(checkRunOnceContext());
 
     if (!funbox->emitBytecode) {
       return fe.emitLazy();
@@ -8696,11 +8666,10 @@ bool BytecodeEmitter::emitPropertyList(ListNode* obj, PropertyEmitter& pe,
             }
           }
 
-          FunctionPrefixKind prefix = accessorType == AccessorType::None
-                                          ? FunctionPrefixKind::None
-                                          : accessorType == AccessorType::Getter
-                                                ? FunctionPrefixKind::Get
-                                                : FunctionPrefixKind::Set;
+          FunctionPrefixKind prefix =
+              accessorType == AccessorType::None     ? FunctionPrefixKind::None
+              : accessorType == AccessorType::Getter ? FunctionPrefixKind::Get
+                                                     : FunctionPrefixKind::Set;
 
           if (!emitAnonymousFunctionWithComputedName(propVal, prefix)) {
             //      [stack] CTOR? OBJ CTOR? KEY VAL
@@ -8905,9 +8874,9 @@ bool BytecodeEmitter::emitPropertyListObjLiteral(ListNode* obj,
   // JSOp::Object may only be used by (top-level) run-once scripts.
   MOZ_ASSERT_IF(singleton, compilationInfo.input.options.isRunOnce);
 
-  JSOp op = singleton
-                ? JSOp::Object
-                : isInnerSingleton ? JSOp::NewObjectWithGroup : JSOp::NewObject;
+  JSOp op = singleton          ? JSOp::Object
+            : isInnerSingleton ? JSOp::NewObjectWithGroup
+                               : JSOp::NewObject;
   if (!emitGCIndexOp(op, index)) {
     //              [stack] OBJ
     return false;

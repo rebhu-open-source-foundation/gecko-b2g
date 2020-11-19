@@ -7991,7 +7991,8 @@ nsresult nsContentUtils::SendMouseEvent(
   event.mButton = aButton;
   event.mButtons = aButtons != nsIDOMWindowUtils::MOUSE_BUTTONS_NOT_SPECIFIED
                        ? aButtons
-                       : msg == eMouseUp ? 0 : GetButtonsFlagForButton(aButton);
+                   : msg == eMouseUp ? 0
+                                     : GetButtonsFlagForButton(aButton);
   event.mPressure = aPressure;
   event.mInputSource = aInputSourceArg;
   event.mClickCount = aClickCount;
@@ -9759,18 +9760,11 @@ uint32_t nsContentUtils::HtmlObjectContentTypeForMIMEType(
     return nsIObjectLoadingContent::TYPE_DOCUMENT;
   }
 
-  RefPtr<nsPluginHost> pluginHost = nsPluginHost::GetInst();
-  if (pluginHost) {
-    nsCOMPtr<nsIPluginTag> tag = PluginTagForType(aMIMEType, aNoFakePlugin);
-    if (tag) {
-      if (!aNoFakePlugin &&
-          nsCOMPtr<nsIFakePluginTag>(do_QueryInterface(tag))) {
-        return nsIObjectLoadingContent::TYPE_FAKE_PLUGIN;
-      }
-
-      // ShouldPlay will handle checking for disabled plugins
-      return nsIObjectLoadingContent::TYPE_PLUGIN;
-    }
+  bool isPlugin = nsPluginHost::GetSpecialType(aMIMEType) !=
+                  nsPluginHost::eSpecialType_None;
+  if (isPlugin) {
+    // ShouldPlay will handle checking for disabled plugins
+    return nsIObjectLoadingContent::TYPE_PLUGIN;
   }
 
   return nsIObjectLoadingContent::TYPE_NULL;

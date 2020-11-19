@@ -2913,6 +2913,11 @@ void gfxPlatform::InitWebGPUConfig() {
                        "WebGPU can only be enabled in nightly",
                        "WEBGPU_DISABLE_NON_NIGHTLY"_ns);
 #endif
+  if (!UseWebRender()) {
+    feature.ForceDisable(FeatureStatus::UnavailableNoWebRender,
+                         "WebGPU can't present without WebRender",
+                         "FEATURE_FAILURE_WEBGPU_NEED_WEBRENDER"_ns);
+  }
 }
 
 void gfxPlatform::InitOMTPConfig() {
@@ -3317,6 +3322,11 @@ bool gfxPlatform::AsyncPanZoomEnabled() {
 #if defined(MOZ_WIDGET_ANDROID) || defined(MOZ_WIDGET_GONK)
   return true;
 #else
+  // If Fission is enabled, OOP iframes require APZ for hittest.  So, we
+  // need to forcibly enable APZ in that case for avoiding users confused.
+  if (FissionAutostart()) {
+    return true;
+  }
   return StaticPrefs::
       layers_async_pan_zoom_enabled_AtStartup_DoNotUseDirectly();
 #endif

@@ -893,6 +893,10 @@ pref("devtools.performance.popup.intro-displayed", false);
 // Stringified array of target browsers that users investigate.
 pref("devtools.inspector.compatibility.target-browsers", "");
 
+// Storage preferencex
+// Force instancing legacy storage actors
+pref("devtools.storage.test.forceLegacyActors", false);
+
 // view source
 pref("view_source.editor.path", "");
 // allows to add further arguments to the editor; use the %LINE% placeholder
@@ -1051,9 +1055,11 @@ pref("dom.cycle_collector.incremental", true);
 //   3 = openAbused
 pref("privacy.popups.disable_from_plugins", 3);
 
-// Enable Paritioned LocalStorage for a list of hosts when detected as trackers
+// Fix cookie blocking breakage by providing ephemeral Paritioned LocalStorage
+// for a list of hosts when detected as trackers.
 // (See nsICookieService::BEHAVIOR_REJECT_TRACKER cookie behavior)
-pref("privacy.restrict3rdpartystorage.partitionedHosts", "accounts.google.com/o/oauth2/");
+// See: Bug 1505212, Bug 1659394, Bug 1631811, Bug 1665035.
+pref("privacy.restrict3rdpartystorage.partitionedHosts", "accounts.google.com/o/oauth2/,d35nw2lg0ahg0v.cloudfront.net/,datastudio.google.com/embed/reporting/,d3qlaywcwingl6.cloudfront.net/");
 
 // If a host is contained in this pref list, user-interaction is required
 // before granting the storage access permission.
@@ -1099,7 +1105,6 @@ pref("javascript.options.baselinejit",      true);
 // Duplicated in JitOptions - ensure both match.
 pref("javascript.options.baselinejit.threshold", 100);
 pref("javascript.options.ion",              true);
-pref("javascript.options.warp",             true);
 // Duplicated in JitOptions - ensure both match.
 pref("javascript.options.ion.threshold",    1500);
 pref("javascript.options.ion.full.threshold", 100000);
@@ -1521,6 +1526,11 @@ pref("network.http.send_window_size", 1024);
 #else
   pref("network.http.active_tab_priority", true);
 #endif
+
+// By default the Accept header sent for documents loaded over HTTP(S) is derived
+// by DocumentAcceptHeader() in nsHttpHandler.cpp. If set, this pref overrides it.
+// There is also image.http.accept which works in scope of image.
+pref("network.http.accept", "");
 
 // default values for FTP
 // in a DSCP environment this should be 40 (0x28, or AF11), per RFC-4594,
@@ -3757,6 +3767,7 @@ pref("toolkit.zoomManager.zoomValues", ".3,.5,.67,.8,.9,1,1.1,1.2,1.33,1.5,1.7,2
 
 // By default the Accept header sent for images loaded over HTTP(S) is derived
 // by ImageAcceptHeader() in nsHttpHandler.cpp. If set, this pref overrides it.
+// There is also network.http.accept which works in scope of document.
 pref("image.http.accept", "");
 
 //

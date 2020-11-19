@@ -5106,6 +5106,7 @@ void HTMLMediaElement::UnbindFromTree(bool aNullParent) {
                              [self = RefPtr<HTMLMediaElement>(this)]() {
                                if (!self->IsInComposedDoc()) {
                                  self->PauseInternal();
+                                 self->mMediaControlKeyListener->StopIfNeeded();
                                }
                              });
   RunInStableState(task);
@@ -7483,10 +7484,9 @@ void HTMLMediaElement::SetDecoder(MediaDecoder* aDecoder) {
 }
 
 float HTMLMediaElement::ComputedVolume() const {
-  return mMuted
-             ? 0.0f
-             : mAudioChannelWrapper ? mAudioChannelWrapper->GetEffectiveVolume()
-                                    : mVolume;
+  return mMuted                 ? 0.0f
+         : mAudioChannelWrapper ? mAudioChannelWrapper->GetEffectiveVolume()
+                                : mVolume;
 }
 
 bool HTMLMediaElement::ComputedMuted() const {

@@ -5135,14 +5135,18 @@ void nsGlobalWindowOuter::FocusOuter(CallerType aCallerType) {
       parent = bc->Canonical()->GetParentCrossChromeBoundary();
     }
   }
+  uint64_t actionId = nsFocusManager::GenerateFocusActionId();
   if (parent) {
     if (!parent->IsInProcess()) {
       if (isActive) {
-        fm->WindowRaised(this);
+        fm->WindowRaised(this, actionId);
+        // XXX we still need to notify framer about the focus moves to OOP
+        // iframe to generate corresponding blur event for bug 1677474.
+      } else {
+        ContentChild* contentChild = ContentChild::GetSingleton();
+        MOZ_ASSERT(contentChild);
+        contentChild->SendFinalizeFocusOuter(bc, canFocus, aCallerType);
       }
-      ContentChild* contentChild = ContentChild::GetSingleton();
-      MOZ_ASSERT(contentChild);
-      contentChild->SendFinalizeFocusOuter(bc, canFocus, aCallerType);
       return;
     }
     nsCOMPtr<Document> parentdoc = parent->GetDocument();
@@ -5160,7 +5164,7 @@ void nsGlobalWindowOuter::FocusOuter(CallerType aCallerType) {
     // if there is no parent, this must be a toplevel window, so raise the
     // window if canFocus is true. If this is a child process, the raise
     // window request will get forwarded to the parent by the puppet widget.
-    fm->RaiseWindow(this, aCallerType);
+    fm->RaiseWindow(this, aCallerType, actionId);
   }
 }
 

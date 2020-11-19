@@ -1541,13 +1541,12 @@ class BaseScript : public gc::TenuredCellWithNonGCPointer<uint8_t> {
 
   // Position of the function in the source buffer. Both in terms of line/column
   // and code-unit offset.
-  SourceExtent extent_ = {};
+  const SourceExtent extent_ = {};
 
   // Immutable flags are a combination of parser options and bytecode
   // characteristics. These flags are preserved when serializing or copying this
-  // script. These flags are static after script initialization with the key
-  // exception that delazification / relazification may modify a subset of them.
-  ImmutableScriptFlags immutableFlags_ = {};
+  // script.
+  const ImmutableScriptFlags immutableFlags_ = {};
 
   // Mutable flags store transient information used by subsystems such as the
   // debugger and the JITs. These flags are *not* preserved when serializing or
@@ -1569,7 +1568,7 @@ class BaseScript : public gc::TenuredCellWithNonGCPointer<uint8_t> {
   // End of fields.
 
   BaseScript(uint8_t* stubEntry, JSObject* functionOrGlobal,
-             ScriptSourceObject* sourceObject, SourceExtent extent,
+             ScriptSourceObject* sourceObject, const SourceExtent& extent,
              uint32_t immutableFlags)
       : TenuredCellWithNonGCPointer(stubEntry),
         functionOrGlobal_(functionOrGlobal),
@@ -1633,7 +1632,7 @@ class BaseScript : public gc::TenuredCellWithNonGCPointer<uint8_t> {
   }
   uint32_t toStringStart() const { return extent_.toStringStart; }
   uint32_t toStringEnd() const { return extent_.toStringEnd; }
-  SourceExtent extent() const { return extent_; }
+  const SourceExtent& extent() const { return extent_; }
 
   MOZ_MUST_USE bool appendSourceDataForToString(JSContext* cx,
                                                 js::StringBuffer& buf);
@@ -1648,10 +1647,6 @@ class BaseScript : public gc::TenuredCellWithNonGCPointer<uint8_t> {
   MOZ_MUST_USE bool hasFlag(ImmutableFlags flag) const {
     return immutableFlags_.hasFlag(flag);
   }
-  void setFlag(ImmutableFlags flag, bool b = true) {
-    immutableFlags_.setFlag(flag, b);
-  }
-  void clearFlag(ImmutableFlags flag) { immutableFlags_.clearFlag(flag); }
 
   // MutableFlags accessors.
   MOZ_MUST_USE bool hasFlag(MutableFlags flag) const {
@@ -1686,7 +1681,7 @@ class BaseScript : public gc::TenuredCellWithNonGCPointer<uint8_t> {
   IMMUTABLE_FLAG_GETTER(forceStrict, ForceStrict)
   IMMUTABLE_FLAG_GETTER(hasNonSyntacticScope, HasNonSyntacticScope)
   IMMUTABLE_FLAG_GETTER(noScriptRval, NoScriptRval)
-  // TreatAsRunOnce: custom logic below.
+  IMMUTABLE_FLAG_GETTER(treatAsRunOnce, TreatAsRunOnce)
   IMMUTABLE_FLAG_GETTER(strict, Strict)
   IMMUTABLE_FLAG_GETTER(hasModuleGoal, HasModuleGoal)
   IMMUTABLE_FLAG_GETTER(hasInnerFunctions, HasInnerFunctions)
@@ -1709,7 +1704,6 @@ class BaseScript : public gc::TenuredCellWithNonGCPointer<uint8_t> {
   IMMUTABLE_FLAG_GETTER(argumentsHasVarBinding, ArgumentsHasVarBinding)
   IMMUTABLE_FLAG_GETTER(alwaysNeedsArgsObj, AlwaysNeedsArgsObj)
   IMMUTABLE_FLAG_GETTER(hasMappedArgsObj, HasMappedArgsObj)
-  IMMUTABLE_FLAG_GETTER(isLikelyConstructorWrapper, IsLikelyConstructorWrapper)
 
   MUTABLE_FLAG_GETTER_SETTER(hasRunOnce, HasRunOnce)
   MUTABLE_FLAG_GETTER_SETTER(hasBeenCloned, HasBeenCloned)
@@ -1733,18 +1727,6 @@ class BaseScript : public gc::TenuredCellWithNonGCPointer<uint8_t> {
 #undef MUTABLE_FLAG_GETTER_SETTER
 #undef FLAG_GETTER
 #undef FLAG_GETTER_SETTER
-
-  // See ImmutableScriptFlagsEnum::TreatAsRunOnce.
-  bool treatAsRunOnce() const {
-    MOZ_ASSERT(!hasEnclosingScript(),
-               "TreatAsRunOnce is undefined if enclosing script is lazy");
-    return hasFlag(ImmutableFlags::TreatAsRunOnce);
-  }
-  void initTreatAsRunOnce(bool flag) {
-    MOZ_ASSERT(!hasBytecode(),
-               "TreatAsRunOnce can only be updated on lazy scripts");
-    setFlag(ImmutableFlags::TreatAsRunOnce, flag);
-  }
 
   GeneratorKind generatorKind() const {
     return isGenerator() ? GeneratorKind::Generator
@@ -1959,7 +1941,7 @@ class JSScript : public js::BaseScript {
  public:
   static JSScript* Create(JSContext* cx, js::HandleObject functionOrGlobal,
                           js::HandleScriptSourceObject sourceObject,
-                          js::SourceExtent extent,
+                          const js::SourceExtent& extent,
                           js::ImmutableScriptFlags flags);
 
   // NOTE: This should only be used while delazifying.
@@ -2194,9 +2176,6 @@ class JSScript : public js::BaseScript {
   bool mayReadFrameArgsDirectly();
 
   static JSLinearString* sourceData(JSContext* cx, JS::HandleScript script);
-
-  void setDefaultClassConstructorSpan(uint32_t start, uint32_t end,
-                                      unsigned line, unsigned column);
 
 #ifdef MOZ_VTUNE
   // Unique Method ID passed to the VTune profiler. Allows attribution of
@@ -2585,7 +2564,8 @@ extern void DescribeScriptedCallerForDirectEval(
 
 JSScript* CloneScriptIntoFunction(JSContext* cx, HandleScope enclosingScope,
                                   HandleFunction fun, HandleScript src,
-                                  Handle<ScriptSourceObject*> sourceObject);
+                                  Handle<ScriptSourceObject*> sourceObject,
+                                  SourceExtent* maybeClassExtent = nullptr);
 
 JSScript* CloneGlobalScript(JSContext* cx, ScopeKind scopeKind,
                             HandleScript src);

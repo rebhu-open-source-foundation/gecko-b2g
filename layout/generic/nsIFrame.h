@@ -471,7 +471,7 @@ struct IntrinsicSize {
   explicit IntrinsicSize(const nsSize& aSize)
       : IntrinsicSize(aSize.Width(), aSize.Height()) {}
 
-  mozilla::Maybe<nsSize> ToSize() const {
+  Maybe<nsSize> ToSize() const {
     return width && height ? Some(nsSize(*width, *height)) : Nothing();
   }
 
@@ -1162,7 +1162,7 @@ class nsIFrame : public nsQueryFrame {
     }
     if (mOverflow.mType != NS_FRAME_OVERFLOW_LARGE &&
         mOverflow.mType != NS_FRAME_OVERFLOW_NONE) {
-      nsOverflowAreas overflow = GetOverflowAreas();
+      mozilla::OverflowAreas overflow = GetOverflowAreas();
       mRect = aRect;
       SetOverflowAreas(overflow);
     } else {
@@ -1343,17 +1343,19 @@ class nsIFrame : public nsQueryFrame {
   NS_DECLARE_FRAME_PROPERTY_DELETABLE(OutlineInnerRectProperty, nsRect)
   NS_DECLARE_FRAME_PROPERTY_DELETABLE(PreEffectsBBoxProperty, nsRect)
   NS_DECLARE_FRAME_PROPERTY_DELETABLE(PreTransformOverflowAreasProperty,
-                                      nsOverflowAreas)
+                                      mozilla::OverflowAreas)
 
   NS_DECLARE_FRAME_PROPERTY_DELETABLE(CachedBorderImageDataProperty,
                                       CachedBorderImageData)
 
-  NS_DECLARE_FRAME_PROPERTY_DELETABLE(OverflowAreasProperty, nsOverflowAreas)
+  NS_DECLARE_FRAME_PROPERTY_DELETABLE(OverflowAreasProperty,
+                                      mozilla::OverflowAreas)
 
   // The initial overflow area passed to FinishAndStoreOverflow. This is only
   // set on frames that Preserve3D() or HasPerspective() or IsTransformed(), and
   // when at least one of the overflow areas differs from the frame bound rect.
-  NS_DECLARE_FRAME_PROPERTY_DELETABLE(InitialOverflowProperty, nsOverflowAreas)
+  NS_DECLARE_FRAME_PROPERTY_DELETABLE(InitialOverflowProperty,
+                                      mozilla::OverflowAreas)
 
 #ifdef DEBUG
   // InitialOverflowPropertyDebug is added to the frame to indicate that either
@@ -2078,7 +2080,8 @@ class nsIFrame : public nsQueryFrame {
    * Includes the overflow area of all descendants that participate in the
    * current 3d context into aOverflowAreas.
    */
-  void ComputePreserve3DChildrenOverflow(nsOverflowAreas& aOverflowAreas);
+  void ComputePreserve3DChildrenOverflow(
+      mozilla::OverflowAreas& aOverflowAreas);
 
   void RecomputePerspectiveChildrenOverflow(const nsIFrame* aStartFrame);
 
@@ -2295,7 +2298,7 @@ class nsIFrame : public nsQueryFrame {
   /**
    * Get the cursor for a given frame.
    */
-  virtual mozilla::Maybe<Cursor> GetCursor(const nsPoint&);
+  virtual Maybe<Cursor> GetCursor(const nsPoint&);
 
   /**
    * Get a point (in the frame's coordinate space) given an offset into
@@ -2942,13 +2945,13 @@ class nsIFrame : public nsQueryFrame {
    * If the frame requires a reflow instead, then it is responsible
    * for scheduling one.
    */
-  virtual bool ComputeCustomOverflow(nsOverflowAreas& aOverflowAreas);
+  virtual bool ComputeCustomOverflow(mozilla::OverflowAreas& aOverflowAreas);
 
   /**
    * Computes any overflow area created by children of this frame and
    * includes it into aOverflowAreas.
    */
-  virtual void UnionChildOverflow(nsOverflowAreas& aOverflowAreas);
+  virtual void UnionChildOverflow(mozilla::OverflowAreas& aOverflowAreas);
 
   // Represents zero or more physical axes.
   enum class PhysicalAxes : uint8_t {
@@ -3537,7 +3540,9 @@ class nsIFrame : public nsQueryFrame {
    * system, and may not contain the frame's border-box, e.g. if there
    * is a CSS transform scaling it down)
    */
-  nsRect InkOverflowRect() const { return GetOverflowRect(eInkOverflow); }
+  nsRect InkOverflowRect() const {
+    return GetOverflowRect(mozilla::OverflowType::Ink);
+  }
 
   /**
    * Returns a rect that encompasses the area of this frame that the
@@ -3560,12 +3565,12 @@ class nsIFrame : public nsQueryFrame {
    * is a CSS transform scaling it down)
    */
   nsRect ScrollableOverflowRect() const {
-    return GetOverflowRect(eScrollableOverflow);
+    return GetOverflowRect(mozilla::OverflowType::Scrollable);
   }
 
-  nsRect GetOverflowRect(nsOverflowType aType) const;
+  nsRect GetOverflowRect(mozilla::OverflowType aType) const;
 
-  nsOverflowAreas GetOverflowAreas() const;
+  mozilla::OverflowAreas GetOverflowAreas() const;
 
   /**
    * Same as GetOverflowAreas, except in this frame's coordinate
@@ -3574,7 +3579,7 @@ class nsIFrame : public nsQueryFrame {
    * @return the overflow areas relative to this frame, before any CSS
    * transforms have been applied, i.e. in this frame's coordinate system
    */
-  nsOverflowAreas GetOverflowAreasRelativeToSelf() const;
+  mozilla::OverflowAreas GetOverflowAreasRelativeToSelf() const;
 
   /**
    * Same as ScrollableOverflowRect, except relative to the parent
@@ -3625,8 +3630,8 @@ class nsIFrame : public nsQueryFrame {
    * be retrieved later without reflowing the frame. Returns true if either of
    * the overflow areas changed.
    */
-  bool FinishAndStoreOverflow(nsOverflowAreas& aOverflowAreas, nsSize aNewSize,
-                              nsSize* aOldSize = nullptr,
+  bool FinishAndStoreOverflow(mozilla::OverflowAreas& aOverflowAreas,
+                              nsSize aNewSize, nsSize* aOldSize = nullptr,
                               const nsStyleDisplay* aStyleDisplay = nullptr);
 
   bool FinishAndStoreOverflow(ReflowOutput* aMetrics,
@@ -3660,13 +3665,22 @@ class nsIFrame : public nsQueryFrame {
    *       if this frame has a previous or next continuation to determine
    *       if a side should be skipped.
    *       Unfortunately, this only works after reflow has been completed. In
-   *       lieu of this, during reflow, an ReflowInput parameter can be
-   *       passed in, indicating that it should be used to determine if sides
+   *       lieu of this, during reflow, a SkipSidesDuringReflow parameter can
+   *       be passed in, indicating that it should be used to determine if sides
    *       should be skipped during reflow.
+   *
+   * FIXME(emilio, bug 1677917): That's wrong, fix BlockReflowInput and remove
+   * SkipSidesDuringReflow and related code.
    */
-  Sides GetSkipSides(const ReflowInput* aReflowInput = nullptr) const;
+  Sides GetSkipSides() const;
+
+  struct SkipSidesDuringReflow {
+    const ReflowInput& mReflowInput;
+    const nscoord mConsumedBSize = NS_UNCONSTRAINEDSIZE;
+  };
+
   virtual LogicalSides GetLogicalSkipSides(
-      const ReflowInput* aReflowInput = nullptr) const {
+      const Maybe<SkipSidesDuringReflow>& = Nothing()) const {
     return LogicalSides(mWritingMode);
   }
 
@@ -5247,9 +5261,9 @@ class nsIFrame : public nsQueryFrame {
 
  private:
   // Get a pointer to the overflow areas property attached to the frame.
-  nsOverflowAreas* GetOverflowAreasProperty() const {
+  mozilla::OverflowAreas* GetOverflowAreasProperty() const {
     MOZ_ASSERT(mOverflow.mType == NS_FRAME_OVERFLOW_LARGE);
-    nsOverflowAreas* overflow = GetProperty(OverflowAreasProperty());
+    mozilla::OverflowAreas* overflow = GetProperty(OverflowAreasProperty());
     MOZ_ASSERT(overflow);
     return overflow;
   }
@@ -5271,7 +5285,7 @@ class nsIFrame : public nsQueryFrame {
   /**
    * Returns true if any overflow changed.
    */
-  bool SetOverflowAreas(const nsOverflowAreas& aOverflowAreas);
+  bool SetOverflowAreas(const mozilla::OverflowAreas& aOverflowAreas);
 
   bool HasOpacityInternal(float aThreshold, const nsStyleDisplay* aStyleDisplay,
                           const nsStyleEffects* aStyleEffects,

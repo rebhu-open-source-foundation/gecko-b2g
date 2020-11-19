@@ -69,7 +69,6 @@ class OutOfLineTypedArrayIndexToInt32;
 class OutOfLineBoxNonStrictThis;
 
 class CodeGenerator final : public CodeGeneratorSpecific {
-  void generateArgumentsChecks(bool assert = false);
   MOZ_MUST_USE bool generateBody();
 
   ConstantOrRegister toConstantOrRegister(LInstruction* lir, size_t n,
@@ -105,8 +104,7 @@ class CodeGenerator final : public CodeGeneratorSpecific {
                                  wasm::FuncOffsets* offsets,
                                  wasm::StackMaps* stackMaps);
 
-  MOZ_MUST_USE bool link(JSContext* cx, CompilerConstraintList* constraints,
-                         const WarpSnapshot* snapshot);
+  MOZ_MUST_USE bool link(JSContext* cx, const WarpSnapshot* snapshot);
 
   void emitOOLTestObject(Register objreg, Label* ifTruthy, Label* ifFalsy,
                          Register scratch);
