@@ -3,11 +3,11 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 // Implementation of the nsIContacts xpcom interface
+use crate::common::core::BaseMessage;
 use crate::common::sidl_task::*;
 use crate::common::traits::{Shared, TrackerId};
 use crate::common::uds_transport::*;
 use crate::services::core::service::*;
-use crate::common::core::BaseMessage;
 
 use crate::services::contacts::messages::*;
 use log::{debug, error};
@@ -20,8 +20,8 @@ use std::sync::Arc;
 use thin_vec::ThinVec;
 use xpcom::{
     interfaces::{
-        nsISidlConnectionObserver, nsIHasNumberResponse, nsIFindBlockedNumbersResponse,
-        nsIBlockedNumberFindOptions, nsISidlEventListener, nsIContactsManager,
+        nsIBlockedNumberFindOptions, nsIContactsManager, nsIFindBlockedNumbersResponse,
+        nsIHasNumberResponse, nsISidlConnectionObserver, nsISidlEventListener,
     },
     RefPtr,
 };
@@ -58,24 +58,17 @@ macro_rules! sidl_callback_for_resolve_string_array {
 macro_rules! deref_bool {
     ($obj:ident) => {
         *$obj
-    }
+    };
 }
 
-sidl_callback_for!(
-    nsIHasNumberResponse,
-    bool,
-    deref_bool
-);
+sidl_callback_for!(nsIHasNumberResponse, bool, deref_bool);
 
 sidl_callback_for_resolve_string_array!(
     nsIFindBlockedNumbersResponse,
     FindBlockedNumbersSuccessType
 );
 
-type HasNumberTask = (
-    SidlCallTask<bool, (), nsIHasNumberResponse>,
-    String,
-);
+type HasNumberTask = (SidlCallTask<bool, (), nsIHasNumberResponse>, String);
 
 type FindBlockedNumbersTask = (
     SidlCallTask<FindBlockedNumbersSuccessType, (), nsIFindBlockedNumbersResponse>,
@@ -184,7 +177,8 @@ impl ContactsManagerImpl {
 
         let (task, number) = task;
         let request = ContactsManagerFromClient::ContactsFactoryHasNumber(number);
-        self.sender.send_task(&request, HasNumberTaskReceiver { task });
+        self.sender
+            .send_task(&request, HasNumberTaskReceiver { task });
         Ok(())
     }
 
@@ -193,7 +187,8 @@ impl ContactsManagerImpl {
 
         let (task, option) = task;
         let request = ContactsManagerFromClient::ContactsFactoryFindBlockedNumbers(option);
-        self.sender.send_task(&request, FindBlockedNumbersTaskReceiver { task });
+        self.sender
+            .send_task(&request, FindBlockedNumbersTaskReceiver { task });
         Ok(())
     }
 }
@@ -260,13 +255,9 @@ impl ContactsManagerXpcom {
         number: &nsAString,
         callback: &nsIHasNumberResponse,
     ) -> Result<(), nsresult> {
-
         let callback =
             ThreadPtrHolder::new(cstr!("nsIHasNumberResponse"), RefPtr::new(callback)).unwrap();
-        let task = (
-            SidlCallTask::new(callback),
-            number.to_string(),
-        );
+        let task = (SidlCallTask::new(callback), number.to_string());
 
         if !self.ensure_service() {
             self.queue_task(ContactsTask::HasNumber(task));
@@ -288,7 +279,6 @@ impl ContactsManagerXpcom {
         options: &nsIBlockedNumberFindOptions,
         callback: &nsIFindBlockedNumbersResponse,
     ) -> Result<(), nsresult> {
-
         let mut value = nsString::new();
         let mut option: u16 = 0;
         unsafe {
@@ -312,12 +302,12 @@ impl ContactsManagerXpcom {
             },
         };
 
-        let callback =
-            ThreadPtrHolder::new(cstr!("nsIFindBlockedNumbersResponse"), RefPtr::new(callback)).unwrap();
-        let task = (
-            SidlCallTask::new(callback),
-            (find_options),
-        );
+        let callback = ThreadPtrHolder::new(
+            cstr!("nsIFindBlockedNumbersResponse"),
+            RefPtr::new(callback),
+        )
+        .unwrap();
+        let task = (SidlCallTask::new(callback), (find_options));
 
         if !self.ensure_service() {
             self.queue_task(ContactsTask::FindBlockedNumbers(task));

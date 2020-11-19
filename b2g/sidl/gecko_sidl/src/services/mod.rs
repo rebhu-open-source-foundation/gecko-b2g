@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 pub mod bridge;
+pub mod contacts;
 pub mod core;
 pub mod settings;
 pub mod time;
-pub mod contacts;

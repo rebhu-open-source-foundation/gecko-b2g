@@ -1,26 +1,16 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 // This file is generated. Do not edit.
 // @generated
 
-use crate::common::traits::TrackerId;
 #[allow(unused_imports)]
-use crate::common::{JsonValue, SystemTime};
+use crate::common::{JsonValue, ObjectRef, SystemTime};
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
-pub struct ObjectRef(TrackerId);
-impl From<TrackerId> for ObjectRef {
-    fn from(val: TrackerId) -> Self {
-        Self(val)
-    }
-}
-impl From<ObjectRef> for TrackerId {
-    fn from(val: ObjectRef) -> Self {
-        val.0
-    }
-}
-
 pub static SERVICE_FINGERPRINT: &str =
-    "53595ea015bc6fb157243e2b4468d079359529e5c27ce07ae834942cfeabd7b5";
+    "18e7ed2e8d2dc0a6da13e9605c92d2eea20a485295c9b3ddff6b470aaf1d77d";
 
 #[derive(Clone, PartialEq, Deserialize, Serialize, Debug, Eq, Hash)]
 pub enum CallbackReason {

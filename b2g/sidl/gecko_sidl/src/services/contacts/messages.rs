@@ -1,26 +1,16 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 // This file is generated. Do not edit.
 // @generated
 
-use crate::common::traits::TrackerId;
-use std::time::SystemTime;
 #[allow(unused_imports)]
-use crate::common::{JsonValue};
+use crate::common::{JsonValue, ObjectRef, SystemTime};
 use serde::{Deserialize, Serialize};
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
-pub struct ObjectRef(TrackerId);
-impl From<TrackerId> for ObjectRef {
-    fn from(val: TrackerId) -> Self {
-        Self(val)
-    }
-}
-impl From<ObjectRef> for TrackerId {
-    fn from(val: ObjectRef) -> Self {
-        val.0
-    }
-}
 
-pub static SERVICE_FINGERPRINT: &str = "448ba036deaaac68d2aee16b621377704ca2ad79b25041c68aa318d7e1e64b8";
+pub static SERVICE_FINGERPRINT: &str =
+    "fa92f2ad8445fff82a34c7e45e757e7e102482a9e58d467953cf8b7f6d91d3fd";
 
 #[derive(Clone, PartialEq, Deserialize, Serialize, Debug)]
 pub enum ChangeReason {
@@ -32,20 +22,20 @@ impl Copy for ChangeReason {}
 
 #[derive(Clone, PartialEq, Deserialize, Serialize, Debug)]
 pub enum FilterByOption {
-    Name, // #0
-    GivenName, // #1
+    Name,       // #0
+    GivenName,  // #1
     FamilyName, // #2
-    Tel, // #3
-    Email, // #4
-    Category, // #5
+    Tel,        // #3
+    Email,      // #4
+    Category,   // #5
 }
 impl Copy for FilterByOption {}
 
 #[derive(Clone, PartialEq, Deserialize, Serialize, Debug)]
 pub enum FilterOption {
-    Equals, // #0
-    Contains, // #1
-    Match, // #2
+    Equals,     // #0
+    Contains,   // #1
+    Match,      // #2
     StartsWith, // #3
     FuzzyMatch, // #4
 }
@@ -53,16 +43,16 @@ impl Copy for FilterOption {}
 
 #[derive(Clone, PartialEq, Deserialize, Serialize, Debug)]
 pub enum Order {
-    Ascending, // #0
+    Ascending,  // #0
     Descending, // #1
 }
 impl Copy for Order {}
 
 #[derive(Clone, PartialEq, Deserialize, Serialize, Debug)]
 pub enum SortOption {
-    GivenName, // #0
+    GivenName,  // #0
     FamilyName, // #1
-    Name, // #2
+    Name,       // #2
 }
 impl Copy for SortOption {}
 
@@ -237,7 +227,7 @@ pub enum ContactsManagerFromClient {
     ContactsFactoryUpdateSpeedDial(String, String, String),      // 26
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize)]
 pub enum ContactsManagerToClient {
     ContactCursorNextSuccess(Vec<ContactInfo>), // 0
     ContactCursorNextError,                     // 1

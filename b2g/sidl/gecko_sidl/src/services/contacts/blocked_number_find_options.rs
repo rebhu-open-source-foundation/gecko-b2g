@@ -2,10 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use super::messages::*;
 use log::debug;
 use nserror::{nsresult, NS_ERROR_NOT_IMPLEMENTED, NS_OK};
 use nsstring::*;
-use super::messages::*;
 use xpcom::RefPtr;
 
 // XPCOM implementation of nsIBlockedNumberFindOptions, used to dispatch BlockedNumberFindOptions to events and observers.

@@ -498,7 +498,8 @@ impl TimeXpcom {
         debug!("Time::get_elapsetime");
 
         let callback =
-            ThreadPtrHolder::new(cstr!("nsITimeGetElapsedRealTime"), RefPtr::new(callback)).unwrap();
+            ThreadPtrHolder::new(cstr!("nsITimeGetElapsedRealTime"), RefPtr::new(callback))
+                .unwrap();
         let task = SidlCallTask::new(callback);
 
         if !self.ensure_service() {

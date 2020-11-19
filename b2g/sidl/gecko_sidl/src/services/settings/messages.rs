@@ -5,25 +5,12 @@
 // This file is generated. Do not edit.
 // @generated
 
-use crate::common::traits::TrackerId;
-use crate::common::JsonValue;
+#[allow(unused_imports)]
+use crate::common::{JsonValue, ObjectRef, SystemTime};
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
-pub struct ObjectRef(TrackerId);
-impl From<TrackerId> for ObjectRef {
-    fn from(val: TrackerId) -> Self {
-        Self(val)
-    }
-}
-impl From<ObjectRef> for TrackerId {
-    fn from(val: ObjectRef) -> Self {
-        val.0
-    }
-}
-
 pub static SERVICE_FINGERPRINT: &str =
-    "124e735f5ce56164d944ded9f7248e6e75de4ec9946bd68aafffe15d5f38c67";
+    "d2e7699bc8cdc73421e28699cfb91dc2b149c8a64823efc2416f1382826dc0";
 
 #[derive(Clone, PartialEq, Deserialize, Serialize, Debug)]
 pub enum GetErrorReason {

@@ -364,7 +364,8 @@ impl GeckoBridgeImpl {
 
         let (task, contacts) = task;
         let request = GeckoBridgeFromClient::GeckoFeaturesImportSimContacts(Some(contacts));
-        self.sender.send_task(&request, ImportSimContactsTaskReceiver { task });
+        self.sender
+            .send_task(&request, ImportSimContactsTaskReceiver { task });
         Ok(())
     }
 

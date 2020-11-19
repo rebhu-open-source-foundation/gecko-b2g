@@ -22,6 +22,7 @@ use serde::de::Visitor;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
 use std::ops::Deref;
+use traits::TrackerId;
 
 pub fn get_bincode() -> impl Options {
     bincode::options().with_big_endian().with_varint_encoding()
@@ -32,6 +33,19 @@ where
     T: Deserialize<'a>,
 {
     get_bincode().deserialize(input)
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
+pub struct ObjectRef(TrackerId);
+impl From<TrackerId> for ObjectRef {
+    fn from(val: TrackerId) -> Self {
+        Self(val)
+    }
+}
+impl From<ObjectRef> for TrackerId {
+    fn from(val: ObjectRef) -> Self {
+        val.0
+    }
 }
 
 // A wrapper around a JsonValue to help with the encoding/decoding of JSON strings.
