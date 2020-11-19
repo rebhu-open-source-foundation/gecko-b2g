@@ -33,14 +33,19 @@ const { XPCOMUtils } = ChromeUtils.import(
 );
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
-//FIXME
-//Cu.import("resource://gre/modules/PhoneNumberUtils.jsm");
 Cu.importGlobalProperties(["indexedDB"]);
 
 XPCOMUtils.defineLazyGetter(this, "RIL", function() {
   let obj = ChromeUtils.import("resource://gre/modules/ril_consts.js");
   return obj;
 });
+
+XPCOMUtils.defineLazyModuleGetter(
+  this,
+  "gPhoneNumberUtils",
+  "resource://gre/modules/PhoneNumberUtils.jsm",
+  "PhoneNumberUtils"
+);
 
 //FIXME
 //ChromeUtils.defineModuleGetter(
@@ -148,19 +153,6 @@ XPCOMUtils.defineLazyGetter(this, "MMS", function() {
   ChromeUtils.import("resource://gre/modules/MmsPduHelper.jsm", MMS);
   return MMS;
 });
-
-//Temporary workaround for phone numbile utility
-this.PhoneNumberUtils = {
-  parseWithCountryName(aNumber, aCountryName) {
-    return null;
-  },
-  normalize(aNumber, aNumbersOnly) {
-    return aNumber;
-  },
-  parse(aNumber) {
-    return null;
-  },
-};
 
 /**
  * @typedef {Object} MobileMessageDB.MessageRecord
@@ -992,66 +984,6 @@ MobileMessageDB.prototype = {
   },
 
   /**
-   * Check if <code>addr1</code> matches <code>addr2</code>.
-   *
-   * @function MobileMessageDB.matchPhoneNumbers
-   * @param {string} addr1
-   *        Normalized address 1.
-   * @param {Object} parsedAddr1
-   *        Parsed address 1. Try to parse from <code>addr1</code> if not given.
-   * @param {string} addr2
-   *        Normalized address 2.
-   * @param {Object} parsedAddr2
-   *        Parsed address 2. Try to parse from <code>addr2</code> if not given.
-   * @return {boolean}
-   *         <code>true</code> if the 2 addresses match.
-   */
-  matchPhoneNumbers(addr1, parsedAddr1, addr2, parsedAddr2) {
-    if (parsedAddr1 && parsedAddr2) {
-      return this.matchParsedPhoneNumbers(
-        addr1,
-        parsedAddr1,
-        addr2,
-        parsedAddr2
-      );
-    }
-
-    if (parsedAddr1) {
-      parsedAddr2 = PhoneNumberUtils.parseWithCountryName(
-        addr2,
-        parsedAddr1.countryName
-      );
-      if (parsedAddr2) {
-        return this.matchParsedPhoneNumbers(
-          addr1,
-          parsedAddr1,
-          addr2,
-          parsedAddr2
-        );
-      }
-
-      return false;
-    }
-
-    if (parsedAddr2) {
-      parsedAddr1 = PhoneNumberUtils.parseWithCountryName(
-        addr1,
-        parsedAddr2.countryName
-      );
-      if (parsedAddr1) {
-        return this.matchParsedPhoneNumbers(
-          addr1,
-          parsedAddr1,
-          addr2,
-          parsedAddr2
-        );
-      }
-    }
-
-    return false;
-  },
-
-  /**
    * Generate a <code>nsISmsMessage</code> or
    * <code>nsIMmsMessage</code> instance from a stored message record.
    *
@@ -1218,20 +1150,9 @@ MobileMessageDB.prototype = {
     // phonenumberutils will be "987654321" in this case.
 
     // Normalize address before searching for participant record.
-
-    let normalizedAddress = PhoneNumberUtils.normalize(aAddress, false);
+    let normalizedAddress = gPhoneNumberUtils.normalize(aAddress, false);
     let allPossibleAddresses = [normalizedAddress];
-    let parsedAddress = PhoneNumberUtils.parse(normalizedAddress);
-    if (
-      parsedAddress &&
-      parsedAddress.internationalNumber &&
-      !allPossibleAddresses.includes(parsedAddress.internationalNumber)
-    ) {
-      // We only stores international numbers into participant store because
-      // the parsed national number doesn't contain country info and may
-      // duplicate in different country.
-      allPossibleAddresses.push(parsedAddress.internationalNumber);
-    }
+
     if (DEBUG) {
       debug(
         "findParticipantRecordByPlmnAddress: allPossibleAddresses = " +
@@ -1282,14 +1203,9 @@ MobileMessageDB.prototype = {
           return;
         }
 
-        /* //FIXME
         let participantRecord = cursor.value;
         for (let storedAddress of participantRecord.addresses) {
-          let parsedStoredAddress = PhoneNumberUtils.parseWithMCC(storedAddress, null);
-          let match = this.matchPhoneNumbers(normalizedAddress, parsedAddress,
-                                             storedAddress, parsedStoredAddress);
-          let match = false;
-
+          let match = gPhoneNumberUtils.match(normalizedAddress, storedAddress);
           if (!match) {
             // 3) Else we fail to match current stored participant record.
             continue;
@@ -1313,7 +1229,7 @@ MobileMessageDB.prototype = {
           aCallback(participantRecord);
           return;
         }
-*/
+
         // Check next participant record if available.
         cursor.continue();
       }.bind(this);
@@ -1419,70 +1335,6 @@ MobileMessageDB.prototype = {
     }
   },
 
-  // For upgradeSchema13 usage.
-  findParticipantIdsByPlmnAddresses(
-    aParticipantStore,
-    aAddresses,
-    aCreate,
-    aSkipNonexistent,
-    aCallback
-  ) {
-    if (DEBUG) {
-      debug(
-        "findParticipantIdsByPlmnAddresses(" +
-          JSON.stringify(aAddresses) +
-          ", " +
-          aCreate +
-          ", " +
-          aSkipNonexistent +
-          ")"
-      );
-    }
-
-    if (!aAddresses || !aAddresses.length) {
-      if (DEBUG) {
-        debug("findParticipantIdsByPlmnAddresses: returning null");
-      }
-      aCallback(null);
-      return;
-    }
-
-    let self = this;
-    (function findParticipantId(index, result) {
-      if (index >= aAddresses.length) {
-        // Sort numerically.
-        result.sort(function(a, b) {
-          return a - b;
-        });
-        if (DEBUG) {
-          debug("findParticipantIdsByPlmnAddresses: returning " + result);
-        }
-        aCallback(result);
-        return;
-      }
-
-      self.findParticipantRecordByPlmnAddress(
-        aParticipantStore,
-        aAddresses[index++],
-        aCreate,
-        function(participantRecord) {
-          if (!participantRecord) {
-            if (!aSkipNonexistent) {
-              if (DEBUG) {
-                debug("findParticipantIdsByPlmnAddresses: returning null");
-              }
-              aCallback(null);
-              return;
-            }
-          } else if (!result.includes(participantRecord.id)) {
-            result.push(participantRecord.id);
-          }
-          findParticipantId(index, result);
-        }
-      );
-    })(0, []);
-  },
-
   /**
    * @callback MobileMessageDB.ParticipantIdsCallback
    * @param {number[]} aParticipantIds
@@ -1571,52 +1423,6 @@ MobileMessageDB.prototype = {
         }
       );
     })(0, []);
-  },
-
-  // For upgradeSchema13 usage.
-  findThreadRecordByPlmnAddresses(
-    aThreadStore,
-    aParticipantStore,
-    aAddresses,
-    aCreateParticipants,
-    aCallback
-  ) {
-    if (DEBUG) {
-      debug(
-        "findThreadRecordByPlmnAddresses(" +
-          JSON.stringify(aAddresses) +
-          ", " +
-          aCreateParticipants +
-          ")"
-      );
-    }
-    this.findParticipantIdsByPlmnAddresses(
-      aParticipantStore,
-      aAddresses,
-      aCreateParticipants,
-      false,
-      function(participantIds) {
-        if (!participantIds) {
-          if (DEBUG) {
-            debug("findThreadRecordByPlmnAddresses: returning null");
-          }
-          aCallback(null, null);
-          return;
-        }
-        // Find record from thread store.
-        let request = aThreadStore.index("participantIds").get(participantIds);
-        request.onsuccess = function(event) {
-          let threadRecord = event.target.result;
-          if (DEBUG) {
-            debug(
-              "findThreadRecordByPlmnAddresses: return " +
-                JSON.stringify(threadRecord)
-            );
-          }
-          aCallback(threadRecord, participantIds);
-        };
-      }
-    );
   },
 
   /**
@@ -2177,10 +1983,9 @@ MobileMessageDB.prototype = {
       type: MMS.Address.resolveType(aNeedle),
       address: aNeedle,
     };
-    let normalizedAddress, parsedAddress;
+    let normalizedAddress;
     if (typedAddress.type === "PLMN") {
-      normalizedAddress = PhoneNumberUtils.normalize(aNeedle, false);
-      parsedAddress = PhoneNumberUtils.parse(normalizedAddress);
+      normalizedAddress = gPhoneNumberUtils.normalize(aNeedle, false);
     }
 
     for (let element of aDeliveryInfo) {
@@ -2205,22 +2010,12 @@ MobileMessageDB.prototype = {
       }
 
       // Both are of "PLMN" type.
-      let normalizedStoredAddress = PhoneNumberUtils.normalize(
+      let normalizedStoredAddress = gPhoneNumberUtils.normalize(
         element.receiver,
         false
       );
-      let parsedStoredAddress = PhoneNumberUtils.parseWithMCC(
-        normalizedStoredAddress,
-        null
-      );
-      if (
-        this.matchPhoneNumbers(
-          normalizedAddress,
-          parsedAddress,
-          normalizedStoredAddress,
-          parsedStoredAddress
-        )
-      ) {
+
+      if (gPhoneNumberUtils.match(normalizedAddress, normalizedStoredAddress)) {
         aCallback(element);
       }
     }
@@ -2409,15 +2204,12 @@ MobileMessageDB.prototype = {
     let isSuccess = false;
     let slicedReceivers = receivers.slice();
     if (aMessage.phoneNumber) {
-      var normalizedAddress = PhoneNumberUtils.normalize(
+      var normalizedAddress = gPhoneNumberUtils.normalize(
         aMessage.phoneNumber,
         false
       );
-      var parsedAddress = PhoneNumberUtils.parse(normalizedAddress)
-        .internationalNumber;
-      [aMessage.phoneNumber, normalizedAddress, parsedAddress].forEach(function(
-        item
-      ) {
+
+      [aMessage.phoneNumber, normalizedAddress].forEach(function(item) {
         let found = slicedReceivers.indexOf(item);
         if (found !== -1) {
           isSuccess = true;
@@ -2615,7 +2407,7 @@ MobileMessageDB.prototype = {
       threadParticipants = [
         {
           address: aMessage.sender,
-          type: "PLMN", //MMS.Address.resolveType(aMessage.sender) //FIXME
+          type: MMS.Address.resolveType(aMessage.sender),
         },
       ];
     }
@@ -2842,8 +2634,7 @@ MobileMessageDB.prototype = {
       threadParticipants = [
         {
           address: aMessage.receiver,
-          //type :MMS.Address.resolveType(aMessage.receiver) //FIXME
-          type: "PLMN",
+          type: MMS.Address.resolveType(aMessage.receiver),
         },
       ];
     } else if (aMessage.type == "mms") {
@@ -5102,5 +4893,5 @@ this.EXPORTED_SYMBOLS = ["MobileMessageDB"];
 
 function debug(s) {
   //dump("MobileMessageDB: " + Array.slice(arguments).join(" ") + "\n");
-  console.log("MobileMessageDB: " + s + "\n");
+  dump("MobileMessageDB: " + s + "\n");
 }

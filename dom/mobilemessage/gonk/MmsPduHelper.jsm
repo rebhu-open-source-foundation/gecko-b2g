@@ -4,23 +4,32 @@
 
 "use strict";
 
-const {classes: Cc, interfaces: Ci, utils: Cu, results: Cr} = Components;
-
 var WSP = {};
-Cu.import("resource://gre/modules/WspPduHelper.jsm", WSP);
+ChromeUtils.import("resource://gre/modules/WspPduHelper.jsm", WSP);
 
-Cu.import("resource://gre/modules/mms_consts.js");
+ChromeUtils.import("resource://gre/modules/mms_consts.js", this);
 
-//Cu.import("resource://gre/modules/PhoneNumberUtils.jsm");//FIXME
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
+
+XPCOMUtils.defineLazyModuleGetter(
+  this,
+  "gPhoneNumberUtils",
+  "resource://gre/modules/PhoneNumberUtils.jsm",
+  "PhoneNumberUtils"
+);
 
 var DEBUG = false; // set to true to see debug messages
 
 this.MMS_VERSION = (function() {
-  Cu.import("resource://gre/modules/Services.jsm");
+  const { Services } = ChromeUtils.import(
+    "resource://gre/modules/Services.jsm"
+  );
 
   try {
     return Services.prefs.getIntPref("dom.mms.version");
-  } catch(ex) {}
+  } catch (ex) {}
 
   return MMS_VERSION_1_3;
 })();
@@ -30,18 +39,20 @@ this.translatePduErrorToStatus = function translatePduErrorToStatus(error) {
     return MMS_PDU_STATUS_RETRIEVED;
   }
 
-  if ((error >= MMS_PDU_ERROR_TRANSIENT_FAILURE)
-      && (error < MMS_PDU_ERROR_PERMANENT_FAILURE)) {
+  if (
+    error >= MMS_PDU_ERROR_TRANSIENT_FAILURE &&
+    error < MMS_PDU_ERROR_PERMANENT_FAILURE
+  ) {
     return MMS_PDU_STATUS_DEFERRED;
   }
 
   return MMS_PDU_STATUS_UNRECOGNISED;
-}
+};
 
 function defineLazyRegExp(obj, name, pattern) {
   obj.__defineGetter__(name, function() {
     delete obj[name];
-    return obj[name] = new RegExp(pattern);
+    return (obj[name] = new RegExp(pattern));
   });
 }
 
@@ -63,9 +74,9 @@ RangedValue.prototype = {
    *
    * @throws CodeError if decoded value is not in the range [this.min, this.max].
    */
-  decode: function(data) {
+  decode(data) {
     let value = WSP.Octet.decode(data);
-    if ((value >= this.min) && (value <= this.max)) {
+    if (value >= this.min && value <= this.max) {
       return value;
     }
 
@@ -78,8 +89,8 @@ RangedValue.prototype = {
    * @param value
    *        An integer value within thr range [this.min, this.max].
    */
-  encode: function(data, value) {
-    if ((value < this.min) || (value > this.max)) {
+  encode(data, value) {
+    if (value < this.min || value > this.max) {
       throw new WSP.CodeError(this.name + ": invalid value " + value);
     }
 
@@ -103,9 +114,9 @@ this.BooleanValue = {
    *
    * @throws CodeError if read octet equals to neither 128 nor 129.
    */
-  decode: function(data) {
+  decode(data) {
     let value = WSP.Octet.decode(data);
-    if ((value != 128) && (value != 129)) {
+    if (value != 128 && value != 129) {
       throw new WSP.CodeError("Boolean-value: invalid value " + value);
     }
 
@@ -118,7 +129,7 @@ this.BooleanValue = {
    * @param value
    *        A boolean value to be encoded.
    */
-  encode: function(data, value) {
+  encode(data, value) {
     WSP.Octet.encode(data, value ? 128 : 129);
   },
 };
@@ -137,18 +148,20 @@ this.Address = {
    *
    * @return An object of two string-typed attributes: address and type.
    */
-  decode: function(data) {
+  decode(data) {
     let str = EncodedStringValue.decode(data);
 
     let result;
-    if (((result = str.match(this.REGEXP_DECODE_PLMN)) != null)
-        || ((result = str.match(this.REGEXP_DECODE_IPV4)) != null)
-        || ((result = str.match(this.REGEXP_DECODE_IPV6)) != null)
-        || (((result = str.match(this.REGEXP_DECODE_CUSTOM)) != null)
-            && (result[2] != "PLMN")
-            && (result[2] != "IPv4")
-            && (result[2] != "IPv6"))) {
-      return {address: result[1], type: result[2]};
+    if (
+      (result = str.match(this.REGEXP_DECODE_PLMN)) != null ||
+      (result = str.match(this.REGEXP_DECODE_IPV4)) != null ||
+      (result = str.match(this.REGEXP_DECODE_IPV6)) != null ||
+      ((result = str.match(this.REGEXP_DECODE_CUSTOM)) != null &&
+        result[2] != "PLMN" &&
+        result[2] != "IPv4" &&
+        result[2] != "IPv6")
+    ) {
+      return { address: result[1], type: result[2] };
     }
 
     let type;
@@ -163,9 +176,9 @@ this.Address = {
     }
     let endIndex = str.indexOf("/");
     if (endIndex > 0) {
-      str = str.substring(0,endIndex);
+      str = str.substring(0, endIndex);
     }
-    return {address: str, type: type};
+    return { address: str, type };
   },
 
   /**
@@ -174,7 +187,7 @@ this.Address = {
    * @param value
    *        An object of two string-typed attributes: address and type.
    */
-  encode: function(data, value) {
+  encode(data, value) {
     if (!value || !value.type || !value.address) {
       throw new WSP.CodeError("Address: invalid value");
     }
@@ -212,15 +225,19 @@ this.Address = {
         }
         break;
       default:
-        if (value.type.match(this.REGEXP_ENCODE_CUSTOM_TYPE)
-            && value.address.match(this.REGEXP_ENCODE_CUSTOM_ADDR)) {
+        if (
+          value.type.match(this.REGEXP_ENCODE_CUSTOM_TYPE) &&
+          value.address.match(this.REGEXP_ENCODE_CUSTOM_ADDR)
+        ) {
           str = value.address + "/TYPE=" + value.type;
         }
         break;
     }
 
     if (!str) {
-      throw new WSP.CodeError("Address: invalid value: " + JSON.stringify(value));
+      throw new WSP.CodeError(
+        "Address: invalid value: " + JSON.stringify(value)
+      );
     }
 
     EncodedStringValue.encode(data, str);
@@ -232,7 +249,7 @@ this.Address = {
    *
    * @return Address type.
    */
-  resolveType: function(address) {
+  resolveType(address) {
     if (address.match(this.REGEXP_EMAIL)) {
       return "email";
     }
@@ -245,48 +262,70 @@ this.Address = {
       return "IPv6";
     }
 
-//FIXME
-    //let normalizedAddress = PhoneNumberUtils.normalize(address, false);
-    //if (PhoneNumberUtils.isPlainPhoneNumber(normalizedAddress)) {
-    //  return "PLMN";
-    //}
-    return "PLMN";
-    //return "Others";
+    let normalizedAddress = gPhoneNumberUtils.normalize(address, false);
+    if (gPhoneNumberUtils.isPlainPhoneNumber(normalizedAddress)) {
+      return "PLMN";
+    }
+    return "Others";
   },
 };
 
-defineLazyRegExp(Address, "REGEXP_DECODE_PLMN",        "^(\\+?[\\d.-]+)\\/TYPE=(PLMN)$");
-defineLazyRegExp(Address, "REGEXP_DECODE_IPV4",        "^((?:(?:25[0-5]|(?:2[0-4]|1[0-9]|[1-9]){0,1}[0-9])\\.){3,3}(?:25[0-5]|(?:2[0-4]|1[0-9]|[1-9]){0,1}[0-9]))\\/TYPE=(IPv4)$");
-defineLazyRegExp(Address, "REGEXP_DECODE_IPV6",        "^(" +
-                                                       "(?:[0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|" +
-                                                       "(?:[0-9a-fA-F]{1,4}:){1,7}:|" +
-                                                       "(?:[0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|" +
-                                                       "(?:[0-9a-fA-F]{1,4}:){1,5}(?::[0-9a-fA-F]{1,4}){1,2}|" +
-                                                       "(?:[0-9a-fA-F]{1,4}:){1,4}(?::[0-9a-fA-F]{1,4}){1,3}|" +
-                                                       "(?:[0-9a-fA-F]{1,4}:){1,3}(?::[0-9a-fA-F]{1,4}){1,4}|" +
-                                                       "(?:[0-9a-fA-F]{1,4}:){1,2}(?::[0-9a-fA-F]{1,4}){1,5}|" +
-                                                       "[0-9a-fA-F]{1,4}:(?:(?::[0-9a-fA-F]{1,4}){1,6})|" +
-                                                       ":(?:(?::[0-9a-fA-F]{1,4}){1,7}|:)|" +
-                                                       "(?:[0-9a-fA-F]{1,4}:){1,4}:(?:(?:25[0-5]|(?:2[0-4]|1[0-9]|[1-9]){0,1}[0-9])\\.){3,3}(?:25[0-5]|(?:2[0-4]|1[0-9]|[1-9]){0,1}[0-9])" +
-                                                       ")\\/TYPE=(IPv6)$");
-defineLazyRegExp(Address, "REGEXP_DECODE_CUSTOM",      "^([\\w\\+\\-.%]+)\\/TYPE=(\\w+)$");
-defineLazyRegExp(Address, "REGEXP_ENCODE_PLMN",        "^\\+?[\\d.-]+$");
-defineLazyRegExp(Address, "REGEXP_ENCODE_IPV4",        "^(?:(?:25[0-5]|(?:2[0-4]|1[0-9]|[1-9]){0,1}[0-9])\\.){3,3}(?:25[0-5]|(?:2[0-4]|1[0-9]|[1-9]){0,1}[0-9])$");
-defineLazyRegExp(Address, "REGEXP_ENCODE_IPV6",        "^(?:" +
-                                                       "(?:[0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|" +
-                                                       "(?:[0-9a-fA-F]{1,4}:){1,7}:|" +
-                                                       "(?:[0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|" +
-                                                       "(?:[0-9a-fA-F]{1,4}:){1,5}(?::[0-9a-fA-F]{1,4}){1,2}|" +
-                                                       "(?:[0-9a-fA-F]{1,4}:){1,4}(?::[0-9a-fA-F]{1,4}){1,3}|" +
-                                                       "(?:[0-9a-fA-F]{1,4}:){1,3}(?::[0-9a-fA-F]{1,4}){1,4}|" +
-                                                       "(?:[0-9a-fA-F]{1,4}:){1,2}(?::[0-9a-fA-F]{1,4}){1,5}|" +
-                                                       "[0-9a-fA-F]{1,4}:(?::[0-9a-fA-F]{1,4}){1,6}|" +
-                                                       ":(?:(?::[0-9a-fA-F]{1,4}){1,7}|:)" +
-                                                       ")$");
+defineLazyRegExp(
+  Address,
+  "REGEXP_DECODE_PLMN",
+  "^(\\+?[\\d.-]+)\\/TYPE=(PLMN)$"
+);
+defineLazyRegExp(
+  Address,
+  "REGEXP_DECODE_IPV4",
+  "^((?:(?:25[0-5]|(?:2[0-4]|1[0-9]|[1-9]){0,1}[0-9])\\.){3,3}(?:25[0-5]|(?:2[0-4]|1[0-9]|[1-9]){0,1}[0-9]))\\/TYPE=(IPv4)$"
+);
+defineLazyRegExp(
+  Address,
+  "REGEXP_DECODE_IPV6",
+  "^(" +
+    "(?:[0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|" +
+    "(?:[0-9a-fA-F]{1,4}:){1,7}:|" +
+    "(?:[0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|" +
+    "(?:[0-9a-fA-F]{1,4}:){1,5}(?::[0-9a-fA-F]{1,4}){1,2}|" +
+    "(?:[0-9a-fA-F]{1,4}:){1,4}(?::[0-9a-fA-F]{1,4}){1,3}|" +
+    "(?:[0-9a-fA-F]{1,4}:){1,3}(?::[0-9a-fA-F]{1,4}){1,4}|" +
+    "(?:[0-9a-fA-F]{1,4}:){1,2}(?::[0-9a-fA-F]{1,4}){1,5}|" +
+    "[0-9a-fA-F]{1,4}:(?:(?::[0-9a-fA-F]{1,4}){1,6})|" +
+    ":(?:(?::[0-9a-fA-F]{1,4}){1,7}|:)|" +
+    "(?:[0-9a-fA-F]{1,4}:){1,4}:(?:(?:25[0-5]|(?:2[0-4]|1[0-9]|[1-9]){0,1}[0-9])\\.){3,3}(?:25[0-5]|(?:2[0-4]|1[0-9]|[1-9]){0,1}[0-9])" +
+    ")\\/TYPE=(IPv6)$"
+);
+defineLazyRegExp(
+  Address,
+  "REGEXP_DECODE_CUSTOM",
+  "^([\\w\\+\\-.%]+)\\/TYPE=(\\w+)$"
+);
+defineLazyRegExp(Address, "REGEXP_ENCODE_PLMN", "^\\+?[\\d.-]+$");
+defineLazyRegExp(
+  Address,
+  "REGEXP_ENCODE_IPV4",
+  "^(?:(?:25[0-5]|(?:2[0-4]|1[0-9]|[1-9]){0,1}[0-9])\\.){3,3}(?:25[0-5]|(?:2[0-4]|1[0-9]|[1-9]){0,1}[0-9])$"
+);
+defineLazyRegExp(
+  Address,
+  "REGEXP_ENCODE_IPV6",
+  "^(?:" +
+    "(?:[0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|" +
+    "(?:[0-9a-fA-F]{1,4}:){1,7}:|" +
+    "(?:[0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|" +
+    "(?:[0-9a-fA-F]{1,4}:){1,5}(?::[0-9a-fA-F]{1,4}){1,2}|" +
+    "(?:[0-9a-fA-F]{1,4}:){1,4}(?::[0-9a-fA-F]{1,4}){1,3}|" +
+    "(?:[0-9a-fA-F]{1,4}:){1,3}(?::[0-9a-fA-F]{1,4}){1,4}|" +
+    "(?:[0-9a-fA-F]{1,4}:){1,2}(?::[0-9a-fA-F]{1,4}){1,5}|" +
+    "[0-9a-fA-F]{1,4}:(?::[0-9a-fA-F]{1,4}){1,6}|" +
+    ":(?:(?::[0-9a-fA-F]{1,4}){1,7}|:)" +
+    ")$"
+);
 defineLazyRegExp(Address, "REGEXP_ENCODE_CUSTOM_TYPE", "^\\w+$");
 defineLazyRegExp(Address, "REGEXP_ENCODE_CUSTOM_ADDR", "^[\\w\\+\\-.%]+$");
-defineLazyRegExp(Address, "REGEXP_NUM",                "^[\\+*#]?\\d+$");
-defineLazyRegExp(Address, "REGEXP_ALPHANUM",           "^\\w+$");
+defineLazyRegExp(Address, "REGEXP_NUM", "^[\\+*#]?\\d+$");
+defineLazyRegExp(Address, "REGEXP_ALPHANUM", "^\\w+$");
 // OMA-TS-MMS_ENC-V1_3-20110913-A chapter 8:
 //
 //   E-mail should match the definition of `mailbox` as described in section
@@ -294,15 +333,19 @@ defineLazyRegExp(Address, "REGEXP_ALPHANUM",           "^\\w+$");
 //   the "obs-" prefix.
 //
 // Here we try to match addr-spec only.
-defineLazyRegExp(Address, "REGEXP_EMAIL",              "(?:" +
-                                                       "[a-zA-Z0-9!#$%&'*+/=?^_`{|}~-]+(?:\\.[a-zA-Z0-9!#$%&'*+/=?^_`{|}~-]+)*|" +
-                                                       "\"(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21\x23-\x5b\x5d-\x7f]|\\\\[\x01-\x09\x0b\x0c\x0e-\x7f])*\"" +
-                                                       ")@(?:" +
-                                                       "[a-zA-Z0-9!#$%&'*+/=?^_`{|}~-]+(?:\\.[a-zA-Z0-9!#$%&'*+/=?^_`{|}~-]+)*|" +
-                                                       "\\[(?:" +
-                                                       "[\x01-\x08\x0b\x0c\x0e-\x1f\x21-\x5a\x53-\x7f]|\\\\[\x01-\x09\x0b\x0c\x0e-\x7f]" +
-                                                       ")*\\]" +
-                                                       ")");
+defineLazyRegExp(
+  Address,
+  "REGEXP_EMAIL",
+  "(?:" +
+    "[a-zA-Z0-9!#$%&'*+/=?^_`{|}~-]+(?:\\.[a-zA-Z0-9!#$%&'*+/=?^_`{|}~-]+)*|" +
+    '"(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21\x23-\x5b\x5d-\x7f]|\\\\[\x01-\x09\x0b\x0c\x0e-\x7f])*"' +
+    ")@(?:" +
+    "[a-zA-Z0-9!#$%&'*+/=?^_`{|}~-]+(?:\\.[a-zA-Z0-9!#$%&'*+/=?^_`{|}~-]+)*|" +
+    "\\[(?:" +
+    "[\x01-\x08\x0b\x0c\x0e-\x1f\x21-\x5a\x53-\x7f]|\\\\[\x01-\x09\x0b\x0c\x0e-\x7f]" +
+    ")*\\]" +
+    ")"
+);
 
 /**
  * Header-field = MMS-header | Application-header
@@ -321,9 +364,13 @@ this.HeaderField = {
    *         but the `value` property can be many different types depending on
    *         `name`.
    */
-  decode: function(data, options) {
-    return WSP.decodeAlternatives(data, options,
-                                  MmsHeader, WSP.ApplicationHeader);
+  decode(data, options) {
+    return WSP.decodeAlternatives(
+      data,
+      options,
+      MmsHeader,
+      WSP.ApplicationHeader
+    );
   },
 
   /**
@@ -334,9 +381,14 @@ this.HeaderField = {
    * @param options
    *        Extra context for encoding.
    */
-  encode: function(data, value, options) {
-    WSP.encodeAlternatives(data, value, options,
-                           MmsHeader, WSP.ApplicationHeader);
+  encode(data, value, options) {
+    WSP.encodeAlternatives(
+      data,
+      value,
+      options,
+      MmsHeader,
+      WSP.ApplicationHeader
+    );
   },
 };
 
@@ -361,31 +413,37 @@ this.MmsHeader = {
    * @throws NotWellKnownEncodingError if decoded well-known header field
    *         number is not registered or supported.
    */
-  decode: function(data, options) {
+  decode(data, options) {
     let index = WSP.ShortInteger.decode(data);
 
     let entry = MMS_HEADER_FIELDS[index];
     if (!entry) {
       throw new WSP.NotWellKnownEncodingError(
-        "MMS-header: not well known header " + index);
+        "MMS-header: not well known header " + index
+      );
     }
 
-    let cur = data.offset, value;
+    let cur = data.offset,
+      value;
     try {
       value = entry.coder.decode(data, options);
     } catch (e) {
       data.offset = cur;
 
       value = WSP.skipValue(data);
-      debug("Skip malformed well known header: "
-            + JSON.stringify({name: entry.name, value: value}));
+      if (DEBUG) {
+        debug(
+          "Skip malformed well known header: " +
+            JSON.stringify({ name: entry.name, value })
+        );
+      }
 
       return null;
     }
 
     return {
       name: entry.name,
-      value: value,
+      value,
     };
   },
 
@@ -400,7 +458,7 @@ this.MmsHeader = {
    * @throws NotWellKnownEncodingError if the well-known header field number is
    *         not registered or supported.
    */
-  encode: function(data, header) {
+  encode(data, header) {
     if (!header.name) {
       throw new WSP.CodeError("MMS-header: empty header name");
     }
@@ -408,7 +466,8 @@ this.MmsHeader = {
     let entry = MMS_HEADER_FIELDS[header.name.toLowerCase()];
     if (!entry) {
       throw new WSP.NotWellKnownEncodingError(
-        "MMS-header: not well known header " + header.name);
+        "MMS-header: not well known header " + header.name
+      );
     }
 
     WSP.ShortInteger.encode(data, entry.number);
@@ -454,12 +513,14 @@ this.ContentLocationValue = {
    * @return A decoded object containing `uri` and conditional `statusCount`
    *         properties.
    */
-  decode: function(data, options) {
+  decode(data, options) {
     let type = WSP.ensureHeader(options, "x-mms-message-type");
 
     let result = {};
-    if ((type == MMS_PDU_TYPE_MBOX_DELETE_CONF)
-        || (type == MMS_PDU_TYPE_DELETE_CONF)) {
+    if (
+      type == MMS_PDU_TYPE_MBOX_DELETE_CONF ||
+      type == MMS_PDU_TYPE_DELETE_CONF
+    ) {
       let length = WSP.ValueLength.decode(data);
       let end = data.offset + length;
 
@@ -491,7 +552,7 @@ this.ElementDescriptorValue = {
    * @return A decoded object containing a string property `contentReference`
    *         and an optinal `params` name-value map.
    */
-  decode: function(data) {
+  decode(data) {
     let length = WSP.ValueLength.decode(data);
     let end = data.offset + length;
 
@@ -531,7 +592,7 @@ this.Parameter = {
    * @throws NotWellKnownEncodingError if decoded well-known parameter number
    *         is not registered or supported.
    */
-  decodeParameterName: function(data) {
+  decodeParameterName(data) {
     let begin = data.offset;
     let number;
     try {
@@ -544,7 +605,8 @@ this.Parameter = {
     let entry = MMS_WELL_KNOWN_PARAMS[number];
     if (!entry) {
       throw new WSP.NotWellKnownEncodingError(
-        "Parameter-name: not well known parameter " + number);
+        "Parameter-name: not well known parameter " + number
+      );
     }
 
     return entry.name;
@@ -559,13 +621,17 @@ this.Parameter = {
    *         but the `value` property can be many different types depending on
    *         `name`.
    */
-  decode: function(data) {
+  decode(data) {
     let name = this.decodeParameterName(data);
-    let value = WSP.decodeAlternatives(data, null,
-                                       WSP.ConstrainedEncoding, WSP.TextString);
+    let value = WSP.decodeAlternatives(
+      data,
+      null,
+      WSP.ConstrainedEncoding,
+      WSP.TextString
+    );
     return {
-      name: name,
-      value: value,
+      name,
+      value,
     };
   },
 
@@ -577,7 +643,7 @@ this.Parameter = {
    *
    * @return An array of decoded objects.
    */
-  decodeMultiple: function(data, end) {
+  decodeMultiple(data, end) {
     let params, param;
 
     while (data.offset < end) {
@@ -605,7 +671,7 @@ this.Parameter = {
    * @param options
    *        Extra context for encoding.
    */
-  encode: function(data, param, options) {
+  encode(data, param, options) {
     if (!param || !param.name) {
       throw new WSP.CodeError("Parameter-name: empty param name");
     }
@@ -617,8 +683,13 @@ this.Parameter = {
       WSP.TextString.encode(data, param.name);
     }
 
-    WSP.encodeAlternatives(data, param.value, options,
-                           WSP.ConstrainedEncoding, WSP.TextString);
+    WSP.encodeAlternatives(
+      data,
+      param.value,
+      options,
+      WSP.ConstrainedEncoding,
+      WSP.TextString
+    );
   },
 };
 
@@ -642,7 +713,7 @@ this.EncodedStringValue = {
    * @throws NotWellKnownEncodingError if decoded well-known charset number is
    *         not registered or supported.
    */
-  decodeCharsetEncodedString: function(data) {
+  decodeCharsetEncodedString(data) {
     let length = WSP.ValueLength.decode(data);
     let end = data.offset + length;
 
@@ -650,7 +721,8 @@ this.EncodedStringValue = {
     let entry = WSP.WSP_WELL_KNOWN_CHARSETS[charset];
     if (!entry) {
       throw new WSP.NotWellKnownEncodingError(
-        "Charset-encoded-string: not well known charset " + charset);
+        "Charset-encoded-string: not well known charset " + charset
+      );
     }
 
     let str;
@@ -668,8 +740,9 @@ this.EncodedStringValue = {
       if (!raw) {
         str = "";
       } else {
-        let conv = Cc["@mozilla.org/intl/scriptableunicodeconverter"]
-                   .createInstance(Ci.nsIScriptableUnicodeConverter);
+        let conv = Cc[
+          "@mozilla.org/intl/scriptableunicodeconverter"
+        ].createInstance(Ci.nsIScriptableUnicodeConverter);
         conv.charset = entry.converter;
         try {
           str = conv.convertFromByteArray(raw, raw.length);
@@ -694,7 +767,7 @@ this.EncodedStringValue = {
    *
    * @return Decoded string.
    */
-  decode: function(data) {
+  decode(data) {
     let begin = data.offset;
     try {
       return WSP.TextString.decode(data);
@@ -712,9 +785,10 @@ this.EncodedStringValue = {
    * @param str
    *        A string.
    */
-  encodeCharsetEncodedString: function(data, str) {
-    let conv = Cc["@mozilla.org/intl/scriptableunicodeconverter"]
-               .createInstance(Ci.nsIScriptableUnicodeConverter);
+  encodeCharsetEncodedString(data, str) {
+    let conv = Cc[
+      "@mozilla.org/intl/scriptableunicodeconverter"
+    ].createInstance(Ci.nsIScriptableUnicodeConverter);
     // `When the text string cannot be represented as us-ascii, the character
     // set SHALL be encoded as utf-8(IANA MIBenum 106) which has unique byte
     // ordering.` ~ OMA-TS-MMS_CONF-V1_3-20110913-A clause 10.2.1
@@ -751,7 +825,7 @@ this.EncodedStringValue = {
    * @param str
    *        A string.
    */
-  encode: function(data, str) {
+  encode(data, str) {
     let begin = data.offset;
     try {
       // Quoted from OMA-TS-MMS-CONF-V1_3-20110913-A:
@@ -788,12 +862,12 @@ this.ExpiryValue = {
    *
    * @throws CodeError if decoded token equals to neither 128 nor 129.
    */
-  decode: function(data) {
+  decode(data) {
     let length = WSP.ValueLength.decode(data);
     let end = data.offset + length;
 
     let token = WSP.Octet.decode(data);
-    if ((token != 128) && (token != 129)) {
+    if (token != 128 && token != 129) {
       throw new WSP.CodeError("Expiry-value: invalid token " + token);
     }
 
@@ -817,8 +891,9 @@ this.ExpiryValue = {
    * @param value
    *        A Date object for absolute expiry or an integer for relative one.
    */
-  encode: function(data, value) {
-    let isDate, begin = data.offset;
+  encode(data, value) {
+    let isDate,
+      begin = data.offset;
     if (value instanceof Date) {
       isDate = true;
       WSP.DateValue.encode(data, value);
@@ -826,7 +901,7 @@ this.ExpiryValue = {
       isDate = false;
       WSP.DeltaSecondsValue.encode(data, value);
     } else {
-      throw new CodeError("Expiry-value: invalid value type");
+      throw new WSP.CodeError("Expiry-value: invalid value type");
     }
 
     // Calculate how much octets will be written and seek back.
@@ -862,12 +937,12 @@ this.FromValue = {
    *
    * @throws CodeError if decoded token equals to neither 128 nor 129.
    */
-  decode: function(data) {
+  decode(data) {
     let length = WSP.ValueLength.decode(data);
     let end = data.offset + length;
 
     let token = WSP.Octet.decode(data);
-    if ((token != 128) && (token != 129)) {
+    if (token != 128 && token != 129) {
       throw new WSP.CodeError("From-value: invalid token " + token);
     }
 
@@ -889,7 +964,7 @@ this.FromValue = {
    * @param value
    *        A Address-value or null for MMS Proxy-Relay Insert-Address mode.
    */
-  encode: function(data, value) {
+  encode(data, value) {
     if (!value) {
       WSP.ValueLength.encode(data, 1);
       WSP.Octet.encode(data, 129);
@@ -923,7 +998,7 @@ this.PreviouslySentByValue = {
    * @return Decoded object containing an integer `forwardedCount` and an
    *         string-typed `originator` attributes.
    */
-  decode: function(data) {
+  decode(data) {
     let length = WSP.ValueLength.decode(data);
     let end = data.offset + length;
 
@@ -953,7 +1028,7 @@ this.PreviouslySentDateValue = {
    * @return Decoded object containing an integer `forwardedCount` and an
    *         Date-typed `timestamp` attributes.
    */
-  decode: function(data) {
+  decode(data) {
     let length = WSP.ValueLength.decode(data);
     let end = data.offset + length;
 
@@ -990,9 +1065,9 @@ this.MessageClassValue = {
    *
    * @throws CodeError if decoded value is not in the range 128..131.
    */
-  decodeClassIdentifier: function(data) {
+  decodeClassIdentifier(data) {
     let value = WSP.Octet.decode(data);
-    if ((value >= 128) && (value < (128 + this.WELL_KNOWN_CLASSES.length))) {
+    if (value >= 128 && value < 128 + this.WELL_KNOWN_CLASSES.length) {
       return this.WELL_KNOWN_CLASSES[value - 128];
     }
 
@@ -1005,7 +1080,7 @@ this.MessageClassValue = {
    *
    * @return A decoded string.
    */
-  decode: function(data) {
+  decode(data) {
     let begin = data.offset;
     try {
       return this.decodeClassIdentifier(data);
@@ -1020,7 +1095,7 @@ this.MessageClassValue = {
    *        A wrapped object to store encoded raw data.
    * @param klass
    */
-  encode: function(data, klass) {
+  encode(data, klass) {
     let index = this.WELL_KNOWN_CLASSES.indexOf(klass.toLowerCase());
     if (index >= 0) {
       WSP.Octet.encode(data, index + 128);
@@ -1030,7 +1105,7 @@ this.MessageClassValue = {
   },
 };
 
- /**
+/**
  * Message-type-value = <Octet 128..151>
  *
  * @see OMA-TS-MMS_ENC-V1_3-20110913-A clause 7.3.30
@@ -1055,13 +1130,13 @@ this.MmFlagsValue = {
    *
    * @throws CodeError if decoded value is not in the range 128..130.
    */
-  decode: function(data) {
+  decode(data) {
     let length = WSP.ValueLength.decode(data);
     let end = data.offset + length;
 
     let result = {};
     result.type = WSP.Octet.decode(data);
-    if ((result.type < 128) || (result.type > 130)) {
+    if (result.type < 128 || result.type > 130) {
       throw new WSP.CodeError("MM-flags-value: invalid type " + result.type);
     }
     result.text = EncodedStringValue.decode(data);
@@ -1080,8 +1155,8 @@ this.MmFlagsValue = {
    *        An object containing an integer `type` and an string-typed
    *        `text` attributes.
    */
-  encode: function(data, value) {
-    if ((value.type < 128) || (value.type > 130)) {
+  encode(data, value) {
+    if (value.type < 128 || value.type > 130) {
       throw new WSP.CodeError("MM-flags-value: invalid type " + value.type);
     }
 
@@ -1140,7 +1215,7 @@ this.RecommendedRetrievalModeValue = {
    *
    * @return A decoded integer.
    */
-  decode: function(data) {
+  decode(data) {
     return WSP.Octet.decodeEqualTo(data, 128);
   },
 };
@@ -1178,12 +1253,14 @@ this.ResponseText = {
    * @return An object containing a string-typed `text` attribute and a
    *         integer-typed `statusCount` one.
    */
-  decode: function(data, options) {
+  decode(data, options) {
     let type = WSP.ensureHeader(options, "x-mms-message-type");
 
     let result = {};
-    if ((type == MMS_PDU_TYPE_MBOX_DELETE_CONF)
-        || (type == MMS_PDU_TYPE_DELETE_CONF)) {
+    if (
+      type == MMS_PDU_TYPE_MBOX_DELETE_CONF ||
+      type == MMS_PDU_TYPE_DELETE_CONF
+    ) {
       let length = WSP.ValueLength.decode(data);
       let end = data.offset + length;
 
@@ -1227,13 +1304,13 @@ this.RetrieveStatusValue = {
    *
    * @return A decoded integer.
    */
-  decode: function(data) {
+  decode(data) {
     let value = WSP.Octet.decode(data);
     if (value == MMS_PDU_ERROR_OK) {
       return value;
     }
 
-    if ((value >= MMS_PDU_ERROR_TRANSIENT_FAILURE) && (value < 256)) {
+    if (value >= MMS_PDU_ERROR_TRANSIENT_FAILURE && value < 256) {
       return value;
     }
 
@@ -1249,7 +1326,11 @@ this.RetrieveStatusValue = {
  *
  * @see OMA-TS-MMS_ENC-V1_3-20110913-A clause 7.3.52
  */
-this.SenderVisibilityValue = new RangedValue("Sender-visibility-value", 128, 129);
+this.SenderVisibilityValue = new RangedValue(
+  "Sender-visibility-value",
+  128,
+  129
+);
 
 /**
  * Status-value = Expired | Retrieved | Rejected | Deferred | Unrecognised |
@@ -1277,7 +1358,7 @@ this.PduHelper = {
    *
    * @return A boolean value indicating whether it's followed by message body.
    */
-  parseHeaders: function(data, headers) {
+  parseHeaders(data, headers) {
     if (!headers) {
       headers = {};
     }
@@ -1316,10 +1397,12 @@ this.PduHelper = {
    * @param msg
    *        A message object to store decoded multipart or octet array content.
    */
-  parseContent: function(data, msg) {
+  parseContent(data, msg) {
     let contentType = msg.headers["content-type"].media;
-    if ((contentType == "application/vnd.wap.multipart.related")
-        || (contentType == "application/vnd.wap.multipart.mixed")) {
+    if (
+      contentType == "application/vnd.wap.multipart.related" ||
+      contentType == "application/vnd.wap.multipart.mixed"
+    ) {
       msg.parts = WSP.PduHelper.parseMultiPart(data);
       return;
     }
@@ -1331,7 +1414,12 @@ this.PduHelper = {
     msg.content = WSP.Octet.decodeMultiple(data, data.array.length);
     if (false) {
       for (let begin = 0; begin < msg.content.length; begin += 20) {
-        debug("content: " + JSON.stringify(msg.content.subarray(begin, begin + 20)));
+        if (DEBUG) {
+          debug(
+            "content: " +
+              JSON.stringify(msg.content.subarray(begin, begin + 20))
+          );
+        }
       }
     }
   },
@@ -1347,12 +1435,13 @@ this.PduHelper = {
    *
    * @throws FatalCodeError if the PDU type is not supported yet.
    */
-  checkMandatoryFields: function(msg) {
+  checkMandatoryFields(msg) {
     let type = WSP.ensureHeader(msg.headers, "x-mms-message-type");
     let entry = MMS_PDU_TYPES[type];
     if (!entry) {
       throw new WSP.FatalCodeError(
-        "checkMandatoryFields: unsupported message type " + type);
+        "checkMandatoryFields: unsupported message type " + type
+      );
     }
 
     entry.mandatoryFields.forEach(function(name) {
@@ -1373,7 +1462,7 @@ this.PduHelper = {
    *
    * @return A MMS message object or null in case of errors found.
    */
-  parse: function(data, msg) {
+  parse(data, msg) {
     if (!msg) {
       msg = {};
     }
@@ -1387,7 +1476,9 @@ this.PduHelper = {
         this.parseContent(data, msg);
       }
     } catch (e) {
-      debug("Failed to parse MMS message, error message: " + e.message);
+      if (DEBUG) {
+        debug("Failed to parse MMS message, error message: " + e.message);
+      }
       return null;
     }
 
@@ -1402,14 +1493,14 @@ this.PduHelper = {
    * @param name
    *        Name of the header field to be encoded.
    */
-  encodeHeader: function(data, headers, name) {
+  encodeHeader(data, headers, name) {
     let value = headers[name];
     if (Array.isArray(value)) {
       for (let i = 0; i < value.length; i++) {
-        HeaderField.encode(data, {name: name, value: value[i]}, headers);
+        HeaderField.encode(data, { name, value: value[i] }, headers);
       }
     } else {
-      HeaderField.encode(data, {name: name, value: value}, headers);
+      HeaderField.encode(data, { name, value }, headers);
     }
   },
 
@@ -1419,7 +1510,7 @@ this.PduHelper = {
    * @param headers
    *        A dictionary object containing multiple name/value mapping.
    */
-  encodeHeaderIfExists: function(data, headers, name) {
+  encodeHeaderIfExists(data, headers, name) {
     // Header value could be zero or null.
     if (headers[name] !== undefined) {
       this.encodeHeader(data, headers, name);
@@ -1434,9 +1525,9 @@ this.PduHelper = {
    *
    * @return the passed data parameter or a created one.
    */
-  encodeHeaders: function(data, headers) {
+  encodeHeaders(data, headers) {
     if (!data) {
-      data = {array: [], offset: 0};
+      data = { array: [], offset: 0 };
     }
 
     // `In the encoding of the header fields, the order of the fields is not
@@ -1450,10 +1541,12 @@ this.PduHelper = {
     this.encodeHeaderIfExists(data, headers, "x-mms-mms-version");
 
     for (let key in headers) {
-      if ((key == "x-mms-message-type")
-          || (key == "x-mms-transaction-id")
-          || (key == "x-mms-mms-version")
-          || (key == "content-type")) {
+      if (
+        key == "x-mms-message-type" ||
+        key == "x-mms-transaction-id" ||
+        key == "x-mms-mms-version" ||
+        key == "content-type"
+      ) {
         continue;
       }
       this.encodeHeader(data, headers, key);
@@ -1472,10 +1565,11 @@ this.PduHelper = {
    *
    * @return An instance of nsIMultiplexInputStream or null in case of errors.
    */
-  compose: function(multiStream, msg) {
+  compose(multiStream, msg) {
     if (!multiStream) {
-      multiStream = Cc["@mozilla.org/io/multiplex-input-stream;1"]
-                    .createInstance(Ci.nsIMultiplexInputStream);
+      multiStream = Cc[
+        "@mozilla.org/io/multiplex-input-stream;1"
+      ].createInstance(Ci.nsIMultiplexInputStream);
     }
 
     try {
@@ -1483,11 +1577,21 @@ this.PduHelper = {
       let typeinfo = this.checkMandatoryFields(msg);
 
       let data = this.encodeHeaders(null, msg.headers);
-      debug("Composed PDU Header: " + JSON.stringify(data.array));
-      WSP.PduHelper.appendArrayToMultiStream(multiStream, data.array, data.offset);
+      if (DEBUG) {
+        debug("Composed PDU Header: " + JSON.stringify(data.array));
+      }
+      WSP.PduHelper.appendArrayToMultiStream(
+        multiStream,
+        data.array,
+        data.offset
+      );
 
       if (msg.content) {
-        WSP.PduHelper.appendArrayToMultiStream(multiStream, msg.content, msg.content.length);
+        WSP.PduHelper.appendArrayToMultiStream(
+          multiStream,
+          msg.content,
+          msg.content.length
+        );
       } else if (msg.parts) {
         WSP.PduHelper.composeMultiPart(multiStream, msg.parts);
       } else if (typeinfo.hasContent) {
@@ -1496,7 +1600,9 @@ this.PduHelper = {
 
       return multiStream;
     } catch (e) {
-      debug("Failed to compose MMS message, error message: " + e.message);
+      if (DEBUG) {
+        debug("Failed to compose MMS message, error message: " + e.message);
+      }
       return null;
     }
   },
@@ -1506,58 +1612,76 @@ const MMS_PDU_TYPES = (function() {
   let pdus = {};
   function add(number, hasContent, mandatoryFields) {
     pdus[number] = {
-      number: number,
-      hasContent: hasContent,
-      mandatoryFields: mandatoryFields,
+      number,
+      hasContent,
+      mandatoryFields,
     };
   }
 
-  add(MMS_PDU_TYPE_SEND_REQ, true, ["x-mms-message-type",
-                                    "x-mms-transaction-id",
-                                    "x-mms-mms-version",
-                                    "from",
-                                    "content-type"]);
-  add(MMS_PDU_TYPE_SEND_CONF, false, ["x-mms-message-type",
-                                      "x-mms-transaction-id",
-                                      "x-mms-mms-version",
-                                      "x-mms-response-status"]);
-  add(MMS_PDU_TYPE_NOTIFICATION_IND, false, ["x-mms-message-type",
-                                             "x-mms-transaction-id",
-                                             "x-mms-mms-version",
-                                             "x-mms-message-class",
-                                             "x-mms-message-size",
-                                             "x-mms-expiry",
-                                             "x-mms-content-location"]);
-  add(MMS_PDU_TYPE_RETRIEVE_CONF, true, ["x-mms-message-type",
-                                         "x-mms-mms-version",
-                                         "date",
-                                         "content-type"]);
-  add(MMS_PDU_TYPE_NOTIFYRESP_IND, false, ["x-mms-message-type",
-                                           "x-mms-transaction-id",
-                                           "x-mms-mms-version",
-                                           "x-mms-status"]);
-  add(MMS_PDU_TYPE_DELIVERY_IND, false, ["x-mms-message-type",
-                                         "x-mms-mms-version",
-                                         "message-id",
-                                         "to",
-                                         "date",
-                                         "x-mms-status"]);
-  add(MMS_PDU_TYPE_ACKNOWLEDGE_IND, false, ["x-mms-message-type",
-                                            "x-mms-transaction-id",
-                                            "x-mms-mms-version"]);
-  add(MMS_PDU_TYPE_READ_REC_IND, false, ["x-mms-message-type",
-                                         "message-id",
-                                         "x-mms-mms-version",
-                                         "to",
-                                         "from",
-                                         "x-mms-read-status"]);
-  add(MMS_PDU_TYPE_READ_ORIG_IND, false, ["x-mms-message-type",
-                                          "x-mms-mms-version",
-                                          "message-id",
-                                          "to",
-                                          "from",
-                                          "date",
-                                          "x-mms-read-status"]);
+  add(MMS_PDU_TYPE_SEND_REQ, true, [
+    "x-mms-message-type",
+    "x-mms-transaction-id",
+    "x-mms-mms-version",
+    "from",
+    "content-type",
+  ]);
+  add(MMS_PDU_TYPE_SEND_CONF, false, [
+    "x-mms-message-type",
+    "x-mms-transaction-id",
+    "x-mms-mms-version",
+    "x-mms-response-status",
+  ]);
+  add(MMS_PDU_TYPE_NOTIFICATION_IND, false, [
+    "x-mms-message-type",
+    "x-mms-transaction-id",
+    "x-mms-mms-version",
+    "x-mms-message-class",
+    "x-mms-message-size",
+    "x-mms-expiry",
+    "x-mms-content-location",
+  ]);
+  add(MMS_PDU_TYPE_RETRIEVE_CONF, true, [
+    "x-mms-message-type",
+    "x-mms-mms-version",
+    "date",
+    "content-type",
+  ]);
+  add(MMS_PDU_TYPE_NOTIFYRESP_IND, false, [
+    "x-mms-message-type",
+    "x-mms-transaction-id",
+    "x-mms-mms-version",
+    "x-mms-status",
+  ]);
+  add(MMS_PDU_TYPE_DELIVERY_IND, false, [
+    "x-mms-message-type",
+    "x-mms-mms-version",
+    "message-id",
+    "to",
+    "date",
+    "x-mms-status",
+  ]);
+  add(MMS_PDU_TYPE_ACKNOWLEDGE_IND, false, [
+    "x-mms-message-type",
+    "x-mms-transaction-id",
+    "x-mms-mms-version",
+  ]);
+  add(MMS_PDU_TYPE_READ_REC_IND, false, [
+    "x-mms-message-type",
+    "message-id",
+    "x-mms-mms-version",
+    "to",
+    "from",
+    "x-mms-read-status",
+  ]);
+  add(MMS_PDU_TYPE_READ_ORIG_IND, false, [
+    "x-mms-message-type",
+    "x-mms-mms-version",
+    "message-id",
+    "to",
+    "from",
+    "date",
+    "x-mms-read-status",
+  ]);
 
   return pdus;
 })();
@@ -1571,76 +1695,76 @@ const MMS_HEADER_FIELDS = (function() {
   let names = {};
   function add(name, number, coder) {
     let entry = {
-      name: name,
-      number: number,
-      coder: coder,
+      name,
+      number,
+      coder,
     };
     names[name] = names[number] = entry;
   }
 
-  add("bcc",                                     0x01, Address);
-  add("cc",                                      0x02, Address);
-  add("x-mms-content-location",                  0x03, ContentLocationValue);
-  add("content-type",                            0x04, WSP.ContentTypeValue);
-  add("date",                                    0x05, WSP.DateValue);
-  add("x-mms-delivery-report",                   0x06, BooleanValue);
-  add("x-mms-delivery-time",                     0x07, ExpiryValue);
-  add("x-mms-expiry",                            0x08, ExpiryValue);
-  add("from",                                    0x09, FromValue);
-  add("x-mms-message-class",                     0x0A, MessageClassValue);
-  add("message-id",                              0x0B, WSP.TextString);
-  add("x-mms-message-type",                      0x0C, MessageTypeValue);
-  add("x-mms-mms-version",                       0x0D, WSP.ShortInteger);
-  add("x-mms-message-size",                      0x0E, WSP.LongInteger);
-  add("x-mms-priority",                          0x0F, PriorityValue);
-  add("x-mms-read-report",                       0x10, BooleanValue);
-  add("x-mms-report-allowed",                    0x11, BooleanValue);
-  add("x-mms-response-status",                   0x12, RetrieveStatusValue);
-  add("x-mms-response-text",                     0x13, ResponseText);
-  add("x-mms-sender-visibility",                 0x14, SenderVisibilityValue);
-  add("x-mms-status",                            0x15, StatusValue);
-  add("subject",                                 0x16, EncodedStringValue);
-  add("to",                                      0x17, Address);
-  add("x-mms-transaction-id",                    0x18, WSP.TextString);
-  add("x-mms-retrieve-status",                   0x19, RetrieveStatusValue);
-  add("x-mms-retrieve-text",                     0x1A, EncodedStringValue);
-  add("x-mms-read-status",                       0x1B, ReadStatusValue);
-  add("x-mms-reply-charging",                    0x1C, ReplyChargingValue);
-  add("x-mms-reply-charging-deadline",           0x1D, ExpiryValue);
-  add("x-mms-reply-charging-id",                 0x1E, WSP.TextString);
-  add("x-mms-reply-charging-size",               0x1F, WSP.LongInteger);
-  add("x-mms-previously-sent-by",                0x20, PreviouslySentByValue);
-  add("x-mms-previously-sent-date",              0x21, PreviouslySentDateValue);
-  add("x-mms-store",                             0x22, BooleanValue);
-  add("x-mms-mm-state",                          0x23, MmStateValue);
-  add("x-mms-mm-flags",                          0x24, MmFlagsValue);
-  add("x-mms-store-status",                      0x25, RetrieveStatusValue);
-  add("x-mms-store-status-text",                 0x26, EncodedStringValue);
-  add("x-mms-stored",                            0x27, BooleanValue);
+  add("bcc", 0x01, Address);
+  add("cc", 0x02, Address);
+  add("x-mms-content-location", 0x03, ContentLocationValue);
+  add("content-type", 0x04, WSP.ContentTypeValue);
+  add("date", 0x05, WSP.DateValue);
+  add("x-mms-delivery-report", 0x06, BooleanValue);
+  add("x-mms-delivery-time", 0x07, ExpiryValue);
+  add("x-mms-expiry", 0x08, ExpiryValue);
+  add("from", 0x09, FromValue);
+  add("x-mms-message-class", 0x0a, MessageClassValue);
+  add("message-id", 0x0b, WSP.TextString);
+  add("x-mms-message-type", 0x0c, MessageTypeValue);
+  add("x-mms-mms-version", 0x0d, WSP.ShortInteger);
+  add("x-mms-message-size", 0x0e, WSP.LongInteger);
+  add("x-mms-priority", 0x0f, PriorityValue);
+  add("x-mms-read-report", 0x10, BooleanValue);
+  add("x-mms-report-allowed", 0x11, BooleanValue);
+  add("x-mms-response-status", 0x12, RetrieveStatusValue);
+  add("x-mms-response-text", 0x13, ResponseText);
+  add("x-mms-sender-visibility", 0x14, SenderVisibilityValue);
+  add("x-mms-status", 0x15, StatusValue);
+  add("subject", 0x16, EncodedStringValue);
+  add("to", 0x17, Address);
+  add("x-mms-transaction-id", 0x18, WSP.TextString);
+  add("x-mms-retrieve-status", 0x19, RetrieveStatusValue);
+  add("x-mms-retrieve-text", 0x1a, EncodedStringValue);
+  add("x-mms-read-status", 0x1b, ReadStatusValue);
+  add("x-mms-reply-charging", 0x1c, ReplyChargingValue);
+  add("x-mms-reply-charging-deadline", 0x1d, ExpiryValue);
+  add("x-mms-reply-charging-id", 0x1e, WSP.TextString);
+  add("x-mms-reply-charging-size", 0x1f, WSP.LongInteger);
+  add("x-mms-previously-sent-by", 0x20, PreviouslySentByValue);
+  add("x-mms-previously-sent-date", 0x21, PreviouslySentDateValue);
+  add("x-mms-store", 0x22, BooleanValue);
+  add("x-mms-mm-state", 0x23, MmStateValue);
+  add("x-mms-mm-flags", 0x24, MmFlagsValue);
+  add("x-mms-store-status", 0x25, RetrieveStatusValue);
+  add("x-mms-store-status-text", 0x26, EncodedStringValue);
+  add("x-mms-stored", 0x27, BooleanValue);
   //add("x-mms-attributes", 0x28);
-  add("x-mms-totals",                            0x29, BooleanValue);
+  add("x-mms-totals", 0x29, BooleanValue);
   //add("x-mms-mbox-totals", 0x2A);
-  add("x-mms-quotas",                            0x2B, BooleanValue);
+  add("x-mms-quotas", 0x2b, BooleanValue);
   //add("x-mms-mbox-quotas", 0x2C);
-  add("x-mms-message-count",                     0x2D, WSP.IntegerValue);
+  add("x-mms-message-count", 0x2d, WSP.IntegerValue);
   //add("content", 0x2E);
-  add("x-mms-start",                             0x2F, WSP.IntegerValue);
+  add("x-mms-start", 0x2f, WSP.IntegerValue);
   //add("additional-headers", 0x30);
-  add("x-mms-distribution-indicator",            0x31, BooleanValue);
-  add("x-mms-element-descriptor",                0x32, ElementDescriptorValue);
-  add("x-mms-limit",                             0x33, WSP.IntegerValue);
-  add("x-mms-recommended-retrieval-mode",        0x34, RecommendedRetrievalModeValue);
-  add("x-mms-recommended-retrieval-mode-text",   0x35, EncodedStringValue);
+  add("x-mms-distribution-indicator", 0x31, BooleanValue);
+  add("x-mms-element-descriptor", 0x32, ElementDescriptorValue);
+  add("x-mms-limit", 0x33, WSP.IntegerValue);
+  add("x-mms-recommended-retrieval-mode", 0x34, RecommendedRetrievalModeValue);
+  add("x-mms-recommended-retrieval-mode-text", 0x35, EncodedStringValue);
   //add("x-mms-status-text", 0x36);
-  add("x-mms-applic-id",                         0x37, WSP.TextString);
-  add("x-mms-reply-applic-id",                   0x38, WSP.TextString);
-  add("x-mms-aux-applic-id",                     0x39, WSP.TextString);
-  add("x-mms-content-class",                     0x3A, ContentClassValue);
-  add("x-mms-drm-content",                       0x3B, BooleanValue);
-  add("x-mms-adaptation-allowed",                0x3C, BooleanValue);
-  add("x-mms-replace-id",                        0x3D, WSP.TextString);
-  add("x-mms-cancel-id",                         0x3E, WSP.TextString);
-  add("x-mms-cancel-status",                     0x3F, CancelStatusValue);
+  add("x-mms-applic-id", 0x37, WSP.TextString);
+  add("x-mms-reply-applic-id", 0x38, WSP.TextString);
+  add("x-mms-aux-applic-id", 0x39, WSP.TextString);
+  add("x-mms-content-class", 0x3a, ContentClassValue);
+  add("x-mms-drm-content", 0x3b, BooleanValue);
+  add("x-mms-adaptation-allowed", 0x3c, BooleanValue);
+  add("x-mms-replace-id", 0x3d, WSP.TextString);
+  add("x-mms-cancel-id", 0x3e, WSP.TextString);
+  add("x-mms-cancel-status", 0x3f, CancelStatusValue);
 
   return names;
 })();
@@ -1651,9 +1775,9 @@ const MMS_WELL_KNOWN_PARAMS = (function() {
 
   function add(name, number, coder) {
     let entry = {
-      name: name,
-      number: number,
-      coder: coder,
+      name,
+      number,
+      coder,
     };
     params[name] = params[number] = entry;
   }
@@ -1664,13 +1788,8 @@ const MMS_WELL_KNOWN_PARAMS = (function() {
   return params;
 })();
 
-var debug;
-if (DEBUG) {
-  debug = function(s) {
-    dump("-$- MmsPduHelper: " + s + "\n");
-  };
-} else {
-  debug = function(s) {};
+function debug(s) {
+  dump("-$- MmsPduHelper: " + s + "\n");
 }
 
 this.EXPORTED_SYMBOLS = ALL_CONST_SYMBOLS.concat([
@@ -1711,4 +1830,3 @@ this.EXPORTED_SYMBOLS = ALL_CONST_SYMBOLS.concat([
   // Parser
   "PduHelper",
 ]);
-

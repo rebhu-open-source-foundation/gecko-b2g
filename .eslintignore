@@ -28,6 +28,7 @@ b2g/app/b2g.js
 b2g/locales/en-US/b2g-l10n.js
 koost/koost.js
 dom/cellbroadcast/gonk/GonkCellBroadcastConfigService.jsm
+dom/mobilemessage/gonk/MmsPduHelper.jsm
 dom/system/gonk/radio/simIOHelper.js
 # Tests to fix:
 dom/cellbroadcast/tests/

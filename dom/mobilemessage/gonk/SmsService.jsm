@@ -74,13 +74,6 @@ XPCOMUtils.defineLazyGetter(this, "gSmsSegmentHelper", function() {
   return ns.SmsSegmentHelper;
 });
 
-//FIXME
-//XPCOMUtils.defineLazyGetter(this, "gPhoneNumberUtils", function() {
-//  let ns = {};
-//  ChromeUtils.import("resource://gre/modules/PhoneNumberUtils.jsm", ns);
-//  return ns.PhoneNumberUtils;
-//});
-
 XPCOMUtils.defineLazyGetter(this, "gWAP", function() {
   let ns = {};
   ChromeUtils.import("resource://gre/modules/WapPushManager.jsm", ns);
@@ -162,6 +155,14 @@ XPCOMUtils.defineLazyServiceGetter(
   "@mozilla.org/mobileconnection/imsregservice;1",
   "nsIImsRegService"
 );
+
+XPCOMUtils.defineLazyModuleGetter(
+  this,
+  "gPhoneNumberUtils",
+  "resource://gre/modules/PhoneNumberUtils.jsm",
+  "PhoneNumberUtils"
+);
+
 var DEBUG = RIL_DEBUG.DEBUG_RIL;
 function debug(s) {
   dump("SmsService: " + s);
@@ -1246,7 +1247,8 @@ SmsService.prototype = {
       null,
       strict7BitEncoding
     );
-    options.number = aNumber; //gPhoneNumberUtils.normalize(aNumber); //FIXME
+
+    options.number = gPhoneNumberUtils.normalize(aNumber);
     let requestStatusReport = Services.prefs.getBoolPref(
       "dom.sms.requestStatusReport",
       true
@@ -1297,12 +1299,14 @@ SmsService.prototype = {
       let errorCode;
       let radioState = connection && connection.radioState;
 
-      //FIXME
-      //if (!gPhoneNumberUtils.isPlainPhoneNumber(options.number)) {
-      //  if (DEBUG) debug("Error! Address is invalid when sending SMS: " + options.number);
-      //  errorCode = Ci.nsIMobileMessageCallback.INVALID_ADDRESS_ERROR;
-      //} else
-      if (
+      if (!gPhoneNumberUtils.isPlainPhoneNumber(options.number)) {
+        if (DEBUG) {
+          debug(
+            "Error! Address is invalid when sending SMS: " + options.number
+          );
+        }
+        errorCode = Ci.nsIMobileMessageCallback.INVALID_ADDRESS_ERROR;
+      } else if (
         radioState == Ci.nsIMobileConnection.MOBILE_RADIO_STATE_UNKNOWN ||
         (radioState == Ci.nsIMobileConnection.MOBILE_RADIO_STATE_DISABLED &&
           !gSmsSendingSchedulers

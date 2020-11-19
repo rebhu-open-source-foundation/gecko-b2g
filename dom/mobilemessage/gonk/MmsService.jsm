@@ -11,13 +11,11 @@ const { XPCOMUtils } = ChromeUtils.import(
 );
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
-//Cu.import("resource://gre/modules/PhoneNumberUtils.jsm");
-
 const GONK_MMSSERVICE_CID = Components.ID(
   "{9b069b8c-8697-11e4-a406-474f5190272b}"
 );
 
-var DEBUG = true;
+var DEBUG = false;
 function debug(s) {
   dump("-@- MmsService: " + s + "\n");
 }
@@ -168,12 +166,12 @@ XPCOMUtils.defineLazyServiceGetter(
   "nsIGonkMobileMessageDatabaseService"
 );
 
-//XPCOMUtils.defineLazyServiceGetter(
-//  this,
-//  "gSystemMessenger",
-//  "@mozilla.org/system-message-internal;1",
-//  "nsISystemMessagesInternal"
-//);
+XPCOMUtils.defineLazyServiceGetter(
+  this,
+  "gSystemMessenger",
+  "@mozilla.org/systemmessage-service;1",
+  "nsISystemMessageService"
+);
 
 XPCOMUtils.defineLazyServiceGetter(
   this,
@@ -217,10 +215,19 @@ XPCOMUtils.defineLazyServiceGetter(
   "nsIImsRegService"
 );
 
-//FIXME
-//XPCOMUtils.defineLazyServiceGetter(this, "gDiskWatcher",
-//                                   "@mozilla.org/toolkit/disk-space-watcher;1",
-//                                   "nsIDiskSpaceWatcher");
+XPCOMUtils.defineLazyModuleGetter(
+  this,
+  "gPhoneNumberUtils",
+  "resource://gre/modules/PhoneNumberUtils.jsm",
+  "PhoneNumberUtils"
+);
+
+XPCOMUtils.defineLazyServiceGetter(
+  this,
+  "gDiskWatcher",
+  "@mozilla.org/toolkit/disk-space-watcher;1",
+  "nsIDiskSpaceWatcher"
+);
 
 XPCOMUtils.defineLazyGetter(this, "MMS", function() {
   let MMS = {};
@@ -2044,33 +2051,31 @@ MmsService.prototype = {
     // Sadly we cannot directly broadcast the aDomMessage object
     // because the system message mechamism will rewrap the object
     // based on the content window, which needs to know the properties.
-    /* FIXME
     try {
       gSystemMessenger.broadcastMessage(aName, {
-        iccId:               aDomMessage.iccId,
-        type:                aDomMessage.type,
-        id:                  aDomMessage.id,
-        threadId:            aDomMessage.threadId,
-        delivery:            aDomMessage.delivery,
-        deliveryInfo:        aDomMessage.deliveryInfo,
-        sender:              aDomMessage.sender,
-        receivers:           aDomMessage.receivers,
-        timestamp:           aDomMessage.timestamp,
-        sentTimestamp:       aDomMessage.sentTimestamp,
-        read:                aDomMessage.read,
-        subject:             aDomMessage.subject,
-        smil:                aDomMessage.smil,
-        attachments:         aDomMessage.attachments,
-        expiryDate:          aDomMessage.expiryDate,
+        iccId: aDomMessage.iccId,
+        type: aDomMessage.type,
+        id: aDomMessage.id,
+        threadId: aDomMessage.threadId,
+        delivery: aDomMessage.delivery,
+        deliveryInfo: aDomMessage.deliveryInfo,
+        sender: aDomMessage.sender,
+        receivers: aDomMessage.receivers,
+        timestamp: aDomMessage.timestamp,
+        sentTimestamp: aDomMessage.sentTimestamp,
+        read: aDomMessage.read,
+        subject: aDomMessage.subject,
+        smil: aDomMessage.smil,
+        attachments: aDomMessage.attachments,
+        expiryDate: aDomMessage.expiryDate,
         readReportRequested: aDomMessage.readReportRequested,
-        isGroup:             aDomMessage.isGroup
+        isGroup: aDomMessage.isGroup,
       });
     } catch (e) {
       if (DEBUG) {
         debug("Failed to _broadcastSmsSystemMessage: " + e);
       }
     }
-*/
   },
 
   /**
@@ -2346,10 +2351,9 @@ MmsService.prototype = {
 
         // Calculate the free space to see whether the data space is low.
         let lowDataSpace = false;
-        //FIXME
-        //if (gDiskWatcher) {
-        //  lowDataSpace = gDiskWatcher.isDiskFull;
-        //}
+        if (gDiskWatcher) {
+          lowDataSpace = gDiskWatcher.isDiskFull;
+        }
 
         // Under the "automatic"/"automatic-home" retrieval mode, we switch to
         // the "manual" retrieval mode to download MMS for non-active SIM or
@@ -2611,11 +2615,10 @@ MmsService.prototype = {
         let type = MMS.Address.resolveType(receiver);
         let address;
         if (type == "PLMN") {
-          //FIXME
-          //address = PhoneNumberUtils.normalize(receiver, false);
-          //if (!PhoneNumberUtils.isPlainPhoneNumber(address)) {
-          //  isAddrValid = false;
-          //}
+          address = gPhoneNumberUtils.normalize(receiver, false);
+          if (!gPhoneNumberUtils.isPlainPhoneNumber(address)) {
+            isAddrValid = false;
+          }
           address = receiver;
 
           if (DEBUG) {

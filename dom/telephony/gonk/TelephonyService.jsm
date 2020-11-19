@@ -386,19 +386,13 @@ XPCOMUtils.defineLazyServiceGetter(
   "nsIImsPhoneService"
 );
 
-// FIXME
-// XPCOMUtils.defineLazyModuleGetter(this, "PhoneNumberUtils",
-//                                   "resource://gre/modules/PhoneNumberUtils.jsm");
-var PhoneNumberUtils = {
-  normalize(aNumber) {
-    return aNumber;
-  },
+XPCOMUtils.defineLazyModuleGetter(
+  this,
+  "gPhoneNumberUtils",
+  "resource://gre/modules/PhoneNumberUtils.jsm",
+  "PhoneNumberUtils"
+);
 
-  /*eslint no-unused-vars: ["error", { "args": "after-used" }]*/
-  isPlainPhoneNumber(aNumber) {
-    return true;
-  },
-};
 /* global DialNumberUtils */
 XPCOMUtils.defineLazyModuleGetters(this, {
   DialNumberUtils: "resource://gre/modules/DialNumberUtils.jsm",
@@ -1047,12 +1041,12 @@ TelephonyService.prototype = {
     // We don't try to be too clever here, as the phone is probably in the
     // locked state. Let's just check if it's a number without normalizing
     if (!aIsDialEmergency) {
-      aNumber = PhoneNumberUtils.normalize(aNumber);
+      aNumber = gPhoneNumberUtils.normalize(aNumber);
     }
 
     // Validate the number.
     // Note: isPlainPhoneNumber also accepts USSD and SS numbers
-    if (!PhoneNumberUtils.isPlainPhoneNumber(aNumber)) {
+    if (!gPhoneNumberUtils.isPlainPhoneNumber(aNumber)) {
       if (DEBUG) {
         debug("Error: Number '" + aNumber + "' is not viable. Drop.");
       }
