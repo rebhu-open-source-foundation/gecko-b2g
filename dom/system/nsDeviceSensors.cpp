@@ -518,10 +518,12 @@ bool nsDeviceSensors::IsSensorAllowedByPref(uint32_t aType,
   }
 
   nsCOMPtr<nsPIDOMWindowInner> window = do_QueryInterface(aWindow);
+#ifndef MOZ_B2G
   nsCOMPtr<Document> doc;
   if (window) {
     doc = window->GetExtantDoc();
   }
+#endif
 
   switch (aType) {
     case nsIDeviceSensorData::TYPE_LINEAR_ACCELERATION:
@@ -530,8 +532,10 @@ bool nsDeviceSensors::IsSensorAllowedByPref(uint32_t aType,
       // checks "device.sensors.motion.enabled" pref
       if (!StaticPrefs::device_sensors_motion_enabled()) {
         return false;
+#ifndef MOZ_B2G
       } else if (doc) {
         doc->WarnOnceAbout(Document::eMotionEvent);
+#endif
       }
       break;
     case nsIDeviceSensorData::TYPE_GAME_ROTATION_VECTOR:
@@ -540,24 +544,30 @@ bool nsDeviceSensors::IsSensorAllowedByPref(uint32_t aType,
       // checks "device.sensors.orientation.enabled" pref
       if (!StaticPrefs::device_sensors_orientation_enabled()) {
         return false;
+#ifndef MOZ_B2G
       } else if (doc) {
         doc->WarnOnceAbout(Document::eOrientationEvent);
+#endif
       }
       break;
     case nsIDeviceSensorData::TYPE_PROXIMITY:
       // checks "device.sensors.proximity.enabled" pref
       if (!StaticPrefs::device_sensors_proximity_enabled()) {
         return false;
+#ifndef MOZ_B2G
       } else if (doc) {
         doc->WarnOnceAbout(Document::eProximityEvent, true);
+#endif
       }
       break;
     case nsIDeviceSensorData::TYPE_LIGHT:
       // checks "device.sensors.ambientLight.enabled" pref
       if (!StaticPrefs::device_sensors_ambientLight_enabled()) {
         return false;
+#ifndef MOZ_B2G
       } else if (doc) {
         doc->WarnOnceAbout(Document::eAmbientLightEvent, true);
+#endif
       }
       break;
     default:
