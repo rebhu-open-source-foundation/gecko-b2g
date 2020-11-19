@@ -122,7 +122,11 @@ function createScreenshotDataURL(document, args) {
       canvas.width = width * actualRatio;
       canvas.height = height * actualRatio;
       ctx.scale(actualRatio, actualRatio);
-      ctx.drawWindow(window, left, top, width, height, "#fff");
+      const flags =
+        ctx.DRAWWINDOW_DRAW_CARET |
+        ctx.DRAWWINDOW_DRAW_VIEW |
+        ctx.DRAWWINDOW_USE_WIDGET_LAYERS;
+      ctx.drawWindow(window, left, top, width, height, "#fff", flags);
       return canvas.toDataURL("image/png", "");
     } catch (e) {
       return null;
