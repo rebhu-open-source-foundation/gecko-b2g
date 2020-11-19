@@ -236,10 +236,7 @@ PushRecord.prototype = {
   },
 
   quotaApplies() {
-    if (
-      this.systemRecord ||
-      prefs.getBoolPref("quota.disabled", false)
-    ) {
+    if (this.systemRecord || prefs.getBoolPref("quota.disabled", false)) {
       return false;
     }
     return true;
