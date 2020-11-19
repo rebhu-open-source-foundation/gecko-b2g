@@ -199,7 +199,23 @@ PushRecord.prototype = {
       if (window.closed || PrivateBrowsingUtils.isWindowPrivate(window)) {
         continue;
       }
-      for (let tab of window.gBrowser.tabs) {
+
+      let tabs;
+      if (window.gBrowser) {
+        // `gBrowser` on Desktop browser.
+        tabs = window.gBrowser.tabs;
+      } else if (window.shell) {
+        // `shell` on B2G
+        tabs = Array.from(
+          window.shell.contentBrowser.contentWindow.document.querySelectorAll(
+            "web-view"
+          )
+        );
+      } else {
+        // Fennec, or a chrome window without a tab browser.
+        continue;
+      }
+      for (let tab of tabs) {
         let tabURI = tab.linkedBrowser.currentURI;
         if (tabURI.prePath == this.uri.prePath) {
           return true;
