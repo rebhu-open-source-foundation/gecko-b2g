@@ -394,6 +394,17 @@ void ExceptionHandler::SignalHandler(int sig, siginfo_t* info, void* uc) {
     handled = (*g_handler_stack_)[i]->HandleSignal(sig, info, uc);
   }
 
+  // Call the previous signal handler first if exists before restoring
+  // the signal handler to the default one.
+  // Supposedly, the previous handler for SIGFPE is fpehandler(...) in
+  // nsSigHandlers.cpp, and the previous handler of the remaining signals
+  // are debuggerd-related's.
+  for (int i = 0; i < kNumHandledSignals; i++) {
+    if (kExceptionSignals[i] == sig) {
+      old_handlers[i].sa_sigaction(sig, info, uc);
+    }
+  }
+
   // Upon returning from this signal handler, sig will become unmasked and then
   // it will be retriggered. If one of the ExceptionHandlers handled it
   // successfully, restore the default handler. Otherwise, restore the
