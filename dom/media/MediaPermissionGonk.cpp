@@ -146,10 +146,10 @@ MediaPermissionRequest::MediaPermissionRequest(
     nsCOMPtr<nsIMediaDevice> device(aDevices[i]);
     nsAutoString deviceType;
     device->GetType(deviceType);
-    if (mAudio && deviceType.EqualsLiteral("audio")) {
+    if (mAudio && deviceType.EqualsLiteral("audioinput")) {
       mAudioDevices.AppendElement(device);
     }
-    if (mVideo && deviceType.EqualsLiteral("video")) {
+    if (mVideo && deviceType.EqualsLiteral("videoinput")) {
       mVideoDevices.AppendElement(device);
     }
   }
@@ -413,16 +413,11 @@ nsresult MediaPermissionManager::HandleRequest(
                                               innerWindowID, callID);
   NS_ENSURE_SUCCESS(rv, rv);
 
-#if 1
-  // FIXME: always allow for now
-  return AllowGetUserMediaRequest(callID, devices);
-#else
   // Trigger permission prompt UI
   RefPtr<MediaPermissionRequest> req =
       new MediaPermissionRequest(aRequest, devices);
   nsCOMPtr<nsPIDOMWindowInner> window(req->GetOwner());
   return dom::nsContentPermissionUtils::AskPermission(req, window);
-#endif
 }
 
 }  // namespace mozilla

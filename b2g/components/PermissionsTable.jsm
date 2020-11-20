@@ -37,6 +37,11 @@ this.PermissionsTable = {
     pwa: ALLOW_ACTION,
     signed: ALLOW_ACTION,
   },
+  "audio-capture": {
+    pwa: PROMPT_ACTION,
+    signed: PROMPT_ACTION,
+    core: ALLOW_ACTION,
+  },
   "audio-channel-alarm": {
     pwa: DENY_ACTION,
     signed: ALLOW_ACTION,
@@ -259,6 +264,11 @@ this.PermissionsTable = {
   usb: {
     pwa: DENY_ACTION,
     signed: ALLOW_ACTION,
+    core: ALLOW_ACTION,
+  },
+  "video-capture": {
+    pwa: PROMPT_ACTION,
+    signed: PROMPT_ACTION,
     core: ALLOW_ACTION,
   },
   virtualcursor: {
