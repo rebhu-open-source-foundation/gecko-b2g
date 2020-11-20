@@ -5435,13 +5435,17 @@ void profiler_add_js_allocation_marker(JS::RecordAllocationInfo&& info) {
 bool profiler_is_locked_on_current_thread() {
   // This function is used to help users avoid calling `profiler_...` functions
   // when the profiler may already have a lock in place, which would prevent a
-  // 2nd recursive lock (resulting in a crash or a never-ending wait).
-  // So we must return `true` for any of:
+  // 2nd recursive lock (resulting in a crash or a never-ending wait), or a
+  // deadlock between any two mutexes. So we must return `true` for any of:
   // - The main profiler mutex, used by most functions, and/or
   // - The buffer mutex, used directly in some functions without locking the
   //   main mutex, e.g., marker-related functions.
+  // - The ProfilerParent or ProfilerChild mutex, used to store and process
+  //   buffer chunk updates.
   return gPSMutex.IsLockedOnCurrentThread() ||
-         CorePS::CoreBuffer().IsThreadSafeAndLockedOnCurrentThread();
+         CorePS::CoreBuffer().IsThreadSafeAndLockedOnCurrentThread() ||
+         ProfilerParent::IsLockedOnCurrentThread() ||
+         ProfilerChild::IsLockedOnCurrentThread();
 }
 
 static constexpr net::TimingStruct scEmptyNetTimingStruct;
@@ -5490,8 +5494,8 @@ void profiler_add_network_marker(
         const ProfilerString8View& aContentType) {
       // This payload still streams a startTime and endTime property because it
       // made the migration to MarkerTiming on the front-end easier.
-      baseprofiler::WritePropertyTime(aWriter, "startTime", aStart);
-      baseprofiler::WritePropertyTime(aWriter, "endTime", aEnd);
+      aWriter.TimeProperty("startTime", aStart);
+      aWriter.TimeProperty("endTime", aEnd);
 
       aWriter.IntProperty("id", aID);
       aWriter.StringProperty("status", GetNetworkState(aType));
@@ -5518,24 +5522,16 @@ void profiler_add_network_marker(
       }
 
       if (aType != NetworkLoadType::LOAD_START) {
-        baseprofiler::WritePropertyTime(aWriter, "domainLookupStart",
-                                        aTimings.domainLookupStart);
-        baseprofiler::WritePropertyTime(aWriter, "domainLookupEnd",
-                                        aTimings.domainLookupEnd);
-        baseprofiler::WritePropertyTime(aWriter, "connectStart",
-                                        aTimings.connectStart);
-        baseprofiler::WritePropertyTime(aWriter, "tcpConnectEnd",
-                                        aTimings.tcpConnectEnd);
-        baseprofiler::WritePropertyTime(aWriter, "secureConnectionStart",
-                                        aTimings.secureConnectionStart);
-        baseprofiler::WritePropertyTime(aWriter, "connectEnd",
-                                        aTimings.connectEnd);
-        baseprofiler::WritePropertyTime(aWriter, "requestStart",
-                                        aTimings.requestStart);
-        baseprofiler::WritePropertyTime(aWriter, "responseStart",
-                                        aTimings.responseStart);
-        baseprofiler::WritePropertyTime(aWriter, "responseEnd",
-                                        aTimings.responseEnd);
+        aWriter.TimeProperty("domainLookupStart", aTimings.domainLookupStart);
+        aWriter.TimeProperty("domainLookupEnd", aTimings.domainLookupEnd);
+        aWriter.TimeProperty("connectStart", aTimings.connectStart);
+        aWriter.TimeProperty("tcpConnectEnd", aTimings.tcpConnectEnd);
+        aWriter.TimeProperty("secureConnectionStart",
+                             aTimings.secureConnectionStart);
+        aWriter.TimeProperty("connectEnd", aTimings.connectEnd);
+        aWriter.TimeProperty("requestStart", aTimings.requestStart);
+        aWriter.TimeProperty("responseStart", aTimings.responseStart);
+        aWriter.TimeProperty("responseEnd", aTimings.responseEnd);
       }
     }
     static MarkerSchema MarkerTypeDisplay() {

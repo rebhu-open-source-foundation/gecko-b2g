@@ -997,7 +997,7 @@
 # default.
 - name: browser.display.always_show_rings_after_key_focus
   type: bool
-  value: @IS_NOT_NIGHTLY_BUILD@
+  value: false
   mirror: always
 
 # In theory: 0 = never, 1 = quick, 2 = always, though we always just use it as
@@ -6172,7 +6172,7 @@
 # default value of this pref.
 - name: layout.css.focus-visible.enabled
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
   rust: true
 
@@ -8997,6 +8997,13 @@
   value: false
   mirror: always
 
+# When a h3 transaction is inserted in the pending queue, the time (ms) we wait
+# to create a TCP backup connection.
+- name: network.http.http3.backup_timer_delay
+  type: RelaxedAtomicUint32
+  value: 100
+  mirror: always
+
 # When true, a http request will be upgraded to https when HTTPS RR is
 # available.
 - name: network.dns.upgrade_with_https_rr
@@ -9615,7 +9622,7 @@
 
 - name: security.bad_cert_domain_error.url_fix_enabled
   type: bool
-  value: @IS_EARLY_BETA_OR_EARLIER@
+  value: true
   mirror: always
 
 - name: security.csp.enable

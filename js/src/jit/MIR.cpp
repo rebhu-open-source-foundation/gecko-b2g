@@ -896,25 +896,6 @@ MConstant* MConstant::NewObject(TempAllocator& alloc, JSObject* v) {
   return new (alloc) MConstant(v);
 }
 
-#ifdef DEBUG
-
-bool jit::IonCompilationCanUseNurseryPointers() {
-  // If we are doing backend compilation, which could occur on a helper
-  // thread but might actually be on the main thread, check the flag set on
-  // the JSContext by AutoEnterIonCompilation.
-  if (CurrentThreadIsIonCompiling()) {
-    return !CurrentThreadIsIonCompilingSafeForMinorGC();
-  }
-
-  // Otherwise, we must be on the main thread during MIR construction. The
-  // store buffer must have been notified that minor GCs must cancel pending
-  // or in progress Ion compilations.
-  JSRuntime* rt = TlsContext.get()->zone()->runtimeFromMainThread();
-  return rt->gc.storeBuffer().cancelIonCompilations();
-}
-
-#endif  // DEBUG
-
 MConstant::MConstant(TempAllocator& alloc, const js::Value& vp)
     : MNullaryInstruction(classOpcode) {
   setResultType(MIRTypeFromValue(vp));
@@ -942,16 +923,12 @@ MConstant::MConstant(TempAllocator& alloc, const js::Value& vp)
       payload_.sym = vp.toSymbol();
       break;
     case MIRType::BigInt:
-      MOZ_ASSERT_IF(IsInsideNursery(vp.toBigInt()),
-                    IonCompilationCanUseNurseryPointers());
+      MOZ_ASSERT(!IsInsideNursery(vp.toBigInt()));
       payload_.bi = vp.toBigInt();
       break;
     case MIRType::Object:
+      MOZ_ASSERT(!IsInsideNursery(&vp.toObject()));
       payload_.obj = &vp.toObject();
-      // Create a singleton type set for the object. This isn't necessary for
-      // other types as the result type encodes all needed information.
-      MOZ_ASSERT_IF(IsInsideNursery(&vp.toObject()),
-                    IonCompilationCanUseNurseryPointers());
       break;
     case MIRType::MagicOptimizedArguments:
     case MIRType::MagicOptimizedOut:
@@ -967,7 +944,7 @@ MConstant::MConstant(TempAllocator& alloc, const js::Value& vp)
 }
 
 MConstant::MConstant(JSObject* obj) : MNullaryInstruction(classOpcode) {
-  MOZ_ASSERT_IF(IsInsideNursery(obj), IonCompilationCanUseNurseryPointers());
+  MOZ_ASSERT(!IsInsideNursery(obj));
   setResultType(MIRType::Object);
   payload_.obj = obj;
   setMovable();
@@ -2007,20 +1984,9 @@ bool MPhi::specializeType(TempAllocator& alloc) {
 
   MOZ_ASSERT(!inputs_.empty());
 
-  size_t start;
-  if (hasBackedgeType_) {
-    // The type of this phi has already been populated with potential types
-    // that could come in via loop backedges.
-    // TODO(no-TI): clean up.
-    start = 0;
-  } else {
-    setResultType(getOperand(0)->type());
-    start = 1;
-  }
+  MIRType resultType = getOperand(0)->type();
 
-  MIRType resultType = this->type();
-
-  for (size_t i = start; i < inputs_.length(); i++) {
+  for (size_t i = 1; i < inputs_.length(); i++) {
     MDefinition* def = getOperand(i);
     MergeTypes(&resultType, def->type());
   }
@@ -3297,23 +3263,6 @@ MResumePoint* MResumePoint::New(TempAllocator& alloc, MBasicBlock* block,
     return nullptr;
   }
   resume->inherit(block);
-  return resume;
-}
-
-MResumePoint* MResumePoint::Copy(TempAllocator& alloc, MResumePoint* src) {
-  MResumePoint* resume =
-      new (alloc) MResumePoint(src->block(), src->pc(), src->mode());
-  // Copy the operands from the original resume point, and not from the
-  // current block stack.
-  if (!resume->operands_.init(alloc, src->numAllocatedOperands())) {
-    src->block()->discardPreAllocatedResumePoint(resume);
-    return nullptr;
-  }
-
-  // Copy the operands.
-  for (size_t i = 0; i < resume->numOperands(); i++) {
-    resume->initOperand(i, src->getOperand(i));
-  }
   return resume;
 }
 
@@ -5099,86 +5048,6 @@ bool MGuardReceiverPolymorphic::congruentTo(const MDefinition* ins) const {
   return congruentIfOperandsEqual(ins);
 }
 
-void InlinePropertyTable::trimTo(const InliningTargets& targets,
-                                 const BoolVector& choiceSet) {
-  for (size_t i = 0; i < targets.length(); i++) {
-    // If the target was inlined, don't erase the entry.
-    if (choiceSet[i]) {
-      continue;
-    }
-
-    // If the target wasn't a function we would have veto'ed it
-    // and it will not be in the entries list.
-    if (!targets[i].target->is<JSFunction>()) {
-      continue;
-    }
-
-    JSFunction* target = &targets[i].target->as<JSFunction>();
-
-    // Eliminate all entries containing the vetoed function from the map.
-    size_t j = 0;
-    while (j < numEntries()) {
-      if (entries_[j]->func == target) {
-        entries_.erase(&entries_[j]);
-      } else {
-        j++;
-      }
-    }
-  }
-}
-
-void InlinePropertyTable::trimToTargets(const InliningTargets& targets) {
-  JitSpew(JitSpew_Inlining, "Got inlineable property cache with %d cases",
-          (int)numEntries());
-
-  size_t i = 0;
-  while (i < numEntries()) {
-    bool foundFunc = false;
-    for (size_t j = 0; j < targets.length(); j++) {
-      if (entries_[i]->func == targets[j].target) {
-        foundFunc = true;
-        break;
-      }
-    }
-    if (!foundFunc) {
-      entries_.erase(&(entries_[i]));
-    } else {
-      i++;
-    }
-  }
-
-  JitSpew(JitSpew_Inlining,
-          "%d inlineable cases left after trimming to %d targets",
-          (int)numEntries(), (int)targets.length());
-}
-
-bool InlinePropertyTable::hasFunction(JSFunction* func) const {
-  for (size_t i = 0; i < numEntries(); i++) {
-    if (entries_[i]->func == func) {
-      return true;
-    }
-  }
-  return false;
-}
-
-bool InlinePropertyTable::hasObjectGroup(ObjectGroup* group) const {
-  for (size_t i = 0; i < numEntries(); i++) {
-    if (entries_[i]->group == group) {
-      return true;
-    }
-  }
-  return false;
-}
-
-bool InlinePropertyTable::appendRoots(MRootList& roots) const {
-  for (const Entry* entry : entries_) {
-    if (!entry->appendRoots(roots)) {
-      return false;
-    }
-  }
-  return true;
-}
-
 MDefinition::AliasType MGetPropertyPolymorphic::mightAlias(
     const MDefinition* store) const {
   // Allow hoisting this instruction if the store does not write to a
@@ -5256,26 +5125,6 @@ bool MGuardReceiverPolymorphic::appendRoots(MRootList& roots) const {
     }
   }
   return true;
-}
-
-bool MDispatchInstruction::appendRoots(MRootList& roots) const {
-  for (const Entry& entry : map_) {
-    if (!entry.appendRoots(roots)) {
-      return false;
-    }
-  }
-  return true;
-}
-
-bool MObjectGroupDispatch::appendRoots(MRootList& roots) const {
-  if (inlinePropertyTable_ && !inlinePropertyTable_->appendRoots(roots)) {
-    return false;
-  }
-  return MDispatchInstruction::appendRoots(roots);
-}
-
-bool MFunctionDispatch::appendRoots(MRootList& roots) const {
-  return MDispatchInstruction::appendRoots(roots);
 }
 
 bool MConstant::appendRoots(MRootList& roots) const {

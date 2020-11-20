@@ -1993,11 +1993,6 @@ bool js::SetPrototypeForClonedFunction(JSContext* cx, HandleFunction fun,
   return true;
 }
 
-/* static */
-bool JSObject::changeToSingleton(JSContext* cx, HandleObject obj) {
-  MOZ_CRASH("TODO(no-TI): remove");
-}
-
 /**
  * Returns the original Object.prototype from the embedding-provided incumbent
  * global.
@@ -3486,7 +3481,6 @@ void JSObject::dump(js::GenericPrinter& out) const {
   if (obj->isBoundFunction()) out.put(" bound_function");
   if (obj->isQualifiedVarObj()) out.put(" varobj");
   if (obj->isUnqualifiedVarObj()) out.put(" unqualified_varobj");
-  if (obj->isNewGroupUnknown()) out.put(" new_type_unknown");
   if (obj->hasUncacheableProto()) out.put(" has_uncacheable_proto");
   if (obj->hasStaticPrototype() && obj->staticPrototypeIsImmutable()) {
     out.put(" immutable_prototype");

@@ -8,11 +8,9 @@ AwaitIdleMixed
 AwaitIdlePaused
 BGReadURLs
 BHMgr Processor
-BgFileSaver
 CameraThread
 COM Intcpt Log
 COM MTA
-Cache Deleter
 Cache I/O
 Cameras IPC
 ChainedPipePump
@@ -52,7 +50,6 @@ MediaTelemetry
 MediaTrackGrph
 mtransport
 NamedPipeSrv
-NetPredictClean
 Netlink Monitor
 Opp File Reader
 OSKeyStore
@@ -77,7 +74,6 @@ StressRunner
 SuicideManager
 SuicideThread
 TEQ AwaitIdle
-TelemetryGVIO
 Test Thread
 Test thread
 TestPipe

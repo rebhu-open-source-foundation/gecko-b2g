@@ -902,6 +902,13 @@ var BookmarksEventHandler = {
     var target = aEvent.originalTarget;
     if (target._placesNode) {
       PlacesUIUtils.openNodeWithEvent(target._placesNode, aEvent);
+      // Only record interactions through the Bookmarks Toolbar
+      if (target.closest("#PersonalToolbar")) {
+        Services.telemetry.scalarAdd(
+          "browser.engagement.bookmarks_toolbar_bookmark_opened",
+          1
+        );
+      }
     }
   },
 
@@ -2240,6 +2247,12 @@ var BookmarkingUI = {
               }
             }
           }
+          if (ev.parentGuid == PlacesUtils.bookmarks.toolbarGuid) {
+            Services.telemetry.scalarAdd(
+              "browser.engagement.bookmarks_toolbar_bookmark_added",
+              1
+            );
+          }
           break;
         case "bookmark-removed":
           // If one of the tracked bookmarks has been removed, unregister it.
@@ -2312,11 +2325,17 @@ var BookmarkingUI = {
       this.maybeShowOtherBookmarksFolder();
     }
 
-    let hasMovedToOrOutOfToolbar =
-      newParentGuid === PlacesUtils.bookmarks.toolbarGuid ||
+    let hasMovedToToolbar = newParentGuid === PlacesUtils.bookmarks.toolbarGuid;
+    let hasMovedOutOfToolbar =
       oldParentGuid === PlacesUtils.bookmarks.toolbarGuid;
-    if (hasMovedToOrOutOfToolbar) {
+    if (hasMovedToToolbar || hasMovedOutOfToolbar) {
       this.updateEmptyToolbarMessage();
+    }
+    if (hasMovedToToolbar) {
+      Services.telemetry.scalarAdd(
+        "browser.engagement.bookmarks_toolbar_bookmark_added",
+        1
+      );
     }
   },
 
@@ -2343,9 +2362,14 @@ var BookmarkingUI = {
     let unfiledGuid = PlacesUtils.bookmarks.unfiledGuid;
     let numberOfBookmarks = PlacesUtils.getChildCountForFolder(unfiledGuid);
     let placement = CustomizableUI.getPlacementOfWidget("personal-bookmarks");
+    let showOtherBookmarksEnabled = Services.prefs.getBoolPref(
+      "browser.toolbars.bookmarks.showOtherBookmarks",
+      true
+    );
 
     if (
       numberOfBookmarks > 0 &&
+      showOtherBookmarksEnabled &&
       placement?.area == CustomizableUI.AREA_BOOKMARKS
     ) {
       let otherBookmarksPopup = document.getElementById("OtherBookmarksPopup");
@@ -2358,6 +2382,44 @@ var BookmarkingUI = {
     } else {
       otherBookmarks.hidden = true;
     }
+  },
+
+  buildShowOtherBookmarksMenuItem() {
+    let unfiledGuid = PlacesUtils.bookmarks.unfiledGuid;
+    let numberOfBookmarks = PlacesUtils.getChildCountForFolder(unfiledGuid);
+
+    if (!gBookmarksToolbar2h2020 || numberOfBookmarks < 1) {
+      return null;
+    }
+
+    let showOtherBookmarksMenuItem = Services.prefs.getBoolPref(
+      "browser.toolbars.bookmarks.showOtherBookmarks",
+      true
+    );
+
+    let menuItem = document.createXULElement("menuitem");
+
+    menuItem.setAttribute("id", "show-other-bookmarks_PersonalToolbar");
+    menuItem.setAttribute("toolbarId", "PersonalToolbar");
+    menuItem.setAttribute("type", "checkbox");
+    menuItem.setAttribute("checked", showOtherBookmarksMenuItem);
+    menuItem.setAttribute("selectiontype", "none|single");
+
+    MozXULElement.insertFTLIfNeeded("browser/toolbarContextMenu.ftl");
+    document.l10n.setAttributes(
+      menuItem,
+      "toolbar-context-menu-bookmarks-show-other-bookmarks"
+    );
+    menuItem.addEventListener("command", () => {
+      Services.prefs.setBoolPref(
+        "browser.toolbars.bookmarks.showOtherBookmarks",
+        !showOtherBookmarksMenuItem
+      );
+
+      BookmarkingUI.maybeShowOtherBookmarksFolder();
+    });
+
+    return menuItem;
   },
 
   QueryInterface: ChromeUtils.generateQI(["nsINavBookmarkObserver"]),

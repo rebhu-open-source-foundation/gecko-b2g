@@ -300,9 +300,6 @@ class JSObject
   // called for an object that was just created.
   static inline bool setSingleton(JSContext* cx, js::HandleObject obj);
 
-  // Change an existing object to have a singleton group.
-  static bool changeToSingleton(JSContext* cx, js::HandleObject obj);
-
   static inline js::ObjectGroup* getGroup(JSContext* cx, js::HandleObject obj);
 
 #ifdef DEBUG
@@ -367,14 +364,6 @@ class JSObject
   inline bool staticPrototypeIsImmutable() const;
 
   inline void setGroup(js::ObjectGroup* group);
-
-  /*
-   * Mark an object as requiring its default 'new' type to have unknown
-   * properties.
-   */
-  inline bool isNewGroupUnknown() const;
-  static bool setNewGroupUnknown(JSContext* cx, js::ObjectGroupRealm& realm,
-                                 const JSClass* clasp, JS::HandleObject obj);
 
   /* Set a new prototype for an object with a singleton type. */
   static bool splicePrototype(JSContext* cx, js::HandleObject obj,

@@ -650,8 +650,6 @@ XDRResult js::XDRInterpretedFunction(XDRState<mode>* xdr,
       return xdr->fail(JS::TranscodeResult_Throw);
     }
     objp.set(fun);
-
-    MOZ_RELEASE_ASSERT(!IsTypeInferenceEnabled());
   }
 
   if (xdrFlags & IsLazy) {
@@ -2108,8 +2106,7 @@ bool js::CanReuseScriptForClone(JS::Realm* realm, HandleFunction fun,
                                 HandleObject newEnclosingEnv) {
   MOZ_ASSERT(fun->isInterpreted());
 
-  if (realm != fun->realm() || fun->isSingleton() ||
-      ObjectGroup::useSingletonForClone(fun)) {
+  if (realm != fun->realm() || fun->isSingleton()) {
     return false;
   }
 

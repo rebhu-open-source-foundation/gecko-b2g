@@ -7409,13 +7409,13 @@
   "FX_MIGRATION_ENTRY_POINT": {
     "record_in_processes": ["main"],
     "products": ["firefox"],
-    "bug_numbers": [731025, 1584261, 1643431],
+    "bug_numbers": [731025, 1584261, 1643431, 1665442],
     "alert_emails": ["gijs@mozilla.com", "MattN+telemetry@mozilla.com"],
     "expires_in_version": "86",
     "kind": "enumerated",
     "n_values": 10,
     "releaseChannelCollection": "opt-out",
-    "description": "Where the migration wizard was entered from. 0=Other/catch-all, 1=first-run, 2=refresh-firefox, 3=Places window, 4=Password manager, 5=New tab, 6=File menu, 7=Help menu"
+    "description": "Where the migration wizard was entered from. 0=Other/catch-all, 1=first-run, 2=refresh-firefox, 3=Places window, 4=Password manager, 5=New tab, 6=File menu, 7=Help menu, 8=Bookmarks toolbar"
   },
   "FX_MIGRATION_SOURCE_BROWSER": {
     "record_in_processes": ["main"],
@@ -12285,22 +12285,6 @@
     "high": 65,
     "n_buckets": 10,
     "description": "Duration of shutdown phase profile-before-change, as measured by the shutdown terminator, in seconds of activity"
-  },
-  "BR_9_2_1_SUBJECT_ALT_NAMES": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "expires_in_version": "never",
-    "kind": "enumerated",
-    "n_values": 8,
-    "description": "Baseline Requirements section 9.2.1: subject alternative names extension (0: ok, 1 or more: error)"
-  },
-  "BR_9_2_2_SUBJECT_COMMON_NAME": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "expires_in_version": "never",
-    "kind": "enumerated",
-    "n_values": 8,
-    "description": "Baseline Requirements section 9.2.2: subject common name field (0: present, in subject alt. names; 1: not present; 2: not present in subject alt. names)"
   },
   "TAP_TO_LOAD_ENABLED": {
     "record_in_processes": ["main", "content"],

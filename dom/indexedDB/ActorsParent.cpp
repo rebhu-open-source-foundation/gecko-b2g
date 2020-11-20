@@ -13953,12 +13953,12 @@ nsresult Maintenance::DirectoryWork() {
             // (EnsureTemporaryStorageIsInitialized cleans up only
             // non-persistent origins).
 
-            nsCOMPtr<nsIFile> directory;
-            bool created;
-            IDB_TRY(quotaManager->EnsurePersistentOriginIsInitialized(
-                        quotaInfo, getter_AddRefs(directory), &created),
-                    // Not much we can do here...
-                    Ok{});
+            IDB_TRY_UNWRAP(
+                const DebugOnly<bool> created,
+                quotaManager->EnsurePersistentOriginIsInitialized(quotaInfo)
+                    .map([](const auto& res) { return res.second; }),
+                // Not much we can do here...
+                Ok{});
 
             // We found this origin directory by traversing the repository, so
             // EnsurePersistentOriginIsInitialized shouldn't report that a new
@@ -16333,9 +16333,22 @@ nsresult OpenDatabaseOp::DoDatabaseWork() {
   QuotaManager* const quotaManager = QuotaManager::Get();
   MOZ_ASSERT(quotaManager);
 
-  IDB_TRY_INSPECT(const auto& dbDirectory,
-                  quotaManager->EnsureStorageAndOriginIsInitialized(
-                      persistenceType, mQuotaInfo));
+  IDB_TRY(quotaManager->EnsureStorageIsInitialized());
+
+  IDB_TRY_INSPECT(
+      const auto& dbDirectory,
+      ([persistenceType, &quotaManager, this]()
+           -> mozilla::Result<std::pair<nsCOMPtr<nsIFile>, bool>, nsresult> {
+        if (persistenceType == PERSISTENCE_TYPE_PERSISTENT) {
+          IDB_TRY_RETURN(
+              quotaManager->EnsurePersistentOriginIsInitialized(mQuotaInfo));
+        }
+
+        IDB_TRY(quotaManager->EnsureTemporaryStorageIsInitialized());
+        IDB_TRY_RETURN(quotaManager->EnsureTemporaryOriginIsInitialized(
+            persistenceType, mQuotaInfo));
+      }()
+                  .map([](const auto& res) { return res.first; })));
 
   IDB_TRY(
       dbDirectory->Append(NS_LITERAL_STRING_FROM_CSTRING(IDB_DIRECTORY_NAME)));
