@@ -1069,11 +1069,11 @@ void GonkGPSGeolocationProvider::UpdateNetworkState(nsISupports* aNetworkInfo) {
       } while (0);
     }
 
-    if (metered) {
+    if (!metered) {
       capabilities +=
           static_cast<uint16_t>(IAGnssRil_V2_0::NetworkCapability::NOT_METERED);
     }
-    if (roaming) {
+    if (!roaming) {
       capabilities +=
           static_cast<uint16_t>(IAGnssRil_V2_0::NetworkCapability::NOT_ROAMING);
     }
