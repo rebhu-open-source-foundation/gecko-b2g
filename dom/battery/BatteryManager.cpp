@@ -141,13 +141,18 @@ void BatteryManager::UpdateFromBatteryInfo(
     const hal::BatteryInformation& aBatteryInfo) {
   mLevel = aBatteryInfo.level();
 
+  // On B2G, don't use round off algorithm. Only chrome process and core apps
+  // can access battery API, they should get percise battery information.
+#ifndef MOZ_B2G
   // Round to the nearest ten percent for non-chrome.
   Document* doc = GetOwner() ? GetOwner()->GetDoc() : nullptr;
+#endif
 
   mCharging = aBatteryInfo.charging();
   mRemainingTime = aBatteryInfo.remainingTime();
   mHealth = aBatteryInfo.health();
 
+#ifndef MOZ_B2G
   if (!nsContentUtils::IsChromeDoc(doc)) {
     mLevel = lround(mLevel * 10.0) / 10.0;
     if (mLevel == 1.0) {
@@ -160,6 +165,7 @@ void BatteryManager::UpdateFromBatteryInfo(
           fmax(lround(mRemainingTime / MINUTES_15) * MINUTES_15, MINUTES_15);
     }
   }
+#endif
 
   // Add some guards to make sure the values are coherent.
   if (mLevel == 1.0 && mCharging == true &&
