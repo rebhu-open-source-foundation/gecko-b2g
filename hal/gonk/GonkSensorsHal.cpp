@@ -158,6 +158,7 @@ GonkSensorsHal::StartPollingThread() {
 
 void
 GonkSensorsHal::Init() {
+  android::hardware::hidl_vec<hidl_sensors::SensorInfo> list;
   // TODO: evaluate a proper retrying times if it's not enough
   size_t retry = 2;
   while (retry-- > 0) {
@@ -178,31 +179,59 @@ GonkSensorsHal::Init() {
     }
 
     // obtain hidl sensors list
-    android::hardware::hidl_vec<hidl_sensors::SensorInfo> list;
     if (!mSensors->getSensorsList(
       [&list](const auto &aList) { list = aList; }).isOk()) {
       HAL_ERR("get sensors list failed");
       mSensors = nullptr;
       continue;
     }
-
-    // setup the available sensors list and filter out unnecessary ones
-    const size_t count = list.size();
-    for (size_t i=0; i<count; i++) {
-      const hidl_sensors::SensorInfo sensorInfo = list[i];
-
-      SensorType sensorType = getSensorType(sensorInfo.type);
-      if (sensorType == SENSOR_UNKNOWN) {
-        continue;
-      }
-      mSensorInfoList[sensorType] = sensorInfo;
-    }
-    break;
   }
 
   if (mSensors == nullptr) {
     HAL_ERR("Init finally failed");
     return;
+  }
+
+  // setup the available sensors list and filter out unnecessary ones
+  const size_t count = list.size();
+  for (size_t i=0; i<count; i++) {
+    const hidl_sensors::SensorInfo sensorInfo = list[i];
+
+    SensorType sensorType = getSensorType(sensorInfo.type);
+    SensorFlagBits mode = (SensorFlagBits)(sensorInfo.flags & SensorFlagBits::MASK_REPORTING_MODE);
+    bool canWakeUp = sensorInfo.flags & SensorFlagBits::WAKE_UP;
+    bool isValid = false;
+
+    // check sensor reporting mode and wake-up capability
+    switch (sensorType) {
+      case SENSOR_PROXIMITY:
+        if (mode == SensorFlagBits::ON_CHANGE_MODE && canWakeUp) {
+          isValid = true;
+        }
+        break;
+      case SENSOR_LIGHT:
+        if (mode == SensorFlagBits::ON_CHANGE_MODE && !canWakeUp) {
+          isValid = true;
+        }
+        break;
+      case SENSOR_ORIENTATION:
+      case SENSOR_ACCELERATION:
+      case SENSOR_GYROSCOPE:
+      case SENSOR_LINEAR_ACCELERATION:
+      case SENSOR_ROTATION_VECTOR:
+      case SENSOR_GAME_ROTATION_VECTOR:
+        if (mode == SensorFlagBits::CONTINUOUS_MODE && !canWakeUp) {
+          isValid = true;
+        }
+        break;
+      default:
+        break;
+    }
+
+    if (isValid) {
+      mSensorInfoList[sensorType] = sensorInfo;
+      HAL_LOG("a valid sensor type=%d handle=%d is initialized", sensorType, sensorInfo.sensorHandle);
+    }
   }
 
   // start a polling thread reading sensors events

@@ -13,6 +13,7 @@
 
 using namespace mozilla::hal;
 namespace hidl_sensors = android::hardware::sensors::V1_0;
+using hidl_sensors::SensorFlagBits;
 
 namespace mozilla {
 namespace hal_impl {
