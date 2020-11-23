@@ -216,8 +216,13 @@ nsresult GonkAudioDecoderManager::GetOutput(
     case android::ERROR_END_OF_STREAM: {
       LOG("Got EOS frame!");
       nsresult rv = CreateAudioData(audioBuffer, aStreamOffset);
-      NS_ENSURE_SUCCESS(rv, NS_ERROR_ABORT);
-      MOZ_ASSERT(mAudioQueue.GetSize() > 0);
+      // CreateAudioData returns NS_ERROR_NOT_AVAILABLE due to
+      // some decoders may return EOS with empty buffers that we just want to
+      // ignore quoted from Android's AwesomePlayer.cpp
+      if (rv != NS_ERROR_NOT_AVAILABLE) {
+        NS_ENSURE_SUCCESS(rv, NS_ERROR_ABORT);
+        MOZ_ASSERT(mAudioQueue.GetSize() > 0);
+      }
       mAudioQueue.Finish();
       break;
     }

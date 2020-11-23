@@ -5,6 +5,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "ADTSDemuxer.h"
+#ifdef MOZ_WIDGET_GONK
+#include "AMRDemuxer.h"
+#endif
 #include "FlacDemuxer.h"
 #include "mozilla/ArrayUtils.h"
 #include "mozilla/ModuleUtils.h"
@@ -136,6 +139,12 @@ static bool MatchesADTS(const uint8_t* aData, const uint32_t aLength) {
   return mozilla::ADTSDemuxer::ADTSSniffer(aData, aLength);
 }
 
+#ifdef MOZ_WIDGET_GONK
+static bool MatchesAMR(const uint8_t* aData, const uint32_t aLength) {
+  return mozilla::AMRDemuxer::AMRSniffer(aData, aLength);
+}
+#endif
+
 NS_IMETHODIMP
 nsMediaSniffer::GetMIMETypeFromContent(nsIRequest* aRequest,
                                        const uint8_t* aData,
@@ -210,6 +219,13 @@ nsMediaSniffer::GetMIMETypeFromContent(nsIRequest* aRequest,
     aSniffedType.AssignLiteral(AUDIO_FLAC);
     return NS_OK;
   }
+
+#ifdef MOZ_WIDGET_GONK
+  if (MatchesAMR(aData, clampedLength)) {
+    aSniffedType.AssignLiteral(AUDIO_AMR);
+    return NS_OK;
+  }
+#endif
 
   // Could not sniff the media type, we are required to set it to
   // application/octet-stream.

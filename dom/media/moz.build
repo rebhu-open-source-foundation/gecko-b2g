@@ -192,6 +192,12 @@ EXPORTS += [
     "XiphExtradata.h",
 ]
 
+if CONFIG["MOZ_WIDGET_TOOLKIT"] == "gonk":
+    EXPORTS += [
+        "AMRDecoder.h",
+        "AMRDemuxer.h",
+    ]
+
 EXPORTS.mozilla += [
     "MediaManager.h",
     "UnderrunHandler.h",
@@ -307,6 +313,12 @@ if CONFIG["OS_TARGET"] == "Linux":
     UNIFIED_SOURCES += ["UnderrunHandlerLinux.cpp"]
 else:
     UNIFIED_SOURCES += ["UnderrunHandlerNoop.cpp"]
+
+if CONFIG["MOZ_WIDGET_TOOLKIT"] == "gonk":
+    UNIFIED_SOURCES += [
+        "AMRDecoder.cpp",
+        "AMRDemuxer.cpp",
+    ]
 
 if CONFIG["OS_TARGET"] == "WINNT":
     EXPORTS.mozilla.audio += [

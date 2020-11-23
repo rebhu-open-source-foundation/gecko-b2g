@@ -36,6 +36,11 @@
 #include "FlacDecoder.h"
 #include "FlacDemuxer.h"
 
+#ifdef MOZ_WIDGET_GONK
+#  include "AMRDecoder.h"
+#  include "AMRDemuxer.h"
+#endif
+
 #include "nsPluginHost.h"
 
 namespace mozilla {
@@ -137,6 +142,16 @@ static CanPlayStatus CanHandleCodecsType(
     // flac is supported and working: the codec must be invalid.
     return CANPLAY_NO;
   }
+#ifdef MOZ_WIDGET_GONK
+  if (AMRDecoder::IsSupportedType(mimeType)) {
+    if (AMRDecoder::IsSupportedType(aType)) {
+      return CANPLAY_YES;
+    }
+    // We can only reach this position if a particular codec was requested,
+    // amr is supported and working: the codec must be invalid.
+    return CANPLAY_NO;
+  }
+#endif
 
   return CANPLAY_MAYBE;
 }
@@ -190,6 +205,11 @@ static CanPlayStatus CanHandleMediaType(
   if (FlacDecoder::IsSupportedType(mimeType)) {
     return CANPLAY_MAYBE;
   }
+#ifdef MOZ_WIDGET_GONK
+  if (AMRDecoder::IsSupportedType(mimeType)) {
+    return CANPLAY_MAYBE;
+  }
+#endif
   return CANPLAY_NO;
 }
 
@@ -253,6 +273,10 @@ already_AddRefed<MediaDataDemuxer> DecoderTraits::CreateDemuxer(
     demuxer = new FlacDemuxer(aResource);
   } else if (OggDecoder::IsSupportedType(aType)) {
     demuxer = new OggDemuxer(aResource);
+#ifdef MOZ_WIDGET_GONK
+  } else if (AMRDecoder::IsSupportedType(aType)) {
+    demuxer = new AMRDemuxer(aResource);
+#endif
   } else if (WebMDecoder::IsSupportedType(aType)) {
     demuxer = new WebMDemuxer(aResource);
   }
@@ -294,6 +318,9 @@ bool DecoderTraits::IsSupportedType(const MediaContainerType& aType) {
       &OggDecoder::IsSupportedType,
       &WaveDecoder::IsSupportedType,
       &WebMDecoder::IsSupportedType,
+#ifdef MOZ_WIDGET_GONK
+      &AMRDecoder::IsSupportedType,
+#endif
   };
   for (IsSupportedFunction func : funcs) {
     if (func(aType)) {
@@ -327,6 +354,9 @@ bool DecoderTraits::IsSupportedInVideoDocument(const nsACString& aType) {
          MP3Decoder::IsSupportedType(*type) ||
          ADTSDecoder::IsSupportedType(*type) ||
          FlacDecoder::IsSupportedType(*type) ||
+#ifdef MOZ_WIDGET_GONK
+         AMRDecoder::IsSupportedType(*type) ||
+#endif
 #ifdef MOZ_ANDROID_HLS_SUPPORT
          HLSDecoder::IsSupportedType(*type) ||
 #endif
@@ -362,6 +392,11 @@ nsTArray<UniquePtr<TrackInfo>> DecoderTraits::GetTracksInfo(
   if (FlacDecoder::IsSupportedType(mimeType)) {
     return FlacDecoder::GetTracksInfo(aType);
   }
+#ifdef MOZ_WIDGET_GONK
+  if (AMRDecoder::IsSupportedType(mimeType)) {
+    return AMRDecoder::GetTracksInfo(aType);
+  }
+#endif
   return nsTArray<UniquePtr<TrackInfo>>();
 }
 
