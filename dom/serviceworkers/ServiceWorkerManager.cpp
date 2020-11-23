@@ -1320,7 +1320,8 @@ ServiceWorkerManager::SendPushSubscriptionChangeEvent(
 
 nsresult ServiceWorkerManager::SendSystemMessageEvent(
     const nsACString& aOriginAttributes, const nsACString& aScope,
-    const nsAString& aMessageName, const nsAString& aMessage) {
+    const nsAString& aMessageName,
+    RefPtr<ServiceWorkerCloneData>&& aMessageData) {
   OriginAttributes attrs;
   if (!attrs.PopulateFromSuffix(aOriginAttributes)) {
     return NS_ERROR_INVALID_ARG;
@@ -1335,8 +1336,8 @@ nsresult ServiceWorkerManager::SendSystemMessageEvent(
       GetRegistration(info->Principal(), aScope);
   MOZ_DIAGNOSTIC_ASSERT(registration);
 
-  return info->WorkerPrivate()->SendSystemMessageEvent(aMessageName, aMessage,
-                                                       registration);
+  return info->WorkerPrivate()->SendSystemMessageEvent(
+      aMessageName, std::move(aMessageData), registration);
 }
 
 nsresult ServiceWorkerManager::SendNotificationEvent(

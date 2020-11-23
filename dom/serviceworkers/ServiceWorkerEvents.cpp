@@ -1186,13 +1186,28 @@ JSObject* PushEvent::WrapObjectInternal(JSContext* aCx,
 }
 
 SystemMessageData::SystemMessageData(nsIGlobalObject* aOwner,
-                                     const nsAString& aDecodedText,
-                                     const nsAString& aName)
-    : mOwner(aOwner), mDecodedText(aDecodedText), mName(aName) {}
+                                     const nsAString& aName,
+                                     const JS::Value& aData)
+    : mOwner(aOwner), mName(aName), mData(aData) {}
 
 SystemMessageData::~SystemMessageData() {}
 
-NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(SystemMessageData, mOwner)
+NS_IMPL_CYCLE_COLLECTION_CLASS(SystemMessageData)
+
+NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(SystemMessageData)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mOwner)
+NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
+
+NS_IMPL_CYCLE_COLLECTION_TRACE_BEGIN(SystemMessageData)
+  NS_IMPL_CYCLE_COLLECTION_TRACE_PRESERVED_WRAPPER
+  NS_IMPL_CYCLE_COLLECTION_TRACE_JS_MEMBER_CALLBACK(mData)
+NS_IMPL_CYCLE_COLLECTION_TRACE_END
+
+NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(SystemMessageData)
+  NS_IMPL_CYCLE_COLLECTION_UNLINK(mOwner)
+  NS_IMPL_CYCLE_COLLECTION_UNLINK_PRESERVED_WRAPPER
+  tmp->mData.setNull();
+NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
 NS_IMPL_CYCLE_COLLECTING_ADDREF(SystemMessageData)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(SystemMessageData)
@@ -1210,11 +1225,11 @@ JSObject* SystemMessageData::WrapObject(JSContext* aCx,
 void SystemMessageData::Json(JSContext* aCx,
                              JS::MutableHandle<JS::Value> aRetval,
                              ErrorResult& aRv) {
-  if (mDecodedText.IsEmpty() || mName.EqualsLiteral("activity")) {
+  if (mName.EqualsLiteral("activity")) {
     aRv.Throw(NS_ERROR_DOM_UNKNOWN_ERR);
     return;
   }
-  BodyUtil::ConsumeJson(aCx, aRetval, mDecodedText, aRv);
+  aRetval.set(mData);
 }
 
 already_AddRefed<mozilla::dom::WebActivityRequestHandler>
@@ -1225,7 +1240,7 @@ SystemMessageData::WebActivityRequestHandler(ErrorResult& aRv) {
   }
 
   RefPtr<mozilla::dom::WebActivityRequestHandler> handler =
-      mozilla::dom::WebActivityRequestHandler::Create(mOwner, mDecodedText);
+      mozilla::dom::WebActivityRequestHandler::Create(mOwner, mData);
   return handler.forget();
 }
 
@@ -1242,15 +1257,9 @@ already_AddRefed<SystemMessageEvent> SystemMessageEvent::Constructor(
   e->SetTrusted(trusted);
   e->SetComposed(aOptions.mComposed);
   e->mName = aName;
-  if (aOptions.mData.WasPassed()) {
-    JS::RootedValue value(aCx, JS::ObjectValue(*(aOptions.mData.Value())));
-    nsAutoString text;
-    if (!nsContentUtils::StringifyJSON(aCx, &value, text)) {
-      aRv.Throw(NS_ERROR_XPC_BAD_CONVERT_JS);
-      return nullptr;
-    }
-    e->mData = new SystemMessageData(aOwner->GetOwnerGlobal(), text, aName);
-  }
+  e->mData =
+      new SystemMessageData(aOwner->GetOwnerGlobal(), aName, aOptions.mData);
+
   return e.forget();
 }
 

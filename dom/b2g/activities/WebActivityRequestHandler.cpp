@@ -104,11 +104,25 @@ class PostErrorRunnable final : public ActivityRequestHandlerProxyRunnable {
 
 }  // anonymous namespace
 
-NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE_0(WebActivityRequestHandler)
+NS_IMPL_CYCLE_COLLECTION_CLASS(WebActivityRequestHandler)
+
+NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(WebActivityRequestHandler)
+NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
+
+NS_IMPL_CYCLE_COLLECTION_TRACE_BEGIN(WebActivityRequestHandler)
+  NS_IMPL_CYCLE_COLLECTION_TRACE_PRESERVED_WRAPPER
+  NS_IMPL_CYCLE_COLLECTION_TRACE_JS_MEMBER_CALLBACK(mMessage)
+NS_IMPL_CYCLE_COLLECTION_TRACE_END
+
+NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(WebActivityRequestHandler)
+  NS_IMPL_CYCLE_COLLECTION_UNLINK_PRESERVED_WRAPPER
+  tmp->mMessage.setNull();
+NS_IMPL_CYCLE_COLLECTION_UNLINK_END
+
 NS_IMPL_CYCLE_COLLECTION_ROOT_NATIVE(WebActivityRequestHandler, AddRef)
 NS_IMPL_CYCLE_COLLECTION_UNROOT_NATIVE(WebActivityRequestHandler, Release)
 
-WebActivityRequestHandler::WebActivityRequestHandler(const nsAString& aMessage,
+WebActivityRequestHandler::WebActivityRequestHandler(const JS::Value& aMessage,
                                                      const nsAString& aId,
                                                      bool aReturnValue)
     : mMessage(aMessage), mActivityId(aId), mReturnValue(aReturnValue) {
@@ -126,20 +140,18 @@ JSObject* WebActivityRequestHandler::WrapObject(
 
 /*static*/
 already_AddRefed<WebActivityRequestHandler> WebActivityRequestHandler::Create(
-    nsIGlobalObject* aGlobal, const nsAString& aMessage) {
+    nsIGlobalObject* aGlobal, const JS::Value& aMessage) {
   AutoJSAPI jsapi;
   if (NS_WARN_IF(!jsapi.Init(aGlobal))) {
     return nullptr;
   }
   JSContext* cx = jsapi.cx();
-  JS::RootedValue json(cx);
-  if (NS_WARN_IF(!JS_ParseJSON(cx, PromiseFlatString(aMessage).get(),
-                               aMessage.Length(), &json) ||
-                 !json.isObject())) {
+
+  if (NS_WARN_IF(!aMessage.isObject())) {
     return nullptr;
   }
 
-  JS::RootedObject msgObj(cx, &json.toObject());
+  JS::RootedObject msgObj(cx, &aMessage.toObject());
   JS::RootedValue idVal(cx);
   if (NS_WARN_IF(!JS_GetProperty(cx, msgObj, "id", &idVal) ||
                  !idVal.isString())) {
@@ -190,14 +202,7 @@ void WebActivityRequestHandler::PostError(const nsAString& aError) {
 void WebActivityRequestHandler::GetSource(JSContext* aCx,
                                           WebActivityOptions& aResult,
                                           ErrorResult& aRv) {
-  JS::RootedValue json(aCx);
-  if (!JS_ParseJSON(aCx, mMessage.get(), mMessage.Length(), &json) ||
-      !json.isObject()) {
-    aRv.Throw(NS_ERROR_UNEXPECTED);
-    return;
-  }
-
-  JS::RootedObject msgObj(aCx, &json.toObject());
+  JS::RootedObject msgObj(aCx, &mMessage.toObject());
   JS::RootedValue payloadVal(aCx);
   if (!JS_GetProperty(aCx, msgObj, "payload", &payloadVal)) {
     aRv.Throw(NS_ERROR_UNEXPECTED);

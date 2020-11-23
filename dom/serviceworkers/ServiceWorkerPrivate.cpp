@@ -1208,17 +1208,18 @@ namespace {
 class SendSystemMessageEventRunnable final
     : public ExtendableFunctionalEventWorkerRunnable {
   nsString mMessageName;
-  nsString mMessage;
+  RefPtr<ServiceWorkerCloneData> mMessageData;
 
  public:
   SendSystemMessageEventRunnable(
       WorkerPrivate* aWorkerPrivate, KeepAliveToken* aKeepAliveToken,
-      const nsAString& aMessageName, const nsAString& aMessage,
+      const nsAString& aMessageName,
+      RefPtr<ServiceWorkerCloneData>&& aMessageData,
       nsMainThreadPtrHandle<ServiceWorkerRegistrationInfo> aRegistration)
       : ExtendableFunctionalEventWorkerRunnable(aWorkerPrivate, aKeepAliveToken,
                                                 aRegistration),
         mMessageName(aMessageName),
-        mMessage(aMessage) {
+        mMessageData(std::move(aMessageData)) {
     MOZ_ASSERT(NS_IsMainThread());
     MOZ_ASSERT(aWorkerPrivate);
     MOZ_ASSERT(aWorkerPrivate->IsServiceWorker());
@@ -1229,17 +1230,19 @@ class SendSystemMessageEventRunnable final
 
     SystemMessageEventInit smei;
 
-    JS::RootedValue json(aCx);
-    if (!JS_ParseJSON(aCx, mMessage.get(), mMessage.Length(), &json) ||
-        !json.isObject()) {
+    ErrorResult result;
+
+    JS::RootedValue messageData(aCx);
+    mMessageData->Read(aCx, &messageData, result);
+    if (NS_WARN_IF(result.Failed())) {
+      result.SuppressException();
       return false;
     }
 
-    smei.mData.Construct(&json.toObject());
+    smei.mData = messageData;
     smei.mBubbles = false;
     smei.mCancelable = false;
 
-    ErrorResult result;
     GlobalObject globalObj(aCx, aWorkerPrivate->GlobalScope()->GetWrapper());
     RefPtr<SystemMessageEvent> event = SystemMessageEvent::Constructor(
         globalObj, u"systemmessage"_ns, mMessageName, smei, result);
@@ -1266,14 +1269,16 @@ class SendSystemMessageEventRunnable final
 }  // anonymous namespace
 
 nsresult ServiceWorkerPrivate::SendSystemMessageEvent(
-    const nsAString& aMessageName, const nsAString& aMessage,
+    const nsAString& aMessageName,
+    RefPtr<ServiceWorkerCloneData>&& aMessageData,
     ServiceWorkerRegistrationInfo* aRegistration) {
   MOZ_ASSERT(NS_IsMainThread());
 
   gDOMDisableOpenClickDelay =
       Preferences::GetInt("dom.serviceWorkers.disable_open_click_delay");
   if (mInner) {
-    return mInner->SendSystemMessageEvent(aRegistration, aMessageName, aMessage,
+    return mInner->SendSystemMessageEvent(aRegistration, aMessageName,
+                                          std::move(aMessageData),
                                           gDOMDisableOpenClickDelay);
   }
 
@@ -1287,7 +1292,7 @@ nsresult ServiceWorkerPrivate::SendSystemMessageEvent(
           "ServiceWorkerRegistrationInfoProxy", aRegistration, false));
 
   RefPtr<WorkerRunnable> r = new SendSystemMessageEventRunnable(
-      mWorkerPrivate, token, aMessageName, aMessage, regInfo);
+      mWorkerPrivate, token, aMessageName, std::move(aMessageData), regInfo);
 
   if (mInfo->State() == ServiceWorkerState::Activating) {
     mPendingFunctionalEvents.AppendElement(r.forget());

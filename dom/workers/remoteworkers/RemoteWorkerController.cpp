@@ -495,6 +495,26 @@ bool RemoteWorkerController::PendingServiceWorkerOp::MaybeStart(
     // copyArgs depends on mArgs due to
     // BuildClonedMessageDataForBackgroundParent.
     send(std::move(copyArgs));
+  } else if (mArgs.type() ==
+             ServiceWorkerOpArgs::TServiceWorkerSystemMessageEventOpArgs) {
+    auto& args = mArgs.get_ServiceWorkerSystemMessageEventOpArgs();
+
+    ServiceWorkerSystemMessageEventOpArgs copyArgs;
+    copyArgs.messageName() = nsString(args.messageName());
+    copyArgs.disableOpenClickDelay() = args.disableOpenClickDelay();
+
+    RefPtr<ServiceWorkerCloneData> copyData = new ServiceWorkerCloneData();
+    if (!copyData->StealFromAndBuildClonedMessageDataForBackgroundParent(
+            args.clonedData(), aOwner->mActor->Manager(),
+            copyArgs.clonedData())) {
+      mPromise->Reject(NS_ERROR_DOM_DATA_CLONE_ERR, __func__);
+      mPromise = nullptr;
+      return true;
+    }
+
+    // copyArgs depends on mArgs due to
+    // BuildClonedMessageDataForBackgroundParent.
+    send(std::move(copyArgs));
   } else {
     send(mArgs);
   }

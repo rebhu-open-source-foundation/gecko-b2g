@@ -7,6 +7,7 @@
 #include "mozilla/dom/SystemMessageService.h"
 #include "mozilla/dom/SystemMessageServiceChild.h"
 #include "mozilla/dom/ServiceWorkerManager.h"
+#include "mozilla/dom/ServiceWorkerCloneData.h"
 #include "mozilla/dom/ContentParent.h"
 #include "mozilla/StaticPtr.h"
 #include "js/JSON.h"
@@ -93,25 +94,6 @@ void BuildPermissionsTable() {
    **/
 }
 
-nsresult SerializeFromJSVal(JSContext* aCx, JS::HandleValue aValue,
-                            nsAString& aResult) {
-  aResult.Truncate();
-  nsAutoString serializedValue;
-
-  if (aValue.isObject()) {
-    JS::RootedValue value(aCx, aValue.get());
-    NS_ENSURE_TRUE(nsContentUtils::StringifyJSON(aCx, &value, serializedValue),
-                   NS_ERROR_XPC_BAD_CONVERT_JS);
-    NS_ENSURE_TRUE(!serializedValue.IsEmpty(), NS_ERROR_FAILURE);
-    aResult = serializedValue;
-  } else {
-    MOZ_ASSERT(false, "SystemMessageData should be an JS object.");
-    return NS_ERROR_FAILURE;
-  }
-
-  return NS_OK;
-}
-
 }  // anonymous namespace
 
 NS_IMPL_ISUPPORTS(SystemMessageService, nsISystemMessageService)
@@ -191,7 +173,7 @@ SystemMessageService::Unsubscribe(nsIPrincipal* aPrincipal) {
 
 NS_IMETHODIMP
 SystemMessageService::SendMessage(const nsAString& aMessageName,
-                                  JS::HandleValue aMessage,
+                                  JS::HandleValue aMessageData,
                                   const nsACString& aOrigin, JSContext* aCx) {
   LOG("SendMessage: name=%s", NS_LossyConvertUTF16toASCII(aMessageName).get());
   LOG("             to=%s", nsCString(aOrigin).get());
@@ -211,8 +193,10 @@ SystemMessageService::SendMessage(const nsAString& aMessageName,
     return NS_OK;
   }
 
-  nsAutoString messageData;
-  if (NS_FAILED(SerializeFromJSVal(aCx, aMessage, messageData))) {
+  ErrorResult rv;
+  RefPtr<ServiceWorkerCloneData> messageData = new ServiceWorkerCloneData();
+  messageData->Write(aCx, aMessageData, rv);
+  if (NS_WARN_IF(rv.Failed())) {
     return NS_OK;
   }
 
@@ -225,19 +209,19 @@ SystemMessageService::SendMessage(const nsAString& aMessageName,
   // SystemMessageService::SendMessage() is for used on chrome process only,
   // we can use ServiceWorkerManager to send SystemMessageEvent directly.
   RefPtr<ServiceWorkerManager> swm = ServiceWorkerManager::GetInstance();
-  if (!swm) {
+  if (NS_WARN_IF(!swm)) {
     return NS_ERROR_FAILURE;
   }
 
   LOG("Sending message %s to %s",
       NS_LossyConvertUTF16toASCII(aMessageName).get(), (info->mScope).get());
   return swm->SendSystemMessageEvent(info->mOriginSuffix, info->mScope,
-                                     aMessageName, messageData);
+                                     aMessageName, std::move(messageData));
 }
 
 NS_IMETHODIMP
 SystemMessageService::BroadcastMessage(const nsAString& aMessageName,
-                                       JS::HandleValue aMessage,
+                                       JS::HandleValue aMessageData,
                                        JSContext* aCx) {
   LOG("BroadcastMessage: name=%s",
       NS_LossyConvertUTF16toASCII(aMessageName).get());
@@ -249,13 +233,15 @@ SystemMessageService::BroadcastMessage(const nsAString& aMessageName,
     return NS_OK;
   }
 
-  nsAutoString messageData;
-  if (NS_FAILED(SerializeFromJSVal(aCx, aMessage, messageData))) {
+  ErrorResult rv;
+  RefPtr<ServiceWorkerCloneData> messageData = new ServiceWorkerCloneData();
+  messageData->Write(aCx, aMessageData, rv);
+  if (NS_WARN_IF(rv.Failed())) {
     return NS_OK;
   }
 
   RefPtr<ServiceWorkerManager> swm = ServiceWorkerManager::GetInstance();
-  if (!swm) {
+  if (NS_WARN_IF(!swm)) {
     return NS_ERROR_FAILURE;
   }
 
@@ -266,7 +252,7 @@ SystemMessageService::BroadcastMessage(const nsAString& aMessageName,
         NS_LossyConvertUTF16toASCII(aMessageName).get(), (info->mScope).get());
 
     Unused << swm->SendSystemMessageEvent(info->mOriginSuffix, info->mScope,
-                                          aMessageName, messageData);
+                                          aMessageName, std::move(messageData));
   }
 
   return NS_OK;

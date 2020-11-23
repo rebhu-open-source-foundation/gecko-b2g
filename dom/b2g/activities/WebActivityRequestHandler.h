@@ -32,7 +32,7 @@ class WebActivityRequestHandler final : public nsWrapperCache
                        JS::Handle<JSObject*> aGivenProto) override;
 
   static already_AddRefed<WebActivityRequestHandler> Create(
-      nsIGlobalObject* aGlobal, const nsAString& aMessage);
+      nsIGlobalObject* aGlobal, const JS::Value& aMessage);
   // WebIDL methods:
 
   void PostResult(JSContext* aCx, JS::Handle<JS::Value> aResult,
@@ -43,13 +43,13 @@ class WebActivityRequestHandler final : public nsWrapperCache
   void GetSource(JSContext* aCx, WebActivityOptions& aResult, ErrorResult& aRv);
 
  private:
-  WebActivityRequestHandler(const nsAString& aMessage, const nsAString& aId,
+  WebActivityRequestHandler(const JS::Value& aMessage, const nsAString& aId,
                             bool aReturnValue);
   ~WebActivityRequestHandler();
 
-  nsString mMessage;
   nsString mActivityId;
   bool mReturnValue;
+  JS::Heap<JS::Value> mMessage;
 };
 }  // namespace dom
 }  // namespace mozilla

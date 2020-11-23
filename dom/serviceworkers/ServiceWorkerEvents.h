@@ -273,13 +273,14 @@ class SystemMessageData final : public nsISupports, public nsWrapperCache {
   already_AddRefed<WebActivityRequestHandler> WebActivityRequestHandler(
       ErrorResult& aRv);
 
-  SystemMessageData(nsIGlobalObject* aOwner, const nsAString& aDecodedText,
-                    const nsAString& aName);
+  SystemMessageData(nsIGlobalObject* aOwner, const nsAString& aName,
+                    const JS::Value& aData);
 
  private:
   nsCOMPtr<nsIGlobalObject> mOwner;
-  nsString mDecodedText;
   nsString mName;
+  JS::Heap<JS::Value> mData;
+
   ~SystemMessageData();
 };
 

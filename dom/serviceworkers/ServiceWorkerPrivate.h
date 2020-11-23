@@ -130,7 +130,8 @@ class ServiceWorkerPrivate final {
 
     virtual nsresult SendSystemMessageEvent(
         RefPtr<ServiceWorkerRegistrationInfo> aRegistration,
-        const nsAString& aMessageName, const nsAString& aMessage,
+        const nsAString& aMessageName,
+        RefPtr<ServiceWorkerCloneData>&& aMessageData,
         uint32_t aDisableOpenClickDelay) = 0;
 
     virtual nsresult SendNotificationEvent(
@@ -177,7 +178,7 @@ class ServiceWorkerPrivate final {
   nsresult SendPushSubscriptionChangeEvent();
 
   nsresult SendSystemMessageEvent(const nsAString& aMessageName,
-                                  const nsAString& aMessage,
+                                  RefPtr<ServiceWorkerCloneData>&& aMessageData,
                                   ServiceWorkerRegistrationInfo* aRegistration);
 
   nsresult SendNotificationEvent(

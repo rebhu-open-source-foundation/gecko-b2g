@@ -10,7 +10,6 @@
 
 #include "js/Exception.h"  // JS::ExceptionStack, JS::StealPendingExceptionStack
 #include "jsapi.h"
-#include "js/JSON.h"
 
 #include "nsCOMPtr.h"
 #include "nsContentUtils.h"
@@ -789,6 +788,15 @@ class SystemMessageEventOp final : public ExtendableEventOp,
  public:
   NS_DECL_THREADSAFE_ISUPPORTS
 
+  SystemMessageEventOp(
+      ServiceWorkerOpArgs&& aArgs,
+      std::function<void(const ServiceWorkerOpResult&)>&& aCallback)
+      : ExtendableEventOp(std::move(aArgs), std::move(aCallback)),
+        mMessageData(new ServiceWorkerCloneData()) {
+    mMessageData->CopyFromClonedMessageDataForBackgroundChild(
+        mArgs.get_ServiceWorkerSystemMessageEventOpArgs().clonedData());
+  }
+
  private:
   ~SystemMessageEventOp() {
     MOZ_DIAGNOSTIC_ASSERT(!mTimer);
@@ -865,19 +873,23 @@ class SystemMessageEventOp final : public ExtendableEventOp,
 
     SystemMessageEventInit smei;
 
-    JS::RootedValue json(aCx);
-    if (!JS_ParseJSON(aCx, args.message().get(), args.message().Length(),
-                      &json) ||
-        !json.isObject()) {
+    ErrorResult result;
+
+    JS::RootedValue messageData(aCx);
+    if (!mMessageData->IsErrorMessageData()) {
+      mMessageData->Read(aCx, &messageData, result);
+    }
+
+    if (NS_WARN_IF(result.Failed()) || mMessageData->IsErrorMessageData()) {
       RejectAll(NS_ERROR_FAILURE);
+      result.SuppressException();
       return false;
     }
 
-    smei.mData.Construct(&json.toObject());
+    smei.mData = messageData;
     smei.mBubbles = false;
     smei.mCancelable = false;
 
-    ErrorResult result;
     GlobalObject globalObj(aCx, aWorkerPrivate->GlobalScope()->GetWrapper());
     RefPtr<SystemMessageEvent> event = SystemMessageEvent::Constructor(
         globalObj, u"systemmessage"_ns, args.messageName(), smei,
@@ -921,6 +933,7 @@ class SystemMessageEventOp final : public ExtendableEventOp,
 
   nsCOMPtr<nsITimer> mTimer;
   RefPtr<StrongWorkerRef> mWorkerRef;
+  RefPtr<ServiceWorkerCloneData> mMessageData;
 };
 
 NS_IMPL_ISUPPORTS(SystemMessageEventOp, nsITimerCallback)

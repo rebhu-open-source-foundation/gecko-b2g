@@ -532,7 +532,8 @@ nsresult ServiceWorkerPrivateImpl::SendPushSubscriptionChangeEvent() {
 
 nsresult ServiceWorkerPrivateImpl::SendSystemMessageEvent(
     RefPtr<ServiceWorkerRegistrationInfo> aRegistration,
-    const nsAString& aMessageName, const nsAString& aMessage,
+    const nsAString& aMessageName,
+    RefPtr<ServiceWorkerCloneData>&& aMessageData,
     uint32_t aDisableOpenClickDelay) {
   AssertIsOnMainThread();
   MOZ_ASSERT(mOuter);
@@ -540,8 +541,17 @@ nsresult ServiceWorkerPrivateImpl::SendSystemMessageEvent(
 
   ServiceWorkerSystemMessageEventOpArgs args;
   args.messageName() = nsString(aMessageName);
-  args.message() = nsString(aMessage);
   args.disableOpenClickDelay() = aDisableOpenClickDelay;
+
+  PBackgroundChild* bgChild = BackgroundChild::GetForCurrentThread();
+  if (NS_WARN_IF(!bgChild)) {
+    return NS_ERROR_DOM_INVALID_STATE_ERR;
+  }
+
+  if (!aMessageData->BuildClonedMessageDataForBackgroundChild(
+          bgChild, args.clonedData())) {
+    return NS_ERROR_DOM_DATA_CLONE_ERR;
+  }
 
   if (mOuter->mInfo->State() == ServiceWorkerState::Activating) {
     UniquePtr<PendingFunctionalEvent> pendingEvent =

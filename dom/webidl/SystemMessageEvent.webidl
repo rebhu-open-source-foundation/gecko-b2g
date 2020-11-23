@@ -14,7 +14,7 @@ interface SystemMessageEvent : ExtendableEvent {
   readonly attribute SystemMessageData? data;
 };
 
-typedef object SystemMessageDataInit;
+typedef any SystemMessageDataInit;
 
 dictionary SystemMessageEventInit : ExtendableEventInit {
   SystemMessageDataInit data;

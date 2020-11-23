@@ -24,8 +24,8 @@ interface nsISystemMessageService : nsISupports
   void unsubscribe(in nsIPrincipal principal);
 
   [implicit_jscontext]
-  void sendMessage(in AString messageName, in jsval message, in ACString origin);
+  void sendMessage(in AString messageName, in jsval messageData, in ACString origin);
 
   [implicit_jscontext]
-  void broadcastMessage(in AString messageName, in jsval message);
+  void broadcastMessage(in AString messageName, in jsval messageData);
 };

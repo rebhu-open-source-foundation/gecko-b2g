@@ -79,7 +79,7 @@ struct ServiceWorkerFetchEventOpArgs {
 
 struct ServiceWorkerSystemMessageEventOpArgs {
   nsString messageName;
-  nsString message;
+  ClonedOrErrorMessageData clonedData;
   uint32_t disableOpenClickDelay;
 };
 
