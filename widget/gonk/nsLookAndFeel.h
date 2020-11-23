@@ -24,17 +24,17 @@ class nsLookAndFeel : public nsXPLookAndFeel {
   nsLookAndFeel();
   virtual ~nsLookAndFeel();
 
-  virtual bool GetFontImpl(FontID aID, nsString& aName, gfxFontStyle& aStyle);
-  virtual nsresult GetIntImpl(IntID aID, int32_t& aResult);
-  virtual nsresult GetFloatImpl(FloatID aID, float& aResult);
-  virtual bool GetEchoPasswordImpl();
-  virtual uint32_t GetPasswordMaskDelayImpl();
-  virtual char16_t GetPasswordCharacterImpl();
+  nsresult NativeGetInt(IntID aID, int32_t& aResult) override;
+  nsresult NativeGetFloat(FloatID aID, float& aResult) override;
+  nsresult NativeGetColor(ColorID aID, nscolor& aColor) override;
+  bool NativeGetFont(FontID aID, nsString& aName,
+                     gfxFontStyle& aStyle) override;
+
+  virtual bool GetEchoPasswordImpl() override;
+  virtual uint32_t GetPasswordMaskDelayImpl() override;
+  virtual char16_t GetPasswordCharacterImpl() override;
 
   void NativeInit() final{};
-
- protected:
-  virtual nsresult NativeGetColor(ColorID aID, nscolor& aColor);
 };
 
 #endif
