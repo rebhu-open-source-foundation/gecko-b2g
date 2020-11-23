@@ -30,6 +30,8 @@ const EXPORTED_SYMBOLS = ["PushRecord"];
 
 const prefs = Services.prefs.getBranch("dom.push.");
 
+const kMaxUnregisterTries = 3;
+
 /**
  * The push subscription record, stored in IndexedDB.
  */
@@ -47,6 +49,7 @@ function PushRecord(props) {
   this.recentMessageIDs = props.recentMessageIDs;
   this.setQuota(props.quota);
   this.ctime = typeof props.ctime === "number" ? props.ctime : 0;
+  this.unregisterTries = props.unregisterTries || 0;
 }
 
 PushRecord.prototype = {
@@ -303,6 +306,13 @@ PushRecord.prototype = {
       quota: this.quotaApplies() ? this.quota : -1,
       systemRecord: this.systemRecord,
     };
+  },
+
+  reachMaxUnregisterTries() {
+    if (this.unregisterTries >= kMaxUnregisterTries) {
+      return true;
+    }
+    return false;
   },
 };
 
