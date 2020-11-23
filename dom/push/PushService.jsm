@@ -339,6 +339,10 @@ var PushService = {
     if (records.length > 0) {
       this._service.connect(broadcastListeners);
     }
+
+    this._dropExpiredRegistrations().catch(error => {
+      console.error("Failed to drop expired registrations on idle", error);
+    });
   },
 
   _changeStateConnectionEnabledEvent(enabled) {
@@ -1431,6 +1435,9 @@ var PushService = {
             .quotaChanged()
             .then(isChanged => {
               if (isChanged) {
+                if (this._state != PUSH_SERVICE_RUNNING) {
+                  return;
+                }
                 // If the user revisited the site, drop the expired push
                 // registration and notify the associated service worker.
                 this.dropRegistrationAndNotifyApp(record.keyID);
@@ -1552,6 +1559,9 @@ var PushService = {
       return;
     }
     if (record.isExpired()) {
+      if (this._state != PUSH_SERVICE_RUNNING) {
+        return;
+      }
       // If the registration has expired, drop and notify the worker
       // unconditionally.
       this._notifySubscriptionChangeObservers(record);
