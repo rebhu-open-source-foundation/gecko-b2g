@@ -198,7 +198,7 @@ uint32_t getSelectionStart(Element* aElement) {
     }
     RefPtr<HTMLInputElement> input = HTMLInputElement::FromNodeOrNull(aElement);
     if (input) {
-      _start = input->GetSelectionStart(rv);
+      _start = input->GetSelectionStartIgnoringType(rv);
     }
     if (!_start.IsNull()) {
       start = _start.Value();
@@ -241,7 +241,7 @@ uint32_t getSelectionEnd(Element* aElement) {
     }
     RefPtr<HTMLInputElement> input = HTMLInputElement::FromNodeOrNull(aElement);
     if (input) {
-      _end = input->GetSelectionEnd(rv);
+      _end = input->GetSelectionEndIgnoringType(rv);
     }
     if (!_end.IsNull()) {
       end = _end.Value();
