@@ -34,6 +34,7 @@
 #include "mozilla/dom/Element.h"
 #include "nsIDocumentEncoder.h"
 #include "nsRange.h"
+#include "mozilla/ContentEvents.h"
 #include "mozilla/dom/EventTarget.h"
 #include "mozilla/dom/Event.h"
 #include "mozilla/dom/nsInputContext.h"
@@ -494,8 +495,24 @@ GeckoEditableSupport::HandleEvent(Event* aEvent) {
   nsAutoString eventType;
   aEvent->GetType(eventType);
 
+  InternalFocusEvent* focusEvent = aEvent->WidgetEventPtr()->AsFocusEvent();
+  if (!focusEvent) {
+    return NS_OK;
+  }
+
+  nsCOMPtr<nsIContent> relatedTarget =
+      do_QueryInterface(focusEvent->mRelatedTarget);
+  nsIContent* nonChromeTarget =
+      relatedTarget ? relatedTarget->FindFirstNonChromeOnlyAccessContent()
+                    : relatedTarget.get();
+  IME_LOGD("-- GeckoEditableSupport::HandleEvent : %s %p related %p",
+           NS_ConvertUTF16toUTF8(eventType).get(), node.get(), nonChromeTarget);
+
+  if (node == nonChromeTarget) {
+    return NS_OK;
+  }
+
   if (eventType.EqualsLiteral("focus")) {
-    IME_LOGD("-- GeckoEditableSupport::HandleEvent : focus %p", node.get());
     HandleFocus();
     RefPtr<TextEventDispatcher> dispatcher = getTextEventDispatcherFromFocus();
     if (dispatcher) {
@@ -504,10 +521,7 @@ GeckoEditableSupport::HandleEvent(Event* aEvent) {
         IME_LOGD("Fails to BeginInputTransaction");
       }
     }
-  }
-
-  if (eventType.EqualsLiteral("blur")) {
-    IME_LOGD("-- GeckoEditableSupport::HandleEvent : blur %p", node.get());
+  } else if (eventType.EqualsLiteral("blur")) {
     HandleBlur();
     RefPtr<TextEventDispatcher> dispatcher = getTextEventDispatcherFromFocus();
     if (dispatcher) {
