@@ -106,6 +106,11 @@ this.PermissionsTable = {
     signed: DENY_ACTION,
     core: ALLOW_ACTION,
   },
+  contacts: {
+    pwa: DENY_ACTION,
+    signed: ALLOW_ACTION,
+    access: ["read", "write", "create"],
+  },
   datacall: {
     pwa: DENY_ACTION,
     signed: ALLOW_ACTION,
