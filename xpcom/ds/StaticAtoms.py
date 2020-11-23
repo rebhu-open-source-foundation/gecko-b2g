@@ -947,6 +947,7 @@ STATIC_ATOMS = [
     Atom("ontransitionend", "ontransitionend"),
     Atom("ontransitionrun", "ontransitionrun"),
     Atom("ontransitionstart", "ontransitionstart"),
+    Atom("onuncapturederror", "onuncapturederror"),
     Atom("onunderflow", "onunderflow"),
     Atom("onunhandledrejection", "onunhandledrejection"),
     Atom("onunload", "onunload"),
