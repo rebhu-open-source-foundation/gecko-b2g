@@ -7,16 +7,17 @@
 #ifndef mozilla_widget_GeckoEditableSupport_h
 #define mozilla_widget_GeckoEditableSupport_h
 
-#include "nsAppShell.h"
 #include "nsIWidget.h"
 #include "nsTArray.h"
 
+#include "mozilla/dom/InputMethodServiceChild.h"
 #include "mozilla/TextEventDispatcher.h"
 #include "mozilla/TextEventDispatcherListener.h"
 #include "mozilla/UniquePtr.h"
 #include "nsIEditableSupport.h"
 #include "nsIDOMEventListener.h"
 #include "nsIObserver.h"
+
 class nsWindow;
 class nsIGlobalObject;
 class nsPIDOMWindowOuter;
@@ -43,9 +44,6 @@ class GeckoEditableSupport final : public TextEventDispatcherListener,
   NS_DECL_NSIEDITABLESUPPORT
   NS_DECL_NSIDOMEVENTLISTENER
   NS_DECL_NSIOBSERVER
-
-  static void SetOnBrowserChild(dom::BrowserChild* aBrowserChild,
-                                nsPIDOMWindowOuter* aDOMWindow);
 
   explicit GeckoEditableSupport(nsPIDOMWindowOuter* aDOMWindow);
 
@@ -76,7 +74,10 @@ class GeckoEditableSupport final : public TextEventDispatcherListener,
   nsresult GetInputContextBag(dom::nsInputContext* aInputContext);
 
  private:
+  void EnsureServiceChild();
+
   RefPtr<TextEventDispatcher> mDispatcher;
+  RefPtr<dom::InputMethodServiceChild> mServiceChild;
   nsCOMPtr<dom::EventTarget> mChromeEventHandler;
 
   // We need this flag to remember whether we already send focus to IME. Can't

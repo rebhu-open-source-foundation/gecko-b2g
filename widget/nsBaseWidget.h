@@ -26,6 +26,9 @@
 #include "nsIWidgetListener.h"
 #include "nsPIDOMWindow.h"
 #include "nsWeakReference.h"
+#ifdef MOZ_B2G
+#include "mozilla/b2g/GeckoEditableSupport.h"
+#endif
 
 #include <algorithm>
 
@@ -439,6 +442,11 @@ class nsBaseWidget : public nsIWidget, public nsSupportsWeakReference {
                         bool aNeedsYFlip) override{};
 #endif
 
+#ifdef MOZ_B2G
+  void SetNativeTextEventDispatcherListener(
+      mozilla::widget::GeckoEditableSupport* aListener){};
+#endif
+
  protected:
   // These are methods for CompositorWidgetWrapper, and should only be
   // accessed from that class. Derived widgets can choose which methods to
@@ -447,7 +455,8 @@ class nsBaseWidget : public nsIWidget, public nsSupportsWeakReference {
     return true;
   }
   virtual void PostRender(mozilla::widget::WidgetRenderingContext* aContext) {}
-  virtual void DrawWindowOverlay(LayerManagerComposite* aManager, LayoutDeviceIntRect aRect) override {}
+  virtual void DrawWindowOverlay(LayerManagerComposite* aManager,
+                                 LayoutDeviceIntRect aRect) override {}
 
   virtual RefPtr<mozilla::layers::NativeLayerRoot> GetNativeLayerRoot() {
     return nullptr;

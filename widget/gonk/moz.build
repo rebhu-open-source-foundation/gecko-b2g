@@ -28,7 +28,6 @@ EXPORTS.mozilla += [
 ]
 
 EXPORTS.mozilla.widget += [
-    "GeckoEditableSupport.h",
     "GonkCompositorWidget.h",
 ]
 
@@ -71,7 +70,6 @@ UNIFIED_SOURCES += [
 ]
 
 SOURCES += [
-    "GeckoEditableSupport.cpp",
     "GeckoTouchDispatcher.cpp",
     "GfxDebugger.cpp",
     "GfxInfo.cpp",
@@ -110,6 +108,7 @@ include("/ipc/chromium/chromium-config.mozbuild")
 FINAL_LIBRARY = "xul"
 
 LOCAL_INCLUDES += [
+    "/b2g/components/ime",
     "/dom/base",
     "/dom/system/android",
     "/gfx/2d/",
