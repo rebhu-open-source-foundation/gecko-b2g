@@ -409,9 +409,7 @@ NS_IMPL_ISUPPORTS(GeckoEditableSupport, TextEventDispatcherListener,
                   nsIEditableSupport, nsIDOMEventListener, nsIObserver,
                   nsISupportsWeakReference)
 
-GeckoEditableSupport::GeckoEditableSupport(nsPIDOMWindowOuter* aDOMWindow,
-                                           nsWindow* aWindow)
-    : mWindow(aWindow), mIsRemote(!aWindow) {
+GeckoEditableSupport::GeckoEditableSupport(nsPIDOMWindowOuter* aDOMWindow) {
   IME_LOGD("GeckoEditableSupport::Constructor[%p]", this);
   nsCOMPtr<nsIObserverService> obs = mozilla::services::GetObserverService();
   if (obs) {
@@ -457,18 +455,17 @@ void GeckoEditableSupport::SetOnBrowserChild(dom::BrowserChild* aBrowserChild,
                                              nsPIDOMWindowOuter* aDOMWindow) {
   MOZ_ASSERT(!XRE_IsParentProcess());
   NS_ENSURE_TRUE_VOID(aBrowserChild);
-  RefPtr<widget::PuppetWidget> widget(aBrowserChild->WebWidget());
-  RefPtr<widget::TextEventDispatcherListener> listener =
+  RefPtr<PuppetWidget> widget(aBrowserChild->WebWidget());
+  RefPtr<TextEventDispatcherListener> listener =
       widget->GetNativeTextEventDispatcherListener();
 
   IME_LOGD("-- GeckoEditableSupport::SetOnBrowserChild : listener %p widget %p",
            listener.get(), widget.get());
   if (!listener ||
-      listener.get() ==
-          static_cast<widget::TextEventDispatcherListener*>(widget)) {
+      listener.get() == static_cast<TextEventDispatcherListener*>(widget)) {
     // We need to set a new listener.
-    RefPtr<widget::GeckoEditableSupport> editableSupport =
-        new widget::GeckoEditableSupport(aDOMWindow);
+    RefPtr<GeckoEditableSupport> editableSupport =
+        new GeckoEditableSupport(aDOMWindow);
 
     IME_LOGD("-- GeckoEditableSupport::SetOnBrowserChild : listener %p",
              editableSupport.get());
@@ -502,7 +499,7 @@ GeckoEditableSupport::HandleEvent(Event* aEvent) {
     HandleFocus();
     RefPtr<TextEventDispatcher> dispatcher = getTextEventDispatcherFromFocus();
     if (dispatcher) {
-      nsresult result = BeginInputTransaction(dispatcher);
+      nsresult result = dispatcher->BeginInputTransaction(this);
       if (NS_WARN_IF(NS_FAILED(result))) {
         IME_LOGD("Fails to BeginInputTransaction");
       }
