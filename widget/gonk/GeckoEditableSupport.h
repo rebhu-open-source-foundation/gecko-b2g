@@ -56,17 +56,23 @@ class GeckoEditableSupport final : public TextEventDispatcherListener,
 
   // TextEventDispatcherListener methods
   NS_IMETHOD NotifyIME(TextEventDispatcher* aTextEventDispatcher,
-                       const IMENotification& aNotification) override;
+                       const IMENotification& aNotification) override {
+    return NS_OK;
+  }
 
-  NS_IMETHOD_(IMENotificationRequests) GetIMENotificationRequests() override;
+  NS_IMETHOD_(IMENotificationRequests) GetIMENotificationRequests() override {
+    return IMENotificationRequests(
+        IMENotificationRequests::NOTIFY_TEXT_CHANGE |
+        IMENotificationRequests::NOTIFY_POSITION_CHANGE);
+  }
 
   NS_IMETHOD_(void)
-  OnRemovedFrom(TextEventDispatcher* aTextEventDispatcher) override;
+  OnRemovedFrom(TextEventDispatcher* aTextEventDispatcher) override {}
 
   NS_IMETHOD_(void)
   WillDispatchKeyboardEvent(TextEventDispatcher* aTextEventDispatcher,
                             WidgetKeyboardEvent& aKeyboardEvent,
-                            uint32_t aIndexOfKeypress, void* aData) override;
+                            uint32_t aIndexOfKeypress, void* aData) override {}
 
   nsresult BeginInputTransaction(TextEventDispatcher* aDispatcher) {
     if (mIsRemote) {

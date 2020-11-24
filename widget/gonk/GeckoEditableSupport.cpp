@@ -452,80 +452,6 @@ GeckoEditableSupport::Observe(nsISupports* aSubject, const char* aTopic,
   return NS_OK;
 }
 
-nsresult GeckoEditableSupport::NotifyIME(
-    TextEventDispatcher* aTextEventDispatcher,
-    const IMENotification& aNotification) {
-  IME_LOGD("NotifyIME, TextEventDispatcher:[%p]", aTextEventDispatcher);
-  nsresult result;
-  switch (aNotification.mMessage) {
-    case REQUEST_TO_COMMIT_COMPOSITION: {
-      IME_LOGD("IME: REQUEST_TO_COMMIT_COMPOSITION");
-      break;
-    }
-
-    case REQUEST_TO_CANCEL_COMPOSITION: {
-      IME_LOGD("IME: REQUEST_TO_CANCEL_COMPOSITION");
-      break;
-    }
-
-    case NOTIFY_IME_OF_FOCUS: {
-      IME_LOGD("IME: NOTIFY_IME_OF_FOCUS");
-      mDispatcher = aTextEventDispatcher;
-      IME_LOGD("NotifyIME, mDispatcher:[%p]", mDispatcher.get());
-      result = BeginInputTransaction(mDispatcher);
-      NS_ENSURE_SUCCESS(result, result);
-      break;
-    }
-
-    case NOTIFY_IME_OF_BLUR: {
-      IME_LOGD("IME: NOTIFY_IME_OF_BLUR");
-      mDispatcher->EndInputTransaction(this);
-      OnRemovedFrom(mDispatcher);
-      break;
-    }
-
-    case NOTIFY_IME_OF_SELECTION_CHANGE: {
-      IME_LOGD("IME: NOTIFY_IME_OF_SELECTION_CHANGE: SelectionChangeData=%s",
-               ToString(aNotification.mSelectionChangeData).c_str());
-      break;
-    }
-
-    case NOTIFY_IME_OF_TEXT_CHANGE: {
-      // TODO
-      IME_LOGD("IME: NOTIFY_IME_OF_TEXT_CHANGE: TextChangeData=%s",
-               ToString(aNotification.mTextChangeData).c_str());
-      break;
-    }
-
-    case NOTIFY_IME_OF_COMPOSITION_EVENT_HANDLED: {
-      IME_LOGD("IME: NOTIFY_IME_OF_COMPOSITION_EVENT_HANDLED");
-      break;
-    }
-
-    default:
-      break;
-  }
-  return NS_OK;
-}
-
-NS_IMETHODIMP_(IMENotificationRequests)
-GeckoEditableSupport::GetIMENotificationRequests() {
-  // Assume we support all change just as TextInputProcessor
-  return IMENotificationRequests(
-      IMENotificationRequests::NOTIFY_TEXT_CHANGE |
-      IMENotificationRequests::NOTIFY_POSITION_CHANGE);
-}
-
-void GeckoEditableSupport::OnRemovedFrom(
-    TextEventDispatcher* aTextEventDispatcher) {
-  mDispatcher = nullptr;
-}
-
-void GeckoEditableSupport::WillDispatchKeyboardEvent(
-    TextEventDispatcher* aTextEventDispatcher,
-    WidgetKeyboardEvent& aKeyboardEvent, uint32_t aIndexOfKeypress,
-    void* aData) {}
-
 /* static */
 void GeckoEditableSupport::SetOnBrowserChild(dom::BrowserChild* aBrowserChild,
                                              nsPIDOMWindowOuter* aDOMWindow) {
@@ -575,11 +501,10 @@ GeckoEditableSupport::HandleEvent(Event* aEvent) {
     IME_LOGD("-- GeckoEditableSupport::HandleEvent : focus %p", node.get());
     HandleFocus();
     RefPtr<TextEventDispatcher> dispatcher = getTextEventDispatcherFromFocus();
-    if (dispatcher && dispatcher != mDispatcher) {
-      mDispatcher = dispatcher;
-      nsresult result = BeginInputTransaction(mDispatcher);
+    if (dispatcher) {
+      nsresult result = BeginInputTransaction(dispatcher);
       if (NS_WARN_IF(NS_FAILED(result))) {
-        IME_LOGD("mDispatcher fails to BeginInputTransaction");
+        IME_LOGD("Fails to BeginInputTransaction");
       }
     }
   }
@@ -588,10 +513,9 @@ GeckoEditableSupport::HandleEvent(Event* aEvent) {
     IME_LOGD("-- GeckoEditableSupport::HandleEvent : blur %p", node.get());
     HandleBlur();
     RefPtr<TextEventDispatcher> dispatcher = getTextEventDispatcherFromFocus();
-    if (dispatcher && dispatcher != mDispatcher) {
-      mDispatcher = dispatcher;
-      mDispatcher->EndInputTransaction(this);
-      OnRemovedFrom(mDispatcher);
+    if (dispatcher) {
+      dispatcher->EndInputTransaction(this);
+      OnRemovedFrom(dispatcher);
     }
   }
   return NS_OK;
@@ -642,27 +566,28 @@ NS_IMETHODIMP
 GeckoEditableSupport::SetComposition(uint32_t aId,
                                      nsIEditableSupportListener* aListener,
                                      const nsAString& aText) {
-  if (!mDispatcher) {
-    IME_LOGD("Invalid mDispatcher");
+  RefPtr<TextEventDispatcher> dispatcher = getTextEventDispatcherFromFocus();
+  if (!dispatcher) {
+    IME_LOGD("Invalid dispatcher");
     return NS_ERROR_ABORT;
   }
   IME_LOGD("-- GeckoEditableSupport::SetComposition");
   IME_LOGD("-- EditableSupport aText:[%s]", NS_ConvertUTF16toUTF8(aText).get());
-  IME_LOGD("-- EditableSupport mDispatcher:[%p]", mDispatcher.get());
+  IME_LOGD("-- EditableSupport dispatcher:[%p]", dispatcher.get());
   // Handle value
-  nsresult rv = mDispatcher->GetState();
+  nsresult rv = dispatcher->GetState();
   do {
     if (NS_WARN_IF(NS_FAILED(rv))) {
       break;
     }
     if (aText.Length() == 0) {
-      mDispatcher->SetPendingCompositionString(EmptyString());
+      dispatcher->SetPendingCompositionString(EmptyString());
     } else {
-      mDispatcher->SetPendingCompositionString(aText);
+      dispatcher->SetPendingCompositionString(aText);
     }
 
     nsEventStatus status = nsEventStatus_eIgnore;
-    rv = mDispatcher->FlushPendingComposition(status);
+    rv = dispatcher->FlushPendingComposition(status);
     if (NS_WARN_IF(NS_FAILED(rv))) {
       break;
     }
@@ -678,27 +603,28 @@ NS_IMETHODIMP
 GeckoEditableSupport::EndComposition(uint32_t aId,
                                      nsIEditableSupportListener* aListener,
                                      const nsAString& aText) {
-  if (!mDispatcher) {
-    IME_LOGD("Invalid mDispatcher");
+  RefPtr<TextEventDispatcher> dispatcher = getTextEventDispatcherFromFocus();
+  if (!dispatcher) {
+    IME_LOGD("Invalid dispatcher");
     return NS_ERROR_ABORT;
   }
   IME_LOGD("-- GeckoEditableSupport::EndComposition");
   IME_LOGD("-- EditableSupport aText:[%s]", NS_ConvertUTF16toUTF8(aText).get());
-  IME_LOGD("-- EditableSupport mDispatcher:[%p]", mDispatcher.get());
+  IME_LOGD("-- EditableSupport dispatcher:[%p]", dispatcher.get());
   // Handle value
-  nsresult rv = mDispatcher->GetState();
+  nsresult rv = dispatcher->GetState();
   do {
     if (NS_WARN_IF(NS_FAILED(rv))) {
       break;
     }
 
-    if (!mDispatcher->IsComposing()) {
+    if (!dispatcher->IsComposing()) {
       rv = NS_ERROR_FAILURE;
       break;
     }
 
     nsEventStatus status = nsEventStatus_eIgnore;
-    rv = mDispatcher->CommitComposition(status, &aText);
+    rv = dispatcher->CommitComposition(status, &aText);
     if (NS_WARN_IF(NS_FAILED(rv))) {
       break;
     }
@@ -714,17 +640,18 @@ NS_IMETHODIMP
 GeckoEditableSupport::Keydown(uint32_t aId,
                               nsIEditableSupportListener* aListener,
                               const nsAString& aKey) {
-  if (!mDispatcher) {
-    IME_LOGD("Invalid mDispatcher");
+  RefPtr<TextEventDispatcher> dispatcher = getTextEventDispatcherFromFocus();
+  if (!dispatcher) {
+    IME_LOGD("Invalid dispatcher");
     return NS_ERROR_ABORT;
   }
   IME_LOGD("-- GeckoEditableSupport::Keydown");
   IME_LOGD("-- EditableSupport aKey:[%s]", NS_ConvertUTF16toUTF8(aKey).get());
-  IME_LOGD("-- EditableSupport mDispatcher:[%p]", mDispatcher.get());
+  IME_LOGD("-- EditableSupport dispatcher:[%p]", dispatcher.get());
   // Handle value
-  nsresult rv = mDispatcher->GetState();
+  nsresult rv = dispatcher->GetState();
   if (NS_SUCCEEDED(rv)) {
-    nsCOMPtr<nsIWidget> widget = mDispatcher->GetWidget();
+    nsCOMPtr<nsIWidget> widget = dispatcher->GetWidget();
     WidgetKeyboardEvent event(true, eKeyDown, widget);
     event.mKeyNameIndex = WidgetKeyboardEvent::GetKeyNameIndex(aKey);
     if (event.mKeyNameIndex == KEY_NAME_INDEX_USE_STRING) {
@@ -735,8 +662,8 @@ GeckoEditableSupport::Keydown(uint32_t aId,
       IME_LOGD("-- EditableSupport OnKeydown: mKeyCode:[%d]", event.mKeyCode);
     }
     nsEventStatus status = nsEventStatus_eIgnore;
-    if (mDispatcher->DispatchKeyboardEvent(eKeyDown, event, status)) {
-      mDispatcher->MaybeDispatchKeypressEvents(event, status);
+    if (dispatcher->DispatchKeyboardEvent(eKeyDown, event, status)) {
+      dispatcher->MaybeDispatchKeypressEvents(event, status);
     }
   }
 
@@ -749,17 +676,18 @@ GeckoEditableSupport::Keydown(uint32_t aId,
 NS_IMETHODIMP
 GeckoEditableSupport::Keyup(uint32_t aId, nsIEditableSupportListener* aListener,
                             const nsAString& aKey) {
-  if (!mDispatcher) {
-    IME_LOGD("Invalid mDispatcher");
+  RefPtr<TextEventDispatcher> dispatcher = getTextEventDispatcherFromFocus();
+  if (!dispatcher) {
+    IME_LOGD("Invalid dispatcher");
     return NS_ERROR_ABORT;
   }
   IME_LOGD("-- GeckoEditableSupport::Keyup");
   IME_LOGD("-- EditableSupport aKey:[%s]", NS_ConvertUTF16toUTF8(aKey).get());
-  IME_LOGD("-- EditableSupport mDispatcher:[%p]", mDispatcher.get());
+  IME_LOGD("-- EditableSupport dispatcher:[%p]", dispatcher.get());
   // Handle value
-  nsresult rv = mDispatcher->GetState();
+  nsresult rv = dispatcher->GetState();
   if (NS_SUCCEEDED(rv)) {
-    nsCOMPtr<nsIWidget> widget = mDispatcher->GetWidget();
+    nsCOMPtr<nsIWidget> widget = dispatcher->GetWidget();
     WidgetKeyboardEvent event(true, eKeyUp, widget);
     event.mKeyNameIndex = WidgetKeyboardEvent::GetKeyNameIndex(aKey);
     if (event.mKeyNameIndex == KEY_NAME_INDEX_USE_STRING) {
@@ -770,7 +698,7 @@ GeckoEditableSupport::Keyup(uint32_t aId, nsIEditableSupportListener* aListener,
       IME_LOGD("-- EditableSupport OnKeyup: mKeyCode:[%d]", event.mKeyCode);
     }
     nsEventStatus status = nsEventStatus_eIgnore;
-    mDispatcher->DispatchKeyboardEvent(eKeyUp, event, status);
+    dispatcher->DispatchKeyboardEvent(eKeyUp, event, status);
   }
 
   if (aListener) {
@@ -783,14 +711,15 @@ NS_IMETHODIMP
 GeckoEditableSupport::SendKey(uint32_t aId,
                               nsIEditableSupportListener* aListener,
                               const nsAString& aKey) {
-  if (!mDispatcher) {
-    IME_LOGD("Invalid mDispatcher");
+  RefPtr<TextEventDispatcher> dispatcher = getTextEventDispatcherFromFocus();
+  if (!dispatcher) {
+    IME_LOGD("Invalid dispatcher");
     return NS_ERROR_ABORT;
   }
   IME_LOGD("-- EditableSupport SendKey");
   IME_LOGD("-- EditableSupport aKey:[%s]", NS_ConvertUTF16toUTF8(aKey).get());
-  IME_LOGD("-- EditableSupport mDispatcher:[%p]", mDispatcher.get());
-  RefPtr<TextEventDispatcher> kungFuDeathGrip(mDispatcher);
+  IME_LOGD("-- EditableSupport dispatcher:[%p]", dispatcher.get());
+  RefPtr<TextEventDispatcher> kungFuDeathGrip(dispatcher);
   nsresult rv = kungFuDeathGrip->GetState();
   if (NS_SUCCEEDED(rv)) {
     nsCOMPtr<nsIWidget> widget = kungFuDeathGrip->GetWidget();
@@ -820,7 +749,6 @@ NS_IMETHODIMP
 GeckoEditableSupport::DeleteBackward(uint32_t aId,
                                      nsIEditableSupportListener* aListener) {
   IME_LOGD("-- GeckoEditableSupport::DeleteBackward");
-  IME_LOGD("-- EditableSupport mDispatcher:[%p]", mDispatcher.get());
 
   nsresult rv = NS_ERROR_ABORT;
   do {
@@ -1004,7 +932,7 @@ GeckoEditableSupport::RemoveFocus(uint32_t aId,
 NS_IMETHODIMP
 GeckoEditableSupport::GetSelectionRange(uint32_t aId,
                                         nsIEditableSupportListener* aListener) {
-  IME_LOGD("-- EditableSupport mDispatcher:[%p]", mDispatcher.get());
+  IME_LOGD("-- GeckoEditableSupport GetSelectionRange");
 
   nsresult rv = NS_ERROR_ABORT;
   int32_t start = 0, end = 0;
@@ -1036,7 +964,7 @@ NS_IMETHODIMP
 GeckoEditableSupport::GetText(uint32_t aId,
                               nsIEditableSupportListener* aListener,
                               int32_t aOffset, int32_t aLength) {
-  IME_LOGD("-- EditableSupport mDispatcher:[%p]", mDispatcher.get());
+  IME_LOGD("-- GeckoEditableSupport GetText");
 
   nsresult rv = NS_ERROR_ABORT;
   nsAutoString text;
@@ -1084,16 +1012,20 @@ NS_IMETHODIMP
 GeckoEditableSupport::SetValue(uint32_t aId,
                                nsIEditableSupportListener* aListener,
                                const nsAString& aValue) {
-  IME_LOGD("-- EditableSupport mDispatcher:[%p]", mDispatcher.get());
+  RefPtr<TextEventDispatcher> dispatcher = getTextEventDispatcherFromFocus();
+  if (!dispatcher) {
+    IME_LOGD("Invalid dispatcher");
+    return NS_ERROR_ABORT;
+  }
+  IME_LOGD("-- GeckoEditableSupport::SetValue dispatcher:[%p]",
+           dispatcher.get());
   nsresult rv = NS_ERROR_ABORT;
   do {
     // End current composition
-    if (mDispatcher) {
-      if (mDispatcher->IsComposing()) {
-        rv = EndComposition(0, nullptr, EmptyString());
-        if (NS_WARN_IF(NS_FAILED(rv))) {
-          break;
-        }
+    if (dispatcher->IsComposing()) {
+      rv = EndComposition(0, nullptr, EmptyString());
+      if (NS_WARN_IF(NS_FAILED(rv))) {
+        break;
       }
     }
 
