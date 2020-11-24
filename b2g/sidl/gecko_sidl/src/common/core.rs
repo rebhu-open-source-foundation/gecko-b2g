@@ -69,9 +69,12 @@ pub struct GetServiceRequest {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct GetServiceResponse {
-    pub success: bool,
-    pub service: u32,
+pub enum GetServiceResponse {
+    Success(u32), // The service id
+    UnknownService,
+    FingerprintMismatch,
+    MissingPermission,
+    InternalError(String),
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

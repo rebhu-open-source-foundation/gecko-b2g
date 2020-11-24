@@ -5,7 +5,8 @@
 /// The "core service" client.
 use crate::common::core::{
     BaseMessage, CoreRequest, CoreResponse, DisableEventListenerRequest,
-    EnableEventListenerRequest, GetServiceRequest, HasServiceRequest, ReleaseObjectRequest,
+    EnableEventListenerRequest, GetServiceRequest, GetServiceResponse, HasServiceRequest,
+    ReleaseObjectRequest,
 };
 use crate::common::traits::TrackerId;
 use crate::common::uds_transport::*;
@@ -55,14 +56,11 @@ impl ResponseReceiver for CoreGetServiceReceiver {
         match from_base_message(&message) {
             Ok(CoreResponse::GetService(response)) => {
                 let service_name = self.service_name.as_ref().unwrap();
-                if response.success {
-                    debug!(
-                        "GetService success: id for {} is {}",
-                        service_name, response.service
-                    );
-                    self.delegate.on_success(response.service);
+                if let GetServiceResponse::Success(service) = response {
+                    debug!("GetService success: id for {} is {}", service_name, service);
+                    self.delegate.on_success(service);
                 } else {
-                    error!("Failed to get service {}", service_name);
+                    error!("Failed to get service {}: {:?}", service_name, response);
                     self.delegate.on_error();
                 }
             }
