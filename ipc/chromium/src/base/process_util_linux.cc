@@ -13,6 +13,8 @@
 
 #include "algorithm"
 
+#include "nsXULAppAPI.h"  // for XRE_GetProcessType
+
 #if defined(MOZ_ENABLE_FORKSERVER)
 #  include <stdlib.h>
 #  include <sys/types.h>
@@ -26,7 +28,6 @@
 
 #  include "mozilla/Unused.h"
 #  include "mozilla/ScopeExit.h"
-#  include "nsXULAppAPI.h"  // for XRE_GetProcessType
 #  include "ProcessUtils.h"
 
 using namespace mozilla::ipc;

@@ -17,6 +17,7 @@
 #include "nsIObserverService.h"
 #include "nsPrintfCString.h"
 #include "nsString.h"
+#include "nsXULAppAPI.h"
 #include "prio.h"
 
 #include <dirent.h>
