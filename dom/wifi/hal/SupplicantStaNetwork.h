@@ -363,6 +363,9 @@ class SupplicantStaNetwork
   void NotifyEapSimUmtsAuthRequest(const RequestUmtsAuthParams& aParams);
   void NotifyEapIdentityRequest();
 
+  uint32_t IncludeSha256KeyMgmt(uint32_t aKeyMgmt) const;
+  uint32_t ExcludeSha256KeyMgmt(uint32_t aKeyMgmt) const;
+
   static uint32_t ConvertKeyMgmtToMask(const std::string& aKeyMgmt);
   static uint32_t ConvertProtoToMask(const std::string& aProto);
   static uint32_t ConvertAuthAlgToMask(const std::string& aAuthAlg);

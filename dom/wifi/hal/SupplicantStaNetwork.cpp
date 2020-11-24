@@ -129,6 +129,7 @@ Result_t SupplicantStaNetwork::SetConfiguration(
   keyMgmtMask = config.mKeyMgmt.empty()
                     ? key_mgmt_none
                     : ConvertKeyMgmtToMask(Dequote(config.mKeyMgmt));
+  keyMgmtMask = IncludeSha256KeyMgmt(keyMgmtMask);
   stateCode = SetKeyMgmt(keyMgmtMask);
   if (stateCode != SupplicantStatusCode::SUCCESS) {
     return ConvertStatusToResult(stateCode);
@@ -1068,7 +1069,7 @@ SupplicantStatusCode SupplicantStaNetwork::GetBssid(std::string& aBssid) const {
 }
 
 SupplicantStatusCode SupplicantStaNetwork::GetKeyMgmt(
-    std::string& aKeyMgmtMask) const {
+    std::string& aKeyMgmt) const {
   MOZ_ASSERT(mNetwork);
 
   SupplicantStatus response;
@@ -1076,7 +1077,9 @@ SupplicantStatusCode SupplicantStaNetwork::GetKeyMgmt(
       [&](const SupplicantStatus& status,
           hidl_bitfield<ISupplicantStaNetwork::KeyMgmtMask> keyMgmtMask) {
         response = status;
-        aKeyMgmtMask = ConvertMaskToKeyMgmt((uint32_t)keyMgmtMask);
+        uint32_t mask;
+        mask = ExcludeSha256KeyMgmt((uint32_t)keyMgmtMask);
+        aKeyMgmt = ConvertMaskToKeyMgmt(mask);
       });
   return response.code;
 }
@@ -1511,6 +1514,27 @@ SupplicantStatusCode SupplicantStaNetwork::RegisterNetworkCallback() {
   WIFI_LOGD(LOG_TAG, "register network callback return: %s",
             ConvertStatusToString(response.code).c_str());
   return response.code;
+}
+
+uint32_t SupplicantStaNetwork::IncludeSha256KeyMgmt(uint32_t aKeyMgmt) const {
+  android::sp<ISupplicantStaNetworkV1_2> networkV1_2 =
+      GetSupplicantStaNetworkV1_2();
+
+  if (!networkV1_2.get()) {
+    return aKeyMgmt;
+  }
+
+  uint32_t keyMgmt = aKeyMgmt;
+  keyMgmt |= (keyMgmt & key_mgmt_wpa_psk) ? key_mgmt_wpa_psk_sha256 : 0x0;
+  keyMgmt |= (keyMgmt & key_mgmt_wpa_eap) ? key_mgmt_wpa_eap_sha256 : 0x0;
+  return keyMgmt;
+}
+
+uint32_t SupplicantStaNetwork::ExcludeSha256KeyMgmt(uint32_t aKeyMgmt) const {
+  uint32_t keyMgmt = aKeyMgmt;
+  keyMgmt &= ~key_mgmt_wpa_psk_sha256;
+  keyMgmt &= ~key_mgmt_wpa_eap_sha256;
+  return keyMgmt;
 }
 
 /**

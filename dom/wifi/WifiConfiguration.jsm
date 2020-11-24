@@ -487,9 +487,15 @@ this.WifiConfigUtils = (function() {
         encryptType.isRSN = true;
       }
       for (let j = 0; j < flags.keyManagement[i].length; j++) {
-        if (flags.keyManagement[i][j] == KEY_MGMT_PSK) {
+        if (
+          flags.keyManagement[i][j] == KEY_MGMT_PSK ||
+          flags.keyManagement[i][j] == KEY_MGMT_PSK_SHA256
+        ) {
           encryptType.isPSK = true;
-        } else if (flags.keyManagement[i][j] == KEY_MGMT_EAP) {
+        } else if (
+          flags.keyManagement[i][j] == KEY_MGMT_EAP ||
+          flags.keyManagement[i][j] == KEY_MGMT_EAP_SHA256
+        ) {
           encryptType.isEAP = true;
         } else if (flags.keyManagement[i][j] == KEY_MGMT_SAE) {
           encryptType.isSAE = true;
