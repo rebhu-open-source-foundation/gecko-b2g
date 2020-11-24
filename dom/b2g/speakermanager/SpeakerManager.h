@@ -7,6 +7,7 @@
 #ifndef mozilla_dom_SpeakerManager_h
 #define mozilla_dom_SpeakerManager_h
 
+#include "nsIDOMEventListener.h"
 #include "mozilla/dom/MozSpeakerManagerBinding.h"
 #include "mozilla/DOMEventTargetHelper.h"
 

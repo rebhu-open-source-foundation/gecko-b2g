@@ -12,6 +12,7 @@
 #include "mozilla/dom/ContentChild.h"
 #include "mozilla/IMEStateManager.h"
 #include "mozilla/Preferences.h"
+#include "mozilla/PresShell.h"
 #include "mozilla/StaticPrefs_intl.h"
 #include "mozilla/TextComposition.h"
 #include "mozilla/TextEventDispatcherListener.h"

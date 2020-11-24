@@ -21,6 +21,8 @@
 #include "mozilla/dom/MediaStreamTrackBinding.h"
 #include "mozilla/dom/MediaStreamError.h"
 #include "nsISupportsPrimitives.h"
+#include "nsComponentManagerUtils.h"
+#include "nsGlobalWindowInner.h"
 #include "nsServiceManagerUtils.h"
 #include "nsArrayUtils.h"
 #include "nsContentPermissionHelper.h"

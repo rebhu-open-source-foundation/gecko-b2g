@@ -11,6 +11,7 @@
 #include <string.h>
 
 #include "HalLog.h"
+#include "nsComponentManagerUtils.h"
 #include "nsITimer.h"
 #include "mozilla/Unused.h"
 

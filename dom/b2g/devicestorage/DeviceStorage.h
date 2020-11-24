@@ -14,6 +14,7 @@
 #include "mozilla/UniquePtr.h"
 #include "mozilla/dom/DOMRequest.h"
 #include "mozilla/dom/Directory.h"
+#include "mozilla/StaticPtr.h"
 #include "nsWeakReference.h"
 
 #define DEVICESTORAGE_PICTURES "pictures"

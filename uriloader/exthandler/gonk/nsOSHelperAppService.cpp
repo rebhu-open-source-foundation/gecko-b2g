@@ -32,6 +32,7 @@
 #include "prenv.h"  // for PR_GetEnv()
 #include "mozilla/Preferences.h"
 #include "nsMimeTypes.h"
+#include "nsXULAppAPI.h"
 
 using namespace mozilla;
 

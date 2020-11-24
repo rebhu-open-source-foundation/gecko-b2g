@@ -34,6 +34,7 @@
 #include "nsError.h"
 #include "nsIMemoryReporter.h"
 #include "nsPrintfCString.h"
+#include "nsServiceManagerUtils.h"
 #include "nsTArray.h"
 #include <algorithm>
 #include <limits>

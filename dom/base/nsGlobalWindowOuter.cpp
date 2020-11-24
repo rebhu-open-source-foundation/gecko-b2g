@@ -14,6 +14,7 @@
 
 // Local Includes
 #include "Navigator.h"
+#include "mozilla/Encoding.h"
 #include "nsContentSecurityManager.h"
 #include "nsScreen.h"
 #include "nsHistory.h"
@@ -85,6 +86,7 @@
 #include "mozilla/dom/ScriptSettings.h"
 #include "mozilla/Preferences.h"
 #include "mozilla/Likely.h"
+#include "mozilla/SpinEventLoopUntil.h"
 #include "mozilla/Sprintf.h"
 #include "mozilla/Unused.h"
 
@@ -3345,7 +3347,7 @@ already_AddRefed<nsPIDOMWindowOuter> nsGlobalWindowOuter::GetContentInternal(
   nsCOMPtr<nsIDocShellTreeItem> primaryContent;
   if (aCallerType != CallerType::System) {
     if (mDoc) {
-      mDoc->WarnOnceAbout(Document::eWindowContentUntrusted);
+      mDoc->WarnOnceAbout(DeprecatedOperations::eWindowContentUntrusted);
     }
     // If we're called by non-chrome code, make sure we don't return
     // the primary content window if the calling tab is hidden. In
@@ -7439,6 +7441,10 @@ nsIDOMWindowUtils* nsGlobalWindowOuter::WindowUtils() {
     mWindowUtils = new nsDOMWindowUtils(this);
   }
   return mWindowUtils;
+}
+
+bool nsGlobalWindowOuter::IsInSyncOperation() {
+  return GetExtantDoc() && GetExtantDoc()->IsInSyncOperation();
 }
 
 // Note: This call will lock the cursor, it will not change as it moves.

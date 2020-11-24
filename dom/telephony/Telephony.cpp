@@ -18,6 +18,7 @@
 //#include "mozilla/unused.h"
 
 #include "nsCharSeparatedTokenizer.h"
+#include "nsComponentManagerUtils.h"
 #include "nsContentUtils.h"
 #include "nsIPermissionManager.h"
 #include "nsIURI.h"

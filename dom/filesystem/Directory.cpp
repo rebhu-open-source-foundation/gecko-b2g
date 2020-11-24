@@ -17,7 +17,9 @@
 #include "RenameToTask.h"
 
 #include "nsCharSeparatedTokenizer.h"
+#include "nsIFile.h"
 #include "nsString.h"
+#include "mozilla/dom/BlobImpl.h"
 #include "mozilla/dom/DirectoryBinding.h"
 #include "mozilla/dom/FileSystemBase.h"
 #include "mozilla/dom/FileSystemUtils.h"

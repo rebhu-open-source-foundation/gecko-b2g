@@ -19,6 +19,7 @@
 #include "mozilla/Services.h"
 #include "nsIObserver.h"
 #include "nsIObserverService.h"
+#include "nsIThread.h"
 #include "nsMemoryPressure.h"
 #include "nsPrintfCString.h"
 #include "nsThreadUtils.h"

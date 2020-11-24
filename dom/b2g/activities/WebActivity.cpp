@@ -9,10 +9,12 @@
 #include "mozilla/dom/Document.h"
 #include "mozilla/dom/Promise.h"
 #include "mozilla/dom/ToJSValue.h"
+#include "nsComponentManagerUtils.h"
 #include "nsContentUtils.h"
 #include "nsIConsoleService.h"
 #include "nsIDocShell.h"
 #include "nsIGlobalObject.h"
+#include "nsServiceManagerUtils.h"
 
 #undef LOG
 mozilla::LazyLogModule gWebActivityLog("WebActivity");

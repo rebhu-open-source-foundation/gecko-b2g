@@ -53,11 +53,16 @@
 #include "Units.h"
 
 #include <stdint.h>
+#include "nsClassHashtable.h"
 #include "nsTHashtable.h"
 
 #include <stdlib.h>
 #include <algorithm>
 #include <unordered_set>
+
+// XXX Includes that could be avoided by moving function implementations to the
+// cpp file.
+#include "gfxPlatform.h"
 
 class gfxContext;
 class nsIContent;
@@ -531,7 +536,9 @@ class nsDisplayListBuilder {
   const nsIFrame* FindReferenceFrameFor(const nsIFrame* aFrame,
                                         nsPoint* aOffset = nullptr) const;
 
-  const Maybe<nsPoint>& AdditionalOffset() const { return mAdditionalOffset; }
+  const mozilla::Maybe<nsPoint>& AdditionalOffset() const {
+    return mAdditionalOffset;
+  }
 
   /**
    * @return the root of the display list's frame (sub)tree, whose origin
@@ -1577,9 +1584,7 @@ class nsDisplayListBuilder {
     return aFrame->GetParent()->GetProperty(OutOfFlowDisplayDataProperty());
   }
 
-  nsPresContext* CurrentPresContext() {
-    return CurrentPresShellState()->mPresShell->GetPresContext();
-  }
+  nsPresContext* CurrentPresContext();
 
   OutOfFlowDisplayData* GetCurrentFixedBackgroundDisplayData() {
     auto& displayData = CurrentPresShellState()->mFixedBackgroundDisplayData;
@@ -3258,7 +3263,7 @@ class nsPaintedDisplayItem : public nsDisplayItem {
    * If an item is reused and has the cache index set, it means that
    * |DisplayItemCache| has assigned a cache slot for the item.
    */
-  Maybe<uint16_t>& CacheIndex() { return mCacheIndex; }
+  mozilla::Maybe<uint16_t>& CacheIndex() { return mCacheIndex; }
 
  protected:
   nsPaintedDisplayItem(nsDisplayListBuilder* aBuilder, nsIFrame* aFrame)
@@ -4215,10 +4220,7 @@ class nsDisplayReflowCount : public nsPaintedDisplayItem {
 
   NS_DISPLAY_DECL_NAME("nsDisplayReflowCount", TYPE_REFLOW_COUNT)
 
-  void Paint(nsDisplayListBuilder* aBuilder, gfxContext* aCtx) override {
-    mFrame->PresShell()->PaintCount(mFrameName, aCtx, mFrame->PresContext(),
-                                    mFrame, ToReferenceFrame(), mColor);
-  }
+  void Paint(nsDisplayListBuilder* aBuilder, gfxContext* aCtx) override;
 
  protected:
   const char* mFrameName;
@@ -6966,7 +6968,7 @@ class nsDisplayTransform : public nsDisplayHitTestInfoBase {
         const mozilla::StyleTranslate& aTranslate,
         const mozilla::StyleRotate& aRotate, const mozilla::StyleScale& aScale,
         const mozilla::StyleTransform& aTransform,
-        const Maybe<mozilla::ResolvedMotionPathData>& aMotion,
+        const mozilla::Maybe<mozilla::ResolvedMotionPathData>& aMotion,
         const Point3D& aToTransformOrigin)
         : mFrame(nullptr),
           mTranslate(aTranslate),

@@ -9,6 +9,7 @@
 
 #include "mozilla/ClearOnShutdown.h"
 #include "nsISystemMessageService.h"
+#include "nsClassHashtable.h"
 
 class nsISystemMessageListener;
 

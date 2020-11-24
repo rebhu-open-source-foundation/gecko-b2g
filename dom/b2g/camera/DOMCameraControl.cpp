@@ -37,6 +37,7 @@
 #include "mozilla/dom/CameraFacesDetectedEventBinding.h"
 #include "mozilla/dom/CameraStateChangeEvent.h"
 #include "mozilla/dom/CameraClosedEvent.h"
+#include "mozilla/dom/Document.h"
 #include "mozilla/dom/VideoStreamTrack.h"
 #include "mozilla/dom/BlobEvent.h"
 #include "DOMCameraDetectedFace.h"

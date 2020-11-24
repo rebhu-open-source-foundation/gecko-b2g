@@ -2000,12 +2000,6 @@ pref("intl.fallbackCharsetList.ISO-8859-1", "windows-1252");
 pref("font.language.group",                 "chrome://global/locale/intl.properties");
 pref("font.cjk_pref_fallback_order",        "zh-cn,zh-hk,zh-tw,ja,ko");
 
-// If you use legacy Chinese IME which puts an ideographic space to composition
-// string as placeholder, this pref might be useful.  If this is true and when
-// web contents forcibly commits composition (e.g., moving focus), the
-// ideographic space will be ignored (i.e., commits with empty string).
-pref("intl.ime.remove_placeholder_character_at_commit", false);
-
 pref("intl.uidirection", -1); // -1 to set from locale; 0 for LTR; 1 for RTL
 
 // use en-US hyphenation by default for content tagged with plain lang="en"
@@ -4347,13 +4341,6 @@ pref("narrate.voice", " { \"default\": \"automatic\" }");
 pref("narrate.filter-voices", true);
 
 pref("dom.audiochannel.mutedByDefault", false);
-
-// Allow control characters appear in composition string.
-// When this is false, control characters except
-// CHARACTER TABULATION (horizontal tab) are removed from
-// both composition string and data attribute of compositionupdate
-// and compositionend events.
-pref("dom.compositionevent.allow_control_characters", false);
 
 pref("memory.report_concurrency", 10);
 

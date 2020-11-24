@@ -9,6 +9,7 @@
 #include "nsIProtocolHandler.h"
 #include "nsIURI.h"
 #include "nsIFile.h"
+#include "nsComponentManagerUtils.h"
 #include "nsISupportsPrimitives.h"
 #include "nsDirectoryServiceDefs.h"
 #include "nsThreadUtils.h"

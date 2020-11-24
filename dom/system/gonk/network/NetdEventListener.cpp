@@ -7,6 +7,7 @@
 #include <utils/String16.h>
 #include <binder/IServiceManager.h>
 #include "mozilla/ClearOnShutdown.h"
+#include "mozilla/Sprintf.h"
 #include "NetdEventListener.h"
 #include <android-base/strings.h>
 

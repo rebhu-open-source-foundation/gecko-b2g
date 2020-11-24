@@ -8,6 +8,7 @@
 #define mozilla_dom_CursorSimulator_h
 
 #include "nsIDOMEventListener.h"
+#include "nsISupportsImpl.h"
 #include "nsRefreshDriver.h"
 #include "nsIScrollableFrame.h"
 #include "VirtualCursorProxy.h"

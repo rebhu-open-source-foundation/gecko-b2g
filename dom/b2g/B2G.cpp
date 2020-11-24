@@ -6,6 +6,7 @@
 
 #include "mozilla/dom/B2G.h"
 #include "mozilla/dom/B2GBinding.h"
+#include "mozilla/dom/Document.h"
 #include "mozilla/dom/WorkerPrivate.h"
 #include "mozilla/dom/WorkerRunnable.h"
 #include "mozilla/EventStateManager.h"

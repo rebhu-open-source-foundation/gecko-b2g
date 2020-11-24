@@ -15,6 +15,7 @@
 #include "mozilla/layers/ISurfaceAllocator.h"
 #include "mozilla/layers/ShadowLayerUtilsGralloc.h"
 #include "mozilla/layers/SharedBufferManagerChild.h"
+#include "mozilla/layers/TextureForwarder.h"
 #include "gfx2DGlue.h"
 
 #if defined(MOZ_WIDGET_GONK)

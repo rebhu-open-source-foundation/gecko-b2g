@@ -5,6 +5,7 @@
 
 #include <limits>
 #include "UsbManager.h"
+#include "base/message_loop.h"
 #include "mozilla/DOMEventTargetHelper.h"
 #include "mozilla/Hal.h"
 #include "mozilla/dom/UsbEvent.h"

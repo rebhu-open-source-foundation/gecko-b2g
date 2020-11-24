@@ -19,6 +19,7 @@
 #include "mozilla/dom/DeviceLightEvent.h"
 #include "mozilla/dom/DeviceOrientationEvent.h"
 #include "mozilla/dom/DeviceProximityEvent.h"
+#include "mozilla/dom/Document.h"
 #include "mozilla/dom/Event.h"
 #include "mozilla/dom/UserProximityEvent.h"
 #include "mozilla/ErrorResult.h"
@@ -531,7 +532,7 @@ bool nsDeviceSensors::IsSensorAllowedByPref(uint32_t aType,
         return false;
 #ifndef MOZ_B2G
       } else if (doc) {
-        doc->WarnOnceAbout(Document::eMotionEvent);
+        doc->WarnOnceAbout(DeprecatedOperations::eMotionEvent);
 #endif
       }
       break;
@@ -543,7 +544,7 @@ bool nsDeviceSensors::IsSensorAllowedByPref(uint32_t aType,
         return false;
 #ifndef MOZ_B2G
       } else if (doc) {
-        doc->WarnOnceAbout(Document::eOrientationEvent);
+        doc->WarnOnceAbout(DeprecatedOperations::eOrientationEvent);
 #endif
       }
       break;
@@ -553,7 +554,7 @@ bool nsDeviceSensors::IsSensorAllowedByPref(uint32_t aType,
         return false;
 #ifndef MOZ_B2G
       } else if (doc) {
-        doc->WarnOnceAbout(Document::eProximityEvent, true);
+        doc->WarnOnceAbout(DeprecatedOperations::eProximityEvent, true);
 #endif
       }
       break;
@@ -563,7 +564,7 @@ bool nsDeviceSensors::IsSensorAllowedByPref(uint32_t aType,
         return false;
 #ifndef MOZ_B2G
       } else if (doc) {
-        doc->WarnOnceAbout(Document::eAmbientLightEvent, true);
+        doc->WarnOnceAbout(DeprecatedOperations::eAmbientLightEvent, true);
 #endif
       }
       break;

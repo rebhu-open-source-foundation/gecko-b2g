@@ -5,8 +5,12 @@
 
 #include "mozilla/dom/AlarmManager.h"
 #include "mozilla/dom/AlarmManagerWorker.h"
+#include "mozilla/Logging.h"
+#include "mozilla/Preferences.h"
+#include "nsComponentManagerUtils.h"
 #include "nsContentUtils.h"
 #include "nsIPermissionManager.h"
+#include "nsNetUtil.h"
 
 static mozilla::LazyLogModule sAlarmManagerLog("AlarmManager");
 #define LOG(...) \

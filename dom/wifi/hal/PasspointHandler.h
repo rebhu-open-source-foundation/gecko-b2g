@@ -8,7 +8,10 @@
 #include "AnqpElement.h"
 #include "WifiCommon.h"
 #include "PasspointEventCallback.h"
+#include "nsClassHashtable.h"
 #include "nsDataHashtable.h"
+#include "nsISupportsImpl.h"
+#include "mozilla/StaticMutex.h"
 
 BEGIN_WIFI_NAMESPACE
 

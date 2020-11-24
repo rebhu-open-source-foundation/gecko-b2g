@@ -9,6 +9,7 @@
 #include "VolumeServiceIOThread.h"
 
 #include "nsCOMPtr.h"
+#include "nsComponentManagerUtils.h"
 #include "nsDependentSubstring.h"
 #include "nsIDOMWakeLockListener.h"
 #include "nsIMutableArray.h"

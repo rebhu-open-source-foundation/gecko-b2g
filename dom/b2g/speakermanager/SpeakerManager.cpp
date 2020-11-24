@@ -7,7 +7,9 @@
 #include "SpeakerManager.h"
 
 #include "AudioChannelService.h"
+#include "mozilla/dom/Document.h"
 #include "mozilla/dom/Event.h"
+#include "mozilla/Services.h"
 #include "nsIDocShell.h"
 #include "nsIDOMEventListener.h"
 #include "nsIInterfaceRequestorUtils.h"

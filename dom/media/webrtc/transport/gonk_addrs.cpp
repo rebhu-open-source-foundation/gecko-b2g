@@ -17,6 +17,7 @@ extern "C" {
 #include "runnable_utils.h"
 #include "nsCOMPtr.h"
 #include "nsMemory.h"
+#include "nsIThread.h"
 #include "nsThreadUtils.h"
 #include "nsServiceManagerUtils.h"
 #include "mozilla/SyncRunnable.h"

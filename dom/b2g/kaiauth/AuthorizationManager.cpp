@@ -7,6 +7,7 @@
 #include "mozilla/dom/PromiseWorkerProxy.h"
 #include "mozilla/dom/WorkerPrivate.h"
 #include "mozilla/dom/WorkerRunnable.h"
+#include "nsComponentManagerUtils.h"
 
 namespace mozilla {
 namespace dom {

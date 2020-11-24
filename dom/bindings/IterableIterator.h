@@ -27,19 +27,15 @@
 #ifndef mozilla_dom_IterableIterator_h
 #define mozilla_dom_IterableIterator_h
 
-#include "nsISupports.h"
-#include "nsWrapperCache.h"
-#include "nsPIDOMWindow.h"
-#include "nsCOMPtr.h"
-#include "mozilla/dom/RootedDictionary.h"
-#include "mozilla/dom/ToJSValue.h"
-#include "js/Wrapper.h"
 #include "js/RootingAPI.h"
-#include "mozilla/WeakPtr.h"
+#include "js/TypeDecls.h"
+#include "js/Value.h"
+#include "nsISupports.h"
 #include "mozilla/dom/IterableIteratorBinding.h"
+#include "mozilla/dom/Promise.h"
 #include "mozilla/dom/RootedDictionary.h"
 #include "mozilla/dom/ToJSValue.h"
-#include "mozilla/dom/Promise.h"
+#include "mozilla/WeakPtr.h"
 
 namespace mozilla {
 namespace dom {

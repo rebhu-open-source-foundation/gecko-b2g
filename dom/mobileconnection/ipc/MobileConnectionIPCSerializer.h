@@ -15,6 +15,7 @@
 #include "mozilla/dom/MobileNetworkInfo.h"
 #include "mozilla/dom/MobileSignalStrength.h"
 #include "mozilla/dom/MobileConnectionBinding.h"
+#include "mozilla/dom/ScriptSettings.h"
 
 using mozilla::AutoJSContext;
 using mozilla::dom::MobileCellInfo;

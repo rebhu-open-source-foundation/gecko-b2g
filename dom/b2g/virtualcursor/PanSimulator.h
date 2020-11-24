@@ -6,6 +6,9 @@
 #ifndef mozilla_dom_PanSimulator_h
 #define mozilla_dom_PanSimulator_h
 
+#include "nsIDOMEventListener.h"
+#include "nsISupportsImpl.h"
+
 class nsITimer;
 class nsIDOMWindowUtils;
 

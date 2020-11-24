@@ -17,6 +17,7 @@
 #include "nsContentUtils.h"
 #include "nsIAudioManager.h"
 #include "nsJSUtils.h"
+#include "nsServiceManagerUtils.h"
 #include "nsXULAppAPI.h"
 
 #undef LOG

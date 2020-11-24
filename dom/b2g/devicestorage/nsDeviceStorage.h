@@ -23,6 +23,7 @@
 #include "nsIDOMEventListener.h"
 #include "nsIObserver.h"
 #include "nsIStringBundle.h"
+#include "nsIThread.h"
 #include "mozilla/Mutex.h"
 #include "prtime.h"
 #include "DeviceStorage.h"

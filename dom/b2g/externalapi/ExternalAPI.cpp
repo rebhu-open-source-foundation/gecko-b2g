@@ -7,10 +7,12 @@
 #include "mozilla/dom/WorkerPrivate.h"
 #include "mozilla/dom/WorkerRunnable.h"
 #include "mozilla/dom/WorkerScope.h"
+#include "mozilla/Preferences.h"
 #include "nsContentUtils.h"
 #include "nsIGlobalObject.h"
 #include "nsIPermission.h"
 #include "nsIPermissionManager.h"
+#include "nsServiceManagerUtils.h"
 
 namespace mozilla {
 namespace dom {

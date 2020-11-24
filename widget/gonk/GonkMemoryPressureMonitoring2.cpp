@@ -14,6 +14,7 @@
 #include <unistd.h>
 
 #include "nsIObserverService.h"
+#include "nsIThread.h"
 #include "nsThreadUtils.h"
 #include "mozilla/Assertions.h"
 #include "mozilla/DebugOnly.h"

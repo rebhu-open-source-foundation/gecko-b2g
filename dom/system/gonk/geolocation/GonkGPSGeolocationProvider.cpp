@@ -20,10 +20,13 @@
 #include <hardware_legacy/power.h>
 #include "mozilla/dom/GeolocationPosition.h"
 #include "mozilla/Preferences.h"
+#include "mozilla/Services.h"
 #include "nsComponentManagerUtils.h"
 #include "nsIRunnable.h"
 #include "nsThreadUtils.h"
+#include "nsIThread.h"
 #include "nsIURLFormatter.h"
+#include "nsServiceManagerUtils.h"
 #include "prtime.h"  // for PR_Now()
 
 #ifdef MOZ_B2G_RIL

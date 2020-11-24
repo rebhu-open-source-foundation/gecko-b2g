@@ -26,6 +26,7 @@
 
 #  include "mozilla/Unused.h"
 #  include "mozilla/ScopeExit.h"
+#  include "nsXULAppAPI.h"  // for XRE_GetProcessType
 #  include "ProcessUtils.h"
 
 using namespace mozilla::ipc;
@@ -36,6 +37,7 @@ std::shared_ptr<mozilla::gl::EglDisplay> gEglDpy;
 #  endif
 #endif
 
+#include "base/command_line.h"
 #include "base/eintr_wrapper.h"
 #include "base/logging.h"
 #include "mozilla/ipc/FileDescriptor.h"
@@ -50,18 +52,18 @@ std::shared_ptr<mozilla::gl::EglDisplay> gEglDpy;
  * shared with any other processes than our own childs.
  * We add 500 to reserve the bottom of the range to api-daemon children.
  */
-# include <private/android_filesystem_config.h>
-# include <fcntl.h>
-# define CHILD_UNPRIVILEGED_UID AID_APP + 500
-# define CHILD_UNPRIVILEGED_GID AID_APP + 500
+#  include <private/android_filesystem_config.h>
+#  include <fcntl.h>
+#  define CHILD_UNPRIVILEGED_UID AID_APP + 500
+#  define CHILD_UNPRIVILEGED_GID AID_APP + 500
 #else
 /*
  * On platforms that are not gonk based, we fall back to an arbitrary
  * UID. This is generally the UID for user `nobody', albeit it is not
  * always the case.
  */
-# define CHILD_UNPRIVILEGED_UID 65534
-# define CHILD_UNPRIVILEGED_GID 65534
+#  define CHILD_UNPRIVILEGED_UID 65534
+#  define CHILD_UNPRIVILEGED_GID 65534
 #endif
 
 // WARNING: despite the name, this file is also used on the BSDs and
@@ -78,7 +80,8 @@ namespace base {
 void SetCurrentProcessPrivileges() {
   // Only change uid/gid in content processes.
 #if defined(MOZ_ENABLE_FORKSERVER)
-  // When spawned by the fork server, child processes still have this type at this point.
+  // When spawned by the fork server, child processes still have this type at
+  // this point.
   if (GeckoProcessType_ForkServer != XRE_GetProcessType()) {
     return;
   }
@@ -87,7 +90,6 @@ void SetCurrentProcessPrivileges() {
     return;
   }
 #endif
-
 
   gid_t gid = CHILD_UNPRIVILEGED_GID;
   uid_t uid = CHILD_UNPRIVILEGED_UID;
@@ -106,8 +108,7 @@ void SetCurrentProcessPrivileges() {
   }
   buf[len] = '\0';
   int pid_max = atoi(buf);
-  bool pid_max_ok =
-    (pid_max + CHILD_UNPRIVILEGED_UID > CHILD_UNPRIVILEGED_UID);
+  bool pid_max_ok = (pid_max + CHILD_UNPRIVILEGED_UID > CHILD_UNPRIVILEGED_UID);
 
   if (!pid_max_ok) {
     DLOG(ERROR) << "Can't safely get unique uid/gid";
@@ -124,10 +125,8 @@ void SetCurrentProcessPrivileges() {
     DLOG(ERROR) << "Failed to setuid() child process";
     _exit(127);
   }
-  if (chdir("/") != 0)
-    gProcessLog.print("==> could not chdir()\n");
+  if (chdir("/") != 0) gProcessLog.print("==> could not chdir()\n");
 }
-
 
 #if defined(MOZ_ENABLE_FORKSERVER)
 static mozilla::StaticAutoPtr<std::vector<int> > sNoCloseFDs;
@@ -241,13 +240,13 @@ void AppProcessBuilder::InitAppProcess(int* argcp, char*** argvp) {
 
   ReplaceArguments(argcp, argvp);
 
-#ifdef MOZ_WIDGET_GONK
+#  ifdef MOZ_WIDGET_GONK
   {
     nsCString ignore;
     // To preload graphic libraries for WebGL under the sandbox.
     gEglDpy = mozilla::gl::DefaultEglDisplay(&ignore);
   }
-#endif
+#  endif
 
   SetCurrentProcessPrivileges();
 }

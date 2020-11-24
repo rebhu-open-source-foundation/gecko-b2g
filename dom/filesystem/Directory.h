@@ -8,7 +8,6 @@
 #define mozilla_dom_Directory_h
 
 #include "mozilla/Attributes.h"
-#include "mozilla/ErrorResult.h"
 #include "mozilla/dom/BindingDeclarations.h"
 #include "mozilla/dom/File.h"
 #include "nsCycleCollectionParticipant.h"
@@ -27,6 +26,8 @@
 #endif
 
 namespace mozilla {
+class ErrorResult;
+
 namespace dom {
 
 struct CreateFileOptions;

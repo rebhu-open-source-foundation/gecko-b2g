@@ -19,6 +19,7 @@
 #include "mozilla/MouseEvents.h"
 #include "mozilla/TouchEvents.h"
 #include "mozilla/Hal.h"
+#include "gfxPlatform.h"
 #include "libdisplay/BootAnimation.h"
 #include "libdisplay/GonkDisplay.h"
 #include "ScreenHelperGonk.h"

@@ -23,6 +23,7 @@
 #include "mozilla/dom/BrowserParent.h"
 #include "mozilla/Preferences.h"
 #include "mozilla/RefPtr.h"
+#include "mozilla/StaticPrefs_dom.h"
 #include "mozilla/StaticPrefs_gfx.h"
 #include "mozilla/Services.h"
 #include "mozilla/FileUtils.h"

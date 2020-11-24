@@ -5,6 +5,7 @@
 #ifndef AnqpElement_H
 #define AnqpElement_H
 
+#include "nsDataHashtable.h"
 #include "WifiCommon.h"
 
 BEGIN_WIFI_NAMESPACE

@@ -11,6 +11,7 @@
 #include "AudioChannelAgent.h"
 #include "nsISpeechService.h"
 #include "MediaTrackGraph.h"
+#include "nsWeakReference.h"
 
 namespace mozilla {
 
