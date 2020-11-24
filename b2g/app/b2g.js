@@ -1131,6 +1131,9 @@ pref("device.rebootReason", "normal");
 pref("b2g.system_startup_url", "chrome://b2g/content/system/index.html");
 // pref("b2g.system_startup_url", "chrome://system/content/index.html");
 
+// Use system app browser url
+pref("b2g.system_app_browser_url", "http://system.localhost/browser/browser.html");
+
 pref("devtools.console.stdout.content", true);
 
 // Enable touch events and pointer events by default.

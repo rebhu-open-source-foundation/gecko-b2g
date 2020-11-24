@@ -107,6 +107,7 @@
 #include "nsIBrowserDOMWindow.h"
 #include "nsIClassifiedChannel.h"
 #include "nsIDocShell.h"
+#include "nsIEffectiveTLDService.h"
 #include "nsIFrame.h"
 #include "nsILoadContext.h"
 #include "nsISHEntry.h"
@@ -1072,7 +1073,30 @@ mozilla::ipc::IPCResult BrowserChild::RecvLoadURL(
     nsAutoCString appName;
     appName.Assign(Substring(
         host, 0, host.Length() - 10 /* 10 is length of .localhost */));
-    mozilla::ipc::SetThisProcessName(appName.get());
+
+    nsAutoCString sysAppUrl;
+    nsresult rv =
+        Preferences::GetCString("b2g.system_app_browser_url", sysAppUrl);
+
+    // Showing in-process Browser process name.
+    if (NS_SUCCEEDED(rv) && spec.Equals(sysAppUrl)) {
+      mozilla::ipc::SetThisProcessName("browser");
+    } else {
+      mozilla::ipc::SetThisProcessName(appName.get());
+    }
+  }
+
+  if (!StringEndsWith(host, ".localhost"_ns) &&
+      !StringEndsWith(host, "about:blank"_ns) && mIsTopLevel) {
+    nsCOMPtr<nsIEffectiveTLDService> tldService =
+      do_GetService(NS_EFFECTIVETLDSERVICE_CONTRACTID);
+    MOZ_ASSERT(tldService);
+
+    nsAutoCString baseDomain;
+    rv = tldService->GetBaseDomain(aLoadState->URI(), 0, baseDomain);
+    if (NS_SUCCEEDED(rv)) {
+      mozilla::ipc::SetThisProcessName(baseDomain.get());
+    }
   }
 #endif
 
