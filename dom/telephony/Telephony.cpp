@@ -11,9 +11,9 @@
 //#include "mozilla/dom/MobileConnectionBinding.h"
 #include "mozilla/dom/Promise.h"
 #include "mozilla/dom/TelephonyBinding.h"
-//#include "mozilla/dom/RingbackToneEvent.h"
-//#include "mozilla/dom/SuppServiceNotificationEvent.h"
-//#include "mozilla/dom/TtyModeReceivedEvent.h"
+#include "mozilla/dom/RingbackToneEvent.h"
+#include "mozilla/dom/SuppServiceNotificationEvent.h"
+#include "mozilla/dom/TtyModeReceivedEvent.h"
 #include "mozilla/dom/TelephonyCoverageLosingEvent.h"
 //#include "mozilla/unused.h"
 
@@ -1045,33 +1045,27 @@ nsresult Telephony::DispatchCallEvent(const nsAString& aType,
 
 nsresult Telephony::DispatchRingbackToneEvent(const nsAString& aType,
                                               bool playRingbackTone) {
-  return NS_OK;
-  /* TODO
-    RingbackToneEventInit init;
-    init.mPlayRingbackTone = playRingbackTone;
-    RefPtr<RingbackToneEvent> event = RingbackToneEvent::Constructor(this,
-    aType, init); return DispatchTrustedEvent(event);
-  */
+  RingbackToneEventInit init;
+  init.mPlayRingbackTone = playRingbackTone;
+  RefPtr<RingbackToneEvent> event =
+      RingbackToneEvent::Constructor(this, aType, init);
+  return DispatchTrustedEvent(event);
 }
 
 nsresult Telephony::DispatchSsnEvent(const nsAString& aType,
                                      int32_t notificationType, int32_t code,
                                      int32_t index, int32_t type,
                                      const nsAString& number) {
-  /*  SuppServiceNotificationEventInit init;
-    init.mNotificationType = static_cast<NotifyType>(notificationType);
-    if(notificationType == SSN_MT)
-      code = code + SSN_CODE1_LENGTH;
-    init.mCode = static_cast<CodeType>(code);
-    init.mIndex = index;
-    init.mType = type;
-    init.mNumber = number;
-    RefPtr<SuppServiceNotificationEvent> event =
-                   SuppServiceNotificationEvent::Constructor(this, aType, init);
-    return DispatchTrustedEvent(event);
-    */
-  // TODO: fix
-  return NS_OK;
+  SuppServiceNotificationEventInit init;
+  init.mNotificationType = static_cast<NotifyType>(notificationType);
+  if (notificationType == SSN_MT) code = code + SSN_CODE1_LENGTH;
+  init.mCode = static_cast<CodeType>(code);
+  init.mIndex = index;
+  init.mType = type;
+  init.mNumber = number;
+  RefPtr<SuppServiceNotificationEvent> event =
+      SuppServiceNotificationEvent::Constructor(this, aType, init);
+  return DispatchTrustedEvent(event);
 }
 
 nsresult Telephony::DispatchTelephonyCoverageLosingEvent(const nsAString& aType,
@@ -1085,12 +1079,11 @@ nsresult Telephony::DispatchTelephonyCoverageLosingEvent(const nsAString& aType,
 
 nsresult Telephony::DispatchTtyModeReceived(const nsString& aType,
                                             uint16_t aMode) {
-  /*  TtyModeReceivedEventInit init;
-    init.mMode = static_cast<TtyMode>(aMode);
-    RefPtr<TtyModeReceivedEvent> event = TtyModeReceivedEvent::Constructor(this,
-  aType, init); return DispatchTrustedEvent(event);
-  TODO: */
-  return NS_OK;
+  TtyModeReceivedEventInit init;
+  init.mMode = static_cast<TtyMode>(aMode);
+  RefPtr<TtyModeReceivedEvent> event =
+      TtyModeReceivedEvent::Constructor(this, aType, init);
+  return DispatchTrustedEvent(event);
 }
 
 already_AddRefed<nsITelephonyService> NS_CreateTelephonyService() {

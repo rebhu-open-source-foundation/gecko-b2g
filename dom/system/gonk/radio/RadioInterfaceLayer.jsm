@@ -885,11 +885,11 @@ RadioInterface.prototype = {
         }
         gTelephonyService.notifySupplementaryService(
           this.clientId,
-          message.notificationType,
-          message.code,
-          message.index,
-          message.type,
-          message.number
+          message.suppSvc.notificationType,
+          message.suppSvc.code,
+          message.suppSvc.index,
+          message.suppSvc.type,
+          message.suppSvc.number
         );
         break;
       case "srvccStateNotify":
