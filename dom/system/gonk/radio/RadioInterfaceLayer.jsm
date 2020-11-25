@@ -5067,10 +5067,10 @@ RadioInterface.prototype = {
         this.simIOcontext.SimRecordHelper.setAid(usimApp.aidPtr);
       }
 
-      let ruimApp = apps[iccStatus.cdmaSubscriptionAppIndex];
-      if (ruimApp) {
-        this.simIOcontext.RuimRecordHelper.setAid(ruimApp.aidPtr);
-      }
+      //let ruimApp = apps[iccStatus.cdmaSubscriptionAppIndex];
+      //if (ruimApp) {
+      //  this.simIOcontext.RuimRecordHelper.setAid(ruimApp.aidPtr);
+      //}
 
       let isimApp = apps[iccStatus.imsSubscriptionAppIndex];
       if (isimApp) {
