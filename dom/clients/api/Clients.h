@@ -19,6 +19,8 @@ class ErrorResult;
 namespace dom {
 
 struct ClientQueryOptions;
+struct ClientWindowOptions;
+
 class Promise;
 
 class Clients final : public nsISupports, public nsWrapperCache {

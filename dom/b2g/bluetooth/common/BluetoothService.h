@@ -10,6 +10,7 @@
 #include "BluetoothCommon.h"
 #include "BluetoothInterface.h"
 #include "BluetoothProfileManagerBase.h"
+#include "mozilla/dom/BlobImpl.h"
 #include "nsClassHashtable.h"
 #include "nsIObserver.h"
 #include "nsISettings.h"

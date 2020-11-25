@@ -21,6 +21,7 @@
 #include "nsIInputStream.h"
 #include "nsIObserver.h"
 #include "nsIObserverService.h"
+#include "nsComponentManagerUtils.h"
 #include "nsNetCID.h"
 
 USING_BLUETOOTH_NAMESPACE

@@ -26,6 +26,7 @@
 #include "nsIInputStream.h"
 #include "nsIMIMEService.h"
 #include "nsIOutputStream.h"
+#include "nsIThread.h"
 #include "nsIVolumeService.h"
 #include "nsNetUtil.h"
 #include "nsServiceManagerUtils.h"
