@@ -298,7 +298,11 @@ void MediaTrackGraphImpl::CheckDriver() {
 
   AudioCallbackDriver* audioCallbackDriver =
       CurrentDriver()->AsAudioCallbackDriver();
+#ifdef MOZ_WIDGET_GONK
+  if (audioCallbackDriver && !audioCallbackDriver->SwitchingToAudioThread()) {
+#else
   if (audioCallbackDriver) {
+#endif
     for (PendingResumeOperation& op : mPendingResumeOperations) {
       op.Apply(this);
     }
