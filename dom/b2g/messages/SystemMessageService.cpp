@@ -54,6 +54,8 @@ void BuildPermissionsTable() {
   sSystemMessagePermissionsTable.Put(u"alarm"_ns, "alarms"_ns);
   sSystemMessagePermissionsTable.Put(u"bluetooth-dialer-command"_ns,
                                      "bluetooth-privileged"_ns);
+  sSystemMessagePermissionsTable.Put(u"bluetooth-map-request"_ns,
+                                     "bluetooth-privileged"_ns);
   sSystemMessagePermissionsTable.Put(
       u"bluetooth-opp-receiving-file-confirmation"_ns,
       "bluetooth-privileged"_ns);
@@ -64,6 +66,8 @@ void BuildPermissionsTable() {
   sSystemMessagePermissionsTable.Put(u"bluetooth-opp-update-progress"_ns,
                                      "bluetooth-privileged"_ns);
   sSystemMessagePermissionsTable.Put(u"bluetooth-pairing-request"_ns,
+                                     "bluetooth-privileged"_ns);
+  sSystemMessagePermissionsTable.Put(u"bluetooth-pbap-request"_ns,
                                      "bluetooth-privileged"_ns);
   sSystemMessagePermissionsTable.Put(u"cellbroadcast-received"_ns,
                                      "cellbroadcast"_ns);

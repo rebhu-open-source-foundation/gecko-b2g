@@ -60,12 +60,12 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(BluetoothAdapter,
    * after unlinked. Please see Bug 1138267 for detail informations.
    */
   UnregisterBluetoothSignalHandler(KEY_ADAPTER, tmp);
-  // if (tmp->mHasListenedToPbapSignal) {
-  //   UnregisterBluetoothSignalHandler(KEY_PBAP, tmp);
-  // }
-  // if (tmp->mHasListenedToMapSignal) {
-  //   UnregisterBluetoothSignalHandler(KEY_MAP, tmp);
-  // }
+  if (tmp->mHasListenedToPbapSignal) {
+    UnregisterBluetoothSignalHandler(KEY_PBAP, tmp);
+  }
+  if (tmp->mHasListenedToMapSignal) {
+    UnregisterBluetoothSignalHandler(KEY_MAP, tmp);
+  }
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(BluetoothAdapter,
@@ -310,8 +310,8 @@ BluetoothAdapter::BluetoothAdapter(nsPIDOMWindowInner* aWindow,
 
   RegisterBluetoothSignalHandler(KEY_ADAPTER, this);
 
-  // TryListeningToBluetoothPbapSignal();
-  // TryListeningToBluetoothMapSignal();
+  TryListeningToBluetoothPbapSignal();
+  TryListeningToBluetoothMapSignal();
 }
 
 BluetoothAdapter::~BluetoothAdapter() { Cleanup(); }
@@ -323,12 +323,12 @@ void BluetoothAdapter::DisconnectFromOwner() {
 
 void BluetoothAdapter::Cleanup() {
   UnregisterBluetoothSignalHandler(KEY_ADAPTER, this);
-  // if (mHasListenedToPbapSignal) {
-  //   UnregisterBluetoothSignalHandler(KEY_PBAP, this);
-  // }
-  // if (mHasListenedToMapSignal) {
-  //   UnregisterBluetoothSignalHandler(KEY_MAP, this);
-  // }
+  if (mHasListenedToPbapSignal) {
+    UnregisterBluetoothSignalHandler(KEY_PBAP, this);
+  }
+  if (mHasListenedToMapSignal) {
+    UnregisterBluetoothSignalHandler(KEY_MAP, this);
+  }
 
   // Stop ongoing LE scans and clear the LeScan handle array
   if (!mLeScanHandleArray.IsEmpty()) {
@@ -2004,37 +2004,30 @@ JSObject* BluetoothAdapter::WrapObject(JSContext* aCx,
 void BluetoothAdapter::EventListenerAdded(nsAtom* aType) {
   DOMEventTargetHelper::EventListenerAdded(aType);
 
-  // TryListeningToBluetoothPbapSignal();
-  // TryListeningToBluetoothMapSignal();
+  TryListeningToBluetoothPbapSignal();
+  TryListeningToBluetoothMapSignal();
 }
 
-// void
-// BluetoothAdapter::TryListeningToBluetoothPbapSignal()
-// {
-//   if (!mHasListenedToPbapSignal) {
-//     // Listen to bluetooth PBAP signal if PBAP connection request event
-//     handler
-//     // has been attached. All pending PBAP requests queued in
-//     BluetoothService
-//     // would be fired when adapter starts listening to bluetooth PBAP signal.
-//     if (HasListenersFor(nsGkAtoms::onpbapconnectionreq)) {
-//       RegisterBluetoothSignalHandler(KEY_PBAP, this);
-//       mHasListenedToPbapSignal = true;
-//     }
-//   }
-// }
+void BluetoothAdapter::TryListeningToBluetoothPbapSignal() {
+  if (!mHasListenedToPbapSignal) {
+    // Listen to bluetooth PBAP signal if PBAP connection request event handler
+    // has been attached. All pending PBAP requests queued in BluetoothService
+    // would be fired when adapter starts listening to bluetooth PBAP signal.
+    if (HasListenersFor(nsGkAtoms::onpbapconnectionreq)) {
+      RegisterBluetoothSignalHandler(KEY_PBAP, this);
+      mHasListenedToPbapSignal = true;
+    }
+  }
+}
 
-// void
-// BluetoothAdapter::TryListeningToBluetoothMapSignal()
-// {
-//   if (!mHasListenedToMapSignal) {
-//     // Listen to bluetooth MAP signal if MAP connection request event handler
-//     // has been attached. All pending MAP requests queued in BluetoothService
-//     // would be fired when adapter starts listening to bluetooth MAP signal.
-//     if (HasListenersFor(nsGkAtoms::onmapconnectionreq)) {
-
-//       RegisterBluetoothSignalHandler(KEY_MAP, this);
-//       mHasListenedToMapSignal = true;
-//     }
-//   }
-// }
+void BluetoothAdapter::TryListeningToBluetoothMapSignal() {
+  if (!mHasListenedToMapSignal) {
+    // Listen to bluetooth MAP signal if MAP connection request event handler
+    // has been attached. All pending MAP requests queued in BluetoothService
+    // would be fired when adapter starts listening to bluetooth MAP signal.
+    if (HasListenersFor(nsGkAtoms::onmapconnectionreq)) {
+      RegisterBluetoothSignalHandler(KEY_MAP, this);
+      mHasListenedToMapSignal = true;
+    }
+  }
+}

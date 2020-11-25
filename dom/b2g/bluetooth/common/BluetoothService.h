@@ -556,9 +556,9 @@ class BluetoothService : public nsIObserver,
 
   nsTArray<BluetoothSignal> mPendingPairReqSignals;
 
-  // nsTArray<BluetoothSignal> mPendingPbapReqSignals;
+  nsTArray<BluetoothSignal> mPendingPbapReqSignals;
 
-  // nsTArray<BluetoothSignal> mPendingMapReqSignals;
+  nsTArray<BluetoothSignal> mPendingMapReqSignals;
 
   bool mEnabled;
 };

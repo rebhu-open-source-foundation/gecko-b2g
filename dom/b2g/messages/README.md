@@ -9,11 +9,13 @@ System messages are messages from the system, they are sent by the system based 
 | activity                                  |                      |
 | alarm                                     | alarms               |
 | bluetooth-dialer-command                  | bluetooth-privileged |
+| bluetooth-map-request                     | bluetooth-privileged |
 | bluetooth-opp-receiving-file-confirmation | bluetooth-privileged |
 | bluetooth-opp-transfer-complete           | bluetooth-privileged |
 | bluetooth-opp-transfer-start              | bluetooth-privileged |
 | bluetooth-opp-update-progress             | bluetooth-privileged |
 | bluetooth-pairing-request                 | bluetooth-privileged |
+| bluetooth-pbap-request                    | bluetooth-privileged |
 | cellbroadcast-received                    | cellbroadcast        |
 | icc-stkcommand                            | settings:read, settings:write |
 | media-button                              |                      |
