@@ -7124,6 +7124,13 @@
   value: 32768   # Measured in KiB
   mirror: always
 
+#ifdef MOZ_WIDGET_GONK
+- name: media.cubeb.backend
+  type: String
+  mirror: never
+  value: "opensl"
+#endif
+
 # Whether cubeb is sandboxed
 - name: media.cubeb.sandbox
   type: bool
