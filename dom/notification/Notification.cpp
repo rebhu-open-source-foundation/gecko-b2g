@@ -1444,11 +1444,6 @@ void Notification::ShowInternal() {
   std::swap(ownership, mTempRef);
   MOZ_ASSERT(ownership->GetNotification() == this);
 
-  nsresult rv = PersistNotification();
-  if (NS_FAILED(rv)) {
-    NS_WARNING("Could not persist Notification");
-  }
-
   nsCOMPtr<nsIAlertsService> alertService = components::Alerts::Service();
 
   ErrorResult result;
@@ -1472,6 +1467,11 @@ void Notification::ShowInternal() {
       DispatchTrustedEvent(u"error"_ns);
     }
     return;
+  }
+
+  nsresult rv = PersistNotification();
+  if (NS_FAILED(rv)) {
+    NS_WARNING("Could not persist Notification");
   }
 
   nsAutoString iconUrl;
