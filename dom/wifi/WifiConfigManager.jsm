@@ -356,9 +356,9 @@ this.WifiConfigManager = (function() {
 
   function getHiddenNetworks() {
     let networks = [];
-    for (let net in configuredNetworks) {
-      if (net.scanSsid) {
-        networks.push(configuredNetworks[net].ssid);
+    for (let i in configuredNetworks) {
+      if (configuredNetworks[i].scanSsid) {
+        networks.push(configuredNetworks[i].ssid);
       }
     }
     return networks;

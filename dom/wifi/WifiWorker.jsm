@@ -2377,7 +2377,7 @@ function WifiWorker() {
         }
       }
     }
-    pub.hidden = net.scanSsid === 1;
+    pub.hidden = net.scanSsid;
 
     if (
       "caCert" in net &&
@@ -2974,7 +2974,7 @@ function WifiWorker() {
         self.handleScanResults(self.networksArray);
       }
       if (self.wantScanResults.length !== 0) {
-        self.wantScanResults.forEach(function(callback) {
+        self.wantScanResults.forEach(callback => {
           callback(self.networksArray);
         });
         self.wantScanResults = [];
@@ -4067,18 +4067,44 @@ WifiWorker.prototype = {
     }
     let self = this;
     function networkReady() {
-      function makeConnection() {
+      let isHidden = network => {
+        return "scanSsid" in network && network.scanSsid;
+      };
+
+      let makeConnection = function(network) {
         WifiManager.loopDetectionCount = 0;
-        WifiConfigManager.updateLastSelectedNetwork(privnet.netId, function() {
-          WifiManager.connect(privnet, function(ok) {
+        WifiConfigManager.updateLastSelectedNetwork(network.netId, function() {
+          WifiManager.connect(network, function(ok) {
             self._sendMessage(message, ok, ok, msg);
           });
         });
+      };
+
+      function prepareForConnection() {
+        let callback = networks => {
+          for (let net of networks) {
+            if (networkKey == net.networkKey) {
+              makeConnection(privnet);
+              return;
+            }
+          }
+          self._sendMessage(message, false, "network not found", msg);
+        };
+
+        // Try to start a single scan if it is a hidden network.
+        // Otherwise, we could just make connection directly.
+        if (isHidden(privnet)) {
+          self.waitForScan(callback);
+          WifiManager.handleScanRequest(true, function() {});
+        } else {
+          makeConnection(privnet);
+        }
       }
+
       if (dontConnect) {
         self._sendMessage(message, true, "Wifi has been recorded", msg);
       } else {
-        makeConnection();
+        prepareForConnection();
       }
     }
 

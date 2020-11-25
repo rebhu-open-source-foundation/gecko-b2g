@@ -24,7 +24,7 @@ WifiNetwork {
   attribute DOMString? psk;
   attribute DOMString? wep;
   attribute long? keyIndex;
-  attribute long? scanSsid;
+  attribute boolean? scanSsid;
   attribute DOMString? identity;
   attribute DOMString? password;
   attribute DOMString? authAlg;
