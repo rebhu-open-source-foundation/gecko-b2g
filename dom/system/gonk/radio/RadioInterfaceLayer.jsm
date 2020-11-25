@@ -6686,7 +6686,7 @@ RadioInterface.prototype = {
         "RILJ: [" + message.rilMessageToken + "] > RIL_REQUEST_CONFERENCE"
       );
     }
-    this.telephonyRequestQueue(RIL.REQUEST_CONFERENCE, () => {
+    this.telephonyRequestQueue.push("conferenceCall", () => {
       this.rilworker.conference(message.rilMessageToken);
     });
   },
