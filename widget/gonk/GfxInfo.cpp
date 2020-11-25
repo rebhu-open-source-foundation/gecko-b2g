@@ -147,6 +147,8 @@ nsresult GfxInfo::GetFeatureStatusImpl(
 
   if (aFeature == nsIGfxInfo::FEATURE_WEBRENDER) {
     *aStatus = nsIGfxInfo::FEATURE_ALLOW_ALWAYS;
+  } else if (aFeature == FEATURE_WEBRENDER_SOFTWARE) {
+    *aStatus = nsIGfxInfo::FEATURE_DENIED;
   } else if (aFeature == FEATURE_WEBRTC_HW_ACCELERATION_ENCODE) {
     *aStatus = WebRtcHwVp8EncodeSupported();
     aFailureId = "FEATURE_FAILURE_WEBRTC_ENCODE";
