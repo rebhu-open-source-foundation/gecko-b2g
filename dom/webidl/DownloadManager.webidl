@@ -94,7 +94,7 @@ interface DownloadObject : EventTarget {
   readonly attribute DOMString contentType;
 
   // The timestamp this download started.
-  readonly attribute object startTime;
+  readonly attribute DOMTimeStamp startTime;
 
   // An opaque identifier for this download. All instances of the same
   // download (eg. in different windows) will have the same id.
@@ -156,5 +156,5 @@ dictionary AdoptDownloadDict {
   DOMString? contentType;
 
   // The time the download was started. If omitted, the current time is used.
-  object? startTime;
+  DOMTimeStamp? startTime;
 };
