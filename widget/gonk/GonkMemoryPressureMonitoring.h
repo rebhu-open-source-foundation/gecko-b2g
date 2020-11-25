@@ -4,11 +4,11 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef mozilla_GonkMemoryPressureMonitoring_h_
-#define mozilla_GonkMemoryPressureMonitoring_h_
+#ifndef __mozilla_GonkMemeoryMonitoring_h_
+#define __mozilla_GonkMemeoryMonitoring_h_
 
 namespace mozilla {
 void InitGonkMemoryPressureMonitoring();
 }
 
-#endif /* mozilla_GonkMemoryPressureMonitoring_h_ */
+#endif /* __mozilla_GonkMemeoryMonitoring_h_ */

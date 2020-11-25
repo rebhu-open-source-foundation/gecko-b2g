@@ -57,7 +57,6 @@
 #include "nsWindow.h"
 #include "OrientationObserver.h"
 #include "GonkMemoryPressureMonitoring.h"
-#include "GonkMemoryPressureMonitoring2.h"
 
 #include "android/log.h"
 #include "libui/EventHub.h"
@@ -1083,7 +1082,6 @@ nsresult nsAppShell::Init() {
 
   if (!isXPCShellTest) {
     InitGonkMemoryPressureMonitoring();
-    InitGonkMemoryPressureMonitoring2();
   }
 
   if (XRE_IsParentProcess()) {

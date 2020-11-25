@@ -80,7 +80,6 @@ SOURCES += [
     "GonkClipboardData.cpp",
     "GonkCompositorWidget.cpp",
     "GonkMemoryPressureMonitoring.cpp",
-    "GonkMemoryPressureMonitoring2.cpp",
     "GonkPermission.cpp",
     "MediaKeysEventSourceFactory.cpp",
     "nsAppShell.cpp",
