@@ -121,23 +121,29 @@ this.SettingsPrefsSync = {
     Services.locale.requestedLocales = [value];
 
     let prefName = "intl.accept_languages";
-    let defaultBranch = Services.prefs.getDefaultBranch(null);
-
-    let intl = "";
+    let intl = [];
     try {
-      intl = defaultBranch.getComplexValue(prefName, Ci.nsIPrefLocalizedString)
-        .data;
+      intl = Services.prefs
+        .getComplexValue(prefName, Ci.nsIPrefLocalizedString)
+        .data.split(",")
+        .map(item => item.trim(" "));
     } catch (e) {}
 
-    if (!new RegExp("^" + value + "[^a-z-_] *[,;]?", "i").test(intl)) {
-      Services.prefs.setCharPref(prefName, value + ", " + intl);
+    if (!intl.length) {
+      Services.prefs.setCharPref(prefName, value);
+    } else if (intl[0] != value) {
+      // Insert value at the first position, and remove possible duplicated value.
+      Services.prefs.setCharPref(
+        prefName,
+        [value, intl.filter(item => item != value)].join(", ")
+      );
     } else if (forceSetPref) {
       // Bug 830782 - Homescreen is in English instead of selected locale after
       // the first run experience.
       // In order to ensure the current intl value is reflected on the child
       // process let's always write a user value, even if this one match the
       // current localized pref value.
-      Services.prefs.setCharPref(prefName, intl);
+      Services.prefs.setCharPref(prefName, intl.join(", "));
     }
   },
 
