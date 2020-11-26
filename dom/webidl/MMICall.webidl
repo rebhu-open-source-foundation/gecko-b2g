@@ -8,6 +8,6 @@
  Func="B2G::HasTelephonySupport",
  Exposed=Window]
 interface MMICall {
-//  [Throws]
-//  readonly attribute Promise<MozMMIResult> result;
+  [Throws]
+  readonly attribute Promise<MMIResult> result;
 };

@@ -9,7 +9,7 @@
 
 #include "Telephony.h"
 #include "mozilla/dom/MMICall.h"
-//#include "mozilla/dom/MobileConnectionBinding.h"
+#include "mozilla/dom/MobileConnectionBinding.h"
 #include "mozilla/dom/Promise.h"
 #include "mozilla/dom/ToJSValue.h"
 #include "mozilla/dom/telephony/TelephonyCallback.h"
@@ -38,9 +38,8 @@ class TelephonyDialCallback final : public TelephonyCallback,
  private:
   ~TelephonyDialCallback() {}
 
-  // TODO build pass workaround
-  // nsresult
-  // NotifyDialMMISuccess(JSContext* aCx, const MozMMIResult& aResult);
+  nsresult
+  NotifyDialMMISuccess(JSContext* aCx, const MMIResult& aResult);
 
   nsCOMPtr<nsPIDOMWindowInner> mWindow;
   RefPtr<Telephony> mTelephony;
