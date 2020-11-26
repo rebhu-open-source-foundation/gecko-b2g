@@ -37,6 +37,7 @@ interface nsISimContactInfo : nsISupports {
     attribute AString tel;
     attribute AString email;
     attribute AString name;
+    attribute AString category;
 };
 
 [scriptable, uuid(d8dccf0f-de80-4216-9bee-7403e4ac0373)]

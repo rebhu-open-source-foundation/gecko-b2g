@@ -10,7 +10,7 @@ use crate::common::{JsonValue, ObjectRef, SystemTime};
 use serde::{Deserialize, Serialize};
 
 pub static SERVICE_FINGERPRINT: &str =
-    "fdd51ec030fa9f4aaaa38ebb8baa231752036ac70c4b6fb442917ff230a15e";
+    "3b27f8b867dc94abea2f8fb7d383e59c5be1c6d76c63b716581436e036a490";
 
 #[derive(Clone, PartialEq, Deserialize, Serialize, Debug)]
 pub enum CardInfoType {
@@ -71,6 +71,7 @@ pub struct SimContactInfo {
     pub tel: String,
     pub email: String,
     pub name: String,
+    pub category: String,
 }
 
 #[derive(Debug, Deserialize, Serialize)]

@@ -747,6 +747,7 @@ impl GeckoBridgeXpcom {
                 let mut tel = nsString::new();
                 let mut email = nsString::new();
                 let mut name = nsString::new();
+                let mut category = nsString::new();
 
                 unsafe {
                     if item.GetId(&mut *id) != NS_OK {
@@ -761,6 +762,9 @@ impl GeckoBridgeXpcom {
                     if item.GetName(&mut *name) != NS_OK {
                         return None;
                     }
+                    if item.GetCategory(&mut *category) != NS_OK {
+                        return None;
+                    }
                 }
 
                 Some(SimContactInfo {
@@ -768,6 +772,7 @@ impl GeckoBridgeXpcom {
                     tel: tel.to_string(),
                     email: email.to_string(),
                     name: name.to_string(),
+                    category: category.to_string(),
                 })
             })
             .collect();
