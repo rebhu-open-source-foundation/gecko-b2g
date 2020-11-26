@@ -6038,14 +6038,14 @@ RadioInterface.prototype = {
             "RILJ: [" +
               message.rilMessageToken +
               "] > RIL_REQUEST_SET_CALL_WAITING enable = " +
-              message.enable +
+              message.enabled +
               " , serviceClass = " +
               message.serviceClass
           );
         }
         this.rilworker.setCallWaiting(
           message.rilMessageToken,
-          message.enable,
+          message.enabled,
           message.serviceClass
         );
         break;

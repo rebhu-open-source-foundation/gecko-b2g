@@ -748,7 +748,7 @@ NS_IMETHODIMP nsRilWorker::SetCallForwardStatus(int32_t serial, int32_t action,
   cfInfo.number = NS_ConvertUTF16toUTF8(number).get();
   cfInfo.timeSeconds = 0;
 
-  mRadioProxy->getCallForwardStatus(serial, cfInfo);
+  mRadioProxy->setCallForward(serial, cfInfo);
 
   return NS_OK;
 }
