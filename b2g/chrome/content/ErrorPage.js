@@ -3,72 +3,41 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 /* global docShell, sendAsyncMessage, addMessageListener, content */
-"use strict";
 
-console.log("############ ErrorPage.js\n");
+function toggle(id) {
+  var el = document.getElementById(id);
+  if (el.getAttribute("collapsed")) {
+    el.setAttribute("collapsed", false);
+  } else {
+    el.setAttribute("collapsed", true);
+  }
+}
 
-var ErrorPageHandler = {
-  _reload() {
-    docShell
-      .QueryInterface(Ci.nsIWebNavigation)
-      .reload(Ci.nsIWebNavigation.LOAD_FLAGS_NONE);
-  },
+function addCertErrorException(temporary) {
+  document.addCertException(temporary);
+  document.location.reload();
+}
 
-  _certErrorPageEventHandler(e) {
-    let target = e.originalTarget;
-    let errorDoc = target.ownerDocument;
+document
+  .getElementById("technicalContentHeading")
+  .addEventListener("click", () => {
+    toggle("technicalContent");
+  });
 
-    // If the event came from an ssl error page, it is one of the "Add
-    // Exception…" buttons.
-    if (/^about:certerror\?e=nssBadCert/.test(errorDoc.documentURI)) {
-      let permanent = errorDoc.getElementById("permanentExceptionButton");
-      let temp = errorDoc.getElementById("temporaryExceptionButton");
-      if (target == temp || target == permanent) {
-        sendAsyncMessage("ErrorPage:AddCertException", {
-          url: errorDoc.location.href,
-          isPermanent: target == permanent,
-        });
-      }
-    }
-  },
+document
+  .getElementById("expertContentHeading")
+  .addEventListener("click", () => {
+    toggle("expertContent");
+  });
 
-  _bindPageEvent(target) {
-    if (!target) {
-      return;
-    }
+document
+  .getElementById("temporaryExceptionButton")
+  .addEventListener("click", () => {
+    addCertErrorException(true);
+  });
 
-    if (/^about:certerror/.test(target.documentURI)) {
-      let errorPageEventHandler = this._certErrorPageEventHandler.bind(this);
-      addEventListener("click", errorPageEventHandler, true, false);
-      let listener = function() {
-        removeEventListener("click", errorPageEventHandler, true);
-        removeEventListener("pagehide", listener, true);
-      };
-
-      addEventListener("pagehide", listener, true);
-    }
-  },
-
-  domContentLoadedHandler(e) {
-    let target = e.originalTarget;
-    let targetDocShell = target.defaultView
-      .QueryInterface(Ci.nsIInterfaceRequestor)
-      .getInterface(Ci.nsIWebNavigation);
-    if (targetDocShell != docShell) {
-      return;
-    }
-    this._bindPageEvent(target);
-  },
-
-  init() {
-    addMessageListener("ErrorPage:ReloadPage", this._reload.bind(this));
-    addEventListener(
-      "DOMContentLoaded",
-      this.domContentLoadedHandler.bind(this),
-      true
-    );
-    this._bindPageEvent(content.document);
-  },
-};
-
-ErrorPageHandler.init();
+document
+  .getElementById("permanentExceptionButton")
+  .addEventListener("click", () => {
+    addCertErrorException(false);
+  });
