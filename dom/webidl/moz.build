@@ -1240,6 +1240,11 @@ if CONFIG["MOZ_WIDGET_TOOLKIT"] != "android":
         "AlarmManager.webidl",
     ]
 
+if CONFIG["MOZ_B2G"]:
+    GENERATED_EVENTS_WEBIDL_FILES += [
+        "AtmPressureEvent.webidl",
+    ]
+
 if CONFIG["MOZ_B2G_BT"]:
     WEBIDL_FILES += [
         "BluetoothAdapter.webidl",

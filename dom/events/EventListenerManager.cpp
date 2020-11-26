@@ -298,6 +298,10 @@ void EventListenerManager::AddEventListenerInternal(
     EnableDevice(eDeviceLight);
   } else if (aTypeAtom == nsGkAtoms::ondevicemotion) {
     EnableDevice(eDeviceMotion);
+#ifdef MOZ_B2G
+  } else if (aTypeAtom == nsGkAtoms::onatmpressure) {
+    EnableDevice(eAtmPressure);
+#endif
 #if defined(MOZ_WIDGET_ANDROID)
   } else if (aTypeAtom == nsGkAtoms::onorientationchange) {
     EnableDevice(eOrientationChange);
@@ -455,6 +459,9 @@ bool EventListenerManager::IsDeviceType(EventMessage aEventMessage) {
     case eDeviceLight:
     case eDeviceProximity:
     case eUserProximity:
+#ifdef MOZ_B2G
+    case eAtmPressure:
+#endif
 #if defined(MOZ_WIDGET_ANDROID)
     case eOrientationChange:
 #endif
@@ -502,6 +509,11 @@ void EventListenerManager::EnableDevice(EventMessage aEventMessage) {
       window->EnableDeviceSensor(SENSOR_LINEAR_ACCELERATION);
       window->EnableDeviceSensor(SENSOR_GYROSCOPE);
       break;
+#ifdef MOZ_B2G
+    case eAtmPressure:
+      window->EnableDeviceSensor(SENSOR_PRESSURE);
+      break;
+#endif
 #if defined(MOZ_WIDGET_ANDROID)
     case eOrientationChange:
       window->EnableOrientationChangeListener();
@@ -546,6 +558,11 @@ void EventListenerManager::DisableDevice(EventMessage aEventMessage) {
     case eDeviceLight:
       window->DisableDeviceSensor(SENSOR_LIGHT);
       break;
+#ifdef MOZ_B2G
+    case eAtmPressure:
+      window->DisableDeviceSensor(SENSOR_PRESSURE);
+      break;
+#endif
 #if defined(MOZ_WIDGET_ANDROID)
     case eOrientationChange:
       window->DisableOrientationChangeListener();

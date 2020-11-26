@@ -26,6 +26,10 @@
 
 #include <cmath>
 
+#ifdef MOZ_B2G
+  #include "mozilla/dom/AtmPressureEvent.h"
+#endif
+
 using namespace mozilla;
 using namespace mozilla::dom;
 using namespace hal;
@@ -334,10 +338,30 @@ void nsDeviceSensors::Notify(const mozilla::hal::SensorData& aSensorData) {
         FireDOMProximityEvent(target, x, y, z);
       } else if (type == nsIDeviceSensorData::TYPE_LIGHT) {
         FireDOMLightEvent(target, x);
+#ifdef MOZ_B2G
+      } else if (type == nsIDeviceSensorData::TYPE_PRESSURE) {
+        FireDOMAtmPressureEvent(target, x);
+#endif
       }
     }
   }
 }
+
+#ifdef MOZ_B2G
+void nsDeviceSensors::FireDOMAtmPressureEvent(
+    mozilla::dom::EventTarget* aTarget, double aValue) {
+  AtmPressureEventInit init;
+  init.mBubbles = true;
+  init.mCancelable = false;
+  init.mValue = aValue;
+  RefPtr<AtmPressureEvent> event =
+      AtmPressureEvent::Constructor(aTarget, u"atmpressure"_ns, init);
+
+  event->SetTrusted(true);
+
+  aTarget->DispatchEvent(*event);
+}
+#endif
 
 void nsDeviceSensors::FireDOMLightEvent(mozilla::dom::EventTarget* aTarget,
                                         double aValue) {
@@ -568,6 +592,14 @@ bool nsDeviceSensors::IsSensorAllowedByPref(uint32_t aType,
 #endif
       }
       break;
+#ifdef MOZ_B2G
+    case nsIDeviceSensorData::TYPE_PRESSURE:
+      // checks "device.sensors.atmPressure.enabled" pref
+      if (!StaticPrefs::device_sensors_atmPressure_enabled()) {
+        return false;
+      }
+      break;
+#endif
     default:
       MOZ_ASSERT_UNREACHABLE("Device sensor type not recognised");
       return false;

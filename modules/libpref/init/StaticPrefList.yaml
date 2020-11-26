@@ -1388,6 +1388,13 @@
   value: false
   mirror: always
 
+#ifdef MOZ_B2G
+- name: device.sensors.atmPressure.enabled
+  type: bool
+  value: false
+  mirror: always
+#endif
+
 - name: device.sensors.test.events
   type: bool
   value: false

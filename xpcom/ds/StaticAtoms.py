@@ -1926,6 +1926,8 @@ STATIC_ATOMS = [
     Atom("onuserproximity", "onuserproximity"),
     # light sensor support
     Atom("ondevicelight", "ondevicelight"),
+    # atmospheric pressure support
+    Atom("onatmpressure", "onatmpressure"),
     # Audio channel events
     Atom("onmozinterruptbegin", "onmozinterruptbegin"),
     Atom("onmozinterruptend", "onmozinterruptend"),

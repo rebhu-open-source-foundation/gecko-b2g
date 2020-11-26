@@ -495,6 +495,9 @@ partial interface Window {
            attribute EventHandler ondeviceproximity;
            attribute EventHandler onuserproximity;
            attribute EventHandler ondevicelight;
+#ifdef MOZ_B2G
+           attribute EventHandler onatmpressure;
+#endif
 
   void                      dump(DOMString str);
 

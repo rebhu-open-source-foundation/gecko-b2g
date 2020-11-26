@@ -33,6 +33,8 @@ SensorType getSensorType(hidl_sensors::SensorType aHidlSensorType) {
       return SENSOR_ROTATION_VECTOR;
     case hidl_sensors::SensorType::GAME_ROTATION_VECTOR:
       return SENSOR_GAME_ROTATION_VECTOR;
+    case hidl_sensors::SensorType::PRESSURE:
+      return SENSOR_PRESSURE;
     default:
       return SENSOR_UNKNOWN;
   }
@@ -105,6 +107,9 @@ GonkSensorsHal::CreateSensorData(const hidl_sensors::Event aEvent) {
       values.AppendElement(aEvent.u.vec4.y);
       values.AppendElement(aEvent.u.vec4.z);
       values.AppendElement(aEvent.u.vec4.w);
+      break;
+    case SENSOR_PRESSURE:
+      values.AppendElement(aEvent.u.scalar);
       break;
     case SENSOR_UNKNOWN:
     default:
@@ -220,6 +225,7 @@ GonkSensorsHal::Init() {
       case SENSOR_LINEAR_ACCELERATION:
       case SENSOR_ROTATION_VECTOR:
       case SENSOR_GAME_ROTATION_VECTOR:
+      case SENSOR_PRESSURE:
         if (mode == SensorFlagBits::CONTINUOUS_MODE && !canWakeUp) {
           isValid = true;
         }
@@ -266,6 +272,10 @@ GonkSensorsHal::ActivateSensor(const SensorType aSensorType) {
     case SENSOR_PROXIMITY:
     case SENSOR_LIGHT:
       samplingPeriodNs = 0;
+      break;
+    // specific sampling period for pressure sensor
+    case SENSOR_PRESSURE:
+      samplingPeriodNs = kPressureSamplingPeriodNs;
       break;
     // default sampling period for most continuous sensors
     case SENSOR_ORIENTATION:
