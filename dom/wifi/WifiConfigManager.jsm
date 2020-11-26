@@ -78,6 +78,7 @@ this.WifiConfigManager = (function() {
 
   // WifiConfigManager functions
   configManager.updateNetworkSelectionStatus = updateNetworkSelectionStatus;
+  configManager.updateNetworkInternetAccess = updateNetworkInternetAccess;
   configManager.tryEnableQualifiedNetwork = tryEnableQualifiedNetwork;
   configManager.isLastSelectedNetwork = isLastSelectedNetwork;
   configManager.clearLastSelectedNetwork = clearLastSelectedNetwork;
@@ -210,6 +211,28 @@ this.WifiConfigManager = (function() {
         config.disableTime
     );
     callback(true);
+  }
+
+  function updateNetworkInternetAccess(
+    netId,
+    validated,
+    captivePortal,
+    callback
+  ) {
+    if (netId === WifiConstants.INVALID_NETWORK_ID) {
+      callback(false);
+      return;
+    }
+
+    let config = getNetworkConfiguration(netId);
+    if (config == null) {
+      callback(false);
+      return;
+    }
+
+    config.hasInternet = !!validated;
+    config.captivePortalDetected = !!captivePortal;
+    saveToStore(callback);
   }
 
   function clearDisableReasonCounter(networkKey) {

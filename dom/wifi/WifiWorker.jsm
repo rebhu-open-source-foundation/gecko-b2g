@@ -2906,13 +2906,13 @@ function WifiWorker() {
             network.connected = true;
             channelSet.add(result.frequency);
             if (lastNetwork.everValidated) {
-              network.hasInternet = known.hasInternet = true;
+              network.hasInternet = true;
               network.captivePortalDetected = false;
             } else if (lastNetwork.everCaptivePortalDetected) {
-              network.hasInternet = known.hasInternet = false;
+              network.hasInternet = false;
               network.captivePortalDetected = true;
             } else {
-              network.hasInternet = known.hasInternet = false;
+              network.hasInternet = false;
               network.captivePortalDetected = false;
             }
           }
@@ -4793,6 +4793,12 @@ WifiWorker.prototype = {
             landing
         );
         lastNetwork.everValidated |= landing;
+        WifiConfigManager.updateNetworkInternetAccess(
+          lastNetwork.netId,
+          lastNetwork.everValidated,
+          lastNetwork.everCaptivePortalDetected,
+          function() {}
+        );
         this._fireEvent("wifihasinternet", {
           hasInternet: !!lastNetwork.everValidated,
           network: netToDOM(lastNetwork),
