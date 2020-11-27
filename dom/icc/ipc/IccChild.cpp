@@ -47,8 +47,9 @@ void IccChild::Shutdown() {
 void IccChild::ActorDestroy(ActorDestroyReason why) { mIsAlive = false; }
 
 mozilla::ipc::IPCResult IccChild::RecvNotifyCardStateChanged(
-    const uint32_t& aCardState) {
+    const uint32_t& aCardState, const uint32_t& aPin2CardState) {
   mCardState = aCardState;
+  mPin2CardState = aPin2CardState;
 
   for (int32_t i = 0; i < mListeners.Count(); i++) {
     mListeners[i]->NotifyCardStateChanged();
@@ -206,6 +207,12 @@ IccChild::GetIsimInfo(nsIIsimIccInfo**) { return NS_OK; }
 NS_IMETHODIMP
 IccChild::GetCardState(uint32_t* aCardState) {
   *aCardState = mCardState;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+IccChild::GetPin2CardState(uint32_t* aPin2CardState) {
+  *aPin2CardState = mPin2CardState;
   return NS_OK;
 }
 

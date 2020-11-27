@@ -159,7 +159,7 @@ NS_CreateIccService();
 /**
  * XPCOM component that provides the access to the selected ICC.
  */
-[scriptable, uuid(dea568b7-d19b-4977-845c-8e2c3a0c165c)]
+[scriptable, uuid(557bc61f-e8e3-4321-8ff0-22221cba1d84)]
 interface nsIIcc : nsISupports
 {
   /**
@@ -310,6 +310,13 @@ interface nsIIcc : nsISupports
    * One of the CARD_STATE_* values.
    */
   readonly attribute unsigned long cardState;
+
+  /**
+   * Indicates the PIN2 state of this ICC.
+   *
+   * One of the CARD_STATE_* values.
+   */
+  readonly attribute unsigned long pin2CardState;
 
   /**
    * IMSI of this ICC.

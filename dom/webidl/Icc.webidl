@@ -198,6 +198,18 @@ interface Icc : EventTarget
   readonly attribute IccCardState? cardState;
 
   /**
+   * Indicates the pin2 state of the device's ICC.
+   *
+   * The result would be
+   * "unknown",
+   * "ready",
+   * "pinRequired",
+   * "pukRequired",
+   * "permanentBlocked",
+   */
+  readonly attribute IccCardState? pin2CardState;
+
+  /**
    * The 'cardstatechange' event is notified when the 'cardState' attribute
    * changes value.
    */

@@ -251,17 +251,22 @@ IccService.prototype = {
     );
   },
 
-  notifyCardStateChanged(aServiceId, aCardState) {
+  notifyCardStateChanged(aServiceId, aCardState, aPin2CardState) {
     if (DEBUG) {
       debug(
         "notifyCardStateChanged for service Id: " +
           aServiceId +
           ", CardState: " +
-          aCardState
+          aCardState +
+          ", Pin2CardState: " +
+          aPin2CardState
       );
     }
 
-    this.getIccByServiceId(aServiceId)._updateCardState(aCardState);
+    this.getIccByServiceId(aServiceId)._updateCardState(
+      aCardState,
+      aPin2CardState
+    );
   },
 
   notifyIccInfoChanged(aServiceId, aIccInfo) {
@@ -351,9 +356,13 @@ Icc.prototype = {
   _radioInterface: null,
   _listeners: null,
 
-  _updateCardState(aCardState) {
+  _updateCardState(aCardState, aPin2CardState) {
     if (this.cardState != aCardState) {
       this.cardState = aCardState;
+    }
+
+    if (this.pin2CardState != aPin2CardState) {
+      this.pin2CardState = aPin2CardState;
     }
 
     this._deliverListenerEvent("notifyCardStateChanged");
@@ -551,6 +560,7 @@ Icc.prototype = {
    */
   iccInfo: null,
   cardState: Ci.nsIIcc.CARD_STATE_UNKNOWN,
+  pin2CardState: Ci.nsIIcc.CARD_STATE_UNKNOWN,
   imsi: null,
 
   registerListener(aListener) {

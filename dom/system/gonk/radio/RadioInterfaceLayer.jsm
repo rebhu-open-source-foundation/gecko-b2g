@@ -588,6 +588,7 @@ function RadioInterface(aClientId) {
   this._pendingNetworkInfo = { rilMessageType: "networkinfochanged" };
   this.pendingNetworkType = null;
   this.cardState = RIL.GECKO_CARDSTATE_UNINITIALIZED;
+  this.pin2CardState = RIL.GECKO_CARDSTATE_UNINITIALIZED;
   this.operator = {
     rilMessageType: "operatorchange",
     longName: null,
@@ -737,6 +738,11 @@ RadioInterface.prototype = {
    * Card state
    */
   cardState: null,
+
+  /**
+   * Pin2 Card state
+   */
+  pin2CardState: null,
 
   /**
    * List of strings identifying the network operator.
@@ -4938,6 +4944,7 @@ RadioInterface.prototype = {
     }
   },
 
+  /* eslint-disable complexity */
   handleIccStatus(response) {
     if (DEBUG) {
       this.debug("handleIccStatus " + JSON.stringify(response.cardStatus));
@@ -4959,8 +4966,13 @@ RadioInterface.prototype = {
         // We should send |cardstatechange| before |iccinfochange|, otherwise we
         // may lost cardstatechange event when icc card becomes undetected.
         this.cardState = Ci.nsIRilResponseResult.CARD_STATE_UNDETECTED;
+        this.pin2CardState = Ci.nsIRilResponseResult.CARD_STATE_UNDETECTED;
 
-        gIccService.notifyCardStateChanged(this.clientId, this.cardState);
+        gIccService.notifyCardStateChanged(
+          this.clientId,
+          this.cardState,
+          this.pin2CardState
+        );
         gRadioEnabledController.receiveCardState(this.clientId);
         this.iccInfo = { iccType: null };
         gIccService.notifyIccInfoChanged(this.clientId, this.iccInfo);
@@ -4997,11 +5009,15 @@ RadioInterface.prototype = {
     }
 
     let newCardState;
+    let newPin2CardState;
     let index = this._isCdma
       ? iccStatus.cdmaSubscriptionAppIndex
       : iccStatus.gsmUmtsSubscriptionAppIndex;
     let apps = iccStatus.getAppStatus();
     let app = apps[index];
+    if (DEBUG) {
+      this.debug("handleIccStatus app = " + JSON.stringify(app));
+    }
 
     if (app) {
       // fetchICCRecords will need to read aid, so read aid here.
@@ -5036,9 +5052,28 @@ RadioInterface.prototype = {
       if (pin1State === RIL.CARD_PINSTATE_ENABLED_PERM_BLOCKED) {
         newCardState = RIL.GECKO_CARDSTATE_PERMANENT_BLOCKED;
       }
+
+      // Handle pin2 state.
+      switch (app.pin2) {
+        case RIL.CARD_PINSTATE_ENABLED_NOT_VERIFIED:
+          newPin2CardState = RIL.GECKO_CARDSTATE_PIN_REQUIRED;
+          break;
+        case RIL.CARD_PINSTATE_ENABLED_VERIFIED:
+          newPin2CardState = RIL.GECKO_CARDSTATE_READY;
+          break;
+        case RIL.CARD_PINSTATE_ENABLED_BLOCKED:
+          newPin2CardState = RIL.GECKO_CARDSTATE_PUK_REQUIRED;
+          break;
+        case RIL.CARD_PINSTATE_ENABLED_PERM_BLOCKED:
+          newPin2CardState = RIL.GECKO_CARDSTATE_PERMANENT_BLOCKED;
+          break;
+        default:
+          newPin2CardState = RIL.GECKO_CARDSTATE_UNKNOWN;
+      }
     } else {
       // Having incorrect app information, set card state to unknown.
       newCardState = RIL.GECKO_CARDSTATE_UNKNOWN;
+      newPin2CardState = RIL.GECKO_CARDSTATE_UNKNOWN;
     }
 
     //Read the iccid only when card app status change from
@@ -5054,7 +5089,10 @@ RadioInterface.prototype = {
       this.simIOcontext.ICCRecordHelper.readICCID();
     }
 
-    if (this.cardState == newCardState) {
+    if (
+      this.cardState == newCardState &&
+      this.pin2CardState == newPin2CardState
+    ) {
       return;
     }
 
@@ -5092,11 +5130,15 @@ RadioInterface.prototype = {
     }
 
     this.cardState = newCardState;
-    gIccService.notifyCardStateChanged(this.clientId, this.cardState);
+    this.pin2CardState = newPin2CardState;
+    gIccService.notifyCardStateChanged(
+      this.clientId,
+      this.cardState,
+      this.pin2CardState
+    );
     gRadioEnabledController.receiveCardState(this.clientId);
-    /*this.sendChromeMessage({rilMessageType: "cardstatechange",
-                            cardState: this.cardState});*/
   },
+  /* eslint-enable complexity */
 
   handleDeviceIdentity(response) {
     if (DEBUG) {

@@ -40,7 +40,7 @@ class IccChild final : public PIccChild, public nsIIcc {
   bool DeallocPIccRequestChild(PIccRequestChild* aActor);
 
   mozilla::ipc::IPCResult RecvNotifyCardStateChanged(
-      const uint32_t& aCardState);
+      const uint32_t& aCardState, const uint32_t& aPin2CardState);
 
   mozilla::ipc::IPCResult RecvNotifyIccInfoChanged(
       const OptionalIccInfoData& aInfoData);
@@ -63,6 +63,7 @@ class IccChild final : public PIccChild, public nsIIcc {
   nsCOMArray<nsIIccListener> mListeners;
   RefPtr<IccInfo> mIccInfo;
   uint32_t mCardState;
+  uint32_t mPin2CardState;
   bool mIsAlive;
 };
 

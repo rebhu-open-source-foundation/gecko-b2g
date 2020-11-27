@@ -230,10 +230,15 @@ IccParent::NotifyCardStateChanged() {
   NS_ENSURE_TRUE(mIcc, NS_ERROR_FAILURE);
 
   uint32_t cardState;
+  uint32_t pin2CardState;
   nsresult rv = mIcc->GetCardState(&cardState);
   NS_ENSURE_SUCCESS(rv, rv);
+  rv = mIcc->GetPin2CardState(&pin2CardState);
+  NS_ENSURE_SUCCESS(rv, rv);
 
-  return SendNotifyCardStateChanged(cardState) ? NS_OK : NS_ERROR_FAILURE;
+  return SendNotifyCardStateChanged(cardState, pin2CardState)
+             ? NS_OK
+             : NS_ERROR_FAILURE;
 }
 
 NS_IMETHODIMP

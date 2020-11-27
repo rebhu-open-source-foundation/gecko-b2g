@@ -118,9 +118,9 @@ sync protocol PIcc
 
 child:
   /**
-   * Notify CardStateChanged with updated CardState.
+   * Notify CardStateChanged with updated CardState and Pin2CardState.
    */
-  async NotifyCardStateChanged(uint32_t aCardState);
+  async NotifyCardStateChanged(uint32_t aCardState, uint32_t aPin2CardState);
 
   /**
    * Notify IccInfoChanged with updated IccInfo.

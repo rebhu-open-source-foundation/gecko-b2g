@@ -57,6 +57,8 @@ class Icc final : public DOMEventTargetHelper {
 
   Nullable<IccCardState> GetCardState() const;
 
+  Nullable<IccCardState> GetPin2CardState() const;
+
   void SendStkResponse(const JSContext* aCx, JS::Handle<JS::Value> aCommand,
                        JS::Handle<JS::Value> aResponse, ErrorResult& aRv);
 

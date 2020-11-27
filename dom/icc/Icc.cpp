@@ -175,6 +175,19 @@ Nullable<IccCardState> Icc::GetCardState() const {
   return result;
 }
 
+Nullable<IccCardState> Icc::GetPin2CardState() const {
+  Nullable<IccCardState> result;
+
+  uint32_t pin2CardState = nsIIcc::CARD_STATE_UNDETECTED;
+  if (mHandler && NS_SUCCEEDED(mHandler->GetPin2CardState(&pin2CardState)) &&
+      pin2CardState != nsIIcc::CARD_STATE_UNDETECTED) {
+    MOZ_ASSERT(pin2CardState < static_cast<uint32_t>(IccCardState::EndGuard_));
+    result.SetValue(static_cast<IccCardState>(pin2CardState));
+  }
+
+  return result;
+}
+
 void Icc::SendStkResponse(const JSContext* aCx, JS::Handle<JS::Value> aCommand,
                           JS::Handle<JS::Value> aResponse, ErrorResult& aRv) {
   if (!mHandler) {
