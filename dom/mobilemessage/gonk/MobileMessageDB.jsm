@@ -3133,6 +3133,7 @@ MobileMessageDB.prototype = {
             segmentRecord.segments[seq] = aSmsSegment.body;
           }
           segmentRecord.receivedSegments++;
+          segmentRecord.imsMessage = aSmsSegment.imsMessage;
 
           // The port information is only available in 1st segment for CDMA WAP Push.
           // If the segments of a WAP Push are not received in sequence

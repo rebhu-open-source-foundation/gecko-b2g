@@ -525,7 +525,7 @@ SmsService.prototype = {
     }
 
     //check if we send ims sms
-    if (this._isImsSms(aServiceId) && !aOptions.retryFallback) {
+    if (this._isIms(aServiceId) && !aOptions.retryFallback) {
       this._sendToImsAir(aServiceId, aDomMessage, aSilent, aOptions, aRequest);
       return;
     }
@@ -1081,10 +1081,8 @@ SmsService.prototype = {
           debug("Could not get nsISmsMessage");
         }
       }
-      //FIXME
-      //let success = Components.isSuccessCode(aRv);
-      let success = true;
 
+      let success = Components.isSuccessCode(aRv);
       this._sendAckSms(aRv, aMessage, aServiceId);
 
       if (!success) {
@@ -1163,7 +1161,10 @@ SmsService.prototype = {
           : RIL.PDU_FCS_UNSPECIFIED;
     }
 
-    if (this._isImsSms(aServiceId)) {
+    if (DEBUG) {
+      debug("_sendAckSms imsMessage: " + aMessage.imsMessage);
+    }
+    if (aMessage.imsMessage) {
       this._imsSmsProviders[aServiceId].acknowledgeSms(result);
     } else {
       gRadioInterfaces[aServiceId].sendWorkerMessage("ackSMS", {
@@ -1462,6 +1463,7 @@ SmsService.prototype = {
     segment.segmentMaxSeq = aSmsMessage.segmentMaxSeq;
     segment.originatorPort = aSmsMessage.originatorPort;
     segment.destinationPort = aSmsMessage.destinationPort;
+    segment.imsMessage = aSmsMessage.imsMessage;
     segment.mwiPresent = aSmsMessage.mwiPresent;
     segment.mwiDiscard = aSmsMessage.mwiDiscard;
     segment.mwiMsgCount = aSmsMessage.mwiMsgCount;
@@ -1559,23 +1561,23 @@ SmsService.prototype = {
     }
   },
 
-  _isImsSms(aServiceId) {
+  _isIms(aServiceId) {
     let imsHandler = gImsRegService.getHandlerByServiceId(aServiceId);
     if (!imsHandler) {
       if (DEBUG) {
-        debug("_isImsSms: no imsHandler ");
+        debug("_isIms: no imsHandler ");
       }
       return false;
     }
     //TODO: check capabilities CAPABILITY_TYPE_SMS
-    let isIms =
+    let isImsSms =
       imsHandler.enabled &&
       imsHandler.capability > Ci.nsIImsRegHandler.IMS_CAPABILITY_UNKNOWN;
 
     if (DEBUG) {
-      debug("_isImsSms: return isIms " + isIms);
+      debug("_isIms: return Ims SMS service " + isImsSms);
     }
-    return isIms;
+    return isImsSms;
   },
 };
 
@@ -1945,7 +1947,9 @@ ImsSmsProvider.prototype = {
     //TODO: refine me
     if (this._lastIncomingMsg) {
       if (DEBUG) {
-        debug("acknowledgeSms token " + this._lastIncomingMsg.token);
+        debug(
+          "acknowledgeSms token " + this._lastIncomingMsg.token + " via ims"
+        );
       }
       this._imsHandler.imsMMTelFeature.acknowledgeSms(
         this._lastIncomingMsg.token,
@@ -1998,6 +2002,7 @@ ImsSmsProvider.prototype = {
       segmentMaxSeq,
       originatorPort,
       destinationPort,
+      imsMessage: true,
       // MWI info:
       mwiPresent: !!aMessage.mwi,
       mwiDiscard: aMessage.mwi ? aMessage.mwi.discard : false,
@@ -2039,8 +2044,7 @@ ImsSmsProvider.prototype = {
     if (DEBUG) {
       debug("onSmsStatusReportReceived");
     }
-    let gsmPduHelper =
-      gRadioInterfaces[this._serviceId].simIOcontext.GsmPDUHelper;
+    let gsmPduHelper = this.simIOContext.GsmPDUHelper;
     gsmPduHelper.initWIth(aPdu);
     let [message, result] = gsmPduHelper.processReceivedSms(aLength);
     if (DEBUG) {
@@ -2064,8 +2068,7 @@ ImsSmsProvider.prototype = {
     if (DEBUG) {
       debug("onSmsReceived");
     }
-    let gsmPduHelper =
-      gRadioInterfaces[this._serviceId].simIOcontext.GsmPDUHelper;
+    let gsmPduHelper = this.simIOContext.GsmPDUHelper;
     gsmPduHelper.initWIth(aPdu);
     let [message, result] = gsmPduHelper.processReceivedSms(aLength);
     if (DEBUG) {

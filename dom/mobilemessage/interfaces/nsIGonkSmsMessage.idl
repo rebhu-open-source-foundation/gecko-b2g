@@ -47,6 +47,11 @@ interface nsIGonkSmsMessage: nsISupports
   readonly attribute AString language;
 
   /**
+   * True if this is IMS message.
+   */
+  readonly attribute boolean imsMessage;
+
+  /**
    * Concatenation info. See TS 23.040, subclause 9.2.3.24.1.
    * Set to 1 if no need for concatenatenation.
    */

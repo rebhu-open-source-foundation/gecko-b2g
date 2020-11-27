@@ -2024,7 +2024,7 @@ RadioInterface.prototype = {
    * handle received SMS on sim.
    */
   handleSmsOnSim(aMessage) {
-    this.context.SimRecordHelper.readSMS(
+    this.simIOcontext.SimRecordHelper.readSMS(
       aMessage.recordNumber,
       function onsuccess(message) {
         if (message && message.simStatus === 3) {
@@ -2085,6 +2085,7 @@ RadioInterface.prototype = {
       segmentMaxSeq,
       originatorPort,
       destinationPort,
+      imsMessage: false,
       // MWI info:
       mwiPresent: !!aMessage.mwi,
       mwiDiscard: aMessage.mwi ? aMessage.mwi.discard : false,
