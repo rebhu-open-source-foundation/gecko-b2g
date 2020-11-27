@@ -90,6 +90,17 @@ nsresult GfxDebuggerConnector::SetSocketFlags(int aFd) const
     return NS_ERROR_FAILURE;
   }
 
+  // Set non-blocking status flag.
+  flags = TEMP_FAILURE_RETRY(fcntl(aFd, F_GETFL));
+  if (flags < 0) {
+    return NS_ERROR_FAILURE;
+  }
+  flags |= O_NONBLOCK;
+  res = TEMP_FAILURE_RETRY(fcntl(aFd, F_SETFL, flags));
+  if (res < 0) {
+    return NS_ERROR_FAILURE;
+  }
+
   // Set socket addr to be reused even if kernel is still waiting to close.
   res = setsockopt(aFd, SOL_SOCKET, SO_REUSEADDR, &sReuseAddress,
       sizeof(sReuseAddress));
