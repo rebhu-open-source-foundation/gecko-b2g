@@ -5573,10 +5573,11 @@ SimRecordHelperObject.prototype = {
       let RIL = this.context.RIL;
       let value = options.simResponse;
 
-      RIL.iccInfoPrivate.gid1 = value;
+      RIL.iccInfo.gid1 = value;
       if (DEBUG) {
-        this.context.debug("GID1: " + RIL.iccInfoPrivate.gid1);
+        this.context.debug("GID1: " + RIL.iccInfo.gid1);
       }
+      this.context.ICCUtilsHelper.handleICCInfoChange();
     }
 
     this.context.ICCIOHelper.loadTransparentEF({
@@ -5591,10 +5592,11 @@ SimRecordHelperObject.prototype = {
       let RIL = this.context.RIL;
       let value = options.simResponse;
 
-      RIL.iccInfoPrivate.gid2 = value;
+      RIL.iccInfo.gid2 = value;
       if (DEBUG) {
-        this.context.debug("GID2: " + RIL.iccInfoPrivate.gid2);
+        this.context.debug("GID2: " + RIL.iccInfo.gid2);
       }
+      this.context.ICCUtilsHelper.handleICCInfoChange();
     }
 
     this.context.ICCIOHelper.loadTransparentEF({
