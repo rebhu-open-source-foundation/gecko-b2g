@@ -35,6 +35,7 @@ dictionary NetworkProperties {
   long mode;
   long frequency;
   DOMString security;
+  boolean wpsSupported;
   boolean known;
   boolean connected;
   boolean hidden;
@@ -75,6 +76,7 @@ interface WifiNetwork {
   readonly attribute long mode;
   readonly attribute long frequency;
   readonly attribute DOMString security;
+  readonly attribute boolean wpsSupported;
   readonly attribute boolean known;
   readonly attribute boolean connected;
   readonly attribute boolean hidden;

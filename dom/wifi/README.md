@@ -11,6 +11,7 @@ WifiNetwork {
   readonly attribute long mode;
   readonly attribute long frequency;
   readonly attribute DOMString security;
+  readonly attribute boolean wpsSupported;
   readonly attribute boolean known;
   readonly attribute boolean connected;
   readonly attribute boolean hidden;

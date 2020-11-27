@@ -114,6 +114,7 @@ this.WifiConfigUtils = (function() {
   // WifiConfigUtils functions
   wifiConfigUtils.getMode = getMode;
   wifiConfigUtils.getScanResultSecurity = getScanResultSecurity;
+  wifiConfigUtils.getWpsSupported = getWpsSupported;
   wifiConfigUtils.matchKeyMgmtToSecurity = matchKeyMgmtToSecurity;
   wifiConfigUtils.matchSecurityToKeyMgmt = matchSecurityToKeyMgmt;
   wifiConfigUtils.calculateSignal = calculateSignal;
@@ -550,6 +551,10 @@ this.WifiConfigUtils = (function() {
     return type;
   }
 
+  function getWpsSupported(flags) {
+    return flags ? flags.isWPS : false;
+  }
+
   function matchKeyMgmtToSecurity(network) {
     let keyMgmt = network.keyMgmt;
     if (!keyMgmt) {
@@ -764,12 +769,14 @@ this.WifiNetwork = function WifiNetwork(
   mode,
   frequency,
   security,
-  password
+  password,
+  wpsSupported
 ) {
   this.ssid = ssid;
   this.mode = mode;
   this.frequency = frequency;
   this.security = security;
+  this.wpsSupported = wpsSupported;
 
   if (typeof password !== "undefined") {
     this.password = password;
@@ -785,6 +792,7 @@ WifiNetwork.api = {
   security: "r",
   known: "r",
   connected: "r",
+  wpsSupported: "r",
 
   password: "rw",
   psk: "rw",
@@ -812,7 +820,8 @@ this.ScanResult = function ScanResult(ssid, bssid, frequency, flags, signal) {
     WifiConfigUtils.getMode(flags),
     frequency,
     WifiConfigUtils.getScanResultSecurity(flags),
-    undefined
+    undefined,
+    WifiConfigUtils.getWpsSupported(flags)
   );
   this.bssid = bssid;
   this.signalStrength = signal;

@@ -2411,7 +2411,7 @@ function WifiWorker() {
     delete net.signalStrength;
     delete net.relSignalStrength;
     delete net.security;
-    delete net.capabilities;
+    delete net.wpsSupported;
     delete net.dontConnect;
 
     if (!configured) {
