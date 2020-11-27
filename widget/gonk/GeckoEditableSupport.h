@@ -47,7 +47,12 @@ class GeckoEditableSupport final : public TextEventDispatcherListener,
   static void SetOnBrowserChild(dom::BrowserChild* aBrowserChild,
                                 nsPIDOMWindowOuter* aDOMWindow);
 
-  explicit GeckoEditableSupport(nsPIDOMWindowOuter* aDOMWindow);
+  // Constructor for main process
+  GeckoEditableSupport(nsPIDOMWindowOuter* aDOMWindow, nsWindow* aWindow);
+
+  // Constructor for content process GeckoEditableSupport.
+  explicit GeckoEditableSupport(nsPIDOMWindowOuter* aDOMWindow)
+      : GeckoEditableSupport(aDOMWindow, nullptr) {}
 
   // TextEventDispatcherListener methods
   NS_IMETHOD NotifyIME(TextEventDispatcher* aTextEventDispatcher,
@@ -69,13 +74,25 @@ class GeckoEditableSupport final : public TextEventDispatcherListener,
                             WidgetKeyboardEvent& aKeyboardEvent,
                             uint32_t aIndexOfKeypress, void* aData) override {}
 
- protected:
-  virtual ~GeckoEditableSupport();
-  void HandleFocus();
-  void HandleBlur();
+  nsresult BeginInputTransaction(TextEventDispatcher* aDispatcher) {
+    if (mIsRemote) {
+      return aDispatcher->BeginInputTransaction(this);
+    } else {
+      return aDispatcher->BeginNativeInputTransaction();
+    }
+  }
+
   nsresult GetInputContextBag(dom::nsInputContext* aInputContext);
 
+  void HandleFocus();
+  void HandleBlur();
+
+ protected:
+  virtual ~GeckoEditableSupport();
+
  private:
+  nsWindow* mWindow;
+  const bool mIsRemote;
   RefPtr<TextEventDispatcher> mDispatcher;
   nsCOMPtr<dom::EventTarget> mChromeEventHandler;
 };
