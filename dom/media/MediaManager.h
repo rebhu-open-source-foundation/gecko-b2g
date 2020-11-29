@@ -296,6 +296,12 @@ class MediaManager final : public nsIMediaManagerService, public nsIObserver {
   static void GuessVideoDeviceGroupIDs(MediaDeviceSet& aDevices,
                                        const MediaDeviceSet& aAudios);
 
+#ifdef MOZ_B2G
+  // Dispatch 'recordingstatus' CustomEvent to the target
+  static nsresult NotifyRecordingStatus(dom::EventTarget* aTarget, bool aAudio,
+                                        bool aVideo);
+#endif
+
  private:
   enum class DeviceEnumerationType : uint8_t {
     Normal,  // Enumeration should not return loopback or fake devices
@@ -338,6 +344,12 @@ class MediaManager final : public nsIMediaManagerService, public nsIObserver {
 
   void RemoveMediaDevicesCallback(uint64_t aWindowID);
   void DeviceListChanged();
+
+#ifdef MOZ_B2G
+  // Collect all recording activities in aWindow's window tree, and notify their
+  // combined status to chrome.
+  nsresult CollectRecordingStatus(nsPIDOMWindowInner* aWindow);
+#endif
 
   // ONLY access from MainThread so we don't need to lock
   WindowTable mActiveWindows;

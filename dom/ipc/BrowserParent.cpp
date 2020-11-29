@@ -149,6 +149,10 @@
 #  include "GeckoViewHistory.h"
 #endif
 
+#ifdef MOZ_B2G
+#  include "mozilla/MediaManager.h"
+#endif
+
 #include "mozilla/dom/VirtualCursorService.h"
 
 using namespace mozilla::dom;
@@ -3334,6 +3338,14 @@ mozilla::ipc::IPCResult BrowserParent::RecvAudioChannelActivityNotification(
   }
   return IPC_OK();
 }
+
+#ifdef MOZ_B2G
+mozilla::ipc::IPCResult BrowserParent::RecvNotifyRecordingStatus(bool aAudio,
+                                                                 bool aVideo) {
+  MediaManager::NotifyRecordingStatus(mFrameElement, aAudio, aVideo);
+  return IPC_OK();
+}
+#endif
 
 already_AddRefed<nsFrameLoader> BrowserParent::GetFrameLoader(
     bool aUseCachedFrameLoaderAfterDestroy) const {
