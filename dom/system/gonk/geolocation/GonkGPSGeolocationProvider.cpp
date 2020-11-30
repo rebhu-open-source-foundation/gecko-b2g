@@ -1082,15 +1082,25 @@ void GonkGPSGeolocationProvider::UpdateNetworkState(nsISupports* aNetworkInfo) {
     }
   }
 
+  // The magic value of net handle which should correspond with the value in
+  // system/netd/server/NetworkController.h
+  constexpr uint32_t kHandleMagic = 0xcafed00d;
+
+  // Convert net id to net_handle_t
+  uint64_t netHandle = 0;  // network unspecified
+  if (!netId) {
+    netHandle = (((uint64_t)netId << 32) | kHandleMagic);
+  }
+
   IAGnssRil_V2_0::NetworkAttributes networkAttributes = {
-      .networkHandle = static_cast<uint64_t>(netId),
+      .networkHandle = netHandle,
       .isConnected = static_cast<bool>(connected),
       .capabilities = capabilities,
       .apn = gRilDataApn.get(),
   };
-  DBG("updateNetworkState_2_0, netId: %d, connected: %d, capabilities: %u, "
-      "apn: %s)",
-      netId, connected, capabilities, gRilDataApn.get());
+  DBG("updateNetworkState_2_0, netId: %d, netHandle: %llu, connected: %d, "
+      "capabilities: %u, apn: %s)",
+      netId, netHandle, connected, capabilities, gRilDataApn.get());
   mAGnssRilHal_V2_0->updateNetworkState_2_0(networkAttributes);
 }
 
