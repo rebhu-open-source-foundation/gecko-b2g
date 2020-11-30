@@ -426,6 +426,7 @@ struct ParamTraits<mozilla::WidgetKeyboardEvent> {
     WriteParam(aMsg, aParam.mLocation);
     WriteParam(aMsg, aParam.mUniqueId);
     WriteParam(aMsg, aParam.mIsSynthesizedByTIP);
+    WriteParam(aMsg, aParam.mHandledByIME);
     WriteParam(aMsg, aParam.mMaybeSkippableInRemoteProcess);
 #ifdef XP_MACOSX
     WriteParam(aMsg, aParam.mNativeKeyCode);
@@ -464,6 +465,7 @@ struct ParamTraits<mozilla::WidgetKeyboardEvent> {
         ReadParam(aMsg, aIter, &aResult->mLocation) &&
         ReadParam(aMsg, aIter, &aResult->mUniqueId) &&
         ReadParam(aMsg, aIter, &aResult->mIsSynthesizedByTIP) &&
+        ReadParam(aMsg, aIter, &aResult->mHandledByIME) &&
         ReadParam(aMsg, aIter, &aResult->mMaybeSkippableInRemoteProcess) &&
 #ifdef XP_MACOSX
         ReadParam(aMsg, aIter, &aResult->mNativeKeyCode) &&

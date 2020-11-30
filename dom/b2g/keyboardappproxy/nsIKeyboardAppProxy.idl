@@ -1,0 +1,61 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+#include "nsISupports.idl"
+
+webidl FrameLoader;
+
+%{C++
+#define NS_KEYBOARDAPPPROXY_CID { 0xd0cca02c, 0x87a6, 0x458c, { 0x97, 0x58, 0x07, 0x21, 0xae, 0xf3, 0xbb, 0xe4 } }
+#define KEYBOARDAPPPROXY_CONTRACTID "@mozilla.org/keyboardAppProxy;1"
+
+namespace mozilla {
+  class WidgetKeyboardEvent;
+}
+%}
+
+[ptr] native WidgetKeyboardEventPtr(mozilla::WidgetKeyboardEvent);
+
+[scriptable, function, uuid(87857156-bcef-4db1-886c-e91674b9546b)]
+interface nsIKeyboardEventForwarder : nsISupports
+{
+  void onKeyboardEventReceived(in ACString eventType,
+                               in uint32_t keyCode,
+                               in uint32_t charCode,
+                               in ACString key,
+                               in uint64_t timeStamp,
+                               in uint64_t generation);
+};
+
+[scriptable, uuid(17005351-d16e-4a35-a136-4d75b844e807)]
+interface nsIKeyboardAppProxy : nsISupports
+{
+  /* There are three keyboard event types which will be processed here - keyup,
+   * keydown and keypress.
+   */
+  boolean maybeForwardKey(in WidgetKeyboardEventPtr event);
+
+  /* This is invoked by KeyboardAppProxy with the status processed by keyboard
+   * app.
+   *
+   * eventType: keydown, keyup or keypress
+   *
+   * defaultPrevented: If true, meaning that aEvent is hooked to Keyboard App
+   *                    for further processing, and we should disable default
+   *                    behavior made on this key (i.e. dispatching to target,
+   *                    post handle event). Vice versa if false.
+   *
+   * generation: Used to identify each transitions of keyboard app between
+   *              active and inactive then we can filter out the events of
+   *              outdated generation.
+   */
+  void replyKey(in ACString eventType, in bool defaultPrevented,
+                in uint64_t generation);
+
+  /* This frameLoader should be from keyboard app. We register this frameLoader
+   * with KeyboardEventForwarder to forward hardware key event.
+   */
+  void activate(in FrameLoader frameLoader);
+  void deactivate();
+};

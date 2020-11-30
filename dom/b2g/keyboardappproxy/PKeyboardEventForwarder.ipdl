@@ -1,0 +1,39 @@
+/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
+/* vim: set ts=8 sts=2 et sw=2 tw=80: */
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+include protocol PBrowser;
+
+namespace mozilla {
+namespace dom {
+
+struct KeyRequest {
+  nsCString eventType;
+  uint32_t keyCode;
+  uint32_t charCode;
+  nsCString key;
+  uint64_t timeStamp;
+  uint64_t generation;
+};
+
+struct KeyResponse {
+  nsCString eventType;
+  bool defaultPrevented;
+  uint64_t generation;
+};
+
+async protocol PKeyboardEventForwarder {
+  manager PBrowser;
+
+child:
+  async Key(KeyRequest event);
+  async __delete__();
+
+parent:
+  async Response(KeyResponse response);
+};
+
+} // namespace dom
+} // namespace mozilla

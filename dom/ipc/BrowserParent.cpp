@@ -35,6 +35,7 @@
 #include "mozilla/dom/SessionStoreUtils.h"
 #include "mozilla/dom/SessionStoreUtilsBinding.h"
 #include "mozilla/dom/UserActivation.h"
+#include "mozilla/dom/KeyboardEventForwarderParent.h"
 #include "mozilla/EventStateManager.h"
 #include "mozilla/gfx/2D.h"
 #include "mozilla/gfx/DataSurfaceHelpers.h"
@@ -4277,6 +4278,19 @@ mozilla::ipc::IPCResult BrowserParent::RecvReleasePointerCapture(
     const uint32_t& aPointerId) {
   PointerEventHandler::ReleasePointerCaptureRemoteTarget(aPointerId);
   return IPC_OK();
+}
+
+PKeyboardEventForwarderParent*
+BrowserParent::AllocPKeyboardEventForwarderParent() {
+  MOZ_CRASH();
+  return nullptr;
+}
+
+bool BrowserParent::DeallocPKeyboardEventForwarderParent(
+    PKeyboardEventForwarderParent* aActor) {
+  RefPtr<KeyboardEventForwarderParent> actor =
+      dont_AddRef(static_cast<KeyboardEventForwarderParent*>(aActor));
+  return true;
 }
 
 }  // namespace mozilla::dom

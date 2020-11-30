@@ -12,6 +12,17 @@
     "resource://gre/modules/Services.jsm"
   );
 
+  const { XPCOMUtils } = ChromeUtils.import(
+    "resource://gre/modules/XPCOMUtils.jsm"
+  );
+
+  XPCOMUtils.defineLazyServiceGetter(
+    Services,
+    "KeyboardAppProxy",
+    "@mozilla.org/keyboardAppProxy;1",
+    "nsIKeyboardAppProxy"
+  );
+
   // Enable logs when according to the pref value, and listen to changes.
   let webViewLogEnabled = Services.prefs.getBoolPref(
     "webview.log.enabled",
@@ -716,6 +727,16 @@
 
     scrollToBottom(smooth = true) {
       this.browser?.webViewScrollTo("bottom", smooth);
+    }
+
+    activateKeyForwarding() {
+      this.log(`activateKeyForwarding`);
+      Services.KeyboardAppProxy.activate(this.browser.frameLoader);
+    }
+
+    deactivateKeyForwarding() {
+      this.log(`deactivateKeyForwarding`);
+      Services.KeyboardAppProxy.deactivate();
     }
   }
 

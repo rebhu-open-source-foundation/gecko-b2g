@@ -72,6 +72,7 @@
 #include "mozilla/dom/SessionStoreListener.h"
 #include "mozilla/dom/WindowGlobalChild.h"
 #include "mozilla/dom/WindowProxyHolder.h"
+#include "mozilla/dom/KeyboardEventForwarderChild.h"
 #include "mozilla/gfx/CrossProcessPaint.h"
 #include "mozilla/gfx/Matrix.h"
 #include "mozilla/gfx/gfxVars.h"
@@ -4284,4 +4285,15 @@ nsISerialEventTarget* BrowserChildMessageManager::EventTargetFor(
 AbstractThread* BrowserChildMessageManager::AbstractMainThreadFor(
     TaskCategory aCategory) {
   return DispatcherTrait::AbstractMainThreadFor(aCategory);
+}
+
+PKeyboardEventForwarderChild*
+BrowserChild::AllocPKeyboardEventForwarderChild() {
+  return new KeyboardEventForwarderChild();
+}
+
+bool BrowserChild::DeallocPKeyboardEventForwarderChild(
+    PKeyboardEventForwarderChild* aActor) {
+  delete aActor;
+  return true;
 }

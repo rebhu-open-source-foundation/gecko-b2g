@@ -172,6 +172,7 @@
 #include "mozilla/css/ImageLoader.h"
 #include "mozilla/dom/DocumentTimeline.h"
 #include "mozilla/dom/ScriptSettings.h"
+#include "mozilla/dom/KeyboardAppProxy.h"
 #include "mozilla/ErrorResult.h"
 #include "mozilla/Preferences.h"
 #include "mozilla/Telemetry.h"
@@ -6813,6 +6814,14 @@ nsresult PresShell::HandleEvent(nsIFrame* aFrameForPresShell,
       MouseLocationWasSetBySynthesizedMouseEventForTests() &&
       aGUIEvent->AsMouseEvent()->mReason == WidgetMouseEvent::eSynthesized) {
     return NS_OK;
+  }
+  if (WidgetKeyboardEvent* keyEvent = aGUIEvent->AsKeyboardEvent()) {
+    RefPtr<KeyboardAppProxy> proxy = KeyboardAppProxy::GetInstance();
+    bool forward = false;
+    Unused << proxy->MaybeForwardKey(keyEvent, &forward);
+    if (forward) {
+      return NS_OK;
+    }
   }
   EventHandler eventHandler(*this);
   return eventHandler.HandleEvent(aFrameForPresShell, aGUIEvent,

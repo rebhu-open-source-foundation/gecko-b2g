@@ -149,6 +149,7 @@ class WidgetKeyboardEvent : public WidgetInputEvent {
         mIsRepeat(false),
         mIsComposing(false),
         mIsSynthesizedByTIP(false),
+        mHandledByIME(false),
         mMaybeSkippableInRemoteProcess(true),
         mUseLegacyKeyCodeAndCharCodeValues(false),
         mEditCommandsForSingleLineEditorInitialized(false),
@@ -180,6 +181,7 @@ class WidgetKeyboardEvent : public WidgetInputEvent {
         mIsRepeat(false),
         mIsComposing(false),
         mIsSynthesizedByTIP(false),
+        mHandledByIME(false),
         mMaybeSkippableInRemoteProcess(true),
         mUseLegacyKeyCodeAndCharCodeValues(false),
         mEditCommandsForSingleLineEditorInitialized(false),
@@ -435,6 +437,10 @@ class WidgetKeyboardEvent : public WidgetInputEvent {
   // Indicates whether the event is synthesized from Text Input Processor
   // or an actual event from nsAppShell.
   bool mIsSynthesizedByTIP;
+
+  // Indicates whether the event is handled by IME or not.
+  bool mHandledByIME;
+
   // Indicates whether the event is skippable in remote process.
   // Don't refer this member directly when you need to check this.
   // Use CanSkipInRemoteProcess() instead.
@@ -712,6 +718,7 @@ class WidgetKeyboardEvent : public WidgetInputEvent {
     mPluginTextEventString.Assign(aEvent.mPluginTextEventString);
 #endif
     mIsSynthesizedByTIP = aEvent.mIsSynthesizedByTIP;
+    mHandledByIME = aEvent.mHandledByIME;
     mMaybeSkippableInRemoteProcess = aEvent.mMaybeSkippableInRemoteProcess;
     mUseLegacyKeyCodeAndCharCodeValues =
         aEvent.mUseLegacyKeyCodeAndCharCodeValues;

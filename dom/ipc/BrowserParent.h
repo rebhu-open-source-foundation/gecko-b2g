@@ -798,6 +798,10 @@ class BrowserParent final : public PBrowserParent,
       const uint32_t& aPointerId, RequestPointerCaptureResolver&& aResolve);
   mozilla::ipc::IPCResult RecvReleasePointerCapture(const uint32_t& aPointerId);
 
+  PKeyboardEventForwarderParent* AllocPKeyboardEventForwarderParent();
+  bool DeallocPKeyboardEventForwarderParent(
+      PKeyboardEventForwarderParent* aActor);
+
  private:
   void SuppressDisplayport(bool aEnabled);
 

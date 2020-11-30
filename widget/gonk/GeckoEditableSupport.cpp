@@ -664,6 +664,7 @@ GeckoEditableSupport::Keydown(uint32_t aId,
   if (NS_SUCCEEDED(rv)) {
     nsCOMPtr<nsIWidget> widget = dispatcher->GetWidget();
     WidgetKeyboardEvent event(true, eKeyDown, widget);
+    event.mHandledByIME = true;
     event.mKeyNameIndex = WidgetKeyboardEvent::GetKeyNameIndex(aKey);
     if (event.mKeyNameIndex == KEY_NAME_INDEX_USE_STRING) {
       event.mKeyValue = aKey;
@@ -700,6 +701,7 @@ GeckoEditableSupport::Keyup(uint32_t aId, nsIEditableSupportListener* aListener,
   if (NS_SUCCEEDED(rv)) {
     nsCOMPtr<nsIWidget> widget = dispatcher->GetWidget();
     WidgetKeyboardEvent event(true, eKeyUp, widget);
+    event.mHandledByIME = true;
     event.mKeyNameIndex = WidgetKeyboardEvent::GetKeyNameIndex(aKey);
     if (event.mKeyNameIndex == KEY_NAME_INDEX_USE_STRING) {
       event.mKeyValue = aKey;
@@ -735,6 +737,7 @@ GeckoEditableSupport::SendKey(uint32_t aId,
   if (NS_SUCCEEDED(rv)) {
     nsCOMPtr<nsIWidget> widget = kungFuDeathGrip->GetWidget();
     WidgetKeyboardEvent event(true, eVoidEvent, widget);
+    event.mHandledByIME = true;
     event.mKeyNameIndex = WidgetKeyboardEvent::GetKeyNameIndex(aKey);
     if (event.mKeyNameIndex == KEY_NAME_INDEX_USE_STRING) {
       event.mKeyValue = aKey;

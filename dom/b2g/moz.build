@@ -21,6 +21,7 @@ DIRS += [
     "flipmanager",
     "downloads",
     "inputmethod",
+    "keyboardappproxy",
     "keyboardeventgenerator",
     "messages",
     "permissions",

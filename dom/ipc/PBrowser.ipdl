@@ -21,6 +21,7 @@ include protocol PPaymentRequest;
 include protocol PWindowGlobal;
 include protocol PBrowserBridge;
 include protocol PVsync;
+include protocol PKeyboardEventForwarder;
 
 include DOMTypes;
 include NeckoChannelParams;
@@ -193,6 +194,7 @@ nested(upto inside_cpow) sync refcounted protocol PBrowser
     manages PWindowGlobal;
     manages PBrowserBridge;
     manages PVsync;
+    manages PKeyboardEventForwarder;
 
 both:
     async AsyncMessage(nsString aMessage, ClonedMessageData aData);
@@ -641,6 +643,8 @@ child:
      * Parent informs the child to release all pointer capture.
      */
     prio(input) async ReleaseAllPointerCapture();
+
+    async PKeyboardEventForwarder();
 
 parent:
     async UpdateCursorPos(LayoutDeviceIntPoint aPoint);

@@ -752,6 +752,10 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
 
   mozilla::ipc::IPCResult RecvReleaseAllPointerCapture();
 
+  PKeyboardEventForwarderChild* AllocPKeyboardEventForwarderChild();
+  bool DeallocPKeyboardEventForwarderChild(
+      PKeyboardEventForwarderChild* aActor);
+
  private:
   void HandleDoubleTap(const CSSPoint& aPoint, const Modifiers& aModifiers,
                        const ScrollableLayerGuid& aGuid);

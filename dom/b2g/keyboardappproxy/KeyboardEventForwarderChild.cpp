@@ -1,0 +1,83 @@
+/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
+/* vim: set ts=8 sts=2 et sw=2 tw=80: */
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+#include "KeyboardEventForwarderChild.h"
+#include "mozilla/PresShell.h"
+#include "mozilla/dom/KeyboardEvent.h"
+#include "mozilla/dom/BrowserChild.h"
+#include <string.h>
+
+extern mozilla::LazyLogModule gKeyboardAppProxyLog;
+
+namespace mozilla {
+namespace dom {
+
+KeyboardEventForwarderChild::KeyboardEventForwarderChild() {
+  MOZ_LOG(gKeyboardAppProxyLog, LogLevel::Debug,
+          ("KeyboardEventForwarderChild::Constructor[%p]", this));
+}
+
+KeyboardEventForwarderChild::~KeyboardEventForwarderChild() {
+  MOZ_LOG(gKeyboardAppProxyLog, LogLevel::Debug,
+          ("KeyboardEventForwarderChild::Destructor[%p]", this));
+}
+
+IPCResult KeyboardEventForwarderChild::RecvKey(const KeyRequest& aKey) {
+  bool defaultPrevented = false;
+  do {
+    BrowserChild* browserChild = static_cast<BrowserChild*>(Manager());
+    if (!browserChild) {
+      MOZ_LOG(gKeyboardAppProxyLog, LogLevel::Debug,
+              ("KeyboardEventForwarderChild::RecvKey no BrowserChild"));
+      break;
+    }
+    PresShell* presShell = browserChild->GetTopLevelPresShell();
+    if (!presShell) {
+      MOZ_LOG(gKeyboardAppProxyLog, LogLevel::Debug,
+              ("KeyboardEventForwarderChild::RecvKey no PresShell"));
+      break;
+    }
+    Document* doc = presShell->GetDocument();
+    if (!doc) {
+      MOZ_LOG(gKeyboardAppProxyLog, LogLevel::Debug,
+              ("KeyboardEventForwarderChild::RecvKey no doc"));
+      break;
+    }
+    EventMessage message = eVoidEvent;
+    if (!strcmp("keydown", aKey.eventType().get())) {
+      message = eKeyDown;
+    } else if (!strcmp("keypress", aKey.eventType().get())) {
+      message = eKeyPress;
+    } else if (!strcmp("keyup", aKey.eventType().get())) {
+      message = eKeyUp;
+    } else {
+      MOZ_LOG(gKeyboardAppProxyLog, LogLevel::Debug,
+              ("KeyboardEventForwarderChild::RecvKey bad key %s",
+               aKey.eventType().get()));
+      break;
+    }
+    UniquePtr<WidgetKeyboardEvent> keyEvent(
+        new WidgetKeyboardEvent(true, message, nullptr));
+    keyEvent->mCharCode = aKey.charCode();
+    keyEvent->mKeyCode = aKey.keyCode();
+    keyEvent->mKeyNameIndex =
+        WidgetKeyboardEvent::GetKeyNameIndex(NS_ConvertUTF8toUTF16(aKey.key()));
+    if (keyEvent->mKeyNameIndex == KEY_NAME_INDEX_USE_STRING) {
+      keyEvent->mKeyValue = NS_ConvertUTF8toUTF16(aKey.key());
+    }
+    RefPtr<KeyboardEvent> domEvent =
+        new KeyboardEvent(doc, presShell->GetPresContext(), keyEvent.get());
+    doc->DispatchEvent(*domEvent);
+    defaultPrevented = domEvent->DefaultPrevented();
+  } while (0);
+
+  Unused << SendResponse(
+      KeyResponse(aKey.eventType(), defaultPrevented, aKey.generation()));
+  return IPC_OK();
+}
+
+}  // namespace dom
+}  // namespace mozilla

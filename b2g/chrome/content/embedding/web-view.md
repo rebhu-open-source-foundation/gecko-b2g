@@ -23,6 +23,8 @@ The <web-view> element supports the following attributes:
 - `getCursorEnabled() : Promise<boolean>` : query whether the virtual cursor is enabled.
 - `scrollToTop(smooth = true) : void` : scrolls to the top of the document.
 - `scrollToBottom(smooth = true) : void` : scrolls to the bottom of the document.
+- `activateKeyForwarding() : void` : enable key forward to this web-view first.
+- `deactivateKeyForwarding() : void` : disable key forwarding.
 
 ## Properties
 
