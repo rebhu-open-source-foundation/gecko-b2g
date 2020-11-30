@@ -180,6 +180,13 @@ XPCOMUtils.defineLazyServiceGetter(
   "nsINetworkTimeService"
 );
 
+XPCOMUtils.defineLazyServiceGetter(
+  this,
+  "gVoicemailService",
+  "@mozilla.org/voicemail/gonkvoicemailservice;1",
+  "nsIGonkVoicemailService"
+);
+
 XPCOMUtils.defineLazyGetter(this, "gRadioEnabledController", function() {
   let _ril = null;
   let _pendingMessages = []; // For queueing "setRadioEnabled" message.
@@ -2358,18 +2365,22 @@ RadioInterface.prototype = {
   },
 
   handleIccMbdn(message) {
-    // Cameron mark first.
-    /*let service = Cc["@mozilla.org/voicemail/voicemailservice;1"]
-                  .getService(Ci.nsIGonkVoicemailService);
-    service.notifyInfoChanged(this.clientId, message.number, message.alphaId);*/
+    gVoicemailService.notifyInfoChanged(
+      this.clientId,
+      message.number,
+      message.alphaId
+    );
   },
 
   handleIccMwis(mwi) {
-    /*let service = Cc["@mozilla.org/voicemail/voicemailservice;1"]
-                  .getService(Ci.nsIGonkVoicemailService);
     // Note: returnNumber and returnMessage is not available from UICC.
-    service.notifyStatusChanged(this.clientId, mwi.active, mwi.msgCount,
-                                null, null);*/
+    gVoicemailService.notifyStatusChanged(
+      this.clientId,
+      mwi.active,
+      mwi.msgCount,
+      null,
+      null
+    );
   },
 
   _convertCbGsmGeographicalScope(aGeographicalScope) {
