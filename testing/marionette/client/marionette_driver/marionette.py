@@ -1438,7 +1438,7 @@ class Marionette(object):
             import re
 
             regex = re.compile(
-                r"^(http|https)://((\w)+(\.)?(\w)*)" r"$(?!\/).*", re.IGNORECASE
+                r"^(http|https)://((\w)+(\.)?(\w)*).*", re.IGNORECASE
             )  # only match URL origin, no '/'
             if not re.match(regex, origin):
                 raise ValueError(
