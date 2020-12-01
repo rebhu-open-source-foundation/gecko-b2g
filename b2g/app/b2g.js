@@ -981,7 +981,6 @@ pref("dom.push.quota.disabled", true);
 pref("dom.push.extendTimeout.token", 3000);
 
 // Adaptive ping
-pref("dom.push.adaptive.enabled", false);
 pref("dom.push.adaptive.lastGoodPingInterval", 180000);// 3 min
 pref("dom.push.adaptive.lastGoodPingInterval.mobile", 180000);// 3 min
 pref("dom.push.adaptive.lastGoodPingInterval.wifi", 180000);// 3 min

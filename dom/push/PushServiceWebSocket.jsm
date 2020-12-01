@@ -483,7 +483,7 @@ var PushServiceWebSocket = {
       console.warn("requestTimeout smaller than min, set it as default");
     }
     this._requestTimeout = this._requestTimeoutBase;
-    this._adaptiveEnabled = prefs.getBoolPref("adaptive.enabled");
+    this._adaptiveEnabled = prefs.getBoolPref("adaptive.enabled", false);
     this._upperLimit = prefs.getIntPref("adaptive.upperLimit");
 
     if (prefs.getBoolPref("authorization.enabled", false)) {
