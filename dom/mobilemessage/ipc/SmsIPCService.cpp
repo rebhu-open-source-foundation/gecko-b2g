@@ -285,10 +285,6 @@ bool GetSendMmsMessageRequestFromParams(uint32_t aServiceId,
   // SendMobileMessageRequest.attachments
   mozilla::dom::ContentChild* cc = mozilla::dom::ContentChild::GetSingleton();
 
-  if (!params.mAttachments.Length()) {
-    return false;
-  }
-
   IPCBlob ipcBlob;
   for (uint32_t i = 0; i < params.mAttachments.Length(); i++) {
     mozilla::dom::MmsAttachment& attachment = params.mAttachments[i];
@@ -304,6 +300,10 @@ bool GetSendMmsMessageRequestFromParams(uint32_t aServiceId,
     request.attachments().AppendElement(mmsAttachment);
   }
 
+  //always have smil to prevent compatibility issue with different carriers
+  if (!params.mSmil.Length()) {
+    return false;
+  }
   request.smil() = params.mSmil;
   request.subject() = params.mSubject;
   request.isGroup() = params.mIsGroup.Value();
