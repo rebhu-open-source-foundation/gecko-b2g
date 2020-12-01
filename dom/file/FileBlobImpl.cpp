@@ -7,6 +7,7 @@
 #include "FileBlobImpl.h"
 #include "BaseBlobImpl.h"
 #include "mozilla/SlicedInputStream.h"
+#include "mozilla/SyncRunnable.h"
 #include "mozilla/dom/WorkerPrivate.h"
 #include "mozilla/dom/WorkerRunnable.h"
 #include "nsCExternalHandlerService.h"
@@ -158,32 +159,6 @@ uint64_t FileBlobImpl::GetSize(ErrorResult& aRv) {
   return mLength.value();
 }
 
-class FileBlobImpl::GetTypeRunnable final : public WorkerMainThreadRunnable {
- public:
-  GetTypeRunnable(WorkerPrivate* aWorkerPrivate, FileBlobImpl* aBlobImpl,
-                  const MutexAutoLock& aProofOfLock)
-      : WorkerMainThreadRunnable(aWorkerPrivate, "FileBlobImpl :: GetType"_ns),
-        mBlobImpl(aBlobImpl),
-        mProofOfLock(aProofOfLock) {
-    MOZ_ASSERT(aBlobImpl);
-    aWorkerPrivate->AssertIsOnWorkerThread();
-  }
-
-  bool MainThreadRun() override {
-    MOZ_ASSERT(NS_IsMainThread());
-
-    nsAutoString type;
-    mBlobImpl->GetTypeInternal(type, mProofOfLock);
-    return true;
-  }
-
- private:
-  ~GetTypeRunnable() = default;
-
-  RefPtr<FileBlobImpl> mBlobImpl;
-  const MutexAutoLock& mProofOfLock;
-};
-
 void FileBlobImpl::GetType(nsAString& aType) {
   MutexAutoLock lock(mMutex);
   GetTypeInternal(aType, lock);
@@ -198,39 +173,29 @@ void FileBlobImpl::GetTypeInternal(nsAString& aType,
                "Should only use lazy ContentType when using the whole file");
 
     if (!NS_IsMainThread()) {
-      WorkerPrivate* workerPrivate = GetCurrentThreadWorkerPrivate();
-      if (!workerPrivate) {
-        // I have no idea in which thread this method is called. We cannot
-        // return any valid value.
-        return;
-      }
-
-      RefPtr<GetTypeRunnable> runnable =
-          new GetTypeRunnable(workerPrivate, this, aProofOfLock);
-
-      ErrorResult rv;
-      runnable->Dispatch(Canceling, rv);
-      if (NS_WARN_IF(rv.Failed())) {
-        rv.SuppressException();
-        return;
-      }
-    } else {
-      nsresult rv;
-      nsCOMPtr<nsIMIMEService> mimeService =
-          do_GetService(NS_MIMESERVICE_CONTRACTID, &rv);
-      if (NS_WARN_IF(NS_FAILED(rv))) {
-        return;
-      }
-
-      nsAutoCString mimeType;
-      rv = mimeService->GetTypeFromFile(mFile, mimeType);
-      if (NS_FAILED(rv)) {
-        mimeType.Truncate();
-      }
-
-      AppendUTF8toUTF16(mimeType, mContentType);
-      mContentType.SetIsVoid(false);
+      RefPtr<Runnable> runnable = NS_NewRunnableFunction(
+          "FileBlobImpl::GetTypeInternal", [&]() -> void {
+            FileBlobImpl::GetTypeInternal(aType, aProofOfLock);
+          });
+      SyncRunnable::DispatchToThread(GetMainThreadEventTarget(), runnable);
+      return;
     }
+
+    nsresult rv;
+    nsCOMPtr<nsIMIMEService> mimeService =
+        do_GetService(NS_MIMESERVICE_CONTRACTID, &rv);
+    if (NS_WARN_IF(NS_FAILED(rv))) {
+      return;
+    }
+
+    nsAutoCString mimeType;
+    rv = mimeService->GetTypeFromFile(mFile, mimeType);
+    if (NS_FAILED(rv)) {
+      mimeType.Truncate();
+    }
+
+    AppendUTF8toUTF16(mimeType, mContentType);
+    mContentType.SetIsVoid(false);
   }
 
   aType = mContentType;

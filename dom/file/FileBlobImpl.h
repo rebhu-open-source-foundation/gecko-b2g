@@ -126,7 +126,6 @@ class FileBlobImpl : public BlobImpl {
                                          const nsAString& aContentType,
                                          ErrorResult& aRv) override;
 
-  class GetTypeRunnable;
   void GetTypeInternal(nsAString& aType, const MutexAutoLock& aProofOfLock);
 
   // FileBlobImpl has getter methods with lazy initialization. Because any
