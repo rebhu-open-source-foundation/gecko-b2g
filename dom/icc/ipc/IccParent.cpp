@@ -38,10 +38,13 @@ void IccParent::ActorDestroy(ActorDestroyReason aWhy) {
 }
 
 mozilla::ipc::IPCResult IccParent::RecvInit(OptionalIccInfoData* aInfoData,
-                                            uint32_t* aCardState) {
+                                            uint32_t* aCardState,
+                                            uint32_t* aPin2CardState) {
   NS_ENSURE_TRUE(mIcc, IPC_FAIL_NO_REASON(this));
 
   nsresult rv = mIcc->GetCardState(aCardState);
+  NS_ENSURE_SUCCESS(rv, IPC_FAIL_NO_REASON(this));
+  rv = mIcc->GetPin2CardState(aPin2CardState);
   NS_ENSURE_SUCCESS(rv, IPC_FAIL_NO_REASON(this));
 
   nsCOMPtr<nsIIccInfo> iccInfo;

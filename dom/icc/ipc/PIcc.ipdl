@@ -183,7 +183,7 @@ parent:
    * Sync call to initialize the updated IccInfo/CardState.
    */
   sync Init()
-     returns (OptionalIccInfoData aInfoData, uint32_t aCardState);
+     returns (OptionalIccInfoData aInfoData, uint32_t aCardState, uint32_t aPin2CardState);
 
 };
 

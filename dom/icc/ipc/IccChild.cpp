@@ -27,7 +27,7 @@ IccChild::~IccChild() {}
 void IccChild::Init() {
   OptionalIccInfoData infoData;
 
-  bool rv = SendInit(&infoData, &mCardState);
+  bool rv = SendInit(&infoData, &mCardState, &mPin2CardState);
   NS_ENSURE_TRUE_VOID(rv);
 
   UpdateIccInfo(infoData);

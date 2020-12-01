@@ -30,7 +30,8 @@ class IccParent final : public PIccParent, public nsIIccListener {
   virtual void ActorDestroy(ActorDestroyReason aWhy) override;
 
   mozilla::ipc::IPCResult RecvInit(OptionalIccInfoData* aInfoData,
-                                   uint32_t* aCardState);
+                                   uint32_t* aCardState,
+                                   uint32_t* aPin2CardState);
 
   mozilla::ipc::IPCResult RecvStkResponse(const nsString& aCmd,
                                           const nsString& aResponse);
