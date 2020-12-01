@@ -105,9 +105,7 @@ struct GeckoBridgeImpl {
     service_id: TrackerId,
     // Helper struct to send tasks.
     sender: TaskSender,
-    // The next usable object_id when we create delegates.
-    current_object_id: TrackerId,
-
+    // A factory to yield unique object ids for this service.
     object_id_generator: Shared<ObjectIdGenerator>,
     // The apps_service delegate.
     apps_service_delegate: Option<ClientObject>,
@@ -142,8 +140,6 @@ impl ServiceClientImpl<GeckoBridgeTask> for GeckoBridgeImpl {
             transport,
             service_id,
             sender,
-            // current_object_id starts at 1 since 0 is reserved for the service object itself.
-            current_object_id: 1,
             object_id_generator: Shared::adopt(ObjectIdGenerator { current_id: 1 }),
             power_manager_delegate: None,
             apps_service_delegate: None,
