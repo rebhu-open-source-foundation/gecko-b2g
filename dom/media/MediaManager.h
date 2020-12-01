@@ -271,6 +271,12 @@ class MediaManager final : public nsIMediaManagerService, public nsIObserver {
     return mDeviceListChangeEvent;
   }
 
+#ifdef MOZ_B2G
+  nsresult UpdateExternalRecordingStatus(void* aOwner,
+                                         nsPIDOMWindowInner* aWindow,
+                                         bool aAudio, bool aVideo);
+#endif
+
   MediaEnginePrefs mPrefs;
 
  private:
@@ -390,6 +396,15 @@ class MediaManager final : public nsIMediaManagerService, public nsIObserver {
   MediaEventListener mDeviceListChangeListener;
 
   MediaEventProducer<void> mDeviceListChangeEvent;
+
+#ifdef MOZ_B2G
+  struct ExternalRecorderData {
+    uint64_t mWindowID = 0;
+    bool mAudio = false;
+    bool mVideo = false;
+  };
+  nsDataHashtable<nsPtrHashKey<void>, ExternalRecorderData> mExternalRecorders;
+#endif
 
 #if defined(MOZ_B2G_CAMERA) && defined(MOZ_WIDGET_GONK)
   RefPtr<nsDOMCameraManager> mCameraManager;

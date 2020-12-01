@@ -2252,6 +2252,20 @@ nsresult MediaManager::CollectRecordingStatus(nsPIDOMWindowInner* aWindow) {
     }
   }
 
+  // Combine external status in the same window tree.
+  for (auto iter = mExternalRecorders.Iter(); !iter.Done(); iter.Next()) {
+    auto& data = iter.Data();
+    auto* win = nsGlobalWindowInner::GetInnerWindowWithId(data.mWindowID);
+    if (!win) {
+      continue;
+    }
+    nsCOMPtr<nsPIDOMWindowOuter> top = win->GetOuterWindow()->GetInProcessTop();
+    if (top == topWindow) {
+      audio = audio || data.mAudio;
+      video = video || data.mVideo;
+    }
+  }
+
   if (XRE_IsParentProcess()) {
     NotifyRecordingStatus(topWindow->GetChromeEventHandler(), audio, video);
   } else {
@@ -2259,6 +2273,21 @@ nsresult MediaManager::CollectRecordingStatus(nsPIDOMWindowInner* aWindow) {
     browserChild->SendNotifyRecordingStatus(audio, video);
   }
   return NS_OK;
+}
+
+nsresult MediaManager::UpdateExternalRecordingStatus(
+    void* aOwner, nsPIDOMWindowInner* aWindow, bool aAudio, bool aVideo) {
+  NS_ENSURE_ARG(aWindow);
+
+  if (!aAudio && !aVideo) {
+    mExternalRecorders.Remove(aOwner);
+  } else {
+    auto& data = mExternalRecorders.GetOrInsert(aOwner);
+    data.mWindowID = aWindow->WindowID();
+    data.mAudio = aAudio;
+    data.mVideo = aVideo;
+  }
+  return CollectRecordingStatus(aWindow);
 }
 #endif
 
