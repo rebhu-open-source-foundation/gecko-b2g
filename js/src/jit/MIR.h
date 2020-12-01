@@ -46,7 +46,6 @@
 #include "vm/RegExpObject.h"
 #include "vm/SharedMem.h"
 #include "vm/TypedArrayObject.h"
-#include "vm/TypeSet.h"
 
 namespace JS {
 struct ExpandoAndGeneration;
@@ -2596,6 +2595,8 @@ class WrappedFunction : public TempObject {
     return true;
   }
 };
+
+enum class DOMObjectKind : uint8_t { Proxy, Native, Unknown };
 
 class MCall : public MVariadicInstruction, public CallPolicy::Data {
  private:
@@ -9172,6 +9173,27 @@ class MGuardNullProto : public MUnaryInstruction,
   }
 };
 
+// Guard the object is a native object.
+class MGuardIsNativeObject : public MUnaryInstruction,
+                             public SingleObjectPolicy::Data {
+  explicit MGuardIsNativeObject(MDefinition* obj)
+      : MUnaryInstruction(classOpcode, obj) {
+    setGuard();
+    setMovable();
+    setResultType(MIRType::Object);
+  }
+
+ public:
+  INSTRUCTION_HEADER(GuardIsNativeObject)
+  TRIVIAL_NEW_WRAPPERS
+  NAMED_OPERANDS((0, object))
+
+  bool congruentTo(const MDefinition* ins) const override {
+    return congruentIfOperandsEqual(ins);
+  }
+  AliasSet getAliasSet() const override { return AliasSet::None(); }
+};
+
 // Guard the object is a proxy.
 class MGuardIsProxy : public MUnaryInstruction,
                       public SingleObjectPolicy::Data {
@@ -11149,17 +11171,21 @@ class MInCache : public MBinaryInstruction,
 
 // Test whether the index is in the array bounds or a hole.
 class MInArray : public MQuaternaryInstruction, public ObjectPolicy<3>::Data {
-  bool needsHoleCheck_;
   bool needsNegativeIntCheck_;
 
   MInArray(MDefinition* elements, MDefinition* index, MDefinition* initLength,
-           MDefinition* object, bool needsHoleCheck)
+           MDefinition* object)
       : MQuaternaryInstruction(classOpcode, elements, index, initLength,
                                object),
-        needsHoleCheck_(needsHoleCheck),
         needsNegativeIntCheck_(true) {
     setResultType(MIRType::Boolean);
     setMovable();
+
+    // Set the guard flag to make sure we bail when we see a negative index.
+    // We can clear this flag (and needsNegativeIntCheck_) in
+    // collectRangeInfoPreTrunc.
+    setGuard();
+
     MOZ_ASSERT(elements->type() == MIRType::Elements);
     MOZ_ASSERT(index->type() == MIRType::Int32);
     MOZ_ASSERT(initLength->type() == MIRType::Int32);
@@ -11170,7 +11196,6 @@ class MInArray : public MQuaternaryInstruction, public ObjectPolicy<3>::Data {
   TRIVIAL_NEW_WRAPPERS
   NAMED_OPERANDS((0, elements), (1, index), (2, initLength), (3, object))
 
-  bool needsHoleCheck() const { return needsHoleCheck_; }
   bool needsNegativeIntCheck() const { return needsNegativeIntCheck_; }
   void collectRangeInfoPreTrunc() override;
   AliasSet getAliasSet() const override {
@@ -11181,9 +11206,6 @@ class MInArray : public MQuaternaryInstruction, public ObjectPolicy<3>::Data {
       return false;
     }
     const MInArray* other = ins->toInArray();
-    if (needsHoleCheck() != other->needsHoleCheck()) {
-      return false;
-    }
     if (needsNegativeIntCheck() != other->needsNegativeIntCheck()) {
       return false;
     }
@@ -12499,6 +12521,191 @@ class MGuardHasGetterSetter : public MUnaryInstruction,
   bool appendRoots(MRootList& roots) const override {
     return roots.append(shape_);
   }
+};
+
+// Guard the object is extensible.
+class MGuardIsExtensible : public MUnaryInstruction,
+                           public SingleObjectPolicy::Data {
+  explicit MGuardIsExtensible(MDefinition* object)
+      : MUnaryInstruction(classOpcode, object) {
+    setResultType(MIRType::Object);
+    setMovable();
+    setGuard();
+  }
+
+ public:
+  INSTRUCTION_HEADER(GuardIsExtensible)
+  TRIVIAL_NEW_WRAPPERS
+  NAMED_OPERANDS((0, object))
+
+  AliasSet getAliasSet() const override {
+    return AliasSet::Load(AliasSet::ObjectFields);
+  }
+
+  bool congruentTo(const MDefinition* ins) const override {
+    return congruentIfOperandsEqual(ins);
+  }
+};
+
+// Guard the input index is non-negative.
+class MGuardIndexIsNonNegative : public MUnaryInstruction,
+                                 public UnboxedInt32Policy<0>::Data {
+  explicit MGuardIndexIsNonNegative(MDefinition* index)
+      : MUnaryInstruction(classOpcode, index) {
+    setResultType(MIRType::Int32);
+    setMovable();
+    setGuard();
+  }
+
+ public:
+  INSTRUCTION_HEADER(GuardIndexIsNonNegative)
+  TRIVIAL_NEW_WRAPPERS
+  NAMED_OPERANDS((0, index))
+
+  AliasSet getAliasSet() const override { return AliasSet::None(); }
+
+  bool congruentTo(const MDefinition* ins) const override {
+    return congruentIfOperandsEqual(ins);
+  }
+
+  MDefinition* foldsTo(TempAllocator& alloc) override;
+};
+
+// Guard the input index is greater than the dense initialized length of an
+// object.
+class MGuardIndexGreaterThanDenseInitLength
+    : public MBinaryInstruction,
+      public MixPolicy<ObjectPolicy<0>, UnboxedInt32Policy<1>>::Data {
+  MGuardIndexGreaterThanDenseInitLength(MDefinition* obj, MDefinition* index)
+      : MBinaryInstruction(classOpcode, obj, index) {
+    setResultType(MIRType::Int32);
+    setMovable();
+    setGuard();
+  }
+
+ public:
+  INSTRUCTION_HEADER(GuardIndexGreaterThanDenseInitLength)
+  TRIVIAL_NEW_WRAPPERS
+  NAMED_OPERANDS((0, object), (1, index))
+
+  AliasSet getAliasSet() const override {
+    return AliasSet::Load(AliasSet::ObjectFields);
+  }
+
+  bool congruentTo(const MDefinition* ins) const override {
+    return congruentIfOperandsEqual(ins);
+  }
+};
+
+// Guard an array object's length can be updated successfully when adding an
+// element at the input index.
+class MGuardIndexIsValidUpdateOrAdd
+    : public MBinaryInstruction,
+      public MixPolicy<ObjectPolicy<0>, UnboxedInt32Policy<1>>::Data {
+  MGuardIndexIsValidUpdateOrAdd(MDefinition* obj, MDefinition* index)
+      : MBinaryInstruction(classOpcode, obj, index) {
+    setResultType(MIRType::Int32);
+    setMovable();
+    setGuard();
+  }
+
+ public:
+  INSTRUCTION_HEADER(GuardIndexIsValidUpdateOrAdd)
+  TRIVIAL_NEW_WRAPPERS
+  NAMED_OPERANDS((0, object), (1, index))
+
+  AliasSet getAliasSet() const override {
+    return AliasSet::Load(AliasSet::ObjectFields);
+  }
+
+  bool congruentTo(const MDefinition* ins) const override {
+    return congruentIfOperandsEqual(ins);
+  }
+};
+
+// Add or update a sparse element of an array object. It's allowed for the
+// sparse element to be already present on the array. It may also be an accessor
+// property, so this instruction is always marked as effectful.
+class MCallAddOrUpdateSparseElement
+    : public MTernaryInstruction,
+      public MixPolicy<ObjectPolicy<0>, UnboxedInt32Policy<1>,
+                       BoxPolicy<2>>::Data {
+  bool strict_;
+
+  MCallAddOrUpdateSparseElement(MDefinition* obj, MDefinition* index,
+                                MDefinition* value, bool strict)
+      : MTernaryInstruction(classOpcode, obj, index, value), strict_(strict) {}
+
+ public:
+  INSTRUCTION_HEADER(CallAddOrUpdateSparseElement)
+  TRIVIAL_NEW_WRAPPERS
+  NAMED_OPERANDS((0, object), (1, index), (2, value))
+
+  bool strict() const { return strict_; }
+
+  bool possiblyCalls() const override { return true; }
+};
+
+// Get a sparse element from an array object, possibly by calling an accessor
+// property.
+class MCallGetSparseElement
+    : public MBinaryInstruction,
+      public MixPolicy<ObjectPolicy<0>, UnboxedInt32Policy<1>>::Data {
+  MCallGetSparseElement(MDefinition* obj, MDefinition* index)
+      : MBinaryInstruction(classOpcode, obj, index) {
+    setResultType(MIRType::Value);
+  }
+
+ public:
+  INSTRUCTION_HEADER(CallGetSparseElement)
+  TRIVIAL_NEW_WRAPPERS
+  NAMED_OPERANDS((0, object), (1, index))
+
+  bool possiblyCalls() const override { return true; }
+};
+
+// Get any element from a native object.
+class MCallNativeGetElement
+    : public MBinaryInstruction,
+      public MixPolicy<ObjectPolicy<0>, UnboxedInt32Policy<1>>::Data {
+  MCallNativeGetElement(MDefinition* obj, MDefinition* index)
+      : MBinaryInstruction(classOpcode, obj, index) {
+    setResultType(MIRType::Value);
+  }
+
+ public:
+  INSTRUCTION_HEADER(CallNativeGetElement)
+  TRIVIAL_NEW_WRAPPERS
+  NAMED_OPERANDS((0, object), (1, index))
+
+  bool possiblyCalls() const override { return true; }
+};
+
+// Test if a native object has an own element (sparse or dense) at an index.
+class MCallObjectHasSparseElement
+    : public MBinaryInstruction,
+      public MixPolicy<ObjectPolicy<0>, UnboxedInt32Policy<1>>::Data {
+  MCallObjectHasSparseElement(MDefinition* obj, MDefinition* index)
+      : MBinaryInstruction(classOpcode, obj, index) {
+    setResultType(MIRType::Boolean);
+    setGuard();
+  }
+
+ public:
+  INSTRUCTION_HEADER(CallObjectHasSparseElement)
+  TRIVIAL_NEW_WRAPPERS
+  NAMED_OPERANDS((0, object), (1, index))
+
+  bool congruentTo(const MDefinition* ins) const override {
+    return congruentIfOperandsEqual(ins);
+  }
+
+  AliasSet getAliasSet() const override {
+    return AliasSet::Load(AliasSet::Element | AliasSet::ObjectFields |
+                          AliasSet::DynamicSlot | AliasSet::FixedSlot);
+  }
+
+  bool possiblyCalls() const override { return true; }
 };
 
 // Flips the input's sign bit, independently of the rest of the number's

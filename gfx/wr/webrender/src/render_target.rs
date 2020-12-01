@@ -24,7 +24,7 @@ use crate::render_task::{RenderTaskKind, RenderTaskAddress, BlitSource};
 use crate::render_task::{RenderTask, ScalingTask, SvgFilterInfo};
 use crate::render_task_graph::{RenderTaskGraph, RenderTaskId};
 use crate::resource_cache::ResourceCache;
-use crate::texture_allocator::{ArrayAllocationTracker, FreeRectSlice};
+use crate::guillotine_allocator::{GuillotineAllocator, FreeRectSlice};
 use crate::visibility::PrimitiveVisibilityMask;
 use std::{cmp, mem};
 
@@ -174,7 +174,7 @@ pub struct RenderTargetList<T> {
     pub max_dynamic_size: DeviceIntSize,
     pub targets: Vec<T>,
     pub saved_index: Option<SavedTargetIndex>,
-    pub alloc_tracker: ArrayAllocationTracker,
+    pub alloc_tracker: GuillotineAllocator,
     gpu_supports_fast_clears: bool,
 }
 
@@ -190,7 +190,7 @@ impl<T: RenderTarget> RenderTargetList<T> {
             max_dynamic_size: DeviceIntSize::new(0, 0),
             targets: Vec::new(),
             saved_index: None,
-            alloc_tracker: ArrayAllocationTracker::new(None),
+            alloc_tracker: GuillotineAllocator::new(None),
             gpu_supports_fast_clears,
         }
     }
@@ -936,7 +936,7 @@ fn add_svg_filter_instances(
     input_2_task: Option<RenderTaskId>,
     extra_data_address: Option<GpuCacheAddress>,
 ) {
-    let mut textures = BatchTextures::no_texture();
+    let mut textures = BatchTextures::empty();
 
     if let Some(saved_index) = input_1_task.map(|id| &render_tasks[id].saved_index) {
         textures.colors[0] = match saved_index {

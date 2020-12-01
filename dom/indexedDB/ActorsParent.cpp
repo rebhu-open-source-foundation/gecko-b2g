@@ -5103,6 +5103,10 @@ class QuotaClient final : public mozilla::dom::quota::Client {
     MOZ_ASSERT(mCurrentMaintenance == aMaintenance);
 
     mCurrentMaintenance = nullptr;
+
+    QuotaClient::GetInstance()->MaybeRecordShutdownStep(
+        "Maintenance finished"_ns);
+
     ProcessMaintenanceQueue();
   }
 
@@ -5147,8 +5151,8 @@ class QuotaClient final : public mozilla::dom::quota::Client {
 
   void InitiateShutdown() override;
   bool IsShutdownCompleted() const override;
+  nsCString GetShutdownStatus() const override;
   void ForceKillActors() override;
-  void ShutdownTimedOut() override;
   void FinalizeShutdown() override;
 
   static void DeleteTimerCallback(nsITimer* aTimer, void* aClosure);
@@ -10067,10 +10071,16 @@ void Database::CleanupMetadata() {
   MOZ_ALWAYS_TRUE(gLiveDatabaseHashtable->Get(Id(), &info));
   MOZ_ALWAYS_TRUE(info->mLiveDatabases.RemoveElement(this));
 
+  QuotaClient::GetInstance()->MaybeRecordShutdownStep(
+      "Live database entry removed"_ns);
+
   if (info->mLiveDatabases.IsEmpty()) {
     MOZ_ASSERT(!info->mWaitingFactoryOp ||
                !info->mWaitingFactoryOp->HasBlockedDatabases());
     gLiveDatabaseHashtable->Remove(Id());
+
+    QuotaClient::GetInstance()->MaybeRecordShutdownStep(
+        "gLiveDatabaseHashtable entry removed"_ns);
   }
 
   // Match the IncreaseBusyCount in OpenDatabaseOp::EnsureDatabaseActor().
@@ -13274,7 +13284,7 @@ void QuotaClient::ForceKillActors() {
   // Currently we don't implement force killing actors.
 }
 
-void QuotaClient::ShutdownTimedOut() {
+nsCString QuotaClient::GetShutdownStatus() const {
   AssertIsOnBackgroundThread();
 
   nsCString data;
@@ -13333,10 +13343,7 @@ void QuotaClient::ShutdownTimedOut() {
     data.Append(")\n");
   }
 
-  CrashReporter::AnnotateCrashReport(
-      CrashReporter::Annotation::IndexedDBShutdownTimeout, data);
-
-  MOZ_CRASH("IndexedDB shutdown timed out");
+  return data;
 }
 
 void QuotaClient::FinalizeShutdown() {
@@ -15822,6 +15829,13 @@ void FactoryOp::CleanupMetadata() {
 
   MOZ_ASSERT(gFactoryOps);
   gFactoryOps->RemoveElement(this);
+
+  if (auto* const quotaClient = QuotaClient::GetInstance()) {
+    quotaClient->MaybeRecordShutdownStep(
+        "An element was removed from gFactoryOps"_ns);
+  } else {
+    NS_WARNING("Cannot record shutdown step because QuotaClient is nullptr");
+  }
 
   // Match the IncreaseBusyCount in AllocPBackgroundIDBFactoryRequestParent().
   DecreaseBusyCount();

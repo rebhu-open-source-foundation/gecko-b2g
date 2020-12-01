@@ -13,9 +13,9 @@
 #include "frontend/BytecodeCompiler.h"
 #include "jit/arm/Simulator-arm.h"
 #include "jit/AtomicOperations.h"
-#include "jit/AutoDetectInvalidation.h"
 #include "jit/BaselineIC.h"
 #include "jit/CalleeToken.h"
+#include "jit/Invalidation.h"
 #include "jit/JitFrames.h"
 #include "jit/JitRuntime.h"
 #include "jit/mips32/Simulator-mips32.h"
@@ -41,7 +41,6 @@
 #include "vm/NativeObject-inl.h"
 #include "vm/PlainObject-inl.h"  // js::CreateThis
 #include "vm/StringObject-inl.h"
-#include "vm/TypeInference-inl.h"
 
 using namespace js;
 using namespace js::jit;
@@ -905,23 +904,6 @@ template bool StringsCompare<ComparisonKind::LessThan>(JSContext* cx,
 template bool StringsCompare<ComparisonKind::GreaterThanOrEqual>(
     JSContext* cx, HandleString lhs, HandleString rhs, bool* res);
 
-bool ArrayPopDense(JSContext* cx, HandleObject obj, MutableHandleValue rval) {
-  MOZ_ASSERT(obj->is<ArrayObject>());
-
-  // TODO(no-TI): remove AutoDetectInvalidation.
-  AutoDetectInvalidation adi(cx, rval);
-
-  JS::RootedValueArray<2> argv(cx);
-  argv[0].setUndefined();
-  argv[1].setObject(*obj);
-  if (!js::array_pop(cx, 0, argv.begin())) {
-    return false;
-  }
-
-  rval.set(argv[0]);
-  return true;
-}
-
 bool ArrayPushDense(JSContext* cx, HandleArrayObject arr, HandleValue v,
                     uint32_t* length) {
   *length = arr->length();
@@ -943,22 +925,6 @@ bool ArrayPushDense(JSContext* cx, HandleArrayObject arr, HandleValue v,
   // Length must fit in an int32 because we guard against overflow before
   // calling this VM function.
   *length = argv[0].toInt32();
-  return true;
-}
-
-bool ArrayShiftDense(JSContext* cx, HandleObject obj, MutableHandleValue rval) {
-  MOZ_ASSERT(obj->is<ArrayObject>());
-
-  AutoDetectInvalidation adi(cx, rval);
-
-  JS::RootedValueArray<2> argv(cx);
-  argv[0].setUndefined();
-  argv[1].setObject(*obj);
-  if (!js::array_shift(cx, 0, argv.begin())) {
-    return false;
-  }
-
-  rval.set(argv[0]);
   return true;
 }
 
@@ -1110,11 +1076,6 @@ JSObject* NewStringObject(JSContext* cx, HandleString str) {
 bool OperatorIn(JSContext* cx, HandleValue key, HandleObject obj, bool* out) {
   RootedId id(cx);
   return ToPropertyKey(cx, key, &id) && HasProperty(cx, obj, id, out);
-}
-
-bool OperatorInI(JSContext* cx, int32_t index, HandleObject obj, bool* out) {
-  RootedValue key(cx, Int32Value(index));
-  return OperatorIn(cx, key, obj, out);
 }
 
 bool GetIntrinsicValue(JSContext* cx, HandlePropertyName name,

@@ -35,7 +35,9 @@
 //! calling `DrawTarget::to_framebuffer_rect`
 
 use api::{BlobImageHandler, ColorF, ColorU, MixBlendMode};
-use api::{DocumentId, Epoch, ExternalImageHandler, ExternalImageId};
+use api::{DocumentId, Epoch, ExternalImageHandler};
+#[cfg(feature = "replay")]
+use api::ExternalImageId;
 use api::{ExternalImageSource, ExternalImageType, FontRenderMode, ImageFormat};
 use api::{PipelineId, ImageRendering, Checkpoint, NotificationRequest};
 use api::{VoidPtrToSizeFn, PremultipliedColorF};
@@ -74,7 +76,7 @@ use crate::gpu_types::{ClearInstance, CompositeInstance, ResolveInstanceData, Tr
 use crate::internal_types::{TextureSource, ResourceCacheError};
 use crate::internal_types::{CacheTextureId, DebugOutput, FastHashMap, FastHashSet, LayerIndex, RenderedDocument, ResultMsg};
 use crate::internal_types::{TextureCacheAllocationKind, TextureCacheUpdate, TextureUpdateList, TextureUpdateSource};
-use crate::internal_types::{RenderTargetInfo, SavedTargetIndex, Swizzle};
+use crate::internal_types::{RenderTargetInfo, SavedTargetIndex, Swizzle, DeferredResolveIndex};
 use malloc_size_of::MallocSizeOfOps;
 use crate::picture::{self, ResolvedSurfaceTexture};
 use crate::prim_store::DeferredResolve;
@@ -90,7 +92,7 @@ use crate::scene_builder_thread::{SceneBuilderThread, SceneBuilderThreadChannels
 use crate::screen_capture::AsyncScreenshotGrabber;
 use crate::shade::{Shaders, WrShaders};
 use smallvec::SmallVec;
-use crate::texture_allocator::{ArrayAllocationTracker, FreeRectSlice};
+use crate::guillotine_allocator::{GuillotineAllocator, FreeRectSlice};
 use crate::texture_cache::TextureCache;
 use crate::render_target::{AlphaRenderTarget, ColorRenderTarget, PictureCacheTarget};
 use crate::render_target::{RenderTarget, TextureCacheRenderTarget, RenderTargetList};
@@ -365,6 +367,7 @@ pub(crate) enum TextureSampler {
     Dither,
     PrimitiveHeadersF,
     PrimitiveHeadersI,
+    ClipMask,
 }
 
 impl TextureSampler {
@@ -394,6 +397,7 @@ impl Into<TextureSlot> for TextureSampler {
             TextureSampler::Dither => TextureSlot(8),
             TextureSampler::PrimitiveHeadersF => TextureSlot(9),
             TextureSampler::PrimitiveHeadersI => TextureSlot(10),
+            TextureSampler::ClipMask => TextureSlot(11),
         }
     }
 }
@@ -1166,7 +1170,7 @@ struct TextureResolver {
     texture_cache_map: FastHashMap<CacheTextureId, Texture>,
 
     /// Map of external image IDs to native textures.
-    external_images: FastHashMap<(ExternalImageId, u8), ExternalTexture>,
+    external_images: FastHashMap<DeferredResolveIndex, ExternalTexture>,
 
     /// A special 1x1 dummy texture used for shaders that expect to work with
     /// the output of the previous pass but are actually running in the first
@@ -1350,7 +1354,7 @@ impl TextureResolver {
         // Note: the order here is important, needs to match the logic in `RenderPass::build()`.
         if let Some(at) = self.prev_pass_color.take() {
             if let Some(index) = at.saved_index {
-                assert_eq!(self.saved_targets.len(), index.0);
+                assert_eq!(self.saved_targets.len() as u32, index.0);
                 self.saved_targets.push(at.texture);
             } else {
                 self.return_to_pool(device, at.texture);
@@ -1358,7 +1362,7 @@ impl TextureResolver {
         }
         if let Some(at) = self.prev_pass_alpha.take() {
             if let Some(index) = at.saved_index {
-                assert_eq!(self.saved_targets.len(), index.0);
+                assert_eq!(self.saved_targets.len() as u32, index.0);
                 self.saved_targets.push(at.texture);
             } else {
                 self.return_to_pool(device, at.texture);
@@ -1400,9 +1404,9 @@ impl TextureResolver {
                 device.bind_texture(sampler, texture, swizzle);
                 swizzle
             }
-            TextureSource::External(external_image) => {
+            TextureSource::External(ref index, _) => {
                 let texture = self.external_images
-                    .get(&(external_image.id, external_image.channel_index))
+                    .get(index)
                     .expect("BUG: External image should be resolved by now");
                 device.bind_external_texture(sampler, texture);
                 Swizzle::default()
@@ -1413,8 +1417,8 @@ impl TextureResolver {
                 swizzle
             }
             TextureSource::RenderTaskCache(saved_index, swizzle) => {
-                if saved_index.0 < self.saved_targets.len() {
-                    let texture = &self.saved_targets[saved_index.0];
+                if saved_index.0 < self.saved_targets.len() as u32 {
+                    let texture = &self.saved_targets[saved_index.0 as usize];
                     device.bind_texture(sampler, texture, swizzle)
                 } else {
                     // Check if this saved index is referring to a the prev pass
@@ -1467,7 +1471,7 @@ impl TextureResolver {
                 Some((&self.texture_cache_map[&index], swizzle))
             }
             TextureSource::RenderTaskCache(saved_index, swizzle) => {
-                Some((&self.saved_targets[saved_index.0], swizzle))
+                Some((&self.saved_targets[saved_index.0 as usize], swizzle))
             }
         }
     }
@@ -1480,9 +1484,9 @@ impl TextureResolver {
         default_value: TexelRect,
     ) -> TexelRect {
         match source {
-            TextureSource::External(ref external_image) => {
+            TextureSource::External(ref index, _) => {
                 let texture = self.external_images
-                    .get(&(external_image.id, external_image.channel_index))
+                    .get(index)
                     .expect("BUG: External image should be resolved by now");
                 texture.get_uv_rect()
             }
@@ -3635,11 +3639,6 @@ impl Renderer {
             self.update_debug_overlay(device_size);
         }
 
-        #[cfg(feature = "replay")]
-        self.texture_resolver.external_images.extend(
-            self.owned_external_images.iter().map(|(key, value)| (*key, value.clone()))
-        );
-
         let frame = &mut active_doc.frame;
         let profile = &mut active_doc.profile;
         assert!(self.current_compositor_kind == frame.composite_state.compositor_kind);
@@ -3649,7 +3648,7 @@ impl Renderer {
                     "Cleared texture cache without sending new document frame.");
         }
 
-        match self.prepare_gpu_cache(frame) {
+        match self.prepare_gpu_cache(&frame.deferred_resolves) {
             Ok(..) => {
                 assert!(frame.gpu_cache_frame_id <= self.gpu_cache_frame_id,
                     "Received frame depends on a later GPU cache epoch ({:?}) than one we received last via `UpdateGpuCache` ({:?})",
@@ -3688,7 +3687,7 @@ impl Renderer {
             }
         }
 
-        self.unlock_external_images();
+        self.unlock_external_images(&frame.deferred_resolves);
 
         let _gm = self.gpu_profiler.start_marker("end frame");
         self.gpu_profiler.end_frame();
@@ -3784,6 +3783,7 @@ impl Renderer {
         // should ensure any left over render targets get invalidated and
         // returned to the pool correctly.
         self.texture_resolver.end_frame(&mut self.device, cpu_frame_id);
+        self.texture_upload_pbo_pool.end_frame(&mut self.device);
         self.device.end_frame();
 
         if device_size.is_some() {
@@ -3913,7 +3913,10 @@ impl Renderer {
         self.profile.set(profiler::GPU_CACHE_BLOCKS_UPDATED, updated_blocks);
     }
 
-    fn prepare_gpu_cache(&mut self, frame: &Frame) -> Result<(), RendererError> {
+    fn prepare_gpu_cache(
+        &mut self,
+        deferred_resolves: &[DeferredResolve],
+    ) -> Result<(), RendererError> {
         if self.pending_gpu_cache_clear {
             let use_scatter =
                 matches!(self.gpu_cache_texture.bus, GpuCacheBus::Scatter { .. });
@@ -3923,7 +3926,7 @@ impl Renderer {
             self.pending_gpu_cache_clear = false;
         }
 
-        let deferred_update_list = self.update_deferred_resolves(&frame.deferred_resolves);
+        let deferred_update_list = self.update_deferred_resolves(deferred_resolves);
         self.pending_gpu_cache_updates.extend(deferred_update_list);
 
         self.update_gpu_cache();
@@ -4115,7 +4118,7 @@ impl Renderer {
 
                     if use_batch_upload {
                         let (allocator, buffers) = batch_upload_buffers.entry(texture.get_format())
-                            .or_insert_with(|| (ArrayAllocationTracker::new(None), Vec::new()));
+                            .or_insert_with(|| (GuillotineAllocator::new(None), Vec::new()));
 
                         // Allocate a region within the staging buffer for this update. If there is
                         // no room in an existing buffer then allocate another texture and buffer.
@@ -4289,6 +4292,12 @@ impl Renderer {
                 }
             }
         }
+
+        self.texture_resolver.bind(
+            &textures.clip_mask,
+            TextureSampler::ClipMask,
+            &mut self.device,
+        );
 
         // TODO: this probably isn't the best place for this.
         if let Some(ref texture) = self.dither_matrix_texture {
@@ -4491,7 +4500,7 @@ impl Renderer {
             self.draw_instanced_batch(
                 instances,
                 VertexArrayKind::Scale,
-                &BatchTextures::color(*source),
+                &BatchTextures::composite_rgb(*source),
                 stats,
             );
         }
@@ -4575,7 +4584,7 @@ impl Renderer {
                     self.draw_instanced_batch(
                         &[instance],
                         VertexArrayKind::Clear,
-                        &BatchTextures::no_texture(),
+                        &BatchTextures::empty(),
                         stats,
                     );
                     if clear_color.is_none() {
@@ -4913,13 +4922,11 @@ impl Renderer {
                             &mut self.renderer_errors
                         );
 
-                    let textures = BatchTextures {
-                        colors: [
-                            planes[0].texture,
-                            planes[1].texture,
-                            planes[2].texture,
-                        ],
-                    };
+                    let textures = BatchTextures::composite_yuv(
+                        planes[0].texture,
+                        planes[1].texture,
+                        planes[2].texture,
+                    );
 
                     // When the texture is an external texture, the UV rect is not known when
                     // the external surface descriptor is created, because external textures
@@ -4964,7 +4971,7 @@ impl Renderer {
                             &mut self.renderer_errors
                         );
 
-                    let textures = BatchTextures::color(plane.texture);
+                    let textures = BatchTextures::composite_rgb(plane.texture);
                     let mut uv_rect = self.texture_resolver.get_uv_rect(&textures.colors[0], plane.uv_rect);
                     if flip_y {
                         let y = uv_rect.uv0.y;
@@ -5021,7 +5028,7 @@ impl Renderer {
             );
 
         let mut current_shader_params = (CompositeSurfaceFormat::Rgba, ImageBufferKind::Texture2DArray);
-        let mut current_textures = BatchTextures::no_texture();
+        let mut current_textures = BatchTextures::empty();
         let mut instances = Vec::new();
 
         for tile in tiles_iter {
@@ -5061,7 +5068,7 @@ impl Renderer {
                             0.0,
                             tile.z_id,
                         ),
-                        BatchTextures::color(dummy),
+                        BatchTextures::composite_rgb(dummy),
                         (CompositeSurfaceFormat::Rgba, image_buffer_kind),
                     )
                 }
@@ -5076,7 +5083,7 @@ impl Renderer {
                             0.0,
                             tile.z_id,
                         ),
-                        BatchTextures::color(dummy),
+                        BatchTextures::composite_rgb(dummy),
                         (CompositeSurfaceFormat::Rgba, image_buffer_kind),
                     )
                 }
@@ -5089,7 +5096,7 @@ impl Renderer {
                             layer as f32,
                             tile.z_id,
                         ),
-                        BatchTextures::color(texture),
+                        BatchTextures::composite_rgb(texture),
                         (CompositeSurfaceFormat::Rgba, ImageBufferKind::Texture2DArray),
                     )
                 }
@@ -5098,14 +5105,11 @@ impl Renderer {
 
                     match surface.color_data {
                         ResolvedExternalSurfaceColorData::Yuv{ ref planes, color_space, format, rescale, .. } => {
-
-                            let textures = BatchTextures {
-                                colors: [
-                                    planes[0].texture,
-                                    planes[1].texture,
-                                    planes[2].texture,
-                                ],
-                            };
+                            let textures = BatchTextures::composite_yuv(
+                                planes[0].texture,
+                                planes[1].texture,
+                                planes[2].texture,
+                            );
 
                             // When the texture is an external texture, the UV rect is not known when
                             // the external surface descriptor is created, because external textures
@@ -5155,7 +5159,7 @@ impl Renderer {
                                     tile.z_id,
                                     uv_rect,
                                 ),
-                                BatchTextures::color(plane.texture),
+                                BatchTextures::composite_rgb(plane.texture),
                                 (CompositeSurfaceFormat::Rgba, surface.image_buffer_kind),
                             )
                         },
@@ -5403,7 +5407,7 @@ impl Renderer {
                 self.draw_instanced_batch(
                     &target.vertical_blurs,
                     VertexArrayKind::Blur,
-                    &BatchTextures::no_texture(),
+                    &BatchTextures::empty(),
                     stats,
                 );
             }
@@ -5412,7 +5416,7 @@ impl Renderer {
                 self.draw_instanced_batch(
                     &target.horizontal_blurs,
                     VertexArrayKind::Blur,
-                    &BatchTextures::no_texture(),
+                    &BatchTextures::empty(),
                     stats,
                 );
             }
@@ -5471,7 +5475,7 @@ impl Renderer {
             self.draw_instanced_batch(
                 &list.slow_rectangles,
                 VertexArrayKind::ClipRect,
-                &BatchTextures::no_texture(),
+                &BatchTextures::empty(),
                 stats,
             );
         }
@@ -5485,20 +5489,15 @@ impl Renderer {
             self.draw_instanced_batch(
                 &list.fast_rectangles,
                 VertexArrayKind::ClipRect,
-                &BatchTextures::no_texture(),
+                &BatchTextures::empty(),
                 stats,
             );
         }
+
         // draw box-shadow clips
         for (mask_texture_id, items) in list.box_shadows.iter() {
             let _gm2 = self.gpu_profiler.start_marker("box-shadows");
-            let textures = BatchTextures {
-                colors: [
-                    *mask_texture_id,
-                    TextureSource::Invalid,
-                    TextureSource::Invalid,
-                ],
-            };
+            let textures = BatchTextures::composite_rgb(*mask_texture_id);
             self.shaders.borrow_mut().cs_clip_box_shadow
                 .bind(&mut self.device, projection, &mut self.renderer_errors);
             self.draw_instanced_batch(
@@ -5512,13 +5511,7 @@ impl Renderer {
         // draw image masks
         for (mask_texture_id, items) in list.images.iter() {
             let _gm2 = self.gpu_profiler.start_marker("clip images");
-            let textures = BatchTextures {
-                colors: [
-                    *mask_texture_id,
-                    TextureSource::Invalid,
-                    TextureSource::Invalid,
-                ],
-            };
+            let textures = BatchTextures::composite_rgb(*mask_texture_id);
             self.shaders.borrow_mut().cs_clip_image
                 .bind(&mut self.device, projection, &mut self.renderer_errors);
             self.draw_instanced_batch(
@@ -5594,7 +5587,7 @@ impl Renderer {
                 self.draw_instanced_batch(
                     &target.vertical_blurs,
                     VertexArrayKind::Blur,
-                    &BatchTextures::no_texture(),
+                    &BatchTextures::empty(),
                     stats,
                 );
             }
@@ -5603,7 +5596,7 @@ impl Renderer {
                 self.draw_instanced_batch(
                     &target.horizontal_blurs,
                     VertexArrayKind::Blur,
-                    &BatchTextures::no_texture(),
+                    &BatchTextures::empty(),
                     stats,
                 );
             }
@@ -5715,7 +5708,7 @@ impl Renderer {
                 self.draw_instanced_batch(
                     &instances,
                     VertexArrayKind::Clear,
-                    &BatchTextures::no_texture(),
+                    &BatchTextures::empty(),
                     stats,
                 );
             } else {
@@ -5755,7 +5748,7 @@ impl Renderer {
                 self.draw_instanced_batch(
                     &target.border_segments_solid,
                     VertexArrayKind::Border,
-                    &BatchTextures::no_texture(),
+                    &BatchTextures::empty(),
                     stats,
                 );
             }
@@ -5770,7 +5763,7 @@ impl Renderer {
                 self.draw_instanced_batch(
                     &target.border_segments_complex,
                     VertexArrayKind::Border,
-                    &BatchTextures::no_texture(),
+                    &BatchTextures::empty(),
                     stats,
                 );
             }
@@ -5794,7 +5787,7 @@ impl Renderer {
             self.draw_instanced_batch(
                 &target.line_decorations,
                 VertexArrayKind::LineDecoration,
-                &BatchTextures::no_texture(),
+                &BatchTextures::empty(),
                 stats,
             );
 
@@ -5816,7 +5809,7 @@ impl Renderer {
             self.draw_instanced_batch(
                 &target.gradients,
                 VertexArrayKind::Gradient,
-                &BatchTextures::no_texture(),
+                &BatchTextures::empty(),
                 stats,
             );
         }
@@ -5836,7 +5829,7 @@ impl Renderer {
             self.draw_instanced_batch(
                 &target.horizontal_blurs,
                 VertexArrayKind::Blur,
-                &BatchTextures::no_texture(),
+                &BatchTextures::empty(),
                 stats,
             );
         }
@@ -5864,7 +5857,7 @@ impl Renderer {
             debug_commands: Vec::new(),
         };
 
-        for deferred_resolve in deferred_resolves {
+        for (i, deferred_resolve) in deferred_resolves.iter().enumerate() {
             self.gpu_profiler.place_marker("deferred resolve");
             let props = &deferred_resolve.image_properties;
             let ext_image = props
@@ -5914,7 +5907,7 @@ impl Renderer {
 
             self.texture_resolver
                 .external_images
-                .insert((ext_image.id, ext_image.channel_index), texture);
+                .insert(DeferredResolveIndex(i as u32), texture);
 
             list.updates.push(GpuCacheUpdate::Copy {
                 block_index: list.blocks.len(),
@@ -5928,14 +5921,21 @@ impl Renderer {
         Some(list)
     }
 
-    fn unlock_external_images(&mut self) {
+    fn unlock_external_images(
+        &mut self,
+        deferred_resolves: &[DeferredResolve],
+    ) {
         if !self.texture_resolver.external_images.is_empty() {
             let handler = self.external_image_handler
                 .as_mut()
                 .expect("Found external image, but no handler set!");
 
-            for (ext_data, _) in self.texture_resolver.external_images.drain() {
-                handler.unlock(ext_data.0, ext_data.1);
+            for (index, _) in self.texture_resolver.external_images.drain() {
+                let props = &deferred_resolves[index.0 as usize].image_properties;
+                let ext_image = props
+                    .external_image
+                    .expect("BUG: Deferred resolves must be external images!");
+                handler.unlock(ext_image.id, ext_image.channel_index);
             }
         }
     }
@@ -6579,7 +6579,7 @@ impl Renderer {
         self.draw_instanced_batch(
             &instances,
             VertexArrayKind::Resolve,
-            &BatchTextures::no_texture(),
+            &BatchTextures::empty(),
             stats,
         );
     }
@@ -6609,7 +6609,7 @@ impl Renderer {
         self.draw_instanced_batch(
             &instances,
             VertexArrayKind::Resolve,
-            &BatchTextures::no_texture(),
+            &BatchTextures::empty(),
             stats,
         );
 

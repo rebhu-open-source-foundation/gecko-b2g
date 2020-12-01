@@ -642,8 +642,8 @@
 
     get cookieJarSettings() {
       return this.isRemoteBrowser
-        ? this.contentDocument.cookieJarSettings
-        : this.browsingContext?.currentWindowGlobal?.cookieJarSettings;
+        ? this.browsingContext?.currentWindowGlobal?.cookieJarSettings
+        : this.contentDocument.cookieJarSettings;
     }
 
     get csp() {

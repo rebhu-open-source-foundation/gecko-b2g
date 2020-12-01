@@ -32,7 +32,6 @@
 #include "gc/ObjectKind-inl.h"
 #include "vm/JSObject-inl.h"
 #include "vm/NativeObject-inl.h"
-#include "vm/TypeInference-inl.h"
 
 using namespace js;
 
@@ -140,8 +139,6 @@ ObjectGroup* JSObject::makeLazyGroup(JSContext* cx, HandleObject obj) {
   if (!group) {
     return nullptr;
   }
-
-  AutoEnterAnalysis enter(cx);
 
   obj->setGroupRaw(group);
 
@@ -300,7 +297,7 @@ ObjectGroup* ObjectGroup::defaultNewGroup(JSContext* cx, const JSClass* clasp,
     return group;
   }
 
-  AutoEnterAnalysis enter(cx);
+  gc::AutoSuppressGC suppressGC(cx);
 
   ObjectGroupRealm::NewTable*& table = groups.defaultNewTable;
 
@@ -377,7 +374,7 @@ ObjectGroup* ObjectGroup::lazySingletonGroup(JSContext* cx,
     return group;
   }
 
-  AutoEnterAnalysis enter(cx);
+  gc::AutoSuppressGC suppressGC(cx);
 
   Rooted<TaggedProto> protoRoot(cx, proto);
   ObjectGroup* group = ObjectGroupRealm::makeGroup(
@@ -677,3 +674,9 @@ void ObjectGroupRealm::checkNewTableAfterMovingGC(NewTable* table) {
 }
 
 #endif  // JSGC_HASH_TABLE_CHECKS
+
+JS::ubi::Node::Size JS::ubi::Concrete<js::ObjectGroup>::size(
+    mozilla::MallocSizeOf mallocSizeOf) const {
+  Size size = js::gc::Arena::thingSize(get().asTenured().getAllocKind());
+  return size;
+}

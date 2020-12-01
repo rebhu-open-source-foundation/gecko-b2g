@@ -47,7 +47,6 @@
 #include "vm/JSScript-inl.h"
 #include "vm/NativeObject-inl.h"
 #include "vm/StringObject-inl.h"
-#include "vm/TypeInference-inl.h"
 
 using namespace js;
 using namespace js::jit;
@@ -515,18 +514,16 @@ static NativeGetPropCacheability IsCacheableGetPropCall(JSObject* obj,
 }
 
 static bool CheckHasNoSuchOwnProperty(JSContext* cx, JSObject* obj, jsid id) {
-  if (obj->isNative()) {
-    // Don't handle proto chains with resolve hooks.
-    if (ClassMayResolveId(cx->names(), obj->getClass(), id, obj)) {
-      return false;
-    }
-    if (obj->as<NativeObject>().contains(cx, id)) {
-      return false;
-    }
-  } else {
+  if (!obj->isNative()) {
     return false;
   }
-
+  // Don't handle proto chains with resolve hooks.
+  if (ClassMayResolveId(cx->names(), obj->getClass(), id, obj)) {
+    return false;
+  }
+  if (obj->as<NativeObject>().contains(cx, id)) {
+    return false;
+  }
   return true;
 }
 
@@ -535,13 +532,6 @@ static bool CheckHasNoSuchProperty(JSContext* cx, JSObject* obj, jsid id) {
   do {
     if (!CheckHasNoSuchOwnProperty(cx, curObj, id)) {
       return false;
-    }
-
-    if (!curObj->isNative()) {
-      // Non-native objects are only handled as the original receiver.
-      if (curObj != obj) {
-        return false;
-      }
     }
 
     curObj = curObj->staticPrototype();
@@ -2188,6 +2178,11 @@ AttachDecision GetPropIRGenerator::tryAttachDenseElement(
   return AttachDecision::Attach;
 }
 
+static bool ClassCanHaveExtraProperties(const JSClass* clasp) {
+  return clasp->getResolve() || clasp->getOpsLookupProperty() ||
+         clasp->getOpsGetProperty() || IsTypedArrayClass(clasp);
+}
+
 static bool CanAttachDenseElementHole(NativeObject* obj, bool ownProp,
                                       bool allowIndexedReceiver = false) {
   // Make sure the objects on the prototype don't have any indexed properties
@@ -3141,8 +3136,8 @@ AttachDecision HasPropIRGenerator::tryAttachDoesNotExist(HandleObject obj,
   bool hasOwn = (cacheKind_ == CacheKind::HasOwn);
 
   // Check that property doesn't exist on |obj| or it's prototype chain. These
-  // checks allow Native/Typed objects with a NativeObject prototype
-  // chain. They return NoAction if unknown such as resolve hooks or proxies.
+  // checks allow NativeObjects with a NativeObject prototype chain. They return
+  // NoAction if unknown such as resolve hooks or proxies.
   if (hasOwn) {
     if (!CheckHasNoSuchOwnProperty(cx_, obj, key)) {
       return AttachDecision::NoAction;
@@ -8750,17 +8745,6 @@ ScriptedThisResult CallIRGenerator::getThisForScripted(
 
   if (!protov.isObject()) {
     return ScriptedThisResult::NoAction;
-  }
-
-  {
-    AutoRealm ar(cx_, calleeFunc);
-    TaggedProto proto(&protov.toObject());
-    ObjectGroup* group = ObjectGroup::defaultNewGroup(cx_, &PlainObject::class_,
-                                                      proto, newTarget);
-    if (!group) {
-      cx_->clearPendingException();
-      return ScriptedThisResult::NoAction;
-    }
   }
 
   PlainObject* thisObject =

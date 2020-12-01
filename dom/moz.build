@@ -103,6 +103,7 @@ DIRS += [
     "script",
     "payments",
     "websocket",
+    "serializers",
     "serviceworkers",
     "simpledb",
     "reporting",

@@ -47,7 +47,6 @@
 #include "jit/TemplateObject-inl.h"
 #include "vm/Interpreter-inl.h"
 #include "vm/JSObject-inl.h"
-#include "vm/TypeInference-inl.h"
 
 using namespace js;
 using namespace js::jit;
@@ -3281,6 +3280,17 @@ void MacroAssembler::branchIfNonNativeObj(Register obj, Register scratch,
   loadObjClassUnsafe(obj, scratch);
   branchTest32(Assembler::NonZero, Address(scratch, JSClass::offsetOfFlags()),
                Imm32(JSClass::NON_NATIVE), label);
+}
+
+void MacroAssembler::branchIfObjectNotExtensible(Register obj, Register scratch,
+                                                 Label* label) {
+  loadPtr(Address(obj, JSObject::offsetOfShape()), scratch);
+  loadPtr(Address(scratch, Shape::offsetOfBaseShape()), scratch);
+
+  // Spectre-style checks are not needed here because we do not interpret data
+  // based on this check.
+  branchTest32(Assembler::NonZero, Address(scratch, BaseShape::offsetOfFlags()),
+               Imm32(js::BaseShape::NOT_EXTENSIBLE), label);
 }
 
 void MacroAssembler::copyObjGroupNoPreBarrier(Register sourceObj,

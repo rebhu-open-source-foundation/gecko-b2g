@@ -388,7 +388,16 @@ static bool MaybeCreateThisForConstructor(JSContext* cx, const CallArgs& args) {
   RootedFunction callee(cx, &args.callee().as<JSFunction>());
   RootedObject newTarget(cx, &args.newTarget().toObject());
 
-  return CreateThis(cx, callee, newTarget, GenericObject, args.mutableThisv());
+  MOZ_ASSERT(callee->hasBytecode());
+
+  if (!CreateThis(cx, callee, newTarget, GenericObject, args.mutableThisv())) {
+    return false;
+  }
+
+  // Ensure the callee still has a non-lazy script. We normally don't relazify
+  // in active compartments, but the .prototype lookup might have called the
+  // relazifyFunctions testing function that doesn't have this restriction.
+  return JSFunction::getOrCreateScript(cx, callee);
 }
 
 static MOZ_NEVER_INLINE JS_HAZ_JSNATIVE_CALLER bool Interpret(JSContext* cx,
@@ -544,7 +553,6 @@ MOZ_ALWAYS_INLINE bool CallJSNativeConstructor(JSContext* cx, Native native,
 bool js::InternalCallOrConstruct(JSContext* cx, const CallArgs& args,
                                  MaybeConstruct construct, CallReason reason) {
   MOZ_ASSERT(args.length() <= ARGS_LENGTH_MAX);
-  MOZ_ASSERT(!cx->zone()->types.activeAnalysis);
 
   unsigned skipForCallee = args.length() + 1 + (construct == CONSTRUCT);
   if (args.calleev().isPrimitive()) {
@@ -2072,7 +2080,6 @@ static MOZ_NEVER_INLINE JS_HAZ_JSNATIVE_CALLER bool Interpret(JSContext* cx,
   JS_END_MACRO
 
   gc::MaybeVerifyBarriers(cx, true);
-  MOZ_ASSERT(!cx->zone()->types.activeAnalysis);
 
   InterpreterFrame* entryFrame = state.pushInterpreterFrame(cx);
   if (!entryFrame) {
