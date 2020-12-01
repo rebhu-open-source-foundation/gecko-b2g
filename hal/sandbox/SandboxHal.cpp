@@ -363,6 +363,9 @@ class HalParent : public PHalParent,
     for (auto sensor : MakeEnumeratedRange(NUM_SENSOR_TYPE)) {
       hal::UnregisterSensorObserver(sensor, this);
     }
+    for (auto device : MakeEnumeratedRange(NUM_SWITCH_DEVICE)) {
+      hal::UnregisterSwitchObserver(device, this);
+    }
     hal::UnregisterWakeLockObserver(this);
     hal::UnregisterFlashlightObserver(this);
     hal::UnregisterFlipObserver(this);
