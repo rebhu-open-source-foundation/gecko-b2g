@@ -253,13 +253,13 @@ extern bool gBluetoothDebugFlag;
  * System message to launch bluetooth PBAP app,
  * if no PBAP app is ready to receive PBAP related requests.
  */
-#define SYS_MSG_BT_PBAP_REQ u"bluetooth-pbap-request"_ns
+#define SYS_MSG_BT_PBAP_REQ "bluetooth-pbap-request"
 
 /**
  * System message to launch bluetooth MAP app,
  * if no MAP app is ready to receive MAP related requests.
  */
-#define SYS_MSG_BT_MAP_REQ u"bluetooth-map-request"_ns
+#define SYS_MSG_BT_MAP_REQ "bluetooth-map-request"
 
 /**
  * The preference name of bluetooth app origin of bluetooth app. The default

@@ -169,6 +169,7 @@ void BluetoothService::RegisterBluetoothSignalHandler(
 
   ol->AddObserver(aHandler);
 
+  // TODO: Handle pending Bluetooth signals
   // Distribute pending requests when listener has been added to signal
   // observer table.
   if (XRE_IsParentProcess()) {
@@ -181,21 +182,23 @@ void BluetoothService::RegisterBluetoothSignalHandler(
       mPendingPairReqSignals.Clear();
     }
 
-    // For Pbap request
-    if (!mPendingPbapReqSignals.IsEmpty() && aNodeName.Equals(KEY_PBAP)) {
-      for (uint32_t i = 0; i < mPendingPbapReqSignals.Length(); ++i) {
-        DistributeSignal(mPendingPbapReqSignals[i]);
-      }
-      mPendingPbapReqSignals.Clear();
-    }
+    //   // For Pbap request
+    //   if (!mPendingPbapReqSignals.IsEmpty() &&
+    //       aNodeName.EqualsLiteral(KEY_PBAP)) {
+    //     for (uint32_t i = 0; i < mPendingPbapReqSignals.Length(); ++i) {
+    //       DistributeSignal(mPendingPbapReqSignals[i]);
+    //     }
+    //     mPendingPbapReqSignals.Clear();
+    //   }
 
-    // For Map requests
-    if (!mPendingMapReqSignals.IsEmpty() && aNodeName.Equals(KEY_MAP)) {
-      for (uint32_t i = 0; i < mPendingMapReqSignals.Length(); ++i) {
-        DistributeSignal(mPendingMapReqSignals[i]);
-      }
-      mPendingMapReqSignals.Clear();
-    }
+    //   // For Map requests
+    //   if (!mPendingMapReqSignals.IsEmpty() &&
+    //       aNodeName.EqualsLiteral(KEY_MAP)) {
+    //     for (uint32_t i = 0; i < mPendingMapReqSignals.Length(); ++i) {
+    //       DistributeSignal(mPendingMapReqSignals[i]);
+    //     }
+    //     mPendingMapReqSignals.Clear();
+    //   }
   }
 }
 
@@ -307,6 +310,7 @@ void BluetoothService::DistributeSignal(const BluetoothSignal& aSignal) {
     return;
   }
 
+  // TODO: Handle pending bluetooth signals
   BT_WARNING("No observer registered for path %s",
              NS_ConvertUTF16toUTF8(aSignal.path()).get());
 
@@ -318,22 +322,23 @@ void BluetoothService::DistributeSignal(const BluetoothSignal& aSignal) {
 
     BT_ENSURE_TRUE_VOID_BROADCAST_SYSMSG(SYS_MSG_BT_PAIRING_REQ,
                                          BluetoothValue(EmptyString()));
-  } else if (aSignal.path().Equals(KEY_PBAP)) {
-    // If there is no signal path for KEY_PBAP in observer table
-    mPendingPbapReqSignals.AppendElement(aSignal);
+    // } else if (aSignal.path().EqualsLiteral(KEY_PBAP)) {
+    //   // If there is no signal path for KEY_PBAP in observer table
+    //   mPendingPbapReqSignals.AppendElement(aSignal);
 
-    // BT_ENSURE_TRUE_VOID_BROADCAST_SYSMSG(
-    //     SYS_MSG_BT_PBAP_REQ,
-    //     BluetoothValue(EmptyString()));
-    BT_LOGR("Queue the request and send system message to launch PBAP app");
-  } else if (aSignal.path().Equals(KEY_MAP)) {
-    // If there is no signal path for KEY_MAP in observer table
-    mPendingMapReqSignals.AppendElement(aSignal);
+    //   BT_ENSURE_TRUE_VOID_BROADCAST_SYSMSG(
+    //       SYS_MSG_BT_PBAP_REQ,
+    //       BluetoothValue(EmptyString()));
+    //   BT_LOGR("Queue the request and send system message to launch PBAP
+    //   app");
+    // } else if (aSignal.path().EqualsLiteral(KEY_MAP)) {
+    //   // If there is no signal path for KEY_MAP in observer table
+    //   mPendingMapReqSignals.AppendElement(aSignal);
 
-    // BT_ENSURE_TRUE_VOID_BROADCAST_SYSMSG(
-    //     SYS_MSG_BT_MAP_REQ,
-    //     BluetoothValue(EmptyString()));
-    BT_LOGR("Queue the request and send system message to launch MAP app");
+    //   BT_ENSURE_TRUE_VOID_BROADCAST_SYSMSG(
+    //       SYS_MSG_BT_MAP_REQ,
+    //       BluetoothValue(EmptyString()));
+    //   BT_LOGR("Queue the request and send system message to launch MAP app");
   }
 }
 

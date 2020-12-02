@@ -185,7 +185,7 @@ class BluetoothAdapter : public DOMEventTargetHelper,
    * All pending PBAP requests queued in BluetoothService would be fired when
    * adapter starts listening to bluetooth PBAP signal.
    */
-  void TryListeningToBluetoothPbapSignal();
+  // void TryListeningToBluetoothPbapSignal();
 
   /**
    * Listen to bluetooth MAP signal if MAP connection request event handler
@@ -196,7 +196,7 @@ class BluetoothAdapter : public DOMEventTargetHelper,
    * All pending MAP requests queued in BluetoothService would be fired when
    * adapter starts listening to bluetooth MAP signal.
    */
-  void TryListeningToBluetoothMapSignal();
+  // void TryListeningToBluetoothMapSignal();
 
   /**
    * Set this adapter's discovery handle in use (mDiscoveryHandleInUse).
