@@ -369,7 +369,8 @@ bool HTMLVideoElement::ShouldCreateVideoWakeLock() const {
   // Media streams generally aren't used as background images, though if they
   // were we'd get false positives. If this is an issue, we could check for
   // media stream AND document has audio playing (but that was tricky to do).
-  return HasVideo() && (mSrcStream || HasAudio());
+  return (HasVideo() && (mSrcStream || HasAudio())) ||
+         (mSrcStream && mSrcStream->GetCameraStream());
 }
 
 void HTMLVideoElement::CreateVideoWakeLockIfNeeded() {
