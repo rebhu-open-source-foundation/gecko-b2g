@@ -2016,7 +2016,7 @@ ImsSmsProvider.prototype = {
     };
 
     this._smsService.notifyMessageReceived(
-      this.clientId,
+      this._serviceId,
       gonkSms,
       aMessage.data || [],
       aMessage.data ? aMessage.data.length : 0
@@ -2045,7 +2045,7 @@ ImsSmsProvider.prototype = {
       debug("onSmsStatusReportReceived");
     }
     let gsmPduHelper = this.simIOContext.GsmPDUHelper;
-    gsmPduHelper.initWIth(aPdu);
+    gsmPduHelper.initWith(aPdu);
     let [message, result] = gsmPduHelper.processReceivedSms(aLength);
     if (DEBUG) {
       debug(
@@ -2056,7 +2056,6 @@ ImsSmsProvider.prototype = {
       );
     }
 
-    this._notifyNewSmsMessage(message);
     this._imsHandler.imsMMTelFeature.acknowledgeSmsReport(
       aToken,
       message.messageRef,
@@ -2069,7 +2068,7 @@ ImsSmsProvider.prototype = {
       debug("onSmsReceived");
     }
     let gsmPduHelper = this.simIOContext.GsmPDUHelper;
-    gsmPduHelper.initWIth(aPdu);
+    gsmPduHelper.initWith(aPdu);
     let [message, result] = gsmPduHelper.processReceivedSms(aLength);
     if (DEBUG) {
       debug("New IMS SMS: " + JSON.stringify(message) + ", result: " + result);
