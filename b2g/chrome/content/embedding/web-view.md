@@ -21,6 +21,8 @@ The <web-view> element supports the following attributes:
 - `enableCursor() : void` : enables the virtual cursor.
 - `disableCursor() : void` : disables the virtual cursor.
 - `getCursorEnabled() : Promise<boolean>` : query whether the virtual cursor is enabled.
+- `scrollToTop(smooth = true) : void` : scrolls to the top of the document.
+- `scrollToBottom(smooth = true) : void` : scrolls to the bottom of the document.
 
 ## Properties
 
@@ -29,9 +31,11 @@ The <web-view> element supports the following attributes:
 - ` (readonly) canGoForward : boolean` : return `true` if calling `goForward()` would be effective.
 - ` (readonly) canGoBack : boolean` : return `true` if calling `goBack()` would be effective.
 - `active : boolean` : control the active state of the browser's docShell.
-- `processid : int` : returns the process ID of its content process if there is, or -1 if there is not.
+- `(readonly) processid : int` : returns the process ID of its content process if there is, or -1 if there is not.
 - `visible : boolean`: currently similar to `active`.
 - `(readonly) currentURI : string` : returns the current URI loaded in the web-view, which can be different from the `src` attribute.
+- `fullZoom` : controls the overall zoom level of the page.
+- `textZoom` : controls the zoom level of the page's text.
 
 ## Events
 

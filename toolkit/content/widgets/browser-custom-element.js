@@ -1232,6 +1232,14 @@
       });
     }
 
+    // Asks the child to change the scroll position.
+    webViewScrollTo(where, smooth = true) {
+      this.messageManager.sendAsyncMessage("WebView::ScrollTo", {
+        where,
+        smooth,
+      });
+    }
+
     // Returns a promis resolving to the current background color.
     webViewGetBackgroundColor() {
       let id = `WebView::ReturnBackgroundColor::${this.webViewRequestId}`;

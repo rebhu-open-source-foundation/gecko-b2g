@@ -689,6 +689,34 @@
     getCursorEnabled() {
       return this.browser.webViewGetCursorEnabled();
     }
+
+    set fullZoom(val) {
+      if (this.browser) {
+        this.browser.fullZoom = val;
+      }
+    }
+
+    get fullZoom() {
+      return this.browser ? this.browser.fullZoom : 1;
+    }
+
+    set textZoom(val) {
+      if (this.browser) {
+        this.browser.textZoom = val;
+      }
+    }
+
+    get textZoom() {
+      return this.browser ? this.browser.textZoom : 1;
+    }
+
+    scrollToTop(smooth = true) {
+      this.browser?.webViewScrollTo("top", smooth);
+    }
+
+    scrollToBottom(smooth = true) {
+      this.browser?.webViewScrollTo("bottom", smooth);
+    }
   }
 
   webViewLogEnabled && console.log(`Setting up <web-view> custom element`);

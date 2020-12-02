@@ -75,6 +75,10 @@ var WebViewChild = {
       "WebView::MozDOMFullscreen:Exited",
       this.recvFullscreenExited.bind(this)
     );
+    global.addMessageListener(
+      "WebView::ScrollTo",
+      this.recvScrollTo.bind(this)
+    );
 
     let metachangeHandler = this.metaChangeHandler.bind(this);
     global.addEventListener(
@@ -823,12 +827,12 @@ var WebViewChild = {
   },
 
   scrollEventHandler(event) {
-    let win = event.target;
-    if (win != this.global.content || event.defaultPrevented) {
+    let doc = event.target;
+    if (doc != this.global.content.document || event.defaultPrevented) {
       return;
     }
 
-    this.log("scroll event " + win);
+    const win = doc.ownerGlobal;
     this.global.sendAsyncMessage("WebView::scroll", {
       top: win.scrollY,
       left: win.scrollX,
@@ -846,5 +850,27 @@ var WebViewChild = {
         this.global.sendAsyncMessage(`${name}${type}`, {});
       }
     }
+  },
+
+  recvScrollTo(data) {
+    this.log(`Received WebView::ScrollTo`);
+    let content = this.global.content;
+    let winUtils = content?.windowUtils;
+    if (!winUtils) {
+      return;
+    }
+
+    // Get the current viewport position in order to preserve the X position.
+    const x = {};
+    const y = {};
+    winUtils.getVisualViewportOffset(x, y);
+    let params = data.json;
+
+    winUtils.scrollToVisual(
+      x.value,
+      params.where === "top" ? 0 : content.ownerGlobal.scrollMaxY,
+      winUtils.UPDATE_MAIN_THREAD,
+      params.smooth ? winUtils.SCROLL_MODE_SMOOTH : winUtils.SCROLL_MODE_INSTANT
+    );
   },
 };
