@@ -39,6 +39,7 @@
 #  include "nsIMobileConnectionService.h"
 #  include "nsIMobileNetworkInfo.h"
 #  include "nsINetworkInterface.h"  // for nsINetworkInfo
+#  include "nsINetworkInterfaceListService.h"
 #  include "nsINetworkManager.h"
 #  include "nsIObserverService.h"
 #  include "nsIRadioInterfaceLayer.h"
@@ -1014,6 +1015,18 @@ bool IsMetered(int aNetworkInterfaceType) {
   }
 }
 
+// Convert net id to net_handle_t and cast to uint64_t
+static inline uint64_t GetNetHandle(int32_t aNetId) {
+  if (!aNetId) {
+    return 0;  // network unspecified
+  }
+
+  // The magic value of net handle which should correspond with the value in
+  // system/netd/server/NetworkController.h
+  constexpr uint32_t kHandleMagic = 0xcafed00d;
+  return ((uint64_t)aNetId << 32) | kHandleMagic;
+}
+
 void GonkGPSGeolocationProvider::UpdateNetworkState(nsISupports* aNetworkInfo) {
   MOZ_ASSERT(NS_IsMainThread());
   if (!mAGnssRilHal_V2_0) {
@@ -1082,15 +1095,7 @@ void GonkGPSGeolocationProvider::UpdateNetworkState(nsISupports* aNetworkInfo) {
     }
   }
 
-  // The magic value of net handle which should correspond with the value in
-  // system/netd/server/NetworkController.h
-  constexpr uint32_t kHandleMagic = 0xcafed00d;
-
-  // Convert net id to net_handle_t
-  uint64_t netHandle = 0;  // network unspecified
-  if (!netId) {
-    netHandle = (((uint64_t)netId << 32) | kHandleMagic);
-  }
+  uint64_t netHandle = GetNetHandle(netId);
 
   IAGnssRil_V2_0::NetworkAttributes networkAttributes = {
       .networkHandle = netHandle,
@@ -1188,19 +1193,57 @@ void GonkGPSGeolocationProvider::SetAGpsDataConn(const nsAString& aApn) {
   MOZ_ASSERT(NS_IsMainThread());
 
   int32_t connectionState = GetDataConnectionState();
-  NS_ConvertUTF16toUTF8 apn(aApn);
   if (connectionState == nsINetworkInfo::NETWORK_STATE_CONNECTED) {
-    nsCOMPtr<nsINetworkInfo> info =
-        do_GetService("@mozilla.org/network-info-service;1");
-    if (!info) {
+    nsresult rv;
+    nsCOMPtr<nsINetworkInterfaceListService> listService =
+        do_GetService("@mozilla.org/network/interface-list-service;1", &rv);
+    NS_ENSURE_SUCCESS_VOID(rv);
+
+    nsCOMPtr<nsINetworkInterfaceList> networkList;
+    // Narrow down the search for SUPL type
+    int32_t flag =
+        nsINetworkInterfaceListService::LIST_NOT_INCLUDE_MMS_INTERFACES |
+        nsINetworkInterfaceListService::LIST_NOT_INCLUDE_IMS_INTERFACES |
+        nsINetworkInterfaceListService::LIST_NOT_INCLUDE_DUN_INTERFACES |
+        nsINetworkInterfaceListService::LIST_NOT_INCLUDE_FOTA_INTERFACES;
+    rv = listService->GetDataInterfaceList(flag, getter_AddRefs(networkList));
+    NS_ENSURE_SUCCESS_VOID(rv);
+
+    // Search for the nsINetworkInfo with SUPL type
+    nsCOMPtr<nsINetworkInfo> suplInfo;
+    int32_t listLength;
+    rv = networkList->GetNumberOfInterface(&listLength);
+    if (!NS_FAILED(rv) && listLength != 0) {
+      for (int32_t i = 0; i < listLength; ++i) {
+        nsCOMPtr<nsINetworkInfo> info;
+        networkList->GetInterfaceInfo(i, getter_AddRefs(info));
+
+        int32_t type;
+        info->GetType(&type);
+        if (type == nsINetworkInfo::NETWORK_TYPE_MOBILE_SUPL) {
+          suplInfo = info;
+          break;
+        }
+      }
+    }
+
+    if (!suplInfo) {
+      ERR("Cannot get network info. with SUPL type");
       return;
     }
-    int32_t netId;
-    info->GetNetId(&netId);
 
-    LOG("mAGnssHal_V2_0->data_conn_open_with_apn_ip_type(%s, APN_IP_IPV4V6)",
-        apn.get());
-    mAGnssHal_V2_0->dataConnOpen(netId, std::string(apn.get(), apn.Length()),
+    int32_t netId;
+    suplInfo->GetNetId(&netId);
+    uint64_t netHandle = GetNetHandle(netId);
+
+    NS_ConvertUTF16toUTF8 apn(aApn);
+
+    LOG("mAGnssHal_V2_0->data_conn_open_with_apn_ip_type(%llu, %s, "
+        "APN_IP_IPV4V6), netId: %d",
+        netHandle, apn.get(), netId);
+
+    mAGnssHal_V2_0->dataConnOpen(netHandle,
+                                 std::string(apn.get(), apn.Length()),
                                  IAGnss_V2_0::ApnIpType::IPV4V6);
   } else if (connectionState == nsINetworkInfo::NETWORK_STATE_DISCONNECTED) {
     LOG("mAGnssHal_V2_0->data_conn_closed()");
