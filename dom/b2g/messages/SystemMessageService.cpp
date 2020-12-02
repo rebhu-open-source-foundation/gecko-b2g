@@ -9,8 +9,9 @@
 #include "mozilla/dom/ServiceWorkerManager.h"
 #include "mozilla/dom/ServiceWorkerCloneData.h"
 #include "mozilla/dom/ContentParent.h"
+#include "mozilla/dom/WakeLock.h"
+#include "mozilla/dom/power/PowerManagerService.h"
 #include "mozilla/StaticPtr.h"
-#include "js/JSON.h"
 #include "nsISystemMessageListener.h"
 #include "nsCharSeparatedTokenizer.h"
 
@@ -21,6 +22,8 @@ mozilla::LazyLogModule gSystemMessageServiceLog("SystemMessageService");
 
 namespace mozilla {
 namespace dom {
+
+const uint32_t kWakeLockHoldTime = 5000;
 
 static StaticRefPtr<SystemMessageService> sSystemMessageService;
 static nsDataHashtable<nsStringHashKey, nsCString>
@@ -213,6 +216,15 @@ SystemMessageService::SendMessage(const nsAString& aMessageName,
     return NS_ERROR_FAILURE;
   }
 
+  // Unlike the old implementation in gecko48, where it acquires wake lock per
+  // requests, we are using a global wake lock here. File Bug 78954 to track
+  // if we want to improve on that.
+  AcquireWakeLock();
+  NS_NewTimerWithFuncCallback(getter_AddRefs(mWakeLockTimer),
+                              WakeLockTimerCallback, this, kWakeLockHoldTime,
+                              nsITimer::TYPE_ONE_SHOT,
+                              "SystemMessageService::SendMessage");
+
   LOG("Sending message %s to %s",
       NS_LossyConvertUTF16toASCII(aMessageName).get(), (info->mScope).get());
   return swm->SendSystemMessageEvent(info->mOriginSuffix, info->mScope,
@@ -244,6 +256,12 @@ SystemMessageService::BroadcastMessage(const nsAString& aMessageName,
   if (NS_WARN_IF(!swm)) {
     return NS_ERROR_FAILURE;
   }
+
+  AcquireWakeLock();
+  NS_NewTimerWithFuncCallback(getter_AddRefs(mWakeLockTimer),
+                              WakeLockTimerCallback, this, kWakeLockHoldTime,
+                              nsITimer::TYPE_ONE_SHOT,
+                              "SystemMessageService::BroadcastMessage");
 
   for (auto iter = table->Iter(); !iter.Done(); iter.Next()) {
     auto& info = iter.Data();
@@ -320,6 +338,35 @@ bool SystemMessageService::HasPermission(const nsAString& aMessageName,
   }
 
   return true;
+}
+
+void SystemMessageService::AcquireWakeLock() {
+  if (!mMessageWakeLock) {
+    RefPtr<power::PowerManagerService> pmService =
+        power::PowerManagerService::GetInstance();
+    if (NS_WARN_IF(!pmService)) {
+      return;
+    }
+    ErrorResult rv;
+    mMessageWakeLock = pmService->NewWakeLock(u"cpu"_ns, nullptr, rv);
+  }
+}
+
+void SystemMessageService::ReleaseWakeLock() {
+  if (mMessageWakeLock) {
+    ErrorResult rv;
+    mMessageWakeLock->Unlock(rv);
+    rv.SuppressException();
+    mMessageWakeLock = nullptr;
+  }
+}
+
+/*static*/
+void SystemMessageService::WakeLockTimerCallback(nsITimer* aTimer,
+                                                 void* aClosure) {
+  auto smService = static_cast<SystemMessageService*>(aClosure);
+  smService->ReleaseWakeLock();
+  smService->mWakeLockTimer = nullptr;
 }
 
 void SystemMessageService::DebugPrintSubscribersTable() {

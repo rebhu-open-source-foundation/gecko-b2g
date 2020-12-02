@@ -12,11 +12,13 @@
 #include "nsClassHashtable.h"
 
 class nsISystemMessageListener;
+class nsITimer;
 
 namespace mozilla {
 namespace dom {
 
 class ContentParent;
+class WakeLock;
 
 class SystemMessageService final : public nsISystemMessageService {
  public:
@@ -35,6 +37,13 @@ class SystemMessageService final : public nsISystemMessageService {
 
   bool HasPermission(const nsAString& aMessageName, const nsACString& aOrigin);
 
+  void AcquireWakeLock();
+  void ReleaseWakeLock();
+  static void WakeLockTimerCallback(nsITimer* aTimer, void* aClosure);
+
+  // For printing debug information.
+  void DebugPrintSubscribersTable();
+
   struct SubscriberInfo {
     SubscriberInfo(const nsACString& aScope, const nsACString& aOriginSuffix)
         : mScope(aScope), mOriginSuffix(aOriginSuffix) {}
@@ -43,10 +52,9 @@ class SystemMessageService final : public nsISystemMessageService {
   };
   typedef nsClassHashtable<nsCStringHashKey, SubscriberInfo> SubscriberTable;
 
-  // For printing debug information.
-  void DebugPrintSubscribersTable();
-
   nsClassHashtable<nsStringHashKey, SubscriberTable> mSubscribers;
+  RefPtr<WakeLock> mMessageWakeLock;
+  nsCOMPtr<nsITimer> mWakeLockTimer;
 };
 
 }  // namespace dom
