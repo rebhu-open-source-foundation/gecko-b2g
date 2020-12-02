@@ -135,7 +135,7 @@ XPCOMUtils.defineLazyServiceGetter(
     get tabCount() {
       _webembed_log(`BrowserDOMWindow::tabCount`);
 
-      return window.document.querySelectorAll("<web-view>").length;
+      return window.document.querySelectorAll("web-view").length;
     },
 
     // Returns a BrowsingContext
