@@ -33,6 +33,23 @@ this.defaultPermissions = ["vibration"];
  * revised by the lint tools automatically.
  **/
 this.PermissionsTable = {
+  "account-manager": {
+    pwa: DENY_ACTION,
+    signed: DENY_ACTION,
+    core: ALLOW_ACTION,
+  },
+  "account-observer-activesync": {
+    pwa: DENY_ACTION,
+    signed: ALLOW_ACTION,
+  },
+  "account-observer-google": {
+    pwa: DENY_ACTION,
+    signed: ALLOW_ACTION,
+  },
+  "account-observer-kaiaccount": {
+    pwa: DENY_ACTION,
+    signed: ALLOW_ACTION,
+  },
   alarms: {
     pwa: ALLOW_ACTION,
     signed: ALLOW_ACTION,
