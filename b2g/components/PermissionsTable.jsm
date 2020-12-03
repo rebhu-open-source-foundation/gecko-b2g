@@ -212,6 +212,11 @@ this.PermissionsTable = {
     pwa: DENY_ACTION,
     signed: ALLOW_ACTION,
   },
+  fota: {
+    pwa: DENY_ACTION,
+    signed: DENY_ACTION,
+    core: ALLOW_ACTION,
+  },
   geolocation: {
     pwa: PROMPT_ACTION,
     signed: PROMPT_ACTION,
