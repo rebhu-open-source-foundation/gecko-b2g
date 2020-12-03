@@ -366,6 +366,10 @@ void GonkOffloadPlayer::PlayStateChanged() {
   if (mMediaPlayer) {
     if (mPlayState == MediaDecoder::PLAY_STATE_PLAYING) {
       mMediaPlayer->start();
+      // NuPlayer won't notify MEDIA_STARTED when its offload audio mode is
+      // enabled, which might be a bug, so we also need to trigger position
+      // update timer here after start() is called.
+      UpdateCurrentPositionPeriodically();
     } else if (mPlayState == MediaDecoder::PLAY_STATE_PAUSED) {
       mMediaPlayer->pause();
     }
