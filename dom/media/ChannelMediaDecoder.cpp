@@ -211,7 +211,36 @@ already_AddRefed<ChannelMediaDecoder> ChannelMediaDecoder::Clone(
 }
 
 #ifdef MOZ_WIDGET_GONK
-static bool CanOffloadMedia(nsIURI* aURI, bool aIsVideo) {
+static bool CheckOffloadAllowlist(const MediaMIMEType& aMimeType) {
+  nsAutoCString allowlist;
+  Preferences::GetCString("media.offloadplayer.mime.allowlist", allowlist);
+  if (allowlist.IsEmpty()) {
+    return true;
+  }
+
+  for (const nsACString& mime : allowlist.Split(',')) {
+    if (mime == aMimeType.AsString()) {
+      return true;
+    }
+    if (mime == "application/*"_ns && aMimeType.HasApplicationMajorType()) {
+      return true;
+    }
+    if (mime == "audio/*"_ns && aMimeType.HasAudioMajorType()) {
+      return true;
+    }
+    if (mime == "video/*"_ns && aMimeType.HasVideoMajorType()) {
+      return true;
+    }
+  }
+  return false;
+}
+
+static bool CanOffloadMedia(nsIURI* aURI, const MediaMIMEType& aMimeType,
+                            bool aIsVideo) {
+  if (!CheckOffloadAllowlist(aMimeType)) {
+    return false;
+  }
+
   if (!aIsVideo && !StaticPrefs::media_offloadplayer_audio_enabled()) {
     return false;
   }
@@ -246,7 +275,8 @@ MediaDecoderStateMachineProxy* ChannelMediaDecoder::CreateStateMachine() {
   MOZ_ASSERT(uri);
 
   // Offload path uses MediaOffloadPlayer.
-  if (CanOffloadMedia(uri, /* aIsVideo = */ GetVideoFrameContainer())) {
+  if (CanOffloadMedia(uri, ContainerType().Type(),
+                      /* aIsVideo = */ GetVideoFrameContainer())) {
     RefPtr<MediaOffloadPlayer> player = MediaOffloadPlayer::Create(init, uri);
     mReader = new MediaFormatReaderProxy(player);
     return new MediaDecoderStateMachineProxy(player);
