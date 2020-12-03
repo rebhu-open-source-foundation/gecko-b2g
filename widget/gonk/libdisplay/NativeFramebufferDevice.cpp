@@ -215,10 +215,6 @@ bool NativeFramebufferDevice::Open() {
 bool NativeFramebufferDevice::Post(buffer_handle_t buf) {
   android::Mutex::Autolock lock(mMutex);
 
-  if (!mIsEnabled) {
-    return false;
-  }
-
   void* vaddr;
   if (native_gralloc_lock(buf, GRALLOC_USAGE_SW_READ_RARELY, 0, 0, mVInfo.xres,
                           mVInfo.yres, &vaddr)) {

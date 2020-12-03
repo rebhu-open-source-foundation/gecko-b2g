@@ -423,11 +423,8 @@ bool GonkDisplayP::Post(buffer_handle_t buf, int fence,
   } else if (aDisplayType == DisplayType::DISPLAY_EXTERNAL) {
     // Only support fb1 for certain device, use hwc to control
     // external screen in general case.
-    if (mExtFBDevice) {
-      fenceObj->waitForever("GonkDisplay::Post");
-      return mExtFBDevice->Post(buf);
-    }
-    return false;
+    // update buffer on onFrameAvailable.
+    return true;
   }
 
   return false;
