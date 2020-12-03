@@ -708,8 +708,8 @@ void GonkVideoDecoderManager::CodecReserved() {
   mDecoder->Prepare();
 
   if (mConfig.mMimeType.EqualsLiteral("video/mp4v-es")) {
-    rv = mDecoder->Input(mConfig.mCodecSpecificConfig->Elements(),
-                         mConfig.mCodecSpecificConfig->Length(), 0,
+    rv = mDecoder->Input(mConfig.mExtraData->Elements(),
+                         mConfig.mExtraData->Length(), 0,
                          android::MediaCodec::BUFFER_FLAG_CODECCONFIG,
                          CODECCONFIG_TIMEOUT_US);
   }

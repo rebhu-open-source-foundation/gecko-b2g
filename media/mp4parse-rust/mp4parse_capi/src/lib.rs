@@ -1102,11 +1102,7 @@ fn mp4parse_get_track_video_info_safe(
             VideoCodecSpecific::AV1Config(_) => Mp4parseCodec::Av1,
             VideoCodecSpecific::AVCConfig(_) => Mp4parseCodec::Avc,
             VideoCodecSpecific::H263Config(_) => Mp4parseCodec::H263,
-            VideoCodecSpecific::ESDSConfig(_) =>
-            // MP4V (14496-2) video is unsupported.
-            {
-                Mp4parseCodec::Unknown
-            }
+            VideoCodecSpecific::ESDSConfig(_) => Mp4parseCodec::Mp4v,
         };
         sample_info.image_width = video.width;
         sample_info.image_height = video.height;

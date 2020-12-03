@@ -207,6 +207,11 @@ bool MP4Decoder::IsH263(const nsACString& aMimeType) {
 }
 
 /* static */
+bool MP4Decoder::IsMPEG4(const nsACString& aMimeType) {
+  return aMimeType.EqualsLiteral("video/mp4v-es");
+}
+
+/* static */
 bool MP4Decoder::IsAAC(const nsACString& aMimeType) {
   return aMimeType.EqualsLiteral("audio/mp4a-latm");
 }

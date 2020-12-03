@@ -39,6 +39,11 @@ class MP4Decoder {
   // space matters.
   static bool IsH263(const nsACString& aMimeType);
 
+  // Return true if aMimeType is one of the strings used by our demuxers to
+  // identify MPEG4. Does not parse general content type strings, i.e. white
+  // space matters.
+  static bool IsMPEG4(const nsACString& aMimeType);
+
   // Return true if aMimeType is a one of the strings used by our demuxers to
   // identify AAC. Does not parse general content type strings, i.e. white
   // space matters.
