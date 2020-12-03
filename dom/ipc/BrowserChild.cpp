@@ -1338,8 +1338,7 @@ mozilla::ipc::IPCResult BrowserChild::RecvUpdateDimensions(
 
   RecvSafeAreaInsetsChanged(mPuppetWidget->GetSafeAreaInsets());
   nsCOMPtr<nsPIDOMWindowOuter> window = do_GetInterface(WebNavigation());
-  nsCOMPtr<nsPIDOMWindowInner> inner = window->GetCurrentInnerWindow();
-  RefPtr<VirtualCursorProxy> cursor = VirtualCursorService::GetCursor(inner);
+  RefPtr<VirtualCursorProxy> cursor = VirtualCursorService::GetCursor(window);
   if (cursor) {
     cursor->UpdateChromeOffset(GetChromeOffset());
   }

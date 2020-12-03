@@ -35,17 +35,15 @@ VirtualCursorService::~VirtualCursorService() { mCursorMap.Clear(); }
 
 /* static */
 already_AddRefed<VirtualCursorProxy> VirtualCursorService::GetOrCreateCursor(
-    nsPIDOMWindowInner* aWindow) {
+    nsPIDOMWindowOuter* aWindow) {
   MOZ_ASSERT(NS_IsMainThread());
   RefPtr<VirtualCursorService> service = GetService();
   RefPtr<VirtualCursorProxy> cursor;
   cursor = service->mCursorMap.LookupForAdd(aWindow).OrInsert([&]() {
-    nsPIDOMWindowOuter* outer = aWindow->GetOuterWindow();
-    MOZ_ASSERT(outer);
-    RefPtr<dom::BrowserChild> browser = BrowserChild::GetFrom(outer);
+    RefPtr<dom::BrowserChild> browser = BrowserChild::GetFrom(aWindow);
     LayoutDeviceIntPoint offset(browser->GetChromeOffset());
     if (XRE_GetProcessType() == GeckoProcessType_Content) {
-      return new VirtualCursorProxy(aWindow, new CursorRemote(outer), offset);
+      return new VirtualCursorProxy(aWindow, new CursorRemote(aWindow), offset);
     }
     return new VirtualCursorProxy(aWindow, service, offset);
   });
@@ -54,7 +52,7 @@ already_AddRefed<VirtualCursorProxy> VirtualCursorService::GetOrCreateCursor(
 
 /* static */
 already_AddRefed<VirtualCursorProxy> VirtualCursorService::GetCursor(
-    nsPIDOMWindowInner* aWindow) {
+    nsPIDOMWindowOuter* aWindow) {
   MOZ_ASSERT(NS_IsMainThread());
   RefPtr<VirtualCursorService> service = GetService();
   RefPtr<VirtualCursorProxy> cursor;
@@ -66,7 +64,7 @@ already_AddRefed<VirtualCursorProxy> VirtualCursorService::GetCursor(
 }
 
 /* static */
-void VirtualCursorService::RemoveCursor(nsPIDOMWindowInner* aWindow) {
+void VirtualCursorService::RemoveCursor(nsPIDOMWindowOuter* aWindow) {
   MOZ_ASSERT(NS_IsMainThread());
   RefPtr<VirtualCursorService> service = GetService();
   service->mCursorMap.Remove(aWindow);

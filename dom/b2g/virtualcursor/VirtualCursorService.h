@@ -31,11 +31,11 @@ class VirtualCursorService final : public nsIVirtualCursor,
 
   static already_AddRefed<VirtualCursorService> GetService();
   static already_AddRefed<VirtualCursorProxy> GetOrCreateCursor(
-      nsPIDOMWindowInner* aWindow);
+      nsPIDOMWindowOuter* aWindow);
   static already_AddRefed<VirtualCursorProxy> GetCursor(
-      nsPIDOMWindowInner* aWindow);
+      nsPIDOMWindowOuter* aWindow);
 
-  static void RemoveCursor(nsPIDOMWindowInner* aWindow);
+  static void RemoveCursor(nsPIDOMWindowOuter* aWindow);
   static void Shutdown();
 
   virtual void UpdatePos(const LayoutDeviceIntPoint& aPoint) override;
@@ -61,7 +61,7 @@ class VirtualCursorService final : public nsIVirtualCursor,
   CSSPoint mCSSCursorPoint;
 
   // A table to map outer window to the VirtualCursorProxy
-  nsDataHashtable<nsPtrHashKey<nsPIDOMWindowInner>, RefPtr<VirtualCursorProxy>>
+  nsDataHashtable<nsPtrHashKey<nsPIDOMWindowOuter>, RefPtr<VirtualCursorProxy>>
       mCursorMap;
 };
 

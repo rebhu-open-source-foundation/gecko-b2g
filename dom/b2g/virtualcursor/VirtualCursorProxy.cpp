@@ -16,17 +16,18 @@ namespace dom {
 
 NS_IMPL_ISUPPORTS(VirtualCursorProxy, nsIObserver)
 
-VirtualCursorProxy::VirtualCursorProxy(nsPIDOMWindowInner* aWindow,
+VirtualCursorProxy::VirtualCursorProxy(nsPIDOMWindowOuter* aWindow,
                                        nsIVirtualCursor* aDelegate,
                                        const LayoutDeviceIntPoint& aOffset)
-    : mInnerWindow(aWindow) {
+    : mOuterWindow(aWindow) {
   MOZ_LOG(gVirtualCursorLog, LogLevel::Debug,
-          ("VirtualCursorProxy construct win id=%llu", aWindow->WindowID()));
-  mSimulator = new CursorSimulator(aWindow->GetOuterWindow(), aDelegate);
+          ("VirtualCursorProxy construct win id=%llu this=%p",
+           aWindow->WindowID(), this));
+  mSimulator = new CursorSimulator(aWindow, aDelegate);
   mSimulator->UpdateChromeOffset(aOffset);
   nsCOMPtr<nsIObserverService> obs = services::GetObserverService();
   if (obs) {
-    obs->AddObserver(this, "inner-window-destroyed", false);
+    obs->AddObserver(this, "outer-window-destroyed", false);
   }
 }
 
@@ -38,10 +39,10 @@ VirtualCursorProxy::~VirtualCursorProxy() {
 void VirtualCursorProxy::DestroyCursor() {
   nsCOMPtr<nsIObserverService> obs = services::GetObserverService();
   if (obs) {
-    obs->RemoveObserver(this, "inner-window-destroyed");
+    obs->RemoveObserver(this, "outer-window-destroyed");
   }
   mSimulator->Destroy();
-  VirtualCursorService::RemoveCursor(mInnerWindow);
+  VirtualCursorService::RemoveCursor(mOuterWindow);
   MOZ_LOG(gVirtualCursorLog, LogLevel::Debug, ("VirtualCursorProxy::Destroy"));
 }
 
@@ -71,15 +72,15 @@ NS_IMETHODIMP VirtualCursorProxy::Observe(nsISupports* aSubject,
                                           const char16_t* aData) {
   MOZ_LOG(gVirtualCursorLog, LogLevel::Debug,
           ("VirtualCursorProxy observed %s", aTopic));
-  if (!strcmp(aTopic, "inner-window-destroyed")) {
+  if (!strcmp(aTopic, "outer-window-destroyed")) {
     nsCOMPtr<nsISupportsPRUint64> wrapper = do_QueryInterface(aSubject);
     NS_ENSURE_TRUE(wrapper, NS_ERROR_FAILURE);
     uint64_t outerID;
     Unused << wrapper->GetData(&outerID);
     MOZ_LOG(gVirtualCursorLog, LogLevel::Debug,
-            ("inner-window-destroyed id %llu self %llu", outerID,
-             mInnerWindow->WindowID()));
-    if (mInnerWindow->WindowID() == outerID) {
+            ("outer-window-destroyed id %llu self %llu", outerID,
+             mOuterWindow->WindowID()));
+    if (mOuterWindow->WindowID() == outerID) {
       DestroyCursor();
     }
   }

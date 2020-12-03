@@ -29,7 +29,7 @@ class VirtualCursorProxy final : public nsIObserver {
   NS_DECL_ISUPPORTS
   NS_DECL_NSIOBSERVER
 
-  VirtualCursorProxy(nsPIDOMWindowInner* aWindow, nsIVirtualCursor* aDelegate,
+  VirtualCursorProxy(nsPIDOMWindowOuter* aWindow, nsIVirtualCursor* aDelegate,
                      const LayoutDeviceIntPoint& aChromeOffset);
 
   void RequestEnable();
@@ -41,7 +41,7 @@ class VirtualCursorProxy final : public nsIObserver {
   virtual ~VirtualCursorProxy();
   void DestroyCursor();
 
-  nsCOMPtr<nsPIDOMWindowInner> mInnerWindow;
+  nsCOMPtr<nsPIDOMWindowOuter> mOuterWindow;
   RefPtr<CursorSimulator> mSimulator;
 };
 
