@@ -100,7 +100,7 @@ class CursorSimulator final : public nsIDOMEventListener,
 
   bool IsNavigationKey(uint32_t aKeycode);
   bool SetCursorDirection(uint32_t aKeycode);
-  bool CheckIfFocusedOnEditableElement();
+  bool IsFocusedOnEditableElement();
 
   bool IsActive();
   void UpdatePos(const LayoutDeviceIntPoint& aPos);
@@ -132,7 +132,6 @@ class CursorSimulator final : public nsIDOMEventListener,
   // FullScreenElement is used in scroll as rootFrame
   Element* mFullScreenElement;
   bool mEnabled;
-  bool mFocusedOnEditable;
 };
 
 }  // namespace dom

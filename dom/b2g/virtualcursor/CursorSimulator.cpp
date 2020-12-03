@@ -67,8 +67,7 @@ CursorSimulator::CursorSimulator(nsPIDOMWindowOuter* aWindow,
       mCursorClickOnKeyUp(false),
       mShortClickMoveOffset(0.0f),
       mFullScreenElement(nullptr),
-      mEnabled(false),
-      mFocusedOnEditable(false) {
+      mEnabled(false) {
   mTimer = do_CreateInstance("@mozilla.org/timer;1");
   for (int i = DECL_CURSOR_MOVE_FIRST; i <= DECL_CURSOR_MOVE_LAST; ++i) {
     mMoveStepOffset[i] =
@@ -80,7 +79,7 @@ CursorSimulator::CursorSimulator(nsPIDOMWindowOuter* aWindow,
       "dom.virtualcursor.move.short_click_offset", K_MOVE_STEP_OFFSET_DEFAULT);
 
   mEventTarget = mOuterWindow->GetChromeEventHandler();
-  MOZ_LOG(gVirtualCursorLog, LogLevel::Debug, ("CursorSimulator construct\n"));
+  MOZ_LOG(gVirtualCursorLog, LogLevel::Debug, ("CursorSimulator construct %p\n", this));
 }
 
 CursorSimulator::~CursorSimulator() {
@@ -179,7 +178,7 @@ void CursorSimulator::RemoveEventListeners() {
                                     this, true);
 }
 
-bool CursorSimulator::CheckIfFocusedOnEditableElement() {
+bool CursorSimulator::IsFocusedOnEditableElement() {
   nsFocusManager* focusManager = nsFocusManager::GetFocusManager();
   if (!focusManager) {
     return false;
@@ -231,12 +230,12 @@ nsresult CursorSimulator::HandleEvent(Event* aEvent) {
   }
 
   if (eventType.EqualsLiteral("focus")) {
-    mFocusedOnEditable = CheckIfFocusedOnEditableElement();
+    bool focusedOnEditable = IsFocusedOnEditableElement();
     MOZ_LOG(
         gVirtualCursorLog, LogLevel::Debug,
         ("CursorSimulator element focus, is focused on an editable element=%d",
-         mFocusedOnEditable));
-    if (!mFocusedOnEditable) {
+         focusedOnEditable));
+    if (!focusedOnEditable) {
       UpdatePos();
     } else {
       CursorOut();
@@ -246,7 +245,7 @@ nsresult CursorSimulator::HandleEvent(Event* aEvent) {
 
   WidgetKeyboardEvent* keyEvent = aEvent->WidgetEventPtr()->AsKeyboardEvent();
 
-  if (!keyEvent || mFocusedOnEditable) {
+  if (!keyEvent || IsFocusedOnEditableElement()) {
     return NS_OK;
   }
 
@@ -354,7 +353,7 @@ nsresult CursorSimulator::HandleNavigationKey(WidgetKeyboardEvent* aKeyEvent) {
   windowSize.width = width;
   windowSize.height = height;
   MOZ_LOG(gVirtualCursorLog, LogLevel::Debug,
-          ("CursorSimulator::HandleNavigationKey start"));
+          ("CursorSimulator::HandleNavigationKey start %p", this));
   mIsKeyPressed = (aKeyEvent->mMessage == eKeyDown);
   MovePolicy(offset);
   ScrollPolicy(windowSize, offset);
