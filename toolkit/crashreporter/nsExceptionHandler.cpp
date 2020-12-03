@@ -858,10 +858,20 @@ static void AnnotateMemoryStatus(AnnotationWriter& aWriter) {
   // there's no risk of race condition regardless of how we
   // read it.
 
+#ifdef MOZ_WIDGET_GONK
+  // 10kB buffer could result in stack overflow when running
+  // KaiOS based on Android Q, because a previous frame has created
+  // a 4kB minidumpPath buffer and the size of a separate thread
+  // signal stack is just 16kB in 32-bit platform. So, we change
+  // the buffer size to 2kB for our case. It should be enough to
+  // keep whole /proc/meminfo's content
+  const size_t BUFFER_SIZE_BYTES = 2048;
+#else
   // The buffer in which we're going to load the entire file.
   // A typical size for /proc/meminfo is 1kb, so 10kB should
   // be large enough until further notice.
   const size_t BUFFER_SIZE_BYTES = 10000;
+#endif
   char buffer[BUFFER_SIZE_BYTES];
   ssize_t bufferLen = 0;
 
