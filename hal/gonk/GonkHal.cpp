@@ -1366,13 +1366,25 @@ void SetFlashlightEnabled(bool aEnabled) {
 }
 
 bool IsFlashlightPresent() {
+  #define FLASHLIGHT_PRESENT_UNKNOWN    -1
+  #define FLASHLIGHT_PRESENT_AVAILABLE   1
+  #define FLASHLIGHT_PRESENT_UNAVAILABLE 0
+  static uint32_t gCameraPresent = FLASHLIGHT_PRESENT_UNKNOWN;
+
+  if (gCameraPresent != FLASHLIGHT_PRESENT_UNKNOWN) {
+    return (gCameraPresent == FLASHLIGHT_PRESENT_AVAILABLE)? true : false;
+  }
+
   if (gCameraService) {
     Status res;
     res = gCameraService->setTorchMode(String16("0"), false, gBinder);
     if (res.isOk() ||
        (!strstr(res.toString8().string(), "does not have a flash unit") &&
         !strstr(res.toString8().string(), "has no flashlight"))) {
+      gCameraPresent = FLASHLIGHT_PRESENT_AVAILABLE;
       return true;
+    } else {
+      gCameraPresent = FLASHLIGHT_PRESENT_UNAVAILABLE;
     }
     HAL_ERR("CameraService setTorchMode failed:%s", res.toString8().string());
   } else {

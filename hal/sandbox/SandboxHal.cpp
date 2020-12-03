@@ -406,11 +406,54 @@ class HalParent : public PHalParent,
     return IPC_OK();
   }
 
-  virtual mozilla::ipc::IPCResult RecvRequestCurrentFlashlightState() override {
-    FlashlightInformation flashlightInfo;
-    flashlightInfo.enabled() = hal::GetFlashlightEnabled();
-    flashlightInfo.present() = hal::IsFlashlightPresent();
-    Unused << SendNotifyFlashlightState(flashlightInfo);
+  static nsresult DispatchToIOThread(
+    already_AddRefed<nsIRunnable> aRunnable) {
+    nsCOMPtr<nsIEventTarget> target =
+      do_GetService(NS_STREAMTRANSPORTSERVICE_CONTRACTID);
+    MOZ_ASSERT(target);
+
+    nsCOMPtr<nsIRunnable> runnable(aRunnable);
+    return target->Dispatch(runnable.forget(), NS_DISPATCH_NORMAL);
+  }
+
+  static nsresult DispatchToMainThread(
+    already_AddRefed<nsIRunnable> aRunnable) {
+    nsCOMPtr<nsIEventTarget> target = do_GetMainThread();
+    MOZ_ASSERT(target);
+
+    nsCOMPtr<nsIRunnable> runnable(aRunnable);
+    return target->Dispatch(runnable.forget(), NS_DISPATCH_NORMAL);
+  }
+
+  static void FlashlightStateNotifyCallback(HalParent* hal,
+    const FlashlightInformation& aFlashlightInfo) {
+    // hand over the query result back to main thread.
+    nsCOMPtr<nsIRunnable> runnable =
+      NS_NewRunnableFunction(
+        "mozilla::hal_sandbox::FlashlightStateNotifyCallback",
+        [=]() -> void {
+          hal->Notify(aFlashlightInfo);
+        });
+    DebugOnly<nsresult> rv = DispatchToMainThread(runnable.forget());
+    NS_WARNING_ASSERTION(NS_SUCCEEDED(rv), "DispatchToMainThread failed");
+  }
+
+  virtual mozilla::ipc::IPCResult RecvRequestCurrentFlashlightState(
+    ) override {
+    // To avoid deadlock in CameraService, we dispatch the execution
+    // of RequestCurrentFlashlightState to IOThread instead of
+    // executing it in MainThread.
+    nsCOMPtr<nsIRunnable> runnable =
+      NS_NewRunnableFunction(
+        "mozilla::hal_sandbox::RequestCurrentFlashlightState",
+        [=]() -> void {
+          FlashlightInformation info;
+          info.enabled() = hal::GetFlashlightEnabled();
+          info.present() = hal::IsFlashlightPresent();
+          FlashlightStateNotifyCallback(this, info);
+        });
+    DebugOnly<nsresult> rv = DispatchToIOThread(runnable.forget());
+    NS_WARNING_ASSERTION(NS_SUCCEEDED(rv), "DispatchToIOThread failed");
     return IPC_OK();
   }
 
