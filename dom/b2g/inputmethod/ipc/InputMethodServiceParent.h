@@ -81,6 +81,8 @@ class InputMethodServiceParent final
         mRequestMap.Remove(((const GetTextResponse&)aResponse).id());
         break;
       }
+      default:
+        break;
     }
     return result;
   }

@@ -92,6 +92,30 @@ XPCOMUtils.defineLazyServiceGetter(
     },
   };
 
+  function EditableSupport(native) {
+    this.native = native;
+  }
+
+  EditableSupport.prototype = {
+    setSelectedOption(index) {
+      if (this.native) {
+        this.native.SetSelectedOption(0, null, index);
+      }
+    },
+
+    setSelectedOptions(indexes) {
+      if (this.native) {
+        this.native.SetSelectedOptions(0, null, indexes);
+      }
+    },
+
+    removeFocus() {
+      if (this.native) {
+        this.native.RemoveFocus(0, null);
+      }
+    },
+  };
+
   // Enable logs when according to the pref value, and listen to changes.
   let webEmbedLogEnabled = Services.prefs.getBoolPref(
     "webembed.log.enabled",
@@ -339,6 +363,7 @@ XPCOMUtils.defineLazyServiceGetter(
             voiceInputSupported: subject.voiceInputSupported,
             name: subject.name,
             choices: subject.choices,
+            activeEditable: new EditableSupport(subject.editableSupport),
           };
         }
         _webembed_log(`detail: ${JSON.stringify(detail)}`);

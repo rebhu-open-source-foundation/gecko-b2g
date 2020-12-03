@@ -156,7 +156,7 @@ This delegate handle focus/blur from IME to inform system useful information.
 - `focusChanged(detail)` The `detail` parameter is an object with following properties:
   - `isFocus`: an boolean to identify focus or blur event it got.
   - `type`: tagName of element.
-  - `inputType`: the element's type attribute. Types for <input> and <textarea>.
+  - `inputType`: the element's type attribute. Types for `<input> and <textarea>`.
   - `value`: the current value of the control.
   - `max`: the element's max attribute, containing the maximum (numeric or date-time) value for this item.
   - `min`: the element's min attribute, containing the minimum (numeric or date-time) value for this item.
@@ -166,3 +166,13 @@ This delegate handle focus/blur from IME to inform system useful information.
   - `name`: the element's name attribute.
   - `selectionStart`: unsigned long. The element's selectionStart attribute.
   - `selectionEnd`: unsigned long. The element's selectionEnd attribute.
+  - `activeEditable`: current active EditableSupport.
+
+### EditableSupport
+
+A wrapper which represents the editing element and provides interfaces to control it.
+
+### Methods
+- `setSelectedOption`: setup selected option of the current editing element.
+- `setSelectedOptions`: setup selected options of the current editing element.
+- `removeFocus`: remove focus from the current editing element.

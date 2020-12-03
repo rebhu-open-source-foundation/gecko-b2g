@@ -1384,7 +1384,7 @@ nsresult GeckoEditableSupport::GetInputContextBag(
   }
   inputContextChoices->SetChoices(choices);
   aInputContext->SetInputContextChoices(inputContextChoices);
-
+  aInputContext->SetEditableSupport(this);
   return NS_OK;
 }
 

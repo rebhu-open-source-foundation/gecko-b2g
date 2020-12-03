@@ -4,7 +4,7 @@
 
 #include "nsISupports.idl"
 #include "nsIArray.idl"
-interface nsIMutableArray;
+interface nsIEditableSupport;
 
 [scriptable, uuid(f3e800bc-084e-11eb-9d30-87a883b04d68)]
 interface nsIInputContextChoicesInfo : nsISupports
@@ -42,4 +42,5 @@ interface nsIInputContext : nsISupports
   readonly attribute uint32_t selectionStart;
   readonly attribute uint32_t selectionEnd;
   readonly attribute nsIInputContextChoices choices;
+  readonly attribute nsIEditableSupport editableSupport;
 };

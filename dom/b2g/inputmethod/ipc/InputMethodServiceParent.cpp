@@ -11,7 +11,8 @@
 namespace mozilla {
 namespace dom {
 
-void CarryIntoInputContext(const HandleFocusRequest& aRequest,
+void CarryIntoInputContext(nsIEditableSupport* aEditableSupport,
+                           const HandleFocusRequest& aRequest,
                            nsInputContext* aInputContext) {
   aInputContext->SetType(aRequest.type());
   aInputContext->SetInputType(aRequest.inputType());
@@ -85,6 +86,7 @@ void CarryIntoInputContext(const HandleFocusRequest& aRequest,
   }
   inputContextChoices->SetChoices(choices);
   aInputContext->SetInputContextChoices(inputContextChoices);
+  aInputContext->SetEditableSupport(aEditableSupport);
 }
 
 NS_IMPL_ISUPPORTS(InputMethodServiceParent, nsIEditableSupportListener,
@@ -123,7 +125,7 @@ IPCResult InputMethodServiceParent::RecvRequest(
       IME_LOGD("InputMethodServiceParent::RecvRequest:HandleFocusRequest");
       const HandleFocusRequest& request = aRequest;
       RefPtr<nsInputContext> inputContext = new nsInputContext();
-      CarryIntoInputContext(request, inputContext);
+      CarryIntoInputContext(this, request, inputContext);
       service->HandleFocus(this, static_cast<nsIInputContext*>(inputContext));
       break;
     }

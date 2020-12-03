@@ -156,7 +156,8 @@ void nsInputContext::Init(const nsAString& aType, const nsAString& aInputType,
                           const nsAString& aMin, const nsAString& aValue,
                           bool aVoiceInputSupported, uint32_t aSelectionStart,
                           uint32_t aSelectionEnd,
-                          nsInputContextChoices* aChoices) {
+                          nsInputContextChoices* aChoices,
+                          nsIEditableSupport* aEditableSupport) {
   mType.Assign(aType);
   mInputType.Assign(aInputType);
   mInputMode.Assign(aInputMode);
@@ -169,6 +170,7 @@ void nsInputContext::Init(const nsAString& aType, const nsAString& aInputType,
   mSelectionStart = aSelectionStart;
   mSelectionEnd = aSelectionEnd;
   mChoices = aChoices;
+  mEditableSupport = aEditableSupport;
 }
 
 void nsInputContext::SetType(const nsAString& aType) { mType = aType; }
@@ -194,6 +196,10 @@ void nsInputContext::SetSelectionEnd(uint32_t aSelectionEnd) {
 }
 void nsInputContext::SetInputContextChoices(nsInputContextChoices* aChoices) {
   mChoices = aChoices;
+}
+
+void nsInputContext::SetEditableSupport(nsIEditableSupport* aEditableSupport) {
+  mEditableSupport = aEditableSupport;
 }
 
 // nsIInputContext methods
@@ -267,6 +273,12 @@ nsInputContext::GetSelectionEnd(uint32_t* aResult) {
 NS_IMETHODIMP
 nsInputContext::GetChoices(nsIInputContextChoices** aResult) {
   *aResult = do_AddRef(mChoices).take();
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsInputContext::GetEditableSupport(nsIEditableSupport** aResult) {
+  *aResult = do_AddRef(mEditableSupport).take();
   return NS_OK;
 }
 
