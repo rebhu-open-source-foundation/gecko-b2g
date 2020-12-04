@@ -126,7 +126,7 @@ if CONFIG["MOZ_WIDGET_TOOLKIT"] == "android":
         "nsAndroidStartup.cpp",
     ]
 
-if CONFIG["MOZ_WIDGET_TOOLKIT"] != "android":
+if CONFIG["MOZ_WIDGET_TOOLKIT"] != "android" and CONFIG["MOZ_WIDGET_TOOLKIT"] != "gonk":
     UNIFIED_SOURCES += [
         "GlobalSemaphore.cpp",
     ]
