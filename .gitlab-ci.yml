@@ -129,6 +129,10 @@ build:emulator:
       - $GIT_CLONE_PATH =~ /koost$/
 
 build:arm:
+  before_script:
+    - '[ "$(cat ${HOME}/.mozbuild/ver)" = "4" ] || curl https://packages.preprod.kaiostech.com/ndk/v4/mozbuild.tar.bz2 | tar -C ${HOME}/ -xj'
+    - *global_setup
+    - *koost_setup
   variables:
     DEFAULT_DOCKER_IMAGE: "${CI_REGISTRY}/re/kaios-build/next/daily:latest"
     GONK_PATH: "${CI_BUILDS_DIR}/${CI_PROJECT_NAMESPACE}/gecko/gonk-q"
