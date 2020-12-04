@@ -52,6 +52,10 @@
 #include "mozilla/BasePrincipal.h"
 #include "nsJSPrincipals.h"
 
+// Workaround to fix missing static pref include.
+// See https://bugzilla.mozilla.org/show_bug.cgi?id=1680223
+#include "mozilla/StaticPrefs_dom.h"
+
 class nsGlobalWindowInner;
 class nsGlobalWindowOuter;
 class nsIInterfaceRequestor;
