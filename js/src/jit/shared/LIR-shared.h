@@ -295,20 +295,6 @@ class LNewArray : public LInstructionHelper<1, 0, 1> {
   MNewArray* mir() const { return mir_->toNewArray(); }
 };
 
-class LNewArrayCopyOnWrite : public LInstructionHelper<1, 0, 1> {
- public:
-  LIR_HEADER(NewArrayCopyOnWrite)
-
-  explicit LNewArrayCopyOnWrite(const LDefinition& temp)
-      : LInstructionHelper(classOpcode) {
-    setTemp(0, temp);
-  }
-
-  const LDefinition* temp() { return getTemp(0); }
-
-  MNewArrayCopyOnWrite* mir() const { return mir_->toNewArrayCopyOnWrite(); }
-};
-
 class LNewArrayDynamicLength : public LInstructionHelper<1, 1, 1> {
  public:
   LIR_HEADER(NewArrayDynamicLength)
@@ -3806,59 +3792,6 @@ class LElements : public LInstructionHelper<1, 1, 0> {
   const LAllocation* object() { return getOperand(0); }
 
   const MElements* mir() const { return mir_->toElements(); }
-};
-
-// If necessary, convert any int32 elements in a vector into doubles.
-class LConvertElementsToDoubles : public LInstructionHelper<0, 1, 0> {
- public:
-  LIR_HEADER(ConvertElementsToDoubles)
-
-  explicit LConvertElementsToDoubles(const LAllocation& elements)
-      : LInstructionHelper(classOpcode) {
-    setOperand(0, elements);
-  }
-
-  const LAllocation* elements() { return getOperand(0); }
-};
-
-// If |elements| has the CONVERT_DOUBLE_ELEMENTS flag, convert int32 value to
-// double. Else return the original value.
-class LMaybeToDoubleElement : public LInstructionHelper<BOX_PIECES, 2, 1> {
- public:
-  LIR_HEADER(MaybeToDoubleElement)
-
-  LMaybeToDoubleElement(const LAllocation& elements, const LAllocation& value,
-                        const LDefinition& tempFloat)
-      : LInstructionHelper(classOpcode) {
-    setOperand(0, elements);
-    setOperand(1, value);
-    setTemp(0, tempFloat);
-  }
-
-  const LAllocation* elements() { return getOperand(0); }
-  const LAllocation* value() { return getOperand(1); }
-  const LDefinition* tempFloat() { return getTemp(0); }
-};
-
-// If necessary, copy the elements in an object so they may be written to.
-class LMaybeCopyElementsForWrite : public LInstructionHelper<0, 1, 1> {
- public:
-  LIR_HEADER(MaybeCopyElementsForWrite)
-
-  explicit LMaybeCopyElementsForWrite(const LAllocation& obj,
-                                      const LDefinition& temp)
-      : LInstructionHelper(classOpcode) {
-    setOperand(0, obj);
-    setTemp(0, temp);
-  }
-
-  const LAllocation* object() { return getOperand(0); }
-
-  const LDefinition* temp() { return getTemp(0); }
-
-  const MMaybeCopyElementsForWrite* mir() const {
-    return mir_->toMaybeCopyElementsForWrite();
-  }
 };
 
 // Load the initialized length from an elements header.

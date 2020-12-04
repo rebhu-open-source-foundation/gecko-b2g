@@ -37,6 +37,7 @@
 #include "js/ScalarType.h"  // js::Scalar::Type
 #include "js/Value.h"
 #include "js/Vector.h"
+#include "util/DifferentialTesting.h"
 #include "vm/ArrayObject.h"
 #include "vm/BuiltinObjectKind.h"
 #include "vm/EnvironmentObject.h"
@@ -934,7 +935,7 @@ class MDefinition : public MNode {
   bool isEffectful() const { return getAliasSet().isStore(); }
 
 #ifdef DEBUG
-  virtual bool needsResumePoint() const {
+  bool needsResumePoint() const {
     // Return whether this instruction should have its own resume point.
     return isEffectful();
   }
@@ -2025,9 +2026,6 @@ class MNewArray : public MUnaryInstruction, public NoTypePolicy::Data {
   // Heap where the array should be allocated.
   gc::InitialHeap initialHeap_;
 
-  // Whether values written to this array should be converted to double first.
-  bool convertDoubleElements_;
-
   jsbytecode* pc_;
 
   bool vmCall_;
@@ -2058,8 +2056,6 @@ class MNewArray : public MUnaryInstruction, public NoTypePolicy::Data {
 
   bool isVMCall() const { return vmCall_; }
 
-  bool convertDoubleElements() const { return convertDoubleElements_; }
-
   // NewArray is marked as non-effectful because all our allocations are
   // either lazy when we are using "new Array(length)" or bounded by the
   // script or the stack size when we are using "new Array(...)" or "[...]"
@@ -2075,37 +2071,6 @@ class MNewArray : public MUnaryInstruction, public NoTypePolicy::Data {
     // because it can never be mutated by any other function execution.
     return templateObject() != nullptr;
   }
-};
-
-class MNewArrayCopyOnWrite : public MUnaryInstruction,
-                             public NoTypePolicy::Data {
-  gc::InitialHeap initialHeap_;
-
-  MNewArrayCopyOnWrite(TempAllocator& alloc, MConstant* templateConst,
-                       gc::InitialHeap initialHeap)
-      : MUnaryInstruction(classOpcode, templateConst),
-        initialHeap_(initialHeap) {
-    MOZ_ASSERT(!templateObject()->isSingleton());
-    setResultType(MIRType::Object);
-  }
-
- public:
-  INSTRUCTION_HEADER(NewArrayCopyOnWrite)
-  TRIVIAL_NEW_WRAPPERS_WITH_ALLOC
-
-  uint32_t length() const { return templateObject()->length(); }
-
-  ArrayObject* templateObject() const {
-    return &getOperand(0)->toConstant()->toObject().as<ArrayObject>();
-  }
-
-  gc::InitialHeap initialHeap() const { return initialHeap_; }
-
-  virtual AliasSet getAliasSet() const override { return AliasSet::None(); }
-
-  MOZ_MUST_USE bool writeRecoverData(
-      CompactBufferWriter& writer) const override;
-  bool canRecoverOnBailout() const override { return true; }
 };
 
 class MNewArrayDynamicLength : public MUnaryInstruction,
@@ -2449,7 +2414,6 @@ class MArrayState : public MVariadicInstruction,
                           MDefinition* initLength);
   static MArrayState* Copy(TempAllocator& alloc, MArrayState* state);
 
-  // Initialize values from CopyOnWrite arrays.
   MOZ_MUST_USE bool initFromTemplateObject(TempAllocator& alloc,
                                            MDefinition* undefinedVal);
 
@@ -5423,11 +5387,7 @@ class MRandom : public MNullaryInstruction {
       CompactBufferWriter& writer) const override;
 
   bool canRecoverOnBailout() const override {
-#ifdef JS_MORE_DETERMINISTIC
-    return false;
-#else
-    return true;
-#endif
+    return !js::SupportDifferentialTesting();
   }
 
   ALLOW_CLONE(MRandom)
@@ -7306,94 +7266,6 @@ class MConstantElements : public MNullaryInstruction {
   AliasSet getAliasSet() const override { return AliasSet::None(); }
 
   ALLOW_CLONE(MConstantElements)
-};
-
-// Passes through an object's elements, after ensuring it is entirely doubles.
-class MConvertElementsToDoubles : public MUnaryInstruction,
-                                  public NoTypePolicy::Data {
-  explicit MConvertElementsToDoubles(MDefinition* elements)
-      : MUnaryInstruction(classOpcode, elements) {
-    setGuard();
-    setMovable();
-    setResultType(MIRType::Elements);
-  }
-
- public:
-  INSTRUCTION_HEADER(ConvertElementsToDoubles)
-  TRIVIAL_NEW_WRAPPERS
-  NAMED_OPERANDS((0, elements))
-
-  bool congruentTo(const MDefinition* ins) const override {
-    return congruentIfOperandsEqual(ins);
-  }
-  AliasSet getAliasSet() const override {
-    // This instruction can read and write to the elements' contents.
-    // However, it is alright to hoist this from loops which explicitly
-    // read or write to the elements: such reads and writes will use double
-    // values and can be reordered freely wrt this conversion, except that
-    // definite double loads must follow the conversion. The latter
-    // property is ensured by chaining this instruction with the elements
-    // themselves, in the same manner as MBoundsCheck.
-    return AliasSet::None();
-  }
-};
-
-// If |elements| has the CONVERT_DOUBLE_ELEMENTS flag, convert value to
-// double. Else return the original value.
-class MMaybeToDoubleElement : public MBinaryInstruction,
-                              public UnboxedInt32Policy<1>::Data {
-  MMaybeToDoubleElement(MDefinition* elements, MDefinition* value)
-      : MBinaryInstruction(classOpcode, elements, value) {
-    MOZ_ASSERT(elements->type() == MIRType::Elements);
-    setMovable();
-    setResultType(MIRType::Value);
-  }
-
- public:
-  INSTRUCTION_HEADER(MaybeToDoubleElement)
-  TRIVIAL_NEW_WRAPPERS
-  NAMED_OPERANDS((0, elements), (1, value))
-
-  bool congruentTo(const MDefinition* ins) const override {
-    return congruentIfOperandsEqual(ins);
-  }
-  AliasSet getAliasSet() const override {
-    return AliasSet::Load(AliasSet::ObjectFields);
-  }
-};
-
-// Passes through an object, after ensuring its elements are not copy on write.
-class MMaybeCopyElementsForWrite : public MUnaryInstruction,
-                                   public SingleObjectPolicy::Data {
-  bool checkNative_;
-
-  explicit MMaybeCopyElementsForWrite(MDefinition* object, bool checkNative)
-      : MUnaryInstruction(classOpcode, object), checkNative_(checkNative) {
-    setGuard();
-    setMovable();
-    setResultType(MIRType::Object);
-  }
-
- public:
-  INSTRUCTION_HEADER(MaybeCopyElementsForWrite)
-  TRIVIAL_NEW_WRAPPERS
-  NAMED_OPERANDS((0, object))
-
-  bool checkNative() const { return checkNative_; }
-  bool congruentTo(const MDefinition* ins) const override {
-    return congruentIfOperandsEqual(ins) &&
-           checkNative() == ins->toMaybeCopyElementsForWrite()->checkNative();
-  }
-  AliasSet getAliasSet() const override {
-    return AliasSet::Store(AliasSet::ObjectFields);
-  }
-#ifdef DEBUG
-  bool needsResumePoint() const override {
-    // This instruction is idempotent and does not change observable
-    // behavior, so does not need its own resume point.
-    return false;
-  }
-#endif
 };
 
 // Load the initialized length from an elements header.

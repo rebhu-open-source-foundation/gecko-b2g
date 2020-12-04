@@ -14,6 +14,7 @@
 #include <algorithm>
 #include <utility>
 
+#include "BackgroundChild.h"
 #include "BrowserParent.h"
 #include "ClientLayerManager.h"
 #include "ContentChild.h"
@@ -75,6 +76,7 @@
 #include "mozilla/gfx/Matrix.h"
 #include "mozilla/gfx/gfxVars.h"
 #include "mozilla/ipc/BackgroundUtils.h"
+#include "mozilla/ipc/PBackgroundChild.h"
 #include "mozilla/ipc/URIUtils.h"
 #include "mozilla/layers/APZCCallbackHelper.h"
 #include "mozilla/layers/APZCTreeManagerChild.h"
@@ -143,6 +145,10 @@
 
 #ifdef XP_WIN
 #  include "mozilla/plugins/PluginWidgetChild.h"
+#endif
+
+#ifdef MOZ_WAYLAND
+#  include "nsAppRunner.h"
 #endif
 
 #ifdef NS_PRINTING
@@ -320,6 +326,7 @@ BrowserChild::BrowserChild(ContentChild* aManager, const TabId& aTabId,
       mDidFakeShow(false),
       mTriedBrowserInit(false),
       mOrientation(hal::eScreenOrientation_PortraitPrimary),
+      mVsyncChild(nullptr),
       mIgnoreKeyPressEvent(false),
       mHasValidInnerSize(false),
       mDestroyed(false),
@@ -630,11 +637,27 @@ nsresult BrowserChild::Init(mozIDOMWindowProxy* aParent,
   NS_ENSURE_SUCCESS(rv, rv);
 #endif
 
+  InitVsyncChild();
+
   // We've all set up, make sure our visibility state is consistent. This is
   // important for OOP iframes, which start off as hidden.
   UpdateVisibility();
 
   return NS_OK;
+}
+
+void BrowserChild::InitVsyncChild() {
+#if defined(MOZ_WAYLAND)
+  if (!IsWaylandDisabled()) {
+    PVsyncChild* actor = SendPVsyncConstructor();
+    mVsyncChild = static_cast<VsyncChild*>(actor);
+  } else
+#endif
+  {
+    PBackgroundChild* actorChild =
+        BackgroundChild::GetOrCreateForCurrentThread();
+    mVsyncChild = static_cast<VsyncChild*>(actorChild->SendPVsyncConstructor());
+  }
 }
 
 void BrowserChild::NotifyTabContextUpdated() {
@@ -1289,6 +1312,7 @@ mozilla::ipc::IPCResult BrowserChild::RecvUpdateDimensions(
   mUnscaledOuterRect = aDimensionInfo.rect();
   mClientOffset = aDimensionInfo.clientOffset();
   mChromeOffset = aDimensionInfo.chromeOffset();
+  MOZ_ASSERT_IF(!IsTopLevel(), mChromeOffset == LayoutDeviceIntPoint());
 
   mOrientation = aDimensionInfo.orientation();
   SetUnscaledInnerSize(aDimensionInfo.size());
@@ -2267,6 +2291,23 @@ bool BrowserChild::DeallocPFilePickerChild(PFilePickerChild* actor) {
   return true;
 }
 
+PVsyncChild* BrowserChild::AllocPVsyncChild() {
+  RefPtr<dom::VsyncChild> actor = new VsyncChild();
+  // There still has one ref-count after return, and it will be released in
+  // DeallocPVsyncChild().
+  return actor.forget().take();
+}
+
+bool BrowserChild::DeallocPVsyncChild(PVsyncChild* aActor) {
+  MOZ_ASSERT(aActor);
+
+  // This actor already has one ref-count. Please check AllocPVsyncChild().
+  RefPtr<VsyncChild> actor = dont_AddRef(static_cast<VsyncChild*>(aActor));
+  return true;
+}
+
+RefPtr<VsyncChild> BrowserChild::GetVsyncChild() { return mVsyncChild; }
+
 mozilla::ipc::IPCResult BrowserChild::RecvActivateFrameEvent(
     const nsString& aType, const bool& capture) {
   nsCOMPtr<nsPIDOMWindowOuter> window = do_GetInterface(WebNavigation());
@@ -2491,7 +2532,7 @@ mozilla::ipc::IPCResult BrowserChild::RecvPrintPreview(
   // went wrong.
   auto sendCallbackError = MakeScopeExit([&] {
     if (aCallback) {
-      aCallback(PrintPreviewResultInfo(0, 0, false));  // signal error
+      aCallback(PrintPreviewResultInfo(0, 0, false, false));  // signal error
     }
   });
 

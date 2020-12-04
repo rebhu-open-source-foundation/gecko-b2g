@@ -1687,11 +1687,6 @@ bool BaselineCodeGen<Handler>::emit_Nop() {
 }
 
 template <typename Handler>
-bool BaselineCodeGen<Handler>::emit_IterNext() {
-  return true;
-}
-
-template <typename Handler>
 bool BaselineCodeGen<Handler>::emit_NopDestructuring() {
   return true;
 }
@@ -2857,51 +2852,6 @@ bool BaselineCodeGen<Handler>::emit_NewArray() {
   return true;
 }
 
-template <>
-bool BaselineCompilerCodeGen::emit_NewArrayCopyOnWrite() {
-  // This is like the interpreter implementation, but we can call
-  // getOrFixupCopyOnWriteObject at compile-time.
-
-  RootedScript scriptRoot(cx, handler.script());
-  JSObject* obj =
-      ObjectGroup::getOrFixupCopyOnWriteObject(cx, scriptRoot, handler.pc());
-  if (!obj) {
-    return false;
-  }
-
-  prepareVMCall();
-
-  pushArg(ImmGCPtr(obj));
-
-  using Fn = ArrayObject* (*)(JSContext*, HandleArrayObject);
-  if (!callVM<Fn, js::NewDenseCopyOnWriteArray>()) {
-    return false;
-  }
-
-  // Box and push return value.
-  masm.tagValue(JSVAL_TYPE_OBJECT, ReturnReg, R0);
-  frame.push(R0);
-  return true;
-}
-
-template <>
-bool BaselineInterpreterCodeGen::emit_NewArrayCopyOnWrite() {
-  prepareVMCall();
-
-  pushBytecodePCArg();
-  pushScriptArg();
-
-  using Fn = ArrayObject* (*)(JSContext*, HandleScript, jsbytecode*);
-  if (!callVM<Fn, NewArrayCopyOnWriteOperation>()) {
-    return false;
-  }
-
-  // Box and push return value.
-  masm.tagValue(JSVAL_TYPE_OBJECT, ReturnReg, R0);
-  frame.push(R0);
-  return true;
-}
-
 template <typename Handler>
 bool BaselineCodeGen<Handler>::emit_InitElemArray() {
   // Keep the object and rhs on the stack.
@@ -2923,11 +2873,6 @@ bool BaselineCodeGen<Handler>::emit_InitElemArray() {
 
 template <typename Handler>
 bool BaselineCodeGen<Handler>::emit_NewObject() {
-  return emitNewObject();
-}
-
-template <typename Handler>
-bool BaselineCodeGen<Handler>::emit_NewObjectWithGroup() {
   return emitNewObject();
 }
 
@@ -3067,11 +3012,6 @@ bool BaselineCodeGen<Handler>::emit_GetElemSuper() {
   frame.pop();
   frame.push(R0);
   return true;
-}
-
-template <typename Handler>
-bool BaselineCodeGen<Handler>::emit_CallElem() {
-  return emit_GetElem();
 }
 
 template <typename Handler>
@@ -3412,16 +3352,6 @@ bool BaselineCodeGen<Handler>::emit_GetProp() {
   // Mark R0 as pushed stack value.
   frame.push(R0);
   return true;
-}
-
-template <typename Handler>
-bool BaselineCodeGen<Handler>::emit_CallProp() {
-  return emit_GetProp();
-}
-
-template <typename Handler>
-bool BaselineCodeGen<Handler>::emit_Length() {
-  return emit_GetProp();
 }
 
 template <typename Handler>

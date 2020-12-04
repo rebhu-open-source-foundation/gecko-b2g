@@ -906,11 +906,14 @@ nsresult EventStateManager::PreHandleEvent(nsPresContext* aPresContext,
         // If the event is trusted event, set the selected text to data of
         // composition event.
         WidgetCompositionEvent* compositionEvent = aEvent->AsCompositionEvent();
-        WidgetQueryContentEvent selectedText(true, eQuerySelectedText,
-                                             compositionEvent->mWidget);
-        HandleQueryContentEvent(&selectedText);
-        NS_ASSERTION(selectedText.mSucceeded, "Failed to get selected text");
-        compositionEvent->mData = selectedText.mReply.mString;
+        WidgetQueryContentEvent querySelectedTextEvent(
+            true, eQuerySelectedText, compositionEvent->mWidget);
+        HandleQueryContentEvent(&querySelectedTextEvent);
+        if (querySelectedTextEvent.FoundSelection()) {
+          compositionEvent->mData = querySelectedTextEvent.mReply->DataRef();
+        }
+        NS_ASSERTION(querySelectedTextEvent.Succeeded(),
+                     "Failed to get selected text");
       }
       break;
     case eTouchStart:
@@ -1132,7 +1135,8 @@ bool EventStateManager::LookForAccessKeyAndExecute(
         if (shouldActivate) {
           focusChanged =
               element->PerformAccesskey(shouldActivate, aIsTrustedEvent);
-        } else if (nsFocusManager* fm = nsFocusManager::GetFocusManager()) {
+        } else if (RefPtr<nsFocusManager> fm =
+                       nsFocusManager::GetFocusManager()) {
           fm->SetFocus(element, nsIFocusManager::FLAG_BYKEY);
           focusChanged = true;
         }
@@ -3398,8 +3402,7 @@ nsresult EventStateManager::PostHandleEvent(nsPresContext* aPresContext,
 
         MOZ_ASSERT_IF(newFocus, newFocus->IsElement());
 
-        nsFocusManager* fm = nsFocusManager::GetFocusManager();
-        if (fm) {
+        if (RefPtr<nsFocusManager> fm = nsFocusManager::GetFocusManager()) {
           // if something was found to focus, focus it. Otherwise, if the
           // element that was clicked doesn't have -moz-user-focus: ignore,
           // clear the existing focus. For -moz-user-focus: ignore, the focus
@@ -3420,7 +3423,7 @@ nsresult EventStateManager::PostHandleEvent(nsPresContext* aPresContext,
                 MouseEvent_Binding::MOZ_SOURCE_TOUCH) {
               flags |= nsIFocusManager::FLAG_BYTOUCH;
             }
-            fm->SetFocus(newFocus->AsElement(), flags);
+            fm->SetFocus(MOZ_KnownLive(newFocus->AsElement()), flags);
           } else if (!suppressBlur) {
             // clear the focus within the frame and then set it as the
             // focused frame

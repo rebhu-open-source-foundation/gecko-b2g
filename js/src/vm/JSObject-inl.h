@@ -114,18 +114,8 @@ inline void JSObject::finalize(JSFreeOp* fop) {
   if (nobj->hasDynamicElements()) {
     js::ObjectElements* elements = nobj->getElementsHeader();
     size_t size = elements->numAllocatedElements() * sizeof(js::HeapSlot);
-    if (elements->isCopyOnWrite()) {
-      if (elements->ownerObject() == this) {
-        // Don't free the elements until object finalization finishes,
-        // so that other objects can access these elements while they
-        // are themselves finalized.
-        MOZ_ASSERT(elements->numShiftedElements() == 0);
-        fop->freeLater(this, elements, size, js::MemoryUse::ObjectElements);
-      }
-    } else {
-      fop->free_(this, nobj->getUnshiftedElementsHeader(), size,
-                 js::MemoryUse::ObjectElements);
-    }
+    fop->free_(this, nobj->getUnshiftedElementsHeader(), size,
+               js::MemoryUse::ObjectElements);
   }
 }
 
@@ -148,18 +138,6 @@ js::NativeObject::updateDictionaryListPointerAfterMinorGC(NativeObject* old) {
   if (shape()->dictNext == DictionaryShapeLink(old)) {
     shape()->dictNext = DictionaryShapeLink(this);
   }
-}
-
-/* static */ inline js::ObjectGroup* JSObject::getGroup(JSContext* cx,
-                                                        js::HandleObject obj) {
-  MOZ_ASSERT(cx->compartment() == obj->compartment());
-  if (obj->hasLazyGroup()) {
-    if (cx->compartment() != obj->compartment()) {
-      MOZ_CRASH();
-    }
-    return makeLazyGroup(cx, obj);
-  }
-  return obj->groupRaw();
 }
 
 inline void JSObject::setGroup(js::ObjectGroup* group) {
@@ -451,14 +429,6 @@ inline T* NewObjectWithGivenTaggedProto(JSContext* cx,
                                                                         proto);
 }
 
-template <typename T>
-inline T* NewSingletonObjectWithGivenTaggedProtoAndKind(
-    JSContext* cx, Handle<TaggedProto> proto, gc::AllocKind allocKind) {
-  JSObject* obj = NewObjectWithGivenTaggedProto(cx, &T::class_, proto,
-                                                allocKind, SingletonObject, 0);
-  return obj ? &obj->as<T>() : nullptr;
-}
-
 inline JSObject* NewObjectWithGivenProto(
     JSContext* cx, const JSClass* clasp, HandleObject proto,
     gc::AllocKind allocKind, NewObjectKind newKind = GenericObject) {
@@ -489,12 +459,6 @@ inline JSObject* NewSingletonObjectWithGivenProto(JSContext* cx,
 template <typename T>
 inline T* NewObjectWithGivenProto(JSContext* cx, HandleObject proto) {
   return detail::NewObjectWithGivenTaggedProtoForKind<T, GenericObject>(
-      cx, AsTaggedProto(proto));
-}
-
-template <typename T>
-inline T* NewSingletonObjectWithGivenProto(JSContext* cx, HandleObject proto) {
-  return detail::NewObjectWithGivenTaggedProtoForKind<T, SingletonObject>(
       cx, AsTaggedProto(proto));
 }
 

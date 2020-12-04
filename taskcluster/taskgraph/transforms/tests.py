@@ -572,8 +572,6 @@ test_description_schema = Schema(
         Optional("fetches"): {
             text_type: optionally_keyed_by("test-platform", [text_type])
         },
-        # Use Python 2 rather than Python 3.
-        Optional("force-py2"): bool,
     }
 )
 
@@ -643,7 +641,6 @@ def set_defaults(config, tasks):
         task.setdefault("limit-platforms", [])
         task.setdefault("docker-image", {"in-tree": "ubuntu1804-test"})
         task.setdefault("checkout", False)
-        task.setdefault("force-py2", False)
         task.setdefault("require-signed-extensions", False)
         task.setdefault("variants", [])
 
@@ -1051,34 +1048,34 @@ def setup_browsertime(config, tasks):
 
         cd_fetches = {
             "android.*": [
-                "linux64-chromedriver-84",
                 "linux64-chromedriver-85",
                 "linux64-chromedriver-86",
+                "linux64-chromedriver-87",
             ],
             "linux.*": [
-                "linux64-chromedriver-84",
                 "linux64-chromedriver-85",
                 "linux64-chromedriver-86",
+                "linux64-chromedriver-87",
             ],
             "macosx.*": [
-                "mac64-chromedriver-84",
                 "mac64-chromedriver-85",
                 "mac64-chromedriver-86",
+                "mac64-chromedriver-87",
             ],
             "windows.*aarch64.*": [
-                "win32-chromedriver-84",
                 "win32-chromedriver-85",
                 "win32-chromedriver-86",
+                "win32-chromedriver-87",
             ],
             "windows.*-32.*": [
-                "win32-chromedriver-84",
                 "win32-chromedriver-85",
                 "win32-chromedriver-86",
+                "win32-chromedriver-87",
             ],
             "windows.*-64.*": [
-                "win32-chromedriver-84",
                 "win32-chromedriver-85",
                 "win32-chromedriver-86",
+                "win32-chromedriver-87",
             ],
         }
 
@@ -1906,7 +1903,6 @@ def make_job_description(config, tasks):
         run = jobdesc["run"] = {}
         run["using"] = "mozharness-test"
         run["test"] = task
-        run["force-py2"] = task.pop("force-py2", False)
 
         if "workdir" in task:
             run["workdir"] = task.pop("workdir")

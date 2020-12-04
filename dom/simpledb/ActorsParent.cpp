@@ -509,6 +509,8 @@ class QuotaClient final : public mozilla::dom::quota::Client {
 
   void AbortOperationsForProcess(ContentParentId aContentParentId) override;
 
+  void AbortAllOperations() override;
+
   void StartIdleMaintenance() override;
 
   void StopIdleMaintenance() override;
@@ -530,6 +532,21 @@ class QuotaClient final : public mozilla::dom::quota::Client {
 typedef nsTArray<RefPtr<Connection>> ConnectionArray;
 
 StaticAutoPtr<ConnectionArray> gOpenConnections;
+
+template <typename Condition>
+void AllowToCloseConnectionsMatching(const Condition& aCondition) {
+  AssertIsOnBackgroundThread();
+
+  if (gOpenConnections) {
+    for (const auto& connection : *gOpenConnections) {
+      MOZ_ASSERT(connection);
+
+      if (aCondition(*connection)) {
+        connection->AllowToClose();
+      }
+    }
+  }
+}
 
 }  // namespace
 
@@ -1778,18 +1795,21 @@ void QuotaClient::ReleaseIOThreadObjects() { AssertIsOnIOThread(); }
 
 void QuotaClient::AbortOperations(const nsACString& aOrigin) {
   AssertIsOnBackgroundThread();
+  MOZ_ASSERT(!aOrigin.IsVoid());
 
-  if (gOpenConnections) {
-    for (Connection* connection : *gOpenConnections) {
-      if (aOrigin.IsVoid() || connection->Origin() == aOrigin) {
-        connection->AllowToClose();
-      }
-    }
-  }
+  AllowToCloseConnectionsMatching([&aOrigin](const auto& connection) {
+    return connection.Origin() == aOrigin;
+  });
 }
 
 void QuotaClient::AbortOperationsForProcess(ContentParentId aContentParentId) {
   AssertIsOnBackgroundThread();
+}
+
+void QuotaClient::AbortAllOperations() {
+  AssertIsOnBackgroundThread();
+
+  AllowToCloseConnectionsMatching([](const auto&) { return true; });
 }
 
 void QuotaClient::StartIdleMaintenance() { AssertIsOnBackgroundThread(); }

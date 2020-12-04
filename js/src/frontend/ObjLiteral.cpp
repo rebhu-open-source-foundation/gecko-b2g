@@ -61,8 +61,6 @@ static JSObject* InterpretObjLiteralObj(
     JSContext* cx, frontend::CompilationAtomCache& atomCache,
     const ObjLiteralAtomVector& atoms,
     const mozilla::Span<const uint8_t> literalInsns, ObjLiteralFlags flags) {
-  bool specificGroup = flags.contains(ObjLiteralFlag::SpecificGroup);
-  bool singleton = flags.contains(ObjLiteralFlag::Singleton);
   bool noValues = flags.contains(ObjLiteralFlag::NoValues);
 
   ObjLiteralReader reader(literalInsns);
@@ -94,12 +92,7 @@ static JSObject* InterpretObjLiteralObj(
     }
   }
 
-  if (specificGroup) {
-    return ObjectGroup::newPlainObject(
-        cx, properties.begin(), properties.length(),
-        singleton ? SingletonObject : TenuredObject);
-  }
-
+  // TODO(no-TI): remove SpecificGroup and Singleton from ObjLiteralFlag.
   return NewPlainObjectWithProperties(cx, properties.begin(),
                                       properties.length(), TenuredObject);
 }
@@ -108,7 +101,7 @@ static JSObject* InterpretObjLiteralArray(
     JSContext* cx, frontend::CompilationAtomCache& atomCache,
     const ObjLiteralAtomVector& atoms,
     const mozilla::Span<const uint8_t> literalInsns, ObjLiteralFlags flags) {
-  bool isCow = flags.contains(ObjLiteralFlag::ArrayCOW);
+  // TODO(no-TI): remove ArrayCOW.
   ObjLiteralReader reader(literalInsns);
   ObjLiteralInsn insn;
 
@@ -124,17 +117,9 @@ static JSObject* InterpretObjLiteralArray(
     }
   }
 
-  ObjectGroup::NewArrayKind arrayKind =
-      isCow ? ObjectGroup::NewArrayKind::CopyOnWrite
-            : ObjectGroup::NewArrayKind::Normal;
-  RootedObject result(
-      cx, ObjectGroup::newArrayObject(cx, elements.begin(), elements.length(),
-                                      NewObjectKind::TenuredObject, arrayKind));
-  if (!result) {
-    return nullptr;
-  }
-
-  return result;
+  return NewDenseCopiedArray(cx, elements.length(), elements.begin(),
+                             /* proto = */ nullptr,
+                             NewObjectKind::TenuredObject);
 }
 
 JSObject* InterpretObjLiteral(JSContext* cx,

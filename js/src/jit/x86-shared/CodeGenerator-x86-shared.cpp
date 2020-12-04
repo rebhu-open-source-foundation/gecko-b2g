@@ -16,6 +16,7 @@
 #include "jit/JitRuntime.h"
 #include "jit/RangeAnalysis.h"
 #include "js/ScalarType.h"  // js::Scalar::Type
+#include "util/DifferentialTesting.h"
 #include "vm/TraceLogging.h"
 
 #include "jit/MacroAssembler-inl.h"
@@ -2152,7 +2153,11 @@ void CodeGeneratorX86Shared::visitOutOfLineWasmTruncateCheck(
 
 void CodeGeneratorX86Shared::canonicalizeIfDeterministic(
     Scalar::Type type, const LAllocation* value) {
-#ifdef JS_MORE_DETERMINISTIC
+#ifdef DEBUG
+  if (!js::SupportDifferentialTesting()) {
+    return;
+  }
+
   switch (type) {
     case Scalar::Float32: {
       FloatRegister in = ToFloatRegister(value);
@@ -2169,7 +2174,7 @@ void CodeGeneratorX86Shared::canonicalizeIfDeterministic(
       break;
     }
   }
-#endif  // JS_MORE_DETERMINISTIC
+#endif  // DEBUG
 }
 
 void CodeGenerator::visitCopySignF(LCopySignF* lir) {
@@ -2546,14 +2551,8 @@ void CodeGenerator::visitWasmBinarySimd128(LWasmBinarySimd128* ins) {
     case wasm::SimdOp::F32x4Lt:
       masm.compareFloat32x4(Assembler::LessThan, rhs, lhsDest);
       break;
-    case wasm::SimdOp::F32x4Gt:
-      masm.compareFloat32x4(Assembler::GreaterThan, rhs, lhsDest);
-      break;
     case wasm::SimdOp::F32x4Le:
       masm.compareFloat32x4(Assembler::LessThanOrEqual, rhs, lhsDest);
-      break;
-    case wasm::SimdOp::F32x4Ge:
-      masm.compareFloat32x4(Assembler::GreaterThanOrEqual, rhs, lhsDest);
       break;
     case wasm::SimdOp::F64x2Eq:
       masm.compareFloat64x2(Assembler::Equal, rhs, lhsDest);
@@ -2564,14 +2563,8 @@ void CodeGenerator::visitWasmBinarySimd128(LWasmBinarySimd128* ins) {
     case wasm::SimdOp::F64x2Lt:
       masm.compareFloat64x2(Assembler::LessThan, rhs, lhsDest);
       break;
-    case wasm::SimdOp::F64x2Gt:
-      masm.compareFloat64x2(Assembler::GreaterThan, rhs, lhsDest);
-      break;
     case wasm::SimdOp::F64x2Le:
       masm.compareFloat64x2(Assembler::LessThanOrEqual, rhs, lhsDest);
-      break;
-    case wasm::SimdOp::F64x2Ge:
-      masm.compareFloat64x2(Assembler::GreaterThanOrEqual, rhs, lhsDest);
       break;
     case wasm::SimdOp::F32x4PMax:
       // `lhsDest` is actually rhsDest, and `rhs` is actually lhs
@@ -2743,6 +2736,30 @@ void CodeGenerator::visitWasmBinarySimd128WithConstant(
       break;
     case wasm::SimdOp::I32x4LeS:
       masm.compareInt32x4(Assembler::LessThanOrEqual, rhs, lhsDest);
+      break;
+    case wasm::SimdOp::F32x4Eq:
+      masm.compareFloat32x4(Assembler::Equal, rhs, lhsDest);
+      break;
+    case wasm::SimdOp::F32x4Ne:
+      masm.compareFloat32x4(Assembler::NotEqual, rhs, lhsDest);
+      break;
+    case wasm::SimdOp::F32x4Lt:
+      masm.compareFloat32x4(Assembler::LessThan, rhs, lhsDest);
+      break;
+    case wasm::SimdOp::F32x4Le:
+      masm.compareFloat32x4(Assembler::LessThanOrEqual, rhs, lhsDest);
+      break;
+    case wasm::SimdOp::F64x2Eq:
+      masm.compareFloat64x2(Assembler::Equal, rhs, lhsDest);
+      break;
+    case wasm::SimdOp::F64x2Ne:
+      masm.compareFloat64x2(Assembler::NotEqual, rhs, lhsDest);
+      break;
+    case wasm::SimdOp::F64x2Lt:
+      masm.compareFloat64x2(Assembler::LessThan, rhs, lhsDest);
+      break;
+    case wasm::SimdOp::F64x2Le:
+      masm.compareFloat64x2(Assembler::LessThanOrEqual, rhs, lhsDest);
       break;
     case wasm::SimdOp::I32x4DotSI16x8:
       masm.widenDotInt16x8(rhs, lhsDest);

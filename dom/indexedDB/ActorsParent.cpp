@@ -5142,6 +5142,8 @@ class QuotaClient final : public mozilla::dom::quota::Client {
 
   void AbortOperationsForProcess(ContentParentId aContentParentId) override;
 
+  void AbortAllOperations() override;
+
   void StartIdleMaintenance() override;
 
   void StopIdleMaintenance() override;
@@ -5202,9 +5204,6 @@ class QuotaClient final : public mozilla::dom::quota::Client {
   // Runs on the PBackground thread. Checks to see if there's a queued
   // Maintenance to run.
   void ProcessMaintenanceQueue();
-
-  template <typename Condition>
-  static void InvalidateLiveDatabasesMatching(const Condition& aCondition);
 };
 
 class DeleteFilesRunnable final : public Runnable,
@@ -6261,6 +6260,38 @@ void DecreaseBusyCount() {
       gDEBUGThreadSlower = nullptr;
     }
 #endif  // DEBUG
+  }
+}
+
+template <typename Condition>
+void InvalidateLiveDatabasesMatching(const Condition& aCondition) {
+  AssertIsOnBackgroundThread();
+
+  if (!gLiveDatabaseHashtable) {
+    return;
+  }
+
+  // Invalidating a Database will cause it to be removed from the
+  // gLiveDatabaseHashtable entries' mLiveDatabases, and, if it was the last
+  // element in mLiveDatabases, to remove the whole hashtable entry. Therefore,
+  // we need to make a temporary list of the databases to invalidate to avoid
+  // iterator invalidation.
+
+  nsTArray<SafeRefPtr<Database>> databases;
+
+  for (const auto& liveDatabasesEntry : *gLiveDatabaseHashtable) {
+    for (const auto& database : liveDatabasesEntry.GetData()->mLiveDatabases) {
+      MOZ_ASSERT(database);
+
+      if (aCondition(*database)) {
+        databases.AppendElement(
+            SafeRefPtr{database.get(), AcquireStrongRefFromRawPtr{}});
+      }
+    }
+  }
+
+  for (const auto& database : databases) {
+    database->Invalidate();
   }
 }
 
@@ -13197,50 +13228,27 @@ void QuotaClient::ReleaseIOThreadObjects() {
   }
 }
 
-template <typename Condition>
-void QuotaClient::InvalidateLiveDatabasesMatching(const Condition& aCondition) {
-  AssertIsOnBackgroundThread();
-
-  if (!gLiveDatabaseHashtable) {
-    return;
-  }
-
-  // Invalidating a Database will cause it to be removed from the
-  // gLiveDatabaseHashtable entries' mLiveDatabases, and, if it was the last
-  // element in mLiveDatabases, to remove the whole hashtable entry. Therefore,
-  // we need to make a temporary list of the databases to invalidate to avoid
-  // iterator invalidation.
-
-  nsTArray<SafeRefPtr<Database>> databases;
-
-  for (const auto& liveDatabasesEntry : *gLiveDatabaseHashtable) {
-    for (Database* database : liveDatabasesEntry.GetData()->mLiveDatabases) {
-      if (aCondition(database)) {
-        databases.AppendElement(
-            SafeRefPtr{database, AcquireStrongRefFromRawPtr{}});
-      }
-    }
-  }
-
-  for (const auto& database : databases) {
-    database->Invalidate();
-  }
-}
-
 void QuotaClient::AbortOperations(const nsACString& aOrigin) {
   AssertIsOnBackgroundThread();
+  MOZ_ASSERT(!aOrigin.IsEmpty());
 
   InvalidateLiveDatabasesMatching([&aOrigin](const auto& database) {
-    return aOrigin.IsVoid() || database->GroupAndOrigin().mOrigin == aOrigin;
+    return database.GroupAndOrigin().mOrigin == aOrigin;
   });
 }
 
 void QuotaClient::AbortOperationsForProcess(ContentParentId aContentParentId) {
   AssertIsOnBackgroundThread();
 
-  InvalidateLiveDatabasesMatching([aContentParentId](const auto& database) {
-    return database->IsOwnedByProcess(aContentParentId);
+  InvalidateLiveDatabasesMatching([&aContentParentId](const auto& database) {
+    return database.IsOwnedByProcess(aContentParentId);
   });
+}
+
+void QuotaClient::AbortAllOperations() {
+  AssertIsOnBackgroundThread();
+
+  InvalidateLiveDatabasesMatching([](const auto&) { return true; });
 }
 
 void QuotaClient::StartIdleMaintenance() {
@@ -13271,7 +13279,7 @@ void QuotaClient::InitiateShutdown() {
 
   mShutdownRequested.Flip();
 
-  AbortOperations(VoidCString());
+  AbortAllOperations();
 }
 
 bool QuotaClient::IsShutdownCompleted() const {

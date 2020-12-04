@@ -431,13 +431,6 @@ void MacroAssembler::createGCObject(Register obj, Register temp,
     const NativeTemplateObject& ntemplate =
         templateObj.asNativeTemplateObject();
     nDynamicSlots = ntemplate.numDynamicSlots();
-
-    // Arrays with copy on write elements do not need fixed space for an
-    // elements header. The template object, which owns the original
-    // elements, might have another allocation kind.
-    if (ntemplate.denseElementsAreCopyOnWrite()) {
-      allocKind = gc::AllocKind::OBJECT0_BACKGROUND;
-    }
   }
 
   allocateObject(obj, temp, allocKind, nDynamicSlots, initialHeap, fail);
@@ -836,9 +829,7 @@ void MacroAssembler::initGCThing(Register obj, Register temp,
   if (templateObj.isNative()) {
     const NativeTemplateObject& ntemplate =
         templateObj.asNativeTemplateObject();
-    MOZ_ASSERT_IF(!ntemplate.denseElementsAreCopyOnWrite(),
-                  !ntemplate.hasDynamicElements());
-    MOZ_ASSERT_IF(ntemplate.convertDoubleElements(), ntemplate.isArrayObject());
+    MOZ_ASSERT(!ntemplate.hasDynamicElements());
 
     // If the object has dynamic slots, the slots member has already been
     // filled in.
@@ -847,10 +838,7 @@ void MacroAssembler::initGCThing(Register obj, Register temp,
                Address(obj, NativeObject::offsetOfSlots()));
     }
 
-    if (ntemplate.denseElementsAreCopyOnWrite()) {
-      storePtr(ImmPtr(ntemplate.getDenseElements()),
-               Address(obj, NativeObject::offsetOfElements()));
-    } else if (ntemplate.isArrayObject()) {
+    if (ntemplate.isArrayObject()) {
       int elementsOffset = NativeObject::offsetOfFixedElements();
 
       computeEffectiveAddress(Address(obj, elementsOffset), temp);
@@ -865,9 +853,7 @@ void MacroAssembler::initGCThing(Register obj, Register temp,
                                ObjectElements::offsetOfInitializedLength()));
       store32(Imm32(ntemplate.getArrayLength()),
               Address(obj, elementsOffset + ObjectElements::offsetOfLength()));
-      store32(Imm32(ntemplate.convertDoubleElements()
-                        ? ObjectElements::CONVERT_DOUBLE_ELEMENTS
-                        : 0),
+      store32(Imm32(0),
               Address(obj, elementsOffset + ObjectElements::offsetOfFlags()));
       MOZ_ASSERT(!ntemplate.hasPrivate());
     } else if (ntemplate.isArgumentsObject()) {
@@ -3813,7 +3799,7 @@ void MacroAssembler::packedArrayPop(Register array, ValueOperand output,
 
   // Check flags.
   static constexpr uint32_t UnhandledFlags =
-      ObjectElements::Flags::NON_PACKED | ObjectElements::Flags::COPY_ON_WRITE |
+      ObjectElements::Flags::NON_PACKED |
       ObjectElements::Flags::NONWRITABLE_ARRAY_LENGTH |
       ObjectElements::Flags::NOT_EXTENSIBLE |
       ObjectElements::Flags::MAYBE_IN_ITERATION;
@@ -3860,7 +3846,7 @@ void MacroAssembler::packedArrayShift(Register array, ValueOperand output,
 
   // Check flags.
   static constexpr uint32_t UnhandledFlags =
-      ObjectElements::Flags::NON_PACKED | ObjectElements::Flags::COPY_ON_WRITE |
+      ObjectElements::Flags::NON_PACKED |
       ObjectElements::Flags::NONWRITABLE_ARRAY_LENGTH |
       ObjectElements::Flags::NOT_EXTENSIBLE |
       ObjectElements::Flags::MAYBE_IN_ITERATION;

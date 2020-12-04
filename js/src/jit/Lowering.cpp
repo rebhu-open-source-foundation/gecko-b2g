@@ -136,12 +136,6 @@ void LIRGenerator::visitNewArray(MNewArray* ins) {
   assignSafepoint(lir, ins);
 }
 
-void LIRGenerator::visitNewArrayCopyOnWrite(MNewArrayCopyOnWrite* ins) {
-  LNewArrayCopyOnWrite* lir = new (alloc()) LNewArrayCopyOnWrite(temp());
-  define(lir, ins);
-  assignSafepoint(lir, ins);
-}
-
 void LIRGenerator::visitNewArrayDynamicLength(MNewArrayDynamicLength* ins) {
   MDefinition* length = ins->length();
   MOZ_ASSERT(length->type() == MIRType::Int32);
@@ -2695,32 +2689,6 @@ void LIRGenerator::visitConstantElements(MConstantElements* ins) {
              ins->value().unwrap(/*safe - pointer does not flow back to C++*/),
              LPointer::NON_GC_THING),
          ins);
-}
-
-void LIRGenerator::visitConvertElementsToDoubles(
-    MConvertElementsToDoubles* ins) {
-  LInstruction* check =
-      new (alloc()) LConvertElementsToDoubles(useRegister(ins->elements()));
-  add(check, ins);
-  assignSafepoint(check, ins);
-}
-
-void LIRGenerator::visitMaybeToDoubleElement(MMaybeToDoubleElement* ins) {
-  MOZ_ASSERT(ins->elements()->type() == MIRType::Elements);
-  MOZ_ASSERT(ins->value()->type() == MIRType::Int32);
-
-  LMaybeToDoubleElement* lir = new (alloc())
-      LMaybeToDoubleElement(useRegisterAtStart(ins->elements()),
-                            useRegisterAtStart(ins->value()), tempDouble());
-  defineBox(lir, ins);
-}
-
-void LIRGenerator::visitMaybeCopyElementsForWrite(
-    MMaybeCopyElementsForWrite* ins) {
-  LInstruction* check = new (alloc())
-      LMaybeCopyElementsForWrite(useRegister(ins->object()), temp());
-  add(check, ins);
-  assignSafepoint(check, ins);
 }
 
 void LIRGenerator::visitLoadDynamicSlot(MLoadDynamicSlot* ins) {

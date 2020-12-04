@@ -3497,16 +3497,6 @@ static bool TryOptimizeLoadObjectOrNull(MDefinition* def,
   return true;
 }
 
-static inline MDefinition* PassthroughOperand(MDefinition* def) {
-  if (def->isConvertElementsToDoubles()) {
-    return def->toConvertElementsToDoubles()->elements();
-  }
-  if (def->isMaybeCopyElementsForWrite()) {
-    return def->toMaybeCopyElementsForWrite()->object();
-  }
-  return nullptr;
-}
-
 // Eliminate checks which are redundant given each other or other instructions.
 //
 // A type barrier is considered redundant if all missing types have been tested
@@ -3571,12 +3561,6 @@ bool jit::EliminateRedundantChecks(MIRGraph& graph) {
           }
           break;
         default:
-          // Now that code motion passes have finished, replace
-          // instructions which pass through one of their operands
-          // (and perform additional checks) with that operand.
-          if (MDefinition* passthrough = PassthroughOperand(def)) {
-            def->replaceAllUsesWith(passthrough);
-          }
           break;
       }
 
@@ -3657,10 +3641,6 @@ bool jit::AddKeepAliveInstructions(MIRGraph& graph) {
       MDefinition* ownerObject;
       switch (ins->op()) {
         case MDefinition::Opcode::ConstantElements:
-          continue;
-        case MDefinition::Opcode::ConvertElementsToDoubles:
-          // EliminateRedundantChecks should have replaced all uses.
-          MOZ_ASSERT(!ins->hasUses());
           continue;
         case MDefinition::Opcode::Elements:
         case MDefinition::Opcode::ArrayBufferViewElements:

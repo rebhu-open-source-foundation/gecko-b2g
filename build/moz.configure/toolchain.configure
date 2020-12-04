@@ -114,7 +114,7 @@ with only_when(target_is_osx):
         "--enable-macos-target",
         env="MACOSX_DEPLOYMENT_TARGET",
         nargs=1,
-        default=depends(target)(lambda t: "11.0" if t.cpu == "aarch64" else "10.9"),
+        default=depends(target)(lambda t: "11.0" if t.cpu == "aarch64" else "10.12"),
         help="Set the minimum MacOS version needed at runtime{|}",
     )
 
@@ -1872,17 +1872,6 @@ def security_hardening_cflags(
             ldflags.append("-fstack-protector-strong")
             js_flags.append("-fstack-protector-strong")
             js_ldflags.append("-fstack-protector-strong")
-
-            if (
-                c_compiler.type == "clang"
-                and c_compiler.version >= "11.0.0"
-                and target.os not in ("WINNT", "OSX")
-                and target.cpu in ("x86", "x86_64", "ppc64", "s390x")
-            ):
-                flags.append("-fstack-clash-protection")
-                ldflags.append("-fstack-clash-protection")
-                js_flags.append("-fstack-clash-protection")
-                js_ldflags.append("-fstack-clash-protection")
 
         # ftrivial-auto-var-init ------------------------------
         # Initialize local variables with a 0xAA pattern in clang debug builds.
