@@ -66,6 +66,8 @@ class AsyncStartRunnable final : public CancelableRunnable {
     return NS_OK;
   }
 
+  NS_IMETHOD Cancel() override{};
+
  private:
   RefPtr<FileSystemTaskChildBase> mTask;
 };
