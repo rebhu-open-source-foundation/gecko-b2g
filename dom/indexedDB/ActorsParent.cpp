@@ -685,20 +685,6 @@ nsresult SetDefaultPragmas(mozIStorageConnection& aConnection) {
   return NS_OK;
 }
 
-Result<nsCOMPtr<mozIStorageStatement>, nsresult>
-CreateAndExecuteSingleStepStatement(mozIStorageConnection& aConnection,
-                                    const nsACString& aStatementString) {
-  IDB_TRY_UNWRAP(auto stmt, MOZ_TO_RESULT_INVOKE_TYPED(
-                                nsCOMPtr<mozIStorageStatement>, aConnection,
-                                CreateStatement, aStatementString));
-
-  IDB_TRY_UNWRAP(const DebugOnly<bool> hasResult,
-                 MOZ_TO_RESULT_INVOKE(stmt, ExecuteStep));
-  MOZ_ASSERT(hasResult);
-
-  return stmt;
-}
-
 template <typename StepFunc>
 Result<Ok, nsresult> CollectWhileHasResult(mozIStorageStatement& aStmt,
                                            StepFunc&& aStepFunc) {
@@ -721,7 +707,7 @@ nsresult SetJournalMode(mozIStorageConnection& aConnection) {
 
   IDB_TRY_INSPECT(
       const auto& journalMode,
-      MOZ_TO_RESULT_INVOKE_TYPED(nsCString, stmt, GetUTF8String, 0));
+      MOZ_TO_RESULT_INVOKE_TYPED(nsCString, *stmt, GetUTF8String, 0));
 
   if (journalMode.Equals(journalModeWAL)) {
     // WAL mode successfully enabled. Maybe set limits on its size here.
@@ -1011,13 +997,13 @@ CreateStorageConnection(nsIFile& aDBFile, nsIFile& aFMDirectory,
 #ifdef DEBUG
     if (!newDatabase) {
       // Re-enable foreign key support after doing a foreign key check.
-      nsCOMPtr<mozIStorageStatement> checkStmt;
-      MOZ_ALWAYS_SUCCEEDS(connection->CreateStatement(
-          "PRAGMA foreign_key_check;"_ns, getter_AddRefs(checkStmt)));
+      IDB_TRY_INSPECT(const bool& foreignKeyError,
+                      CreateAndExecuteSingleStepStatement<
+                          SingleStepResult::ReturnNullIfNoResult>(
+                          *connection, "PRAGMA foreign_key_check;"_ns),
+                      QM_ASSERT_UNREACHABLE);
 
-      bool hasResult;
-      MOZ_ALWAYS_SUCCEEDS(checkStmt->ExecuteStep(&hasResult));
-      MOZ_ASSERT(!hasResult, "Database has inconsisistent foreign keys!");
+      MOZ_ASSERT(!foreignKeyError, "Database has inconsisistent foreign keys!");
 
       MOZ_ALWAYS_SUCCEEDS(
           connection->ExecuteSimpleSQL("PRAGMA foreign_keys = OFF;"_ns));
@@ -1030,7 +1016,7 @@ CreateStorageConnection(nsIFile& aDBFile, nsIFile& aFMDirectory,
                           *connection, "PRAGMA page_size;"_ns));
 
       IDB_TRY_INSPECT(const int32_t& pageSize,
-                      MOZ_TO_RESULT_INVOKE(stmt, GetInt32, 0));
+                      MOZ_TO_RESULT_INVOKE(*stmt, GetInt32, 0));
       MOZ_ASSERT(pageSize >= 512 && pageSize <= 65536);
 
       if (kSQLitePageSizeOverride != uint32_t(pageSize)) {
@@ -1044,7 +1030,7 @@ CreateStorageConnection(nsIFile& aDBFile, nsIFile& aFMDirectory,
 
         IDB_TRY_INSPECT(
             const auto& journalMode,
-            MOZ_TO_RESULT_INVOKE_TYPED(nsCString, stmt, GetUTF8String, 0));
+            MOZ_TO_RESULT_INVOKE_TYPED(nsCString, *stmt, GetUTF8String, 0));
 
         if (journalMode.EqualsLiteral("delete")) {
           // Successfully set to rollback journal mode so changing the page size
@@ -6285,7 +6271,7 @@ void InvalidateLiveDatabasesMatching(const Condition& aCondition) {
 
       if (aCondition(*database)) {
         databases.AppendElement(
-            SafeRefPtr{database.get(), AcquireStrongRefFromRawPtr{}});
+            SafeRefPtr{database, AcquireStrongRefFromRawPtr{}});
       }
     }
   }
@@ -14358,7 +14344,7 @@ nsresult DatabaseMaintenance::CheckIntegrity(mozIStorageConnection& aConnection,
                         aConnection, "PRAGMA integrity_check(1);"_ns));
 
     IDB_TRY_INSPECT(const auto& result,
-                    MOZ_TO_RESULT_INVOKE_TYPED(nsString, stmt, GetString, 0));
+                    MOZ_TO_RESULT_INVOKE_TYPED(nsString, *stmt, GetString, 0));
 
     IDB_TRY(OkIf(result.EqualsLiteral("ok")), NS_OK,
             [&aOk](const auto) { *aOk = false; });
@@ -14373,7 +14359,7 @@ nsresult DatabaseMaintenance::CheckIntegrity(mozIStorageConnection& aConnection,
                           CreateAndExecuteSingleStepStatement(
                               aConnection, "PRAGMA foreign_keys;"_ns));
 
-                      IDB_TRY_RETURN(MOZ_TO_RESULT_INVOKE(stmt, GetInt32, 0));
+                      IDB_TRY_RETURN(MOZ_TO_RESULT_INVOKE(*stmt, GetInt32, 0));
                     }()));
 
     if (!foreignKeysWereEnabled) {
@@ -14381,15 +14367,9 @@ nsresult DatabaseMaintenance::CheckIntegrity(mozIStorageConnection& aConnection,
     }
 
     IDB_TRY_INSPECT(const bool& foreignKeyError,
-                    ([&aConnection]() -> Result<bool, nsresult> {
-                      IDB_TRY_INSPECT(
-                          const auto& stmt,
-                          MOZ_TO_RESULT_INVOKE_TYPED(
-                              nsCOMPtr<mozIStorageStatement>, aConnection,
-                              CreateStatement, "PRAGMA foreign_key_check;"_ns));
-
-                      IDB_TRY_RETURN(MOZ_TO_RESULT_INVOKE(stmt, ExecuteStep));
-                    }()));
+                    CreateAndExecuteSingleStepStatement<
+                        SingleStepResult::ReturnNullIfNoResult>(
+                        aConnection, "PRAGMA foreign_key_check;"_ns));
 
     if (!foreignKeysWereEnabled) {
       IDB_TRY(aConnection.ExecuteSimpleSQL("PRAGMA foreign_keys = OFF;"_ns));
@@ -14459,10 +14439,10 @@ nsresult DatabaseMaintenance::DetermineMaintenanceAction(
                       "FROM database;"_ns));
 
   IDB_TRY_INSPECT(const PRTime& lastVacuumTime,
-                  MOZ_TO_RESULT_INVOKE(stmt, GetInt64, 0));
+                  MOZ_TO_RESULT_INVOKE(*stmt, GetInt64, 0));
 
   IDB_TRY_INSPECT(const int64_t& lastVacuumSize,
-                  MOZ_TO_RESULT_INVOKE(stmt, GetInt64, 1));
+                  MOZ_TO_RESULT_INVOKE(*stmt, GetInt64, 1));
 
   NS_ASSERTION(lastVacuumSize > 0,
                "Thy last vacuum size shall be greater than zero, less than "
@@ -14503,7 +14483,7 @@ nsresult DatabaseMaintenance::DetermineMaintenanceAction(
             "AND __ts1__.rowid = __ts2__.rowid + 1;"_ns));
 
     IDB_TRY_INSPECT(const int32_t& percentUnordered,
-                    MOZ_TO_RESULT_INVOKE(stmt, GetInt32, 0));
+                    MOZ_TO_RESULT_INVOKE(*stmt, GetInt32, 0));
 
     MOZ_ASSERT(percentUnordered >= 0);
     MOZ_ASSERT(percentUnordered <= 100);
@@ -14531,7 +14511,7 @@ nsresult DatabaseMaintenance::DetermineMaintenanceAction(
                         aConnection, "PRAGMA freelist_count;"_ns));
 
     IDB_TRY_INSPECT(const int32_t& freelistCount,
-                    MOZ_TO_RESULT_INVOKE(stmt, GetInt32, 0));
+                    MOZ_TO_RESULT_INVOKE(*stmt, GetInt32, 0));
 
     MOZ_ASSERT(freelistCount >= 0);
 
@@ -14552,7 +14532,7 @@ nsresult DatabaseMaintenance::DetermineMaintenanceAction(
             "SELECT SUM(unused) * 100.0 / SUM(pgsize) FROM __temp_stats__;"_ns));
 
     IDB_TRY_INSPECT(const int32_t& percentUnused,
-                    MOZ_TO_RESULT_INVOKE(stmt, GetInt32, 0));
+                    MOZ_TO_RESULT_INVOKE(*stmt, GetInt32, 0));
 
     MOZ_ASSERT(percentUnused >= 0);
     MOZ_ASSERT(percentUnused <= 100);
@@ -16496,14 +16476,11 @@ nsresult OpenDatabaseOp::LoadDatabaseInformation(
     // Load version information.
     IDB_TRY_INSPECT(
         const auto& stmt,
-        MOZ_TO_RESULT_INVOKE_TYPED(
-            nsCOMPtr<mozIStorageStatement>, aConnection, CreateStatement,
-            "SELECT name, origin, version FROM database"_ns));
+        CreateAndExecuteSingleStepStatement<
+            SingleStepResult::ReturnNullIfNoResult>(
+            aConnection, "SELECT name, origin, version FROM database"_ns));
 
-    IDB_TRY_INSPECT(const bool& hasResult,
-                    MOZ_TO_RESULT_INVOKE(stmt, ExecuteStep));
-
-    IDB_TRY(OkIf(hasResult), NS_ERROR_FILE_CORRUPTED);
+    IDB_TRY(OkIf(stmt), NS_ERROR_FILE_CORRUPTED);
 
     IDB_TRY_INSPECT(const auto& databaseName,
                     MOZ_TO_RESULT_INVOKE_TYPED(nsString, stmt, GetString, 0));
@@ -17437,18 +17414,13 @@ void DeleteDatabaseOp::LoadPreviousVersion(nsIFile& aDatabaseFile) {
 
 #ifdef DEBUG
   {
-    nsCOMPtr<mozIStorageStatement> stmt;
-    rv = connection->CreateStatement("SELECT name FROM database"_ns,
-                                     getter_AddRefs(stmt));
-    if (NS_WARN_IF(NS_FAILED(rv))) {
-      return;
-    }
+    IDB_TRY_INSPECT(const auto& stmt,
+                    CreateAndExecuteSingleStepStatement<
+                        SingleStepResult::ReturnNullIfNoResult>(
+                        *connection, "SELECT name FROM database"_ns),
+                    QM_VOID);
 
-    IDB_TRY_INSPECT(const bool& hasResult,
-                    MOZ_TO_RESULT_INVOKE(stmt, ExecuteStep), QM_VOID);
-    if (NS_WARN_IF(!hasResult)) {
-      return;
-    }
+    IDB_TRY(OkIf(stmt), QM_VOID);
 
     nsString databaseName;
     rv = stmt->GetString(0, databaseName);
@@ -17460,19 +17432,13 @@ void DeleteDatabaseOp::LoadPreviousVersion(nsIFile& aDatabaseFile) {
   }
 #endif
 
-  nsCOMPtr<mozIStorageStatement> stmt;
-  rv = connection->CreateStatement("SELECT version FROM database"_ns,
-                                   getter_AddRefs(stmt));
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return;
-  }
+  IDB_TRY_INSPECT(const auto& stmt,
+                  CreateAndExecuteSingleStepStatement<
+                      SingleStepResult::ReturnNullIfNoResult>(
+                      *connection, "SELECT version FROM database"_ns),
+                  QM_VOID);
 
-  IDB_TRY_INSPECT(const bool& hasResult,
-                  MOZ_TO_RESULT_INVOKE(stmt, ExecuteStep), QM_VOID);
-
-  if (NS_WARN_IF(!hasResult)) {
-    return;
-  }
+  IDB_TRY(OkIf(stmt), QM_VOID);
 
   int64_t version;
   rv = stmt->GetInt64(0, &version);
@@ -18178,13 +18144,9 @@ void TransactionBase::CommitOp::AssertForeignKeyConsistency(
   {
     IDB_TRY_INSPECT(
         const auto& pragmaStmt,
-        aConnection->BorrowCachedStatement("PRAGMA foreign_keys;"_ns),
+        CreateAndExecuteSingleStepStatement(
+            aConnection->MutableStorageConnection(), "PRAGMA foreign_keys;"_ns),
         QM_ASSERT_UNREACHABLE_VOID);
-
-    bool hasResult;
-    MOZ_ALWAYS_SUCCEEDS(pragmaStmt->ExecuteStep(&hasResult));
-
-    MOZ_ASSERT(hasResult);
 
     int32_t foreignKeysEnabled;
     MOZ_ALWAYS_SUCCEEDS(pragmaStmt->GetInt32(0, &foreignKeysEnabled));
@@ -18194,15 +18156,14 @@ void TransactionBase::CommitOp::AssertForeignKeyConsistency(
   }
 
   {
-    IDB_TRY_INSPECT(
-        const auto& checkStmt,
-        aConnection->BorrowCachedStatement("PRAGMA foreign_key_check;"_ns),
-        QM_ASSERT_UNREACHABLE_VOID);
+    IDB_TRY_INSPECT(const bool& foreignKeyError,
+                    CreateAndExecuteSingleStepStatement<
+                        SingleStepResult::ReturnNullIfNoResult>(
+                        aConnection->MutableStorageConnection(),
+                        "PRAGMA foreign_key_check;"_ns),
+                    QM_ASSERT_UNREACHABLE_VOID);
 
-    bool hasResult;
-    MOZ_ALWAYS_SUCCEEDS(checkStmt->ExecuteStep(&hasResult));
-
-    MOZ_ASSERT(!hasResult, "Database has inconsisistent foreign keys!");
+    MOZ_ASSERT(!foreignKeyError, "Database has inconsisistent foreign keys!");
   }
 }
 
