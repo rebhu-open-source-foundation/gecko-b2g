@@ -202,10 +202,9 @@ already_AddRefed<AlarmManager> AlarmManager::Create(nsIGlobalObject* aGlobal,
 
   RefPtr<AlarmManager> alarmManager = new AlarmManager(aGlobal);
 
-  nsresult rv = alarmManager->Init();
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    LOG("Init failed. rv:[%u]", uint(rv));
-    aRv = rv;
+  aRv = alarmManager->Init();
+  if (NS_WARN_IF(NS_FAILED(aRv))) {
+    LOG("Init failed. rv:[%u]", uint(aRv));
     return nullptr;
   }
 
