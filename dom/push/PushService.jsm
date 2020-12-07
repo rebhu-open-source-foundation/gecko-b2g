@@ -702,6 +702,7 @@ var PushService = {
     }
 
     this._service = service;
+    this._recordsIDCache = null;
 
     this._db = options.db;
     if (!this._db) {
@@ -710,6 +711,22 @@ var PushService = {
 
     return this._service.init(options, this, serverURI).then(() => {
       this._startObservers();
+      if (AppConstants.MOZ_B2G) {
+        return this._db
+          .getAllKeyIDs()
+          .then(records => {
+            this._recordsIDCache = new Map();
+            for (let record of records) {
+              this._setRecordID(record);
+            }
+          })
+          .catch(() => {
+            console.error("Setup records ID cache error");
+          })
+          .finally(() => {
+            return this._dropExpiredRegistrations();
+          });
+      }
       return this._dropExpiredRegistrations();
     });
   },
@@ -814,6 +831,7 @@ var PushService = {
         return false;
       }
       this._notifySubscriptionChangeObservers(record);
+      this._deleteRecordID(record);
       return true;
     });
   },
@@ -837,9 +855,10 @@ var PushService = {
    * @returns {Promise} Resolves once the worker has been notified.
    */
   dropRegistrationAndNotifyApp(aKeyID) {
-    return this._db
-      .delete(aKeyID)
-      .then(record => this._notifySubscriptionChangeObservers(record));
+    return this._db.delete(aKeyID).then(record => {
+      this._notifySubscriptionChangeObservers(record);
+      this._deleteRecordID(record);
+    });
   },
 
   /**
@@ -1132,6 +1151,19 @@ var PushService = {
     }
   },
 
+  visitURI(uri) {
+    if (this._recordsIDCache) {
+      if (uri.prePath && this._recordsIDCache.has(uri.prePath)) {
+        let keyID = this._recordsIDCache.get(uri.prePath);
+        this._db.update(keyID, record => {
+          record.lastVisit = Date.now();
+          console.debug("update lastVisit " + record.lastVisit);
+          return record;
+        });
+      }
+    }
+  },
+
   reportDeliveryError(messageID, reason) {
     console.debug("reportDeliveryError()", messageID, reason);
     if (this._state == PUSH_SERVICE_RUNNING && this._service.isConnected()) {
@@ -1257,14 +1289,20 @@ var PushService = {
   _onRegisterSuccess(aRecord) {
     console.debug("_onRegisterSuccess()");
 
-    return this._db.put(aRecord).catch(error => {
-      // Unable to save. Destroy the subscription in the background.
-      this._backgroundUnregister(
-        aRecord,
-        Ci.nsIPushErrorReporter.UNSUBSCRIBE_MANUAL
-      );
-      throw error;
-    });
+    return this._db
+      .put(aRecord)
+      .then(record => {
+        this._setRecordID(record);
+        return record;
+      })
+      .catch(error => {
+        // Unable to save. Destroy the subscription in the background.
+        this._backgroundUnregister(
+          aRecord,
+          Ci.nsIPushErrorReporter.UNSUBSCRIBE_MANUAL
+        );
+        throw error;
+      });
   },
 
   /**
@@ -1408,6 +1446,7 @@ var PushService = {
             // if websocket is connected.
             this.executeAllPendingUnregistering(record.keyID);
           }
+          this._deleteRecordID(record);
         }),
       ]).then(([success]) => success);
     });
@@ -1570,6 +1609,7 @@ var PushService = {
         record,
         Ci.nsIPushErrorReporter.UNSUBSCRIBE_PERMISSION_REVOKED
       );
+      this._deleteRecordID(record);
       return true;
     });
   },
@@ -1687,7 +1727,22 @@ var PushService = {
           Ci.nsIPushErrorReporter.UNSUBSCRIBE_MANUAL
         );
       }
+      this._deleteRecordID(record);
       return true;
     });
+  },
+
+  _setRecordID(record) {
+    if (this._recordsIDCache) {
+      let recordURI = record.uri;
+      this._recordsIDCache.set(recordURI.prePath, record.channelID);
+    }
+  },
+
+  _deleteRecordID(record) {
+    if (this._recordsIDCache) {
+      let recordURI = record.uri;
+      this._recordsIDCache.delete(recordURI.prePath);
+    }
   },
 };

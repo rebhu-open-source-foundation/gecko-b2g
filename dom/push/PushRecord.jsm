@@ -41,6 +41,7 @@ function PushRecord(props) {
   this.originAttributes = props.originAttributes;
   this.pushCount = props.pushCount || 0;
   this.lastPush = props.lastPush || 0;
+  this.lastVisit = props.lastVisit || 0;
   this.p256dhPublicKey = props.p256dhPublicKey;
   this.p256dhPrivateKey = props.p256dhPrivateKey;
   this.authenticationSecret = props.authenticationSecret;
@@ -145,6 +146,10 @@ PushRecord.prototype = {
       // If the registration isn't subject to quota, or the user already
       // has the site open, skip expensive database queries.
       return Date.now();
+    }
+
+    if (AppConstants.MOZ_B2G) {
+      return this.lastVisit == 0 ? this.ctime : this.lastVisit;
     }
 
     if (AppConstants.MOZ_ANDROID_HISTORY) {
