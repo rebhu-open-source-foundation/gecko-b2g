@@ -4402,6 +4402,19 @@ RadioInterface.prototype = {
       curState.emergencyCallsOnly = !curState.connected;
     }
 
+    // Handle the reasonDataDenied
+    if (curState.state === RIL.GECKO_MOBILE_CONNECTION_STATE_DENIED) {
+      if (
+        curState.reasonDataDenied === undefined ||
+        curState.reasonDataDenied !== newState.reasonDataDenied
+      ) {
+        changed = true;
+        curState.reasonDataDenied = newState.reasonDataDenied;
+      }
+    } else {
+      curState.reasonDataDenied = 0;
+    }
+
     if (!curState.cell) {
       curState.cell = {};
     }
@@ -4482,6 +4495,7 @@ RadioInterface.prototype = {
       curState.radioTech = radioTech;
       curState.type = RIL.GECKO_RADIO_TECH[radioTech] || null;
     }
+
     // From TS 23.003, 0000 and 0xfffe are indicated that no valid LAI exists
     // in MS. So we still need to report the '0000' as well.
     /*let lac = this.parseInt(newState[1], -1, 16);
