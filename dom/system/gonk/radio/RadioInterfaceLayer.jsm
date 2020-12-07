@@ -649,6 +649,7 @@ function RadioInterface(aClientId) {
   this._radioCapability = {};
 
   this._pendingSentSmsMap = {};
+  this._pendingSmsRequest = null;
 
   this._isInEmergencyCbMode = false;
 
@@ -807,6 +808,11 @@ RadioInterface.prototype = {
    * Outgoing messages waiting for SMS-STATUS-REPORT.
    */
   _pendingSentSmsMap: null,
+
+  /**
+   * Pending send message request.
+   */
+  _pendingSmsRequest: null,
 
   /**
    * True if we are in emergency callback mode.
@@ -3822,9 +3828,9 @@ RadioInterface.prototype = {
               "RILJ: [" + response.rilMessageToken + "] < REQUEST_SEND_SMS"
             );
           }
-          //TODO: Handle segment and check if requestStatusReport is on
-          this._pendingSentSmsMap[response.sms.messageRef] = response;
-          result = response;
+          let message = this._pendingSmsRequest;
+          this._pendingSmsRequest = null;
+          result = this.handleSmsSendResult(response, message);
         } else if (DEBUG) {
           this.debug(
             "RILJ: [" +
@@ -4903,6 +4909,49 @@ RadioInterface.prototype = {
   },
 
   /**
+   * Helper for processing sent multipart SMS.
+   */
+  _processSentSmsSegment(options) {
+    // Setup attributes for sending next segment
+    let next = options.segmentSeq;
+    options.body = options.segments[next].body;
+    options.encodedBodyLength = options.segments[next].encodedBodyLength;
+    options.segmentSeq = next + 1;
+    let callback = this.tokenCallbackMap[options.rilMessageToken];
+    delete this.tokenCallbackMap[options.rilMessageToken];
+    if (DEBUG) {
+      this.debug("postpone sendSMS callback to next sms segment");
+    }
+    this.sendRilRequest("sendSMS", options, callback);
+  },
+
+  /**
+   * Helper for processing result of send SMS.
+   *
+   */
+  handleSmsSendResult(response, message) {
+    message.messageRef = response.sms.messageRef;
+    message.ackPDU = response.sms.ackPDU;
+    message.errorCode = response.sms.errorCode;
+    if (
+      message.segmentMaxSeq > 1 &&
+      message.segmentSeq < message.segmentMaxSeq
+    ) {
+      // Not last segment
+      this._processSentSmsSegment(message);
+    } else if (message.requestStatusReport) {
+      // Last segment sent with success.
+      if (DEBUG) {
+        this.debug(
+          "waiting SMS-STATUS-REPORT for messageRef " + message.messageRef
+        );
+      }
+      this._pendingSentSmsMap[response.sms.messageRef] = message;
+    }
+    return message;
+  },
+
+  /**
    * Parse an integer from a string, falling back to a default value
    * if the the provided value is not a string or does not contain a valid
    * number.
@@ -5880,6 +5929,19 @@ RadioInterface.prototype = {
               "RILJ: [" + message.rilMessageToken + "] > REQUEST_SEND_SMS"
             );
           }
+          message.langIndex =
+            message.langIndex || RIL.PDU_NL_IDENTIFIER_DEFAULT;
+          message.langShiftIndex =
+            message.langShiftIndex || RIL.PDU_NL_IDENTIFIER_DEFAULT;
+
+          if (!message.segmentSeq) {
+            // Fist segment to send
+            message.segmentSeq = 1;
+            message.body = message.segments[0].body;
+            message.encodedBodyLength = message.segments[0].encodedBodyLength;
+            message.firstRilMessageToken = message.rilMessageToken;
+          }
+          this._pendingSmsRequest = message;
           let GsmPDUHelper = this.simIOcontext.GsmPDUHelper;
           GsmPDUHelper.initWith();
           GsmPDUHelper.writeMessage(message);
