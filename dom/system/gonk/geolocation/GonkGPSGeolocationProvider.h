@@ -150,6 +150,9 @@ class GonkGPSGeolocationProvider : public nsIGeolocationProvider,
                                       const nsAString& message) override {
     return NS_OK;
   }
+  NS_IMETHOD NotifySrvccState(uint32_t clientId, int32_t state) {
+    return NS_OK;
+  }
 #endif  // MOZ_B2G_RIL
 
   // Whether IGNSS HAL is ready to handle location callbacks

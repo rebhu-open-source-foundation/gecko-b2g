@@ -1226,6 +1226,7 @@ pref("externalAPI.websocket.url", "ws://localhost/");
 // B2G IMS feature
 #ifdef B2G_IMS
 pref("b2g.ims.enabled", true);
+pref("ril.alwaysTryImsForEcc", true);
 #endif
 
 //MVS featrue
