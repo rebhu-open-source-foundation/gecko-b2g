@@ -11,6 +11,10 @@ const { XPCOMUtils } = ChromeUtils.import(
 const { AppConstants } = ChromeUtils.import(
   "resource://gre/modules/AppConstants.jsm"
 );
+const { MarionetteController } = ChromeUtils.import(
+  "resource://gre/modules/MarionetteController.jsm"
+);
+
 ChromeUtils.import("resource://gre/modules/ActivitiesService.jsm");
 ChromeUtils.import("resource://gre/modules/AlarmService.jsm");
 ChromeUtils.import("resource://gre/modules/DownloadService.jsm");
@@ -287,10 +291,21 @@ document.addEventListener(
       }, 0);
     }, "web-embedder-created");
 
-    // Initialize Marionette server
-    Services.tm.idleDispatchToMainThread(() => {
-      Services.obs.notifyObservers(null, "marionette-startup-requested");
-    });
+    // Always initialize Marionette server in userdebug builds
+    if (libcutils.property_get("ro.build.type") == "userdebug") {
+      Services.tm.idleDispatchToMainThread(() => {
+        Services.obs.notifyObservers(null, "marionette-startup-requested");
+      });
+    }
+
+    // Use another way to initialize Marionette server in use builds
+    if (libcutils.property_get("ro.build.type") == "user") {
+      if (MarionetteController) {
+        MarionetteController.enableRunner();
+      } else {
+        console.warn("MarionetteController not exist");
+      }
+    }
 
     // Start the SIDL <-> Gecko bridge.
     const { GeckoBridge } = ChromeUtils.import(
