@@ -21,6 +21,7 @@
 #include "mozilla/ipc/BackgroundParent.h"
 #include "mozilla/dom/OSFileSystem.h"
 #include "mozilla/Preferences.h"
+#include "mozilla/ScopeExit.h"
 #include "mozilla/Unused.h"
 #include "nsProxyRelease.h"
 

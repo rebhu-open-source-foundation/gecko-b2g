@@ -15,6 +15,7 @@
 #include "mozilla/dom/ServiceWorkerUtils.h"
 #include "mozilla/dom/SystemMessageManager.h"
 #include "mozilla/dom/WorkerPrivate.h"
+#include "mozilla/ScopeExit.h"
 #include "nsCycleCollectionParticipant.h"
 #include "nsPIDOMWindow.h"
 #include "RemoteServiceWorkerRegistrationImpl.h"
