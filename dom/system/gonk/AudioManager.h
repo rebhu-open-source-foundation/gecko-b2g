@@ -16,14 +16,14 @@
 #ifndef mozilla_dom_system_b2g_audiomanager_h__
 #define mozilla_dom_system_b2g_audiomanager_h__
 
+#include "android_audio/AudioSystem.h"
 #include "mozilla/HalTypes.h"
 #include "mozilla/Observer.h"
 #include "mozilla/UniquePtr.h"
+#include "mozilla/dom/WakeLock.h"
 #include "nsDataHashtable.h"
 #include "nsIAudioManager.h"
 #include "nsIObserver.h"
-#include "mozilla/dom/WakeLock.h"
-#include "android_audio/AudioSystem.h"
 
 namespace mozilla {
 namespace hal {

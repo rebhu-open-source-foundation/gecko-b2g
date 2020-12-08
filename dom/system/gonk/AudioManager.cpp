@@ -13,49 +13,41 @@
  * limitations under the License.
  */
 
-#include <android/log.h>
-#include <cutils/properties.h>
-#include <binder/IServiceManager.h>
-
-#include "AudioChannelService.h"
 #include "AudioManager.h"
 
-#include "nsIObserverService.h"
-#ifdef MOZ_B2G_RIL
-#  include "nsIRadioInterfaceLayer.h"
-#endif
-#include "nsISettings.h"
-#ifdef MOZ_B2G_RIL
-#  include "nsITelephonyService.h"
-#endif
-#include "nsPrintfCString.h"
-
-#include "mozilla/Hal.h"
-#include "mozilla/Services.h"
-#include "mozilla/StaticPtr.h"
-#include "mozilla/ClearOnShutdown.h"
-#include "mozilla/MozPromise.h"
-#include "mozilla/dom/ScriptSettings.h"
-#include "base/message_loop.h"
-
+#include "AudioChannelService.h"
 #include "BluetoothCommon.h"
 #include "BluetoothHfpManagerBase.h"
-
-#include "nsJSUtils.h"
-#include "nsThreadUtils.h"
-#include "nsServiceManagerUtils.h"
-#include "nsComponentManagerUtils.h"
-#include "nsContentUtils.h"
-#include "nsXULAppAPI.h"
-#include "mozilla/dom/BindingUtils.h"
-#include "mozilla/dom/power/PowerManagerService.h"
-
-#include "mozilla/Preferences.h"
-#include "mozilla/ModuleUtils.h"
+#include "base/message_loop.h"
 #include "mozilla/ClearOnShutdown.h"
+#include "mozilla/Hal.h"
+#include "mozilla/ModuleUtils.h"
+#include "mozilla/MozPromise.h"
+#include "mozilla/Preferences.h"
+#include "mozilla/Services.h"
+#include "mozilla/StaticPtr.h"
+#include "mozilla/dom/BindingUtils.h"
 #include "mozilla/dom/ScriptSettings.h"
 #include "mozilla/dom/ToJSValue.h"
+#include "mozilla/dom/power/PowerManagerService.h"
+#include "nsComponentManagerUtils.h"
+#include "nsContentUtils.h"
+#include "nsIObserverService.h"
+#include "nsISettings.h"
+#include "nsJSUtils.h"
+#include "nsPrintfCString.h"
+#include "nsServiceManagerUtils.h"
+#include "nsThreadUtils.h"
 #include "nsXULAppAPI.h"
+
+#include <android/log.h>
+#include <binder/IServiceManager.h>
+#include <cutils/properties.h>
+
+#ifdef MOZ_B2G_RIL
+#  include "nsIRadioInterfaceLayer.h"
+#  include "nsITelephonyService.h"
+#endif
 
 using namespace mozilla;
 using namespace mozilla::dom;
