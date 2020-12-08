@@ -164,8 +164,8 @@ class AudioManager final : public nsIAudioManager, public nsIObserver {
   void SetFmMuted(bool aMuted);
 
   // Append the audio output device to the volume setting string.
-  nsAutoCString AppendDeviceToVolumeSetting(const char* aName,
-                                            uint32_t aDevice);
+  nsAutoString AppendDeviceToVolumeSetting(const nsAString& aName,
+                                           uint32_t aDevice);
 
   // We store the volume setting in the database, these are related functions.
   void InitVolumeFromDatabase();
