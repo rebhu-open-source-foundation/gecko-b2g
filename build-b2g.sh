@@ -134,8 +134,10 @@ if [ -d "koost" ]; then
     export BUILD_KOOST=1
 fi
 
-rm -rf "${SYSROOT_DEST}/b2g-sysroot"
-taskcluster/scripts/misc/create-b2g-sysroot.sh "${GONK_PATH}" "${SYSROOT_DEST}"
+if [ -z ${B2G_STANDALONE_BUILD+x} ]; then
+  rm -rf "${SYSROOT_DEST}/b2g-sysroot"
+  taskcluster/scripts/misc/create-b2g-sysroot.sh "${GONK_PATH}" "${SYSROOT_DEST}"
+fi
 
 rustc --version
 
