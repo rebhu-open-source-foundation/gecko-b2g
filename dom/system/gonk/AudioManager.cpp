@@ -256,9 +256,9 @@ void AudioManager::HandleAudioFlingerDied() {
   AudioSystem::setMasterVolume(1.0);
 
   // Restore stream volumes
-  for (uint32_t streamType = 0; streamType < AUDIO_STREAM_CNT; ++streamType) {
-    mStreamStates[streamType]->InitStreamVolume();
-    mStreamStates[streamType]->RestoreVolumeIndexToAllDevices();
+  for (auto& streamState : mStreamStates) {
+    streamState->InitStreamVolume();
+    streamState->RestoreVolumeIndexToAllDevices();
   }
 
   // Indicate the end of reconfiguration phase to audio HAL
@@ -553,8 +553,7 @@ uint32_t AudioManager::GetSpecificVolumeCount() {
   uint32_t count = 0;
   for (const auto& data : gVolumeData) {
     count++;
-    uint32_t streamType = data.mStreamType;
-    VolumeStreamState* streamState = mStreamStates[streamType].get();
+    auto& streamState = mStreamStates[data.mStreamType];
     if (streamState->IsDeviceSpecificVolume()) {
       count += MOZ_ARRAY_LENGTH(kAudioDeviceInfos);
     }
@@ -830,10 +829,9 @@ AudioManager::AudioManager()
   AudioSystem::addAudioPortCallback(mAudioPortCallbackHolder->Callback());
 
   // Create VolumeStreamStates
-  for (uint32_t loop = 0; loop < AUDIO_STREAM_CNT; ++loop) {
-    VolumeStreamState* streamState =
-        new VolumeStreamState(*this, static_cast<audio_stream_type_t>(loop));
-    mStreamStates.AppendElement(streamState);
+  for (int32_t streamType = 0; streamType < AUDIO_STREAM_CNT; ++streamType) {
+    auto streamState = MakeUnique<VolumeStreamState>(*this, streamType);
+    mStreamStates.AppendElement(std::move(streamState));
   }
   // Initialize stream volumes with default values
   for (int32_t streamType = 0; streamType < AUDIO_STREAM_CNT; streamType++) {
@@ -1277,7 +1275,7 @@ nsresult AudioManager::SetStreamVolumeForDevice(int32_t aStream,
   }
 
   int32_t streamAlias = sStreamVolumeAliasTbl[aStream];
-  VolumeStreamState* streamState = mStreamStates[streamAlias].get();
+  auto& streamState = mStreamStates[streamAlias];
   return streamState->SetVolumeIndexToAliasStreams(aIndex, aDevice);
 }
 
@@ -1344,7 +1342,7 @@ void AudioManager::InitVolumeFromDatabase() {
     // for the key.
     settingsManager->Get(data.mChannelName, mVolumeInitCallback);
 
-    VolumeStreamState* streamState = mStreamStates[data.mStreamType].get();
+    auto& streamState = mStreamStates[data.mStreamType];
     if (!streamState->IsDeviceSpecificVolume()) {
       // volume type has no specific volume for different device
       continue;
@@ -1379,8 +1377,7 @@ void AudioManager::MaybeUpdateVolumeSettingToDatabase(bool aForce) {
   nsTArray<RefPtr<nsISettingInfo>> settings;
 
   for (const auto& data : gVolumeData) {
-    int32_t streamType = data.mStreamType;
-    VolumeStreamState* streamState = mStreamStates[streamType].get();
+    auto& streamState = mStreamStates[data.mStreamType];
 
     bool isVolumeUpdated = streamState->IsDevicesChanged() &&
                            streamState->IsDeviceSpecificVolume();
@@ -1400,8 +1397,7 @@ void AudioManager::MaybeUpdateVolumeSettingToDatabase(bool aForce) {
   // so that we can store the volume setting even if the phone reboots.
 
   for (const auto& data : gVolumeData) {
-    int32_t streamType = data.mStreamType;
-    VolumeStreamState* streamState = mStreamStates[streamType].get();
+    auto& streamState = mStreamStates[data.mStreamType];
 
     uint32_t remainingDevices = streamState->GetDevicesWithVolumeChange();
     for (uint32_t i = 0; remainingDevices != 0; i++) {
@@ -1449,9 +1445,9 @@ void AudioManager::UpdateCachedActiveDevicesForStreams() {
   // about current active devices of streams and could use cached values.
   // Before L, onAudioPortListUpdate() does not exist and GetDevicesForStream()
   // does not use the cache. Therefore this function do nothing.
-  for (int32_t streamType = 0; streamType < AUDIO_STREAM_CNT; streamType++) {
+  for (auto& streamState : mStreamStates) {
     // Update cached active devices of stream
-    mStreamStates[streamType]->IsDevicesChanged(false /* aFromCache */);
+    streamState->IsDevicesChanged(false /* aFromCache */);
   }
 }
 
@@ -1469,8 +1465,7 @@ uint32_t AudioManager::GetDevicesForStream(int32_t aStream, bool aFromCache) {
 }
 
 uint32_t AudioManager::GetDeviceForStream(int32_t aStream) {
-  uint32_t devices =
-      GetDevicesForStream(static_cast<audio_stream_type_t>(aStream));
+  uint32_t devices = GetDevicesForStream(aStream);
   uint32_t device = SelectDeviceFromDevices(devices);
   return device;
 }
