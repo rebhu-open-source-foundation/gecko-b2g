@@ -260,9 +260,15 @@ PushRecord.prototype = {
   },
 
   quotaApplies() {
-    if (this.systemRecord || prefs.getBoolPref("quota.disabled", false)) {
+    if (this.systemRecord) {
       return false;
     }
+    if (AppConstants.MOZ_B2G) {
+      if (this.uri.host.endsWith(".localhost")) {
+        return false;
+      }
+    }
+    // PWA or an iframe will go to here
     return true;
   },
 
