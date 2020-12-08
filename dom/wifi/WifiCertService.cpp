@@ -72,7 +72,7 @@ class ImportCertTask final : public CryptoTask {
     return ImportPKCS12Blob(buf, size, mPassword);
   }
 
-  virtual void CallCallback(nsresult rv) {
+  virtual void CallCallback(nsresult rv) override {
     if (NS_FAILED(rv)) {
       mResult->mStatus = nsIWifiResult::ERROR_UNKNOWN;
     }
@@ -372,7 +372,7 @@ class DeleteCertTask final : public CryptoTask {
     return NS_OK;
   }
 
-  virtual void CallCallback(nsresult rv) {
+  virtual void CallCallback(nsresult rv) override {
     if (NS_FAILED(rv)) {
       mResult->mStatus = nsIWifiResult::ERROR_UNKNOWN;
     }
