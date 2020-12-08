@@ -434,51 +434,119 @@ SmsService.prototype = {
     });
   },
 
-  _sendToImsAir(aServiceId, aDomMessage, aSilent, aOptions, aRequest) {
+  /**
+   * Send a SMS message to the modem.
+   */
+  _sendToTheAir(aServiceId, aDomMessage, aSilent, aOptions, aRequest) {
+    // Keep current SMS message info for sent/delivered notifications
     let sentMessage = aDomMessage;
     let requestStatusReport = aOptions.requestStatusReport;
-    this._imsSmsProviders[aServiceId].sendSms(
-      sentMessage,
-      aOptions,
-      aResponse => {
-        // Failed to send SMS out.
-        if (aResponse.status != Ci.nsIImsMMTelFeature.STATUS_REPORT_STATUS_OK) {
-          if (
-            aResponse.status ===
-            Ci.nsIImsMMTelFeature.SEND_STATUS_ERROR_FALLBACK
-          ) {
-            //Fallback to CS
-            if (DEBUG) {
-              debug("_sendToTheAir: Resend and Fallback to CS ");
-            }
-            aOptions.retryFallback = true;
-            this._scheduleSending(
-              aServiceId,
-              aDomMessage,
-              aSilent,
-              aOptions,
-              aRequest
-            );
-            return;
-          } else if (
-            aResponse.status ===
-              Ci.nsIImsMMTelFeature.SEND_STATUS_ERROR_RETRY &&
-            aOptions.retryCount < RIL.SMS_RETRY_MAX
-          ) {
-            aOptions.retryCount++;
-            this._scheduleSending(
-              aServiceId,
-              aDomMessage,
-              aSilent,
-              aOptions,
-              aRequest
-            );
-            return;
-          }
-          let error = Ci.nsIMobileMessageCallback.UNKNOWN_ERROR;
-          this._notifySendingError(error, sentMessage, aSilent, aRequest);
-          return;
+
+    // Retry count for GECKO_ERROR_SMS_SEND_FAIL_RETRY
+    if (!aOptions.retryCount) {
+      aOptions.retryCount = 0;
+    }
+    if (DEBUG) {
+      debug("_sendToTheAir ");
+    }
+
+    let sendSMSCallback = aResponse => {
+      // Failed to send SMS out.
+      if (aResponse.errorMsg) {
+        let error = Ci.nsIMobileMessageCallback.UNKNOWN_ERROR;
+        if (aResponse.errorMsg === RIL.GECKO_ERROR_RADIO_NOT_AVAILABLE) {
+          error = Ci.nsIMobileMessageCallback.NO_SIGNAL_ERROR;
+        } else if (aResponse.errorMsg === RIL.GECKO_ERROR_FDN_CHECK_FAILURE) {
+          error = Ci.nsIMobileMessageCallback.FDN_CHECK_ERROR;
+        } else if (
+          aResponse.errorMsg === RIL.GECKO_ERROR_SMS_SEND_FAIL_RETRY &&
+          aOptions.retryCount < RIL.SMS_RETRY_MAX
+        ) {
+          aOptions.retryCount++;
+          this._scheduleSending(
+            aServiceId,
+            aDomMessage,
+            aSilent,
+            aOptions,
+            aRequest
+          );
+          return false;
         }
+
+        this._notifySendingError(error, sentMessage, aSilent, aRequest);
+        return false;
+      } // End of send failure.
+
+      //Failed to send IMS SMS out
+      if (
+        aResponse.status &&
+        aResponse.status != Ci.nsIImsMMTelFeature.SEND_STATUS_OK
+      ) {
+        if (DEBUG) {
+          debug("_sendToTheAir: SendIMSSMS failed " + aResponse.status);
+        }
+        if (
+          aResponse.status === Ci.nsIImsMMTelFeature.SEND_STATUS_ERROR_FALLBACK
+        ) {
+          //IMS Fallback to CS
+          if (DEBUG) {
+            debug("_sendToTheAir: Resend and Fallback to CS ");
+          }
+          aOptions.retryFallback = true;
+          this._scheduleSending(
+            aServiceId,
+            aDomMessage,
+            aSilent,
+            aOptions,
+            aRequest
+          );
+          return false;
+        } else if (
+          aResponse.status === Ci.nsIImsMMTelFeature.SEND_STATUS_ERROR_RETRY &&
+          aOptions.retryCount < RIL.SMS_RETRY_MAX
+        ) {
+          aOptions.retryCount++;
+          this._scheduleSending(
+            aServiceId,
+            aDomMessage,
+            aSilent,
+            aOptions,
+            aRequest
+          );
+          return false;
+        }
+        let error = Ci.nsIMobileMessageCallback.UNKNOWN_ERROR;
+        this._notifySendingError(error, sentMessage, aSilent, aRequest);
+        return false;
+      } // End of IMS send failure.
+
+      // Message was sent to SMSC.
+      if (!aResponse.deliveryStatus) {
+        if (aSilent) {
+          // There is no way to modify nsISmsMessage attributes as they
+          // are read only so we just create a new sms instance to send along
+          // with the notification.
+          aRequest.notifyMessageSent(
+            gMobileMessageService.createSmsMessage(
+              sentMessage.id,
+              sentMessage.threadId,
+              sentMessage.iccId,
+              DOM_MOBILE_MESSAGE_DELIVERY_SENT,
+              sentMessage.deliveryStatus,
+              sentMessage.sender,
+              sentMessage.receiver,
+              sentMessage.body,
+              sentMessage.messageClass,
+              sentMessage.timestamp,
+              Date.now(),
+              0,
+              sentMessage.read
+            )
+          );
+          // We don't wait for SMS-STATUS-REPORT for silent one.
+          return false;
+        }
+
         gMobileMessageDatabaseService.setMessageDeliveryByMessageId(
           sentMessage.id,
           null,
@@ -505,157 +573,63 @@ SmsService.prototype = {
             Services.obs.notifyObservers(smsMessage, kSmsSentObserverTopic);
           }
         );
-      }
-    );
-  },
-  /**
-   * Send a SMS message to the modem.
-   */
-  _sendToTheAir(aServiceId, aDomMessage, aSilent, aOptions, aRequest) {
-    // Keep current SMS message info for sent/delivered notifications
-    let sentMessage = aDomMessage;
-    let requestStatusReport = aOptions.requestStatusReport;
 
-    // Retry count for GECKO_ERROR_SMS_SEND_FAIL_RETRY
-    if (!aOptions.retryCount) {
-      aOptions.retryCount = 0;
-    }
-    if (DEBUG) {
-      debug("_sendToTheAir ");
-    }
+        // Keep this callback if we have status report waiting.
+        return requestStatusReport;
+      } // End of Message Sent to SMSC.
 
-    //check if we send ims sms
+      // Got valid deliveryStatus for the delivery to the remote party when
+      // the status report is requested.
+      gMobileMessageDatabaseService.setMessageDeliveryByMessageId(
+        sentMessage.id,
+        null,
+        sentMessage.delivery,
+        aResponse.deliveryStatus,
+        null,
+        (aRv, aDomMessage) => {
+          let smsMessage = null;
+          try {
+            smsMessage = aDomMessage.QueryInterface(Ci.nsISmsMessage);
+          } catch (e) {}
+          // TODO bug 832140 handle !Components.isSuccessCode(aRv)
+
+          let [topic, notificationType] =
+            aResponse.deliveryStatus == RIL.GECKO_SMS_DELIVERY_STATUS_SUCCESS
+              ? [
+                  kSmsDeliverySuccessObserverTopic,
+                  Ci.nsISmsMessenger.NOTIFICATION_TYPE_DELIVERY_SUCCESS,
+                ]
+              : [
+                  kSmsDeliveryErrorObserverTopic,
+                  Ci.nsISmsMessenger.NOTIFICATION_TYPE_DELIVERY_ERROR,
+                ];
+
+          // Broadcasting a "sms-delivery-success/sms-delivery-error" system
+          // message to open apps.
+          this._broadcastSmsSystemMessage(notificationType, smsMessage);
+
+          // Notifying observers the delivery status is updated.
+          Services.obs.notifyObservers(smsMessage, topic);
+        }
+      );
+
+      // Send transaction has ended completely.
+      return false;
+    };
+
     if (this._isIms(aServiceId) && !aOptions.retryFallback) {
-      this._sendToImsAir(aServiceId, aDomMessage, aSilent, aOptions, aRequest);
+      this._imsSmsProviders[aServiceId].sendSms(
+        sentMessage,
+        aOptions,
+        sendSMSCallback
+      );
       return;
     }
 
     gRadioInterfaces[aServiceId].sendWorkerMessage(
       "sendSMS",
       aOptions,
-      aResponse => {
-        // Failed to send SMS out.
-        if (aResponse.errorMsg) {
-          let error = Ci.nsIMobileMessageCallback.UNKNOWN_ERROR;
-          if (aResponse.errorMsg === RIL.GECKO_ERROR_RADIO_NOT_AVAILABLE) {
-            error = Ci.nsIMobileMessageCallback.NO_SIGNAL_ERROR;
-          } else if (aResponse.errorMsg === RIL.GECKO_ERROR_FDN_CHECK_FAILURE) {
-            error = Ci.nsIMobileMessageCallback.FDN_CHECK_ERROR;
-          } else if (
-            aResponse.errorMsg === RIL.GECKO_ERROR_SMS_SEND_FAIL_RETRY &&
-            aOptions.retryCount < RIL.SMS_RETRY_MAX
-          ) {
-            aOptions.retryCount++;
-            this._scheduleSending(
-              aServiceId,
-              aDomMessage,
-              aSilent,
-              aOptions,
-              aRequest
-            );
-            return false;
-          }
-
-          this._notifySendingError(error, sentMessage, aSilent, aRequest);
-          return false;
-        } // End of send failure.
-
-        // Message was sent to SMSC.
-        if (!aResponse.deliveryStatus) {
-          if (aSilent) {
-            // There is no way to modify nsISmsMessage attributes as they
-            // are read only so we just create a new sms instance to send along
-            // with the notification.
-            aRequest.notifyMessageSent(
-              gMobileMessageService.createSmsMessage(
-                sentMessage.id,
-                sentMessage.threadId,
-                sentMessage.iccId,
-                DOM_MOBILE_MESSAGE_DELIVERY_SENT,
-                sentMessage.deliveryStatus,
-                sentMessage.sender,
-                sentMessage.receiver,
-                sentMessage.body,
-                sentMessage.messageClass,
-                sentMessage.timestamp,
-                Date.now(),
-                0,
-                sentMessage.read
-              )
-            );
-            // We don't wait for SMS-STATUS-REPORT for silent one.
-            return false;
-          }
-
-          gMobileMessageDatabaseService.setMessageDeliveryByMessageId(
-            sentMessage.id,
-            null,
-            DOM_MOBILE_MESSAGE_DELIVERY_SENT,
-            sentMessage.deliveryStatus,
-            null,
-            (aRv, aDomMessage) => {
-              let smsMessage = null;
-              try {
-                smsMessage = aDomMessage.QueryInterface(Ci.nsISmsMessage);
-              } catch (e) {}
-              // TODO bug 832140 handle !Components.isSuccessCode(aRv)
-
-              if (requestStatusReport) {
-                // Update the sentMessage and wait for the status report.
-                sentMessage = smsMessage;
-              }
-
-              this._broadcastSmsSystemMessage(
-                Ci.nsISmsMessenger.NOTIFICATION_TYPE_SENT,
-                smsMessage
-              );
-              aRequest.notifyMessageSent(smsMessage);
-              Services.obs.notifyObservers(smsMessage, kSmsSentObserverTopic);
-            }
-          );
-
-          // Keep this callback if we have status report waiting.
-          return requestStatusReport;
-        } // End of Message Sent to SMSC.
-
-        // Got valid deliveryStatus for the delivery to the remote party when
-        // the status report is requested.
-        gMobileMessageDatabaseService.setMessageDeliveryByMessageId(
-          sentMessage.id,
-          null,
-          sentMessage.delivery,
-          aResponse.deliveryStatus,
-          null,
-          (aRv, aDomMessage) => {
-            let smsMessage = null;
-            try {
-              smsMessage = aDomMessage.QueryInterface(Ci.nsISmsMessage);
-            } catch (e) {}
-            // TODO bug 832140 handle !Components.isSuccessCode(aRv)
-
-            let [topic, notificationType] =
-              aResponse.deliveryStatus == RIL.GECKO_SMS_DELIVERY_STATUS_SUCCESS
-                ? [
-                    kSmsDeliverySuccessObserverTopic,
-                    Ci.nsISmsMessenger.NOTIFICATION_TYPE_DELIVERY_SUCCESS,
-                  ]
-                : [
-                    kSmsDeliveryErrorObserverTopic,
-                    Ci.nsISmsMessenger.NOTIFICATION_TYPE_DELIVERY_ERROR,
-                  ];
-
-            // Broadcasting a "sms-delivery-success/sms-delivery-error" system
-            // message to open apps.
-            this._broadcastSmsSystemMessage(notificationType, smsMessage);
-
-            // Notifying observers the delivery status is updated.
-            Services.obs.notifyObservers(smsMessage, topic);
-          }
-        );
-
-        // Send transaction has ended completely.
-        return false;
-      }
+      sendSMSCallback
     );
   },
 
@@ -1890,7 +1864,7 @@ function ImsSmsProvider(aSmsService, aServiceId) {
   if (this._imsHandler) {
     if (this._imsHandler.imsMMTelFeature) {
       if (DEBUG) {
-        debug("imsMMTelFeature setSmsListener");
+        debug("ImsSmsProvider[" + this._serviceId + "]: Try to setSmsListener");
       }
       this._imsHandler.imsMMTelFeature.setSmsListener(this);
     }
@@ -1913,7 +1887,19 @@ ImsSmsProvider.prototype = {
   },
 
   getSmsFormat() {
-    return this._imsHandler.imsMMTelFeature.getSmsFormat();
+    let smsFormat = this._imsHandler.imsMMTelFeature.getSmsFormat();
+    if (smsFormat == "unknown") {
+      if (DEBUG) {
+        debug(
+          "ImsSmsProvider[" +
+            this._serviceId +
+            "]: getSmsFormat return " +
+            smsFormat
+        );
+      }
+      smsFormat = "3gpp"; //default sms format
+    }
+    return smsFormat;
   },
 
   sendSms(aSmsMessage, aOptions, aCallback) {
@@ -1928,10 +1914,18 @@ ImsSmsProvider.prototype = {
     let length = gsmPduHelper.pduWriteIndex / 2;
     let pdu = gsmPduHelper.readHexOctetArray(length);
     let smsFormat = this.getSmsFormat();
-    //FIXME: check ref, smsc
+
     if (DEBUG) {
-      debug("imsMMTelFeature.sendSms");
+      debug(
+        "ImsSmsProvider[" +
+          this._serviceId +
+          "][" +
+          newToken +
+          "]: smsFormat " +
+          smsFormat
+      );
     }
+
     this._imsHandler.imsMMTelFeature.sendSms(
       newToken,
       0,
@@ -1944,17 +1938,33 @@ ImsSmsProvider.prototype = {
   },
 
   acknowledgeSms(aStatus) {
-    //TODO: refine me
     if (this._lastIncomingMsg) {
       if (DEBUG) {
         debug(
-          "acknowledgeSms token " + this._lastIncomingMsg.token + " via ims"
+          "ImsSmsProvider[" +
+            this._serviceId +
+            "][" +
+            this._lastIncomingMsg.token +
+            "]: acknowledgeSms messageRef: " +
+            this._lastIncomingMsg.messageRef +
+            ", aStatus: " +
+            aStatus
         );
       }
+
+      let deliveryStatus = Ci.nsIImsMMTelFeature.DELIVER_STATUS_OK;
+      if (aStatus === RIL.PDU_FCS_OK) {
+        deliveryStatus = Ci.nsIImsMMTelFeature.DELIVER_STATUS_OK;
+      } else if (aStatus === RIL.PDU_FCS_MEMORY_CAPACITY_EXCEEDED) {
+        deliveryStatus = Ci.nsIImsMMTelFeature.DELIVER_STATUS_ERROR_NO_MEMORY;
+      } else {
+        deliveryStatus = Ci.nsIImsMMTelFeature.DELIVER_STATUS_ERROR_GENERIC;
+      }
+
       this._imsHandler.imsMMTelFeature.acknowledgeSms(
         this._lastIncomingMsg.token,
         this._lastIncomingMsg.messageRef,
-        aStatus
+        deliveryStatus
       );
       this._lastIncomingMsg = null;
     } else if (DEBUG) {
@@ -2025,24 +2035,34 @@ ImsSmsProvider.prototype = {
 
   //nsIImsSmsListener implementation
   onSendSmsResult(aToken, aMessageRef, aStatus, aReason, aNetworkErrorCode) {
-    if (aStatus === Ci.nsIImsMMTelFeature.SEND_STATUS_OK) {
-      if (DEBUG) {
-        debug("onSendSmsResult send success");
+    if (DEBUG) {
+      debug(
+        "ImsSmsProvider[" +
+          this._serviceId +
+          "][" +
+          aToken +
+          "]: onSendSmsResult status: " +
+          aStatus
+      );
+    }
+    let pendOp = this._pendingOp[aToken];
+    if (pendOp) {
+      let keepCallback = pendOp.callback({ status: aStatus });
+      if (!keepCallback) {
+        delete this._pendingOp[aToken];
       }
-      let pendOp = this._pendingOp[aToken];
-      pendOp.callback({ status: aStatus });
-    } else {
-      if (DEBUG) {
-        debug("onSendSmsResult send sms failed " + aStatus);
-      }
-      let pendOp = this._pendingOp[aToken];
-      pendOp.callback({ status: aStatus });
     }
   },
 
   onSmsStatusReportReceived(aToken, aFormat, aLength, aPdu) {
     if (DEBUG) {
-      debug("onSmsStatusReportReceived");
+      debug(
+        "ImsSmsProvider[" +
+          this._serviceId +
+          "][" +
+          aToken +
+          ": onSmsStatusReportReceived"
+      );
     }
     let gsmPduHelper = this.simIOContext.GsmPDUHelper;
     gsmPduHelper.initWith(aPdu);
@@ -2056,6 +2076,46 @@ ImsSmsProvider.prototype = {
       );
     }
 
+    let status = message.status;
+
+    // 3GPP TS 23.040 9.2.3.15 `The MS shall interpret any reserved values as
+    // "Service Rejected"(01100011) but shall store them exactly as received.
+    if (
+      status >= 0x80 ||
+      (status >= RIL.PDU_ST_0_RESERVED_BEGIN &&
+        status < RIL.PDU_ST_0_SC_SPECIFIC_BEGIN) ||
+      (status >= RIL.PDU_ST_1_RESERVED_BEGIN &&
+        status < RIL.PDU_ST_1_SC_SPECIFIC_BEGIN) ||
+      (status >= RIL.PDU_ST_2_RESERVED_BEGIN &&
+        status < RIL.PDU_ST_2_SC_SPECIFIC_BEGIN) ||
+      (status >= RIL.PDU_ST_3_RESERVED_BEGIN &&
+        status < RIL.PDU_ST_3_SC_SPECIFIC_BEGIN)
+    ) {
+      status = RIL.PDU_ST_3_SERVICE_REJECTED;
+    }
+
+    // Pending. Waiting for next status report.
+    if (status >>> 5 == 0x01) {
+      if (DEBUG) {
+        this.debug("SMS-STATUS-REPORT: delivery still pending");
+      }
+      return;
+    }
+
+    let deliveryStatus =
+      status >>> 5 === 0x00
+        ? RIL.GECKO_SMS_DELIVERY_STATUS_SUCCESS
+        : RIL.GECKO_SMS_DELIVERY_STATUS_ERROR;
+
+    let pendOp = this._pendingOp[aToken];
+    if (pendOp) {
+      pendOp.callback({
+        status: Ci.nsIImsMMTelFeature.STATUS_REPORT_STATUS_OK,
+        deliveryStatus,
+      });
+      delete this._pendingOp[aToken];
+    }
+
     this._imsHandler.imsMMTelFeature.acknowledgeSmsReport(
       aToken,
       message.messageRef,
@@ -2065,7 +2125,9 @@ ImsSmsProvider.prototype = {
 
   onSmsReceived(aToken, aFormat, aLength, aPdu) {
     if (DEBUG) {
-      debug("onSmsReceived");
+      debug(
+        "ImsSmsProvider[" + this._serviceId + "][" + aToken + ": onSmsReceived"
+      );
     }
     let gsmPduHelper = this.simIOContext.GsmPDUHelper;
     gsmPduHelper.initWith(aPdu);
@@ -2073,10 +2135,9 @@ ImsSmsProvider.prototype = {
     if (DEBUG) {
       debug("New IMS SMS: " + JSON.stringify(message) + ", result: " + result);
     }
-
-    this._notifyNewSmsMessage(message);
     this._lastIncomingMsg = message;
     this._lastIncomingMsg.token = aToken;
+    this._notifyNewSmsMessage(message);
   },
 };
 

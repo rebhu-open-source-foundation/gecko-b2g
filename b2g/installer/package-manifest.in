@@ -200,6 +200,7 @@
 #ifndef DISABLE_MOZ_RIL
 @RESPATH@/components/MobileConnectionService.js
 @RESPATH@/components/MobileConnectionService.manifest
+@RESPATH@/components/SmsService.manifest
 @RESPATH@/components/SubsidyLockService.js
 @RESPATH@/components/SubsidyLockService.manifest
 #endif // DISABLE_MOZ_RIL
