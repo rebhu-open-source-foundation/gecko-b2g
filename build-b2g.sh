@@ -142,5 +142,6 @@ fi
 rustc --version
 
 export ANDROID_PLATFORM=$ANDROID_PLATFORM
+export PRODUCTION_OS_NAME=$PRODUCTION_OS_NAME
 
 ./mach build $@
