@@ -4,13 +4,14 @@
 
 "use strict";
 
-var EXPORTED_SYMBOLS = ["SearchTelemetry"];
+var EXPORTED_SYMBOLS = ["SearchSERPTelemetry"];
 
 const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
 
 XPCOMUtils.defineLazyModuleGetters(this, {
+  BrowserSearchTelemetry: "resource:///modules/BrowserSearchTelemetry.jsm",
   RemoteSettings: "resource://services-settings/remote-settings.js",
   SearchUtils: "resource://gre/modules/SearchUtils.jsm",
   Services: "resource://gre/modules/Services.jsm",
@@ -33,8 +34,8 @@ XPCOMUtils.defineLazyGetter(this, "logConsole", () => {
 });
 
 /**
- * TelemetryHandler is the main class handling search telemetry. It primarily
- * deals with tracking of what pages are loaded into tabs.
+ * TelemetryHandler is the main class handling Search Engine Result Page (SERP)
+ * telemetry. It primarily deals with tracking of what pages are loaded into tabs.
  *
  * It handles the *in-content:sap* keys of the SEARCH_COUNTS histogram.
  */
@@ -191,6 +192,11 @@ class TelemetryHandler {
    * @param {string} url The url that was loaded in the browser.
    */
   updateTrackingStatus(browser, url) {
+    if (
+      !BrowserSearchTelemetry.shouldRecordSearchCount(browser.getTabBrowser())
+    ) {
+      return;
+    }
     let info = this._checkURLForSerpMatch(url);
     if (!info) {
       this.stopTrackingBrowser(browser);
@@ -754,4 +760,4 @@ class ContentHandler {
   }
 }
 
-var SearchTelemetry = new TelemetryHandler();
+var SearchSERPTelemetry = new TelemetryHandler();

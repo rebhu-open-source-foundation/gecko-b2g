@@ -12,7 +12,7 @@ const { XPCOMUtils } = ChromeUtils.import(
 
 XPCOMUtils.defineLazyModuleGetters(this, {
   AppConstants: "resource://gre/modules/AppConstants.jsm",
-  BrowserUsageTelemetry: "resource:///modules/BrowserUsageTelemetry.jsm",
+  BrowserSearchTelemetry: "resource:///modules/BrowserSearchTelemetry.jsm",
   BrowserUtils: "resource://gre/modules/BrowserUtils.jsm",
   ExtensionSearchHandler: "resource://gre/modules/ExtensionSearchHandler.jsm",
   ObjectUtils: "resource://gre/modules/ObjectUtils.jsm",
@@ -1516,7 +1516,7 @@ class UrlbarInput {
         this.valueIsTyped = true;
         if (!searchMode.isPreview && !areSearchModesSame) {
           try {
-            BrowserUsageTelemetry.recordSearchMode(searchMode);
+            BrowserSearchTelemetry.recordSearchMode(searchMode);
           } catch (ex) {
             Cu.reportError(ex);
           }
@@ -2968,9 +2968,10 @@ class UrlbarInput {
     // We should do nothing during composition or if composition was canceled
     // and we didn't close the popup on composition start.
     if (
-      compositionState == UrlbarUtils.COMPOSITION.COMPOSING ||
-      (compositionState == UrlbarUtils.COMPOSITION.CANCELED &&
-        !compositionClosedPopup)
+      UrlbarPrefs.get("imeCompositionClosesPanel") &&
+      (compositionState == UrlbarUtils.COMPOSITION.COMPOSING ||
+        (compositionState == UrlbarUtils.COMPOSITION.CANCELED &&
+          !compositionClosedPopup))
     ) {
       return;
     }
@@ -3152,6 +3153,10 @@ class UrlbarInput {
     }
     this._compositionState = UrlbarUtils.COMPOSITION.COMPOSING;
 
+    if (!UrlbarPrefs.get("imeCompositionClosesPanel")) {
+      return;
+    }
+
     // Close the view. This will also stop searching.
     if (this.view.isOpen) {
       // We're closing the view, but we want to retain search mode if the
@@ -3178,11 +3183,13 @@ class UrlbarInput {
       throw new Error("Trying to stop a non existing composition?");
     }
 
-    // Clear the selection and the cached result, since they refer to the
-    // state before this composition. A new input event will be generated after
-    // this.
-    this.view.clearSelection();
-    this._resultForCurrentValue = null;
+    if (UrlbarPrefs.get("imeCompositionClosesPanel")) {
+      // Clear the selection and the cached result, since they refer to the
+      // state before this composition. A new input even will be generated
+      // after this.
+      this.view.clearSelection();
+      this._resultForCurrentValue = null;
+    }
 
     // We can't yet retrieve the committed value from the editor, since it isn't
     // completely committed yet. We'll handle it at the next input event.

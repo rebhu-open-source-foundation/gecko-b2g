@@ -15,7 +15,7 @@ const SCALAR_SEARCHMODE = "browser.engagement.navigation.urlbar_searchmode";
 const SUGGEST_URLBAR_PREF = "browser.urlbar.suggest.searches";
 
 XPCOMUtils.defineLazyModuleGetters(this, {
-  SearchTelemetry: "resource:///modules/SearchTelemetry.jsm",
+  SearchSERPTelemetry: "resource:///modules/SearchSERPTelemetry.jsm",
   UrlbarTestUtils: "resource://testing-common/UrlbarTestUtils.jsm",
 });
 
@@ -31,11 +31,11 @@ function searchInAwesomebar(value, win = window) {
 /**
  * Click one of the entries in the urlbar suggestion popup.
  *
- * @param {String} resultTitle
+ * @param {string} resultTitle
  *        The title of the result to click on.
- * @param {Number} button [optional]
+ * @param {number} button [optional]
  *        which button to click.
- * @returns {Number}
+ * @returns {number}
  *          The index of the result that was clicked, or -1 if not found.
  */
 async function clickURLBarSuggestion(resultTitle, button = 1) {
@@ -67,10 +67,13 @@ async function clickURLBarSuggestion(resultTitle, button = 1) {
 /**
  * Create an engine to generate search suggestions and add it as default
  * for this test.
+ *
+ * @param {function} taskFn
+ *   The function to run with the new search engine as default.
  */
 async function withNewSearchEngine(taskFn) {
   const url =
-    getRootDirectory(gTestPath) + "usageTelemetrySearchSuggestions.xml";
+    getRootDirectory(gTestPath) + "urlbarTelemetrySearchSuggestions.xml";
   let suggestionEngine = await Services.search.addOpenSearchEngine(url, "");
   let previousEngine = await Services.search.getDefault();
   await Services.search.setDefault(suggestionEngine);
@@ -1509,7 +1512,7 @@ add_task(async function test_formHistory_enterSelection() {
 add_task(async function test_privateWindow() {
   // Override the search telemetry search provider info to
   // count in-content SEARCH_COUNTs telemetry for our test engine.
-  SearchTelemetry.overrideSearchTelemetryForTests([
+  SearchSERPTelemetry.overrideSearchTelemetryForTests([
     {
       telemetryId: "example",
       searchPageRegexp: "^http://example\\.com/",
@@ -1683,6 +1686,6 @@ add_task(async function test_privateWindow() {
   await BrowserTestUtils.closeWindow(win);
 
   // Reset the search provider info.
-  SearchTelemetry.overrideSearchTelemetryForTests();
+  SearchSERPTelemetry.overrideSearchTelemetryForTests();
   await UrlbarTestUtils.formHistory.clear();
 });

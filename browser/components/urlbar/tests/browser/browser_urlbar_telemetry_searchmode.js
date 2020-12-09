@@ -21,7 +21,6 @@ const SUGGEST_PREF = "browser.search.suggest.enabled";
 
 XPCOMUtils.defineLazyModuleGetters(this, {
   AppConstants: "resource://gre/modules/AppConstants.jsm",
-  SearchTelemetry: "resource:///modules/SearchTelemetry.jsm",
   UrlbarProviderTabToSearch:
     "resource:///modules/UrlbarProviderTabToSearch.jsm",
   UrlbarTestUtils: "resource://testing-common/UrlbarTestUtils.jsm",
@@ -97,7 +96,7 @@ add_task(async function setup() {
   // Create an engine to generate search suggestions and add it as default
   // for this test.
   const url =
-    getRootDirectory(gTestPath) + "usageTelemetrySearchSuggestions.xml";
+    getRootDirectory(gTestPath) + "urlbarTelemetrySearchSuggestions.xml";
   let suggestionEngine = await Services.search.addOpenSearchEngine(url, "");
   suggestionEngine.alias = ENGINE_ALIAS;
   engineDomain = suggestionEngine.getResultDomain();
