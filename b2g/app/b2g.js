@@ -1057,7 +1057,7 @@ pref("dom.microphonetoggle.hardwareKey", false);
 
 // Dispatch the function key events to the content first.
 pref("dom.keyboardevent.dispatch_function_keys_to_content_first", true);
-pref("dom.keyboardevent.function_keys", "Backspace,MicrophoneToggle,GoBack");
+pref("dom.keyboardevent.function_keys", "Backspace,MicrophoneToggle,GoBack,EndCall");
 
 // Enable keyboardEventGenerator on touch devices.
 pref("dom.keyboardEventGenerator.enabled", false);
