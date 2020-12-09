@@ -25,7 +25,7 @@ nsresult UnixSocketWatcher::Connect(const struct sockaddr* aAddr,
   MOZ_ASSERT(IsOpen());
   MOZ_ASSERT(aAddr || !aAddrLen);
 
-  if (TEMP_FAILURE_RETRY(connect(GetFd(), aAddr, aAddrLen) < 0)) {
+  if (TEMP_FAILURE_RETRY(connect(GetFd(), aAddr, aAddrLen)) < 0) {
     if (errno == EINPROGRESS) {
       mConnectionStatus = SOCKET_IS_CONNECTING;
       // Set up a write watch to receive the connect signal
