@@ -31,7 +31,7 @@ class AudioChannelManager final : public DOMEventTargetHelper,
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_NSIDOMEVENTLISTENER
 
-  void Notify(const hal::SwitchEvent& aEvent);
+  void Notify(const hal::SwitchEvent& aEvent) override;
 
   void Init(nsIGlobalObject* aGlobal);
 
