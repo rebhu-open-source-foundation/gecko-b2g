@@ -35,15 +35,36 @@ impl AppsServiceDelegate {
     }
 
     fn post_task(&mut self, command: AppsServiceCommand, request_id: u64) -> BaseMessage {
+        // Unconditionally Return a success response for now.
+        let payload = match command {
+            AppsServiceCommand::OnBoot(_, _) => {
+                GeckoBridgeFromClient::AppsServiceDelegateOnBootSuccess
+            }
+            AppsServiceCommand::OnBootDone() => {
+                GeckoBridgeFromClient::AppsServiceDelegateOnBootDoneSuccess
+            }
+            AppsServiceCommand::OnClear(_, _) => {
+                GeckoBridgeFromClient::AppsServiceDelegateOnClearSuccess
+            }
+            AppsServiceCommand::OnInstall(_, _) => {
+                GeckoBridgeFromClient::AppsServiceDelegateOnInstallSuccess
+            }
+            AppsServiceCommand::OnUninstall(_) => {
+                GeckoBridgeFromClient::AppsServiceDelegateOnUninstallSuccess
+            }
+            AppsServiceCommand::OnUpdate(_, _) => {
+                GeckoBridgeFromClient::AppsServiceDelegateOnUpdateSuccess
+            }
+        };
+
         // Dispatch the setting change to the xpcom observer.
         let task = AppsServiceDelegateTask {
             xpcom: self.xpcom.clone(),
-            command: command,
+            command,
         };
+
         let _ = TaskRunnable::new("AppsServiceDelegate", Box::new(task))
             .and_then(|r| TaskRunnable::dispatch(r, self.xpcom.owning_thread()));
-        // Unconditionally Return a success response for now.
-        let payload = GeckoBridgeFromClient::AppsServiceDelegateOnBootSuccess;
 
         // Wrap the payload in a base message and send it.
         let message = BaseMessage {
