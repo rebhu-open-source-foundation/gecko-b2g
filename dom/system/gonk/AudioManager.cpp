@@ -821,10 +821,6 @@ AudioManager::AudioManager()
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(!sAudioManager);
 
-  for (uint32_t idx = 0; idx < MOZ_ARRAY_LENGTH(kAudioDeviceInfos); ++idx) {
-    mAudioDeviceTableIdMaps.Put(kAudioDeviceInfos[idx].value, idx);
-  }
-
   AudioSystem::setErrorCallback(BinderDeadCallback);
   AudioSystem::addAudioPortCallback(mAudioPortCallbackHolder->Callback());
 
@@ -1311,14 +1307,6 @@ nsresult AudioManager::GetStreamVolumeIndex(int32_t aStream, uint32_t* aIndex) {
   return NS_OK;
 }
 
-nsAutoString AudioManager::AppendDeviceToVolumeSetting(const nsAString& aName,
-                                                       uint32_t aDevice) {
-  uint32_t index = 0;
-  DebugOnly<bool> exist = mAudioDeviceTableIdMaps.Get(aDevice, &index);
-  MOZ_ASSERT(exist);
-  return aName + u"."_ns + kAudioDeviceInfos[index].tag;
-}
-
 void AudioManager::InitVolumeFromDatabase() {
   nsCOMPtr<nsISettingsManager> settingsManager =
       do_GetService(SETTINGS_MANAGER);
@@ -1349,9 +1337,9 @@ void AudioManager::InitVolumeFromDatabase() {
     }
 
     for (const auto& deviceInfo : kAudioDeviceInfos) {
-      auto volumeType =
-          AppendDeviceToVolumeSetting(data.mChannelName, deviceInfo.value);
-      settingsManager->Get(volumeType, mVolumeInitCallback);
+      // append device suffix to the channel name
+      nsAutoString name = data.mChannelName + u"."_ns + deviceInfo.tag;
+      settingsManager->Get(name, mVolumeInitCallback);
     }
   }
 }
@@ -1378,42 +1366,35 @@ void AudioManager::MaybeUpdateVolumeSettingToDatabase(bool aForce) {
 
   for (const auto& data : gVolumeData) {
     auto& streamState = mStreamStates[data.mStreamType];
-
     bool isVolumeUpdated = streamState->IsDevicesChanged() &&
                            streamState->IsDeviceSpecificVolume();
-    if (!aForce && !isVolumeUpdated) {
-      continue;
-    }
-    auto& name = data.mChannelName;
-    auto volIndex = streamState->GetVolumeIndex();
-    auto value = IntToString<uint32_t>(volIndex);
-    RefPtr<nsISettingInfo> settingInfo = new SettingInfo(name, value);
-    settings.AppendElement(settingInfo);
-  }
 
-  // For reducing the code dependency, Gaia doesn't need to know the
-  // device volume, it only need to care about different volume categories.
-  // However, we need to send the setting volume to the permanent database,
-  // so that we can store the volume setting even if the phone reboots.
-
-  for (const auto& data : gVolumeData) {
-    auto& streamState = mStreamStates[data.mStreamType];
-
-    uint32_t remainingDevices = streamState->GetDevicesWithVolumeChange();
-    for (uint32_t i = 0; remainingDevices != 0; i++) {
-      uint32_t device = (1 << i);
-      if ((device & remainingDevices) == 0) {
-        continue;
-      }
-      remainingDevices &= ~device;
-      if (!mAudioDeviceTableIdMaps.Get(device, nullptr)) {
-        continue;
-      }
-      auto name = AppendDeviceToVolumeSetting(data.mChannelName, device);
-      auto volIndex = streamState->GetVolumeIndex(device);
+    if (aForce || isVolumeUpdated) {
+      auto& name = data.mChannelName;
+      auto volIndex = streamState->GetVolumeIndex();
       auto value = IntToString<uint32_t>(volIndex);
       RefPtr<nsISettingInfo> settingInfo = new SettingInfo(name, value);
       settings.AppendElement(settingInfo);
+    }
+  }
+
+  // For reducing the code dependency, Gaia doesn't need to know the device
+  // volume, it only need to care about different volume categories. However, we
+  // need to send the setting volume to the permanent database, so that we can
+  // store the volume setting even if the phone reboots.
+  for (const auto& data : gVolumeData) {
+    auto& streamState = mStreamStates[data.mStreamType];
+    auto devices = streamState->GetDevicesWithVolumeChange();
+
+    for (const auto& deviceInfo : kAudioDeviceInfos) {
+      if (deviceInfo.value & devices) {
+        // append device suffix to the channel name
+        nsAutoString name = data.mChannelName + u"."_ns + deviceInfo.tag;
+        auto volIndex = streamState->GetVolumeIndex(deviceInfo.value);
+        auto value = IntToString<uint32_t>(volIndex);
+        RefPtr<nsISettingInfo> settingInfo = new SettingInfo(name, value);
+        settings.AppendElement(settingInfo);
+      }
     }
   }
 

@@ -114,8 +114,6 @@ class AudioManager final : public nsIAudioManager, public nsIObserver {
   // Connected devices that are controlled by setDeviceConnectionState()
   nsDataHashtable<nsUint32HashKey, nsCString> mConnectedDevices;
 
-  nsDataHashtable<nsUint32HashKey, uint32_t> mAudioDeviceTableIdMaps;
-
   bool mSwitchDone = true;
 
   bool mBluetoothA2dpEnabled = false;
@@ -162,10 +160,6 @@ class AudioManager final : public nsIAudioManager, public nsIObserver {
   // path on some platforms. Note that this is an internal API and should not be
   // called directly.
   void SetFmMuted(bool aMuted);
-
-  // Append the audio output device to the volume setting string.
-  nsAutoString AppendDeviceToVolumeSetting(const nsAString& aName,
-                                           uint32_t aDevice);
 
   // We store the volume setting in the database, these are related functions.
   void InitVolumeFromDatabase();
