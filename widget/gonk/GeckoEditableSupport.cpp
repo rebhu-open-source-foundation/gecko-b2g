@@ -410,7 +410,8 @@ NS_IMPL_ISUPPORTS(GeckoEditableSupport, TextEventDispatcherListener,
                   nsIEditableSupport, nsIDOMEventListener, nsIObserver,
                   nsISupportsWeakReference)
 
-GeckoEditableSupport::GeckoEditableSupport(nsPIDOMWindowOuter* aDOMWindow) {
+GeckoEditableSupport::GeckoEditableSupport(nsPIDOMWindowOuter* aDOMWindow)
+    : mIsFocused(false) {
   IME_LOGD("GeckoEditableSupport::Constructor[%p]", this);
   nsCOMPtr<nsIObserverService> obs = mozilla::services::GetObserverService();
   if (obs) {
@@ -489,9 +490,9 @@ GeckoEditableSupport::HandleEvent(Event* aEvent) {
   if (!ele) {
     return NS_OK;
   }
-  if (!isContentEditable(ele) && !isFocusableElement(ele)) {
-    return NS_OK;
-  }
+
+  bool isTargetEditable = isContentEditable(ele) || isFocusableElement(ele);
+
   nsAutoString eventType;
   aEvent->GetType(eventType);
 
@@ -505,14 +506,25 @@ GeckoEditableSupport::HandleEvent(Event* aEvent) {
   nsIContent* nonChromeTarget =
       relatedTarget ? relatedTarget->FindFirstNonChromeOnlyAccessContent()
                     : relatedTarget.get();
-  IME_LOGD("-- GeckoEditableSupport::HandleEvent : %s %p related %p",
-           NS_ConvertUTF16toUTF8(eventType).get(), node.get(), nonChromeTarget);
+
+  IME_LOGD(
+      "GeckoEditableSupport::HandleEvent %s target %p editable %d related %p",
+      NS_ConvertUTF16toUTF8(eventType).get(), node.get(), isTargetEditable,
+      nonChromeTarget);
 
   if (node == nonChromeTarget) {
     return NS_OK;
   }
 
   if (eventType.EqualsLiteral("focus")) {
+    if (!isTargetEditable) {
+      // Focusing on other non-editable element and the blur event is missing.
+      if (mIsFocused) {
+        HandleBlur();
+      }
+      return NS_OK;
+    }
+
     HandleFocus();
     RefPtr<TextEventDispatcher> dispatcher = getTextEventDispatcherFromFocus();
     if (dispatcher) {
@@ -522,6 +534,9 @@ GeckoEditableSupport::HandleEvent(Event* aEvent) {
       }
     }
   } else if (eventType.EqualsLiteral("blur")) {
+    if (!isTargetEditable) {
+      return NS_OK;
+    }
     HandleBlur();
     RefPtr<TextEventDispatcher> dispatcher = getTextEventDispatcherFromFocus();
     if (dispatcher) {
@@ -538,6 +553,10 @@ void GeckoEditableSupport::HandleFocus() {
   if (NS_FAILED(rv)) {
     return;
   }
+
+  MOZ_ASSERT(!mIsFocused);
+  mIsFocused = true;
+
   // oop
   ContentChild* contentChild = ContentChild::GetSingleton();
   if (contentChild) {
@@ -556,6 +575,9 @@ void GeckoEditableSupport::HandleFocus() {
 }
 
 void GeckoEditableSupport::HandleBlur() {
+  MOZ_ASSERT(mIsFocused);
+  mIsFocused = false;
+
   // oop
   ContentChild* contentChild = ContentChild::GetSingleton();
   if (contentChild) {

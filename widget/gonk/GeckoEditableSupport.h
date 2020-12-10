@@ -78,6 +78,11 @@ class GeckoEditableSupport final : public TextEventDispatcherListener,
  private:
   RefPtr<TextEventDispatcher> mDispatcher;
   nsCOMPtr<dom::EventTarget> mChromeEventHandler;
+
+  // We need this flag to remember whether we already send focus to IME. Can't
+  // fully rely on focus/blur event due to the blur event may be suppressed in
+  // some cases (e.g. content removed)
+  bool mIsFocused;
 };
 
 }  // namespace widget
