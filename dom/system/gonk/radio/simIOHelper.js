@@ -3117,7 +3117,7 @@ GsmPDUHelperObject.prototype = {
     let bufAdapter = {
       context: this.context,
       readHexOctet() {
-        return (this.readHexNibble() << 4) | this.readHexNibble();
+        return (this.context.GsmPDUHelper.readHexNibble() << 4) | this.context.GsmPDUHelper.readHexNibble();
       },
     };
 
@@ -3313,7 +3313,7 @@ GsmPDUHelperObject.prototype = {
     let bufAdapter = {
       context: this.context,
       readHexOctet() {
-        return (this.readHexNibble() << 4) | this.readHexNibble();
+        return (this.context.GsmPDUHelper.readHexNibble() << 4) | this.context.GsmPDUHelper.readHexNibble();
       },
     };
 
