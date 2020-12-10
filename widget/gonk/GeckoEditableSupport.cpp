@@ -900,8 +900,8 @@ GeckoEditableSupport::SetSelectedOptions(
     bool changed = false;
     RefPtr<dom::HTMLOptionsCollection> options = selectElement->GetOptions();
     uint32_t numOptions = options->Length();
-    for (uint32_t idx = 0; idx < numOptions; idx++) {
-      bool newValue = (aOptionIndexes.IndexOf(idx) != -1);
+    for (int32_t idx = 0; idx < int(numOptions); idx++) {
+      bool newValue = (aOptionIndexes.IndexOf(idx) != aOptionIndexes.NoIndex);
       bool oldValue = options->ItemAsOption(idx)->Selected();
       IME_LOGD("-- SetSelectedOptions options[%ld] old:[%d] -> new:[%d]", idx,
                oldValue, newValue);
