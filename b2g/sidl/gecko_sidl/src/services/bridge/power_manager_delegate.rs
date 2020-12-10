@@ -9,7 +9,9 @@ use super::service::ObjectIdGenerator;
 use crate::common::client_object::*;
 use crate::common::core::{BaseMessage, BaseMessageKind};
 use crate::common::traits::{Shared, TrackerId};
-use crate::common::uds_transport::{from_base_message, SessionObject, UdsTransport};
+use crate::common::uds_transport::{
+    from_base_message, SessionObject, UdsTransport, XpcomSessionObject,
+};
 use bincode::Options;
 use log::{debug, error};
 use moz_task::{Task, TaskRunnable, ThreadPtrHandle, ThreadPtrHolder};
@@ -30,7 +32,7 @@ pub struct WakeLockDelegate {
     object_id: TrackerId,
     transport: UdsTransport,
     topic: String,
-    clients: Shared<HashMap<u32, Option<ClientObject>>>,
+    wakelocks: Shared<HashMap<u32, Option<ClientObject<WakeLockDelegate>>>>,
 }
 
 impl WakeLockDelegate {
@@ -40,7 +42,7 @@ impl WakeLockDelegate {
         object_id: TrackerId,
         transport: &UdsTransport,
         topic: String,
-        clients: Shared<HashMap<u32, Option<ClientObject>>>,
+        wakelocks: Shared<HashMap<u32, Option<ClientObject<WakeLockDelegate>>>>,
     ) -> Self {
         Self {
             xpcom,
@@ -48,7 +50,7 @@ impl WakeLockDelegate {
             object_id,
             transport: transport.clone(),
             topic,
-            clients,
+            wakelocks,
         }
     }
 
@@ -61,7 +63,7 @@ impl WakeLockDelegate {
             object_id: self.object_id,
             request_id,
             topic: self.topic.clone(),
-            clients: self.clients.clone(),
+            wakelocks: self.wakelocks.clone(),
         };
         let _ = TaskRunnable::new("WakeLockTask", Box::new(task))
             .and_then(|r| TaskRunnable::dispatch(r, self.xpcom.owning_thread()));
@@ -99,9 +101,11 @@ impl SessionObject for WakeLockDelegate {
     fn get_ids(&self) -> (u32, u32) {
         (self.service_id, self.object_id)
     }
+}
 
-    fn maybe_xpcom(&self) -> Option<&dyn Any> {
-        Some(&self.xpcom)
+impl XpcomSessionObject for WakeLockDelegate {
+    fn as_xpcom(&self) -> &dyn Any {
+        &self.xpcom
     }
 }
 
@@ -122,7 +126,7 @@ struct WakeLockTask {
     object_id: TrackerId,
     request_id: u64,
     topic: String,
-    clients: Shared<HashMap<u32, Option<ClientObject>>>,
+    wakelocks: Shared<HashMap<u32, Option<ClientObject<WakeLockDelegate>>>>,
 }
 
 impl WakeLockTask {
@@ -160,7 +164,7 @@ impl Task for WakeLockTask {
                     payload = GeckoBridgeFromClient::WakelockUnlockError;
                 }
                 self.reply(payload, self.object_id);
-                self.clients.lock().remove(&self.object_id);
+                self.wakelocks.lock().remove(&self.object_id);
             }
         }
     }
@@ -176,7 +180,7 @@ pub struct PowerManagerDelegate {
     service_id: TrackerId,
     object_id: TrackerId,
     object_id_generator: Shared<ObjectIdGenerator>,
-    clients: Shared<HashMap<u32, Option<ClientObject>>>,
+    wakelocks: Shared<HashMap<u32, Option<ClientObject<WakeLockDelegate>>>>,
     transport: UdsTransport,
 }
 
@@ -186,7 +190,7 @@ impl PowerManagerDelegate {
         service_id: TrackerId,
         object_id: TrackerId,
         object_id_generator: Shared<ObjectIdGenerator>,
-        clients: Shared<HashMap<u32, Option<ClientObject>>>,
+        wakelocks: Shared<HashMap<u32, Option<ClientObject<WakeLockDelegate>>>>,
         transport: &UdsTransport,
     ) -> Self {
         Self {
@@ -194,7 +198,7 @@ impl PowerManagerDelegate {
             service_id,
             object_id,
             object_id_generator,
-            clients,
+            wakelocks,
             transport: transport.clone(),
         }
     }
@@ -207,7 +211,7 @@ impl PowerManagerDelegate {
             service_id: self.service_id,
             object_id: self.object_id,
             object_id_generator: self.object_id_generator.clone(),
-            clients: self.clients.clone(),
+            wakelocks: self.wakelocks.clone(),
             request_id,
         };
         let _ = TaskRunnable::new("PowerManagerDelegate", Box::new(task))
@@ -249,15 +253,17 @@ impl SessionObject for PowerManagerDelegate {
     fn get_ids(&self) -> (u32, u32) {
         (self.service_id, self.object_id)
     }
+}
 
-    fn maybe_xpcom(&self) -> Option<&dyn Any> {
-        Some(&self.xpcom)
+impl XpcomSessionObject for PowerManagerDelegate {
+    fn as_xpcom(&self) -> &dyn Any {
+        &self.xpcom
     }
 }
 
 impl Drop for PowerManagerDelegate {
     fn drop(&mut self) {
-        self.clients.lock().clear();
+        self.wakelocks.lock().clear();
     }
 }
 
@@ -277,7 +283,7 @@ struct PowerManagerDelegateTask {
     service_id: TrackerId,
     object_id: TrackerId,
     object_id_generator: Shared<ObjectIdGenerator>,
-    clients: Shared<HashMap<u32, Option<ClientObject>>>,
+    wakelocks: Shared<HashMap<u32, Option<ClientObject<WakeLockDelegate>>>>,
     request_id: u64,
 }
 
@@ -336,13 +342,13 @@ impl Task for PowerManagerDelegateTask {
                             wakelock_object_id,
                             &self.transport.clone(),
                             topic.to_string(),
-                            self.clients.clone(),
+                            self.wakelocks.clone(),
                         );
-                        let client = Some(ClientObject::new(
+                        let client = Some(ClientObject::new::<WakeLockDelegate>(
                             wakelock_session,
                             &mut self.transport.clone(),
                         ));
-                        self.clients.lock().insert(wakelock_object_id, client);
+                        self.wakelocks.lock().insert(wakelock_object_id, client);
                         payload = GeckoBridgeFromClient::PowerManagerDelegateRequestWakelockSuccess(
                             wakelock_object_id.into(),
                         );

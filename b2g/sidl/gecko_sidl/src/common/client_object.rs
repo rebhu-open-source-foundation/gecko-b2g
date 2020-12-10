@@ -6,7 +6,7 @@
 // This ensures we properly release the object when it is dropped.
 
 use crate::common::traits::TrackerId;
-use crate::common::uds_transport::{SessionObject, UdsTransport};
+use crate::common::uds_transport::{SessionObject, UdsTransport, XpcomSessionObject};
 use crate::services::core::service::*;
 use log::debug;
 use moz_task::ThreadPtrHandle;
@@ -14,16 +14,16 @@ use parking_lot::Mutex;
 use std::sync::Arc;
 use xpcom::XpCom;
 
-pub struct ClientObject {
-    inner: Arc<Mutex<dyn SessionObject>>,
+pub struct ClientObject<K: SessionObject + 'static> {
+    inner: Arc<Mutex<K>>,
     service_id: TrackerId,
     object_id: TrackerId,
     transport: UdsTransport,
     should_release: bool,
 }
 
-impl ClientObject {
-    pub fn new<T>(source: T, transport: &mut UdsTransport) -> Self
+impl<K: SessionObject + 'static> ClientObject<K> {
+    pub fn new<T>(source: K, transport: &mut UdsTransport) -> Self
     where
         T: SessionObject + 'static,
     {
@@ -43,24 +43,27 @@ impl ClientObject {
         self.object_id
     }
 
-    pub fn maybe_xpcom<T: XpCom + 'static>(&self) -> Option<ThreadPtrHandle<T>> {
-        if let Some(xpcom) = self.inner.lock().maybe_xpcom() {
-            if let Some(obj) = xpcom.downcast_ref::<ThreadPtrHandle<T>>() {
-                Some(obj.clone())
-            } else {
-                None
-            }
-        } else {
-            None
-        }
-    }
-
     pub fn dont_release(&mut self) {
         self.should_release = false;
     }
 }
 
-impl Drop for ClientObject {
+impl<K: XpcomSessionObject> ClientObject<K>
+where
+    K: XpcomSessionObject,
+{
+    pub fn maybe_xpcom<T: XpCom + 'static>(&self) -> Option<ThreadPtrHandle<T>> {
+        let inner = self.inner.lock();
+        let xpcom = inner.as_xpcom();
+        if let Some(obj) = xpcom.downcast_ref::<ThreadPtrHandle<T>>() {
+            Some(obj.clone())
+        } else {
+            None
+        }
+    }
+}
+
+impl<K: SessionObject + 'static> Drop for ClientObject<K> {
     // Release the object on the remote side.
     fn drop(&mut self) {
         self.transport.unregister_session_object(self.inner.clone());

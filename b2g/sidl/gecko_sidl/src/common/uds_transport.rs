@@ -64,11 +64,11 @@ pub trait SessionObject: Send {
     fn on_event(&mut self, event: Vec<u8>);
     // Returns the (service, object) tuple.
     fn get_ids(&self) -> (u32, u32);
-    // Escape hatch to get the XPCom that can be tied to this session object without having
-    // to add multiple trait bounds everywhere.
-    fn maybe_xpcom(&self) -> Option<&dyn Any> {
-        None
-    }
+}
+
+pub trait XpcomSessionObject: SessionObject {
+    // Get the XPCom that can be tied to this session object.
+    fn as_xpcom(&self) -> &dyn Any;
 }
 
 pub type SharedSessionObject = Arc<Mutex<dyn SessionObject>>;

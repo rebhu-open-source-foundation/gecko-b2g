@@ -10,6 +10,7 @@ use bincode::Options;
 use log::error;
 use moz_task::{Task, TaskRunnable, ThreadPtrHandle};
 use nserror::nsresult;
+use std::any::Any;
 use xpcom::interfaces::nsITimeObserver;
 
 // A Task to dispatch time/timezone changes to the observer.
@@ -91,5 +92,11 @@ impl SessionObject for ObserverWrapper {
 
     fn get_ids(&self) -> (u32, u32) {
         (self.service_id, self.object_id)
+    }
+}
+
+impl XpcomSessionObject for ObserverWrapper {
+    fn as_xpcom(&self) -> &dyn Any {
+        &self.xpcom
     }
 }

@@ -7,12 +7,13 @@
 use super::messages::*;
 use crate::common::core::{BaseMessage, BaseMessageKind};
 use crate::common::traits::TrackerId;
-use crate::common::uds_transport::{from_base_message, SessionObject};
+use crate::common::uds_transport::{from_base_message, SessionObject, XpcomSessionObject};
 use bincode::Options;
 use log::{debug, error};
 use moz_task::{Task, TaskRunnable, ThreadPtrHandle};
 use nserror::nsresult;
 use nsstring::*;
+use std::any::Any;
 use xpcom::interfaces::nsIAppsServiceDelegate;
 
 pub struct AppsServiceDelegate {
@@ -132,6 +133,12 @@ impl SessionObject for AppsServiceDelegate {
             self.service_id, self.object_id
         );
         (self.service_id, self.object_id)
+    }
+}
+
+impl XpcomSessionObject for AppsServiceDelegate {
+    fn as_xpcom(&self) -> &dyn Any {
+        &self.xpcom
     }
 }
 

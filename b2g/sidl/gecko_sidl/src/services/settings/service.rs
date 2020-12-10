@@ -128,7 +128,7 @@ struct SettingsManagerImpl {
     // Events management.
     event_manager: Shared<EventManager>,
     // The registered observers. (object_id, key, object, name)
-    observers: Vec<(TrackerId, usize, ClientObject, String)>,
+    observers: Vec<(TrackerId, usize, ClientObject<ObserverWrapper>, String)>,
     // The next usable object_id when we create an observer.
     current_object_id: TrackerId,
 }
@@ -308,7 +308,7 @@ impl SettingsManagerImpl {
         let (task, (name, observer, key)) = task;
         // Create a lightweight xpcom wrapper + session proxy that manages object release for us.
         let wrapper = ObserverWrapper::new(observer, self.service_id, object_id);
-        let proxy = ClientObject::new(wrapper, &mut self.transport);
+        let proxy = ClientObject::new::<ObserverWrapper>(wrapper, &mut self.transport);
 
         self.observers.push((object_id, key, proxy, name.clone()));
 

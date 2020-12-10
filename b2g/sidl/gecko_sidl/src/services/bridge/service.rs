@@ -108,13 +108,13 @@ struct GeckoBridgeImpl {
     // A factory to yield unique object ids for this service.
     object_id_generator: Shared<ObjectIdGenerator>,
     // The apps_service delegate.
-    apps_service_delegate: Option<ClientObject>,
+    apps_service_delegate: Option<ClientObject<AppsServiceDelegate>>,
     // The power manager delegate.
-    power_manager_delegate: Option<ClientObject>,
+    power_manager_delegate: Option<ClientObject<PowerManagerDelegate>>,
     // The mobile manager delegate.
-    mobile_manager_delegate: Option<ClientObject>,
+    mobile_manager_delegate: Option<ClientObject<MobileManagerDelegate>>,
     // The network manager delegate.
-    network_manager_delegate: Option<ClientObject>,
+    network_manager_delegate: Option<ClientObject<NetworkManagerDelegate>>,
 }
 
 impl SessionObject for GeckoBridgeImpl {
@@ -202,7 +202,10 @@ impl GeckoBridgeImpl {
 
         // Create a lightweight xpcom wrapper + session proxy that manages object release for us.
         let wrapper = AppsServiceDelegate::new(delegate, self.service_id, object_id);
-        self.apps_service_delegate = Some(ClientObject::new(wrapper, &mut self.transport));
+        self.apps_service_delegate = Some(ClientObject::new::<AppsServiceDelegate>(
+            wrapper,
+            &mut self.transport,
+        ));
 
         let request = GeckoBridgeFromClient::GeckoFeaturesSetAppsServiceDelegate(object_id.into());
         self.sender
@@ -222,7 +225,10 @@ impl GeckoBridgeImpl {
         // Create a lightweight xpcom wrapper + session proxy that manages object release for us.
         let wrapper =
             MobileManagerDelegate::new(delegate, self.service_id, object_id, &self.transport);
-        self.mobile_manager_delegate = Some(ClientObject::new(wrapper, &mut self.transport));
+        self.mobile_manager_delegate = Some(ClientObject::new::<MobileManagerDelegate>(
+            wrapper,
+            &mut self.transport,
+        ));
 
         let request =
             GeckoBridgeFromClient::GeckoFeaturesSetMobileManagerDelegate(object_id.into());
@@ -233,6 +239,7 @@ impl GeckoBridgeImpl {
     }
 
     fn get_tasks_to_reconnect(&mut self) -> Vec<GeckoBridgeTask> {
+        debug!("GeckoBridge::get_tasks_to_reconnect");
         let mut tasks = vec![];
 
         // Helper macro to generate tasks and reset delegates.
@@ -250,6 +257,9 @@ impl GeckoBridgeImpl {
                             delegate,
                         );
                         tasks.push(GeckoBridgeTask::$enum(task));
+                    } else {
+                        // This should never happen as all delegates are backed by an xpcom component.
+                        panic!("No xpcom for {} delegate!", stringify!($delegate));
                     }
                 }
                 // Make sure we drop any existing power manager delegate.
@@ -300,7 +310,10 @@ impl GeckoBridgeImpl {
         // Create a lightweight xpcom wrapper + session proxy that manages object release for us.
         let wrapper =
             NetworkManagerDelegate::new(delegate, self.service_id, object_id, &self.transport);
-        self.network_manager_delegate = Some(ClientObject::new(wrapper, &mut self.transport));
+        self.network_manager_delegate = Some(ClientObject::new::<NetworkManagerDelegate>(
+            wrapper,
+            &mut self.transport,
+        ));
 
         let request =
             GeckoBridgeFromClient::GeckoFeaturesSetNetworkManagerDelegate(object_id.into());
@@ -327,7 +340,10 @@ impl GeckoBridgeImpl {
             Shared::adopt(HashMap::default()),
             &self.transport,
         );
-        self.power_manager_delegate = Some(ClientObject::new(wrapper, &mut self.transport));
+        self.power_manager_delegate = Some(ClientObject::new::<PowerManagerDelegate>(
+            wrapper,
+            &mut self.transport,
+        ));
 
         let request = GeckoBridgeFromClient::GeckoFeaturesSetPowerManagerDelegate(object_id.into());
         self.sender

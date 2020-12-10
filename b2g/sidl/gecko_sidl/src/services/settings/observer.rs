@@ -8,11 +8,12 @@ use super::messages::*;
 use super::setting_info::SettingInfoXpcom;
 use crate::common::core::{BaseMessage, BaseMessageKind};
 use crate::common::traits::TrackerId;
-use crate::common::uds_transport::{from_base_message, SessionObject};
+use crate::common::uds_transport::{from_base_message, SessionObject, XpcomSessionObject};
 use bincode::Options;
 use log::{debug, error};
 use moz_task::{Task, TaskRunnable, ThreadPtrHandle};
 use nserror::nsresult;
+use std::any::Any;
 use xpcom::interfaces::nsISettingsObserver;
 
 pub struct ObserverWrapper {
@@ -72,6 +73,12 @@ impl SessionObject for ObserverWrapper {
 
     fn get_ids(&self) -> (u32, u32) {
         (self.service_id, self.object_id)
+    }
+}
+
+impl XpcomSessionObject for ObserverWrapper {
+    fn as_xpcom(&self) -> &dyn Any {
+        &self.xpcom
     }
 }
 
