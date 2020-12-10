@@ -1556,12 +1556,6 @@ void MacroAssembler::loadJitActivation(Register dest) {
   loadPtr(Address(dest, offsetof(JSContext, activation_)), dest);
 }
 
-void MacroAssembler::guardGroupHasUnanalyzedNewScript(Register group,
-                                                      Register scratch,
-                                                      Label* fail) {
-  MOZ_CRASH("TODO(no-TI): remove");
-}
-
 void MacroAssembler::guardSpecificAtom(Register str, JSAtom* atom,
                                        Register scratch,
                                        const LiveRegisterSet& volatileRegs,
@@ -3215,12 +3209,6 @@ void MacroAssembler::branchTestObjCompartment(
   loadPtr(Address(scratch, ObjectGroup::offsetOfRealm()), scratch);
   loadPtr(Address(scratch, Realm::offsetOfCompartment()), scratch);
   branchPtr(cond, scratch, ImmPtr(compartment), label);
-}
-
-void MacroAssembler::branchIfObjGroupHasNoAddendum(Register obj,
-                                                   Register scratch,
-                                                   Label* label) {
-  MOZ_CRASH("TODO(no-TI): remove");
 }
 
 void MacroAssembler::branchIfPretenuredGroup(const ObjectGroup* group,

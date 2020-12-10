@@ -21,6 +21,7 @@
 #include "DocumentInlines.h"
 #include "EventStateManager.h"
 #include "FrameLayerBuilder.h"
+#include "GeckoProfiler.h"
 #include "Layers.h"
 #include "MMPrinter.h"
 #include "PermissionMessageUtils.h"
@@ -2532,7 +2533,8 @@ mozilla::ipc::IPCResult BrowserChild::RecvPrintPreview(
   // went wrong.
   auto sendCallbackError = MakeScopeExit([&] {
     if (aCallback) {
-      aCallback(PrintPreviewResultInfo(0, 0, false, false));  // signal error
+      aCallback(
+          PrintPreviewResultInfo(0, 0, false, false, false));  // signal error
     }
   });
 

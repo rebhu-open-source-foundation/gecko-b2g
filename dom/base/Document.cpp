@@ -4000,6 +4000,30 @@ void Document::RemoveFromIdTable(Element* aElement, nsAtom* aId) {
   }
 }
 
+void Document::UpdateReferrerInfoFromMeta(const nsAString& aMetaReferrer,
+                                          bool aPreload) {
+  ReferrerPolicyEnum policy =
+      ReferrerInfo::ReferrerPolicyFromMetaString(aMetaReferrer);
+  // The empty string "" corresponds to no referrer policy, causing a fallback
+  // to a referrer policy defined elsewhere.
+  if (policy == ReferrerPolicy::_empty) {
+    return;
+  }
+
+  MOZ_ASSERT(mReferrerInfo);
+  MOZ_ASSERT(mPreloadReferrerInfo);
+
+  if (aPreload) {
+    mPreloadReferrerInfo =
+        static_cast<mozilla::dom::ReferrerInfo*>((mPreloadReferrerInfo).get())
+            ->CloneWithNewPolicy(policy);
+  } else {
+    mReferrerInfo =
+        static_cast<mozilla::dom::ReferrerInfo*>((mReferrerInfo).get())
+            ->CloneWithNewPolicy(policy);
+  }
+}
+
 void Document::SetPrincipals(nsIPrincipal* aNewPrincipal,
                              nsIPrincipal* aNewPartitionedPrincipal,
                              bool aSetContentBlockingAllowListPrincipal) {
@@ -7036,19 +7060,11 @@ void Document::SetScopeObject(nsIGlobalObject* aGlobal) {
 }
 
 bool Document::ContainsEMEContent() {
-  bool containsEME = false;
-
-  auto check = [&containsEME](nsISupports* aSupports) {
-    nsCOMPtr<nsIContent> content(do_QueryInterface(aSupports));
-    if (auto* mediaElem = HTMLMediaElement::FromNodeOrNull(content)) {
-      if (mediaElem->GetMediaKeys()) {
-        containsEME = true;
-      }
-    }
-  };
-
-  EnumerateActivityObservers(check);
-  return containsEME;
+  nsPIDOMWindowInner* win = GetInnerWindow();
+  // Note this case is different from checking just media elements in that
+  // it covers when we've created MediaKeys but not associated them with a
+  // media element.
+  return win && win->HasActiveMediaKeysInstance();
 }
 
 bool Document::ContainsMSEContent() {

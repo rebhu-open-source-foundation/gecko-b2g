@@ -4364,8 +4364,7 @@ bool SetPropIRGenerator::canAttachAddSlotStub(HandleObject obj, HandleId id) {
   return true;
 }
 
-AttachDecision SetPropIRGenerator::tryAttachAddSlotStub(
-    HandleObjectGroup oldGroup, HandleShape oldShape) {
+AttachDecision SetPropIRGenerator::tryAttachAddSlotStub(HandleShape oldShape) {
   ValOperandId objValId(writer.setInputOperandId(0));
   ValOperandId rhsValId;
   if (cacheKind_ == CacheKind::SetProp) {
@@ -4426,9 +4425,6 @@ AttachDecision SetPropIRGenerator::tryAttachAddSlotStub(
   ObjOperandId objId = writer.guardToObject(objValId);
   maybeEmitIdGuard(id);
 
-  // TODO(no-TI): remove GuardGroupHasUnanalyzedNewScript, group-changing code
-  // from AddAndStore* ops.
-
   // Shape guard the object.
   writer.guardShape(objId, oldShape);
 
@@ -4441,30 +4437,21 @@ AttachDecision SetPropIRGenerator::tryAttachAddSlotStub(
 
   ShapeGuardProtoChain(writer, obj, objId);
 
-  ObjectGroup* newGroup = obj->group();
-
-  // Check if we have to change the object's group. We only have to change from
-  // a partially to fully initialized group if the object is a PlainObject.
-  bool changeGroup = oldGroup != newGroup;
-  MOZ_ASSERT_IF(changeGroup, obj->is<PlainObject>());
-
   if (holder->isFixedSlot(propShape->slot())) {
     size_t offset = NativeObject::getFixedSlotOffset(propShape->slot());
-    writer.addAndStoreFixedSlot(objId, offset, rhsValId, changeGroup, newGroup,
-                                propShape);
+    writer.addAndStoreFixedSlot(objId, offset, rhsValId, propShape);
     trackAttached("AddSlot");
   } else {
     size_t offset = holder->dynamicSlotIndex(propShape->slot()) * sizeof(Value);
     uint32_t numOldSlots = NativeObject::calculateDynamicSlots(oldShape);
     uint32_t numNewSlots = holder->numDynamicSlots();
     if (numOldSlots == numNewSlots) {
-      writer.addAndStoreDynamicSlot(objId, offset, rhsValId, changeGroup,
-                                    newGroup, propShape);
+      writer.addAndStoreDynamicSlot(objId, offset, rhsValId, propShape);
       trackAttached("AddSlot");
     } else {
       MOZ_ASSERT(numNewSlots > numOldSlots);
-      writer.allocateAndStoreDynamicSlot(objId, offset, rhsValId, changeGroup,
-                                         newGroup, propShape, numNewSlots);
+      writer.allocateAndStoreDynamicSlot(objId, offset, rhsValId, propShape,
+                                         numNewSlots);
       trackAttached("AllocateSlot");
     }
   }
@@ -8731,11 +8718,10 @@ ScriptedThisResult CallIRGenerator::getThisForScripted(
     return ScriptedThisResult::NoAction;
   }
 
-  if (!GetPropertyPure(cx_, newTarget, NameToId(cx_->names().prototype),
-                       protov.address())) {
-    // The lazy prototype property hasn't been resolved yet.
-    MOZ_ASSERT(newTarget->as<JSFunction>().needsPrototypeProperty());
-    return ScriptedThisResult::TemporarilyUnoptimizable;
+  if (!GetProperty(cx_, newTarget, newTarget, cx_->names().prototype,
+                   &protov)) {
+    cx_->clearPendingException();
+    return ScriptedThisResult::NoAction;
   }
 
   if (!protov.isObject()) {
@@ -8805,8 +8791,6 @@ AttachDecision CallIRGenerator::tryAttachCallScripted(
       case ScriptedThisResult::UninitializedThis:
         flags.setNeedsUninitializedThis();
         break;
-      case ScriptedThisResult::TemporarilyUnoptimizable:
-        return AttachDecision::TemporarilyUnoptimizable;
       case ScriptedThisResult::NoAction:
         return AttachDecision::NoAction;
     }
@@ -9104,19 +9088,6 @@ AttachDecision CallIRGenerator::tryAttachStub() {
   MOZ_ASSERT(calleeFunc->isNativeWithoutJitEntry());
 
   return tryAttachCallNative(calleeFunc);
-}
-
-AttachDecision CallIRGenerator::tryAttachDeferredStub(HandleValue result) {
-  AutoAssertNoPendingException aanpe(cx_);
-
-  // Ensure that the opcode makes sense.
-  MOZ_ASSERT(op_ == JSOp::Call || op_ == JSOp::CallIgnoresRv);
-
-  // Ensure that the mode makes sense.
-  MOZ_ASSERT(mode_ == ICState::Mode::Specialized);
-
-  MOZ_ASSERT_UNREACHABLE("No deferred functions currently exist");
-  return AttachDecision::NoAction;
 }
 
 void CallIRGenerator::trackAttached(const char* name) {

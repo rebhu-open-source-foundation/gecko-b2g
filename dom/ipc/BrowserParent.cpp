@@ -126,6 +126,7 @@
 #include "IHistory.h"
 #include "mozilla/dom/WindowGlobalParent.h"
 #include "mozilla/dom/CanonicalBrowsingContext.h"
+#include "GeckoProfiler.h"
 #include "MMPrinter.h"
 #include "SessionStoreFunctions.h"
 #include "mozilla/dom/CrashReport.h"

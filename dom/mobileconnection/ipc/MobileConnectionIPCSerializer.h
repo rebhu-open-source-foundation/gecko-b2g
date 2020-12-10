@@ -8,6 +8,7 @@
 #define mozilla_dom_mobileconnection_MobileConnectionIPCSerialiser_h
 
 #include "ipc/IPCMessageUtils.h"
+#include "ipc/IPCMessageUtilsSpecializations.h"
 #include "mozilla/dom/mobileconnection/MobileCallForwardingOptions.h"
 #include "mozilla/dom/MobileCellInfo.h"
 #include "mozilla/dom/MobileDeviceIdentities.h"

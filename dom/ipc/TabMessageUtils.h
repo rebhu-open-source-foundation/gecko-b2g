@@ -7,7 +7,7 @@
 #ifndef TABMESSAGE_UTILS_H
 #define TABMESSAGE_UTILS_H
 
-#include "ipc/IPCMessageUtils.h"
+#include "ipc/EnumSerializer.h"
 #include "mozilla/RefPtr.h"
 #include "mozilla/dom/AudioChannelBinding.h"
 #include "mozilla/dom/Event.h"
@@ -16,7 +16,6 @@
 #include "nsCOMPtr.h"
 #include "mozilla/dom/EffectsInfo.h"
 #include "mozilla/layers/LayersMessageUtils.h"
-#include "ipc/IPCMessageUtils.h"
 #include "TabMessageTypes.h"
 #include "X11UndefineNone.h"
 

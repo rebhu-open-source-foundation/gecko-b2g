@@ -7,7 +7,7 @@
 #ifndef mozilla_dom_mobilemessage_Types_h
 #define mozilla_dom_mobilemessage_Types_h
 
-#include "IPCMessageUtils.h"
+#include "EnumSerializer.h"
 
 namespace mozilla {
 namespace dom {

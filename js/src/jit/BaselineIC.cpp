@@ -223,27 +223,6 @@ class MOZ_RAII FallbackStubAllocator {
   }
 };
 
-// Helper method called by lambda expressions `addIC` and `addPrologueIC` in
-// `JitScript::initICEntriesAndBytecodeTypeMap`.
-// TODO(no-TI): inline into addIC, fix comment.
-static bool AddICImpl(JSContext* cx, ICScript* icScript, uint32_t offset,
-                      ICStub* stub, uint32_t& icEntryIndex) {
-  if (!stub) {
-    MOZ_ASSERT(cx->isExceptionPending());
-    mozilla::Unused << cx;  // Silence -Wunused-lambda-capture in opt builds.
-    return false;
-  }
-
-  // Initialize the ICEntry.
-  ICEntry& entryRef = icScript->icEntry(icEntryIndex);
-  icEntryIndex++;
-  new (&entryRef) ICEntry(stub, offset);
-
-  // Fix up pointers from fallback stubs to the ICEntry.
-  stub->toFallbackStub()->fixupICEntry(&entryRef);
-  return true;
-}
-
 bool ICScript::initICEntries(JSContext* cx, JSScript* script) {
   MOZ_ASSERT(cx->realm()->jitRealm());
   MOZ_ASSERT(jit::IsBaselineInterpreterEnabled());
@@ -258,9 +237,22 @@ bool ICScript::initICEntries(JSContext* cx, JSScript* script) {
   using Kind = BaselineICFallbackKind;
 
   auto addIC = [cx, this, script, &icEntryIndex](BytecodeLocation loc,
-                                                 ICStub* stub) {
+                                                 ICFallbackStub* stub) {
+    if (MOZ_UNLIKELY(!stub)) {
+      MOZ_ASSERT(cx->isExceptionPending());
+      mozilla::Unused << cx;  // Silence -Wunused-lambda-capture in opt builds.
+      return false;
+    }
+
+    // Initialize the ICEntry.
     uint32_t offset = loc.bytecodeToOffset(script);
-    return AddICImpl(cx, this, offset, stub, icEntryIndex);
+    ICEntry& entryRef = this->icEntry(icEntryIndex);
+    icEntryIndex++;
+    new (&entryRef) ICEntry(stub, offset);
+
+    // Fix up pointers from fallback stubs to the ICEntry.
+    stub->fixupICEntry(&entryRef);
+    return true;
   };
 
   // For JOF_IC ops: initialize ICEntries and fallback stubs.
@@ -280,7 +272,7 @@ bool ICScript::initICEntries(JSContext* cx, JSScript* script) {
       case JSOp::Or:
       case JSOp::IfEq:
       case JSOp::IfNe: {
-        ICStub* stub = alloc.newStub<ICToBool_Fallback>(Kind::ToBool);
+        auto* stub = alloc.newStub<ICToBool_Fallback>(Kind::ToBool);
         if (!addIC(loc, stub)) {
           return false;
         }
@@ -292,7 +284,7 @@ bool ICScript::initICEntries(JSContext* cx, JSScript* script) {
       case JSOp::Inc:
       case JSOp::Dec:
       case JSOp::ToNumeric: {
-        ICStub* stub = alloc.newStub<ICUnaryArith_Fallback>(Kind::UnaryArith);
+        auto* stub = alloc.newStub<ICUnaryArith_Fallback>(Kind::UnaryArith);
         if (!addIC(loc, stub)) {
           return false;
         }
@@ -310,7 +302,7 @@ bool ICScript::initICEntries(JSContext* cx, JSScript* script) {
       case JSOp::Div:
       case JSOp::Mod:
       case JSOp::Pow: {
-        ICStub* stub = alloc.newStub<ICBinaryArith_Fallback>(Kind::BinaryArith);
+        auto* stub = alloc.newStub<ICBinaryArith_Fallback>(Kind::BinaryArith);
         if (!addIC(loc, stub)) {
           return false;
         }
@@ -324,7 +316,7 @@ bool ICScript::initICEntries(JSContext* cx, JSScript* script) {
       case JSOp::Ge:
       case JSOp::StrictEq:
       case JSOp::StrictNe: {
-        ICStub* stub = alloc.newStub<ICCompare_Fallback>(Kind::Compare);
+        auto* stub = alloc.newStub<ICCompare_Fallback>(Kind::Compare);
         if (!addIC(loc, stub)) {
           return false;
         }
@@ -341,8 +333,7 @@ bool ICScript::initICEntries(JSContext* cx, JSScript* script) {
         if (!group) {
           return false;
         }
-        ICStub* stub =
-            alloc.newStub<ICNewArray_Fallback>(Kind::NewArray, group);
+        auto* stub = alloc.newStub<ICNewArray_Fallback>(Kind::NewArray, group);
         if (!addIC(loc, stub)) {
           return false;
         }
@@ -350,7 +341,7 @@ bool ICScript::initICEntries(JSContext* cx, JSScript* script) {
       }
       case JSOp::NewObject:
       case JSOp::NewInit: {
-        ICStub* stub = alloc.newStub<ICNewObject_Fallback>(Kind::NewObject);
+        auto* stub = alloc.newStub<ICNewObject_Fallback>(Kind::NewObject);
         if (!addIC(loc, stub)) {
           return false;
         }
@@ -359,11 +350,10 @@ bool ICScript::initICEntries(JSContext* cx, JSScript* script) {
       case JSOp::InitElem:
       case JSOp::InitHiddenElem:
       case JSOp::InitLockedElem:
-      case JSOp::InitElemArray:
       case JSOp::InitElemInc:
       case JSOp::SetElem:
       case JSOp::StrictSetElem: {
-        ICStub* stub = alloc.newStub<ICSetElem_Fallback>(Kind::SetElem);
+        auto* stub = alloc.newStub<ICSetElem_Fallback>(Kind::SetElem);
         if (!addIC(loc, stub)) {
           return false;
         }
@@ -379,7 +369,7 @@ bool ICScript::initICEntries(JSContext* cx, JSScript* script) {
       case JSOp::StrictSetName:
       case JSOp::SetGName:
       case JSOp::StrictSetGName: {
-        ICStub* stub = alloc.newStub<ICSetProp_Fallback>(Kind::SetProp);
+        auto* stub = alloc.newStub<ICSetProp_Fallback>(Kind::SetProp);
         if (!addIC(loc, stub)) {
           return false;
         }
@@ -387,49 +377,49 @@ bool ICScript::initICEntries(JSContext* cx, JSScript* script) {
       }
       case JSOp::GetProp:
       case JSOp::GetBoundName: {
-        ICStub* stub = alloc.newStub<ICGetProp_Fallback>(Kind::GetProp);
+        auto* stub = alloc.newStub<ICGetProp_Fallback>(Kind::GetProp);
         if (!addIC(loc, stub)) {
           return false;
         }
         break;
       }
       case JSOp::GetPropSuper: {
-        ICStub* stub = alloc.newStub<ICGetProp_Fallback>(Kind::GetPropSuper);
+        auto* stub = alloc.newStub<ICGetProp_Fallback>(Kind::GetPropSuper);
         if (!addIC(loc, stub)) {
           return false;
         }
         break;
       }
       case JSOp::GetElem: {
-        ICStub* stub = alloc.newStub<ICGetElem_Fallback>(Kind::GetElem);
+        auto* stub = alloc.newStub<ICGetElem_Fallback>(Kind::GetElem);
         if (!addIC(loc, stub)) {
           return false;
         }
         break;
       }
       case JSOp::GetElemSuper: {
-        ICStub* stub = alloc.newStub<ICGetElem_Fallback>(Kind::GetElemSuper);
+        auto* stub = alloc.newStub<ICGetElem_Fallback>(Kind::GetElemSuper);
         if (!addIC(loc, stub)) {
           return false;
         }
         break;
       }
       case JSOp::In: {
-        ICStub* stub = alloc.newStub<ICIn_Fallback>(Kind::In);
+        auto* stub = alloc.newStub<ICIn_Fallback>(Kind::In);
         if (!addIC(loc, stub)) {
           return false;
         }
         break;
       }
       case JSOp::HasOwn: {
-        ICStub* stub = alloc.newStub<ICHasOwn_Fallback>(Kind::HasOwn);
+        auto* stub = alloc.newStub<ICHasOwn_Fallback>(Kind::HasOwn);
         if (!addIC(loc, stub)) {
           return false;
         }
         break;
       }
       case JSOp::CheckPrivateField: {
-        ICStub* stub = alloc.newStub<ICCheckPrivateField_Fallback>(
+        auto* stub = alloc.newStub<ICCheckPrivateField_Fallback>(
             Kind::CheckPrivateField);
         if (!addIC(loc, stub)) {
           return false;
@@ -438,7 +428,7 @@ bool ICScript::initICEntries(JSContext* cx, JSScript* script) {
       }
       case JSOp::GetName:
       case JSOp::GetGName: {
-        ICStub* stub = alloc.newStub<ICGetName_Fallback>(Kind::GetName);
+        auto* stub = alloc.newStub<ICGetName_Fallback>(Kind::GetName);
         if (!addIC(loc, stub)) {
           return false;
         }
@@ -446,15 +436,14 @@ bool ICScript::initICEntries(JSContext* cx, JSScript* script) {
       }
       case JSOp::BindName:
       case JSOp::BindGName: {
-        ICStub* stub = alloc.newStub<ICBindName_Fallback>(Kind::BindName);
+        auto* stub = alloc.newStub<ICBindName_Fallback>(Kind::BindName);
         if (!addIC(loc, stub)) {
           return false;
         }
         break;
       }
       case JSOp::GetIntrinsic: {
-        ICStub* stub =
-            alloc.newStub<ICGetIntrinsic_Fallback>(Kind::GetIntrinsic);
+        auto* stub = alloc.newStub<ICGetIntrinsic_Fallback>(Kind::GetIntrinsic);
         if (!addIC(loc, stub)) {
           return false;
         }
@@ -467,7 +456,7 @@ bool ICScript::initICEntries(JSContext* cx, JSScript* script) {
       case JSOp::FunApply:
       case JSOp::Eval:
       case JSOp::StrictEval: {
-        ICStub* stub = alloc.newStub<ICCall_Fallback>(Kind::Call);
+        auto* stub = alloc.newStub<ICCall_Fallback>(Kind::Call);
         if (!addIC(loc, stub)) {
           return false;
         }
@@ -475,7 +464,7 @@ bool ICScript::initICEntries(JSContext* cx, JSScript* script) {
       }
       case JSOp::SuperCall:
       case JSOp::New: {
-        ICStub* stub = alloc.newStub<ICCall_Fallback>(Kind::CallConstructing);
+        auto* stub = alloc.newStub<ICCall_Fallback>(Kind::CallConstructing);
         if (!addIC(loc, stub)) {
           return false;
         }
@@ -484,7 +473,7 @@ bool ICScript::initICEntries(JSContext* cx, JSScript* script) {
       case JSOp::SpreadCall:
       case JSOp::SpreadEval:
       case JSOp::StrictSpreadEval: {
-        ICStub* stub = alloc.newStub<ICCall_Fallback>(Kind::SpreadCall);
+        auto* stub = alloc.newStub<ICCall_Fallback>(Kind::SpreadCall);
         if (!addIC(loc, stub)) {
           return false;
         }
@@ -492,7 +481,7 @@ bool ICScript::initICEntries(JSContext* cx, JSScript* script) {
       }
       case JSOp::SpreadSuperCall:
       case JSOp::SpreadNew: {
-        ICStub* stub =
+        auto* stub =
             alloc.newStub<ICCall_Fallback>(Kind::SpreadCallConstructing);
         if (!addIC(loc, stub)) {
           return false;
@@ -500,7 +489,7 @@ bool ICScript::initICEntries(JSContext* cx, JSScript* script) {
         break;
       }
       case JSOp::Instanceof: {
-        ICStub* stub = alloc.newStub<ICInstanceOf_Fallback>(Kind::InstanceOf);
+        auto* stub = alloc.newStub<ICInstanceOf_Fallback>(Kind::InstanceOf);
         if (!addIC(loc, stub)) {
           return false;
         }
@@ -508,14 +497,14 @@ bool ICScript::initICEntries(JSContext* cx, JSScript* script) {
       }
       case JSOp::Typeof:
       case JSOp::TypeofExpr: {
-        ICStub* stub = alloc.newStub<ICTypeOf_Fallback>(Kind::TypeOf);
+        auto* stub = alloc.newStub<ICTypeOf_Fallback>(Kind::TypeOf);
         if (!addIC(loc, stub)) {
           return false;
         }
         break;
       }
       case JSOp::ToPropertyKey: {
-        ICStub* stub =
+        auto* stub =
             alloc.newStub<ICToPropertyKey_Fallback>(Kind::ToPropertyKey);
         if (!addIC(loc, stub)) {
           return false;
@@ -523,14 +512,14 @@ bool ICScript::initICEntries(JSContext* cx, JSScript* script) {
         break;
       }
       case JSOp::Iter: {
-        ICStub* stub = alloc.newStub<ICGetIterator_Fallback>(Kind::GetIterator);
+        auto* stub = alloc.newStub<ICGetIterator_Fallback>(Kind::GetIterator);
         if (!addIC(loc, stub)) {
           return false;
         }
         break;
       }
       case JSOp::OptimizeSpreadCall: {
-        ICStub* stub = alloc.newStub<ICOptimizeSpreadCall_Fallback>(
+        auto* stub = alloc.newStub<ICOptimizeSpreadCall_Fallback>(
             Kind::OptimizeSpreadCall);
         if (!addIC(loc, stub)) {
           return false;
@@ -542,8 +531,7 @@ bool ICScript::initICEntries(JSContext* cx, JSScript* script) {
         if (!templateObject) {
           return false;
         }
-        ICStub* stub =
-            alloc.newStub<ICRest_Fallback>(Kind::Rest, templateObject);
+        auto* stub = alloc.newStub<ICRest_Fallback>(Kind::Rest, templateObject);
         if (!addIC(loc, stub)) {
           return false;
         }
@@ -702,8 +690,7 @@ void ICStub::trace(JSTracer* trc) {
 // stubs.
 template <typename IRGenerator, typename... Args>
 static void TryAttachStub(const char* name, JSContext* cx, BaselineFrame* frame,
-                          ICFallbackStub* stub, BaselineCacheIRStubKind kind,
-                          Args&&... args) {
+                          ICFallbackStub* stub, Args&&... args) {
   if (stub->state().maybeTransition()) {
     stub->discardStubs(cx, frame->invalidationScript());
   }
@@ -720,7 +707,7 @@ static void TryAttachStub(const char* name, JSContext* cx, BaselineFrame* frame,
       case AttachDecision::Attach: {
         ICStub* newStub =
             AttachBaselineCacheIRStub(cx, gen.writerRef(), gen.cacheKind(),
-                                      kind, script, icScript, stub, &attached);
+                                      script, icScript, stub, &attached);
         if (newStub) {
           JitSpew(JitSpew_BaselineIC, "  Attached %s CacheIR stub", name);
         }
@@ -880,8 +867,6 @@ void FallbackICCodeCompiler::PushStubPayload(MacroAssembler& masm,
   masm.adjustFrame(sizeof(intptr_t));
 }
 
-// TODO(no-TI): maybe remove NeedAmdBugWorkaround.
-
 //
 // ToBool_Fallback
 //
@@ -894,8 +879,7 @@ bool DoToBoolFallback(JSContext* cx, BaselineFrame* frame,
 
   MOZ_ASSERT(!arg.isBoolean());
 
-  TryAttachStub<ToBoolIRGenerator>("ToBool", cx, frame, stub,
-                                   BaselineCacheIRStubKind::Regular, arg);
+  TryAttachStub<ToBoolIRGenerator>("ToBool", cx, frame, stub, arg);
 
   bool cond = ToBoolean(arg);
   ret.setBoolean(cond);
@@ -917,49 +901,6 @@ bool FallbackICCodeCompiler::emit_ToBool() {
   using Fn = bool (*)(JSContext*, BaselineFrame*, ICToBool_Fallback*,
                       HandleValue, MutableHandleValue);
   return tailCallVM<Fn, DoToBoolFallback>(masm);
-}
-
-// TODO(no-TI): can this be replaced with TryAttachStub?
-static void TryAttachGetPropStub(const char* name, JSContext* cx,
-                                 BaselineFrame* frame, ICFallbackStub* stub,
-                                 CacheKind kind, HandleValue val,
-                                 HandleValue idVal, HandleValue receiver) {
-  if (stub->state().maybeTransition()) {
-    stub->discardStubs(cx, frame->invalidationScript());
-  }
-
-  if (stub->state().canAttachStub()) {
-    RootedScript script(cx, frame->script());
-    ICScript* icScript = frame->icScript();
-    jsbytecode* pc = stub->icEntry()->pc(script);
-    bool attached = false;
-
-    GetPropIRGenerator gen(cx, script, pc, stub->state().mode(), kind, val,
-                           idVal, receiver);
-    switch (gen.tryAttachStub()) {
-      case AttachDecision::Attach: {
-        ICStub* newStub =
-            AttachBaselineCacheIRStub(cx, gen.writerRef(), gen.cacheKind(),
-                                      BaselineCacheIRStubKind::Regular, script,
-                                      icScript, stub, &attached);
-        if (newStub) {
-          JitSpew(JitSpew_BaselineIC, "  Attached %s CacheIR stub", name);
-        }
-      } break;
-      case AttachDecision::NoAction:
-        break;
-      case AttachDecision::TemporarilyUnoptimizable:
-        attached = true;
-        break;
-      case AttachDecision::Deferred:
-        MOZ_ASSERT_UNREACHABLE("No deferred GetProp stubs");
-        break;
-    }
-
-    if (!attached) {
-      stub->trackNotAttached(cx, frame->invalidationScript());
-    }
-  }
 }
 
 //
@@ -984,14 +925,12 @@ bool DoGetElemFallback(JSContext* cx, BaselineFrame* frame,
   bool isOptimizedArgs = false;
   if (lhs.isMagic(JS_OPTIMIZED_ARGUMENTS)) {
     // Handle optimized arguments[i] access.
-    if (!GetElemOptimizedArguments(cx, frame, &lhsCopy, rhs, res,
-                                   &isOptimizedArgs)) {
-      return false;
-    }
+    isOptimizedArgs =
+        MaybeGetElemOptimizedArguments(cx, frame, &lhsCopy, rhs, res);
   }
 
-  TryAttachGetPropStub("GetElem", cx, frame, stub, CacheKind::GetElem, lhs, rhs,
-                       lhs);
+  TryAttachStub<GetPropIRGenerator>("GetElem", cx, frame, stub,
+                                    CacheKind::GetElem, lhs, rhs, lhs);
 
   if (!isOptimizedArgs) {
     if (!GetElementOperation(cx, lhsCopy, rhs, res)) {
@@ -1016,8 +955,9 @@ bool DoGetElemSuperFallback(JSContext* cx, BaselineFrame* frame,
 
   MOZ_ASSERT(op == JSOp::GetElemSuper);
 
-  TryAttachGetPropStub("GetElemSuper", cx, frame, stub, CacheKind::GetElemSuper,
-                       lhs, rhs, receiver);
+  TryAttachStub<GetPropIRGenerator>("GetElemSuper", cx, frame, stub,
+                                    CacheKind::GetElemSuper, lhs, rhs,
+                                    receiver);
 
   // |lhs| is [[HomeObject]].[[Prototype]] which must be Object
   RootedObject lhsObj(cx, &lhs.toObject());
@@ -1112,8 +1052,7 @@ bool DoSetElemFallback(JSContext* cx, BaselineFrame* frame,
 
   MOZ_ASSERT(op == JSOp::SetElem || op == JSOp::StrictSetElem ||
              op == JSOp::InitElem || op == JSOp::InitHiddenElem ||
-             op == JSOp::InitLockedElem || op == JSOp::InitElemArray ||
-             op == JSOp::InitElemInc);
+             op == JSOp::InitLockedElem || op == JSOp::InitElemInc);
 
   int objvIndex = -3;
   RootedObject obj(
@@ -1123,9 +1062,6 @@ bool DoSetElemFallback(JSContext* cx, BaselineFrame* frame,
   }
 
   RootedShape oldShape(cx, obj->shape());
-
-  // TODO(no-TI): remove.
-  RootedObjectGroup oldGroup(cx, obj->group());
 
   // We cannot attach a stub if the operation executed after the stub
   // is attached may throw.
@@ -1145,9 +1081,8 @@ bool DoSetElemFallback(JSContext* cx, BaselineFrame* frame,
     switch (gen.tryAttachStub()) {
       case AttachDecision::Attach: {
         ICStub* newStub = AttachBaselineCacheIRStub(
-            cx, gen.writerRef(), gen.cacheKind(),
-            BaselineCacheIRStubKind::Regular, frame->script(), icScript, stub,
-            &attached);
+            cx, gen.writerRef(), gen.cacheKind(), frame->script(), icScript,
+            stub, &attached);
         if (newStub) {
           JitSpew(JitSpew_BaselineIC, "  Attached SetElem CacheIR stub");
         }
@@ -1169,19 +1104,9 @@ bool DoSetElemFallback(JSContext* cx, BaselineFrame* frame,
     if (!InitElemOperation(cx, pc, obj, index, rhs)) {
       return false;
     }
-  } else if (op == JSOp::InitElemArray) {
-    MOZ_ASSERT(uint32_t(index.toInt32()) <= INT32_MAX,
-               "the bytecode emitter must fail to compile code that would "
-               "produce JSOp::InitElemArray with an index exceeding "
-               "int32_t range");
-    MOZ_ASSERT(uint32_t(index.toInt32()) == GET_UINT32(pc));
-    if (!InitArrayElemOperation(cx, pc, obj.as<ArrayObject>(), index.toInt32(),
-                                rhs)) {
-      return false;
-    }
   } else if (op == JSOp::InitElemInc) {
-    if (!InitArrayElemOperation(cx, pc, obj.as<ArrayObject>(), index.toInt32(),
-                                rhs)) {
+    if (!InitElemIncOperation(cx, obj.as<ArrayObject>(), index.toInt32(),
+                              rhs)) {
       return false;
     }
   } else {
@@ -1218,15 +1143,14 @@ bool DoSetElemFallback(JSContext* cx, BaselineFrame* frame,
                            stub->state().mode(), objv, index, rhs);
 
     MOZ_ASSERT(deferType == DeferType::AddSlot);
-    AttachDecision decision = gen.tryAttachAddSlotStub(oldGroup, oldShape);
+    AttachDecision decision = gen.tryAttachAddSlotStub(oldShape);
 
     switch (decision) {
       case AttachDecision::Attach: {
         ICScript* icScript = frame->icScript();
         ICStub* newStub = AttachBaselineCacheIRStub(
-            cx, gen.writerRef(), gen.cacheKind(),
-            BaselineCacheIRStubKind::Regular, frame->script(), icScript, stub,
-            &attached);
+            cx, gen.writerRef(), gen.cacheKind(), frame->script(), icScript,
+            stub, &attached);
         if (newStub) {
           JitSpew(JitSpew_BaselineIC, "  Attached SetElem CacheIR stub");
         }
@@ -1299,9 +1223,8 @@ bool DoInFallback(JSContext* cx, BaselineFrame* frame, ICIn_Fallback* stub,
     return false;
   }
 
-  TryAttachStub<HasPropIRGenerator>("In", cx, frame, stub,
-                                    BaselineCacheIRStubKind::Regular,
-                                    CacheKind::In, key, objValue);
+  TryAttachStub<HasPropIRGenerator>("In", cx, frame, stub, CacheKind::In, key,
+                                    objValue);
 
   RootedObject obj(cx, &objValue.toObject());
   bool cond = false;
@@ -1343,7 +1266,6 @@ bool DoHasOwnFallback(JSContext* cx, BaselineFrame* frame,
   FallbackICSpew(cx, stub, "HasOwn");
 
   TryAttachStub<HasPropIRGenerator>("HasOwn", cx, frame, stub,
-                                    BaselineCacheIRStubKind::Regular,
                                     CacheKind::HasOwn, keyValue, objValue);
 
   bool found;
@@ -1389,9 +1311,9 @@ bool DoCheckPrivateFieldFallback(JSContext* cx, BaselineFrame* frame,
 
   MOZ_ASSERT(keyValue.isSymbol() && keyValue.toSymbol()->isPrivateName());
 
-  TryAttachStub<CheckPrivateFieldIRGenerator>(
-      "CheckPrivate", cx, frame, stub, BaselineCacheIRStubKind::Regular,
-      CacheKind::CheckPrivateField, keyValue, objValue);
+  TryAttachStub<CheckPrivateFieldIRGenerator>("CheckPrivate", cx, frame, stub,
+                                              CacheKind::CheckPrivateField,
+                                              keyValue, objValue);
 
   bool result;
   if (!CheckPrivateFieldOperation(cx, pc, objValue, keyValue, &result)) {
@@ -1438,9 +1360,7 @@ bool DoGetNameFallback(JSContext* cx, BaselineFrame* frame,
 
   RootedPropertyName name(cx, script->getName(pc));
 
-  TryAttachStub<GetNameIRGenerator>("GetName", cx, frame, stub,
-                                    BaselineCacheIRStubKind::Regular, envChain,
-                                    name);
+  TryAttachStub<GetNameIRGenerator>("GetName", cx, frame, stub, envChain, name);
 
   static_assert(JSOpLength_GetGName == JSOpLength_GetName,
                 "Otherwise our check for JSOp::Typeof isn't ok");
@@ -1488,8 +1408,7 @@ bool DoBindNameFallback(JSContext* cx, BaselineFrame* frame,
 
   RootedPropertyName name(cx, frame->script()->getName(pc));
 
-  TryAttachStub<BindNameIRGenerator>("BindName", cx, frame, stub,
-                                     BaselineCacheIRStubKind::Regular, envChain,
+  TryAttachStub<BindNameIRGenerator>("BindName", cx, frame, stub, envChain,
                                      name);
 
   RootedObject scope(cx);
@@ -1535,8 +1454,7 @@ bool DoGetIntrinsicFallback(JSContext* cx, BaselineFrame* frame,
     return false;
   }
 
-  TryAttachStub<GetIntrinsicIRGenerator>("GetIntrinsic", cx, frame, stub,
-                                         BaselineCacheIRStubKind::Regular, res);
+  TryAttachStub<GetIntrinsicIRGenerator>("GetIntrinsic", cx, frame, stub, res);
 
   return true;
 }
@@ -1603,14 +1521,10 @@ bool DoGetPropFallback(JSContext* cx, BaselineFrame* frame,
   RootedPropertyName name(cx, script->getName(pc));
   RootedValue idVal(cx, StringValue(name));
 
-  TryAttachGetPropStub("GetProp", cx, frame, stub, CacheKind::GetProp, val,
-                       idVal, val);
+  TryAttachStub<GetPropIRGenerator>("GetProp", cx, frame, stub,
+                                    CacheKind::GetProp, val, idVal, val);
 
-  if (!ComputeGetPropResult(cx, frame, op, name, val, res)) {
-    return false;
-  }
-
-  return true;
+  return ComputeGetPropResult(cx, frame, op, name, val, res);
 }
 
 bool DoGetPropSuperFallback(JSContext* cx, BaselineFrame* frame,
@@ -1627,8 +1541,9 @@ bool DoGetPropSuperFallback(JSContext* cx, BaselineFrame* frame,
   RootedPropertyName name(cx, script->getName(pc));
   RootedValue idVal(cx, StringValue(name));
 
-  TryAttachGetPropStub("GetPropSuper", cx, frame, stub, CacheKind::GetPropSuper,
-                       val, idVal, receiver);
+  TryAttachStub<GetPropIRGenerator>("GetPropSuper", cx, frame, stub,
+                                    CacheKind::GetPropSuper, val, idVal,
+                                    receiver);
 
   // |val| is [[HomeObject]].[[Prototype]] which must be Object
   RootedObject valObj(cx, &val.toObject());
@@ -1732,9 +1647,6 @@ bool DoSetPropFallback(JSContext* cx, BaselineFrame* frame,
   }
   RootedShape oldShape(cx, obj->shape());
 
-  // TODO(no-TI): remove.
-  RootedObjectGroup oldGroup(cx, obj->group());
-
   DeferType deferType = DeferType::None;
   bool attached = false;
   if (stub->state().maybeTransition()) {
@@ -1749,9 +1661,8 @@ bool DoSetPropFallback(JSContext* cx, BaselineFrame* frame,
       case AttachDecision::Attach: {
         ICScript* icScript = frame->icScript();
         ICStub* newStub = AttachBaselineCacheIRStub(
-            cx, gen.writerRef(), gen.cacheKind(),
-            BaselineCacheIRStubKind::Regular, frame->script(), icScript, stub,
-            &attached);
+            cx, gen.writerRef(), gen.cacheKind(), frame->script(), icScript,
+            stub, &attached);
         if (newStub) {
           JitSpew(JitSpew_BaselineIC, "  Attached SetProp CacheIR stub");
         }
@@ -1820,15 +1731,14 @@ bool DoSetPropFallback(JSContext* cx, BaselineFrame* frame,
                            stub->state().mode(), lhs, idVal, rhs);
 
     MOZ_ASSERT(deferType == DeferType::AddSlot);
-    AttachDecision decision = gen.tryAttachAddSlotStub(oldGroup, oldShape);
+    AttachDecision decision = gen.tryAttachAddSlotStub(oldShape);
 
     switch (decision) {
       case AttachDecision::Attach: {
         ICScript* icScript = frame->icScript();
         ICStub* newStub = AttachBaselineCacheIRStub(
-            cx, gen.writerRef(), gen.cacheKind(),
-            BaselineCacheIRStubKind::Regular, frame->script(), icScript, stub,
-            &attached);
+            cx, gen.writerRef(), gen.cacheKind(), frame->script(), icScript,
+            stub, &attached);
         if (newStub) {
           JitSpew(JitSpew_BaselineIC, "  Attached SetElem CacheIR stub");
         }
@@ -1931,7 +1841,6 @@ bool DoCallFallback(JSContext* cx, BaselineFrame* frame, ICCall_Fallback* stub,
 
   bool canAttachStub = stub->state().canAttachStub();
   bool handled = false;
-  bool deferred = false;
 
   // Only bother to try optimizing JSOp::Call with CacheIR if the chain is still
   // allowed to attach stubs.
@@ -1945,9 +1854,9 @@ bool DoCallFallback(JSContext* cx, BaselineFrame* frame, ICCall_Fallback* stub,
         break;
       case AttachDecision::Attach: {
         ICScript* icScript = frame->icScript();
-        ICStub* newStub = AttachBaselineCacheIRStub(
-            cx, gen.writerRef(), gen.cacheKind(),
-            BaselineCacheIRStubKind::Regular, script, icScript, stub, &handled);
+        ICStub* newStub =
+            AttachBaselineCacheIRStub(cx, gen.writerRef(), gen.cacheKind(),
+                                      script, icScript, stub, &handled);
         if (newStub) {
           JitSpew(JitSpew_BaselineIC, "  Attached Call CacheIR stub");
         }
@@ -1956,7 +1865,10 @@ bool DoCallFallback(JSContext* cx, BaselineFrame* frame, ICCall_Fallback* stub,
         handled = true;
         break;
       case AttachDecision::Deferred:
-        deferred = true;
+        MOZ_CRASH("No deferred Call stubs");
+    }
+    if (!handled) {
+      stub->trackNotAttached(cx, frame->invalidationScript());
     }
   }
 
@@ -1988,39 +1900,6 @@ bool DoCallFallback(JSContext* cx, BaselineFrame* frame, ICCall_Fallback* stub,
     res.set(callArgs.rval());
   }
 
-  // Try to transition again in case we called this IC recursively.
-  if (stub->state().maybeTransition()) {
-    stub->discardStubs(cx, frame->invalidationScript());
-  }
-  canAttachStub = stub->state().canAttachStub();
-
-  if (deferred && canAttachStub) {
-    HandleValueArray args = HandleValueArray::fromMarkedLocation(argc, vp + 2);
-    bool isFirstStub = stub->newStubIsFirstStub();
-    CallIRGenerator gen(cx, script, pc, op, stub->state().mode(), isFirstStub,
-                        argc, callee, callArgs.thisv(), newTarget, args);
-    switch (gen.tryAttachDeferredStub(res)) {
-      case AttachDecision::Attach: {
-        ICScript* icScript = frame->icScript();
-        ICStub* newStub = AttachBaselineCacheIRStub(
-            cx, gen.writerRef(), gen.cacheKind(),
-            BaselineCacheIRStubKind::Regular, script, icScript, stub, &handled);
-        if (newStub) {
-          JitSpew(JitSpew_BaselineIC, "  Attached Call CacheIR stub");
-        }
-      } break;
-      case AttachDecision::NoAction:
-        break;
-      case AttachDecision::TemporarilyUnoptimizable:
-      case AttachDecision::Deferred:
-        MOZ_ASSERT_UNREACHABLE("Impossible attach decision");
-        break;
-    }
-  }
-
-  if (!handled && canAttachStub) {
-    stub->trackNotAttached(cx, frame->invalidationScript());
-  }
   return true;
 }
 
@@ -2066,9 +1945,9 @@ bool DoSpreadCallFallback(JSContext* cx, BaselineFrame* frame,
         break;
       case AttachDecision::Attach: {
         ICScript* icScript = frame->icScript();
-        ICStub* newStub = AttachBaselineCacheIRStub(
-            cx, gen.writerRef(), gen.cacheKind(),
-            BaselineCacheIRStubKind::Regular, script, icScript, stub, &handled);
+        ICStub* newStub =
+            AttachBaselineCacheIRStub(cx, gen.writerRef(), gen.cacheKind(),
+                                      script, icScript, stub, &handled);
 
         if (newStub) {
           JitSpew(JitSpew_BaselineIC, "  Attached Spread Call CacheIR stub");
@@ -2276,8 +2155,7 @@ bool DoGetIteratorFallback(JSContext* cx, BaselineFrame* frame,
   stub->incrementEnteredCount();
   FallbackICSpew(cx, stub, "GetIterator");
 
-  TryAttachStub<GetIteratorIRGenerator>(
-      "GetIterator", cx, frame, stub, BaselineCacheIRStubKind::Regular, value);
+  TryAttachStub<GetIteratorIRGenerator>("GetIterator", cx, frame, stub, value);
 
   JSObject* iterobj = ValueToIterator(cx, value);
   if (!iterobj) {
@@ -2313,9 +2191,8 @@ bool DoOptimizeSpreadCallFallback(JSContext* cx, BaselineFrame* frame,
   stub->incrementEnteredCount();
   FallbackICSpew(cx, stub, "OptimizeSpreadCall");
 
-  TryAttachStub<OptimizeSpreadCallIRGenerator>(
-      "OptimizeSpreadCall", cx, frame, stub, BaselineCacheIRStubKind::Regular,
-      value);
+  TryAttachStub<OptimizeSpreadCallIRGenerator>("OptimizeSpreadCall", cx, frame,
+                                               stub, value);
 
   bool optimized;
   if (!OptimizeSpreadCall(cx, value, &optimized)) {
@@ -2372,9 +2249,7 @@ bool DoInstanceOfFallback(JSContext* cx, BaselineFrame* frame,
     return true;
   }
 
-  TryAttachStub<InstanceOfIRGenerator>("InstanceOf", cx, frame, stub,
-                                       BaselineCacheIRStubKind::Regular, lhs,
-                                       obj);
+  TryAttachStub<InstanceOfIRGenerator>("InstanceOf", cx, frame, stub, lhs, obj);
   return true;
 }
 
@@ -2405,8 +2280,7 @@ bool DoTypeOfFallback(JSContext* cx, BaselineFrame* frame,
   stub->incrementEnteredCount();
   FallbackICSpew(cx, stub, "TypeOf");
 
-  TryAttachStub<TypeOfIRGenerator>("TypeOf", cx, frame, stub,
-                                   BaselineCacheIRStubKind::Regular, val);
+  TryAttachStub<TypeOfIRGenerator>("TypeOf", cx, frame, stub, val);
 
   JSType type = js::TypeOfValue(val);
   RootedString string(cx, TypeName(type, cx->names()));
@@ -2436,8 +2310,8 @@ bool DoToPropertyKeyFallback(JSContext* cx, BaselineFrame* frame,
   stub->incrementEnteredCount();
   FallbackICSpew(cx, stub, "ToPropertyKey");
 
-  TryAttachStub<ToPropertyKeyIRGenerator>(
-      "ToPropertyKey", cx, frame, stub, BaselineCacheIRStubKind::Regular, val);
+  TryAttachStub<ToPropertyKeyIRGenerator>("ToPropertyKey", cx, frame, stub,
+                                          val);
 
   return ToPropertyKeyOperation(cx, val, res);
 }
@@ -2544,9 +2418,8 @@ bool DoUnaryArithFallback(JSContext* cx, BaselineFrame* frame,
   }
   MOZ_ASSERT(res.isNumeric());
 
-  TryAttachStub<UnaryArithIRGenerator>("UnaryArith", cx, frame, stub,
-                                       BaselineCacheIRStubKind::Regular, op,
-                                       val, res);
+  TryAttachStub<UnaryArithIRGenerator>("UnaryArith", cx, frame, stub, op, val,
+                                       res);
   return true;
 }
 
@@ -2664,9 +2537,8 @@ bool DoBinaryArithFallback(JSContext* cx, BaselineFrame* frame,
       MOZ_CRASH("Unhandled baseline arith op");
   }
 
-  TryAttachStub<BinaryArithIRGenerator>("BinaryArith", cx, frame, stub,
-                                        BaselineCacheIRStubKind::Regular, op,
-                                        lhs, rhs, ret);
+  TryAttachStub<BinaryArithIRGenerator>("BinaryArith", cx, frame, stub, op, lhs,
+                                        rhs, ret);
   return true;
 }
 
@@ -2761,9 +2633,7 @@ bool DoCompareFallback(JSContext* cx, BaselineFrame* frame,
 
   ret.setBoolean(out);
 
-  TryAttachStub<CompareIRGenerator>("Compare", cx, frame, stub,
-                                    BaselineCacheIRStubKind::Regular, op, lhs,
-                                    rhs);
+  TryAttachStub<CompareIRGenerator>("Compare", cx, frame, stub, op, lhs, rhs);
   return true;
 }
 
@@ -2865,7 +2735,6 @@ bool DoNewObjectFallback(JSContext* cx, BaselineFrame* frame,
       }
 
       TryAttachStub<NewObjectIRGenerator>("NewObject", cx, frame, stub,
-                                          BaselineCacheIRStubKind::Regular,
                                           JSOp(*pc), templateObject);
 
       stub->setTemplateObject(templateObject);

@@ -1480,8 +1480,7 @@ class MOZ_RAII SetPropIRGenerator : public IRGenerator {
                      HandleValue lhsVal, HandleValue idVal, HandleValue rhsVal);
 
   AttachDecision tryAttachStub();
-  AttachDecision tryAttachAddSlotStub(HandleObjectGroup oldGroup,
-                                      HandleShape oldShape);
+  AttachDecision tryAttachAddSlotStub(HandleShape oldShape);
   void trackAttached(const char* name);
 
   DeferType deferType() const { return deferType_; }
@@ -1609,7 +1608,6 @@ class MOZ_RAII OptimizeSpreadCallIRGenerator : public IRGenerator {
 enum class StringChar { CodeAt, At };
 enum class ScriptedThisResult {
   NoAction,
-  TemporarilyUnoptimizable,
   UninitializedThis,
   TemplateObject
 };
@@ -1761,8 +1759,6 @@ class MOZ_RAII CallIRGenerator : public IRGenerator {
                   HandleValue newTarget, HandleValueArray args);
 
   AttachDecision tryAttachStub();
-
-  AttachDecision tryAttachDeferredStub(HandleValue result);
 };
 
 class MOZ_RAII CompareIRGenerator : public IRGenerator {

@@ -5,6 +5,7 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "AlarmHalService.h"
+#include "mozilla/Hal.h"
 
 namespace mozilla {
 namespace dom {

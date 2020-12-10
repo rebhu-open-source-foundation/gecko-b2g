@@ -41,6 +41,10 @@ class nsPIDOMWindowInner;
 
 namespace mozilla {
 
+// Predeclare void_t here, as including IPCMessageUtils brings in windows.h and
+// causes binding compilation problems.
+struct void_t;
+
 namespace hal {
 
 typedef Observer<void_t> AlarmObserver;
