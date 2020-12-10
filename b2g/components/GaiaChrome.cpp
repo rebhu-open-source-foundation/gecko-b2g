@@ -33,6 +33,7 @@ NS_IMPL_ISUPPORTS(GaiaChrome, nsIGaiaChrome)
 GaiaChrome::GaiaChrome()
     : mPackageName("system"_ns),
       mAppsDir(u"webapps"_ns),
+      mVrootDir(u"vroot"_ns),
       mDataRoot(u"/data/local"_ns),
       mSystemRoot(u"/system/b2g"_ns) {
   MOZ_ASSERT(NS_IsMainThread());
@@ -81,6 +82,16 @@ nsresult GaiaChrome::ComputeAppsPath(nsIFile* aPath) {
 
   aPath->Append(mAppsDir);
   aPath->Append(u"."_ns);
+
+#if defined(MOZ_WIDGET_GONK)
+  if (appsInData) {
+    locationDetection->Append(mVrootDir);
+    if (EnsureIsDirectory(locationDetection)) {
+      aPath->Append(mVrootDir);
+      aPath->Append(u"."_ns);
+    }
+  }
+#endif
 
   return NS_OK;
 }

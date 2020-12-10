@@ -25,6 +25,7 @@ class GaiaChrome final : public nsIGaiaChrome {
   nsCString mPackageName;
 
   nsAutoString mAppsDir;
+  nsAutoString mVrootDir;
   nsAutoString mDataRoot;
   nsAutoString mSystemRoot;
 
