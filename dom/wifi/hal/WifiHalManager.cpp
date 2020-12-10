@@ -347,20 +347,46 @@ Result_t WifiHal::ConfigChipAndCreateIface(
 Result_t WifiHal::EnableLinkLayerStats() {
   WifiStatus response;
   bool debugEnabled = false;
-  HIDL_SET(mStaIface, enableLinkLayerStatsCollection, WifiStatus, response,
+
+  if ((mCapabilities & nsIWifiResult::FEATURE_LINK_LAYER_STATS) == 0) {
+    WIFI_LOGE(LOG_TAG, "FEATURE_LINK_LAYER_STATS is not supported");
+    return nsIWifiResult::ERROR_NOT_SUPPORTED;
+  }
+
+  android::sp<wifiNameSpaceV1_3::IWifiStaIface> ifaceV1_3 =
+      GetWifiStaIfaceV1_3();
+  if (ifaceV1_3 == nullptr) {
+    WIFI_LOGE(LOG_TAG, "wifiNameSpaceV1_3::IWifiStaIface got null");
+    return nsIWifiResult::ERROR_INVALID_INTERFACE;
+  }
+
+  HIDL_SET(ifaceV1_3, enableLinkLayerStatsCollection, WifiStatus, response,
            debugEnabled);
   return CHECK_SUCCESS(response.code == WifiStatusCode::SUCCESS);
 }
 
 Result_t WifiHal::GetLinkLayerStats(
-    wifiNameSpaceV1_0::StaLinkLayerStats& aStats) {
+    wifiNameSpaceV1_3::StaLinkLayerStats& aStats) {
   if (!mStaIface.get()) {
     return nsIWifiResult::ERROR_INVALID_INTERFACE;
   }
+
+  if ((mCapabilities & nsIWifiResult::FEATURE_LINK_LAYER_STATS) == 0) {
+    WIFI_LOGE(LOG_TAG, "FEATURE_LINK_LAYER_STATS is not supported");
+    return nsIWifiResult::ERROR_NOT_SUPPORTED;
+  }
+
+  android::sp<wifiNameSpaceV1_3::IWifiStaIface> ifaceV1_3 =
+      GetWifiStaIfaceV1_3();
+  if (ifaceV1_3 == nullptr) {
+    WIFI_LOGE(LOG_TAG, "wifiNameSpaceV1_3::IWifiStaIface got null");
+    return nsIWifiResult::ERROR_INVALID_INTERFACE;
+  }
+
   WifiStatus response;
-  mStaIface->getLinkLayerStats(
-      [&](const WifiStatus& status,
-          const wifiNameSpaceV1_0::StaLinkLayerStats& stats) {
+  ifaceV1_3->getLinkLayerStats_1_3(
+      [&](const wifiNameSpaceV1_0::WifiStatus& status,
+          const wifiNameSpaceV1_3::StaLinkLayerStats& stats) {
         response = status;
         aStats = stats;
       });
@@ -467,6 +493,10 @@ Result_t WifiHal::ConfigureFirmwareRoaming(
 std::string WifiHal::GetInterfaceName(
     const wifiNameSpaceV1_0::IfaceType& aType) {
   return mIfaceNameMap.at(aType);
+}
+
+android::sp<wifiNameSpaceV1_3::IWifiStaIface> WifiHal::GetWifiStaIfaceV1_3() {
+  return wifiNameSpaceV1_3::IWifiStaIface::castFrom(mStaIface);
 }
 
 Result_t WifiHal::ConfigChipByType(const android::sp<IWifiChip>& aChip,
