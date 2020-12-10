@@ -38,6 +38,10 @@ class InputMethodService final : public nsIEditableSupport {
     mEditableSupport = nullptr;
   }
 
+  nsIEditableSupport* GetRegisteredEditableSupport() {
+    return mEditableSupport;
+  }
+
  private:
   InputMethodService() = default;
   ~InputMethodService() = default;

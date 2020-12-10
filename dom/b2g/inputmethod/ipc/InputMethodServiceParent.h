@@ -86,6 +86,7 @@ class InputMethodServiceParent final
     }
     return result;
   }
+  void ActorDestroy(ActorDestroyReason why) override;
 
  private:
   ~InputMethodServiceParent();

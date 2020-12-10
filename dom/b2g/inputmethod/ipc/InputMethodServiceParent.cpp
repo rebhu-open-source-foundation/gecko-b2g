@@ -278,5 +278,13 @@ InputMethodServiceParent::ClearAll(uint32_t aId,
   return NS_OK;
 }
 
+void InputMethodServiceParent::ActorDestroy(ActorDestroyReason why) {
+  IME_LOGD("InputMethodServiceParent::ActorDestroy %p", this);
+  RefPtr<InputMethodService> service = InputMethodService::GetInstance();
+  if (service->GetRegisteredEditableSupport() == this) {
+    service->HandleBlur(this);
+  }
+}
+
 }  // namespace dom
 }  // namespace mozilla
