@@ -189,7 +189,6 @@ class GonkAudioPortCallback : public AudioSystem::AudioPortCallback {
           MOZ_ASSERT(NS_IsMainThread());
           RefPtr<AudioManager> audioManager = AudioManager::GetInstance();
           NS_ENSURE_TRUE(audioManager.get(), );
-          audioManager->UpdateCachedActiveDevicesForStreams();
           audioManager->MaybeUpdateVolumeSettingToDatabase();
         });
     NS_DispatchToMainThread(runnable);
@@ -824,7 +823,6 @@ AudioManager::AudioManager()
     uint32_t volIndex = sDefaultStreamVolumeTbl[streamType];
     SetStreamVolumeForDevice(streamType, volIndex, AUDIO_DEVICE_OUT_DEFAULT);
   }
-  UpdateCachedActiveDevicesForStreams();
 
   RegisterSwitchObserver(hal::SWITCH_HEADPHONES, mObserver.get());
   // Initialize headhone/heaset status
@@ -1079,9 +1077,7 @@ AudioManager::SetForceForUse(int32_t aUsage, int32_t aForce) {
       (audio_policy_force_use_t)aUsage, (audio_policy_forced_cfg_t)aForce);
 
   // AudioPortListUpdate may not be triggered after setting force use, so
-  // manually update cached devices here, and make sure this is done before
-  // SetFmRouting().
-  UpdateCachedActiveDevicesForStreams();
+  // manually update volume settings here.
   MaybeUpdateVolumeSettingToDatabase();
 
   if (aUsage == USE_MEDIA) {
@@ -1403,28 +1399,7 @@ void AudioManager::MaybeUpdateVolumeSettingToDatabase(bool aForce) {
   }
 }
 
-void AudioManager::UpdateCachedActiveDevicesForStreams() {
-  // This function updates cached active devices for streams.
-  // It is used for optimization of GetDevicesForStream() since L.
-  // AudioManager could know when active devices
-  // are changed in AudioPolicyManager by onAudioPortListUpdate().
-  // Except it, AudioManager normally do not need to ask AuidoPolicyManager
-  // about current active devices of streams and could use cached values.
-  // Before L, onAudioPortListUpdate() does not exist and GetDevicesForStream()
-  // does not use the cache. Therefore this function do nothing.
-  for (auto& streamState : mStreamStates) {
-    // Update cached active devices of stream
-    streamState->IsDevicesChanged(false /* aFromCache */);
-  }
-}
-
-uint32_t AudioManager::GetDevicesForStream(int32_t aStream, bool aFromCache) {
-  // Since Lollipop, devices update could be notified by AudioPortCallback.
-  // Cached values can be used if there is no update.
-  if (aFromCache) {
-    return mStreamStates[aStream]->GetLastDevices();
-  }
-
+uint32_t AudioManager::GetDevicesForStream(int32_t aStream) {
   audio_devices_t devices = AudioSystem::getDevicesForStream(
       static_cast<audio_stream_type_t>(aStream));
 
@@ -1517,8 +1492,8 @@ AudioManager::VolumeStreamState::VolumeStreamState(AudioManager& aManager,
   InitStreamVolume();
 }
 
-bool AudioManager::VolumeStreamState::IsDevicesChanged(bool aFromCache) {
-  uint32_t devices = mManager.GetDevicesForStream(mStreamType, aFromCache);
+bool AudioManager::VolumeStreamState::IsDevicesChanged() {
+  uint32_t devices = mManager.GetDevicesForStream(mStreamType);
   if (devices != mLastDevices) {
     mLastDevices = devices;
     mIsDevicesChanged = true;

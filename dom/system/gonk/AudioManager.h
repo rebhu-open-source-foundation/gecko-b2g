@@ -60,7 +60,7 @@ class AudioManager final : public nsIAudioManager, public nsIObserver {
   class VolumeStreamState {
    public:
     explicit VolumeStreamState(AudioManager& aManager, int32_t aStreamType);
-    bool IsDevicesChanged(bool aFromCache = true);
+    bool IsDevicesChanged();
     // Returns true if this stream stores separate volume index for each output
     // device. For example, speaker volume of media stream is different from
     // headset volume of media stream. Returns false if this stream shares one
@@ -70,7 +70,6 @@ class AudioManager final : public nsIAudioManager, public nsIObserver {
     void ClearDevicesChanged();
     void ClearDevicesWithVolumeChange();
     uint32_t GetDevicesWithVolumeChange();
-    uint32_t GetLastDevices() { return mLastDevices; }
     void InitStreamVolume();
     uint32_t GetMaxIndex();
     uint32_t GetVolumeIndex();
@@ -124,9 +123,8 @@ class AudioManager final : public nsIAudioManager, public nsIObserver {
   nsresult SetStreamVolumeIndex(int32_t aStream, uint32_t aIndex);
   nsresult GetStreamVolumeIndex(int32_t aStream, uint32_t* aIndex);
 
-  void UpdateCachedActiveDevicesForStreams();
   uint32_t GetSpecificVolumeCount();
-  uint32_t GetDevicesForStream(int32_t aStream, bool aFromCache = true);
+  uint32_t GetDevicesForStream(int32_t aStream);
   uint32_t GetDeviceForStream(int32_t aStream);
   uint32_t GetDeviceForFm();
   // Choose one device as representative of active devices.
