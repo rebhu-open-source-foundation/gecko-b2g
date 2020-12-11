@@ -1099,8 +1099,8 @@ AudioManager::GetForceForUse(int32_t aUsage, int32_t* aForce) {
 }
 
 NS_IMETHODIMP
-AudioManager::GetFmRadioAudioEnabled(bool* aFmRadioAudioEnabled) {
-  *aFmRadioAudioEnabled = IsFmOutConnected();
+AudioManager::GetFmRadioAudioEnabled(bool* aEnabled) {
+  *aEnabled = IsFmOutConnected();
   return NS_OK;
 }
 
@@ -1169,14 +1169,14 @@ void AudioManager::SetFmMuted(bool aMuted) {
 }
 
 NS_IMETHODIMP
-AudioManager::SetFmRadioAudioEnabled(bool aFmRadioAudioEnabled) {
+AudioManager::SetFmRadioAudioEnabled(bool aEnabled) {
   // Mute FM audio first, and unmute it after the correct routing and volume are
   // set.
-  if (aFmRadioAudioEnabled) {
+  if (aEnabled) {
     SetFmMuted(true);
   }
 #if defined(PRODUCT_MANUFACTURER_QUALCOMM)
-  if (aFmRadioAudioEnabled) {
+  if (aEnabled) {
     if (IsFmOutConnected()) {
       // Stop FM audio and start it again with correct routing.
       SetFmRouting();
@@ -1189,18 +1189,14 @@ AudioManager::SetFmRadioAudioEnabled(bool aFmRadioAudioEnabled) {
     SetParameters("handle_fm=%d", GetDeviceForFm());
   }
 #elif defined(PRODUCT_MANUFACTURER_SPRD)
-  UpdateDeviceConnectionState(aFmRadioAudioEnabled, AUDIO_DEVICE_OUT_FM_HEADSET,
-                              ""_ns);
-
-  UpdateDeviceConnectionState(aFmRadioAudioEnabled, AUDIO_DEVICE_OUT_FM_SPEAKER,
-                              ""_ns);
+  UpdateDeviceConnectionState(aEnabled, AUDIO_DEVICE_OUT_FM_HEADSET, ""_ns);
+  UpdateDeviceConnectionState(aEnabled, AUDIO_DEVICE_OUT_FM_SPEAKER, ""_ns);
 #elif defined(PRODUCT_MANUFACTURER_MTK)
-  UpdateDeviceConnectionState(aFmRadioAudioEnabled, AUDIO_DEVICE_IN_FM_TUNER,
-                              ""_ns);
+  UpdateDeviceConnectionState(aEnabled, AUDIO_DEVICE_IN_FM_TUNER, ""_ns);
 #else
   MOZ_CRASH("FM radio not supported");
 #endif
-  if (aFmRadioAudioEnabled) {
+  if (aEnabled) {
     SetFmMuted(false);
   }
   return NS_OK;
@@ -1551,10 +1547,6 @@ void AudioManager::VolumeStreamState::InitStreamVolume() {
 
 uint32_t AudioManager::VolumeStreamState::GetMaxIndex() {
   return sMaxStreamVolumeTbl[mStreamType];
-}
-
-uint32_t AudioManager::VolumeStreamState::GetDefaultIndex() {
-  return sDefaultStreamVolumeTbl[mStreamType];
 }
 
 uint32_t AudioManager::VolumeStreamState::GetVolumeIndex() {
