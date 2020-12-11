@@ -163,7 +163,7 @@ class AudioManager final : public nsIAudioManager, public nsIObserver {
 
   void UpdateHeadsetConnectionState(hal::SwitchState aState);
   void UpdateDeviceConnectionState(bool aIsConnected, uint32_t aDevice,
-                                   const nsCString& aDeviceName);
+                                   const nsCString& aDeviceAddress = ""_ns);
   void SetAllDeviceConnectionStates();
 
   void CreateWakeLock();

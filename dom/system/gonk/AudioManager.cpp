@@ -512,32 +512,34 @@ void AudioManager::UpdateHeadsetConnectionState(hal::SwitchState aState) {
   bool lineoutConnected = mConnectedDevices.Get(AUDIO_DEVICE_OUT_LINE, nullptr);
 
   if (aState == hal::SWITCH_STATE_HEADSET) {
-    UpdateDeviceConnectionState(true, AUDIO_DEVICE_OUT_WIRED_HEADSET, ""_ns);
-    UpdateDeviceConnectionState(true, AUDIO_DEVICE_IN_WIRED_HEADSET, ""_ns);
-
+    UpdateDeviceConnectionState(true, AUDIO_DEVICE_OUT_WIRED_HEADSET);
+    UpdateDeviceConnectionState(true, AUDIO_DEVICE_IN_WIRED_HEADSET);
   } else if (aState == hal::SWITCH_STATE_HEADPHONE) {
-    UpdateDeviceConnectionState(true, AUDIO_DEVICE_OUT_WIRED_HEADPHONE, ""_ns);
+    UpdateDeviceConnectionState(true, AUDIO_DEVICE_OUT_WIRED_HEADPHONE);
   } else if (aState == hal::SWITCH_STATE_LINEOUT) {
-    UpdateDeviceConnectionState(true, AUDIO_DEVICE_OUT_LINE, ""_ns);
+    UpdateDeviceConnectionState(true, AUDIO_DEVICE_OUT_LINE);
   } else if (aState == hal::SWITCH_STATE_OFF) {
     if (headsetConnected) {
-      UpdateDeviceConnectionState(false, AUDIO_DEVICE_OUT_WIRED_HEADSET, ""_ns);
-      UpdateDeviceConnectionState(false, AUDIO_DEVICE_IN_WIRED_HEADSET, ""_ns);
+      UpdateDeviceConnectionState(false, AUDIO_DEVICE_OUT_WIRED_HEADSET);
+      UpdateDeviceConnectionState(false, AUDIO_DEVICE_IN_WIRED_HEADSET);
     }
     if (headphoneConnected) {
-      UpdateDeviceConnectionState(false, AUDIO_DEVICE_OUT_WIRED_HEADPHONE,
-                                  ""_ns);
+      UpdateDeviceConnectionState(false, AUDIO_DEVICE_OUT_WIRED_HEADPHONE);
     }
     if (lineoutConnected) {
-      UpdateDeviceConnectionState(false, AUDIO_DEVICE_OUT_LINE, ""_ns);
+      UpdateDeviceConnectionState(false, AUDIO_DEVICE_OUT_LINE);
     }
   }
 }
 
-static void setDeviceConnectionStateInternal(audio_devices_t device,
-                                             audio_policy_dev_state_t state,
-                                             const char* device_address) {
-  AudioSystem::setDeviceConnectionState(device, state, device_address, "",
+static void SetDeviceConnectionStateInternal(bool aIsConnected,
+                                             uint32_t aDevice,
+                                             const nsCString& aDeviceAddress) {
+  auto device = static_cast<audio_devices_t>(aDevice);
+  auto state = aIsConnected ? AUDIO_POLICY_DEVICE_STATE_AVAILABLE
+                            : AUDIO_POLICY_DEVICE_STATE_UNAVAILABLE;
+
+  AudioSystem::setDeviceConnectionState(device, state, aDeviceAddress.get(), "",
                                         AUDIO_FORMAT_DEFAULT);
 }
 
@@ -553,30 +555,26 @@ uint32_t AudioManager::GetSpecificVolumeCount() {
   return count;
 }
 
-void AudioManager::UpdateDeviceConnectionState(bool aIsConnected,
-                                               uint32_t aDevice,
-                                               const nsCString& aDeviceName) {
-  bool isConnected = mConnectedDevices.Get(aDevice, nullptr);
-  if (isConnected && !aIsConnected) {
-    setDeviceConnectionStateInternal(static_cast<audio_devices_t>(aDevice),
-                                     AUDIO_POLICY_DEVICE_STATE_UNAVAILABLE,
-                                     aDeviceName.get());
-    mConnectedDevices.Remove(aDevice);
-  } else if (!isConnected && aIsConnected) {
-    setDeviceConnectionStateInternal(static_cast<audio_devices_t>(aDevice),
-                                     AUDIO_POLICY_DEVICE_STATE_AVAILABLE,
-                                     aDeviceName.get());
-    mConnectedDevices.Put(aDevice, aDeviceName);
+void AudioManager::UpdateDeviceConnectionState(
+    bool aIsConnected, uint32_t aDevice, const nsCString& aDeviceAddress) {
+  // If the connection state is not changed, just return.
+  if (aIsConnected == mConnectedDevices.Get(aDevice, nullptr)) {
+    return;
   }
+
+  if (aIsConnected) {
+    mConnectedDevices.Put(aDevice, aDeviceAddress);
+  } else {
+    mConnectedDevices.Remove(aDevice);
+  }
+  SetDeviceConnectionStateInternal(aIsConnected, aDevice, aDeviceAddress);
 }
 
 void AudioManager::SetAllDeviceConnectionStates() {
   for (auto iter = mConnectedDevices.Iter(); !iter.Done(); iter.Next()) {
-    const uint32_t& device = iter.Key();
-    nsCString& deviceAddress = iter.Data();
-    setDeviceConnectionStateInternal(static_cast<audio_devices_t>(device),
-                                     AUDIO_POLICY_DEVICE_STATE_AVAILABLE,
-                                     deviceAddress.get());
+    const auto& device = iter.Key();
+    const auto& deviceAddress = iter.Data();
+    SetDeviceConnectionStateInternal(true, device, deviceAddress);
   }
 }
 
@@ -1189,10 +1187,10 @@ AudioManager::SetFmRadioAudioEnabled(bool aEnabled) {
     SetParameters("handle_fm=%d", GetDeviceForFm());
   }
 #elif defined(PRODUCT_MANUFACTURER_SPRD)
-  UpdateDeviceConnectionState(aEnabled, AUDIO_DEVICE_OUT_FM_HEADSET, ""_ns);
-  UpdateDeviceConnectionState(aEnabled, AUDIO_DEVICE_OUT_FM_SPEAKER, ""_ns);
+  UpdateDeviceConnectionState(aEnabled, AUDIO_DEVICE_OUT_FM_HEADSET);
+  UpdateDeviceConnectionState(aEnabled, AUDIO_DEVICE_OUT_FM_SPEAKER);
 #elif defined(PRODUCT_MANUFACTURER_MTK)
-  UpdateDeviceConnectionState(aEnabled, AUDIO_DEVICE_IN_FM_TUNER, ""_ns);
+  UpdateDeviceConnectionState(aEnabled, AUDIO_DEVICE_IN_FM_TUNER);
 #else
   MOZ_CRASH("FM radio not supported");
 #endif
