@@ -309,6 +309,7 @@ GonkGPSGeolocationProvider::GonkGPSGeolocationProvider()
 #ifdef MOZ_B2G_RIL
       mRilDataServiceId(0),
       mNumberOfRilServices(1),
+      mActiveNetId(0),  // 0 represents "network unspecified"
 #endif
       mEnableHighAccuracy(false) {
   MOZ_ASSERT(NS_IsMainThread());
@@ -526,9 +527,9 @@ void GonkGPSGeolocationProvider::Init() {
   // report network state to IAGnssRil during the initialization since the
   // information may be needed by HAL for network positioning integration
   RefPtr<GonkGPSGeolocationProvider> self = this;
-  nsCOMPtr<nsIRunnable> r =
-      NS_NewRunnableFunction("GonkGPSGeolocationProvider::UpdateNetworkState",
-                             [self]() { self->UpdateNetworkState(nullptr); });
+  nsCOMPtr<nsIRunnable> r = NS_NewRunnableFunction(
+      "GonkGPSGeolocationProvider::UpdateNetworkState",
+      [self]() { self->UpdateNetworkState(nullptr, false); });
   NS_DispatchToMainThread(r);
 #endif
 
@@ -1027,7 +1028,8 @@ static inline uint64_t GetNetHandle(int32_t aNetId) {
   return ((uint64_t)aNetId << 32) | kHandleMagic;
 }
 
-void GonkGPSGeolocationProvider::UpdateNetworkState(nsISupports* aNetworkInfo) {
+void GonkGPSGeolocationProvider::UpdateNetworkState(nsISupports* aNetworkInfo,
+                                                    bool aObserved) {
   MOZ_ASSERT(NS_IsMainThread());
   if (!mAGnssRilHal_V2_0) {
     ERR("mAGnssRilHal_V2_0 isn't available for updating network state.");
@@ -1037,7 +1039,7 @@ void GonkGPSGeolocationProvider::UpdateNetworkState(nsISupports* aNetworkInfo) {
   nsCOMPtr<nsINetworkInfo> info;
   if (aNetworkInfo) {
     info = do_QueryInterface(aNetworkInfo);
-  } else {
+  } else if (!aObserved) {
     nsCOMPtr<nsINetworkManager> networkManager =
         do_GetService("@mozilla.org/network/manager;1");
     if (!networkManager) {
@@ -1058,6 +1060,12 @@ void GonkGPSGeolocationProvider::UpdateNetworkState(nsISupports* aNetworkInfo) {
     info->GetType(&type);
     connected = (state == nsINetworkInfo::NETWORK_STATE_CONNECTED);
     info->GetNetId(&netId);
+
+    // "network-active-changed" topic wouldn't provide nsINetworkInfo when
+    // it's disconnected, therefore, save the active netId here.
+    if (connected) {
+      mActiveNetId = netId;
+    }
 
     bool metered = IsMetered(type);
     bool roaming = false;
@@ -1093,6 +1101,10 @@ void GonkGPSGeolocationProvider::UpdateNetworkState(nsISupports* aNetworkInfo) {
       capabilities +=
           static_cast<uint16_t>(IAGnssRil_V2_0::NetworkCapability::NOT_ROAMING);
     }
+  } else {
+    // These is no active network, it means mActiveNetId has just disconnected
+    netId = mActiveNetId;
+    mActiveNetId = 0;
   }
 
   uint64_t netHandle = GetNetHandle(netId);
@@ -1115,7 +1127,7 @@ GonkGPSGeolocationProvider::Observe(nsISupports* aSubject, const char* aTopic,
   MOZ_ASSERT(NS_IsMainThread());
 
   if (!strcmp(aTopic, kNetworkActiveChangedTopic)) {
-    UpdateNetworkState(aSubject);
+    UpdateNetworkState(aSubject, true);
     nsCOMPtr<nsIRilNetworkInfo> rilInfo = do_QueryInterface(aSubject);
     // No data connection
     if (!rilInfo) {

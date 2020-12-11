@@ -98,7 +98,10 @@ class GonkGPSGeolocationProvider : public nsIGeolocationProvider,
   void RequestDataConnection();
   void ReleaseDataConnection();
   void ListenTelephonyService(bool aStart);
-  void UpdateNetworkState(nsISupports* aNetworkInfo);
+  // Update network state to HAL either when the network state changed or when
+  // the HAL want to know the state.
+  // If it's triggered by network state changed, set aObserved = true.
+  void UpdateNetworkState(nsISupports* aNetworkInfo, bool aObserved);
   NS_IMETHOD CallStateChanged(uint32_t length,
                               nsITelephonyCallInfo** allInfo) override;
 
@@ -165,6 +168,7 @@ class GonkGPSGeolocationProvider : public nsIGeolocationProvider,
   // preference value.
   uint32_t mNumberOfRilServices;
   nsCOMPtr<nsIRadioInterface> mRadioInterface;
+  int32_t mActiveNetId;
 #endif
   bool mEnableHighAccuracy;
 
