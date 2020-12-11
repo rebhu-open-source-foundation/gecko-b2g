@@ -725,6 +725,7 @@ NetworkManager.prototype = {
             type: i.type,
             name: i.name,
             ips: ips.value,
+            netId: i.netId,
             prefixLengths: prefixLengths.value,
             gateways: i.getGateways(),
             dnses: i.getDnses(),

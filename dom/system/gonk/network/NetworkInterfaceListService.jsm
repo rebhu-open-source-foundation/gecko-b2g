@@ -61,6 +61,7 @@ function FakeNetworkInfo(aAttributes) {
   this.type = aAttributes.type;
   this.name = aAttributes.name;
   this.ips = aAttributes.ips;
+  this.netId = aAttributes.netId;
   this.prefixLengths = aAttributes.prefixLengths;
   this.gateways = aAttributes.gateways;
   this.dnses = aAttributes.dnses;
