@@ -4723,3 +4723,8 @@ pref("browser.privatebrowsing.autostart", false);
 //preferred external application for a protocol. If a site doesn't have
 // permission we will show a prompt.
 pref("security.external_protocol_requires_permission", true);
+
+// Whether about:support shows a section "Third-Party Modules" or not
+#ifdef XP_WIN
+  pref("browser.enableAboutThirdParty", false);
+#endif
