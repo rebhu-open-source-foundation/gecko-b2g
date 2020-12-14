@@ -94,7 +94,8 @@ class GonkGPSGeolocationProvider : public nsIGeolocationProvider,
   bool IsValidRilServiceId(uint32_t aServiceId);
   void SetupAGPS();
   int32_t GetDataConnectionState();
-  void SetAGpsDataConn(const nsAString& aApn);
+  void AGpsDataConnectionOpen();
+  void HandleAGpsDataConnection(nsISupports* aNetworkInfo);
   void RequestDataConnection();
   void ReleaseDataConnection();
   void ListenTelephonyService(bool aStart);
@@ -169,6 +170,7 @@ class GonkGPSGeolocationProvider : public nsIGeolocationProvider,
   uint32_t mNumberOfRilServices;
   nsCOMPtr<nsIRadioInterface> mRadioInterface;
   int32_t mActiveNetId;
+  int32_t mSuplNetId;
 #endif
   bool mEnableHighAccuracy;
 
