@@ -6158,6 +6158,8 @@ RadioInterface.prototype = {
               message.rilMessageToken +
               "] > RIL_REQUEST_SETUP_DATA_CALL radioTechnology = " +
               message.radioTechnology +
+              ", DataProfile = " +
+              JSON.stringify(message.profile) +
               ", isRoaming = " +
               message.isRoaming +
               ", allowRoaming = " +
