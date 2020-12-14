@@ -2649,9 +2649,7 @@ void nsGlobalWindowOuter::SetDocShell(nsDocShell* aDocShell) {
     }
   }
 
-  bool docShellActive;
-  mDocShell->GetIsActive(&docShellActive);
-  SetIsBackgroundInternal(!docShellActive);
+  SetIsBackgroundInternal(!mBrowsingContext->IsActive());
 }
 
 void nsGlobalWindowOuter::DetachFromDocShell(bool aIsBeingDiscarded) {

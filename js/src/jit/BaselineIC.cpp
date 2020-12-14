@@ -197,9 +197,12 @@ void ICEntry::trace(JSTracer* trc) {
   // If we have filled our padding with a magic value, check it now.
   MOZ_DIAGNOSTIC_ASSERT(traceMagic_ == EXPECTED_TRACE_MAGIC);
 #endif
-  for (ICStub* stub = firstStub(); stub; stub = stub->next()) {
-    stub->trace(trc);
+  ICStub* stub = firstStub();
+  while (!stub->isFallback()) {
+    stub->toCacheIRStub()->trace(trc);
+    stub = stub->next();
   }
+  stub->toFallbackStub()->trace(trc);
 }
 
 // Allocator for Baseline IC fallback stubs. These stubs use trampoline code
@@ -584,11 +587,13 @@ void ICStubIterator::unlink(JSContext* cx, JSScript* script) {
   unlinked_ = true;
 }
 
-/* static */
-bool ICStub::NonCacheIRStubMakesGCCalls(Kind kind) {
-  MOZ_ASSERT(IsValidKind(kind));
-  MOZ_ASSERT(!IsCacheIRKind(kind));
+bool ICStub::makesGCCalls() const {
+  if (!isFallback()) {
+    return toCacheIRStub()->stubInfo()->makesGCCalls();
+  }
 
+  Kind kind = toFallbackStub()->kind();
+  MOZ_ASSERT(IsValidKind(kind));
   switch (kind) {
     case Call_Fallback:
     // These three fallback stubs don't actually make non-tail calls,
@@ -603,22 +608,13 @@ bool ICStub::NonCacheIRStubMakesGCCalls(Kind kind) {
   }
 }
 
-bool ICStub::makesGCCalls() const {
-  switch (kind()) {
-    case CacheIR_Regular:
-      return toCacheIR_Regular()->stubInfo()->makesGCCalls();
-    default:
-      return NonCacheIRStubMakesGCCalls(kind());
-  }
-}
-
+// TODO(no-TI): move enteredCount_ to base class if it doesn't affect
+// sizeof(ICFallbackStub).
 uint32_t ICStub::getEnteredCount() const {
-  switch (kind()) {
-    case CacheIR_Regular:
-      return toCacheIR_Regular()->enteredCount();
-    default:
-      return toFallbackStub()->enteredCount();
+  if (isFallback()) {
+    return toFallbackStub()->enteredCount();
   }
+  return toCacheIRStub()->enteredCount();
 }
 
 void ICFallbackStub::trackNotAttached(JSContext* cx, JSScript* script) {
@@ -641,22 +637,20 @@ void ICFallbackStub::maybeInvalidateWarp(JSContext* cx, JSScript* script) {
   }
 }
 
-void ICStub::updateCode(JitCode* code) {
-  // Write barrier on the old code.
-  gc::PreWriteBarrier(jitCode());
-  stubCode_ = code->raw();
+void ICCacheIRStub::trace(JSTracer* trc) {
+  JitCode* stubJitCode = jitCode();
+  TraceManuallyBarrieredEdge(trc, &stubJitCode, "baseline-ic-stub-code");
+
+  TraceCacheIRStub(trc, static_cast<ICStub*>(this), stubInfo());
 }
 
-/* static */
-void ICStub::trace(JSTracer* trc) {
+void ICFallbackStub::trace(JSTracer* trc) {
 #ifdef MOZ_DIAGNOSTIC_ASSERT_ENABLED
   checkTraceMagic();
 #endif
+
   // Fallback stubs use runtime-wide trampoline code we don't need to trace.
-  if (!usesTrampolineCode()) {
-    JitCode* stubJitCode = jitCode();
-    TraceManuallyBarrieredEdge(trc, &stubJitCode, "baseline-ic-stub-code");
-  }
+  MOZ_ASSERT(usesTrampolineCode());
 
   switch (kind()) {
     case ICStub::NewArray_Fallback: {
@@ -678,9 +672,6 @@ void ICStub::trace(JSTracer* trc) {
       TraceEdge(trc, &stub->templateObject(), "baseline-rest-template");
       break;
     }
-    case ICStub::CacheIR_Regular:
-      TraceCacheIRStub(trc, this, toCacheIR_Regular()->stubInfo());
-      break;
     default:
       break;
   }
@@ -742,12 +733,9 @@ void ICFallbackStub::unlinkStubDontInvalidateWarp(Zone* zone, ICStub* prev,
   if (zone->needsIncrementalBarrier()) {
     // We are removing edges from ICStub to gcthings. Perform one final trace
     // of the stub for incremental GC, as it must know about those edges.
-    stub->trace(zone->barrierTracer());
+    stub->toCacheIRStub()->trace(zone->barrierTracer());
   }
 
-#ifdef MOZ_DIAGNOSTIC_ASSERT_ENABLED
-  stub->checkTraceMagic();
-#endif
 #ifdef DEBUG
   // Poison stub code to ensure we don't call this stub again. However, if
   // this stub can make calls, a pointer to it may be stored in a stub frame
@@ -2797,22 +2785,13 @@ bool JitRuntime::generateBaselineICFallbackCode(JSContext* cx) {
   return true;
 }
 
+// TODO(no-TI): no longer need this and cacheIRStubData in base class.
 const CacheIRStubInfo* ICStub::cacheIRStubInfo() const {
-  switch (kind()) {
-    case ICStub::CacheIR_Regular:
-      return toCacheIR_Regular()->stubInfo();
-    default:
-      MOZ_CRASH("Not a CacheIR stub");
-  }
+  return toCacheIRStub()->stubInfo();
 }
 
 const uint8_t* ICStub::cacheIRStubData() {
-  switch (kind()) {
-    case ICStub::CacheIR_Regular:
-      return toCacheIR_Regular()->stubDataStart();
-    default:
-      MOZ_CRASH("Not a CacheIR stub");
-  }
+  return toCacheIRStub()->stubDataStart();
 }
 
 }  // namespace jit

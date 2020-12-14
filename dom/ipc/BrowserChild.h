@@ -305,8 +305,13 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
   mozilla::ipc::IPCResult RecvRealMouseMoveEvent(
       const mozilla::WidgetMouseEvent& aEvent, const ScrollableLayerGuid& aGuid,
       const uint64_t& aInputBlockId);
-
   mozilla::ipc::IPCResult RecvNormalPriorityRealMouseMoveEvent(
+      const mozilla::WidgetMouseEvent& aEvent, const ScrollableLayerGuid& aGuid,
+      const uint64_t& aInputBlockId);
+  mozilla::ipc::IPCResult RecvRealMouseMoveEventForTests(
+      const mozilla::WidgetMouseEvent& aEvent, const ScrollableLayerGuid& aGuid,
+      const uint64_t& aInputBlockId);
+  mozilla::ipc::IPCResult RecvNormalPriorityRealMouseMoveEventForTests(
       const mozilla::WidgetMouseEvent& aEvent, const ScrollableLayerGuid& aGuid,
       const uint64_t& aInputBlockId);
 
@@ -659,9 +664,6 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
   }
 #endif
 
-  void AddPendingDocShellBlocker();
-  void RemovePendingDocShellBlocker();
-
   // The HANDLE object for the widget this BrowserChild in.
   WindowsHandle WidgetNativeData() { return mWidgetNativeData; }
 
@@ -724,8 +726,6 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
   virtual ~BrowserChild();
 
   mozilla::ipc::IPCResult RecvDestroy();
-
-  mozilla::ipc::IPCResult RecvSetDocShellIsActive(const bool& aIsActive);
 
   MOZ_CAN_RUN_SCRIPT_BOUNDARY
   mozilla::ipc::IPCResult RecvRenderLayers(

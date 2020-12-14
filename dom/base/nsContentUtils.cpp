@@ -10065,7 +10065,6 @@ bool nsContentUtils::IsMessageInputEvent(const IPC::Message& aMsg) {
       case mozilla::dom::PBrowser::Msg_RealDragEvent__ID:
       case mozilla::dom::PBrowser::Msg_UpdateDimensions__ID:
       case mozilla::dom::PBrowser::Msg_MouseEvent__ID:
-      case mozilla::dom::PBrowser::Msg_SetDocShellIsActive__ID:
         return true;
     }
   }
