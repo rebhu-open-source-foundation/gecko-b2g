@@ -65,6 +65,7 @@ SOURCES += [
 ]
 
 UNIFIED_SOURCES += [
+    "GonkScreenshot.cpp",
     "hwchal/android_10/ComposerHal.cpp",
     "hwchal/android_10/HWC2.cpp",
 ]
