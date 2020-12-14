@@ -6064,7 +6064,6 @@ RadioInterface.prototype = {
             message.segmentSeq = 1;
             message.body = message.segments[0].body;
             message.encodedBodyLength = message.segments[0].encodedBodyLength;
-            message.firstRilMessageToken = message.rilMessageToken;
           }
           this._pendingSmsRequest = message;
           let GsmPDUHelper = this.simIOcontext.GsmPDUHelper;

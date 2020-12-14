@@ -447,7 +447,7 @@ SmsService.prototype = {
       aOptions.retryCount = 0;
     }
     if (DEBUG) {
-      debug("_sendToTheAir ");
+      debug("_sendToTheAir aOptions: " + JSON.stringify(aOptions));
     }
 
     let sendSMSCallback = aResponse => {
@@ -618,11 +618,7 @@ SmsService.prototype = {
     };
 
     if (this._isIms(aServiceId) && !aOptions.retryFallback) {
-      this._imsSmsProviders[aServiceId].sendSms(
-        sentMessage,
-        aOptions,
-        sendSMSCallback
-      );
+      this._imsSmsProviders[aServiceId].sendSms(aOptions, sendSMSCallback);
       return;
     }
 
@@ -1136,7 +1132,7 @@ SmsService.prototype = {
     }
 
     if (DEBUG) {
-      debug("_sendAckSms imsMessage: " + aMessage.imsMessage);
+      debug("_sendAckSms imsMessage: " + JSON.stringify(aMessage));
     }
     if (aMessage.imsMessage) {
       this._imsSmsProviders[aServiceId].acknowledgeSms(result);
@@ -1839,8 +1835,8 @@ SmsSendingScheduler.prototype = {
   notifyRttEnabledStateChanged(aEnabled) {},
 };
 
-function PendingOp(aSmsMessage, aCallback) {
-  this.smsMessage = aSmsMessage;
+function PendingOp(aOptions, aCallback) {
+  this.smsMessage = aOptions;
   this.callback = aCallback;
 }
 PendingOp.prototype = {
@@ -1856,8 +1852,9 @@ function ImsSmsProvider(aSmsService, aServiceId) {
   this._serviceId = aServiceId;
   this._smsService = aSmsService;
   this._pendingOp = [];
+  this._lastIncomingMsgs = [];
   // For sim io context.
-  //TODO: refine me.
+  this.clientId = "IMS_" + aServiceId; //to fit for radiointerface clientId
   this.simIOContext = new SIM.Context(this);
 
   this._imsHandler = gImsRegService.getHandlerByServiceId(aServiceId);
@@ -1880,7 +1877,7 @@ ImsSmsProvider.prototype = {
   _imsHandler: null,
   _pendingOp: null,
   simIOContext: null,
-  _lastIncomingMsg: null,
+  _lastIncomingMsgs: null,
 
   getNextToken() {
     return this._imsToken++;
@@ -1902,9 +1899,31 @@ ImsSmsProvider.prototype = {
     return smsFormat;
   },
 
-  sendSms(aSmsMessage, aOptions, aCallback) {
+  sendSms(aOptions, aCallback) {
     let newToken = this.getNextToken();
-    this._pendingOp[newToken] = new PendingOp(aSmsMessage, aCallback);
+    if (DEBUG) {
+      debug(
+        "ImsSmsProvider[" +
+          this._serviceId +
+          "][" +
+          newToken +
+          "]sendSMS aOptions: " +
+          JSON.stringify(aOptions)
+      );
+    }
+
+    aOptions.rilMessageToken = newToken;
+    aOptions.langIndex = aOptions.langIndex || RIL.PDU_NL_IDENTIFIER_DEFAULT;
+    aOptions.langShiftIndex =
+      aOptions.langShiftIndex || RIL.PDU_NL_IDENTIFIER_DEFAULT;
+
+    if (!aOptions.segmentSeq) {
+      // Fist segment to send
+      aOptions.segmentSeq = 1;
+      aOptions.body = aOptions.segments[0].body;
+      aOptions.encodedBodyLength = aOptions.segments[0].encodedBodyLength;
+    }
+    this._pendingOp[newToken] = new PendingOp(aOptions, aCallback);
 
     let isRetry = aOptions.retryCount > 0;
     let gsmPduHelper = this.simIOContext.GsmPDUHelper;
@@ -1938,15 +1957,16 @@ ImsSmsProvider.prototype = {
   },
 
   acknowledgeSms(aStatus) {
-    if (this._lastIncomingMsg) {
+    if (this._lastIncomingMsgs.length) {
+      let msg = this._lastIncomingMsgs.shift();
       if (DEBUG) {
         debug(
           "ImsSmsProvider[" +
             this._serviceId +
             "][" +
-            this._lastIncomingMsg.token +
+            msg.token +
             "]: acknowledgeSms messageRef: " +
-            this._lastIncomingMsg.messageRef +
+            msg.messageRef +
             ", aStatus: " +
             aStatus
         );
@@ -1962,11 +1982,10 @@ ImsSmsProvider.prototype = {
       }
 
       this._imsHandler.imsMMTelFeature.acknowledgeSms(
-        this._lastIncomingMsg.token,
-        this._lastIncomingMsg.messageRef,
+        msg.token,
+        msg.messageRef,
         deliveryStatus
       );
-      this._lastIncomingMsg = null;
     } else if (DEBUG) {
       debug("acknowledgeSms: No Message could be ack");
     }
@@ -2033,6 +2052,18 @@ ImsSmsProvider.prototype = {
     );
   },
 
+  /**
+   * Helper for processing sent multipart SMS.
+   */
+  _processSentSmsSegment(aOptions, aCallback) {
+    // Setup attributes for sending next segment
+    let next = aOptions.segmentSeq;
+    aOptions.body = aOptions.segments[next].body;
+    aOptions.encodedBodyLength = aOptions.segments[next].encodedBodyLength;
+    aOptions.segmentSeq = next + 1;
+    this.sendSms(aOptions, aCallback);
+  },
+
   //nsIImsSmsListener implementation
   onSendSmsResult(aToken, aMessageRef, aStatus, aReason, aNetworkErrorCode) {
     if (DEBUG) {
@@ -2047,6 +2078,28 @@ ImsSmsProvider.prototype = {
     }
     let pendOp = this._pendingOp[aToken];
     if (pendOp) {
+      pendOp.smsMessage.messageRef = aMessageRef;
+      pendOp.smsMessage.errorCode = aNetworkErrorCode;
+      if (aStatus == Ci.nsIImsMMTelFeature.SEND_STATUS_OK) {
+        if (
+          pendOp.smsMessage.segmentMaxSeq > 1 &&
+          pendOp.smsMessage.segmentSeq < pendOp.smsMessage.segmentMaxSeq
+        ) {
+          // Not last segment
+          this._processSentSmsSegment(pendOp.smsMessage, pendOp.callback);
+          delete this._pendingOp[aToken];
+          return;
+        } else if (pendOp.smsMessage.requestStatusReport) {
+          // Last segment sent with success.
+          if (DEBUG) {
+            debug(
+              "waiting SMS-STATUS-REPORT for messageRef " +
+                pendOp.smsMessage.messageRef
+            );
+          }
+        }
+      }
+
       let keepCallback = pendOp.callback({ status: aStatus });
       if (!keepCallback) {
         delete this._pendingOp[aToken];
@@ -2126,7 +2179,7 @@ ImsSmsProvider.prototype = {
   onSmsReceived(aToken, aFormat, aLength, aPdu) {
     if (DEBUG) {
       debug(
-        "ImsSmsProvider[" + this._serviceId + "][" + aToken + ": onSmsReceived"
+        "ImsSmsProvider[" + this._serviceId + "][" + aToken + "]: onSmsReceived"
       );
     }
     let gsmPduHelper = this.simIOContext.GsmPDUHelper;
@@ -2135,8 +2188,8 @@ ImsSmsProvider.prototype = {
     if (DEBUG) {
       debug("New IMS SMS: " + JSON.stringify(message) + ", result: " + result);
     }
-    this._lastIncomingMsg = message;
-    this._lastIncomingMsg.token = aToken;
+    message.token = aToken;
+    this._lastIncomingMsgs.push(message);
     this._notifyNewSmsMessage(message);
   },
 };
