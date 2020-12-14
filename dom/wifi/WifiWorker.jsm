@@ -4407,16 +4407,6 @@ WifiWorker.prototype = {
     const message = "WifiManager:getImportedCerts:Return";
     let self = this;
 
-    if (!WifiManager.enabled) {
-      this._sendMessage(message, false, "Wifi is disabled", msg);
-      return;
-    }
-
-    if (this._certNicknames.length == 0) {
-      this._sendMessage(message, true, "No wifi certificate imported", msg);
-      return;
-    }
-
     let importedCerts = {
       ServerCert: [],
       UserCert: [],
@@ -4427,19 +4417,29 @@ WifiWorker.prototype = {
       USERCERT: "UserCert",
     };
 
-    let filteredCerts = WifiManager.filterCert(this._certNicknames);
-    if (filteredCerts.length == 0) {
-      this._sendMessage(message, false, "Failed to get certificates", msg);
+    if (!WifiManager.enabled) {
+      this._sendMessage(message, false, "Wifi is disabled", msg);
       return;
     }
 
+    if (this._certNicknames.length == 0) {
+      this._sendMessage(message, true, importedCerts, msg);
+      return;
+    }
+
+    let nicknameList = [];
+    let filteredCerts = WifiManager.filterCert(this._certNicknames);
     for (let nickname of filteredCerts) {
       let certNickname = /WIFI\_([A-Z]*)\_(.*)/.exec(nickname);
       if (!certNickname) {
         continue;
       }
+      nicknameList.push(certNickname[2]);
       importedCerts[UsageMapping[certNickname[1]]].push(certNickname[2]);
     }
+
+    self._certNicknames = nicknameList.slice();
+    self.setSettings(SETTINGS_WIFI_CERT_NICKNAME, self._certNicknames);
 
     self._sendMessage(message, true, importedCerts, msg);
   },
