@@ -37,7 +37,6 @@ EXTRA_JS_MODULES += [
 
 EXTRA_COMPONENTS += [
     "gonk/MobileMessageDatabaseService.manifest",
-    "gonk/SmsService.manifest",
 ]
 
 XPCOM_MANIFESTS += [

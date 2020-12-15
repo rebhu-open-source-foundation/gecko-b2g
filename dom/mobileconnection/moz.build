@@ -52,6 +52,7 @@ UNIFIED_SOURCES += [
     "Assertions.cpp",
     "DOMMobileConnectionDeviceIds.cpp",
     "DOMMobileNetworkInfo.cpp",
+    "fallback/ImsRegService.cpp",
     "ImsDeviceConfiguration.cpp",
     "ImsRegCallback.cpp",
     "ImsRegHandler.cpp",
