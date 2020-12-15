@@ -26,6 +26,7 @@ const kWatchedPrefs = [
   "device.fm.recorder",
   "device.gps",
   "device.group-message",
+  "device.kaiaccount.enabled",
   "device.key.camera",
   "device.key.endcall",
   "device.key.volume",
