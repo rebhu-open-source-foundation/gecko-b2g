@@ -22,6 +22,7 @@
 #include "nsIDocShell.h"
 #include "mozilla/dom/IMELog.h"
 #include "mozilla/dom/InputMethodService.h"
+#include "mozilla/dom/InputMethodServiceChild.h"
 #include "nsFocusManager.h"
 #include "mozilla/dom/HTMLInputElement.h"
 #include "mozilla/dom/HTMLTextAreaElement.h"
@@ -410,7 +411,7 @@ NS_IMPL_ISUPPORTS(GeckoEditableSupport, TextEventDispatcherListener,
                   nsISupportsWeakReference)
 
 GeckoEditableSupport::GeckoEditableSupport(nsPIDOMWindowOuter* aDOMWindow)
-    : mIsFocused(false), mServiceChild(nullptr) {
+    : mIsFocused(false) {
   IME_LOGD("GeckoEditableSupport::Constructor[%p]", this);
   nsCOMPtr<nsIObserverService> obs = mozilla::services::GetObserverService();
   if (obs) {
@@ -419,7 +420,7 @@ GeckoEditableSupport::GeckoEditableSupport(nsPIDOMWindowOuter* aDOMWindow)
   nsCOMPtr<EventTarget> mChromeEventHandler =
       aDOMWindow->GetChromeEventHandler();
   if (mChromeEventHandler) {
-    IME_LOGD("AddEventListener: focus & blur");
+    IME_LOGD("IME: AddEventListener: focus & blur");
     mChromeEventHandler->AddEventListener(u"focus"_ns, this,
                                           /* useCapture = */ true);
     mChromeEventHandler->AddEventListener(u"blur"_ns, this,
@@ -449,6 +450,30 @@ GeckoEditableSupport::Observe(nsISupports* aSubject, const char* aTopic,
                                              /* useCapture = */ true);
   }
   return NS_OK;
+}
+
+/* static */
+void GeckoEditableSupport::SetOnBrowserChild(dom::BrowserChild* aBrowserChild,
+                                             nsPIDOMWindowOuter* aDOMWindow) {
+  MOZ_ASSERT(!XRE_IsParentProcess());
+  NS_ENSURE_TRUE_VOID(aBrowserChild);
+  RefPtr<PuppetWidget> widget(aBrowserChild->WebWidget());
+  RefPtr<TextEventDispatcherListener> listener =
+      widget->GetNativeTextEventDispatcherListener();
+
+  IME_LOGD("-- GeckoEditableSupport::SetOnBrowserChild : listener %p widget %p",
+           listener.get(), widget.get());
+  if (!listener ||
+      listener.get() == static_cast<TextEventDispatcherListener*>(widget)) {
+    // We need to set a new listener.
+    RefPtr<GeckoEditableSupport> editableSupport =
+        new GeckoEditableSupport(aDOMWindow);
+
+    IME_LOGD("-- GeckoEditableSupport::SetOnBrowserChild : listener %p",
+             editableSupport.get());
+    // Tell PuppetWidget to use our listener for IME operations.
+    widget->SetNativeTextEventDispatcherListener(editableSupport);
+  }
 }
 
 NS_IMETHODIMP
@@ -522,14 +547,6 @@ GeckoEditableSupport::HandleEvent(Event* aEvent) {
   return NS_OK;
 }
 
-void GeckoEditableSupport::EnsureServiceChild() {
-  if (mServiceChild == nullptr) {
-    mServiceChild = new InputMethodServiceChild();
-    ContentChild::GetSingleton()->SendPInputMethodServiceConstructor(
-        mServiceChild);
-  }
-}
-
 void GeckoEditableSupport::HandleFocus() {
   RefPtr<nsInputContext> inputContext = new nsInputContext();
   nsresult rv = GetInputContextBag(inputContext);
@@ -540,18 +557,20 @@ void GeckoEditableSupport::HandleFocus() {
   MOZ_ASSERT(!mIsFocused);
   mIsFocused = true;
 
-  if (XRE_IsParentProcess()) {
-    IME_LOGD("-- GeckoEditableSupport::HandleFocus in parent");
+  // oop
+  ContentChild* contentChild = ContentChild::GetSingleton();
+  if (contentChild) {
+    IME_LOGD("-- GeckoEditableSupport::HandleFocus on content");
+    InputMethodServiceChild* child = new InputMethodServiceChild();
+    child->SetEditableSupport(this);
+    contentChild->SendPInputMethodServiceConstructor(child);
+    child->SendRequest(CreateFocusRequestFromInputContext(inputContext));
+    // TODO Unable to delete here, find somewhere else to do so.
+  } else {
+    IME_LOGD("-- GeckoEditableSupport::HandleFocus on chrome");
     // Call from parent process (or in-proces app).
     RefPtr<InputMethodService> service = dom::InputMethodService::GetInstance();
     service->HandleFocus(this, static_cast<nsIInputContext*>(inputContext));
-  } else {
-    IME_LOGD("-- GeckoEditableSupport::HandleFocus in content");
-    EnsureServiceChild();
-    mServiceChild->SetEditableSupport(this);
-    mServiceChild->SendRequest(
-        CreateFocusRequestFromInputContext(inputContext));
-    // TODO Unable to delete here, find somewhere else to do so.
   }
 }
 
@@ -559,17 +578,19 @@ void GeckoEditableSupport::HandleBlur() {
   MOZ_ASSERT(mIsFocused);
   mIsFocused = false;
 
-  if (XRE_IsParentProcess()) {
+  // oop
+  ContentChild* contentChild = ContentChild::GetSingleton();
+  if (contentChild) {
+    InputMethodServiceChild* child = new InputMethodServiceChild();
+    child->SetEditableSupport(this);
+    contentChild->SendPInputMethodServiceConstructor(child);
+    HandleBlurRequest request(contentChild->GetID());
+    child->SendRequest(request);
+    Unused << child->Send__delete__(child);
+  } else {
     // Call from parent process (or in-proces app).
     RefPtr<InputMethodService> service = dom::InputMethodService::GetInstance();
     service->HandleBlur(this);
-  } else {
-    EnsureServiceChild();
-    mServiceChild->SetEditableSupport(this);
-    HandleBlurRequest request(ContentChild::GetSingleton()->GetID());
-    mServiceChild->SendRequest(request);
-    Unused << mServiceChild->Send__delete__(mServiceChild);
-    mServiceChild = nullptr;
   }
 }
 
