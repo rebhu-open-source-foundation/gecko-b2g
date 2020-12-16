@@ -29,6 +29,7 @@ const kWatchedPrefs = [
   "device.key.camera",
   "device.key.endcall",
   "device.key.volume",
+  "device.mvs",
   "device.parental-control",
   "device.qwerty",
   "device.readout",

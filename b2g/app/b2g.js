@@ -1233,3 +1233,8 @@ pref("dom.serviceWorkers.disable_open_click_delay", 5000);
 #ifdef B2G_IMS
 pref("b2g.ims.enabled", true);
 #endif
+
+//MVS featrue
+#if B2G_CCUSTOM_MODULES == C001
+pref("device.mvs", true);
+#endif
