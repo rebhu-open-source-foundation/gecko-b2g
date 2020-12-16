@@ -7,6 +7,7 @@
 #include "nsIURI.h"
 #include "nsIPushService.h"
 
+#include "mozilla/ClearOnShutdown.h"
 #include "mozilla/ipc/URIUtils.h"
 
 using namespace mozilla;

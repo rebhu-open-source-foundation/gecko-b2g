@@ -6,6 +6,7 @@
 #define B2GHISTORY_H
 
 #include "mozilla/BaseHistory.h"
+#include "mozilla/StaticPtr.h"
 #include "nsIURI.h"
 
 class B2GHistory final : public mozilla::BaseHistory {
