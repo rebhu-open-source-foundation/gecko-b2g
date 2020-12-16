@@ -169,8 +169,10 @@ class GonkGPSGeolocationProvider : public nsIGeolocationProvider,
   // preference value.
   uint32_t mNumberOfRilServices;
   nsCOMPtr<nsIRadioInterface> mRadioInterface;
-  int32_t mActiveNetId;
   int32_t mSuplNetId;
+  int32_t mActiveNetId;
+  int32_t mActiveType;
+  uint16_t mActiveCapabilities;
 #endif
   bool mEnableHighAccuracy;
 

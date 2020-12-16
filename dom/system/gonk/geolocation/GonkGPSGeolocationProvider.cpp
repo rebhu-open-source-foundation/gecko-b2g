@@ -312,8 +312,10 @@ GonkGPSGeolocationProvider::GonkGPSGeolocationProvider()
 #ifdef MOZ_B2G_RIL
       mRilDataServiceId(0),
       mNumberOfRilServices(1),
-      mActiveNetId(0),  // 0 represents "network unspecified"
       mSuplNetId(0),    // 0 represents "network unspecified"
+      mActiveNetId(0),  // 0 represents "network unspecified"
+      mActiveType(nsINetworkInfo::NETWORK_TYPE_UNKNOWN),
+      mActiveCapabilities(0),
 #endif
       mEnableHighAccuracy(false) {
   MOZ_ASSERT(NS_IsMainThread());
@@ -1060,23 +1062,18 @@ void GonkGPSGeolocationProvider::UpdateNetworkState(nsISupports* aNetworkInfo,
     networkManager->GetActiveNetworkInfo(getter_AddRefs(info));
   }
 
+  int32_t type = nsINetworkInfo::NETWORK_TYPE_UNKNOWN;
   int32_t netId = 0;
   bool connected = false;
   uint16_t capabilities = 0;
 
   if (info) {
     int32_t state;
-    int32_t type;
     info->GetState(&state);
-    info->GetType(&type);
     connected = (state == nsINetworkInfo::NETWORK_STATE_CONNECTED);
-    info->GetNetId(&netId);
 
-    // "network-active-changed" topic wouldn't provide nsINetworkInfo when
-    // it's disconnected, therefore, save the active netId here.
-    if (connected) {
-      mActiveNetId = netId;
-    }
+    info->GetNetId(&netId);
+    info->GetType(&type);
 
     bool metered = IsMetered(type);
     bool roaming = false;
@@ -1112,23 +1109,41 @@ void GonkGPSGeolocationProvider::UpdateNetworkState(nsISupports* aNetworkInfo,
       capabilities +=
           static_cast<uint16_t>(IAGnssRil_V2_0::NetworkCapability::NOT_ROAMING);
     }
+
+    // "network-active-changed" topic wouldn't provide nsINetworkInfo when
+    // it's disconnected, therefore, save netId / type / capabilities here.
+    if (connected) {
+      mActiveNetId = netId;
+      mActiveType = type;
+      mActiveCapabilities = capabilities;
+    }
   } else {
-    // These is no active network, it means mActiveNetId has just disconnected
+    // These is no active network, it means the network has just disconnected
     netId = mActiveNetId;
+    type = mActiveType;
+    capabilities = mActiveCapabilities;
     mActiveNetId = 0;
+    mActiveType = nsINetworkInfo::NETWORK_TYPE_UNKNOWN;
+    mActiveCapabilities = 0;
   }
 
   uint64_t netHandle = GetNetHandle(netId);
+
+  // Type of active network could be MOBILE, WiFi or ETHERNET, apn is only
+  // needed when the type is MOBILE.
+  auto apn = type == nsINetworkInfo::NETWORK_TYPE_MOBILE ? gRilDataApn.get()
+                                                         : EmptyCString().get();
 
   IAGnssRil_V2_0::NetworkAttributes networkAttributes = {
       .networkHandle = netHandle,
       .isConnected = static_cast<bool>(connected),
       .capabilities = capabilities,
-      .apn = gRilDataApn.get(),
+      .apn = apn,
+
   };
   DBG("updateNetworkState_2_0, netId: %d, netHandle: %llu, connected: %d, "
       "capabilities: %u, apn: %s)",
-      netId, netHandle, connected, capabilities, gRilDataApn.get());
+      netId, netHandle, connected, capabilities, apn);
   mAGnssRilHal_V2_0->updateNetworkState_2_0(networkAttributes);
 }
 
