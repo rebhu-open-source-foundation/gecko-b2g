@@ -815,7 +815,7 @@ SupplicantStatusCode SupplicantStaNetwork::SetEapMethod(
     eapMethod = ISupplicantStaNetwork::EapMethod::SIM;
   } else if (aEapMethod == std::string("AKA")) {
     eapMethod = ISupplicantStaNetwork::EapMethod::AKA;
-  } else if (aEapMethod == std::string("AKA_PRIME")) {
+  } else if (aEapMethod == std::string("AKA'")) {
     eapMethod = ISupplicantStaNetwork::EapMethod::AKA_PRIME;
   } else if (aEapMethod == std::string("WFA_UNAUTH_TLS")) {
     eapMethod = ISupplicantStaNetwork::EapMethod::WFA_UNAUTH_TLS;
@@ -850,7 +850,7 @@ SupplicantStatusCode SupplicantStaNetwork::SetEapPhase2Method(
     eapPhase2 = ISupplicantStaNetwork::EapPhase2Method::SIM;
   } else if (aPhase2 == std::string("AKA")) {
     eapPhase2 = ISupplicantStaNetwork::EapPhase2Method::AKA;
-  } else if (aPhase2 == std::string("AKA_PRIME")) {
+  } else if (aPhase2 == std::string("AKA'")) {
     eapPhase2 = ISupplicantStaNetwork::EapPhase2Method::AKA_PRIME;
   } else {
     return SupplicantStatusCode::FAILURE_ARGS_INVALID;

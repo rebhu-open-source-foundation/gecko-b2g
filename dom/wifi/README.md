@@ -118,7 +118,7 @@ navigator.b2g.wifiManager.associate(new window.WifiNetwork(net));
 var net = {
     ssid: "KaiOS",
     security: "WPA-EAP",
-    eap: "SIM" // "AKA", "AKA_PRIME"
+    eap: "SIM" // "AKA", "AKA'"
 };
 navigator.b2g.wifiManager.associate(new window.WifiNetwork(net));
 ```
