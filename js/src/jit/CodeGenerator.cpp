@@ -3800,8 +3800,12 @@ void CodeGenerator::visitReturn(LReturn* lir) {
   DebugOnly<LAllocation*> result = lir->getOperand(0);
   MOZ_ASSERT(ToRegister(result) == JSReturnReg);
 #endif
-  // Don't emit a jump to the return label if this is the last block.
-  if (current->mir() != *gen->graph().poBegin()) {
+  // Don't emit a jump to the return label if this is the last block, as
+  // it'll fall through to the epilogue.
+  //
+  // This is -not- true however for a Generator-return, which may appear in the
+  // middle of the last block, so we should always emit the jump there.
+  if (current->mir() != *gen->graph().poBegin() || lir->isGenerator()) {
     masm.jump(&returnLabel_);
   }
 }
@@ -14085,6 +14089,13 @@ void CodeGenerator::visitThrowRuntimeLexicalError(
   callVM<Fn, jit::ThrowRuntimeLexicalError>(ins);
 }
 
+void CodeGenerator::visitThrowMsg(LThrowMsg* ins) {
+  pushArg(Imm32(static_cast<int32_t>(ins->mir()->throwMsgKind())));
+
+  using Fn = bool (*)(JSContext*, unsigned);
+  callVM<Fn, js::ThrowMsgOperation>(ins);
+}
+
 void CodeGenerator::visitGlobalDeclInstantiation(
     LGlobalDeclInstantiation* ins) {
   pushArg(ImmPtr(ins->mir()->resumePoint()->pc()));
@@ -14232,6 +14243,77 @@ void CodeGenerator::visitCheckThisReinit(LCheckThisReinit* ins) {
       oolCallVM<Fn, ThrowInitializedThis>(ins, ArgList(), StoreNothing());
   masm.branchTestMagic(Assembler::NotEqual, thisValue, ool->entry());
   masm.bind(ool->rejoin());
+}
+
+void CodeGenerator::visitGenerator(LGenerator* lir) {
+  Register callee = ToRegister(lir->callee());
+  Register environmentChain = ToRegister(lir->environmentChain());
+  Register argsObject = ToRegister(lir->argsObject());
+
+  pushArg(argsObject);
+  pushArg(environmentChain);
+  pushArg(ImmGCPtr(current->mir()->info().script()));
+  pushArg(callee);
+
+  using Fn = JSObject* (*)(JSContext * cx, HandleFunction, HandleScript,
+                           HandleObject, HandleObject);
+  callVM<Fn, CreateGenerator>(lir);
+}
+
+void CodeGenerator::visitAsyncResolve(LAsyncResolve* lir) {
+  Register generator = ToRegister(lir->generator());
+  ValueOperand valueOrReason = ToValue(lir, LAsyncResolve::ValueOrReasonInput);
+  AsyncFunctionResolveKind resolveKind = lir->mir()->resolveKind();
+
+  pushArg(Imm32(static_cast<int32_t>(resolveKind)));
+  pushArg(valueOrReason);
+  pushArg(generator);
+
+  using Fn = JSObject* (*)(JSContext*, Handle<AsyncFunctionGeneratorObject*>,
+                           HandleValue, AsyncFunctionResolveKind);
+  callVM<Fn, js::AsyncFunctionResolve>(lir);
+}
+
+void CodeGenerator::visitAsyncAwait(LAsyncAwait* lir) {
+  ValueOperand value = ToValue(lir, LAsyncAwait::ValueInput);
+  Register generator = ToRegister(lir->generator());
+
+  pushArg(value);
+  pushArg(generator);
+
+  using Fn = JSObject* (*)(JSContext * cx,
+                           Handle<AsyncFunctionGeneratorObject*> genObj,
+                           HandleValue value);
+  callVM<Fn, js::AsyncFunctionAwait>(lir);
+}
+
+void CodeGenerator::visitCanSkipAwait(LCanSkipAwait* lir) {
+  ValueOperand value = ToValue(lir, LCanSkipAwait::ValueInput);
+
+  pushArg(value);
+
+  using Fn = bool (*)(JSContext*, HandleValue, bool* canSkip);
+  callVM<Fn, js::CanSkipAwait>(lir);
+}
+
+void CodeGenerator::visitMaybeExtractAwaitValue(LMaybeExtractAwaitValue* lir) {
+  ValueOperand value = ToValue(lir, LMaybeExtractAwaitValue::ValueInput);
+  ValueOperand output = ToOutValue(lir);
+  Register canSkip = ToRegister(lir->canSkip());
+
+  Label cantExtract, finished;
+  masm.branchIfFalseBool(canSkip, &cantExtract);
+
+  pushArg(value);
+
+  using Fn = bool (*)(JSContext*, HandleValue, MutableHandleValue);
+  callVM<Fn, js::ExtractAwaitValue>(lir);
+  masm.jump(&finished);
+  masm.bind(&cantExtract);
+
+  masm.moveValue(value, output);
+
+  masm.bind(&finished);
 }
 
 void CodeGenerator::visitDebugCheckSelfHosted(LDebugCheckSelfHosted* ins) {

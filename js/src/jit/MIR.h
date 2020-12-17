@@ -5525,6 +5525,8 @@ class MSub : public MBinaryArithInstruction {
     return ret;
   }
 
+  MDefinition* foldsTo(TempAllocator& alloc) override;
+
   double getIdentity() override { return 0; }
 
   bool isFloat32Commutative() const override { return true; }
@@ -6716,6 +6718,27 @@ class MThrowRuntimeLexicalError : public MNullaryInstruction {
   TRIVIAL_NEW_WRAPPERS
 
   unsigned errorNumber() const { return errorNumber_; }
+
+  AliasSet getAliasSet() const override {
+    return AliasSet::Store(AliasSet::ExceptionState);
+  }
+};
+
+// Unconditionally throw a known error number.
+class MThrowMsg : public MNullaryInstruction {
+  const ThrowMsgKind throwMsgKind_;
+
+  explicit MThrowMsg(ThrowMsgKind throwMsgKind)
+      : MNullaryInstruction(classOpcode), throwMsgKind_(throwMsgKind) {
+    setGuard();
+    setResultType(MIRType::None);
+  }
+
+ public:
+  INSTRUCTION_HEADER(ThrowMsg)
+  TRIVIAL_NEW_WRAPPERS
+
+  ThrowMsgKind throwMsgKind() const { return throwMsgKind_; }
 
   AliasSet getAliasSet() const override {
     return AliasSet::Store(AliasSet::ExceptionState);
@@ -11772,6 +11795,57 @@ class MCheckThis : public MUnaryInstruction, public BoxInputsPolicy::Data {
   MDefinition* foldsTo(TempAllocator& alloc) override;
 };
 
+class MAsyncResolve : public MBinaryInstruction,
+                      public MixPolicy<ObjectPolicy<0>, BoxPolicy<1>>::Data {
+  AsyncFunctionResolveKind resolveKind_;
+
+  explicit MAsyncResolve(MDefinition* generator, MDefinition* valueOrReason,
+                         AsyncFunctionResolveKind resolveKind)
+      : MBinaryInstruction(classOpcode, generator, valueOrReason),
+        resolveKind_(resolveKind) {
+    setResultType(MIRType::Object);
+  }
+
+ public:
+  INSTRUCTION_HEADER(AsyncResolve)
+  TRIVIAL_NEW_WRAPPERS
+  NAMED_OPERANDS((0, generator), (1, valueOrReason))
+
+  AsyncFunctionResolveKind resolveKind() { return resolveKind_; }
+};
+
+// Returns from this function to the previous caller; this looks like a regular
+// Unary instruction and is used to lie to the MIR generator about suspending
+// ops like Yield/Await, which are emitted like returns, but MIR-Build like
+// regular instructions.
+class MGeneratorReturn : public MUnaryInstruction,
+                         public BoxInputsPolicy::Data {
+  explicit MGeneratorReturn(MDefinition* ins)
+      : MUnaryInstruction(classOpcode, ins) {
+    setGuard();
+  }
+
+ public:
+  INSTRUCTION_HEADER(GeneratorReturn)
+  TRIVIAL_NEW_WRAPPERS
+  NAMED_OPERANDS((0, input))
+
+  AliasSet getAliasSet() const override { return AliasSet::None(); }
+};
+
+class MAsyncAwait : public MBinaryInstruction,
+                    public MixPolicy<BoxPolicy<0>, ObjectPolicy<1>>::Data {
+  explicit MAsyncAwait(MDefinition* value, MDefinition* gen)
+      : MBinaryInstruction(classOpcode, value, gen) {
+    setResultType(MIRType::Object);
+  }
+
+ public:
+  INSTRUCTION_HEADER(AsyncAwait)
+  TRIVIAL_NEW_WRAPPERS
+  NAMED_OPERANDS((0, value), (1, generator))
+};
+
 class MCheckThisReinit : public MUnaryInstruction,
                          public BoxInputsPolicy::Data {
   explicit MCheckThisReinit(MDefinition* thisVal)
@@ -11787,6 +11861,46 @@ class MCheckThisReinit : public MUnaryInstruction,
 
   AliasSet getAliasSet() const override { return AliasSet::None(); }
   MDefinition* foldsTo(TempAllocator& alloc) override;
+};
+
+// Allocate the generator object for a frame.
+class MGenerator : public MTernaryInstruction,
+                   public MixPolicy<ObjectPolicy<0>, ObjectPolicy<1>>::Data {
+  explicit MGenerator(MDefinition* callee, MDefinition* environmentChain,
+                      MDefinition* argsObject)
+      : MTernaryInstruction(classOpcode, callee, environmentChain, argsObject) {
+    setResultType(MIRType::Object);
+  };
+
+ public:
+  INSTRUCTION_HEADER(Generator)
+  TRIVIAL_NEW_WRAPPERS
+  NAMED_OPERANDS((0, callee), (1, environmentChain), (2, argsObject))
+};
+
+class MCanSkipAwait : public MUnaryInstruction, public BoxPolicy<0>::Data {
+  explicit MCanSkipAwait(MDefinition* generator)
+      : MUnaryInstruction(classOpcode, generator) {
+    setResultType(MIRType::Boolean);
+  }
+
+ public:
+  INSTRUCTION_HEADER(CanSkipAwait)
+  TRIVIAL_NEW_WRAPPERS
+  NAMED_OPERANDS((0, value))
+};
+
+class MMaybeExtractAwaitValue : public MBinaryInstruction,
+                                public BoxPolicy<0>::Data {
+  explicit MMaybeExtractAwaitValue(MDefinition* value, MDefinition* canSkip)
+      : MBinaryInstruction(classOpcode, value, canSkip) {
+    setResultType(MIRType::Value);
+  }
+
+ public:
+  INSTRUCTION_HEADER(MaybeExtractAwaitValue)
+  TRIVIAL_NEW_WRAPPERS
+  NAMED_OPERANDS((0, value), (1, canSkip))
 };
 
 // Increase the warm-up counter of the provided script upon execution and test

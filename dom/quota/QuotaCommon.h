@@ -13,7 +13,7 @@
 #include <map>
 #include <type_traits>
 #include <utility>
-#include "ErrorList.h"
+#include "mozIStorageStatement.h"
 #include "mozilla/Assertions.h"
 #include "mozilla/Attributes.h"
 #include "mozilla/Likely.h"
@@ -29,9 +29,14 @@
 #include "nsLiteralString.h"
 #include "nsPrintfCString.h"
 #include "nsString.h"
-#include "nsStringFwd.h"
+#include "nsTArray.h"
 #include "nsTLiteralString.h"
 #include "nsXULAppAPI.h"
+
+namespace mozilla {
+template <typename T>
+class NotNull;
+}
 
 // Proper use of unique variable names can be tricky (especially if nesting of
 // the final macro is required).
@@ -52,16 +57,6 @@
   [](auto&&... aArgs) -> decltype(auto) {                 \
     return func(std::forward<decltype(aArgs)>(aArgs)...); \
   }
-
-#define BEGIN_QUOTA_NAMESPACE \
-  namespace mozilla {         \
-  namespace dom {             \
-  namespace quota {
-#define END_QUOTA_NAMESPACE \
-  } /* namespace quota */   \
-  } /* namespace dom */     \
-  } /* namespace mozilla */
-#define USING_QUOTA_NAMESPACE using namespace mozilla::dom::quota;
 
 #define DSSTORE_FILE_NAME ".DS_Store"
 #define DESKTOP_FILE_NAME ".desktop"
@@ -847,6 +842,23 @@ auto ReduceEach(InputGenerator aInputGenerator, T aInit,
   return std::move(res);
 }
 
+// This is like std::reduce with a to-be-defined execution policy (we don't want
+// to std::terminate on an error, but probably it's fine to just propagate any
+// error that occurred).
+template <typename Range, typename T, typename BinaryOp>
+auto Reduce(Range&& aRange, T aInit, const BinaryOp& aBinaryOp) {
+  using std::begin;
+  using std::end;
+  return ReduceEach(
+      [it = begin(aRange), end = end(aRange)]() mutable {
+        auto res = ToMaybeRef(it != end ? &*it++ : nullptr);
+        return Result<decltype(res), typename std::invoke_result_t<
+                                         BinaryOp, T, decltype(res)>::err_type>(
+            res);
+      },
+      aInit, aBinaryOp);
+}
+
 template <typename Range, typename Body>
 auto CollectEachInRange(const Range& aRange, const Body& aBody)
     -> Result<mozilla::Ok, nsresult> {
@@ -1115,6 +1127,39 @@ CreateAndExecuteSingleStepStatement(mozIStorageConnection& aConnection,
   QM_TRY(aBindFunctor(*stmt));
 
   return ExecuteSingleStep<ResultHandling>(std::move(stmt));
+}
+
+template <typename StepFunc>
+Result<Ok, nsresult> CollectWhileHasResult(mozIStorageStatement& aStmt,
+                                           StepFunc&& aStepFunc) {
+  return CollectWhile(
+      [&aStmt] { QM_TRY_RETURN(MOZ_TO_RESULT_INVOKE(aStmt, ExecuteStep)); },
+      [&aStmt, &aStepFunc] { return aStepFunc(aStmt); });
+}
+
+template <typename StepFunc,
+          typename ArrayType = nsTArray<typename std::invoke_result_t<
+              StepFunc, mozIStorageStatement&>::ok_type>>
+auto CollectElementsWhileHasResult(mozIStorageStatement& aStmt,
+                                   StepFunc&& aStepFunc)
+    -> Result<ArrayType, nsresult> {
+  ArrayType res;
+
+  QM_TRY(CollectWhileHasResult(
+      aStmt, [&aStepFunc, &res](auto& stmt) -> Result<Ok, nsresult> {
+        QM_TRY_UNWRAP(auto element, aStepFunc(stmt));
+        res.AppendElement(std::move(element));
+        return Ok{};
+      }));
+
+  return std::move(res);
+}
+
+template <typename ArrayType, typename StepFunc>
+auto CollectElementsWhileHasResultTyped(mozIStorageStatement& aStmt,
+                                        StepFunc&& aStepFunc) {
+  return CollectElementsWhileHasResult<StepFunc, ArrayType>(
+      aStmt, std::forward<StepFunc>(aStepFunc));
 }
 
 }  // namespace quota

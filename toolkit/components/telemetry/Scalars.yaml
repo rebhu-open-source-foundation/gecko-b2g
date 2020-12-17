@@ -1253,22 +1253,6 @@ security:
       - 'fennec'
     record_in_processes:
       - main
-  tls_delegated_credentials_txn:
-    bug_numbers:
-      - 1564179
-      - 1645082
-    description: >-
-      Count of how many transactions used delegated credentials (ietf-draft-tls-subcerts)
-    expires: "86"
-    kind: uint
-    notification_emails:
-      - seceng-telemetry@mozilla.com
-      - kjacobs@mozilla.com
-    release_channel_collection: opt-out
-    products:
-      - 'firefox'
-    record_in_processes:
-      - main
   https_only_mode_enabled:
     bug_numbers:
       - 1620244
@@ -4036,9 +4020,10 @@ pdf.viewer:
   fallback_shown:
     bug_numbers:
       - 1566882
+      - 1666979
     description: >
       How many times PDF Viewer fallback bar was shown.
-    expires: "84"
+    expires: "88"
     kind: uint
     notification_emails:
       - bdahl@mozilla.com
@@ -4051,9 +4036,10 @@ pdf.viewer:
   print:
     bug_numbers:
       - 1566882
+      - 1666979
     description: >
       How many times PDF Viewer print functionality was used.
-    expires: "84"
+    expires: "88"
     kind: uint
     notification_emails:
       - bdahl@mozilla.com

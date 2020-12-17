@@ -1332,8 +1332,17 @@ void FrameIsDebuggeeCheck(BaselineFrame* frame) {
   }
 }
 
-JSObject* CreateGenerator(JSContext* cx, BaselineFrame* frame) {
-  return AbstractGeneratorObject::create(cx, frame);
+JSObject* CreateGeneratorFromFrame(JSContext* cx, BaselineFrame* frame) {
+  return AbstractGeneratorObject::createFromFrame(cx, frame);
+}
+
+JSObject* CreateGenerator(JSContext* cx, HandleFunction callee,
+                          HandleScript script, HandleObject environmentChain,
+                          HandleObject args) {
+  Rooted<ArgumentsObject*> argsObj(
+      cx, args ? &args->as<ArgumentsObject>() : nullptr);
+  return AbstractGeneratorObject::create(cx, callee, script, environmentChain,
+                                         argsObj);
 }
 
 bool NormalSuspend(JSContext* cx, HandleObject obj, BaselineFrame* frame,
@@ -2333,20 +2342,6 @@ bool DoConcatStringObject(JSContext* cx, HandleValue lhs, HandleValue rhs,
   }
 
   res.setString(str);
-  return true;
-}
-
-MOZ_MUST_USE bool TrySkipAwait(JSContext* cx, HandleValue val,
-                               MutableHandleValue resolved) {
-  bool canSkip;
-  if (!TrySkipAwait(cx, val, &canSkip, resolved)) {
-    return false;
-  }
-
-  if (!canSkip) {
-    resolved.setMagic(JS_CANNOT_SKIP_AWAIT);
-  }
-
   return true;
 }
 

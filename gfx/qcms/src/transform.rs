@@ -123,13 +123,17 @@ pub type transform_fn_t = Option<
         _: usize,
     ) -> (),
 >;
+#[repr(u32)]
+#[derive(PartialEq, Eq, Clone, Copy)]
+pub enum qcms_data_type {
+    DATA_RGB_8 = 0,
+    DATA_RGBA_8 = 1,
+    DATA_BGRA_8 = 2,
+    DATA_GRAY_8 = 3,
+    DATA_GRAYA_8 = 4,
+}
 
-pub type qcms_data_type = libc::c_uint;
-pub const QCMS_DATA_GRAYA_8: qcms_data_type = 4;
-pub const QCMS_DATA_GRAY_8: qcms_data_type = 3;
-pub const QCMS_DATA_BGRA_8: qcms_data_type = 2;
-pub const QCMS_DATA_RGBA_8: qcms_data_type = 1;
-pub const QCMS_DATA_RGB_8: qcms_data_type = 0;
+use qcms_data_type::*;
 
 #[repr(C)]
 #[derive(Copy, Clone)]
@@ -1132,11 +1136,11 @@ fn transform_precacheLUT_float(
         if let Some(lut) = lut {
             (*transform).clut = Some(lut);
             (*transform).grid_size = samples as u16;
-            if in_type == QCMS_DATA_RGBA_8 {
+            if in_type == DATA_RGBA_8 {
                 (*transform).transform_fn = Some(qcms_transform_data_tetra_clut_rgba)
-            } else if in_type == QCMS_DATA_BGRA_8 {
+            } else if in_type == DATA_BGRA_8 {
                 (*transform).transform_fn = Some(qcms_transform_data_tetra_clut_bgra)
-            } else if in_type == QCMS_DATA_RGB_8 {
+            } else if in_type == DATA_RGB_8 {
                 (*transform).transform_fn = Some(qcms_transform_data_tetra_clut_rgb)
             }
             debug_assert!((*transform).transform_fn.is_some());
@@ -1146,32 +1150,32 @@ fn transform_precacheLUT_float(
     }
     return Some(transform);
 }
-#[no_mangle]
-pub extern "C" fn qcms_transform_create(
+
+pub fn transform_create(
     mut in_0: &qcms_profile,
     mut in_type: qcms_data_type,
     mut out: &qcms_profile,
     mut out_type: qcms_data_type,
     mut intent: qcms_intent,
-) -> *mut qcms_transform {
+) -> Option<Box<qcms_transform>> {
     // Ensure the requested input and output types make sense.
-    let mut match_0: bool = false;
-    if in_type == QCMS_DATA_RGB_8 {
-        match_0 = out_type == QCMS_DATA_RGB_8
-    } else if in_type == QCMS_DATA_RGBA_8 {
-        match_0 = out_type == QCMS_DATA_RGBA_8
-    } else if in_type == QCMS_DATA_BGRA_8 {
-        match_0 = out_type == QCMS_DATA_BGRA_8
-    } else if in_type == QCMS_DATA_GRAY_8 {
-        match_0 = out_type == QCMS_DATA_RGB_8
-            || out_type == QCMS_DATA_RGBA_8
-            || out_type == QCMS_DATA_BGRA_8
-    } else if in_type == QCMS_DATA_GRAYA_8 {
-        match_0 = out_type == QCMS_DATA_RGBA_8 || out_type == QCMS_DATA_BGRA_8
-    }
-    if !match_0 {
+    let matching_format = match (in_type, out_type) {
+        (DATA_RGB_8, DATA_RGB_8) => true,
+        (DATA_RGBA_8, DATA_RGBA_8) => true,
+        (DATA_BGRA_8, DATA_BGRA_8) => true,
+        (DATA_GRAY_8, out_type) => match out_type {
+            DATA_RGB_8 | DATA_RGBA_8 | DATA_BGRA_8 => true,
+            _ => false,
+        },
+        (DATA_GRAYA_8, out_type) => match out_type {
+            DATA_RGBA_8 | DATA_BGRA_8 => true,
+            _ => false,
+        },
+        _ => false,
+    };
+    if !matching_format {
         debug_assert!(false, "input/output type");
-        return 0 as *mut qcms_transform;
+        return None;
     }
     let mut transform: Box<qcms_transform> = Box::new(Default::default());
     let mut precache: bool = false;
@@ -1183,9 +1187,7 @@ pub extern "C" fn qcms_transform_create(
     }
     // This precache assumes RGB_SIGNATURE (fails on GRAY_SIGNATURE, for instance)
     if qcms_supports_iccv4.load(Ordering::Relaxed) as i32 != 0
-        && (in_type == QCMS_DATA_RGB_8
-            || in_type == QCMS_DATA_RGBA_8
-            || in_type == QCMS_DATA_BGRA_8)
+        && (in_type == DATA_RGB_8 || in_type == DATA_RGBA_8 || in_type == DATA_BGRA_8)
         && (!(*in_0).A2B0.is_none()
             || !(*out).B2A0.is_none()
             || !(*in_0).mAB.is_none()
@@ -1197,13 +1199,8 @@ pub extern "C" fn qcms_transform_create(
         // TODO For transforming small data sets of about 200x200 or less
         // precaching should be avoided.
         let mut result = transform_precacheLUT_float(transform, in_0, out, 33, in_type);
-        return match result {
-            Some(result) => Box::into_raw(result),
-            None => {
-                debug_assert!(false, "precacheLUT failed");
-                0 as *mut qcms_transform
-            }
-        };
+        debug_assert!(result.is_some(), "precacheLUT failed");
+        return result;
     }
     if precache {
         (*transform).output_table_r = Some(Arc::clone((*out).output_table_r.as_ref().unwrap()));
@@ -1211,7 +1208,7 @@ pub extern "C" fn qcms_transform_create(
         (*transform).output_table_b = Some(Arc::clone((*out).output_table_b.as_ref().unwrap()));
     } else {
         if (*out).redTRC.is_none() || (*out).greenTRC.is_none() || (*out).blueTRC.is_none() {
-            return 0 as *mut qcms_transform;
+            return None;
         }
         (*transform).output_gamma_lut_r = Some(build_output_lut((*out).redTRC.as_deref().unwrap()));
         (*transform).output_gamma_lut_g =
@@ -1223,7 +1220,7 @@ pub extern "C" fn qcms_transform_create(
             || (*transform).output_gamma_lut_g.is_none()
             || (*transform).output_gamma_lut_b.is_none()
         {
-            return 0 as *mut qcms_transform;
+            return None;
         }
     }
     if (*in_0).color_space == RGB_SIGNATURE {
@@ -1233,11 +1230,11 @@ pub extern "C" fn qcms_transform_create(
             {
                 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
                 {
-                    if in_type == QCMS_DATA_RGB_8 {
+                    if in_type == DATA_RGB_8 {
                         (*transform).transform_fn = Some(qcms_transform_data_rgb_out_lut_avx)
-                    } else if in_type == QCMS_DATA_RGBA_8 {
+                    } else if in_type == DATA_RGBA_8 {
                         (*transform).transform_fn = Some(qcms_transform_data_rgba_out_lut_avx)
-                    } else if in_type == QCMS_DATA_BGRA_8 {
+                    } else if in_type == DATA_BGRA_8 {
                         (*transform).transform_fn = Some(qcms_transform_data_bgra_out_lut_avx)
                     }
                 }
@@ -1248,11 +1245,11 @@ pub extern "C" fn qcms_transform_create(
             {
                 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
                 {
-                    if in_type == QCMS_DATA_RGB_8 {
+                    if in_type == DATA_RGB_8 {
                         (*transform).transform_fn = Some(qcms_transform_data_rgb_out_lut_sse2)
-                    } else if in_type == QCMS_DATA_RGBA_8 {
+                    } else if in_type == DATA_RGBA_8 {
                         (*transform).transform_fn = Some(qcms_transform_data_rgba_out_lut_sse2)
-                    } else if in_type == QCMS_DATA_BGRA_8 {
+                    } else if in_type == DATA_BGRA_8 {
                         (*transform).transform_fn = Some(qcms_transform_data_bgra_out_lut_sse2)
                     }
                 }
@@ -1261,26 +1258,26 @@ pub extern "C" fn qcms_transform_create(
             {
                 #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
                 {
-                    if in_type == QCMS_DATA_RGB_8 {
+                    if in_type == DATA_RGB_8 {
                         (*transform).transform_fn = Some(qcms_transform_data_rgb_out_lut_neon)
-                    } else if in_type == QCMS_DATA_RGBA_8 {
+                    } else if in_type == DATA_RGBA_8 {
                         (*transform).transform_fn = Some(qcms_transform_data_rgba_out_lut_neon)
-                    } else if in_type == QCMS_DATA_BGRA_8 {
+                    } else if in_type == DATA_BGRA_8 {
                         (*transform).transform_fn = Some(qcms_transform_data_bgra_out_lut_neon)
                     }
                 }
-            } else if in_type == QCMS_DATA_RGB_8 {
+            } else if in_type == DATA_RGB_8 {
                 (*transform).transform_fn = Some(qcms_transform_data_rgb_out_lut_precache)
-            } else if in_type == QCMS_DATA_RGBA_8 {
+            } else if in_type == DATA_RGBA_8 {
                 (*transform).transform_fn = Some(qcms_transform_data_rgba_out_lut_precache)
-            } else if in_type == QCMS_DATA_BGRA_8 {
+            } else if in_type == DATA_BGRA_8 {
                 (*transform).transform_fn = Some(qcms_transform_data_bgra_out_lut_precache)
             }
-        } else if in_type == QCMS_DATA_RGB_8 {
+        } else if in_type == DATA_RGB_8 {
             (*transform).transform_fn = Some(qcms_transform_data_rgb_out_lut)
-        } else if in_type == QCMS_DATA_RGBA_8 {
+        } else if in_type == DATA_RGBA_8 {
             (*transform).transform_fn = Some(qcms_transform_data_rgba_out_lut)
-        } else if in_type == QCMS_DATA_BGRA_8 {
+        } else if in_type == DATA_BGRA_8 {
             (*transform).transform_fn = Some(qcms_transform_data_bgra_out_lut)
         }
         //XXX: avoid duplicating tables if we can
@@ -1291,7 +1288,7 @@ pub extern "C" fn qcms_transform_create(
             || (*transform).input_gamma_table_g.is_none()
             || (*transform).input_gamma_table_b.is_none()
         {
-            return 0 as *mut qcms_transform;
+            return None;
         }
         /* build combined colorant matrix */
 
@@ -1299,7 +1296,7 @@ pub extern "C" fn qcms_transform_create(
         let mut out_matrix: matrix = build_colorant_matrix(out);
         out_matrix = matrix_invert(out_matrix);
         if out_matrix.invalid {
-            return 0 as *mut qcms_transform;
+            return None;
         }
         let mut result_0: matrix = matrix_multiply(out_matrix, in_matrix);
         /* check for NaN values in the matrix and bail if we find any */
@@ -1308,7 +1305,7 @@ pub extern "C" fn qcms_transform_create(
             let mut j: libc::c_uint = 0;
             while j < 3 {
                 if result_0.m[i as usize][j as usize] != result_0.m[i as usize][j as usize] {
-                    return 0 as *mut qcms_transform;
+                    return None;
                 }
                 j = j + 1
             }
@@ -1328,34 +1325,34 @@ pub extern "C" fn qcms_transform_create(
     } else if (*in_0).color_space == 0x47524159 {
         (*transform).input_gamma_table_gray = build_input_gamma_table((*in_0).grayTRC.as_deref());
         if (*transform).input_gamma_table_gray.is_none() {
-            return 0 as *mut qcms_transform;
+            return None;
         }
         if precache {
-            if out_type == QCMS_DATA_RGB_8 {
+            if out_type == DATA_RGB_8 {
                 (*transform).transform_fn = Some(qcms_transform_data_gray_out_precache)
-            } else if out_type == QCMS_DATA_RGBA_8 {
-                if in_type == QCMS_DATA_GRAY_8 {
+            } else if out_type == DATA_RGBA_8 {
+                if in_type == DATA_GRAY_8 {
                     (*transform).transform_fn = Some(qcms_transform_data_gray_rgba_out_precache)
                 } else {
                     (*transform).transform_fn = Some(qcms_transform_data_graya_rgba_out_precache)
                 }
-            } else if out_type == QCMS_DATA_BGRA_8 {
-                if in_type == QCMS_DATA_GRAY_8 {
+            } else if out_type == DATA_BGRA_8 {
+                if in_type == DATA_GRAY_8 {
                     (*transform).transform_fn = Some(qcms_transform_data_gray_bgra_out_precache)
                 } else {
                     (*transform).transform_fn = Some(qcms_transform_data_graya_bgra_out_precache)
                 }
             }
-        } else if out_type == QCMS_DATA_RGB_8 {
+        } else if out_type == DATA_RGB_8 {
             (*transform).transform_fn = Some(qcms_transform_data_gray_out_lut)
-        } else if out_type == QCMS_DATA_RGBA_8 {
-            if in_type == QCMS_DATA_GRAY_8 {
+        } else if out_type == DATA_RGBA_8 {
+            if in_type == DATA_GRAY_8 {
                 (*transform).transform_fn = Some(qcms_transform_data_gray_rgba_out_lut)
             } else {
                 (*transform).transform_fn = Some(qcms_transform_data_graya_rgba_out_lut)
             }
-        } else if out_type == QCMS_DATA_BGRA_8 {
-            if in_type == QCMS_DATA_GRAY_8 {
+        } else if out_type == DATA_BGRA_8 {
+            if in_type == DATA_GRAY_8 {
                 (*transform).transform_fn = Some(qcms_transform_data_gray_bgra_out_lut)
             } else {
                 (*transform).transform_fn = Some(qcms_transform_data_graya_bgra_out_lut)
@@ -1363,10 +1360,10 @@ pub extern "C" fn qcms_transform_create(
         }
     } else {
         debug_assert!(false, "unexpected colorspace");
-        return 0 as *mut qcms_transform;
+        return None;
     }
     debug_assert!((*transform).transform_fn.is_some());
-    return Box::into_raw(transform);
+    return Some(transform);
 }
 #[no_mangle]
 pub unsafe extern "C" fn qcms_transform_data(

@@ -18262,6 +18262,9 @@ class CGBindingRoot(CGThing):
         descriptorsHaveInstrumentedProps = any(
             d.instrumentedProps for d in descriptors if d.concrete
         )
+        descriptorsHaveNeedsMissingPropUseCounters = any(
+            d.needsMissingPropUseCounters for d in descriptors if d.concrete
+        )
 
         bindingHeaders["mozilla/UseCounter.h"] = (
             descriptorsHaveUseCounters or descriptorsHaveInstrumentedProps
@@ -18269,7 +18272,7 @@ class CGBindingRoot(CGThing):
         # Make sure to not overwrite existing pref header bits!
         bindingHeaders[prefHeader(MISSING_PROP_PREF)] = (
             bindingHeaders.get(prefHeader(MISSING_PROP_PREF))
-            or descriptorsHaveInstrumentedProps
+            or descriptorsHaveNeedsMissingPropUseCounters
         )
         bindingHeaders["mozilla/dom/SimpleGlobalObject.h"] = any(
             CGDictionary.dictionarySafeToJSONify(d) for d in dictionaries

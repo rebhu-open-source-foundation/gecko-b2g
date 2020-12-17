@@ -84,6 +84,7 @@
 #include "mozilla/Sprintf.h"
 #include "mozilla/StaticPrefs_dom.h"
 #include "mozilla/StaticPrefs_media.h"
+#include "mozilla/StaticPrefs_widget.h"
 #include "mozilla/StyleSheet.h"
 #include "mozilla/StyleSheetInlines.h"
 #include "mozilla/Telemetry.h"
@@ -176,6 +177,7 @@
 #include "mozilla/net/PCookieServiceParent.h"
 #include "mozilla/plugins/PluginBridge.h"
 #include "mozilla/RemoteLazyInputStreamParent.h"
+#include "mozilla/widget/RemoteLookAndFeel.h"
 #include "mozilla/widget/ScreenManager.h"
 #include "nsAnonymousTemporaryFile.h"
 #include "nsAppRunner.h"
@@ -1589,6 +1591,21 @@ void ContentParent::BroadcastFontListChanged() {
   }
 }
 
+static LookAndFeelData GetLookAndFeelData() {
+  if (StaticPrefs::widget_remote_look_and_feel_AtStartup()) {
+    return *RemoteLookAndFeel::ExtractData();
+  }
+  return LookAndFeel::GetCache();
+}
+
+void ContentParent::BroadcastThemeUpdate(widget::ThemeChangeKind aKind) {
+  LookAndFeelData lnfData = GetLookAndFeelData();
+
+  for (auto* cp : AllProcesses(eLive)) {
+    Unused << cp->SendThemeChanged(lnfData, aKind);
+  }
+}
+
 const nsACString& ContentParent::GetRemoteType() const { return mRemoteType; }
 
 void ContentParent::Init() {
@@ -2850,7 +2867,7 @@ bool ContentParent::InitInternal(ProcessPriority aInitialPriority) {
   nsTArray<SystemFontListEntry> fontList;
   gfxPlatform::GetPlatform()->ReadSystemFontList(&fontList);
 
-  LookAndFeelCache lnfCache = LookAndFeel::GetCache();
+  LookAndFeelData lnfData = GetLookAndFeelData();
 
   // If the shared fontlist is in use, collect its shmem block handles to pass
   // to the child.
@@ -2911,7 +2928,7 @@ bool ContentParent::InitInternal(ProcessPriority aInitialPriority) {
   }
 
   Unused << SendSetXPCOMProcessAttributes(
-      xpcomInit, initialData, lnfCache, fontList, sharedUASheetHandle,
+      xpcomInit, initialData, lnfData, fontList, sharedUASheetHandle,
       sharedUASheetAddress, sharedFontListBlocks);
 
   ipc::WritableSharedMap* sharedData =
@@ -6049,14 +6066,8 @@ mozilla::ipc::IPCResult ContentParent::RecvBeginDriverCrashGuard(
     case gfx::CrashGuardType::D3D11Layers:
       guard = MakeUnique<gfx::D3D11LayersCrashGuard>(this);
       break;
-    case gfx::CrashGuardType::D3D9Video:
-      guard = MakeUnique<gfx::D3D9VideoCrashGuard>(this);
-      break;
     case gfx::CrashGuardType::GLContext:
       guard = MakeUnique<gfx::GLContextCrashGuard>(this);
-      break;
-    case gfx::CrashGuardType::D3D11Video:
-      guard = MakeUnique<gfx::D3D11VideoCrashGuard>(this);
       break;
     case gfx::CrashGuardType::WMFVPXVideo:
       guard = MakeUnique<gfx::WMFVPXVideoCrashGuard>(this);
@@ -7571,10 +7582,11 @@ mozilla::ipc::IPCResult ContentParent::RecvNotifyOnHistoryReload(
 
 mozilla::ipc::IPCResult ContentParent::RecvHistoryCommit(
     const MaybeDiscarded<BrowsingContext>& aContext, const uint64_t& aLoadID,
-    const nsID& aChangeID, const uint32_t& aLoadType) {
+    const nsID& aChangeID, const uint32_t& aLoadType, const bool& aPersist,
+    const bool& aCloneEntryChildren) {
   if (!aContext.IsDiscarded()) {
-    aContext.get_canonical()->SessionHistoryCommit(aLoadID, aChangeID,
-                                                   aLoadType);
+    aContext.get_canonical()->SessionHistoryCommit(
+        aLoadID, aChangeID, aLoadType, aPersist, aCloneEntryChildren);
   }
 
   return IPC_OK();

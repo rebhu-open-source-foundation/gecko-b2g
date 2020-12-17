@@ -1800,7 +1800,9 @@ bool nsIFrame::Extend3DContext(const nsStyleDisplay* aStyleDisplay,
 
   return ShouldApplyOverflowClipping(disp) == PhysicalAxes::None &&
          !GetClipPropClipRect(disp, effects, GetSize()) &&
-         !SVGIntegrationUtils::UsingEffectsForFrame(this);
+         !SVGIntegrationUtils::UsingEffectsForFrame(this) &&
+         !effects->HasMixBlendMode() &&
+         disp->mIsolation != StyleIsolation::Isolate;
 }
 
 bool nsIFrame::Combines3DTransformWithAncestors(
@@ -4598,7 +4600,8 @@ bool nsIFrame::IsSelectable(StyleUserSelect* aSelectStyle) const {
 }
 
 bool nsIFrame::ShouldHaveLineIfEmpty() const {
-  if (Style()->IsPseudoOrAnonBox()) {
+  if (Style()->IsPseudoOrAnonBox() &&
+      Style()->GetPseudoType() != PseudoStyleType::scrolledContent) {
     return false;
   }
   return IsEditingHost(this);

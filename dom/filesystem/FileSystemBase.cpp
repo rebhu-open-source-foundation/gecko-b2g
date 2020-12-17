@@ -10,7 +10,6 @@
 #include "mozilla/ErrorResult.h"
 #include "mozilla/dom/BlobImpl.h"
 #include "mozilla/dom/FileSystemUtils.h"
-#include "nsCharSeparatedTokenizer.h"
 #include "nsIFile.h"
 #include "OSFileSystem.h"
 

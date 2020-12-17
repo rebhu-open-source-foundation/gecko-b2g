@@ -43,27 +43,14 @@ namespace jit {
   _(GetBoundName)                        \
   /* Generators / Async (bug 1317690) */ \
   _(IsGenClosing)                        \
-  _(InitialYield)                        \
-  _(Yield)                               \
-  _(FinalYieldRval)                      \
   _(Resume)                              \
-  _(ResumeKind)                          \
-  _(CheckResumeKind)                     \
-  _(AfterYield)                          \
-  _(Await)                               \
-  _(TrySkipAwait)                        \
-  _(Generator)                           \
-  _(AsyncAwait)                          \
-  _(AsyncResolve)                        \
   /* try-finally */                      \
   _(Finally)                             \
   _(Gosub)                               \
   _(Retsub)                              \
   /* Misc */                             \
   _(DelName)                             \
-  _(GetRval)                             \
   _(SetIntrinsic)                        \
-  _(ThrowMsg)                            \
   /* Private Fields */                   \
   _(InitLockedElem)                      \
   // === !! WARNING WARNING WARNING !! ===
@@ -307,6 +294,9 @@ class MOZ_STACK_CLASS WarpBuilder : public WarpBuilderShared {
 
   MOZ_MUST_USE bool buildInitPropGetterSetterOp(BytecodeLocation loc);
   MOZ_MUST_USE bool buildInitElemGetterSetterOp(BytecodeLocation loc);
+
+  MOZ_MUST_USE bool buildSuspend(BytecodeLocation loc, MDefinition* gen,
+                                 MDefinition* retVal);
 
   void buildCopyLexicalEnvOp(bool copySlots);
   void buildCheckLexicalOp(BytecodeLocation loc);

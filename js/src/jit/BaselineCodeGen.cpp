@@ -5046,33 +5046,44 @@ bool BaselineCodeGen<Handler>::emit_ToAsyncIter() {
 }
 
 template <typename Handler>
-bool BaselineCodeGen<Handler>::emit_TrySkipAwait() {
+bool BaselineCodeGen<Handler>::emit_CanSkipAwait() {
   frame.syncStack(0);
   masm.loadValue(frame.addressOfStackValue(-1), R0);
 
   prepareVMCall();
   pushArg(R0);
 
-  using Fn = bool (*)(JSContext*, HandleValue, MutableHandleValue);
-  if (!callVM<Fn, jit::TrySkipAwait>()) {
+  using Fn = bool (*)(JSContext*, HandleValue, bool* canSkip);
+  if (!callVM<Fn, js::CanSkipAwait>()) {
     return false;
   }
 
-  Label cannotSkip, done;
-  masm.branchTestMagicValue(Assembler::Equal, R0, JS_CANNOT_SKIP_AWAIT,
-                            &cannotSkip);
-  masm.moveValue(BooleanValue(true), R1);
-  masm.jump(&done);
-
-  masm.bind(&cannotSkip);
-  masm.loadValue(frame.addressOfStackValue(-1), R0);
-  masm.moveValue(BooleanValue(false), R1);
-
-  masm.bind(&done);
-
-  frame.pop();
+  masm.tagValue(JSVAL_TYPE_BOOLEAN, ReturnReg, R0);
   frame.push(R0);
-  frame.push(R1);
+  return true;
+}
+
+template <typename Handler>
+bool BaselineCodeGen<Handler>::emit_MaybeExtractAwaitValue() {
+  frame.syncStack(0);
+  masm.loadValue(frame.addressOfStackValue(-2), R0);
+
+  masm.unboxBoolean(frame.addressOfStackValue(-1), R1.scratchReg());
+
+  Label cantExtract;
+  masm.branchIfFalseBool(R1.scratchReg(), &cantExtract);
+
+  prepareVMCall();
+  pushArg(R0);
+
+  using Fn = bool (*)(JSContext*, HandleValue, MutableHandleValue);
+  if (!callVM<Fn, js::ExtractAwaitValue>()) {
+    return false;
+  }
+
+  masm.storeValue(R0, frame.addressOfStackValue(-2));
+  masm.bind(&cantExtract);
+
   return true;
 }
 
@@ -5586,7 +5597,7 @@ bool BaselineCodeGen<Handler>::emit_Generator() {
   pushArg(R0.scratchReg());
 
   using Fn = JSObject* (*)(JSContext*, BaselineFrame*);
-  if (!callVM<Fn, jit::CreateGenerator>()) {
+  if (!callVM<Fn, jit::CreateGeneratorFromFrame>()) {
     return false;
   }
 
@@ -5876,6 +5887,37 @@ bool BaselineCodeGen<Handler>::emit_Resume() {
   Register scratch2 = regs.takeAny();
   Label loop, loopDone;
   masm.load16ZeroExtend(Address(callee, JSFunction::offsetOfNargs()), scratch2);
+
+  static_assert(sizeof(Value) == 8);
+  static_assert(JitStackAlignment == 16 || JitStackAlignment == 8);
+  // If JitStackValueAlignment == 1, then we were already correctly aligned on
+  // entry, as guaranteed by the assertStackAlignment at the entry to this
+  // function.
+  if (JitStackValueAlignment > 1) {
+    Register alignment = regs.takeAny();
+    masm.moveStackPtrTo(alignment);
+    masm.alignJitStackBasedOnNArgs(scratch2, false);
+
+    // Compute alignment adjustment.
+    masm.subStackPtrFrom(alignment);
+
+    // Some code, like BaselineFrame::trace, will inspect the whole range of
+    // the stack frame. In order to ensure that garbage data left behind from
+    // previous activations doesn't confuse other machinery, we zero out the
+    // alignment bytes.
+    Label alignmentZero;
+    masm.branchPtr(Assembler::Equal, alignment, ImmWord(0), &alignmentZero);
+
+    // Since we know prior to the stack alignment that the stack was 8 byte
+    // aligned, and JitStackAlignment is 8 or 16 bytes, if we are doing an
+    // alignment then we -must- have aligned by subtracting 8 bytes from
+    // the stack pointer.
+    //
+    // So we can freely store a valid double here.
+    masm.storeValue(DoubleValue(0), Address(masm.getStackPointer(), 0));
+    masm.bind(&alignmentZero);
+  }
+
   masm.branchTest32(Assembler::Zero, scratch2, scratch2, &loopDone);
   masm.bind(&loop);
   {
@@ -6034,11 +6076,32 @@ bool BaselineCodeGen<Handler>::emit_Resume() {
     return false;
   }
 
-  // After the generator returns, we restore the stack pointer, switch back to
-  // the current realm, push the return value, and we're done.
+  Label afterFrameRestore;
+  masm.jump(&afterFrameRestore);
   masm.bind(&returnTarget);
+
+  // When we call into a function which may end up in Warp/Ion,
+  // we need to account for the possibility that BaselineFrameReg
+  // is clobbered. So we recompute it based on the frame descriptor.
+
+  // Load the frame descriptor into R2.
+  masm.loadPtr(Address(masm.getStackPointer(), 0), BaselineFrameReg);
+  // Compute Frame Size.
+  masm.rshiftPtr(Imm32(FRAMESIZE_SHIFT), BaselineFrameReg);
+  // Add to stack pointer.
+  masm.addStackPtrTo(BaselineFrameReg);
+
+  // This magic constant corresponds to the callee token and
+  // actualArgc pushed before the frame descriptor was pushed.
+  masm.addPtr(Imm32(2 * sizeof(void*)), BaselineFrameReg);
+  masm.bind(&afterFrameRestore);
+
+  // Restore Stack pointer
   masm.computeEffectiveAddress(frame.addressOfStackValue(-1),
                                masm.getStackPointer());
+
+  // After the generator returns, we restore the stack pointer, switch back to
+  // the current realm, push the return value, and we're done.
   if (JSScript* script = handler.maybeScript()) {
     masm.switchToRealm(script->realm(), R2.scratchReg());
   } else {

@@ -200,7 +200,7 @@ void ICEntry::trace(JSTracer* trc) {
   ICStub* stub = firstStub();
   while (!stub->isFallback()) {
     stub->toCacheIRStub()->trace(trc);
-    stub = stub->next();
+    stub = stub->toCacheIRStub()->next();
   }
   stub->toFallbackStub()->trace(trc);
 }
@@ -552,7 +552,7 @@ bool ICScript::initICEntries(JSContext* cx, JSScript* script) {
 
 ICStubConstIterator& ICStubConstIterator::operator++() {
   MOZ_ASSERT(currentStub_ != nullptr);
-  currentStub_ = currentStub_->next();
+  currentStub_ = currentStub_->toCacheIRStub()->next();
   return *this;
 }
 
@@ -564,23 +564,23 @@ ICStubIterator::ICStubIterator(ICFallbackStub* fallbackStub, bool end)
       unlinked_(false) {}
 
 ICStubIterator& ICStubIterator::operator++() {
-  MOZ_ASSERT(currentStub_->next() != nullptr);
+  MOZ_ASSERT(!currentStub_->isFallback());
   if (!unlinked_) {
-    previousStub_ = currentStub_;
+    previousStub_ = currentStub_->toCacheIRStub();
   }
-  currentStub_ = currentStub_->next();
+  currentStub_ = currentStub_->toCacheIRStub()->next();
   unlinked_ = false;
   return *this;
 }
 
 void ICStubIterator::unlink(JSContext* cx, JSScript* script) {
-  MOZ_ASSERT(currentStub_->next() != nullptr);
   MOZ_ASSERT(currentStub_ != fallbackStub_);
+  MOZ_ASSERT(currentStub_->maybeNext() != nullptr);
   MOZ_ASSERT(!unlinked_);
 
   fallbackStub_->maybeInvalidateWarp(cx, script);
   fallbackStub_->unlinkStubDontInvalidateWarp(cx->zone(), previousStub_,
-                                              currentStub_);
+                                              currentStub_->toCacheIRStub());
 
   // Mark the current iterator position as unlinked, so operator++ works
   // properly.
@@ -608,15 +608,6 @@ bool ICStub::makesGCCalls() const {
   }
 }
 
-// TODO(no-TI): move enteredCount_ to base class if it doesn't affect
-// sizeof(ICFallbackStub).
-uint32_t ICStub::getEnteredCount() const {
-  if (isFallback()) {
-    return toFallbackStub()->enteredCount();
-  }
-  return toCacheIRStub()->enteredCount();
-}
-
 void ICFallbackStub::trackNotAttached(JSContext* cx, JSScript* script) {
   maybeInvalidateWarp(cx, script);
   state().trackNotAttached();
@@ -641,14 +632,10 @@ void ICCacheIRStub::trace(JSTracer* trc) {
   JitCode* stubJitCode = jitCode();
   TraceManuallyBarrieredEdge(trc, &stubJitCode, "baseline-ic-stub-code");
 
-  TraceCacheIRStub(trc, static_cast<ICStub*>(this), stubInfo());
+  TraceCacheIRStub(trc, this, stubInfo());
 }
 
 void ICFallbackStub::trace(JSTracer* trc) {
-#ifdef MOZ_DIAGNOSTIC_ASSERT_ENABLED
-  checkTraceMagic();
-#endif
-
   // Fallback stubs use runtime-wide trampoline code we don't need to trace.
   MOZ_ASSERT(usesTrampolineCode());
 
@@ -716,10 +703,9 @@ static void TryAttachStub(const char* name, JSContext* cx, BaselineFrame* frame,
   }
 }
 
-void ICFallbackStub::unlinkStubDontInvalidateWarp(Zone* zone, ICStub* prev,
-                                                  ICStub* stub) {
-  MOZ_ASSERT(stub->next());
-
+void ICFallbackStub::unlinkStubDontInvalidateWarp(Zone* zone,
+                                                  ICCacheIRStub* prev,
+                                                  ICCacheIRStub* stub) {
   if (prev) {
     MOZ_ASSERT(prev->next() == stub);
     prev->setNext(stub->next());
@@ -733,7 +719,7 @@ void ICFallbackStub::unlinkStubDontInvalidateWarp(Zone* zone, ICStub* prev,
   if (zone->needsIncrementalBarrier()) {
     // We are removing edges from ICStub to gcthings. Perform one final trace
     // of the stub for incremental GC, as it must know about those edges.
-    stub->toCacheIRStub()->trace(zone->barrierTracer());
+    stub->trace(zone->barrierTracer());
   }
 
 #ifdef DEBUG
@@ -2783,15 +2769,6 @@ bool JitRuntime::generateBaselineICFallbackCode(JSContext* cx) {
 
   fallbackCode.initCode(code);
   return true;
-}
-
-// TODO(no-TI): no longer need this and cacheIRStubData in base class.
-const CacheIRStubInfo* ICStub::cacheIRStubInfo() const {
-  return toCacheIRStub()->stubInfo();
-}
-
-const uint8_t* ICStub::cacheIRStubData() {
-  return toCacheIRStub()->stubDataStart();
 }
 
 }  // namespace jit
