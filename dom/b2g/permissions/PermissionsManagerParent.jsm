@@ -79,10 +79,11 @@ class PermissionsManagerParent extends JSWindowActorParent {
     let realPerm = permissionsReverseTable[aPermName];
 
     if (realPerm) {
-      return (
+      let isExplicit =
         PermissionsTable[realPerm][appType] ==
-        Ci.nsIPermissionManager.PROMPT_ACTION
-      );
+        Ci.nsIPermissionManager.PROMPT_ACTION;
+      debug(`isExplicit: ${aOrigin} ${aPermName} isExplicit=${isExplicit}`);
+      return isExplicit;
     }
     return false;
   }
