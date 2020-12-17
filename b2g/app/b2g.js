@@ -1094,15 +1094,6 @@ pref('dom.performance.enable_user_timing_logging', true);
 pref('dom.performance.enable_user_timing_logging', false);
 #endif
 
-#ifdef TARGET_VARIANT_USER
-// Keep the least debug log in user build, to turn it off completely, set to 0.
-pref('focusmanager.loglevel', 1);
-pref('dom.browserElement.loglevel', 1);
-#else
-pref('focusmanager.loglevel', 2);
-pref('dom.browserElement.loglevel', 1);
-#endif
-
 // Turn off update of dummy thermal status
 pref('dom.battery.test.dummy_thermal_status', false);
 

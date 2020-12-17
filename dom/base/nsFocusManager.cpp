@@ -104,6 +104,53 @@ LazyLogModule gFocusNavigationLog("FocusNavigation");
 #define LOGCONTENTNAVIGATION(format, content) \
   LOGTAG(gFocusNavigationLog, format, content)
 
+#ifdef MOZ_WIDGET_GONK
+#include <android/log.h>
+#define LogGeneral(args...)                                           \
+  do {                                                                \
+    __android_log_print(ANDROID_LOG_INFO, "FocusManager", ## args);   \
+  } while(0)
+
+static inline void
+LogContent(const char* aMsg, nsPIDOMWindowOuter* aWindow)
+{
+  nsIURI* uri;
+  nsAutoCString spec;
+  if (aWindow && (uri = aWindow->GetDocumentURI())) {
+    uri->GetSpec(spec);
+  }
+
+  LogGeneral("%s,%s url: %s", aMsg, (aWindow ? "" : " NULL,"), spec.get());
+}
+
+static inline void
+LogContent(const char* aMsg, Element* aElement)
+{
+    nsCOMPtr<Element> element = aElement;
+    nsAutoString id;
+    nsAutoString tag;
+    nsAutoString className;
+    if (element) {
+      element->GetId(id);
+      element->GetTagName(tag);
+      element->GetClassName(className);
+    }
+
+    LogGeneral("%s,%s tag: %s, id: %s, class: %s", aMsg,
+        (aElement ? "" : " NULL,"),
+        NS_ConvertUTF16toUTF8(tag).get(),
+        NS_ConvertUTF16toUTF8(id).get(),
+        NS_ConvertUTF16toUTF8(className).get());
+}
+#else
+#define LogGeneral(args...)
+static inline void
+LogContent(const char* aMsg, nsPIDOMWindowOuter* aWindow) {}
+static inline void
+LogContent(const char* aMsg, Element* aContent) {}
+#endif
+
+
 struct nsDelayedBlurOrFocusEvent {
   nsDelayedBlurOrFocusEvent(EventMessage aEventMessage, PresShell* aPresShell,
                             Document* aDocument, EventTarget* aTarget,
@@ -471,9 +518,11 @@ nsFocusManager::GetLastFocusMethod(mozIDOMWindowProxy* aWindow,
 NS_IMETHODIMP
 nsFocusManager::SetFocus(Element* aElement, uint32_t aFlags) {
   LOGFOCUS(("<<SetFocus begin>>"));
+  LogGeneral("<< focus() called >>");
 
   NS_ENSURE_ARG(aElement);
 
+  LogContent("   trying to set focus on", aElement);
   SetFocusInner(aElement, aFlags, true, true, GenerateFocusActionId());
 
   LOGFOCUS(("<<SetFocus end>>"));
@@ -559,6 +608,7 @@ nsFocusManager::MoveFocus(mozIDOMWindowProxy* aWindow, Element* aStartElement,
 NS_IMETHODIMP
 nsFocusManager::ClearFocus(mozIDOMWindowProxy* aWindow) {
   LOGFOCUS(("<<ClearFocus begin>>"));
+  LogGeneral("<< blur() called or ClearFocus called >>");
 
   // if the window to clear is the focused window or an ancestor of the
   // focused window, then blur the existing focused content. Otherwise, the
@@ -670,6 +720,8 @@ void nsFocusManager::WindowRaised(mozIDOMWindowProxy* aWindow,
       }
     }
   }
+
+  LogGeneral("* WindowRaised *");
 
   if (XRE_IsParentProcess()) {
     if (mActiveWindow == window) {
@@ -1375,6 +1427,7 @@ void nsFocusManager::SetFocusInner(Element* aNewContent, int32_t aFlags,
   RefPtr<Element> elementToFocus =
       FlushAndCheckIfFocusable(aNewContent, aFlags);
   if (!elementToFocus) {
+    LogGeneral("Warning: element is not focusable.");
     return;
   }
 
@@ -1412,6 +1465,7 @@ void nsFocusManager::SetFocusInner(Element* aNewContent, int32_t aFlags,
   // focused rather than the frame it is in.
   if (!newWindow || (newBrowsingContext == GetFocusedBrowsingContext() &&
                      elementToFocus == mFocusedElement)) {
+    LogGeneral("Warning: element is already focused.");
     return;
   }
 
@@ -1619,6 +1673,9 @@ void nsFocusManager::SetFocusInner(Element* aNewContent, int32_t aFlags,
        "SendFocus: %d",
        isElementInActiveWindow, focusMovesToDifferentBC, sendFocusEvent));
 
+  LogContent("   current focused element", mFocusedElement);
+
+
   if (sendFocusEvent) {
     Maybe<BlurredElementInfo> blurredInfo;
     if (mFocusedElement) {
@@ -1665,6 +1722,9 @@ void nsFocusManager::SetFocusInner(Element* aNewContent, int32_t aFlags,
                 commonAncestor ? commonAncestor.get() : nullptr,
                 focusMovesToDifferentBC, aAdjustWidget, aActionId,
                 elementToFocus)) {
+        LogGeneral("Warning: fail on blurring current focused window.");
+        LogContent(" current active window", mActiveWindow);
+        LogContent(" current focused window", mFocusedWindow);
         return;
       }
     }
@@ -2205,6 +2265,7 @@ bool nsFocusManager::BlurImpl(BrowsingContext* aBrowsingContextToClear,
   // Don't fire blur event on the root content which isn't editable.
   bool sendBlurEvent =
       element && element->IsInComposedDoc() && !IsNonFocusableRoot(element);
+  LogContent("<- blur on", element);
   if (element) {
     if (sendBlurEvent) {
       NotifyFocusStateChange(element, aElementToFocus, shouldShowFocusRing, 0,
@@ -2377,6 +2438,7 @@ void nsFocusManager::Focus(
 
   if (aElement &&
       (aElement == mFirstFocusEvent || aElement == mFirstBlurEvent)) {
+    LogGeneral("Warning: still in a focus or blur event.");
     return;
   }
 
@@ -2443,6 +2505,8 @@ void nsFocusManager::Focus(
     LOGFOCUS((" [Newdoc: %d FocusChanged: %d Raised: %d Flags: %x]",
               aIsNewDocument, aFocusChanged, aWindowRaised, aFlags));
   }
+
+  LogContent("-> focus is now on", aElement);
 
   if (aIsNewDocument) {
     // if this is a new document, update the parent chain of frames so that
