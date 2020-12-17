@@ -63,7 +63,7 @@ const FEATURE_BACKGROUND_SCAN = Ci.nsIWifiResult.FEATURE_BACKGROUND_SCAN;
 const FEATURE_LINK_LAYER_STATS = Ci.nsIWifiResult.FEATURE_LINK_LAYER_STATS;
 const FEATURE_RSSI_MONITOR = Ci.nsIWifiResult.FEATURE_RSSI_MONITOR;
 const FEATURE_CONTROL_ROAMING = Ci.nsIWifiResult.FEATURE_CONTROL_ROAMING;
-const FEATURE_PROBE_IE_WHITELIST = Ci.nsIWifiResult.FEATURE_PROBE_IE_WHITELIST;
+const FEATURE_PROBE_IE_ALLOWLIST = Ci.nsIWifiResult.FEATURE_PROBE_IE_ALLOWLIST;
 const FEATURE_SCAN_RAND = Ci.nsIWifiResult.FEATURE_SCAN_RAND;
 const FEATURE_STA_5G = Ci.nsIWifiResult.FEATURE_STA_5G;
 const FEATURE_HOTSPOT = Ci.nsIWifiResult.FEATURE_HOTSPOT;
@@ -1213,7 +1213,7 @@ var WifiManager = (function() {
     }
     var bssid = event.bssid;
     if (bssid && bssid !== "00:00:00:00:00:00") {
-      // If we have a BSSID, tell configStore to black list it
+      // If we have a BSSID, tell configStore to add it into deny list.
       if (WifiNetworkSelector.trackBssid(bssid, false, event.statusCode)) {
         manager.setFirmwareRoamingConfiguration();
       }
@@ -1897,11 +1897,11 @@ var WifiManager = (function() {
   };
 
   manager.setFirmwareRoamingConfiguration = function() {
-    let blackList = Array.from(WifiNetworkSelector.bssidBlacklist.keys());
+    let denyList = Array.from(WifiNetworkSelector.bssidDenylist.keys());
 
     let roamingConfig = {
-      bssidBlacklist: blackList,
-      ssidWhitelist: [],
+      bssidDenylist: denyList,
+      ssidAllowlist: [],
     };
     wifiCommand.configureFirmwareRoaming(roamingConfig, function() {});
   };
@@ -3230,7 +3230,7 @@ WifiWorker.prototype = {
   },
 
   handleScanResults(scanResults) {
-    WifiNetworkSelector.updateBssidBlacklist(function(updated) {
+    WifiNetworkSelector.updateBssidDenylist(function(updated) {
       if (updated) {
         WifiManager.setFirmwareRoamingConfiguration();
       }

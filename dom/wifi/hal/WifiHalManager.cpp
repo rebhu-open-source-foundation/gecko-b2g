@@ -424,27 +424,27 @@ Result_t WifiHal::ConfigureFirmwareRoaming(
     return nsIWifiResult::ERROR_COMMAND_FAILED;
   }
 
-  // set the black and white list to firmware
+  // set the deny and allow list to firmware
   StaRoamingConfig roamingConfig;
-  size_t blackListSize = 0;
-  size_t whiteListSize = 0;
-  std::vector<hidl_array<uint8_t, 6>> bssidBlackList;
-  std::vector<hidl_array<uint8_t, 32>> ssidWhiteList;
-  if (!mRoamingConfig->mBssidBlacklist.IsEmpty()) {
-    for (auto& item : mRoamingConfig->mBssidBlacklist) {
-      if (blackListSize++ > roamingCaps.maxBlacklistSize) {
+  size_t denyListSize = 0;
+  size_t allowListSize = 0;
+  std::vector<hidl_array<uint8_t, 6>> bssidDenyList;
+  std::vector<hidl_array<uint8_t, 32>> ssidAllowList;
+  if (!mRoamingConfig->mBssidDenylist.IsEmpty()) {
+    for (auto& item : mRoamingConfig->mBssidDenylist) {
+      if (denyListSize++ > roamingCaps.maxBlacklistSize) {
         break;
       }
       std::string bssid_str = NS_ConvertUTF16toUTF8(item).get();
       hidl_array<uint8_t, 6> bssid;
       ConvertMacToByteArray(bssid_str, bssid);
-      bssidBlackList.push_back(bssid);
+      bssidDenyList.push_back(bssid);
     }
   }
 
-  if (!mRoamingConfig->mSsidWhitelist.IsEmpty()) {
-    for (auto& item : mRoamingConfig->mSsidWhitelist) {
-      if (whiteListSize++ > roamingCaps.maxWhitelistSize) {
+  if (!mRoamingConfig->mSsidAllowlist.IsEmpty()) {
+    for (auto& item : mRoamingConfig->mSsidAllowlist) {
+      if (allowListSize++ > roamingCaps.maxWhitelistSize) {
         break;
       }
       std::string ssid_str = NS_ConvertUTF16toUTF8(item).get();
@@ -453,12 +453,12 @@ Result_t WifiHal::ConfigureFirmwareRoaming(
       for (size_t i = 0; i < ssid.size(); i++) {
         ssid[i] = ssid_str.at(i);
       }
-      ssidWhiteList.push_back(ssid);
+      ssidAllowList.push_back(ssid);
     }
   }
 
-  roamingConfig.bssidBlacklist = bssidBlackList;
-  roamingConfig.ssidWhitelist = ssidWhiteList;
+  roamingConfig.bssidBlacklist = bssidDenyList;
+  roamingConfig.ssidWhitelist = ssidAllowList;
 
   HIDL_SET(mStaIface, configureRoaming, WifiStatus, response, roamingConfig);
   return CHECK_SUCCESS(response.code == WifiStatusCode::SUCCESS);
