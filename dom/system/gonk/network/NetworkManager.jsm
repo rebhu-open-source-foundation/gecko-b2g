@@ -79,30 +79,18 @@ const MANUAL_PROXY_CONFIGURATION =
 
 const CLAT_PREFIX = "v4-";
 
-var debug;
-/* eslint-disable no-global-assign */
+var DEBUG = false;
 function updateDebug() {
-  //TODO: always true for now.
-  /*
-  let debugPref = false; // set default value here.
   try {
-    debugPref =
-      debugPref || Services.prefs.getBoolPref(PREF_NETWORK_DEBUG_ENABLED);
+    DEBUG = DEBUG || Services.prefs.getBoolPref(PREF_NETWORK_DEBUG_ENABLED);
   } catch (e) {}
-
-  if (debugPref) {
-    debug = function(s) {
-      dump("-*- NetworkManager: " + s + "\n");
-    };
-  } else {
-    debug = function(s) {};
-  }
-*/
-  debug = function(s) {
-    console.log("-*- NetworkManager: ", s, "\n");
-  };
 }
-/* eslint-enable no-global-assign */
+
+function debug(s) {
+  if (DEBUG) {
+    console.log("-*- NetworkManager: ", s, "\n");
+  }
+}
 updateDebug();
 
 function defineLazyRegExp(obj, name, pattern) {
