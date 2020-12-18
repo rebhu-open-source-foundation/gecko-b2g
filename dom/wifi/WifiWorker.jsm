@@ -260,11 +260,12 @@ XPCOMUtils.defineLazyServiceGetter(
   "nsIImsRegService"
 );
 
-// ChromeUtils.defineLazyModuleGetter(
-//   this,
-//   "PhoneNumberUtils",
-//   "resource://gre/modules/PhoneNumberUtils.jsm"
-// );
+XPCOMUtils.defineLazyModuleGetter(
+  this,
+  "gPhoneNumberUtils",
+  "resource://gre/modules/PhoneNumberUtils.jsm",
+  "PhoneNumberUtils"
+);
 
 var wifiInfo = new WifiInfo();
 var lastNetwork = null;
@@ -3131,8 +3132,7 @@ WifiWorker.prototype = {
   notifyClirModeChanged(aMode) {},
 
   notifyLastKnownNetworkChanged() {
-    let countryCode = "US";
-    // FIXME: PhoneNumberUtils.getCountryName().toUpperCase();
+    let countryCode = gPhoneNumberUtils.getCountryName().toUpperCase();
     if (countryCode != "" && countryCode !== this.lastKnownCountryCode) {
       debug("Set country code = " + countryCode);
       this.lastKnownCountryCode = countryCode;
@@ -3156,8 +3156,7 @@ WifiWorker.prototype = {
     if (this.lastKnownCountryCode) {
       return this.lastKnownCountryCode;
     }
-    // FIXME: NS_ERROR_FILE_NOT_FOUND
-    return "US"; // PhoneNumberUtils.getCountryName().toUpperCase();
+    return gPhoneNumberUtils.getCountryName().toUpperCase();
   },
 
   // nsIIccListener
