@@ -425,6 +425,8 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
   mozilla::ipc::IPCResult RecvSafeAreaInsetsChanged(
       const mozilla::ScreenIntMargin& aSafeAreaInsets);
 
+  mozilla::ipc::IPCResult RecvSetUpdateHitRegion(const bool& aEnabled);
+
 #ifdef ACCESSIBILITY
   PDocAccessibleChild* AllocPDocAccessibleChild(PDocAccessibleChild*,
                                                 const uint64_t&,
@@ -721,6 +723,8 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
           ContentBlockingNotifier::StorageAccessPermissionGrantedReason>&
           aReason);
 
+  bool GetUpdateHitRegion() const { return mUpdateHitRegion; }
+
  protected:
   virtual ~BrowserChild();
 
@@ -945,6 +949,8 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
 
   Maybe<LayoutDeviceToLayoutDeviceMatrix4x4> mChildToParentConversionMatrix;
   ScreenRect mTopLevelViewportVisibleRectInBrowserCoords;
+
+  bool mUpdateHitRegion;
 
 #ifdef XP_WIN
   // Should only be accessed on main thread.

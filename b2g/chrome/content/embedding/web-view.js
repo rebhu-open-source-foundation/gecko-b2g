@@ -350,7 +350,13 @@
     }
 
     static get observedAttributes() {
-      return ["src", "remote", "ignoreuserfocus", "transparent"];
+      return [
+        "src",
+        "remote",
+        "ignoreuserfocus",
+        "transparent",
+        "mozpasspointerevents",
+      ];
     }
 
     attributeChangedCallback(name, old_value, new_value) {

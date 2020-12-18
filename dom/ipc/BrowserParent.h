@@ -487,6 +487,8 @@ class BrowserParent final : public PBrowserParent,
       const uint64_t& aOuterWindowID,
       IsWindowSupportingWebVRResolver&& aResolve);
 
+  mozilla::ipc::IPCResult RecvUpdateHitRegion(const nsRegion& aRegion);
+
   void LoadURL(nsDocShellLoadState* aLoadState);
 
   void ResumeLoad(uint64_t aPendingSwitchID);
@@ -725,6 +727,11 @@ class BrowserParent final : public PBrowserParent,
   bool CanCancelContentJS(nsIRemoteTab::NavigationType aNavigationType,
                           int32_t aNavigationIndex,
                           nsIURI* aNavigationURI) const;
+
+  // To start record the HitReigon from child process, used by
+  // mozpasspointerevents.
+  bool SetUpdateHitRegion(bool aEnabled);
+  bool HitTest(const nsRect& aRect);
 
  protected:
   friend BrowserBridgeParent;
@@ -972,6 +979,9 @@ class BrowserParent final : public PBrowserParent,
   nsTArray<nsString> mVerifyDropLinks;
 
   RefPtr<VsyncParent> mVsyncParent;
+
+  bool mEnableHitRegion;
+  nsRegion mHitRegion;
 
 #ifdef DEBUG
   int32_t mActiveSupressDisplayportCount = 0;

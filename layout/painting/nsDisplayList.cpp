@@ -2670,6 +2670,11 @@ void nsDisplayList::DeleteAll(nsDisplayListBuilder* aBuilder) {
 }
 
 static bool IsFrameReceivingPointerEvents(nsIFrame* aFrame) {
+  if (nsSubDocumentFrame* subdoc = do_QueryFrame(aFrame)) {
+    if (subdoc->PassPointerEventsToChildren()) {
+      return true;
+    }
+  }
   return StylePointerEvents::None !=
          aFrame->StyleUI()->GetEffectivePointerEvents(aFrame);
 }

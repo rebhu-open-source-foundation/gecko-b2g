@@ -1093,7 +1093,7 @@ mozilla::ipc::IPCResult BrowserChild::RecvLoadURL(
   if (!StringEndsWith(host, ".localhost"_ns) &&
       !StringEndsWith(host, "about:blank"_ns) && mIsTopLevel) {
     nsCOMPtr<nsIEffectiveTLDService> tldService =
-      do_GetService(NS_EFFECTIVETLDSERVICE_CONTRACTID);
+        do_GetService(NS_EFFECTIVETLDSERVICE_CONTRACTID);
     MOZ_ASSERT(tldService);
 
     nsAutoCString baseDomain;
@@ -3504,6 +3504,25 @@ mozilla::ipc::IPCResult BrowserChild::RecvSetWidgetNativeData(
 
 mozilla::ipc::IPCResult BrowserChild::RecvReleaseAllPointerCapture() {
   PointerEventHandler::ReleaseAllPointerCapture();
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult BrowserChild::RecvSetUpdateHitRegion(
+    const bool& aEnabled) {
+  mUpdateHitRegion = aEnabled;
+
+  // We need to trigger a repaint of the child frame to ensure that it
+  // recomputes and sends its region.
+  if (!mUpdateHitRegion) {
+    return IPC_OK();
+  }
+
+  if (RefPtr<Document> document = GetTopLevelDocument()) {
+    if (RefPtr<nsPresContext> presContext = document->GetPresContext()) {
+      presContext->InvalidatePaintedLayers();
+    }
+  }
+
   return IPC_OK();
 }
 

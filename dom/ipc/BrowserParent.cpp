@@ -4225,6 +4225,21 @@ mozilla::ipc::IPCResult BrowserParent::RecvReleasePointerCapture(
   return IPC_OK();
 }
 
+mozilla::ipc::IPCResult BrowserParent::RecvUpdateHitRegion(
+    const nsRegion& aRegion) {
+  mHitRegion = aRegion;
+  return IPC_OK();
+}
+
+bool BrowserParent::SetUpdateHitRegion(bool aEnabled) {
+  mEnableHitRegion = aEnabled;
+  return SendSetUpdateHitRegion(aEnabled);
+}
+
+bool BrowserParent::HitTest(const nsRect& aRect) {
+  return mEnableHitRegion && mHitRegion.Contains(aRect);
+}
+
 PKeyboardEventForwarderParent*
 BrowserParent::AllocPKeyboardEventForwarderParent() {
   RefPtr<KeyboardEventForwarderParent> actor =

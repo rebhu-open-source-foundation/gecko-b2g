@@ -110,6 +110,7 @@ using mozilla::dom::EmbedderElementEventType from "mozilla/dom/TabMessageTypes.h
 using refcounted class nsDocShellLoadState from "nsDocShellLoadState.h";
 using mozilla::IntrinsicSize from "nsIFrame.h";
 using mozilla::AspectRatio from "mozilla/AspectRatio.h";
+using class nsRegion from "nsRegion.h";
 
 namespace mozilla {
 namespace dom {
@@ -1082,6 +1083,16 @@ parent:
      */
     async NewWindowGlobal(ManagedEndpoint<PWindowGlobalParent> aEndpoint,
                           WindowGlobalInit aInit);
+
+child:
+    /**
+     * Tell the child side if it has to update it's touchable region
+     * to the parent.
+     */
+    async SetUpdateHitRegion(bool aEnabled);
+
+parent:
+    async UpdateHitRegion(nsRegion aRegion);
 
 /*
  * FIXME: write protocol!
