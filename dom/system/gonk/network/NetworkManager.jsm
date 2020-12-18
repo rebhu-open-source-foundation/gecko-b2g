@@ -2286,45 +2286,50 @@ NetworkManager.prototype = {
       return Promise.resolve([aHostname]);
     }
 
-    // Wrap gDNSService.asyncResolveExtended to a promise, which
+    // Wrap gDNSService.asyncResolve to a promise, which
     // resolves with an array of ip addresses or rejects with
     // the reason otherwise.
     let hostResolveWrapper = () => {
       return new Promise((aResolve, aReject) => {
-        // Callback for gDNSService.asyncResolveExtended.
-        let onLookupComplete = (aRequest, aRecord, aStatus) => {
-          if (!Components.isSuccessCode(aStatus)) {
-            aReject(
-              new Error(
-                "Failed to resolve '" + aHostname + "', with status: " + aStatus
-              )
-            );
-            return;
-          }
+        // Callback for gDNSService.asyncResolve.
+        let dnsListener = {
+          onLookupComplete(aRequest, aRecord, aStatus) {
+            if (!Components.isSuccessCode(aStatus)) {
+              aReject(
+                new Error(
+                  "Failed to resolve '" +
+                    aHostname +
+                    "', with status: " +
+                    aStatus
+                )
+              );
+              return;
+            }
+            aRecord.QueryInterface(Ci.nsIDNSAddrRecord);
 
-          let retval = [];
-          while (aRecord.hasMore()) {
-            retval.push(aRecord.getNextAddrAsString());
-          }
+            let retval = [];
+            while (aRecord.hasMore()) {
+              retval.push(aRecord.getNextAddrAsString());
+            }
 
-          if (!retval.length) {
-            aReject(new Error("No valid address after DNS lookup!"));
-            return;
-          }
+            if (!retval.length) {
+              aReject(new Error("No valid address after DNS lookup!"));
+              return;
+            }
 
-          debug("hostname is resolved: " + aHostname);
-          debug("Addresses: " + JSON.stringify(retval));
+            debug("hostname is resolved: " + aHostname);
+            debug("Addresses: " + JSON.stringify(retval));
 
-          aResolve(retval);
+            aResolve(retval);
+          },
         };
-
-        debug("Calling gDNSService.asyncResolveExtended: " + aHostname);
+        debug("Calling gDNSService.asyncResolve: " + aHostname);
         gDNSService.asyncResolve(
           aHostname,
           Ci.nsIDNSService.RESOLVE_TYPE_DEFAULT,
           0,
           null,
-          onLookupComplete,
+          dnsListener,
           Services.tm.mainThread,
           {}
         );
