@@ -3558,22 +3558,6 @@ bool CacheIRCompiler::emitGuardNoAllocationMetadataBuilder() {
   return true;
 }
 
-bool CacheIRCompiler::emitGuardObjectGroupNotPretenured(uint32_t groupOffset) {
-  JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
-  AutoScratchRegister scratch(allocator, masm);
-
-  FailurePath* failure;
-  if (!addFailurePath(&failure)) {
-    return false;
-  }
-
-  StubFieldOffset group(groupOffset, StubField::Type::ObjectGroup);
-  emitLoadStubField(group, scratch);
-
-  masm.branchIfPretenuredGroup(scratch, failure->label());
-  return true;
-}
-
 bool CacheIRCompiler::emitGuardFunctionHasJitEntry(ObjOperandId funId,
                                                    bool constructing) {
   JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
@@ -6519,8 +6503,7 @@ bool CacheIRCompiler::emitWrapResult() {
 }
 
 bool CacheIRCompiler::emitMegamorphicLoadSlotByValueResult(ObjOperandId objId,
-                                                           ValOperandId idId,
-                                                           bool handleMissing) {
+                                                           ValOperandId idId) {
   JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
   AutoOutputRegister output(*this);
 
@@ -6554,11 +6537,8 @@ bool CacheIRCompiler::emitMegamorphicLoadSlotByValueResult(ObjOperandId objId,
   masm.passABIArg(scratch);
   masm.passABIArg(obj);
   masm.passABIArg(idVal.scratchReg());
-  if (handleMissing) {
-    masm.callWithABI<Fn, GetNativeDataPropertyByValuePure<true>>();
-  } else {
-    masm.callWithABI<Fn, GetNativeDataPropertyByValuePure<false>>();
-  }
+  masm.callWithABI<Fn, GetNativeDataPropertyByValuePure>();
+
   masm.mov(ReturnReg, scratch);
   masm.PopRegsInMask(volatileRegs);
 
@@ -6813,8 +6793,7 @@ bool CacheIRCompiler::emitLoadInstanceOfObjectResult(ValOperandId lhsId,
 }
 
 bool CacheIRCompiler::emitMegamorphicLoadSlotResult(ObjOperandId objId,
-                                                    uint32_t nameOffset,
-                                                    bool handleMissing) {
+                                                    uint32_t nameOffset) {
   JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
   AutoOutputRegister output(*this);
 
@@ -6852,11 +6831,8 @@ bool CacheIRCompiler::emitMegamorphicLoadSlotResult(ObjOperandId objId,
   emitLoadStubField(name, scratch2);
   masm.passABIArg(scratch2);
   masm.passABIArg(scratch3);
-  if (handleMissing) {
-    masm.callWithABI<Fn, GetNativeDataPropertyPure<true>>();
-  } else {
-    masm.callWithABI<Fn, GetNativeDataPropertyPure<false>>();
-  }
+  masm.callWithABI<Fn, GetNativeDataPropertyPure>();
+
   masm.mov(ReturnReg, scratch2);
   masm.PopRegsInMask(volatileRegs);
 
@@ -6873,8 +6849,7 @@ bool CacheIRCompiler::emitMegamorphicLoadSlotResult(ObjOperandId objId,
 
 bool CacheIRCompiler::emitMegamorphicStoreSlot(ObjOperandId objId,
                                                uint32_t nameOffset,
-                                               ValOperandId rhsId,
-                                               bool needsTypeBarrier) {
+                                               ValOperandId rhsId) {
   JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
   Register obj = allocator.useRegister(masm, objId);
   StubFieldOffset name(nameOffset, StubField::Type::String);
@@ -6907,11 +6882,8 @@ bool CacheIRCompiler::emitMegamorphicStoreSlot(ObjOperandId objId,
   emitLoadStubField(name, scratch2);
   masm.passABIArg(scratch2);
   masm.passABIArg(val.scratchReg());
-  if (needsTypeBarrier) {
-    masm.callWithABI<Fn, SetNativeDataPropertyPure<true>>();
-  } else {
-    masm.callWithABI<Fn, SetNativeDataPropertyPure<false>>();
-  }
+  masm.callWithABI<Fn, SetNativeDataPropertyPure>();
+
   masm.mov(ReturnReg, scratch1);
   masm.PopRegsInMask(volatileRegs);
 
@@ -7189,10 +7161,8 @@ bool CacheIRCompiler::emitCallIsSuspendedGeneratorResult(ValOperandId valId) {
   return true;
 }
 
-// This op generates no code. It is consumed by BaselineInspector.
-bool CacheIRCompiler::emitMetaTwoByte(MetaTwoByteKind, uint32_t, uint32_t) {
-  return true;
-}
+// This op generates no code. It is consumed by the transpiler.
+bool CacheIRCompiler::emitMetaTwoByte(uint32_t, uint32_t) { return true; }
 
 bool CacheIRCompiler::emitCallNativeGetElementResult(ObjOperandId objId,
                                                      Int32OperandId indexId) {

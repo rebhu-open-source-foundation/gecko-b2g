@@ -507,10 +507,6 @@ static bool TrialInline(JSContext* cx, unsigned argc, Value* vp) {
   CallArgs args = CallArgsFromVp(argc, vp);
   args.rval().setUndefined();
 
-  if (!jit::JitOptions.warpBuilder) {
-    return true;
-  }
-
   FrameIter iter(cx);
   if (iter.done() || !iter.isBaseline() || iter.realm() != cx->realm()) {
     return true;
@@ -625,6 +621,8 @@ static bool MinorGC(JSContext* cx, unsigned argc, Value* vp) {
   _("gcBytes", JSGC_BYTES, false)                                          \
   _("nurseryBytes", JSGC_NURSERY_BYTES, false)                             \
   _("gcNumber", JSGC_NUMBER, false)                                        \
+  _("majorGCNumber", JSGC_MAJOR_GC_NUMBER, false)                          \
+  _("minorGCNumber", JSGC_MINOR_GC_NUMBER, false)                          \
   _("mode", JSGC_MODE, true)                                               \
   _("unusedChunks", JSGC_UNUSED_CHUNKS, false)                             \
   _("totalChunks", JSGC_TOTAL_CHUNKS, false)                               \

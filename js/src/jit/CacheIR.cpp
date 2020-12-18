@@ -991,10 +991,6 @@ static bool CanAttachDOMCall(JSContext* cx, JSJitInfo::OpType type,
   MOZ_ASSERT(type == JSJitInfo::Getter || type == JSJitInfo::Setter ||
              type == JSJitInfo::Method);
 
-  if (!JitOptions.warpBuilder) {
-    return false;
-  }
-
   if (mode != ICState::Mode::Specialized) {
     return false;
   }
@@ -1062,23 +1058,17 @@ void GetPropIRGenerator::attachMegamorphicNativeSlot(ObjOperandId objId,
                                                      bool handleMissing) {
   MOZ_ASSERT(mode_ == ICState::Mode::Megamorphic);
 
-  // TODO(no-TI): remove.
-  handleMissing = true;
-
   if (cacheKind_ == CacheKind::GetProp ||
       cacheKind_ == CacheKind::GetPropSuper) {
-    writer.megamorphicLoadSlotResult(objId, JSID_TO_ATOM(id)->asPropertyName(),
-                                     handleMissing);
+    writer.megamorphicLoadSlotResult(objId, JSID_TO_ATOM(id)->asPropertyName());
   } else {
     MOZ_ASSERT(cacheKind_ == CacheKind::GetElem ||
                cacheKind_ == CacheKind::GetElemSuper);
-    writer.megamorphicLoadSlotByValueResult(objId, getElemKeyValueId(),
-                                            handleMissing);
+    writer.megamorphicLoadSlotByValueResult(objId, getElemKeyValueId());
   }
   writer.returnFromIC();
 
-  trackAttached(handleMissing ? "MegamorphicMissingNativeSlot"
-                              : "MegamorphicNativeSlot");
+  trackAttached("MegamorphicNativeSlot");
 }
 
 AttachDecision GetPropIRGenerator::tryAttachNative(HandleObject obj,
@@ -3494,9 +3484,8 @@ AttachDecision SetPropIRGenerator::tryAttachNativeSetSlot(HandleObject obj,
   // Don't attach a megamorphic store slot stub for ops like JSOp::InitElem.
   if (mode_ == ICState::Mode::Megamorphic && cacheKind_ == CacheKind::SetProp &&
       IsPropertySetOp(JSOp(*pc_))) {
-    // TODO(no-TI): remove needsTypeBarrier from MegamorphicStoreSlot.
     writer.megamorphicStoreSlot(objId, JSID_TO_ATOM(id)->asPropertyName(),
-                                rhsId, /* needsTypeBarrier = */ false);
+                                rhsId);
     writer.returnFromIC();
     trackAttached("MegamorphicNativeSlot");
     return AttachDecision::Attach;
@@ -4902,7 +4891,7 @@ void CallIRGenerator::emitCalleeGuard(ObjOperandId calleeId,
   // for lambda clones (multiple functions with the same BaseScript). We guard
   // on the function's BaseScript if the callee is scripted and this isn't the
   // first IC stub.
-  if (!JitOptions.warpBuilder || isFirstStub_ || !callee->hasBaseScript() ||
+  if (isFirstStub_ || !callee->hasBaseScript() ||
       callee->isSelfHostedBuiltin()) {
     writer.guardSpecificFunction(calleeId, callee);
   } else {
@@ -5142,12 +5131,6 @@ AttachDecision CallIRGenerator::tryAttachArraySlice(HandleFunction callee) {
   }
 
   writer.packedArraySliceResult(templateObj, objId, int32BeginId, int32EndId);
-
-  if (!JitOptions.warpBuilder) {
-    // Store the template object for BaselineInspector.
-    writer.metaNativeTemplateObject(callee, templateObj);
-  }
-
   writer.returnFromIC();
 
   trackAttached("ArraySlice");
@@ -5937,12 +5920,6 @@ AttachDecision CallIRGenerator::tryAttachStringConstructor(
   ValOperandId argId =
       writer.loadArgumentFixedSlot(ArgumentKind::Arg0, argc_, flags);
   StringOperandId strId = writer.guardToString(argId);
-
-  if (!JitOptions.warpBuilder) {
-    // Store the template object for BaselineInspector.
-    writer.metaNativeTemplateObject(callee, templateObj);
-  }
-
   writer.newStringObjectResult(templateObj, strId);
   writer.returnFromIC();
 
@@ -7822,10 +7799,6 @@ AttachDecision CallIRGenerator::tryAttachNewArrayIterator(
 
   // Note: we don't need to call emitNativeCalleeGuard for intrinsics.
 
-  if (!JitOptions.warpBuilder) {
-    // Store the template object for BaselineInspector.
-    writer.metaNativeTemplateObject(callee, templateObj);
-  }
   writer.newArrayIteratorResult(templateObj);
   writer.returnFromIC();
 
@@ -7849,10 +7822,6 @@ AttachDecision CallIRGenerator::tryAttachNewStringIterator(
 
   // Note: we don't need to call emitNativeCalleeGuard for intrinsics.
 
-  if (!JitOptions.warpBuilder) {
-    // Store the template object for BaselineInspector.
-    writer.metaNativeTemplateObject(callee, templateObj);
-  }
   writer.newStringIteratorResult(templateObj);
   writer.returnFromIC();
 
@@ -7876,10 +7845,6 @@ AttachDecision CallIRGenerator::tryAttachNewRegExpStringIterator(
 
   // Note: we don't need to call emitNativeCalleeGuard for intrinsics.
 
-  if (!JitOptions.warpBuilder) {
-    // Store the template object for BaselineInspector.
-    writer.metaNativeTemplateObject(callee, templateObj);
-  }
   writer.newRegExpStringIteratorResult(templateObj);
   writer.returnFromIC();
 
@@ -7953,11 +7918,6 @@ AttachDecision CallIRGenerator::tryAttachObjectCreate(HandleFunction callee) {
     writer.guardIsNull(argId);
   }
 
-  if (!JitOptions.warpBuilder) {
-    // Store the template object for BaselineInspector.
-    writer.metaNativeTemplateObject(callee, templateObj);
-  }
-
   writer.objectCreateResult(templateObj);
   writer.returnFromIC();
 
@@ -8014,12 +7974,6 @@ AttachDecision CallIRGenerator::tryAttachArrayConstructor(
   }
 
   writer.newArrayFromLengthResult(templateObj, lengthId);
-
-  if (!JitOptions.warpBuilder) {
-    // Store the template object for BaselineInspector.
-    writer.metaNativeTemplateObject(callee, templateObj);
-  }
-
   writer.returnFromIC();
 
   trackAttached("ArrayConstructor");
@@ -8115,11 +8069,6 @@ AttachDecision CallIRGenerator::tryAttachTypedArrayConstructor(
       writer.guardIsNotProxy(objId);
       writer.newTypedArrayFromArrayResult(templateObj, objId);
     }
-  }
-
-  if (!JitOptions.warpBuilder) {
-    // Store the template object for BaselineInspector.
-    writer.metaNativeTemplateObject(callee, templateObj);
   }
 
   writer.returnFromIC();
@@ -8235,7 +8184,7 @@ AttachDecision CallIRGenerator::tryAttachWasmCall(HandleFunction calleeFunc) {
 
   MOZ_ASSERT(calleeFunc->isWasmWithJitEntry());
 
-  if (!JitOptions.warpBuilder || !JitOptions.enableWasmIonFastCalls) {
+  if (!JitOptions.enableWasmIonFastCalls) {
     return AttachDecision::NoAction;
   }
   if (!isFirstStub_) {
@@ -8852,26 +8801,25 @@ AttachDecision CallIRGenerator::tryAttachCallScripted(
     // Ensure callee matches this stub's callee
     emitCalleeGuard(calleeObjId, calleeFunc);
     if (templateObj) {
+      // Emit guards to ensure the newTarget's .prototype property is what we
+      // expect. Note that getThisForScripted checked newTarget is a function
+      // with a non-configurable .prototype data property.
+      JSFunction* newTarget = &newTarget_.toObject().as<JSFunction>();
+      Shape* shape = newTarget->lookupPure(cx_->names().prototype);
+      MOZ_ASSERT(shape);
+      MOZ_ASSERT(newTarget->numFixedSlots() == 0, "Stub code relies on this");
+      uint32_t slot = shape->slot();
+      JSObject* prototypeObject = &newTarget->getSlot(slot).toObject();
+
+      ValOperandId newTargetValId = writer.loadArgumentDynamicSlot(
+          ArgumentKind::NewTarget, argcId, flags);
+      ObjOperandId newTargetObjId = writer.guardToObject(newTargetValId);
+      writer.guardShape(newTargetObjId, newTarget->lastProperty());
+      ObjOperandId protoId = writer.loadObject(prototypeObject);
+      writer.guardDynamicSlotIsSpecificObject(newTargetObjId, protoId, slot);
+
       // Call metaScriptedTemplateObject before emitting the call, so that Warp
       // can use this template object before transpiling the call.
-      if (JitOptions.warpBuilder) {
-        // Emit guards to ensure the newTarget's .prototype property is what we
-        // expect. Note that getThisForScripted checked newTarget is a function
-        // with a non-configurable .prototype data property.
-        JSFunction* newTarget = &newTarget_.toObject().as<JSFunction>();
-        Shape* shape = newTarget->lookupPure(cx_->names().prototype);
-        MOZ_ASSERT(shape);
-        MOZ_ASSERT(newTarget->numFixedSlots() == 0, "Stub code relies on this");
-        uint32_t slot = shape->slot();
-        JSObject* prototypeObject = &newTarget->getSlot(slot).toObject();
-
-        ValOperandId newTargetValId = writer.loadArgumentDynamicSlot(
-            ArgumentKind::NewTarget, argcId, flags);
-        ObjOperandId newTargetObjId = writer.guardToObject(newTargetValId);
-        writer.guardShape(newTargetObjId, newTarget->lastProperty());
-        ObjOperandId protoId = writer.loadObject(prototypeObject);
-        writer.guardDynamicSlotIsSpecificObject(newTargetObjId, protoId, slot);
-      }
       writer.metaScriptedTemplateObject(calleeFunc, templateObj);
     }
   } else {
@@ -8900,49 +8848,6 @@ AttachDecision CallIRGenerator::tryAttachCallScripted(
   return AttachDecision::Attach;
 }
 
-bool CallIRGenerator::getTemplateObjectForNative(HandleFunction calleeFunc,
-                                                 MutableHandleObject res) {
-  AutoRealm ar(cx_, calleeFunc);
-
-  // Don't allocate a template object for super() calls as Ion doesn't inline
-  // native super().
-  bool isSuper = op_ == JSOp::SuperCall || op_ == JSOp::SpreadSuperCall;
-  if (isSuper) {
-    return true;
-  }
-
-  if (!calleeFunc->hasJitInfo() ||
-      calleeFunc->jitInfo()->type() != JSJitInfo::InlinableNative) {
-    return true;
-  }
-
-  bool isConstructing = IsConstructOp(op_);
-
-  // Check for natives to which template objects can be attached. This is
-  // done to provide templates to Ion for inlining these natives later on.
-  // TODO(no-TI): IonBuilder template objects.
-  switch (calleeFunc->jitInfo()->inlinableNative) {
-    case InlinableNative::String: {
-      if (!isConstructing) {
-        return true;
-      }
-
-      if (args_.length() == 1 && args_[0].isString()) {
-        // This case is handled by tryAttachStringConstructor.
-        return true;
-      }
-
-      RootedString emptyString(cx_, cx_->runtime()->emptyString);
-      res.set(StringObject::create(cx_, emptyString, /* proto = */ nullptr,
-                                   TenuredObject));
-      return !!res;
-    }
-
-    default:
-      return true;
-  }
-}
-
 AttachDecision CallIRGenerator::tryAttachCallNative(HandleFunction calleeFunc) {
   MOZ_ASSERT(calleeFunc->isNativeWithoutJitEntry());
 
@@ -8965,12 +8870,6 @@ AttachDecision CallIRGenerator::tryAttachCallNative(HandleFunction calleeFunc) {
   // Check for specific native-function optimizations.
   if (isSpecialized) {
     TRY_ATTACH(tryAttachInlinableNative(calleeFunc));
-  }
-
-  RootedObject templateObj(cx_);
-  if (isSpecialized && !getTemplateObjectForNative(calleeFunc, &templateObj)) {
-    cx_->clearPendingException();
-    return AttachDecision::NoAction;
   }
 
   // Load argc.
@@ -9025,11 +8924,6 @@ AttachDecision CallIRGenerator::tryAttachCallNative(HandleFunction calleeFunc) {
   }
 
   writer.returnFromIC();
-
-  if (templateObj) {
-    MOZ_ASSERT(isSpecialized);
-    writer.metaNativeTemplateObject(calleeFunc, templateObj);
-  }
 
   return AttachDecision::Attach;
 }
@@ -10771,7 +10665,6 @@ AttachDecision NewObjectIRGenerator::tryAttachStub() {
   }
 
   writer.guardNoAllocationMetadataBuilder();
-  writer.guardObjectGroupNotPretenured(templateObject_->group());
 
   // Bake in a monotonically increasing number to ensure we differentiate
   // between different baseline stubs that otherwise might share stub code.

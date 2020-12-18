@@ -4324,7 +4324,7 @@
 
 - name: gfx.canvas.remote
   type: RelaxedAtomicBool
-#if defined(XP_WIN)
+#if defined(XP_WIN) && defined(EARLY_BETA_OR_EARLIER)
   value: true
 #else
   value: false
@@ -6221,13 +6221,6 @@
 - name: layout.css.zoom-transform-hack.enabled
   type: RelaxedAtomicBool
   value: false
-  mirror: always
-  rust: true
-
-# Whether :-moz-any is an alias of the :is selector.
-- name: layout.css.moz-any-is-is.enabled
-  type: RelaxedAtomicBool
-  value: true
   mirror: always
   rust: true
 
@@ -10678,7 +10671,7 @@
 - name: widget.remote-look-and-feel
   type: bool
 #ifdef MOZ_WIDGET_GTK
-  value: true
+  value: false
 #else
   value: false
 #endif
