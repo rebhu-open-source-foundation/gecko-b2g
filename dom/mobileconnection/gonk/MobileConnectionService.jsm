@@ -2507,13 +2507,15 @@ MobileConnectionProvider.prototype = {
       return;
     }
 
-    let serviceClass =
-      aCbInfo.status == Ci.nsIImsUt.STATUS_ENABLED
-        ? Ci.nsIMobileConnection.ICC_SERVICE_CLASS_VOICE
-        : Ci.nsIMobileConnection.ICC_SERVICE_CLASS_NONE;
+    let enabled = aCbInfo.status == Ci.nsIImsUt.STATUS_ENABLED;
+
+    let serviceClass = enabled
+      ? Ci.nsIMobileConnection.ICC_SERVICE_CLASS_VOICE
+      : Ci.nsIMobileConnection.ICC_SERVICE_CLASS_NONE;
+
     token.callback.notifyGetCallBarringSuccess(
       token.program,
-      token.enabled,
+      enabled,
       serviceClass
     );
     delete this._tokenUtMap[aId];
