@@ -188,6 +188,13 @@ XPCOMUtils.defineLazyServiceGetter(
   "nsICustomizationInfo"
 );
 
+XPCOMUtils.defineLazyModuleGetter(
+  this,
+  "gPhoneNumberUtils",
+  "resource://gre/modules/PhoneNumberUtils.jsm",
+  "PhoneNumberUtils"
+);
+
 var DEBUG = RIL_DEBUG.DEBUG_RIL;
 function debug(s) {
   dump("MobileConnectionService: " + s + "\n");
@@ -2869,6 +2876,7 @@ MobileConnectionService.prototype = {
 
     if (voiceMessage) {
       provider.updateVoiceInfo(voiceMessage, true);
+      gPhoneNumberUtils.updateCountryNameProperty(aClientId);
     }
 
     if (dataMessage) {
