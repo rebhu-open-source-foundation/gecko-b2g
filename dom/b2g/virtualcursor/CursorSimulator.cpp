@@ -493,7 +493,7 @@ bool CursorSimulator::IsCursorOnIMEEnabledElement() {
     for (uint32_t i = 0; i < frames.Length(); i++) {
       nsIFrame* frame = frames[i];
       nsIContent* content = frame->GetContent();
-      if (content && content->GetDesiredIMEState().MaybeEditable()) {
+      if (content && content->GetDesiredIMEState().IsEditable()) {
         return true;
       }
     }
