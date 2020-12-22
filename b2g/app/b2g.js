@@ -1005,6 +1005,9 @@ pref("layers.compositor-lru-size", 10);
 pref("dom.vr.webxr.enabled", false);
 pref("dom.vr.enabled", false);
 
+// Disable webdriver which will trigger insecure browser error.
+pref("dom.webdriver.enabled", false);
+
 // In B2G by deafult any AudioChannelAgent is muted when created.
 pref("dom.audiochannel.mutedByDefault", true);
 
