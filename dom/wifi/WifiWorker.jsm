@@ -1036,6 +1036,10 @@ var WifiManager = (function() {
         wifiInfo.setBSSID(fields.bssid);
       }
 
+      if (manager.targetNetworkId == WifiConstants.INVALID_NETWORK_ID) {
+        manager.targetNetworkId = fields.id;
+      }
+
       let network = WifiConfigManager.getNetworkConfiguration(
         manager.targetNetworkId
       );
@@ -1096,22 +1100,23 @@ var WifiManager = (function() {
       manager.setFirmwareRoamingConfiguration();
     }
     if (manager.wpsStarted) {
-      // Save WPS network configurations into config store.
-      manager.getSupplicantNetwork(result => {
-        if (result.status == SUCCESS) {
-          let config = Object.create(null);
-
-          for (let field in result.wifiConfig) {
-            config[field] = result.wifiConfig[field];
-          }
-          config.bssid = WifiConstants.SUPPLICANT_BSSID_ANY;
-
-          manager.saveNetwork(config, function() {});
-        } else {
-          debug("Failed to get supplicant configurations");
+      // The connected event is from WPS, but the network may not be saved in
+      // config store yet. So first, we get the network configuration from
+      // supplicant, then update as latest and save to config store. Finally
+      // trigger disconnect to let network selection pick it automatically.
+      manager.updateWpsConfiguration(config => {
+        manager.wpsStarted = false;
+        if (config == null) {
+          debug("Failed to save WPS configuration");
+          return;
         }
+        let networkId = WifiConfigManager.getNetworkId(config);
+        WifiConfigManager.updateLastSelectedNetwork(networkId, ok => {
+          manager.disconnect(function() {
+            handleScanRequest(true, function() {});
+          });
+        });
       });
-      manager.wpsStarted = false;
     }
   }
 
@@ -1940,6 +1945,30 @@ var WifiManager = (function() {
       return;
     }
     wifiCommand.closeSupplicantConnection(aCallback);
+  };
+
+  manager.updateWpsConfiguration = function(callback) {
+    // Get configuration from supplicant.
+    manager.getSupplicantNetwork(result => {
+      if (result.status != SUCCESS) {
+        debug("Failed to get supplicant configurations");
+        callback(null);
+        return;
+      }
+
+      let config = Object.create(null);
+      for (let field in result.wifiConfig) {
+        config[field] = result.wifiConfig[field];
+      }
+      config.bssid = WifiConstants.SUPPLICANT_BSSID_ANY;
+      // Ignore the network ID from supplicant.
+      delete config.netId;
+
+      // Save WPS network configurations into config store.
+      manager.saveNetwork(config, ok => {
+        callback(ok ? config : null);
+      });
+    });
   };
 
   manager.isHandShakeState = function(state) {
@@ -2979,7 +3008,9 @@ function WifiWorker() {
         });
         self.wantScanResults = [];
       }
-      self._fireEvent("scanresult", { scanResult: self.networksArray });
+      self._fireEvent("scanresult", {
+        scanResult: JSON.stringify(self.networksArray),
+      });
     });
   };
 

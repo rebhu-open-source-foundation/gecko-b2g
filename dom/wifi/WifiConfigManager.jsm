@@ -88,6 +88,7 @@ this.WifiConfigManager = (function() {
   configManager.clearDisableReasonCounter = clearDisableReasonCounter;
   configManager.setEverConnected = setEverConnected;
   configManager.getNetworkConfiguration = getNetworkConfiguration;
+  configManager.getNetworkId = getNetworkId;
   configManager.fetchNetworkConfiguration = fetchNetworkConfiguration;
   configManager.getHiddenNetworks = getHiddenNetworks;
   configManager.addOrUpdateNetwork = addOrUpdateNetwork;
@@ -321,6 +322,17 @@ this.WifiConfigManager = (function() {
     if (networkKey in configuredNetworks) {
       configuredNetworks[networkKey].hasEverConnected = everConnected;
     }
+  }
+
+  function getNetworkId(config) {
+    if (config == null) {
+      return WifiConstants.INVALID_NETWORK_ID;
+    }
+
+    let networkKey = WifiConfigUtils.getNetworkKey(config);
+    return networkKey in configuredNetworks
+      ? configuredNetworks[networkKey].netId
+      : WifiConstants.INVALID_NETWORK_ID;
   }
 
   function getNetworkConfiguration(netId) {
