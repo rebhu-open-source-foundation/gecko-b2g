@@ -94,6 +94,11 @@ this.PermissionsTable = {
     signed: DENY_ACTION,
     core: ALLOW_ACTION,
   },
+  "background-sensors": {
+    pwa: DENY_ACTION,
+    signed: DENY_ACTION,
+    core: ALLOW_ACTION,
+  },
   battery: {
     pwa: DENY_ACTION,
     signed: DENY_ACTION,
