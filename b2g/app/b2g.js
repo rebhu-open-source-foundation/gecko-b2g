@@ -1118,6 +1118,11 @@ pref("hangmonitor.log.level", 1);
 // Disable Gecko wifi
 pref("device.capability.wifi", false);
 #endif
+
+pref("device.dfc", false);
+
+pref("device.dual-lte", false);
+
 // Support wifi passpoint
 pref("dom.passpoint.supported", false);
 
