@@ -3139,7 +3139,8 @@ WifiWorker.prototype = {
   notifyClirModeChanged(aMode) {},
 
   notifyLastKnownNetworkChanged() {
-    let countryCode = gPhoneNumberUtils.getCountryName().toUpperCase();
+    // TODO: Should use the actual sim index if dual sim supported
+    let countryCode = gPhoneNumberUtils.getCountryName(0).toUpperCase();
     if (countryCode != "" && countryCode !== this.lastKnownCountryCode) {
       debug("Set country code = " + countryCode);
       this.lastKnownCountryCode = countryCode;
@@ -3163,7 +3164,8 @@ WifiWorker.prototype = {
     if (this.lastKnownCountryCode) {
       return this.lastKnownCountryCode;
     }
-    return gPhoneNumberUtils.getCountryName().toUpperCase();
+    // TODO: Should use the actual sim index if dual sim supported
+    return gPhoneNumberUtils.getCountryName(0).toUpperCase();
   },
 
   // nsIIccListener
