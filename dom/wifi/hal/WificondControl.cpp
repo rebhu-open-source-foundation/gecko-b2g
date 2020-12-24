@@ -459,17 +459,23 @@ Result_t WificondControl::GetChannelsForBand(uint32_t aBandMask,
   std::unique_ptr<std::vector<int32_t>> channels;
   if (aBandMask & nsIScanSettings::BAND_2_4_GHZ) {
     mWificond->getAvailable2gChannels(&channels);
-    aChannels.insert(aChannels.end(), (*channels).begin(), (*channels).end());
+    if (channels != nullptr) {
+      aChannels.insert(aChannels.end(), (*channels).begin(), (*channels).end());
+    }
   }
 
   if (aBandMask & nsIScanSettings::BAND_5_GHZ) {
     mWificond->getAvailable5gNonDFSChannels(&channels);
-    aChannels.insert(aChannels.end(), (*channels).begin(), (*channels).end());
+    if (channels != nullptr) {
+      aChannels.insert(aChannels.end(), (*channels).begin(), (*channels).end());
+    }
   }
 
   if (aBandMask & nsIScanSettings::BAND_5_GHZ_DFS) {
     mWificond->getAvailableDFSChannels(&channels);
-    aChannels.insert(aChannels.end(), (*channels).begin(), (*channels).end());
+    if (channels != nullptr) {
+      aChannels.insert(aChannels.end(), (*channels).begin(), (*channels).end());
+    }
   }
   return nsIWifiResult::SUCCESS;
 }

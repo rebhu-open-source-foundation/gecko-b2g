@@ -519,6 +519,12 @@ var WifiManager = (function() {
   }
 
   function handleScanRequest(fullScan, callback) {
+    if (!manager.enabled) {
+      debug("WiFi is off, skip scan request");
+      callback(false);
+      return;
+    }
+
     updateChannels(function(ok) {
       if (!ok) {
         debug("Failed to get supported channels");
