@@ -1128,7 +1128,7 @@ pref("dom.b2g_ipv6_router_mode", true);
 pref("ril.support.primarysim.switch", false);
 
 // Enable app cell broadcast list configuration (apn.json)
-pref("dom.app_cb_configuration", false);
+pref("dom.app_cb_configuration", true);
 
 // reboot reason
 pref("device.rebootReason", "normal");
