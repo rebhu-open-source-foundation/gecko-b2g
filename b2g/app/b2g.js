@@ -978,6 +978,7 @@ pref("dom.serviceWorkers.disable_open_click_delay", 5000);
 // The amount of time (milliseconds) service workers can be kept running using waitUntil promises
 // or executing "long-running" JS after the "idle_timeout" period has expired.
 pref("dom.serviceWorkers.idle_extended_timeout", 300000);
+pref("dom.serviceWorkers.shutdown_observer.enabled", true);
 
 // Enable W3C Push API
 pref("dom.webnotifications.serviceworker.enabled", true);
