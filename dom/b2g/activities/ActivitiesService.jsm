@@ -397,15 +397,10 @@ var Activities = {
     };
 
     let matchFunc = function matchFunc(aResult) {
-      // If the activity is in the developer mode activity list, only let the
-      // system app be a provider.
-      // TODO: We used to check for pref 'dom.activities.developer_mode_only'
-      // to hijack the activity with developer mode. Remove it since we are
-      // unsure about porting back the app developer mode.
-
       return ActivitiesServiceFilter.match(
         aMsg.options.data,
-        aResult.description.filters
+        aMsg.origin,
+        aResult.description
       );
     };
 
