@@ -244,7 +244,7 @@ TextEventDispatcher* getTextEventDispatcherFromFocus() {
 HandleFocusRequest CreateFocusRequestFromInputContext(
     nsIInputContext* aInputContext) {
   nsAutoString typeValue, inputTypeValue, valueValue, maxValue, minValue,
-      langValue, inputModeValue, nameValue;
+      langValue, inputModeValue, nameValue, maxLength;
   uint32_t selectionStartValue, selectionEndValue;
   bool voiceInputSupportedValue;
 
@@ -261,6 +261,7 @@ HandleFocusRequest CreateFocusRequestFromInputContext(
   aInputContext->GetSelectionEnd(&selectionEndValue);
   nsCOMPtr<nsIInputContextChoices> choices;
   aInputContext->GetChoices(getter_AddRefs(choices));
+  aInputContext->GetMaxLength(maxLength);
   SelectionChoices selectionChoices;
   nsTArray<OptionDetailCollection> optionDetailArray;
   if (choices) {
@@ -323,7 +324,8 @@ HandleFocusRequest CreateFocusRequestFromInputContext(
       nsString(typeValue), nsString(inputTypeValue), nsString(valueValue),
       nsString(maxValue), nsString(minValue), nsString(langValue),
       nsString(inputModeValue), voiceInputSupportedValue, nsString(nameValue),
-      selectionStartValue, selectionEndValue, selectionChoices);
+      selectionStartValue, selectionEndValue, selectionChoices,
+      nsString(maxLength));
   return request;
 }
 
@@ -1204,6 +1206,12 @@ nsresult GeckoEditableSupport::GetInputContextBag(
   uint32_t end = getSelectionEnd(focusedElement);
   aInputContext->SetSelectionEnd(end);
   IME_LOGD("InputContext: selectionEnd:[%lu]", end);
+
+  // maxLength
+  focusedElement->GetAttribute(u"maxlength"_ns, attributeValue);
+  aInputContext->SetMaxLength(attributeValue);
+  IME_LOGD("InputContext: maxlength:[%s]",
+           NS_ConvertUTF16toUTF8(attributeValue).get());
 
   // Treat contenteditable element as a special text area field
   if (EditableUtils::isContentEditable(focusedElement)) {
