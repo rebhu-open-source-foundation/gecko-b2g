@@ -2518,9 +2518,6 @@ RadioInterface.prototype = {
   // the network immediately when users enable network-based time.
   _lastNitzMessage: null,
 
-  // Object that handles SNTP.
-  _sntp: null,
-
   // Cell Broadcast settings values.
   _cellBroadcastSearchList: null,
 

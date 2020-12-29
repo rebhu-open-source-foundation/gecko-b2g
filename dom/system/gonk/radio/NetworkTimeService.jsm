@@ -310,7 +310,10 @@ NetworkTimeService.prototype = {
         }
 
         // If the network comes from RIL, make sure the RIL service is matched.
-        if (aSubject instanceof Ci.nsIRilNetworkInfo) {
+        if (
+          networkInfo.type == NETWORK_TYPE_MOBILE &&
+          aSubject instanceof Ci.nsIRilNetworkInfo
+        ) {
           networkInfo = aSubject.QueryInterface(Ci.nsIRilNetworkInfo);
           if (networkInfo.serviceId != this.clientId) {
             return;
