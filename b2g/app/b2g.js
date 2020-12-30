@@ -966,10 +966,6 @@ pref("dom.tv.simulator.enabled", false);
 // Enable Inputport Manager API
 pref("dom.inputport.enabled", true);
 
-// Comma separated list of activity names that can only be provided by
-// the system app in dev mode.
-pref("dom.activities.developer_mode_only", "import-app");
-
 // ServiceWorker API
 pref("dom.serviceWorkers.enabled", true);
 // Allow service workers to open windows for a longer period after a notification
