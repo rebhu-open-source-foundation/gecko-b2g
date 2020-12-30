@@ -1161,13 +1161,13 @@ nsresult GeckoEditableSupport::GetInputContextBag(
            NS_ConvertUTF16toUTF8(attributeValue).get());
 
   // max Using string since if inputType is date then max could be string.
-  focusedElement->GetAttribute(u"max"_ns, attributeValue);
+  activeElement->GetAttribute(u"max"_ns, attributeValue);
   aInputContext->SetMax(attributeValue);
   IME_LOGD("InputContext: max:[%s]",
            NS_ConvertUTF16toUTF8(attributeValue).get());
 
   // min Same as max
-  focusedElement->GetAttribute(u"min"_ns, attributeValue);
+  activeElement->GetAttribute(u"min"_ns, attributeValue);
   aInputContext->SetMin(attributeValue);
   IME_LOGD("InputContext: min:[%s]",
            NS_ConvertUTF16toUTF8(attributeValue).get());
