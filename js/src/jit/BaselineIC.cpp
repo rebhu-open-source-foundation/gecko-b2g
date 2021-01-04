@@ -84,16 +84,16 @@ class MOZ_RAII FallbackICCodeCompiler final {
   uint32_t framePushedAtEnterStubFrame_ = 0;
 #endif
 
-  MOZ_MUST_USE bool emitCall(bool isSpread, bool isConstructing);
-  MOZ_MUST_USE bool emitGetElem(bool hasReceiver);
-  MOZ_MUST_USE bool emitGetProp(bool hasReceiver);
+  [[nodiscard]] bool emitCall(bool isSpread, bool isConstructing);
+  [[nodiscard]] bool emitGetElem(bool hasReceiver);
+  [[nodiscard]] bool emitGetProp(bool hasReceiver);
 
  public:
   FallbackICCodeCompiler(JSContext* cx, BaselineICFallbackCode& code,
                          MacroAssembler& masm)
       : code(code), masm(masm), cx(cx) {}
 
-#define DEF_METHOD(kind) MOZ_MUST_USE bool emit_##kind();
+#define DEF_METHOD(kind) [[nodiscard]] bool emit_##kind();
   IC_BASELINE_FALLBACK_CODE_KIND_LIST(DEF_METHOD)
 #undef DEF_METHOD
 
@@ -106,17 +106,17 @@ class MOZ_RAII FallbackICCodeCompiler final {
   void pushStubPayload(MacroAssembler& masm, Register scratch);
 
   // Emits a tail call to a VMFunction wrapper.
-  MOZ_MUST_USE bool tailCallVMInternal(MacroAssembler& masm,
-                                       TailCallVMFunctionId id);
+  [[nodiscard]] bool tailCallVMInternal(MacroAssembler& masm,
+                                        TailCallVMFunctionId id);
 
   template <typename Fn, Fn fn>
-  MOZ_MUST_USE bool tailCallVM(MacroAssembler& masm);
+  [[nodiscard]] bool tailCallVM(MacroAssembler& masm);
 
   // Emits a normal (non-tail) call to a VMFunction wrapper.
-  MOZ_MUST_USE bool callVMInternal(MacroAssembler& masm, VMFunctionId id);
+  [[nodiscard]] bool callVMInternal(MacroAssembler& masm, VMFunctionId id);
 
   template <typename Fn, Fn fn>
-  MOZ_MUST_USE bool callVM(MacroAssembler& masm);
+  [[nodiscard]] bool callVM(MacroAssembler& masm);
 
   // A stub frame is used when a stub wants to call into the VM without
   // performing a tail call. This is required for the return address
@@ -327,17 +327,7 @@ bool ICScript::initICEntries(JSContext* cx, JSScript* script) {
         break;
       }
       case JSOp::NewArray: {
-        JSObject* proto =
-            GlobalObject::getOrCreateArrayPrototype(cx, cx->global());
-        if (!proto) {
-          return false;
-        }
-        ObjectGroup* group = ObjectGroup::defaultNewGroup(
-            cx, &ArrayObject::class_, TaggedProto(proto));
-        if (!group) {
-          return false;
-        }
-        auto* stub = alloc.newStub<ICNewArray_Fallback>(Kind::NewArray, group);
+        auto* stub = alloc.newStub<ICNewArray_Fallback>(Kind::NewArray);
         if (!addIC(loc, stub)) {
           return false;
         }
@@ -588,26 +578,7 @@ void ICStubIterator::unlink(JSContext* cx, JSScript* script) {
   unlinked_ = true;
 }
 
-bool ICStub::makesGCCalls() const {
-  if (!isFallback()) {
-    return toCacheIRStub()->stubInfo()->makesGCCalls();
-  }
-
-  Kind kind = toFallbackStub()->kind();
-  MOZ_ASSERT(IsValidKind(kind));
-  switch (kind) {
-    case Call_Fallback:
-    // These three fallback stubs don't actually make non-tail calls,
-    // but the fallback code for the bailout path needs to pop the stub frame
-    // pushed during the bailout.
-    case GetProp_Fallback:
-    case SetProp_Fallback:
-    case GetElem_Fallback:
-      return true;
-    default:
-      return false;
-  }
-}
+bool ICCacheIRStub::makesGCCalls() const { return stubInfo()->makesGCCalls(); }
 
 void ICFallbackStub::trackNotAttached(JSContext* cx, JSScript* script) {
   maybeInvalidateWarp(cx, script);
@@ -644,8 +615,6 @@ void ICFallbackStub::trace(JSTracer* trc) {
       ICNewArray_Fallback* stub = toNewArray_Fallback();
       TraceNullableEdge(trc, &stub->templateObject(),
                         "baseline-newarray-template");
-      TraceEdge(trc, &stub->templateGroup(),
-                "baseline-newarray-template-group");
       break;
     }
     case ICStub::NewObject_Fallback: {

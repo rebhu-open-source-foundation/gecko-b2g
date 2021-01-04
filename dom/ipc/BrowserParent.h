@@ -381,12 +381,6 @@ class BrowserParent final : public PBrowserParent,
   mozilla::ipc::IPCResult RecvRequestIMEToCommitComposition(
       const bool& aCancel, bool* aIsCommitted, nsString* aCommittedString);
 
-  mozilla::ipc::IPCResult RecvStartPluginIME(
-      const WidgetKeyboardEvent& aKeyboardEvent, const int32_t& aPanelX,
-      const int32_t& aPanelY, nsString* aCommitted);
-
-  mozilla::ipc::IPCResult RecvSetPluginFocused(const bool& aFocused);
-
   mozilla::ipc::IPCResult RecvGetInputContext(widget::IMEState* aIMEState);
 
   mozilla::ipc::IPCResult RecvSetInputContext(
@@ -585,8 +579,6 @@ class BrowserParent final : public PBrowserParent,
   void SendRealKeyEvent(WidgetKeyboardEvent& aEvent);
 
   void SendRealTouchEvent(WidgetTouchEvent& aEvent);
-
-  void SendPluginEvent(WidgetPluginEvent& aEvent);
 
   /**
    * Different from above Send*Event(), these methods return true if the

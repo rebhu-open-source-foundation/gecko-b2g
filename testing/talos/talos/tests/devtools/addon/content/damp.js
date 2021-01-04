@@ -1,18 +1,30 @@
-var { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
-var { XPCOMUtils } = ChromeUtils.import(
-  "resource://gre/modules/XPCOMUtils.jsm"
-);
-const { AddonManager } = ChromeUtils.import(
-  "resource://gre/modules/AddonManager.jsm"
-);
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+"use strict";
+
+/* globals dampWindow */
+
+const { Ci, Cc, Cu } = require("chrome");
+const {
+  gBrowser,
+  MozillaFileLogger,
+  performance,
+  requestIdleCallback,
+} = dampWindow;
+
+const ChromeUtils = require("ChromeUtils");
+const Services = require("Services");
+const { AddonManager } = require("resource://gre/modules/AddonManager.jsm");
+
+const DampLoadParentModule = require("damp-test/actors/DampLoadParent.jsm");
+const dampTestHead = require("damp-test/tests/head.js");
+const DAMP_TESTS = require("damp-test/damp-tests.js");
+
 const env = Cc["@mozilla.org/process/environment;1"].getService(
   Ci.nsIEnvironment
 );
-
-XPCOMUtils.defineLazyGetter(this, "require", function() {
-  let { require } = ChromeUtils.import("resource://devtools/shared/Loader.jsm");
-  return require;
-});
 
 // Record allocation count in new subtests if DEBUG_DEVTOOLS_ALLOCATIONS is set to
 // "normal". Print allocation sites to stdout if DEBUG_DEVTOOLS_ALLOCATIONS is set to
@@ -27,8 +39,6 @@ const TEST_TIMEOUT = 5 * 60000;
 function getMostRecentBrowserWindow() {
   return Services.wm.getMostRecentWindow("navigator:browser");
 }
-
-/* globals res:true */
 
 function Damp() {}
 
@@ -63,9 +73,9 @@ Damp.prototype = {
     // before continuing.
     async function getTalosParentProfiler() {
       try {
-        var { TalosParentProfiler } = ChromeUtils.import(
-          "resource://talos-powers/TalosParentProfiler.jsm"
-        );
+        const {
+          TalosParentProfiler,
+        } = require("resource://talos-powers/TalosParentProfiler.jsm");
         return TalosParentProfiler;
       } catch (err) {
         await new Promise(resolve => setTimeout(resolve, 500));
@@ -239,7 +249,7 @@ Damp.prototype = {
   _done: false,
 
   _runNextTest() {
-    window.clearTimeout(this._timeout);
+    clearTimeout(this._timeout);
 
     if (this._nextTestIndex >= this._tests.length) {
       this._onSequenceComplete();
@@ -251,9 +261,9 @@ Damp.prototype = {
     this._currentTest = test;
 
     dump(`Loading test '${test}'\n`);
-    let testMethod = require(this.rootURI.resolve(`content/tests/${test}`));
+    let testMethod = require(`damp-test/tests/${test}`);
 
-    this._timeout = window.setTimeout(() => {
+    this._timeout = setTimeout(() => {
       this.error("Test timed out");
     }, TEST_TIMEOUT);
 
@@ -278,11 +288,11 @@ Damp.prototype = {
   },
 
   _log(str) {
-    if (window.MozillaFileLogger && window.MozillaFileLogger.log) {
-      window.MozillaFileLogger.log(str);
+    if (MozillaFileLogger && MozillaFileLogger.log) {
+      MozillaFileLogger.log(str);
     }
 
-    window.dump(str);
+    dump(str);
   },
 
   _logLine(str) {
@@ -290,13 +300,13 @@ Damp.prototype = {
   },
 
   _reportAllResults() {
-    var testNames = [];
-    var testResults = [];
+    const testNames = [];
+    const testResults = [];
 
-    var out = "";
-    for (var i in this._results) {
-      res = this._results[i];
-      var disp = []
+    let out = "";
+    for (const i in this._results) {
+      const res = this._results[i];
+      const disp = []
         .concat(res.value)
         .map(function(a) {
           return isNaN(a) ? -1 : a.toFixed(1);
@@ -418,16 +428,18 @@ Damp.prototype = {
     await this.garbageCollect();
   },
 
-  startTest(rootURI) {
+  /**
+   * This is the main entry point for DAMP, called from
+   * testing/talos/talos/tests/devtools/addon/api
+   */
+  startTest() {
     let promise = new Promise(resolve => {
       this.testDone = resolve;
     });
 
-    this.rootURI = rootURI;
     try {
       dump("Initialize the head file with a reference to this DAMP instance\n");
-      let head = require(rootURI.resolve("content/tests/head.js"));
-      head.initialize(this);
+      dampTestHead.initialize(this);
 
       this._registerDampLoadActors();
 
@@ -438,7 +450,6 @@ Damp.prototype = {
       // Filter tests via `./mach --subtests filter` command line argument
       let filter = Services.prefs.getCharPref("talos.subtests", "");
 
-      let DAMP_TESTS = require(rootURI.resolve("content/damp-tests.js"));
       let tests = DAMP_TESTS.filter(test => !test.disabled).filter(test =>
         test.name.includes(filter)
       );
@@ -486,7 +497,7 @@ Damp.prototype = {
       `Wait for a pageshow event for browsing context ${browser.browsingContext.id}\n`
     );
     return new Promise(resolve => {
-      const eventDispatcher = this._getDampLoadEventDispatcher();
+      const eventDispatcher = DampLoadParentModule.EventDispatcher;
       const onPageShow = (eventName, data) => {
         dump(`Received pageshow event for ${data.browsingContext.id}\n`);
         if (data.browsingContext !== browser.browsingContext) {
@@ -506,10 +517,10 @@ Damp.prototype = {
     ChromeUtils.registerWindowActor("DampLoad", {
       kind: "JSWindowActor",
       parent: {
-        moduleURI: this.rootURI.resolve("content/actors/DampLoadParent.jsm"),
+        moduleURI: rootURI.resolve("content/actors/DampLoadParent.jsm"),
       },
       child: {
-        moduleURI: this.rootURI.resolve("content/actors/DampLoadChild.jsm"),
+        moduleURI: rootURI.resolve("content/actors/DampLoadChild.jsm"),
         events: {
           pageshow: { mozSystemGroup: true },
         },
@@ -525,15 +536,6 @@ Damp.prototype = {
     dump(`[DampLoad helper] Unregister DampLoad actors\n`);
     ChromeUtils.unregisterWindowActor("DampLoad");
   },
-
-  _getDampLoadEventDispatcher() {
-    if (!this._dampLoadEventDispatcher) {
-      const DampLoadParentModule = ChromeUtils.import(
-        this.rootURI.resolve("content/actors/DampLoadParent.jsm")
-      );
-      this._dampLoadEventDispatcher = DampLoadParentModule.EventDispatcher;
-    }
-
-    return this._dampLoadEventDispatcher;
-  },
 };
+
+exports.Damp = Damp;

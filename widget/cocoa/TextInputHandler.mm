@@ -25,7 +25,6 @@
 #include "nsCocoaUtils.h"
 #include "WidgetUtils.h"
 #include "nsPrintfCString.h"
-#include "ComplexTextInputPanel.h"
 
 using namespace mozilla;
 using namespace mozilla::widget;
@@ -1012,22 +1011,6 @@ void TISInputSourceWrapper::InitKeyEvent(NSEvent* aNativeKeyEvent, WidgetKeyboar
   // call), so there is no need to retain and release this data.
   aKeyEvent.mNativeKeyEvent = aNativeKeyEvent;
 
-  // Fill in fields used for Cocoa NPAPI plugins
-  if ([aNativeKeyEvent type] == NSKeyDown || [aNativeKeyEvent type] == NSKeyUp) {
-    aKeyEvent.mNativeKeyCode = [aNativeKeyEvent keyCode];
-    aKeyEvent.mNativeModifierFlags = [aNativeKeyEvent modifierFlags];
-    nsAutoString nativeChars;
-    nsCocoaUtils::GetStringForNSString([aNativeKeyEvent characters], nativeChars);
-    aKeyEvent.mNativeCharacters.Assign(nativeChars);
-    nsAutoString nativeCharsIgnoringModifiers;
-    nsCocoaUtils::GetStringForNSString([aNativeKeyEvent charactersIgnoringModifiers],
-                                       nativeCharsIgnoringModifiers);
-    aKeyEvent.mNativeCharactersIgnoringModifiers.Assign(nativeCharsIgnoringModifiers);
-  } else if ([aNativeKeyEvent type] == NSFlagsChanged) {
-    aKeyEvent.mNativeKeyCode = [aNativeKeyEvent keyCode];
-    aKeyEvent.mNativeModifierFlags = [aNativeKeyEvent modifierFlags];
-  }
-
   aKeyEvent.mRefPoint = LayoutDeviceIntPoint(0, 0);
 
   UInt32 kbType = GetKbdType();
@@ -1751,30 +1734,6 @@ bool TextInputHandler::HandleKeyDownEvent(NSEvent* aNativeEvent, uint32_t aUniqu
   KeyEventState* currentKeyEvent = PushKeyEvent(aNativeEvent, aUniqueId);
   AutoKeyEventStateCleaner remover(this);
 
-  ComplexTextInputPanel* ctiPanel = ComplexTextInputPanel::GetSharedComplexTextInputPanel();
-  if (ctiPanel && ctiPanel->IsInComposition()) {
-    nsAutoString committed;
-    ctiPanel->InterpretKeyEvent(aNativeEvent, committed);
-    if (!committed.IsEmpty()) {
-      nsresult rv = mDispatcher->BeginNativeInputTransaction();
-      if (NS_WARN_IF(NS_FAILED(rv))) {
-        MOZ_LOG(gLog, LogLevel::Error,
-                ("%p IMEInputHandler::HandleKeyDownEvent, "
-                 "FAILED, due to BeginNativeInputTransaction() failure "
-                 "at dispatching keydown for ComplexTextInputPanel",
-                 this));
-        return false;
-      }
-
-      WidgetKeyboardEvent imeEvent(true, eKeyDown, widget);
-      currentKeyEvent->InitKeyEvent(this, imeEvent, false);
-      imeEvent.mPluginTextEventString.Assign(committed);
-      nsEventStatus status = nsEventStatus_eIgnore;
-      mDispatcher->DispatchKeyboardEvent(eKeyDown, imeEvent, status, currentKeyEvent);
-    }
-    return true;
-  }
-
   RefPtr<TextInputHandler> kungFuDeathGrip(this);
 
   // When we're already in a composition, we need always to mark the eKeyDown
@@ -1794,7 +1753,7 @@ bool TextInputHandler::HandleKeyDownEvent(NSEvent* aNativeEvent, uint32_t aUniqu
   // Don't call interpretKeyEvents when a plugin has focus.  If we call it,
   // for example, a character is inputted twice during a composition in e10s
   // mode.
-  if (!widget->IsPluginFocused() && (IsIMEEnabled() || IsASCIICapableOnly())) {
+  if (IsIMEEnabled() || IsASCIICapableOnly()) {
     MOZ_LOG(gLog, LogLevel::Info,
             ("%p TextInputHandler::HandleKeyDownEvent, calling interpretKeyEvents", this));
     [mView interpretKeyEvents:[NSArray arrayWithObject:aNativeEvent]];
@@ -1863,7 +1822,7 @@ bool TextInputHandler::HandleKeyDownEvent(NSEvent* aNativeEvent, uint32_t aUniqu
     //    dispatch keypress event at that time.  Note that the command may have
     //    been a converted or generated action by IME.  Then, we shouldn't do
     //    our default action for this key.
-    if (!(interpretKeyEventsCalled && IsNormalCharInputtingEvent(keypressEvent))) {
+    if (!(interpretKeyEventsCalled && IsNormalCharInputtingEvent(aNativeEvent))) {
       MOZ_LOG(gLog, LogLevel::Info,
               ("%p TextInputHandler::HandleKeyDownEvent, trying to dispatch "
                "eKeyPress event since it's not yet dispatched",
@@ -4953,13 +4912,18 @@ bool TextInputHandlerBase::SetSelection(NSRange& aRange) {
   return false;
 }
 
-/* static */ bool TextInputHandlerBase::IsNormalCharInputtingEvent(
-    const WidgetKeyboardEvent& aKeyEvent) {
-  // this is not character inputting event, simply.
-  if (aKeyEvent.mNativeCharacters.IsEmpty() || aKeyEvent.IsMeta()) {
+/* static */ bool TextInputHandlerBase::IsNormalCharInputtingEvent(NSEvent* aNativeEvent) {
+  if ([aNativeEvent type] != NSKeyDown && [aNativeEvent type] != NSKeyUp) {
     return false;
   }
-  return !IsControlChar(aKeyEvent.mNativeCharacters[0]);
+  nsAutoString nativeChars;
+  nsCocoaUtils::GetStringForNSString([aNativeEvent characters], nativeChars);
+
+  // this is not character inputting event, simply.
+  if (nativeChars.IsEmpty() || ([aNativeEvent modifierFlags] & NSCommandKeyMask)) {
+    return false;
+  }
+  return !IsControlChar(nativeChars[0]);
 }
 
 /* static */ bool TextInputHandlerBase::IsModifierKey(UInt32 aNativeKeyCode) {

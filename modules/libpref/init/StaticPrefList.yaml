@@ -1212,6 +1212,12 @@
   value: false
   mirror: always
 
+# Is support for CanvasRenderingContext2D's createConicGradient API enabled?
+- name: canvas.createConicGradient.enabled
+  type: RelaxedAtomicBool
+  value: @IS_NIGHTLY_BUILD@
+  mirror: always
+
 # Provide ability to turn on support for canvas mozGetAsFile API.
 - name: canvas.mozgetasfile.enabled
   type: bool
@@ -4541,6 +4547,11 @@
   value: true
   mirror: always
   rust: true
+
+- name: gfx.font_rendering.fallback.async
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
 
 #  Whether to enable LayerScope tool and default listening port.
 - name: gfx.layerscope.enabled
@@ -9124,6 +9135,11 @@
   value: false
   mirror: always
 
+- name: network.cache.frecency_array_check_enabled
+  type: RelaxedAtomicBool
+  value: @IS_NIGHTLY_BUILD@
+  mirror: always
+
 #---------------------------------------------------------------------------
 # Prefs starting with "nglayout."
 #---------------------------------------------------------------------------
@@ -10446,7 +10462,7 @@
 
 - name: webgl.disable-fail-if-major-performance-caveat
   type: RelaxedAtomicBool
-  value: false
+  value: true
   mirror: always
 
 - name: webgl.disable-DOM-blit-uploads
@@ -10676,7 +10692,7 @@
 - name: widget.remote-look-and-feel
   type: bool
 #ifdef MOZ_WIDGET_GTK
-  value: false
+  value: true
 #else
   value: false
 #endif

@@ -1534,11 +1534,6 @@ void EventStateManager::DispatchCrossProcessEvent(WidgetEvent* aEvent,
                                        dropEffect, principal, csp);
       return;
     }
-    case ePluginEventClass: {
-      *aStatus = nsEventStatus_eConsumeNoDefault;
-      remote->SendPluginEvent(*aEvent->AsPluginEvent());
-      return;
-    }
     default: {
       MOZ_CRASH("Attempt to send non-whitelisted event?");
     }
@@ -3398,8 +3393,7 @@ nsresult EventStateManager::PostHandleEvent(nsPresContext* aPresContext,
             break;
           }
 
-          int32_t tabIndexUnused;
-          if (frame->IsFocusable(&tabIndexUnused, true)) {
+          if (frame->IsFocusable(/* aWithMouse = */ true)) {
             break;
           }
         }

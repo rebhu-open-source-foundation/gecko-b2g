@@ -98,10 +98,10 @@ class MOZ_RAII WarpCacheIRTranspiler : public WarpBuilderShared {
     addUnchecked(ins);
   }
 
-  MOZ_MUST_USE bool resumeAfterUnchecked(MInstruction* ins) {
+  [[nodiscard]] bool resumeAfterUnchecked(MInstruction* ins) {
     return WarpBuilderShared::resumeAfter(ins, loc_);
   }
-  MOZ_MUST_USE bool resumeAfter(MInstruction* ins) {
+  [[nodiscard]] bool resumeAfter(MInstruction* ins) {
     MOZ_ASSERT(effectful_ == ins);
     return resumeAfterUnchecked(ins);
   }
@@ -120,7 +120,7 @@ class MOZ_RAII WarpCacheIRTranspiler : public WarpBuilderShared {
 
   void setOperand(OperandId id, MDefinition* def) { operands_[id.id()] = def; }
 
-  MOZ_MUST_USE bool defineOperand(OperandId id, MDefinition* def) {
+  [[nodiscard]] bool defineOperand(OperandId id, MDefinition* def) {
     MOZ_ASSERT(id.id() == operands_.length());
     return operands_.append(def);
   }
@@ -182,23 +182,34 @@ class MOZ_RAII WarpCacheIRTranspiler : public WarpBuilderShared {
   // Returns either MConstant or MNurseryIndex. See WarpObjectField.
   MInstruction* objectStubField(uint32_t offset);
 
-  MOZ_MUST_USE bool emitGuardTo(ValOperandId inputId, MIRType type);
+  [[nodiscard]] bool emitGuardTo(ValOperandId inputId, MIRType type);
 
-  MOZ_MUST_USE bool emitToString(OperandId inputId, StringOperandId resultId);
-
-  template <typename T>
-  MOZ_MUST_USE bool emitDoubleBinaryArithResult(NumberOperandId lhsId,
-                                                NumberOperandId rhsId);
+  [[nodiscard]] bool emitToString(OperandId inputId, StringOperandId resultId);
 
   template <typename T>
-  MOZ_MUST_USE bool emitInt32BinaryArithResult(Int32OperandId lhsId,
-                                               Int32OperandId rhsId);
+  [[nodiscard]] bool emitDoubleBinaryArithResult(NumberOperandId lhsId,
+                                                 NumberOperandId rhsId);
 
-  MOZ_MUST_USE bool emitCompareResult(JSOp op, OperandId lhsId, OperandId rhsId,
-                                      MCompare::CompareType compareType);
+  template <typename T>
+  [[nodiscard]] bool emitInt32BinaryArithResult(Int32OperandId lhsId,
+                                                Int32OperandId rhsId);
 
-  MOZ_MUST_USE bool emitNewIteratorResult(MNewIterator::Type type,
-                                          uint32_t templateObjectOffset);
+  template <typename T>
+  [[nodiscard]] bool emitBigIntBinaryArithResult(BigIntOperandId lhsId,
+                                                 BigIntOperandId rhsId);
+
+  template <typename T>
+  [[nodiscard]] bool emitBigIntBinaryArithEffectfulResult(BigIntOperandId lhsId,
+                                                          BigIntOperandId rhsId);
+
+  template <typename T>
+  [[nodiscard]] bool emitBigIntUnaryArithResult(BigIntOperandId inputId);
+
+  [[nodiscard]] bool emitCompareResult(JSOp op, OperandId lhsId, OperandId rhsId,
+                                       MCompare::CompareType compareType);
+
+  [[nodiscard]] bool emitNewIteratorResult(MNewIterator::Type type,
+                                           uint32_t templateObjectOffset);
 
   MInstruction* addBoundsCheck(MDefinition* index, MDefinition* length);
 
@@ -209,27 +220,27 @@ class MOZ_RAII WarpCacheIRTranspiler : public WarpBuilderShared {
   void addDataViewData(MDefinition* obj, Scalar::Type type,
                        MDefinition** offset, MInstruction** elements);
 
-  MOZ_MUST_USE bool emitAtomicsBinaryOp(ObjOperandId objId,
-                                        Int32OperandId indexId,
-                                        Int32OperandId valueId,
-                                        Scalar::Type elementType, AtomicOp op);
+  [[nodiscard]] bool emitAtomicsBinaryOp(ObjOperandId objId,
+                                         Int32OperandId indexId,
+                                         Int32OperandId valueId,
+                                         Scalar::Type elementType, AtomicOp op);
 
-  MOZ_MUST_USE bool emitLoadArgumentSlot(ValOperandId resultId,
-                                         uint32_t slotIndex);
+  [[nodiscard]] bool emitLoadArgumentSlot(ValOperandId resultId,
+                                          uint32_t slotIndex);
 
   // Calls are either Native (native function without a JitEntry),
   // a DOM Native (native function with a JitInfo OpType::Method),
   // or Scripted (scripted function or native function with a JitEntry).
   enum class CallKind { Native, DOM, Scripted };
 
-  MOZ_MUST_USE bool updateCallInfo(MDefinition* callee, CallFlags flags);
+  [[nodiscard]] bool updateCallInfo(MDefinition* callee, CallFlags flags);
 
-  MOZ_MUST_USE bool emitCallFunction(ObjOperandId calleeId,
-                                     Int32OperandId argcId,
-                                     mozilla::Maybe<ObjOperandId> thisObjId,
-                                     CallFlags flags, CallKind kind);
-  MOZ_MUST_USE bool emitFunApplyArgs(WrappedFunction* wrappedTarget,
-                                     CallFlags flags);
+  [[nodiscard]] bool emitCallFunction(ObjOperandId calleeId,
+                                      Int32OperandId argcId,
+                                      mozilla::Maybe<ObjOperandId> thisObjId,
+                                      CallFlags flags, CallKind kind);
+  [[nodiscard]] bool emitFunApplyArgs(WrappedFunction* wrappedTarget,
+                                      CallFlags flags);
 
   MDefinition* convertWasmArg(MDefinition* arg, wasm::ValType::Kind kind);
 
@@ -239,13 +250,14 @@ class MOZ_RAII WarpCacheIRTranspiler : public WarpBuilderShared {
 
   bool maybeCreateThis(MDefinition* callee, CallFlags flags, CallKind kind);
 
-  MOZ_MUST_USE bool emitCallGetterResult(CallKind kind, ValOperandId receiverId,
-                                         uint32_t getterOffset, bool sameRealm,
-                                         uint32_t nargsAndFlagsOffset);
-  MOZ_MUST_USE bool emitCallSetter(CallKind kind, ObjOperandId receiverId,
-                                   uint32_t setterOffset, ValOperandId rhsId,
-                                   bool sameRealm,
-                                   uint32_t nargsAndFlagsOffset);
+  [[nodiscard]] bool emitCallGetterResult(CallKind kind,
+                                          ValOperandId receiverId,
+                                          uint32_t getterOffset, bool sameRealm,
+                                          uint32_t nargsAndFlagsOffset);
+  [[nodiscard]] bool emitCallSetter(CallKind kind, ObjOperandId receiverId,
+                                    uint32_t setterOffset, ValOperandId rhsId,
+                                    bool sameRealm,
+                                    uint32_t nargsAndFlagsOffset);
 
   CACHE_IR_TRANSPILER_GENERATED
 
@@ -260,7 +272,7 @@ class MOZ_RAII WarpCacheIRTranspiler : public WarpBuilderShared {
         stubData_(cacheIRSnapshot->stubData()),
         callInfo_(callInfo) {}
 
-  MOZ_MUST_USE bool transpile(std::initializer_list<MDefinition*> inputs);
+  [[nodiscard]] bool transpile(std::initializer_list<MDefinition*> inputs);
 };
 
 bool WarpCacheIRTranspiler::transpile(
@@ -2423,6 +2435,123 @@ bool WarpCacheIRTranspiler::emitInt32URightShiftResult(Int32OperandId lhsId,
   return true;
 }
 
+template <typename T>
+bool WarpCacheIRTranspiler::emitBigIntBinaryArithResult(BigIntOperandId lhsId,
+                                                        BigIntOperandId rhsId) {
+  MDefinition* lhs = getOperand(lhsId);
+  MDefinition* rhs = getOperand(rhsId);
+
+  auto* ins = T::New(alloc(), lhs, rhs);
+  add(ins);
+
+  pushResult(ins);
+  return true;
+}
+
+bool WarpCacheIRTranspiler::emitBigIntAddResult(BigIntOperandId lhsId,
+                                                BigIntOperandId rhsId) {
+  return emitBigIntBinaryArithResult<MBigIntAdd>(lhsId, rhsId);
+}
+
+bool WarpCacheIRTranspiler::emitBigIntSubResult(BigIntOperandId lhsId,
+                                                BigIntOperandId rhsId) {
+  return emitBigIntBinaryArithResult<MBigIntSub>(lhsId, rhsId);
+}
+
+bool WarpCacheIRTranspiler::emitBigIntMulResult(BigIntOperandId lhsId,
+                                                BigIntOperandId rhsId) {
+  return emitBigIntBinaryArithResult<MBigIntMul>(lhsId, rhsId);
+}
+
+template <typename T>
+bool WarpCacheIRTranspiler::emitBigIntBinaryArithEffectfulResult(
+    BigIntOperandId lhsId, BigIntOperandId rhsId) {
+  MDefinition* lhs = getOperand(lhsId);
+  MDefinition* rhs = getOperand(rhsId);
+
+  auto* ins = T::New(alloc(), lhs, rhs);
+
+  if (ins->isEffectful()) {
+    addEffectful(ins);
+
+    pushResult(ins);
+    return resumeAfter(ins);
+  }
+
+  add(ins);
+
+  pushResult(ins);
+  return true;
+}
+
+bool WarpCacheIRTranspiler::emitBigIntDivResult(BigIntOperandId lhsId,
+                                                BigIntOperandId rhsId) {
+  return emitBigIntBinaryArithEffectfulResult<MBigIntDiv>(lhsId, rhsId);
+}
+
+bool WarpCacheIRTranspiler::emitBigIntModResult(BigIntOperandId lhsId,
+                                                BigIntOperandId rhsId) {
+  return emitBigIntBinaryArithEffectfulResult<MBigIntMod>(lhsId, rhsId);
+}
+
+bool WarpCacheIRTranspiler::emitBigIntPowResult(BigIntOperandId lhsId,
+                                                BigIntOperandId rhsId) {
+  return emitBigIntBinaryArithEffectfulResult<MBigIntPow>(lhsId, rhsId);
+}
+
+bool WarpCacheIRTranspiler::emitBigIntBitAndResult(BigIntOperandId lhsId,
+                                                   BigIntOperandId rhsId) {
+  return emitBigIntBinaryArithResult<MBigIntBitAnd>(lhsId, rhsId);
+}
+
+bool WarpCacheIRTranspiler::emitBigIntBitOrResult(BigIntOperandId lhsId,
+                                                  BigIntOperandId rhsId) {
+  return emitBigIntBinaryArithResult<MBigIntBitOr>(lhsId, rhsId);
+}
+
+bool WarpCacheIRTranspiler::emitBigIntBitXorResult(BigIntOperandId lhsId,
+                                                   BigIntOperandId rhsId) {
+  return emitBigIntBinaryArithResult<MBigIntBitXor>(lhsId, rhsId);
+}
+
+bool WarpCacheIRTranspiler::emitBigIntLeftShiftResult(BigIntOperandId lhsId,
+                                                      BigIntOperandId rhsId) {
+  return emitBigIntBinaryArithResult<MBigIntLsh>(lhsId, rhsId);
+}
+
+bool WarpCacheIRTranspiler::emitBigIntRightShiftResult(BigIntOperandId lhsId,
+                                                       BigIntOperandId rhsId) {
+  return emitBigIntBinaryArithResult<MBigIntRsh>(lhsId, rhsId);
+}
+
+template <typename T>
+bool WarpCacheIRTranspiler::emitBigIntUnaryArithResult(
+    BigIntOperandId inputId) {
+  MDefinition* input = getOperand(inputId);
+
+  auto* ins = T::New(alloc(), input);
+  add(ins);
+
+  pushResult(ins);
+  return true;
+}
+
+bool WarpCacheIRTranspiler::emitBigIntIncResult(BigIntOperandId inputId) {
+  return emitBigIntUnaryArithResult<MBigIntIncrement>(inputId);
+}
+
+bool WarpCacheIRTranspiler::emitBigIntDecResult(BigIntOperandId inputId) {
+  return emitBigIntUnaryArithResult<MBigIntDecrement>(inputId);
+}
+
+bool WarpCacheIRTranspiler::emitBigIntNegationResult(BigIntOperandId inputId) {
+  return emitBigIntUnaryArithResult<MBigIntNegate>(inputId);
+}
+
+bool WarpCacheIRTranspiler::emitBigIntNotResult(BigIntOperandId inputId) {
+  return emitBigIntUnaryArithResult<MBigIntBitNot>(inputId);
+}
+
 bool WarpCacheIRTranspiler::emitCallStringConcatResult(StringOperandId lhsId,
                                                        StringOperandId rhsId) {
   MDefinition* lhs = getOperand(lhsId);
@@ -2478,6 +2607,28 @@ bool WarpCacheIRTranspiler::emitCompareSymbolResult(JSOp op,
                                                     SymbolOperandId rhsId) {
   MOZ_ASSERT(IsEqualityOp(op));
   return emitCompareResult(op, lhsId, rhsId, MCompare::Compare_Symbol);
+}
+
+bool WarpCacheIRTranspiler::emitCompareBigIntResult(JSOp op,
+                                                    BigIntOperandId lhsId,
+                                                    BigIntOperandId rhsId) {
+  return emitCompareResult(op, lhsId, rhsId, MCompare::Compare_BigInt);
+}
+
+bool WarpCacheIRTranspiler::emitCompareBigIntInt32Result(JSOp op,
+                                                         BigIntOperandId lhsId,
+                                                         Int32OperandId rhsId) {
+  return emitCompareResult(op, lhsId, rhsId, MCompare::Compare_BigInt_Int32);
+}
+
+bool WarpCacheIRTranspiler::emitCompareBigIntNumberResult(
+    JSOp op, BigIntOperandId lhsId, NumberOperandId rhsId) {
+  return emitCompareResult(op, lhsId, rhsId, MCompare::Compare_BigInt_Double);
+}
+
+bool WarpCacheIRTranspiler::emitCompareBigIntStringResult(
+    JSOp op, BigIntOperandId lhsId, StringOperandId rhsId) {
+  return emitCompareResult(op, lhsId, rhsId, MCompare::Compare_BigInt_String);
 }
 
 bool WarpCacheIRTranspiler::emitCompareNullUndefinedResult(

@@ -3321,8 +3321,6 @@ pref("font.size.monospace.x-math", 13);
   // See bug 404131, topmost <panel> element wins to Dashboard on MacOSX.
   pref("ui.panel.default_level_parent", false);
 
-  pref("ui.plugin.cancel_composition_at_input_source_changed", false);
-
   // Macbook touchpad two finger pixel scrolling
   pref("mousewheel.enable_pixel_scrolling", true);
 
@@ -4600,11 +4598,7 @@ pref("marionette.contentListener", false);
 #if defined(ENABLE_REMOTE_AGENT)
   // Indicates whether the remote agent is enabled.
   // If it is false, the remote agent will not be loaded.
-  #if defined(NIGHTLY_BUILD)
-    pref("remote.enabled", true);
-  #else
-    pref("remote.enabled", false);
-  #endif
+  pref("remote.enabled", true);
 
   // Limits remote agent to listen on loopback devices,
   // e.g. 127.0.0.1, localhost, and ::1.
