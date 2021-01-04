@@ -199,6 +199,7 @@ class MOZ_STACK_CLASS KeyEventDispatcher {
   KeyNameIndex mDOMKeyNameIndex;
   CodeNameIndex mDOMCodeNameIndex;
   char16_t mDOMPrintableKeyValue;
+  bool mIsSpecialKey;
 
   bool IsKeyPress() const { return mData.action == AKEY_EVENT_ACTION_DOWN; }
   bool IsRepeat() const {
@@ -260,6 +261,9 @@ KeyEventDispatcher::KeyEventDispatcher(const UserInputData& aData,
   }
 
   mDOMPrintableKeyValue = PrintableKeyValue();
+
+  mIsSpecialKey = mData.key.keyCode == AKEYCODE_SOFT_LEFT ||
+                  mData.key.keyCode == AKEYCODE_SOFT_RIGHT;
 }
 
 char16_t KeyEventDispatcher::PrintableKeyValue() const {
@@ -273,8 +277,10 @@ nsEventStatus KeyEventDispatcher::DispatchKeyEventInternal(
     EventMessage aEventMessage) {
   WidgetKeyboardEvent event(true, aEventMessage, nullptr);
 
-  uint32_t charcode = static_cast<uint32_t>(mChar);
-  event.SetCharCode(charcode ? charcode : mDOMKeyCode);
+  event.SetCharCode(static_cast<uint32_t>(mChar));
+  if (mIsSpecialKey) {
+    event.mCharCode = 0;
+  }
   if (!event.mCharCode) {
     event.mKeyCode = mDOMKeyCode;
   }
