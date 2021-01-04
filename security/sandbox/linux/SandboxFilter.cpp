@@ -505,6 +505,7 @@ class SandboxPolicyCommon : public SandboxPolicyBase {
                 PR_SET_NAME,      // Thread creation
                 PR_SET_DUMPABLE,  // Crash reporting
 #ifdef MOZ_WIDGET_GONK
+                PR_SET_TIMERSLACK, // task_profiles
                 PR_GET_DUMPABLE,  // Linker logger
 #endif
                 PR_SET_PTRACER),  // Debug-mode crash handling
