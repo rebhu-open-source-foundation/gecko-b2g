@@ -2628,7 +2628,14 @@ function WifiWorker() {
     self.handleNetworkConnectionFailure(lastNetwork);
     switch (this.reason) {
       case WifiConstants.DISABLED_DHCP_FAILURE:
-        self._fireEvent("ondhcpfailed", { network: netToDOM(lastNetwork) });
+        let security = WifiConfigUtils.matchKeyMgmtToSecurity(lastNetwork);
+        if (security == "WEP") {
+          self._fireEvent("onauthenticationfailed", {
+            network: netToDOM(lastNetwork),
+          });
+        } else {
+          self._fireEvent("ondhcpfailed", { network: netToDOM(lastNetwork) });
+        }
         break;
       case WifiConstants.DISABLED_AUTHENTICATION_FAILURE:
         self._fireEvent("onauthenticationfailed", {
