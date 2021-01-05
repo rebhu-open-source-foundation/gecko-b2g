@@ -1687,39 +1687,38 @@ RadioInterface.prototype = {
   },
 
   handleStkProactiveCommand(message) {
-    this.debug("handleStkProactiveCommand cmd: " + JSON.stringify(message.cmd));
     let berTlv;
     try {
       berTlv = this.simIOcontext.BerTlvHelper.decode(message.cmd);
-      this.debug("handleStkProactiveCommand berTlv: " + JSON.stringify(berTlv));
+      if (DEBUG) {
+        this.debug(
+          "handleStkProactiveCommand berTlv: " + JSON.stringify(berTlv)
+        );
+      }
     } catch (e) {
       if (DEBUG) {
         this.debug("handleStkProactiveCommand  error: " + e);
       }
-      this.sendStkTerminalResponse({
+      this.processSendStkTerminalResponse({
         resultCode: RIL.STK_RESULT_CMD_DATA_NOT_UNDERSTOOD,
       });
       return;
     }
 
     let ctlvs = berTlv.value;
-    this.debug("handleStkProactiveCommand ctlvs: " + JSON.stringify(ctlvs));
     let ctlv = this.simIOcontext.StkProactiveCmdHelper.searchForTag(
       RIL.COMPREHENSIONTLV_TAG_COMMAND_DETAILS,
       ctlvs
     );
-    this.debug("handleStkProactiveCommand ctlv: " + JSON.stringify(ctlv));
+
     if (!ctlv) {
-      this.sendStkTerminalResponse({
+      this.processSendStkTerminalResponse({
         resultCode: RIL.STK_RESULT_CMD_DATA_NOT_UNDERSTOOD,
       });
       throw new Error("Can't find COMMAND_DETAILS ComprehensionTlv");
     }
 
     let cmdDetails = ctlv.value;
-    this.debug(
-      "handleStkProactiveCommand cmdDetails: " + JSON.stringify(cmdDetails)
-    );
     if (DEBUG) {
       this.debug(
         "commandNumber = " +
@@ -1733,7 +1732,7 @@ RadioInterface.prototype = {
 
     // STK_CMD_MORE_TIME need not to propagate event to chrome.
     if (cmdDetails.typeOfCommand == RIL.STK_CMD_MORE_TIME) {
-      this.sendStkTerminalResponse({
+      this.processSendStkTerminalResponse({
         command: cmdDetails,
         resultCode: RIL.STK_RESULT_OK,
       });
@@ -4123,6 +4122,25 @@ RadioInterface.prototype = {
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_STK_SEND_TERMINAL_RESPONSE error = " +
+              response.errorMsg
+          );
+        }
+        break;
+      case "sendEnvelopeResponse":
+        if (response.errorMsg == 0) {
+          if (DEBUG) {
+            this.debug(
+              "RILJ: [" +
+                response.rilMessageToken +
+                "] < RIL_REQUEST_STK_SEND_ENVELOPE_COMMAND"
+            );
+          }
+          result = response;
+        } else if (DEBUG) {
+          this.debug(
+            "RILJ: [" +
+              response.rilMessageToken +
+              "] < RIL_REQUEST_STK_SEND_ENVELOPE_COMMAND error = " +
               response.errorMsg
           );
         }
@@ -6624,6 +6642,15 @@ RadioInterface.prototype = {
       case "sendStkTerminalResponse":
         this.processSendStkTerminalResponse(message);
         break;
+      case "sendStkMenuSelection":
+        this.processSendStkMenuSelection(message);
+        break;
+      case "sendStkTimerExpiration":
+        this.processSendStkTimerExpiration(message);
+        break;
+      case "sendStkEventDownload":
+        this.processsendStkEventDownload(message);
+        break;
       case "setCellBroadcastDisabled":
         // This is not a ril request.
         this.setCellBroadcastDisabled(message);
@@ -7470,6 +7497,262 @@ RadioInterface.prototype = {
       );
     }
     this.rilworker.sendTerminalResponseToSim(message.rilMessageToken, contents);
+  },
+
+  /**
+   * Send STK Envelope(Menu Selection) command.
+   *
+   * @param message
+   *          itemIdentifier
+   *          helpRequested
+   */
+  processSendStkMenuSelection(message) {
+    message.tag = RIL.BER_MENU_SELECTION_TAG;
+    message.deviceId = {
+      sourceId: RIL.STK_DEVICE_ID_KEYPAD,
+      destinationId: RIL.STK_DEVICE_ID_SIM,
+    };
+    this.sendICCEnvelopeCommand(message);
+  },
+
+  /**
+   * Send STK Envelope(Timer Expiration) command.
+   *
+   * @param message
+   *          timer
+   */
+  processSendStkTimerExpiration(message) {
+    message.tag = RIL.BER_TIMER_EXPIRATION_TAG;
+    message.deviceId = {
+      sourceId: RIL.STK_DEVICE_ID_ME,
+      destinationId: RIL.STK_DEVICE_ID_SIM,
+    };
+    message.timerId = message.timer.timerId;
+    message.timerValue = message.timer.timerValue;
+    this.sendICCEnvelopeCommand(message);
+  },
+
+  /**
+   * Send STK Envelope(Event Download) command.
+   * @param message
+   *          event
+   */
+  processSendStkEventDownload(message) {
+    message.tag = RIL.BER_EVENT_DOWNLOAD_TAG;
+    message.eventList = message.event.eventType;
+    switch (message.eventList) {
+      case RIL.STK_EVENT_TYPE_LOCATION_STATUS:
+        message.deviceId = {
+          sourceId: RIL.STK_DEVICE_ID_ME,
+          destinationId: RIL.STK_DEVICE_ID_SIM,
+        };
+        message.locationStatus = message.event.locationStatus;
+        // Location info should only be provided when locationStatus is normal.
+        if (message.locationStatus == RIL.STK_SERVICE_STATE_NORMAL) {
+          message.locationInfo = message.event.locationInfo;
+        }
+        break;
+      case RIL.STK_EVENT_TYPE_MT_CALL:
+        message.deviceId = {
+          sourceId: RIL.STK_DEVICE_ID_NETWORK,
+          destinationId: RIL.STK_DEVICE_ID_SIM,
+        };
+        message.transactionId = 0;
+        message.address = message.event.number;
+        break;
+      case RIL.STK_EVENT_TYPE_CALL_DISCONNECTED:
+        message.cause = message.event.error;
+      // Fall through.
+      case RIL.STK_EVENT_TYPE_CALL_CONNECTED:
+        message.deviceId = {
+          sourceId: message.event.isIssuedByRemote
+            ? RIL.STK_DEVICE_ID_NETWORK
+            : RIL.STK_DEVICE_ID_ME,
+          destinationId: RIL.STK_DEVICE_ID_SIM,
+        };
+        message.transactionId = 0;
+        break;
+      case RIL.STK_EVENT_TYPE_USER_ACTIVITY:
+        message.deviceId = {
+          sourceId: RIL.STK_DEVICE_ID_ME,
+          destinationId: RIL.STK_DEVICE_ID_SIM,
+        };
+        break;
+      case RIL.STK_EVENT_TYPE_IDLE_SCREEN_AVAILABLE:
+        message.deviceId = {
+          sourceId: RIL.STK_DEVICE_ID_DISPLAY,
+          destinationId: RIL.STK_DEVICE_ID_SIM,
+        };
+        break;
+      case RIL.STK_EVENT_TYPE_LANGUAGE_SELECTION:
+        message.deviceId = {
+          sourceId: RIL.STK_DEVICE_ID_ME,
+          destinationId: RIL.STK_DEVICE_ID_SIM,
+        };
+        message.language = message.event.language;
+        break;
+      case RIL.STK_EVENT_TYPE_BROWSER_TERMINATION:
+        message.deviceId = {
+          sourceId: RIL.STK_DEVICE_ID_ME,
+          destinationId: RIL.STK_DEVICE_ID_SIM,
+        };
+        message.terminationCause = message.event.terminationCause;
+        break;
+    }
+    this.sendICCEnvelopeCommand(message);
+  },
+
+  /**
+   * Send REQUEST_STK_SEND_ENVELOPE_COMMAND to ICC.
+   *
+   * @param options
+   *          tag
+   *          deviceId
+   *          [optioanl] itemIdentifier
+   *          [optional] helpRequested
+   *          [optional] eventList
+   *          [optional] locationStatus
+   *          [optional] locationInfo
+   *          [optional] address
+   *          [optional] transactionId
+   *          [optional] cause
+   *          [optional] timerId
+   *          [optional] timerValue
+   *          [optional] terminationCause
+   */
+  sendICCEnvelopeCommand(options) {
+    if (DEBUG) {
+      this.debug("Stk Envelope " + JSON.stringify(options));
+    }
+
+    let ComprehensionTlvHelper = this.simIOcontext.ComprehensionTlvHelper;
+    let GsmPDUHelper = this.simIOcontext.GsmPDUHelper;
+    GsmPDUHelper.initWith();
+
+    // Write a BER-TLV
+    GsmPDUHelper.writeHexOctet(options.tag);
+    GsmPDUHelper.startCalOutgoingSize();
+
+    // Event List
+    if (options.eventList != null) {
+      GsmPDUHelper.writeHexOctet(
+        RIL.COMPREHENSIONTLV_TAG_EVENT_LIST | RIL.COMPREHENSIONTLV_FLAG_CR
+      );
+      GsmPDUHelper.writeHexOctet(1);
+      GsmPDUHelper.writeHexOctet(options.eventList);
+    }
+
+    // Device Identifies
+    GsmPDUHelper.writeHexOctet(
+      RIL.COMPREHENSIONTLV_TAG_DEVICE_ID | RIL.COMPREHENSIONTLV_FLAG_CR
+    );
+    GsmPDUHelper.writeHexOctet(2);
+    GsmPDUHelper.writeHexOctet(options.deviceId.sourceId);
+    GsmPDUHelper.writeHexOctet(options.deviceId.destinationId);
+
+    // Item Identifier
+    if (options.itemIdentifier != null) {
+      GsmPDUHelper.writeHexOctet(
+        RIL.COMPREHENSIONTLV_TAG_ITEM_ID | RIL.COMPREHENSIONTLV_FLAG_CR
+      );
+      GsmPDUHelper.writeHexOctet(1);
+      GsmPDUHelper.writeHexOctet(options.itemIdentifier);
+    }
+
+    // Help Request
+    if (options.helpRequested) {
+      GsmPDUHelper.writeHexOctet(RIL.COMPREHENSIONTLV_TAG_HELP_REQUEST);
+      GsmPDUHelper.writeHexOctet(0);
+      // Help Request doesn't have value
+    }
+
+    // Location Status
+    if (options.locationStatus != null) {
+      GsmPDUHelper.writeHexOctet(
+        RIL.COMPREHENSIONTLV_TAG_LOCATION_STATUS | RIL.COMPREHENSIONTLV_FLAG_CR
+      );
+      GsmPDUHelper.writeHexOctet(1);
+      GsmPDUHelper.writeHexOctet(options.locationStatus);
+    }
+
+    // Location Info
+    if (options.locationInfo) {
+      ComprehensionTlvHelper.writeLocationInfoTlv(options.locationInfo);
+    }
+
+    // Transaction Id
+    if (options.transactionId != null) {
+      GsmPDUHelper.writeHexOctet(
+        RIL.COMPREHENSIONTLV_TAG_TRANSACTION_ID | RIL.COMPREHENSIONTLV_FLAG_CR
+      );
+      GsmPDUHelper.writeHexOctet(1);
+      GsmPDUHelper.writeHexOctet(options.transactionId);
+    }
+
+    // Address
+    if (options.address) {
+      GsmPDUHelper.writeHexOctet(
+        RIL.COMPREHENSIONTLV_TAG_ADDRESS | RIL.COMPREHENSIONTLV_FLAG_CR
+      );
+      let addressLength =
+        options.address[0] == "+"
+          ? options.address.length - 1
+          : options.address.length;
+      ComprehensionTlvHelper.writeLength(
+        Math.ceil(addressLength / 2) + 1 // address BCD + TON
+      );
+      this.simIOcontext.ICCPDUHelper.writeDiallingNumber(options.address);
+    }
+
+    // Cause of disconnection.
+    if (options.cause != null) {
+      ComprehensionTlvHelper.writeCauseTlv(options.cause);
+    }
+
+    // Timer Identifier
+    if (options.timerId != null) {
+      GsmPDUHelper.writeHexOctet(
+        RIL.COMPREHENSIONTLV_TAG_TIMER_IDENTIFIER | RIL.COMPREHENSIONTLV_FLAG_CR
+      );
+      GsmPDUHelper.writeHexOctet(1);
+      GsmPDUHelper.writeHexOctet(options.timerId);
+    }
+
+    // Timer Value
+    if (options.timerValue != null) {
+      ComprehensionTlvHelper.writeTimerValueTlv(options.timerValue, true);
+    }
+
+    // Language
+    if (options.language) {
+      ComprehensionTlvHelper.writeLanguageTlv(options.language);
+    }
+
+    // Browser Termination
+    if (options.terminationCause != null) {
+      GsmPDUHelper.writeHexOctet(
+        RIL.COMPREHENSIONTLV_TAG_BROWSER_TERMINATION_CAUSE |
+          RIL.COMPREHENSIONTLV_FLAG_CR
+      );
+      GsmPDUHelper.writeHexOctet(1);
+      GsmPDUHelper.writeHexOctet(options.terminationCause);
+    }
+
+    //set ber-tlv length
+    GsmPDUHelper.stopCalOutgoingSize();
+
+    //Send command.
+    let contents = GsmPDUHelper.pdu;
+
+    if (DEBUG) {
+      this.debug(
+        "RILJ: [" +
+          options.rilMessageToken +
+          "] > RIL_REQUEST_STK_SEND_ENVELOPE_COMMAND contents = " +
+          contents
+      );
+    }
+    this.rilworker.sendEnvelope(options.rilMessageToken, contents);
   },
 
   sendWorkerMessage(rilMessageType, message, callback) {
