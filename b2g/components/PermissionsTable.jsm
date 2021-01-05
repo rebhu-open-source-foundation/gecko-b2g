@@ -335,7 +335,7 @@ this.PermissionsTable = {
   },
   volumemanager: {
     pwa: DENY_ACTION,
-    signed: DENY_ACTION,
+    signed: ALLOW_ACTION,
     core: ALLOW_ACTION,
   },
   wappush: {
