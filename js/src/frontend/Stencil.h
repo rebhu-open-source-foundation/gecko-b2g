@@ -21,6 +21,7 @@
 #include "frontend/FunctionSyntaxKind.h"  // FunctionSyntaxKind
 #include "frontend/ObjLiteral.h"          // ObjLiteralStencil
 #include "frontend/ParserAtom.h"          // ParserAtom, TaggedParserAtomIndex
+#include "frontend/ScriptIndex.h"         // ScriptIndex
 #include "frontend/TypedIndex.h"          // TypedIndex
 #include "js/AllocPolicy.h"               // SystemAllocPolicy
 #include "js/RegExpFlags.h"               // JS::RegExpFlags
@@ -49,7 +50,6 @@ struct CompilationInfo;
 struct CompilationAtomCache;
 struct CompilationStencil;
 struct CompilationGCOutput;
-class ScriptStencil;
 class RegExpStencil;
 class BigIntStencil;
 class StencilXDR;
@@ -57,15 +57,23 @@ class StencilXDR;
 using BaseParserScopeData = AbstractBaseScopeData<TaggedParserAtomIndex>;
 using ParserBindingName = AbstractBindingName<TaggedParserAtomIndex>;
 
+using ParserGlobalScopeData = GlobalScope::ParserData;
+using ParserEvalScopeData = EvalScope::ParserData;
+using ParserLexicalScopeData = LexicalScope::ParserData;
+using ParserFunctionScopeData = FunctionScope::ParserData;
+using ParserModuleScopeData = ModuleScope::ParserData;
+using ParserVarScopeData = VarScope::ParserData;
+using ParserWasmInstanceScopeData = WasmInstanceScope::ParserData;
+using ParserWasmFunctionScopeData = WasmFunctionScope::ParserData;
+
 template <typename Scope>
-using ParserScopeData =
-    typename Scope::template AbstractData<TaggedParserAtomIndex>;
-using ParserGlobalScopeData = ParserScopeData<GlobalScope>;
-using ParserEvalScopeData = ParserScopeData<EvalScope>;
-using ParserLexicalScopeData = ParserScopeData<LexicalScope>;
-using ParserFunctionScopeData = ParserScopeData<FunctionScope>;
-using ParserModuleScopeData = ParserScopeData<ModuleScope>;
-using ParserVarScopeData = ParserScopeData<VarScope>;
+using ParserScopeSlotInfo = typename Scope::SlotInfo;
+using ParserGlobalScopeSlotInfo = ParserScopeSlotInfo<GlobalScope>;
+using ParserEvalScopeSlotInfo = ParserScopeSlotInfo<EvalScope>;
+using ParserLexicalScopeSlotInfo = ParserScopeSlotInfo<LexicalScope>;
+using ParserFunctionScopeSlotInfo = ParserScopeSlotInfo<FunctionScope>;
+using ParserModuleScopeSlotInfo = ParserScopeSlotInfo<ModuleScope>;
+using ParserVarScopeSlotInfo = ParserScopeSlotInfo<VarScope>;
 
 using ParserBindingIter = AbstractBindingIter<TaggedParserAtomIndex>;
 
@@ -82,7 +90,6 @@ using ParserBindingIter = AbstractBindingIter<TaggedParserAtomIndex>;
 using RegExpIndex = TypedIndex<RegExpStencil>;
 using BigIntIndex = TypedIndex<BigIntStencil>;
 using ObjLiteralIndex = TypedIndex<ObjLiteralStencil>;
-using FunctionIndex = TypedIndex<ScriptStencil>;
 
 FunctionFlags InitialFunctionFlags(FunctionSyntaxKind kind,
                                    GeneratorKind generatorKind,
@@ -182,14 +189,12 @@ class ScopeStencil {
   mozilla::Maybe<uint32_t> numEnvironmentSlots_;
 
   // Canonical function if this is a FunctionScope.
-  mozilla::Maybe<FunctionIndex> functionIndex_;
+  mozilla::Maybe<ScriptIndex> functionIndex_;
 
   // True if this is a FunctionScope for an arrow function.
   bool isArrow_ = false;
 
   // The list of binding and scope-specific data.
-  // Note: The back pointers to the owning JSFunction / ModuleObject are not set
-  //       until Stencils are converted to GC allocations.
   // Note: This allocation is owned by CompilationStencil.
   BaseParserScopeData* data_ = nullptr;
 
@@ -201,7 +206,7 @@ class ScopeStencil {
                uint32_t firstFrameSlot,
                mozilla::Maybe<uint32_t> numEnvironmentSlots,
                BaseParserScopeData* data = {},
-               mozilla::Maybe<FunctionIndex> functionIndex = mozilla::Nothing(),
+               mozilla::Maybe<ScriptIndex> functionIndex = mozilla::Nothing(),
                bool isArrow = false)
       : enclosing_(enclosing),
         kind_(kind),
@@ -214,7 +219,7 @@ class ScopeStencil {
   static bool createForFunctionScope(
       JSContext* cx, CompilationInfo& compilationInfo,
       ParserFunctionScopeData* dataArg, bool hasParameterExprs,
-      bool needsEnvironment, FunctionIndex functionIndex, bool isArrow,
+      bool needsEnvironment, ScriptIndex functionIndex, bool isArrow,
       mozilla::Maybe<ScopeIndex> enclosing, ScopeIndex* index);
 
   static bool createForLexicalScope(
@@ -281,10 +286,8 @@ class ScopeStencil {
  private:
   // Non owning reference to data
   template <typename SpecificScopeType>
-  typename SpecificScopeType::template AbstractData<TaggedParserAtomIndex>&
-  data() const {
-    using Data = typename SpecificScopeType ::template AbstractData<
-        TaggedParserAtomIndex>;
+  typename SpecificScopeType::ParserData& data() const {
+    using Data = typename SpecificScopeType ::ParserData;
 
     MOZ_ASSERT(data_);
     return *static_cast<Data*>(data_);
@@ -300,7 +303,7 @@ class ScopeStencil {
   uint32_t nextFrameSlot() const {
     // If a scope has been allocated for the ScopeStencil we no longer own data,
     // so defer to scope
-    return data<SpecificScopeType>().nextFrameSlot;
+    return data<SpecificScopeType>().slotInfo.nextFrameSlot;
   }
 
   template <typename SpecificEnvironmentType>
@@ -508,7 +511,7 @@ class TaggedScriptThingIndex {
       : data_(uint32_t(index) | ScopeTag) {
     MOZ_ASSERT(uint32_t(index) < IndexLimit);
   }
-  explicit TaggedScriptThingIndex(FunctionIndex index)
+  explicit TaggedScriptThingIndex(ScriptIndex index)
       : data_(uint32_t(index) | FunctionTag) {
     MOZ_ASSERT(uint32_t(index) < IndexLimit);
   }
@@ -543,7 +546,7 @@ class TaggedScriptThingIndex {
   }
   RegExpIndex toRegExp() const { return RegExpIndex(data_ & IndexMask); }
   ScopeIndex toScope() const { return ScopeIndex(data_ & IndexMask); }
-  FunctionIndex toFunction() const { return FunctionIndex(data_ & IndexMask); }
+  ScriptIndex toFunction() const { return ScriptIndex(data_ & IndexMask); }
 
   uint32_t* rawData() { return &data_; }
 

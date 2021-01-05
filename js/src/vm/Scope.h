@@ -218,7 +218,7 @@ const size_t ScopeDataAlignBytes = size_t(1) << gc::CellFlagBitsReservedForGC;
  * suitably aligned to allow storing GC flags in the low bits.
  */
 template <typename NameT>
-class alignas(ScopeDataAlignBytes) AbstractBaseScopeData {
+class AbstractBaseScopeData {
  public:
   using NameType = NameT;
 };
@@ -491,10 +491,7 @@ class LexicalScope : public Scope {
   friend class frontend::ScopeStencil;
 
  public:
-  // Data is public because it is created by the frontend. See
-  // Parser<FullParseHandler>::newLexicalScopeData.
-  template <typename NameT>
-  struct AbstractData : public AbstractBaseScopeData<NameT> {
+  struct SlotInfo {
     // Frame slots [0, nextFrameSlot) are live when this is the innermost
     // scope.
     uint32_t nextFrameSlot = 0;
@@ -505,17 +502,32 @@ class LexicalScope : public Scope {
     // consts - [constStart, length)
     uint32_t constStart = 0;
     uint32_t length = 0;
+  };
 
-    // Tagged JSAtom* names, allocated beyond the end of the struct.
-    AbstractTrailingNamesArray<NameT> trailingNames;
+  struct alignas(ScopeDataAlignBytes) Data
+      : public AbstractBaseScopeData<JSAtom> {
+    SlotInfo slotInfo;
+    AbstractTrailingNamesArray<JSAtom> trailingNames;
 
-    explicit AbstractData(size_t nameCount) : trailingNames(nameCount) {}
-    AbstractData() = delete;
+    explicit Data(size_t nameCount) : trailingNames(nameCount) {}
+    Data() = delete;
 
     void trace(JSTracer* trc);
   };
 
-  using Data = AbstractData<JSAtom>;
+  struct ParserData
+      : public AbstractBaseScopeData<frontend::TaggedParserAtomIndex> {
+    SlotInfo slotInfo;
+    AbstractTrailingNamesArray<frontend::TaggedParserAtomIndex> trailingNames;
+
+    explicit ParserData(size_t nameCount) : trailingNames(nameCount) {}
+    ParserData() = delete;
+  };
+
+  template <typename NameT>
+  using AbstractData =
+      typename std::conditional_t<std::is_same<NameT, JSAtom>::value, Data,
+                                  ParserData>;
 
   template <XDRMode mode>
   static XDRResult XDR(XDRState<mode>* xdr, ScopeKind kind,
@@ -540,7 +552,7 @@ class LexicalScope : public Scope {
   static uint32_t nextFrameSlot(const AbstractScopePtr& scope);
 
  public:
-  uint32_t nextFrameSlot() const { return data().nextFrameSlot; }
+  uint32_t nextFrameSlot() const { return data().slotInfo.nextFrameSlot; }
 
   // Returns an empty shape for extensible global and non-syntactic lexical
   // scopes.
@@ -582,22 +594,18 @@ class FunctionScope : public Scope {
   static const ScopeKind classScopeKind_ = ScopeKind::Function;
 
  public:
-  // Data is public because it is created by the
-  // frontend. See Parser<FullParseHandler>::newFunctionScopeData.
-  template <typename NameT>
-  struct AbstractData : public AbstractBaseScopeData<NameT> {
-    // The canonical function of the scope, as during a scope walk we
-    // often query properties of the JSFunction (e.g., is the function an
-    // arrow).
-    HeapPtr<JSFunction*> canonicalFunction = {};
-
+  struct SlotInfo {
     // Frame slots [0, nextFrameSlot) are live when this is the innermost
     // scope.
     uint32_t nextFrameSlot = 0;
 
+    // Flag bits.
+    // This uses uint32_t in order to make this struct packed.
+    uint32_t flags = 0;
+
     // If parameter expressions are present, parameters act like lexical
     // bindings.
-    bool hasParameterExprs = false;
+    static constexpr uint32_t HasParameterExprsFlag = 1;
 
     // Bindings are sorted by kind in both frames and environments.
     //
@@ -630,16 +638,38 @@ class FunctionScope : public Scope {
     uint16_t varStart = 0;
     uint32_t length = 0;
 
-    // Tagged JSAtom* names, allocated beyond the end of the struct.
-    AbstractTrailingNamesArray<NameT> trailingNames;
+    bool hasParameterExprs() const { return flags & HasParameterExprsFlag; }
+    void setHasParameterExprs() { flags |= HasParameterExprsFlag; }
+  };
 
-    explicit AbstractData(size_t nameCount) : trailingNames(nameCount) {}
-    AbstractData() = delete;
+  struct alignas(ScopeDataAlignBytes) Data
+      : public AbstractBaseScopeData<JSAtom> {
+    // The canonical function of the scope, as during a scope walk we
+    // often query properties of the JSFunction (e.g., is the function an
+    // arrow).
+    HeapPtr<JSFunction*> canonicalFunction = {};
+    SlotInfo slotInfo;
+    AbstractTrailingNamesArray<JSAtom> trailingNames;
+
+    explicit Data(size_t nameCount) : trailingNames(nameCount) {}
+    Data() = delete;
 
     void trace(JSTracer* trc);
   };
 
-  using Data = AbstractData<JSAtom>;
+  struct ParserData
+      : public AbstractBaseScopeData<frontend::TaggedParserAtomIndex> {
+    SlotInfo slotInfo;
+    AbstractTrailingNamesArray<frontend::TaggedParserAtomIndex> trailingNames;
+
+    explicit ParserData(size_t nameCount) : trailingNames(nameCount) {}
+    ParserData() = delete;
+  };
+
+  template <typename NameT>
+  using AbstractData =
+      typename std::conditional_t<std::is_same<NameT, JSAtom>::value, Data,
+                                  ParserData>;
 
   template <typename AtomT, typename ShapeT>
   static bool prepareForScopeCreation(
@@ -669,16 +699,16 @@ class FunctionScope : public Scope {
   const Data& data() const { return *static_cast<const Data*>(rawData()); }
 
  public:
-  uint32_t nextFrameSlot() const { return data().nextFrameSlot; }
+  uint32_t nextFrameSlot() const { return data().slotInfo.nextFrameSlot; }
 
   JSFunction* canonicalFunction() const { return data().canonicalFunction; }
 
   JSScript* script() const;
 
-  bool hasParameterExprs() const { return data().hasParameterExprs; }
+  bool hasParameterExprs() const { return data().slotInfo.hasParameterExprs(); }
 
   uint32_t numPositionalFormalParameters() const {
-    return data().nonPositionalFormalStart;
+    return data().slotInfo.nonPositionalFormalStart;
   }
 
   static bool isSpecialName(JSContext* cx, JSAtom* name);
@@ -702,10 +732,7 @@ class VarScope : public Scope {
   friend class frontend::ScopeStencil;
 
  public:
-  // Data is public because it is created by the
-  // frontend. See Parser<FullParseHandler>::newVarScopeData.
-  template <typename NameT>
-  struct AbstractData : public AbstractBaseScopeData<NameT> {
+  struct SlotInfo {
     // Frame slots [0, nextFrameSlot) are live when this is the innermost
     // scope.
     uint32_t nextFrameSlot = 0;
@@ -714,16 +741,32 @@ class VarScope : public Scope {
     //
     //            vars - [0, length)
     uint32_t length = 0;
+  };
 
-    // Tagged JSAtom* names, allocated beyond the end of the struct.
-    AbstractTrailingNamesArray<NameT> trailingNames;
+  struct alignas(ScopeDataAlignBytes) Data
+      : public AbstractBaseScopeData<JSAtom> {
+    SlotInfo slotInfo;
+    AbstractTrailingNamesArray<JSAtom> trailingNames;
 
-    explicit AbstractData(size_t nameCount) : trailingNames(nameCount) {}
-    AbstractData() = delete;
+    explicit Data(size_t nameCount) : trailingNames(nameCount) {}
+    Data() = delete;
 
     void trace(JSTracer* trc);
   };
-  using Data = AbstractData<JSAtom>;
+
+  struct ParserData
+      : public AbstractBaseScopeData<frontend::TaggedParserAtomIndex> {
+    SlotInfo slotInfo;
+    AbstractTrailingNamesArray<frontend::TaggedParserAtomIndex> trailingNames;
+
+    explicit ParserData(size_t nameCount) : trailingNames(nameCount) {}
+    ParserData() = delete;
+  };
+
+  template <typename NameT>
+  using AbstractData =
+      typename std::conditional_t<std::is_same<NameT, JSAtom>::value, Data,
+                                  ParserData>;
 
   template <XDRMode mode>
   static XDRResult XDR(XDRState<mode>* xdr, ScopeKind kind,
@@ -746,7 +789,7 @@ class VarScope : public Scope {
   const Data& data() const { return *static_cast<const Data*>(rawData()); }
 
  public:
-  uint32_t nextFrameSlot() const { return data().nextFrameSlot; }
+  uint32_t nextFrameSlot() const { return data().slotInfo.nextFrameSlot; }
 };
 
 template <>
@@ -779,10 +822,7 @@ class GlobalScope : public Scope {
   friend class GCMarker;
 
  public:
-  // Data is public because it is created by the frontend. See
-  // Parser<FullParseHandler>::newGlobalScopeData.
-  template <typename NameT>
-  struct AbstractData : public AbstractBaseScopeData<NameT> {
+  struct SlotInfo {
     // Bindings are sorted by kind.
     // `vars` includes top-level functions which is distinguished by a bit
     // on the BindingName.
@@ -793,16 +833,32 @@ class GlobalScope : public Scope {
     uint32_t letStart = 0;
     uint32_t constStart = 0;
     uint32_t length = 0;
+  };
 
-    // Tagged JSAtom* names, allocated beyond the end of the struct.
-    AbstractTrailingNamesArray<NameT> trailingNames;
+  struct alignas(ScopeDataAlignBytes) Data
+      : public AbstractBaseScopeData<JSAtom> {
+    SlotInfo slotInfo;
+    AbstractTrailingNamesArray<JSAtom> trailingNames;
 
-    explicit AbstractData(size_t nameCount) : trailingNames(nameCount) {}
-    AbstractData() = delete;
+    explicit Data(size_t nameCount) : trailingNames(nameCount) {}
+    Data() = delete;
 
     void trace(JSTracer* trc);
   };
-  using Data = AbstractData<JSAtom>;
+
+  struct ParserData
+      : public AbstractBaseScopeData<frontend::TaggedParserAtomIndex> {
+    SlotInfo slotInfo;
+    AbstractTrailingNamesArray<frontend::TaggedParserAtomIndex> trailingNames;
+
+    explicit ParserData(size_t nameCount) : trailingNames(nameCount) {}
+    ParserData() = delete;
+  };
+
+  template <typename NameT>
+  using AbstractData =
+      typename std::conditional_t<std::is_same<NameT, JSAtom>::value, Data,
+                                  ParserData>;
 
   static GlobalScope* create(JSContext* cx, ScopeKind kind, Handle<Data*> data);
 
@@ -828,7 +884,7 @@ class GlobalScope : public Scope {
  public:
   bool isSyntactic() const { return kind() != ScopeKind::NonSyntactic; }
 
-  bool hasBindings() const { return data().length > 0; }
+  bool hasBindings() const { return data().slotInfo.length > 0; }
 };
 
 template <>
@@ -872,10 +928,7 @@ class EvalScope : public Scope {
   friend class frontend::ScopeStencil;
 
  public:
-  // Data is public because it is created by the frontend. See
-  // Parser<FullParseHandler>::newEvalScopeData.
-  template <typename NameT>
-  struct AbstractData : public AbstractBaseScopeData<NameT> {
+  struct SlotInfo {
     // Frame slots [0, nextFrameSlot) are live when this is the innermost
     // scope.
     uint32_t nextFrameSlot = 0;
@@ -888,16 +941,32 @@ class EvalScope : public Scope {
     //
     //            vars - [0, length)
     uint32_t length = 0;
+  };
 
-    // Tagged JSAtom* names, allocated beyond the end of the struct.
-    AbstractTrailingNamesArray<NameT> trailingNames;
+  struct alignas(ScopeDataAlignBytes) Data
+      : public AbstractBaseScopeData<JSAtom> {
+    SlotInfo slotInfo;
+    AbstractTrailingNamesArray<JSAtom> trailingNames;
 
-    explicit AbstractData(size_t nameCount) : trailingNames(nameCount) {}
-    AbstractData() = delete;
+    explicit Data(size_t nameCount) : trailingNames(nameCount) {}
+    Data() = delete;
 
     void trace(JSTracer* trc);
   };
-  using Data = AbstractData<JSAtom>;
+
+  struct ParserData
+      : public AbstractBaseScopeData<frontend::TaggedParserAtomIndex> {
+    SlotInfo slotInfo;
+    AbstractTrailingNamesArray<frontend::TaggedParserAtomIndex> trailingNames;
+
+    explicit ParserData(size_t nameCount) : trailingNames(nameCount) {}
+    ParserData() = delete;
+  };
+
+  template <typename NameT>
+  using AbstractData =
+      typename std::conditional_t<std::is_same<NameT, JSAtom>::value, Data,
+                                  ParserData>;
 
   template <XDRMode mode>
   static XDRResult XDR(XDRState<mode>* xdr, ScopeKind kind,
@@ -923,11 +992,11 @@ class EvalScope : public Scope {
   // introduce vars on.
   static Scope* nearestVarScopeForDirectEval(Scope* scope);
 
-  uint32_t nextFrameSlot() const { return data().nextFrameSlot; }
+  uint32_t nextFrameSlot() const { return data().slotInfo.nextFrameSlot; }
 
   bool strict() const { return kind() == ScopeKind::StrictEval; }
 
-  bool hasBindings() const { return data().length > 0; }
+  bool hasBindings() const { return data().slotInfo.length > 0; }
 
   bool isNonGlobal() const {
     if (strict()) {
@@ -959,13 +1028,7 @@ class ModuleScope : public Scope {
   static const ScopeKind classScopeKind_ = ScopeKind::Module;
 
  public:
-  // Data is public because it is created by the frontend. See
-  // Parser<FullParseHandler>::newModuleScopeData.
-  template <typename NameT>
-  struct AbstractData : public AbstractBaseScopeData<NameT> {
-    // The module of the scope.
-    HeapPtr<ModuleObject*> module = {};
-
+  struct SlotInfo {
     // Frame slots [0, nextFrameSlot) are live when this is the innermost
     // scope.
     uint32_t nextFrameSlot = 0;
@@ -980,17 +1043,34 @@ class ModuleScope : public Scope {
     uint32_t letStart = 0;
     uint32_t constStart = 0;
     uint32_t length = 0;
+  };
 
-    // Tagged JSAtom* names, allocated beyond the end of the struct.
-    AbstractTrailingNamesArray<NameT> trailingNames;
+  struct alignas(ScopeDataAlignBytes) Data
+      : public AbstractBaseScopeData<JSAtom> {
+    // The module of the scope.
+    HeapPtr<ModuleObject*> module = {};
+    SlotInfo slotInfo;
+    AbstractTrailingNamesArray<JSAtom> trailingNames;
 
-    explicit AbstractData(size_t nameCount) : trailingNames(nameCount) {}
-    AbstractData() = delete;
+    explicit Data(size_t nameCount);
+    Data() = delete;
 
     void trace(JSTracer* trc);
-    Zone* zone() const;
   };
-  using Data = AbstractData<JSAtom>;
+
+  struct ParserData
+      : public AbstractBaseScopeData<frontend::TaggedParserAtomIndex> {
+    SlotInfo slotInfo;
+    AbstractTrailingNamesArray<frontend::TaggedParserAtomIndex> trailingNames;
+
+    explicit ParserData(size_t nameCount) : trailingNames(nameCount) {}
+    ParserData() = delete;
+  };
+
+  template <typename NameT>
+  using AbstractData =
+      typename std::conditional_t<std::is_same<NameT, JSAtom>::value, Data,
+                                  ParserData>;
 
   template <XDRMode mode>
   static XDRResult XDR(XDRState<mode>* xdr, HandleModuleObject module,
@@ -1012,7 +1092,7 @@ class ModuleScope : public Scope {
   const Data& data() const { return *static_cast<const Data*>(rawData()); }
 
  public:
-  uint32_t nextFrameSlot() const { return data().nextFrameSlot; }
+  uint32_t nextFrameSlot() const { return data().slotInfo.nextFrameSlot; }
 
   ModuleObject* module() const { return data().module; }
 
@@ -1029,11 +1109,7 @@ class WasmInstanceScope : public Scope {
   static const ScopeKind classScopeKind_ = ScopeKind::WasmInstance;
 
  public:
-  template <typename NameT>
-  struct AbstractData : public AbstractBaseScopeData<NameT> {
-    // The wasm instance of the scope.
-    HeapPtr<WasmInstanceObject*> instance = {};
-
+  struct SlotInfo {
     // Frame slots [0, nextFrameSlot) are live when this is the innermost
     // scope.
     uint32_t nextFrameSlot = 0;
@@ -1044,16 +1120,34 @@ class WasmInstanceScope : public Scope {
     //  globals - [globalsStart, length)
     uint32_t globalsStart = 0;
     uint32_t length = 0;
+  };
 
-    // Tagged JSAtom* names, allocated beyond the end of the struct.
-    AbstractTrailingNamesArray<NameT> trailingNames;
+  struct alignas(ScopeDataAlignBytes) Data
+      : public AbstractBaseScopeData<JSAtom> {
+    // The wasm instance of the scope.
+    HeapPtr<WasmInstanceObject*> instance = {};
+    SlotInfo slotInfo;
+    AbstractTrailingNamesArray<JSAtom> trailingNames;
 
-    explicit AbstractData(size_t nameCount) : trailingNames(nameCount) {}
-    AbstractData() = delete;
+    explicit Data(size_t nameCount);
+    Data() = delete;
 
     void trace(JSTracer* trc);
   };
-  using Data = AbstractData<JSAtom>;
+
+  struct ParserData
+      : public AbstractBaseScopeData<frontend::TaggedParserAtomIndex> {
+    SlotInfo slotInfo;
+    AbstractTrailingNamesArray<frontend::TaggedParserAtomIndex> trailingNames;
+
+    explicit ParserData(size_t nameCount) : trailingNames(nameCount) {}
+    ParserData() = delete;
+  };
+
+  template <typename NameT>
+  using AbstractData =
+      typename std::conditional_t<std::is_same<NameT, JSAtom>::value, Data,
+                                  ParserData>;
 
   static WasmInstanceScope* create(JSContext* cx, WasmInstanceObject* instance);
 
@@ -1067,9 +1161,9 @@ class WasmInstanceScope : public Scope {
 
   uint32_t memoriesStart() const { return 0; }
 
-  uint32_t globalsStart() const { return data().globalsStart; }
+  uint32_t globalsStart() const { return data().slotInfo.globalsStart; }
 
-  uint32_t namesCount() const { return data().length; }
+  uint32_t namesCount() const { return data().slotInfo.length; }
 };
 
 // Scope corresponding to the wasm function. A WasmFunctionScope is used by
@@ -1083,8 +1177,7 @@ class WasmFunctionScope : public Scope {
   static const ScopeKind classScopeKind_ = ScopeKind::WasmFunction;
 
  public:
-  template <typename NameT>
-  struct AbstractData : public AbstractBaseScopeData<NameT> {
+  struct SlotInfo {
     // Frame slots [0, nextFrameSlot) are live when this is the innermost
     // scope.
     uint32_t nextFrameSlot = 0;
@@ -1093,16 +1186,32 @@ class WasmFunctionScope : public Scope {
     //
     //    vars - [0, length)
     uint32_t length = 0;
+  };
 
-    // Tagged JSAtom* names, allocated beyond the end of the struct.
-    AbstractTrailingNamesArray<NameT> trailingNames;
+  struct alignas(ScopeDataAlignBytes) Data
+      : public AbstractBaseScopeData<JSAtom> {
+    SlotInfo slotInfo;
+    AbstractTrailingNamesArray<JSAtom> trailingNames;
 
-    explicit AbstractData(size_t nameCount) : trailingNames(nameCount) {}
-    AbstractData() = delete;
+    explicit Data(size_t nameCount) : trailingNames(nameCount) {}
+    Data() = delete;
 
     void trace(JSTracer* trc);
   };
-  using Data = AbstractData<JSAtom>;
+
+  struct ParserData
+      : public AbstractBaseScopeData<frontend::TaggedParserAtomIndex> {
+    SlotInfo slotInfo;
+    AbstractTrailingNamesArray<frontend::TaggedParserAtomIndex> trailingNames;
+
+    explicit ParserData(size_t nameCount) : trailingNames(nameCount) {}
+    ParserData() = delete;
+  };
+
+  template <typename NameT>
+  using AbstractData =
+      typename std::conditional_t<std::is_same<NameT, JSAtom>::value, Data,
+                                  ParserData>;
 
   static WasmFunctionScope* create(JSContext* cx, HandleScope enclosing,
                                    uint32_t funcIndex);
