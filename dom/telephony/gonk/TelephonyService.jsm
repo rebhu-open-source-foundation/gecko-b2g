@@ -3069,7 +3069,8 @@ TelephonyService.prototype = {
         aCall.hangUpLocal,
         aCall.isVt,
         aCall.radioTech,
-        aCall.isRtt
+        aCall.isRtt,
+        aCall.verStatus
       );
     }
 
