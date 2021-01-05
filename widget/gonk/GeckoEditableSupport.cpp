@@ -541,6 +541,9 @@ GeckoEditableSupport::SetComposition(uint32_t aId,
       dispatcher->SetPendingCompositionString(EmptyString());
     } else {
       dispatcher->SetPendingCompositionString(aText);
+      dispatcher->SetCaretInPendingComposition(aText.Length(), 0);
+      dispatcher->AppendClauseToPendingComposition(aText.Length(),
+                                                   TextRangeType::eRawClause);
     }
 
     nsEventStatus status = nsEventStatus_eIgnore;
