@@ -260,6 +260,13 @@ XPCOMUtils.defineLazyServiceGetter(
   "nsIImsRegService"
 );
 
+XPCOMUtils.defineLazyServiceGetter(
+  this,
+  "gTelephonyService",
+  "@mozilla.org/telephony/telephonyservice;1",
+  "nsITelephonyService"
+);
+
 XPCOMUtils.defineLazyModuleGetter(
   this,
   "gPhoneNumberUtils",
@@ -1616,6 +1623,8 @@ var WifiManager = (function() {
     }
   }
 
+  manager.startWifi = wifiCommand.startWifi;
+  manager.stopWifi = wifiCommand.stopWifi;
   manager.getMacAddress = wifiCommand.getMacAddress;
   manager.getScanResults = wifiCommand.getScanResults;
   manager.handleScanRequest = handleScanRequest;
@@ -2351,6 +2360,8 @@ function WifiWorker() {
   this._listeners = [];
   this.wifiDisableDelayId = null;
   this.isDriverRoaming = false;
+
+  gTelephonyService.registerListener(this);
 
   WifiManager.telephonyServiceId = this._getDefaultServiceId();
 
@@ -3127,6 +3138,7 @@ WifiWorker.prototype = {
     Ci.nsIMobileConnectionListener,
     Ci.nsIImsRegListener,
     Ci.nsIIccListener,
+    Ci.nsITelephonyListener,
   ]),
 
   disconnectedByWifi: false,
@@ -3140,6 +3152,8 @@ WifiWorker.prototype = {
   _airplaneMode_status: null,
 
   _listeners: null,
+
+  _driverOnlyMode: false,
 
   wifiNetworkInfo: wifiInfo,
 
@@ -3212,6 +3226,46 @@ WifiWorker.prototype = {
   notifyCardStateChanged() {},
 
   notifyIsimInfoChanged() {},
+
+  // nsITelephonyListener
+  callStateChanged(aLength, allInfo) {
+    if (!Services.prefs.getBoolPref("dom.emergency.wifi-control", true)) {
+      return;
+    }
+
+    // According to DBH requirement, wifi need to be enabled during emergency
+    // call session for scanning. To simplify, here we try to control low level
+    // wifi modules but not change wifi state on upper layer.
+    let callState = Ci.nsITelephonyService.CALL_STATE_UNKNOWN;
+    for (let info of allInfo) {
+      if (info && info.isEmergency) {
+        callState = info.callState;
+        break;
+      }
+    }
+
+    if (callState == Ci.nsITelephonyService.CALL_STATE_UNKNOWN) {
+      // Unknown call state, do nothing.
+    } else if (callState == Ci.nsITelephonyService.CALL_STATE_DISCONNECTED) {
+      if (this._driverOnlyMode) {
+        debug("Exit emergency call session, disable wifi");
+        WifiManager.stopWifi(result => {
+          if (result.status == SUCCESS) {
+            this._driverOnlyMode = false;
+          }
+        });
+      }
+    } else if (!WifiManager.enabled && !this._driverOnlyMode) {
+      debug(
+        "Enter emergency call session by state " + callState + ", enable wifi"
+      );
+      WifiManager.startWifi(result => {
+        if (result.status == SUCCESS) {
+          this._driverOnlyMode = true;
+        }
+      });
+    }
+  },
 
   getCountryName() {
     for (let simId = 0; simId < WifiManager.numRil; simId++) {
@@ -4633,6 +4687,7 @@ WifiWorker.prototype = {
   shutdown() {
     debug("shutting down ...");
 
+    gTelephonyService.unregisterListener(this);
     this.handleWifiEnabled(false, function() {});
     this.removeSettingsObserver(SETTINGS_WIFI_DEBUG_ENABLED);
     this.removeSettingsObserver(SETTINGS_AIRPLANE_MODE);

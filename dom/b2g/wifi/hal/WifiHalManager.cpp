@@ -65,6 +65,10 @@ void WifiHal::WifiServiceDeathRecipient::serviceDied(
   }
 }
 
+Return<bool> WifiHal::CheckWifiStarted() {
+  return mWifi == nullptr ? Return<bool>(false) : mWifi->isStarted();
+}
+
 Result_t WifiHal::StartWifiModule() {
   // initialize wifi hal interface at first.
   InitWifiInterface();
@@ -215,7 +219,7 @@ Result_t WifiHal::InitWifiInterface() {
 }
 
 Result_t WifiHal::GetSupportedFeatures(uint32_t& aSupportedFeatures) {
-  if (mWifi == nullptr || !mWifi->isStarted()) {
+  if (!CheckWifiStarted()) {
     // should not get capabilities while Wi-Fi is stopped
     aSupportedFeatures = 0;
     return nsIWifiResult::ERROR_COMMAND_FAILED;
@@ -436,7 +440,8 @@ Result_t WifiHal::ConfigureFirmwareRoaming(
   mStaIface->getRoamingCapabilities(
       [&](const WifiStatus& status, const StaRoamingCapabilities& caps) {
         response = status;
-        roamingCaps = caps;
+        roamingCaps.maxBlacklistSize = caps.maxBlacklistSize;
+        roamingCaps.maxWhitelistSize = caps.maxWhitelistSize;
       });
 
   if (response.code != WifiStatusCode::SUCCESS) {

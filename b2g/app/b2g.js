@@ -1114,6 +1114,9 @@ pref("device.dual-lte", false);
 // Support wifi passpoint
 pref("dom.passpoint.supported", false);
 
+// Control wifi during emergency session
+pref("dom.emergency.wifi-control", true);
+
 // Enable IPv6 tethering router mode in Gecko
 pref("dom.b2g_ipv6_router_mode", true);
 

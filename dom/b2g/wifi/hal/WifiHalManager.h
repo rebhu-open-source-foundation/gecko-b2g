@@ -66,6 +66,7 @@ class WifiHal
   static WifiHal* Get();
   static void CleanUp();
 
+  Return<bool> CheckWifiStarted();
   Result_t InitHalInterface();
   Result_t TearDownInterface(const wifiNameSpaceV1_0::IfaceType& aType);
   Result_t GetSupportedFeatures(uint32_t& aSupportedFeatures);

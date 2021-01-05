@@ -243,6 +243,10 @@ Result_t WifiNative::SetConcurrencyPriority(bool aEnable) {
 Result_t WifiNative::StartWifi(nsAString& aIfaceName) {
   Result_t result = nsIWifiResult::ERROR_UNKNOWN;
 
+  if (sWifiHal->CheckWifiStarted()) {
+    StopWifi();
+  }
+
   result = sWifiHal->StartWifiModule();
   if (result != nsIWifiResult::SUCCESS) {
     WIFI_LOGE(LOG_TAG, "Failed to start wifi");
