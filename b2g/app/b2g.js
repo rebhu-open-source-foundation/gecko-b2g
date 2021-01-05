@@ -1249,3 +1249,5 @@ pref("b2g.ims.enabled", true);
 #if B2G_CCUSTOM_MODULES == C001
 pref("device.mvs", true);
 #endif
+
+pref("dom.popup_allowed_events", "change click dblclick auxclick mouseup pointerup notificationclick reset submit touchend contextmenu keydown");
