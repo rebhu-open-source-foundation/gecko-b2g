@@ -352,9 +352,9 @@ NetworkTimeService.prototype = {
     }
   },
 
-  // nsISettingsObserver
-  notify(aReason) {
-    switch (aReason) {
+  // nsITimeObserver
+  notify(aTimeInfo) {
+    switch (aTimeInfo.reason) {
       case Ci.nsITime.TIME_CHANGED:
         // TODO, current TimeService doesn't provide time delta.
         // let offset = parseInt(aData, 10);
