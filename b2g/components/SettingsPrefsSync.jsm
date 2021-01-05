@@ -245,6 +245,7 @@ this.SettingsPrefsSync = {
     let base_version = null;
     let product_fota = null;
     let cuRefStr = null;
+    let build_fingerprint = null;
     if (isGonk) {
       hardware_info =
         libcutils.property_get("ro.product.model.name") ||
@@ -259,6 +260,7 @@ this.SettingsPrefsSync = {
       base_version = libcutils.property_get("ro.product.base_version");
       product_fota = libcutils.property_get("ro.product.fota");
       cuRefStr = this.cuRef || null;
+      build_fingerprint = libcutils.property_get("ro.build.fingerprint");
     }
 
     // Populate deviceinfo settings,
@@ -284,6 +286,7 @@ this.SettingsPrefsSync = {
         product_fota,
         // cu means Commercial Unit Reference
         cu: cuRefStr,
+        build_fingerprint,
       };
 
       let settingsArray = [];
