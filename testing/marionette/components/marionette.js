@@ -247,8 +247,9 @@ const RECOMMENDED_PREFS = new Map([
   // Do not automatically switch between offline and online
   ["network.manage-offline-status", false],
 
+  // To avoid any unexpected interference for B2G preference change, mark this pref
   // Make sure SNTP requests do not hit the network
-  ["network.sntp.pools", "%(server)s"],
+  // ["network.sntp.pools", "%(server)s"],
 
   // Privacy and Tracking Protection
   ["privacy.trackingprotection.enabled", false],
