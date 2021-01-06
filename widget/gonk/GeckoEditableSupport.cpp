@@ -941,11 +941,15 @@ GeckoEditableSupport::GetText(uint32_t aId,
     if (!focusedElement) {
       break;
     }
-    if (isPlainTextField(focusedElement)) {
+    if (EditableUtils::isContentEditable(focusedElement)) {
+      rv = getContentEditableText(focusedElement, text);
+    } else {
+      nsCOMPtr<Document> doc = focusedElement->GetComposedDoc();
+      Element* activeElement = doc->GetActiveElement();
       RefPtr<HTMLTextAreaElement> textArea =
-          HTMLTextAreaElement::FromNodeOrNull(focusedElement);
+          HTMLTextAreaElement::FromNodeOrNull(activeElement);
       RefPtr<HTMLInputElement> input =
-          HTMLInputElement::FromNodeOrNull(focusedElement);
+          HTMLInputElement::FromNodeOrNull(activeElement);
       if (textArea) {
         textArea->GetValue(text);
         rv = NS_OK;
@@ -953,13 +957,9 @@ GeckoEditableSupport::GetText(uint32_t aId,
         input->GetValue(text, CallerType::NonSystem);
         rv = NS_OK;
       } else {
-        IME_LOGD("GeckoEditableSupport: GetText: Fail, unknow plain text");
+        IME_LOGD(
+            "GeckoEditableSupport: GetText: Fail due to not supported input");
       }
-    } else if (EditableUtils::isContentEditable(focusedElement)) {
-      rv = getContentEditableText(focusedElement, text);
-    } else {
-      IME_LOGD(
-          "GeckoEditableSupport: GetText: Fail due to not supported input");
     }
   } while (0);
   text = Substring(text, aOffset, aLength);
