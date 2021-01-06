@@ -3859,7 +3859,7 @@ ICCRecordHelperObject.prototype = {
 
     if (!contact || !contact.recordId) {
       if (onerror) {
-        onerror(GECKO_ERROR_INVALID_PARAMETER);
+        onerror(GECKO_ERROR_INVALID_ARGUMENTS);
       }
       return;
     }
@@ -8308,7 +8308,7 @@ ComprehensionTlvHelperObject.prototype = {
       return;
     }
 
-    cause = cause == -1 ? ERROR_SUCCESS : cause;
+    cause = cause == -1 ? Ci.nsIRilResponseResult.RADIO_ERROR_NONE : cause;
 
     GsmPDUHelper.writeHexOctet(
       COMPREHENSIONTLV_TAG_CAUSE | COMPREHENSIONTLV_FLAG_CR

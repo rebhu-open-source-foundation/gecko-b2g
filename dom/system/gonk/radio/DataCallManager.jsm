@@ -2277,7 +2277,7 @@ DataCall.prototype = {
     // Check ril.h for 'no retry' data call fail causes.
     if (
       aErrorMsg === RIL.GECKO_ERROR_RADIO_NOT_AVAILABLE ||
-      aErrorMsg === RIL.GECKO_ERROR_INVALID_PARAMETER ||
+      aErrorMsg === RIL.GECKO_ERROR_INVALID_ARGUMENTS ||
       aDataFailCause ===
         Ci.nsIDataCallInterface.DATACALL_FAIL_OPERATOR_BARRED ||
       aDataFailCause ===

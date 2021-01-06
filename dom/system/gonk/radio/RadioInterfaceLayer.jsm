@@ -1547,7 +1547,7 @@ RadioInterface.prototype = {
     this.cellBroadcastDisabled = options.disabled;
 
     // Return the response and let ril handle the rest thing.
-    options.errorMsg = RIL.ERROR_SUCCESS;
+    options.errorMsg = Ci.nsIRilResponseResult.RADIO_ERROR_NONE;
     this.handleRilResponse(options);
 
     // If |this.mergedCellBroadcastConfig| is null, either we haven't finished
@@ -1576,7 +1576,7 @@ RadioInterface.prototype = {
       let str = getSearchListStr(options.searchList);
       this.debug("setCellBroadcastSearchList  str: " + str);
       this.cellBroadcastConfigs.MMI = this._convertCellBroadcastSearchList(str);
-      options.errorMsg = RIL.ERROR_SUCCESS;
+      options.errorMsg = Ci.nsIRilResponseResult.RADIO_ERROR_NONE;
     } catch (e) {
       if (DEBUG) {
         this.debug("Invalid Cell Broadcast search list: " + e);
@@ -2582,7 +2582,12 @@ RadioInterface.prototype = {
     // For backward avaliable. Intention for not change the origianl parameter naming for the upperlayer.
     let result = {};
     result.rilMessageType = response.rilMessageType;
-    result.errorMsg = response.errorMsg;
+
+    if (typeof response.errorMsg == "string") {
+      result.errorMsg = response.errorMsg;
+    } else {
+      result.errorMsg = RIL.RIL_ERROR_TO_GECKO_ERROR[response.errorMsg];
+    }
 
     // Handle solic reponse by function then call the call back.
     switch (response.rilMessageType) {
@@ -2603,7 +2608,10 @@ RadioInterface.prototype = {
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_GET_SIM_STATUS error = " +
-              response.errorMsg
+              +result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
           );
         }
         break;
@@ -2650,7 +2658,10 @@ RadioInterface.prototype = {
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_QUERY_FACILITY_LOCK error = " +
-              response.errorMsg
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
           );
         }
         break;
@@ -2668,7 +2679,10 @@ RadioInterface.prototype = {
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_SET_FACILITY_LOCK error = " +
+              result.errorMsg +
+              " (" +
               response.errorMsg +
+              ")" +
               "remainingRetries = " +
               response.remainingRetries
           );
@@ -2689,7 +2703,10 @@ RadioInterface.prototype = {
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_ENTER_SIM_PIN error = " +
+              result.errorMsg +
+              " (" +
               response.errorMsg +
+              ")" +
               ", remainingRetries = " +
               JSON.stringify(response.remainingRetries)
           );
@@ -2710,7 +2727,10 @@ RadioInterface.prototype = {
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_ENTER_SIM_PUK error = " +
+              result.errorMsg +
+              " (" +
               response.errorMsg +
+              ")" +
               ", remainingRetries = " +
               JSON.stringify(response.remainingRetries)
           );
@@ -2731,7 +2751,10 @@ RadioInterface.prototype = {
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_ENTER_SIM_PIN2 error = " +
+              result.errorMsg +
+              " (" +
               response.errorMsg +
+              ")" +
               ", remainingRetries = " +
               JSON.stringify(response.remainingRetries)
           );
@@ -2752,7 +2775,10 @@ RadioInterface.prototype = {
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_ENTER_SIM_PUK2 error = " +
+              result.errorMsg +
+              " (" +
               response.errorMsg +
+              ")" +
               ", remainingRetries = " +
               JSON.stringify(response.remainingRetries)
           );
@@ -2773,7 +2799,10 @@ RadioInterface.prototype = {
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_CHANGE_SIM_PIN error = " +
+              result.errorMsg +
+              " (" +
               response.errorMsg +
+              ")" +
               ", remainingRetries = " +
               JSON.stringify(response.remainingRetries)
           );
@@ -2794,7 +2823,10 @@ RadioInterface.prototype = {
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_CHANGE_SIM_PIN2 error = " +
+              result.errorMsg +
+              " (" +
               response.errorMsg +
+              ")" +
               ", remainingRetries = " +
               JSON.stringify(response.remainingRetries)
           );
@@ -2818,7 +2850,10 @@ RadioInterface.prototype = {
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_GET_CURRENT_CALLS error = " +
-              response.errorMsg
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
           );
         }
         break;
@@ -2836,7 +2871,10 @@ RadioInterface.prototype = {
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_DIAL error = " +
-              response.errorMsg
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
           );
         }
         break;
@@ -2861,7 +2899,10 @@ RadioInterface.prototype = {
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_GET_IMSI error = " +
-              response.errorMsg
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
           );
         }
         break;
@@ -2879,7 +2920,10 @@ RadioInterface.prototype = {
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_HANGUP error = " +
-              response.errorMsg
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
           );
         }
         break;
@@ -2899,7 +2943,10 @@ RadioInterface.prototype = {
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_HANGUP_WAITING_OR_BACKGROUND error = " +
-              response.errorMsg
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
           );
         }
         break;
@@ -2919,7 +2966,10 @@ RadioInterface.prototype = {
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_HANGUP_FOREGROUND_RESUME_BACKGROUND error = " +
-              response.errorMsg
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
           );
         }
         break;
@@ -2939,7 +2989,10 @@ RadioInterface.prototype = {
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_SWITCH_WAITING_OR_HOLDING_AND_ACTIVE error = " +
-              response.errorMsg
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
           );
         }
         break;
@@ -2959,7 +3012,10 @@ RadioInterface.prototype = {
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_CONFERENCE error = " +
-              response.errorMsg
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
           );
         }
         break;
@@ -2977,7 +3033,10 @@ RadioInterface.prototype = {
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_UDUB error = " +
-              response.errorMsg
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
           );
         }
         break;
@@ -3000,7 +3059,10 @@ RadioInterface.prototype = {
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_EXPLICIT_CALL_TRANSFER error = " +
-              response.errorMsg
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
           );
         }
         break;
@@ -3021,7 +3083,10 @@ RadioInterface.prototype = {
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_SIGNAL_STRENGTH error = " +
-              response.errorMsg
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
           );
         }
         break;
@@ -3044,7 +3109,10 @@ RadioInterface.prototype = {
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_VOICE_REGISTRATION_STATE error = " +
-              response.errorMsg
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
           );
         }
         break;
@@ -3066,7 +3134,10 @@ RadioInterface.prototype = {
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_VOICE_REGISTRATION_STATE error = " +
-              response.errorMsg
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
           );
         }
         break;
@@ -3089,7 +3160,10 @@ RadioInterface.prototype = {
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_OPERATOR error = " +
-              response.errorMsg
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
           );
         }
         break;
@@ -3111,7 +3185,10 @@ RadioInterface.prototype = {
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_QUERY_NETWORK_SELECTION_MODE error = " +
-              response.errorMsg
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
           );
         }
         break;
@@ -3130,7 +3207,10 @@ RadioInterface.prototype = {
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_RADIO_POWER error = " +
-              response.errorMsg
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
           );
         }
         break;
@@ -3150,7 +3230,10 @@ RadioInterface.prototype = {
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_SETUP_DATA_CALL error = " +
-              response.errorMsg
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
           );
         }
         break;
@@ -3172,7 +3255,10 @@ RadioInterface.prototype = {
               "RILJ: [" +
                 response.rilMessageToken +
                 "] < RIL_REQUEST_SIM_IO error = " +
+                result.errorMsg +
+                " (" +
                 response.errorMsg +
+                ")" +
                 " , IccIoResult =" +
                 JSON.stringify(response.iccIo)
             );
@@ -3193,7 +3279,10 @@ RadioInterface.prototype = {
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_SEND_USSD error = " +
-              response.errorMsg
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
           );
         }
         break;
@@ -3212,7 +3301,10 @@ RadioInterface.prototype = {
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_CANCEL_USSD error = " +
-              response.errorMsg
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
           );
         }
         break;
@@ -3234,7 +3326,10 @@ RadioInterface.prototype = {
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_GET_CLIR error = " +
-              response.errorMsg
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
           );
         }
         break;
@@ -3251,7 +3346,10 @@ RadioInterface.prototype = {
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_SET_CLIR error = " +
-              response.errorMsg
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
           );
         }
         break;
@@ -3270,7 +3368,10 @@ RadioInterface.prototype = {
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_QUERY_CALL_FORWARD_STATUS error = " +
-              response.errorMsg
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
           );
         }
         break;
@@ -3291,7 +3392,10 @@ RadioInterface.prototype = {
               "RILJ: [" +
                 response.rilMessageToken +
                 "] < RIL_REQUEST_SET_CALL_FORWARD error = " +
-                response.errorMsg
+                result.errorMsg +
+                " (" +
+                response.errorMsg +
+                ")"
             );
           }
           this._callForwardOptions = {};
@@ -3314,7 +3418,10 @@ RadioInterface.prototype = {
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_QUERY_CALL_WAITING error = " +
-              response.errorMsg
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
           );
         }
         break;
@@ -3335,7 +3442,10 @@ RadioInterface.prototype = {
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_SET_CALL_WAITING error = " +
-              response.errorMsg
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
           );
         }
         break;
@@ -3354,7 +3464,10 @@ RadioInterface.prototype = {
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_ACKNOWLEDGE_GSM_SMS error = " +
-              response.errorMsg
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
           );
         }
         break;
@@ -3372,7 +3485,10 @@ RadioInterface.prototype = {
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_ANSWER error = " +
-              response.errorMsg
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
           );
         }
         break;
@@ -3391,7 +3507,10 @@ RadioInterface.prototype = {
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_DEACTIVATE_DATA_CALL error = " +
-              response.errorMsg
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
           );
         }
         break;
@@ -3410,7 +3529,10 @@ RadioInterface.prototype = {
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_CHANGE_BARRING_PASSWORD error = " +
-              response.errorMsg
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
           );
         }
         break;
@@ -3430,7 +3552,10 @@ RadioInterface.prototype = {
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_SET_NETWORK_SELECTION_AUTOMATIC error = " +
-              response.errorMsg
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
           );
         }
         break;
@@ -3450,7 +3575,10 @@ RadioInterface.prototype = {
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_SET_NETWORK_SELECTION_MANUAL error = " +
-              response.errorMsg
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
           );
         }
         break;
@@ -3469,7 +3597,10 @@ RadioInterface.prototype = {
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_QUERY_AVAILABLE_NETWORKS error = " +
-              response.errorMsg
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
           );
         }
         break;
@@ -3486,7 +3617,10 @@ RadioInterface.prototype = {
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_DTMF error = " +
-              response.errorMsg
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
           );
         }
         break;
@@ -3505,7 +3639,10 @@ RadioInterface.prototype = {
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_DTMF_START error = " +
-              response.errorMsg
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
           );
         }
         break;
@@ -3522,7 +3659,10 @@ RadioInterface.prototype = {
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_DTMF_STOP error = " +
-              response.errorMsg
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
           );
         }
         break;
@@ -3543,7 +3683,10 @@ RadioInterface.prototype = {
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_BASEBAND_VERSION error = " +
-              response.errorMsg
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
           );
         }
         break;
@@ -3562,7 +3705,10 @@ RadioInterface.prototype = {
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_SEPARATE_CONNECTION error = " +
-              response.errorMsg
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
           );
         }
         break;
@@ -3579,7 +3725,10 @@ RadioInterface.prototype = {
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_SET_MUTE error = " +
-              response.errorMsg
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
           );
         }
         break;
@@ -3599,7 +3748,10 @@ RadioInterface.prototype = {
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_QUERY_CLIP error = " +
-              response.errorMsg
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
           );
         }
         break;
@@ -3618,7 +3770,10 @@ RadioInterface.prototype = {
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_SET_PREFERRED_NETWORK_TYPE error = " +
-              response.errorMsg
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
           );
         }
         break;
@@ -3639,7 +3794,10 @@ RadioInterface.prototype = {
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_SET_PREFERRED_NETWORK_TYPE error = " +
-              response.errorMsg
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
           );
         }
         break;
@@ -3659,7 +3817,10 @@ RadioInterface.prototype = {
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_GET_PREFERRED_NETWORK_TYPE error = " +
-              response.errorMsg
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
           );
         }
         break;
@@ -3678,7 +3839,10 @@ RadioInterface.prototype = {
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_GET_NEIGHBORING_CELL_IDS error = " +
-              response.errorMsg
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
           );
         }
         break;
@@ -3698,7 +3862,10 @@ RadioInterface.prototype = {
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_QUERY_TTY_MODE error = " +
-              response.errorMsg
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
           );
         }
         break;
@@ -3723,7 +3890,10 @@ RadioInterface.prototype = {
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_CDMA_SET_PREFERRED_VOICE_PRIVACY_MODE error = " +
-              response.errorMsg
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
           );
         }
         break;
@@ -3743,7 +3913,10 @@ RadioInterface.prototype = {
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_CDMA_QUERY_PREFERRED_VOICE_PRIVACY_MODE error = " +
-              response.errorMsg
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
           );
         }
         break;
@@ -3764,7 +3937,10 @@ RadioInterface.prototype = {
             "RILJ: [" +
               response.rilMessageToken +
               "] < REQUEST_SEND_SMS error = " +
-              response.errorMsg
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
           );
         }
         break;
@@ -3793,7 +3969,10 @@ RadioInterface.prototype = {
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_GSM_BROADCAST_ACTIVATION error = " +
-              response.errorMsg
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
           );
         }
         break;
@@ -3813,7 +3992,10 @@ RadioInterface.prototype = {
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_GSM_SET_BROADCAST_CONFIG error = " +
-              response.errorMsg
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
           );
         }
         break;
@@ -3843,7 +4025,10 @@ RadioInterface.prototype = {
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_DEVICE_IDENTITY error = " +
-              response.errorMsg
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
           );
         }
         break;
@@ -3862,7 +4047,10 @@ RadioInterface.prototype = {
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_EXIT_EMERGENCY_CALLBACK_MODE error = " +
-              response.errorMsg
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
           );
         }
         break;
@@ -3883,7 +4071,10 @@ RadioInterface.prototype = {
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_GET_SMSC_ADDRESS error = " +
-              response.errorMsg
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
           );
         }
         break;
@@ -3906,7 +4097,10 @@ RadioInterface.prototype = {
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_REPORT_STK_SERVICE_IS_RUNNING error = " +
-              response.errorMsg
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
           );
         }
         break;
@@ -3931,7 +4125,10 @@ RadioInterface.prototype = {
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_VOICE_RADIO_TECH error = " +
-              response.errorMsg
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
           );
         }
         break;
@@ -3951,7 +4148,10 @@ RadioInterface.prototype = {
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_VOICE_RADIO_TECH error = " +
-              response.errorMsg
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
           );
         }
         break;
@@ -3970,7 +4170,10 @@ RadioInterface.prototype = {
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_SET_INITIAL_ATTACH_APN error = " +
-              response.errorMsg
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
           );
         }
         break;
@@ -3996,7 +4199,10 @@ RadioInterface.prototype = {
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_SET_UICC_SUBSCRIPTION error = " +
-              response.errorMsg
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
           );
         }
         break;
@@ -4016,7 +4222,10 @@ RadioInterface.prototype = {
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_ALLOW_DATA error = " +
-              response.errorMsg
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
           );
         }
         break;
@@ -4042,7 +4251,10 @@ RadioInterface.prototype = {
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_SIM_AUTHENTICATION error = " +
-              response.errorMsg
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
           );
         }
         break;
@@ -4061,7 +4273,10 @@ RadioInterface.prototype = {
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_SET_CELL_INFO_LIST_RATE error = " +
-              response.errorMsg
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
           );
         }
         break;
@@ -4081,7 +4296,10 @@ RadioInterface.prototype = {
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_GET_RADIO_CAPABILITY error = " +
-              response.errorMsg
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
           );
         }
         break;
@@ -4100,7 +4318,10 @@ RadioInterface.prototype = {
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_STK_HANDLE_CALL_SETUP_REQUESTED_FROM_SIM error = " +
-              response.errorMsg
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
           );
         }
         break;
@@ -4119,7 +4340,10 @@ RadioInterface.prototype = {
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_STK_SEND_TERMINAL_RESPONSE error = " +
-              response.errorMsg
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
           );
         }
         break;
@@ -4169,7 +4393,10 @@ RadioInterface.prototype = {
             "RILJ: [" +
               response.rilMessageToken +
               "] < RIL_REQUEST_SET_SUPP_SVC_NOTIFICATION error = " +
-              response.errorMsg
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
           );
         }
         break;
@@ -4231,7 +4458,10 @@ RadioInterface.prototype = {
         "RILJ: [" +
           aResponse.rilMessageToken +
           "] < RIL_REQUEST_LAST_CALL_FAIL_CAUSE error = " +
-          aResponse.errorMsg
+          aResult.errorMsg +
+          " (" +
+          aResponse.errorMsg +
+          ")"
       );
     }
   },
@@ -5233,7 +5463,7 @@ RadioInterface.prototype = {
           response.meid
       );
     }
-    if (response.errorMsg) {
+    if (response.errorMsg != 0) {
       if (DEBUG) {
         this.debug("Failed to get device identities:" + response.errorMsg);
       }
@@ -5365,7 +5595,7 @@ RadioInterface.prototype = {
   },
 
   handleDataRegistration(response) {
-    if (response.errorMsg) {
+    if (response.errorMsg != 0) {
       this._attachDataRegistration.result = false;
     } else {
       this._attachDataRegistration.result = true;
@@ -5373,7 +5603,7 @@ RadioInterface.prototype = {
   },
 
   handleBasebandVersion(response) {
-    if (response.errorMsg) {
+    if (response.errorMsg != 0) {
       return;
     }
     this.basebandVersion = response.basebandVersion;
@@ -6327,7 +6557,7 @@ RadioInterface.prototype = {
           networkType < 0 ||
           networkType >= RIL.RIL_PREFERRED_NETWORK_TYPE_TO_GECKO.length
         ) {
-          message.errorMsg = RIL.GECKO_ERROR_INVALID_PARAMETER;
+          message.errorMsg = RIL.GECKO_ERROR_INVALID_ARGUMENTS;
           this.handleRilResponse(message);
           return;
         }
@@ -7268,7 +7498,7 @@ RadioInterface.prototype = {
     // If any of the mandatory arguments is not available, return an error
     // immediately.
     if (ton === undefined || npi === undefined || !message.smscAddress) {
-      message.errorMsg = RIL.GECKO_ERROR_INVALID_PARAMETER;
+      message.errorMsg = RIL.GECKO_ERROR_INVALID_ARGUMENTS;
       //this.sendChromeMessage(options);
       return;
     }
@@ -7283,7 +7513,7 @@ RadioInterface.prototype = {
 
     // If the filtered number is an empty string, return an error immediately.
     if (number.length === 0) {
-      message.errorMsg = RIL.GECKO_ERROR_INVALID_PARAMETER;
+      message.errorMsg = RIL.GECKO_ERROR_INVALID_ARGUMENTS;
       //this.sendChromeMessage(message);
       return;
     }
