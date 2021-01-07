@@ -139,8 +139,7 @@ this.PermissionsTable = {
   },
   "desktop-notification": {
     pwa: PROMPT_ACTION,
-    signed: ALLOW_ACTION,
-    core: ALLOW_ACTION,
+    signed: PROMPT_ACTION,
   },
   "device-configuration": {
     pwa: DENY_ACTION,
