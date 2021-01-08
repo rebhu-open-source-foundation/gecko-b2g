@@ -2582,6 +2582,7 @@ RadioInterface.prototype = {
     // For backward avaliable. Intention for not change the origianl parameter naming for the upperlayer.
     let result = {};
     result.rilMessageType = response.rilMessageType;
+    result.rilMessageToken = response.rilMessageToken;
 
     if (typeof response.errorMsg == "string") {
       result.errorMsg = response.errorMsg;
@@ -2686,8 +2687,8 @@ RadioInterface.prototype = {
               "remainingRetries = " +
               response.remainingRetries
           );
+          result.remainingRetries = response.remainingRetries;
         }
-        result = response;
         break;
       case "enterICCPIN":
         if (response.errorMsg == 0) {
@@ -2710,8 +2711,8 @@ RadioInterface.prototype = {
               ", remainingRetries = " +
               JSON.stringify(response.remainingRetries)
           );
+          result.remainingRetries = response.remainingRetries;
         }
-        result = response;
         break;
       case "enterICCPUK":
         if (response.errorMsg == 0) {
@@ -2734,8 +2735,8 @@ RadioInterface.prototype = {
               ", remainingRetries = " +
               JSON.stringify(response.remainingRetries)
           );
+          result.remainingRetries = response.remainingRetries;
         }
-        result = response;
         break;
       case "enterICCPIN2":
         if (response.errorMsg == 0) {
@@ -2758,8 +2759,8 @@ RadioInterface.prototype = {
               ", remainingRetries = " +
               JSON.stringify(response.remainingRetries)
           );
+          result.remainingRetries = response.remainingRetries;
         }
-        result = response;
         break;
       case "enterICCPUK2":
         if (response.errorMsg == 0) {
@@ -2782,8 +2783,8 @@ RadioInterface.prototype = {
               ", remainingRetries = " +
               JSON.stringify(response.remainingRetries)
           );
+          result.remainingRetries = response.remainingRetries;
         }
-        result = response;
         break;
       case "changeICCPIN":
         if (response.errorMsg == 0) {
@@ -2806,8 +2807,8 @@ RadioInterface.prototype = {
               ", remainingRetries = " +
               JSON.stringify(response.remainingRetries)
           );
+          result.remainingRetries = response.remainingRetries;
         }
-        result = response;
         break;
       case "changeICCPIN2":
         if (response.errorMsg == 0) {
@@ -2830,8 +2831,8 @@ RadioInterface.prototype = {
               ", remainingRetries = " +
               JSON.stringify(response.remainingRetries)
           );
+          result.remainingRetries = response.remainingRetries;
         }
-        result = response;
         break;
       case "enterDepersonalization":
         break;
@@ -2864,7 +2865,6 @@ RadioInterface.prototype = {
               "RILJ: [" + response.rilMessageToken + "] < RIL_REQUEST_DIAL"
             );
           }
-          result = response;
           //this.handleRequestDial();
         } else if (DEBUG) {
           this.debug(
@@ -2888,8 +2888,7 @@ RadioInterface.prototype = {
                 response.imsi
             );
           }
-          this.iccInfoPrivate.imsi = response.imsi;
-          result = response;
+          this.iccInfoPrivate.imsi = result.imsi = response.imsi;
           gIccService.notifyImsiChanged(
             this.clientId,
             this.iccInfoPrivate.imsi
@@ -2913,7 +2912,6 @@ RadioInterface.prototype = {
               "RILJ: [" + response.rilMessageToken + "] < RIL_REQUEST_HANGUP"
             );
           }
-          result = response;
           //this.handleHangUpCall();
         } else if (DEBUG) {
           this.debug(
@@ -2936,7 +2934,6 @@ RadioInterface.prototype = {
                 "] < RIL_REQUEST_HANGUP_WAITING_OR_BACKGROUND"
             );
           }
-          result = response;
           //this.handleHangUpBackgroundCall();
         } else if (DEBUG) {
           this.debug(
@@ -2959,7 +2956,6 @@ RadioInterface.prototype = {
                 "] < RIL_REQUEST_HANGUP_FOREGROUND_RESUME_BACKGROUND"
             );
           }
-          result = response;
           //this.handleHangUpForegroundCall();
         } else if (DEBUG) {
           this.debug(
@@ -2982,7 +2978,6 @@ RadioInterface.prototype = {
                 "] < RIL_REQUEST_SWITCH_WAITING_OR_HOLDING_AND_ACTIVE"
             );
           }
-          result = response;
           //this.handleSwitchActiveCall();
         } else if (DEBUG) {
           this.debug(
@@ -3005,7 +3000,6 @@ RadioInterface.prototype = {
                 "] < RIL_REQUEST_CONFERENCE"
             );
           }
-          result = response;
           //this.handleConferenceCall();
         } else if (DEBUG) {
           this.debug(
@@ -3026,7 +3020,6 @@ RadioInterface.prototype = {
               "RILJ: [" + response.rilMessageToken + "] < RIL_REQUEST_UDUB"
             );
           }
-          result = response;
           //this.handleRejectCall();
         } else if (DEBUG) {
           this.debug(
@@ -3052,7 +3045,6 @@ RadioInterface.prototype = {
                 "] < RIL_REQUEST_EXPLICIT_CALL_TRANSFER"
             );
           }
-          result = response;
           //this.handleExplicitCallTransfer();
         } else if (DEBUG) {
           this.debug(
@@ -3077,7 +3069,6 @@ RadioInterface.prototype = {
             );
           }
           this.handleSignalStrength(response);
-          result = response;
         } else if (DEBUG) {
           this.debug(
             "RILJ: [" +
@@ -3103,7 +3094,6 @@ RadioInterface.prototype = {
           }
 
           this.handleVoiceRegistrationState(response);
-          result = response;
         } else if (DEBUG) {
           this.debug(
             "RILJ: [" +
@@ -3128,7 +3118,6 @@ RadioInterface.prototype = {
             );
           }
           this.handleDataRegistrationState(response);
-          result = response;
         } else if (DEBUG) {
           this.debug(
             "RILJ: [" +
@@ -3154,7 +3143,6 @@ RadioInterface.prototype = {
           }
 
           this.handleOperator(response);
-          result = response;
         } else if (DEBUG) {
           this.debug(
             "RILJ: [" +
@@ -3179,7 +3167,6 @@ RadioInterface.prototype = {
             );
           }
           this.handleNetworkSelectionMode(response.nwModeManual);
-          result = response;
         } else if (DEBUG) {
           this.debug(
             "RILJ: [" +
@@ -3201,7 +3188,6 @@ RadioInterface.prototype = {
                 "] < RIL_REQUEST_RADIO_POWER"
             );
           }
-          result = response;
         } else if (DEBUG) {
           this.debug(
             "RILJ: [" +
@@ -3224,7 +3210,7 @@ RadioInterface.prototype = {
                 JSON.stringify(response.dcResponse)
             );
           }
-          result = response;
+          result.dcResponse = response.dcResponse;
         } else if (DEBUG) {
           this.debug(
             "RILJ: [" +
@@ -3248,7 +3234,7 @@ RadioInterface.prototype = {
             );
           }
           this.handleIccIoResult(response);
-          result = response;
+          result.iccIo = response.iccIo;
         } else {
           if (DEBUG) {
             this.debug(
@@ -3263,7 +3249,8 @@ RadioInterface.prototype = {
                 JSON.stringify(response.iccIo)
             );
           }
-          this.handleIccIoErrorResult(response);
+          result.iccIo = response.iccIo;
+          this.handleIccIoErrorResult(result);
         }
         break;
       case "sendUSSD":
@@ -3611,7 +3598,6 @@ RadioInterface.prototype = {
               "RILJ: [" + response.rilMessageToken + "] < RIL_REQUEST_DTMF"
             );
           }
-          result = response;
         } else if (DEBUG) {
           this.debug(
             "RILJ: [" +
@@ -3633,7 +3619,6 @@ RadioInterface.prototype = {
                 "] < RIL_REQUEST_DTMF_START"
             );
           }
-          result = response;
         } else if (DEBUG) {
           this.debug(
             "RILJ: [" +
@@ -3653,7 +3638,6 @@ RadioInterface.prototype = {
               "RILJ: [" + response.rilMessageToken + "] < RIL_REQUEST_DTMF_STOP"
             );
           }
-          result = response;
         } else if (DEBUG) {
           this.debug(
             "RILJ: [" +
@@ -3677,7 +3661,7 @@ RadioInterface.prototype = {
             );
           }
           this.handleBasebandVersion(response);
-          result = response;
+          result.basebandVersion = response.basebandVersion;
         } else if (DEBUG) {
           this.debug(
             "RILJ: [" +
@@ -3699,7 +3683,6 @@ RadioInterface.prototype = {
                 "] < RIL_REQUEST_SEPARATE_CONNECTION"
             );
           }
-          result = response;
         } else if (DEBUG) {
           this.debug(
             "RILJ: [" +
@@ -3719,7 +3702,6 @@ RadioInterface.prototype = {
               "RILJ: [" + response.rilMessageToken + "] < RIL_REQUEST_SET_MUTE"
             );
           }
-          result = response;
         } else if (DEBUG) {
           this.debug(
             "RILJ: [" +
@@ -3742,7 +3724,7 @@ RadioInterface.prototype = {
                 response.provisioned
             );
           }
-          result = response;
+          result.provisioned = response.provisioned;
         } else if (DEBUG) {
           this.debug(
             "RILJ: [" +
@@ -3788,7 +3770,6 @@ RadioInterface.prototype = {
                 "] < RIL_REQUEST_SET_PREFERRED_NETWORK_TYPE"
             );
           }
-          result = response;
         } else if (DEBUG) {
           this.debug(
             "RILJ: [" +
@@ -3811,7 +3792,7 @@ RadioInterface.prototype = {
                 response.type
             );
           }
-          result = response;
+          result.type = response.type;
         } else if (DEBUG) {
           this.debug(
             "RILJ: [" +
@@ -3856,7 +3837,7 @@ RadioInterface.prototype = {
                 response.ttyMode
             );
           }
-          result = response;
+          result.ttyMode = response.ttyMode;
         } else if (DEBUG) {
           this.debug(
             "RILJ: [" +
@@ -3884,7 +3865,6 @@ RadioInterface.prototype = {
                 "] < RIL_REQUEST_CDMA_SET_PREFERRED_VOICE_PRIVACY_MODE "
             );
           }
-          result = response;
         } else if (DEBUG) {
           this.debug(
             "RILJ: [" +
@@ -3948,11 +3928,9 @@ RadioInterface.prototype = {
         break;
       case "setCellBroadcastDisabled":
         // This is not a ril reponse.
-        result = response;
         break;
       case "setCellBroadcastSearchList":
         // This is not a ril reponse.
-        result = response;
         break;
       case "setGsmBroadcastActivation":
         if (response.errorMsg == 0) {
@@ -3963,7 +3941,6 @@ RadioInterface.prototype = {
                 "] < RIL_REQUEST_GSM_BROADCAST_ACTIVATION"
             );
           }
-          result = response;
         } else if (DEBUG) {
           this.debug(
             "RILJ: [" +
@@ -3986,7 +3963,6 @@ RadioInterface.prototype = {
             );
           }
           this.setSmsBroadcastActivation(true);
-          result = response;
         } else if (DEBUG) {
           this.debug(
             "RILJ: [" +
@@ -4041,7 +4017,6 @@ RadioInterface.prototype = {
                 "] < RIL_REQUEST_EXIT_EMERGENCY_CALLBACK_MODE"
             );
           }
-          result = response;
         } else if (DEBUG) {
           this.debug(
             "RILJ: [" +
@@ -4091,7 +4066,6 @@ RadioInterface.prototype = {
                 "] < RIL_REQUEST_REPORT_STK_SERVICE_IS_RUNNING"
             );
           }
-          result = response;
         } else if (DEBUG) {
           this.debug(
             "RILJ: [" +
@@ -4164,7 +4138,6 @@ RadioInterface.prototype = {
                 "] < RIL_REQUEST_SET_INITIAL_ATTACH_APN"
             );
           }
-          result = response;
         } else if (DEBUG) {
           this.debug(
             "RILJ: [" +
@@ -4193,7 +4166,6 @@ RadioInterface.prototype = {
             );
           }
           this.handleUiccSubscription(response);
-          result = response;
         } else if (DEBUG) {
           this.debug(
             "RILJ: [" +
@@ -4216,7 +4188,6 @@ RadioInterface.prototype = {
             );
           }
           this.handleDataRegistration(response);
-          result = response;
         } else if (DEBUG) {
           this.debug(
             "RILJ: [" +
@@ -4267,7 +4238,6 @@ RadioInterface.prototype = {
                 "] < RIL_REQUEST_SET_CELL_INFO_LIST_RATE"
             );
           }
-          result = response;
         } else if (DEBUG) {
           this.debug(
             "RILJ: [" +
@@ -4290,7 +4260,6 @@ RadioInterface.prototype = {
             );
           }
           this.handlRadioCapability(response.radioCapability);
-          result = response;
         } else if (DEBUG) {
           this.debug(
             "RILJ: [" +
@@ -4312,7 +4281,6 @@ RadioInterface.prototype = {
                 "] < RIL_REQUEST_STK_HANDLE_CALL_SETUP_REQUESTED_FROM_SIM"
             );
           }
-          result = response;
         } else if (DEBUG) {
           this.debug(
             "RILJ: [" +
@@ -4334,7 +4302,6 @@ RadioInterface.prototype = {
                 "] < RIL_REQUEST_STK_SEND_TERMINAL_RESPONSE"
             );
           }
-          result = response;
         } else if (DEBUG) {
           this.debug(
             "RILJ: [" +
@@ -4356,7 +4323,6 @@ RadioInterface.prototype = {
                 "] < RIL_REQUEST_STK_SEND_ENVELOPE_COMMAND"
             );
           }
-          result = response;
         } else if (DEBUG) {
           this.debug(
             "RILJ: [" +
@@ -4368,14 +4334,17 @@ RadioInterface.prototype = {
         break;
       case "updateICCContact":
         // This is not a ril reponse.
+        response.errorMsg = result.errorMsg;
         result = response;
         break;
       case "readICCContacts":
         // This is not a ril reponse.
+        response.errorMsg = result.errorMsg;
         result = response;
         break;
       case "getMaxContactCount":
         // This is not a ril reponse.
+        response.errorMsg = result.errorMsg;
         result = response;
         break;
       case "setSuppServiceNotifications":
@@ -4387,7 +4356,6 @@ RadioInterface.prototype = {
                 "] < RIL_REQUEST_SET_SUPP_SVC_NOTIFICATION"
             );
           }
-          result = response;
         } else if (DEBUG) {
           this.debug(
             "RILJ: [" +
@@ -4401,9 +4369,13 @@ RadioInterface.prototype = {
         }
         break;
       case "updateSMSDeliveryStatus":
+        // This is not a ril reponse.
+        response.errorMsg = result.errorMsg;
         result = response;
         break;
       case "getIccServiceState":
+        // This is not a ril reponse.
+        response.errorMsg = result.errorMsg;
         result = response;
         break;
       default:
