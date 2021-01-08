@@ -1595,10 +1595,12 @@ bool StyleImage::IsComplete() const {
     // Bug 546052 cross-fade not yet implemented.
     case Tag::CrossFade:
       return true;
-    default:
-      MOZ_ASSERT_UNREACHABLE("unexpected image type");
-      return false;
+    case Tag::ImageSet:
+      // TODO: return if the selected image is complete.
+      return true;
   }
+  MOZ_ASSERT_UNREACHABLE("unexpected image type");
+  return false;
 }
 
 template <>
@@ -1620,10 +1622,15 @@ bool StyleImage::IsSizeAvailable() const {
              !(status & imgIRequest::STATUS_ERROR) &&
              (status & imgIRequest::STATUS_SIZE_AVAILABLE);
     }
-    default:
-      MOZ_ASSERT_UNREACHABLE("unexpected image type");
-      return false;
+    case Tag::ImageSet:
+      // TODO: Reenter on the selected image.
+      return true;
+    case Tag::CrossFade:
+      // TODO: Bug 546052 cross-fade not yet implemented.
+      return true;
   }
+  MOZ_ASSERT_UNREACHABLE("unexpected image type");
+  return false;
 }
 
 template <>

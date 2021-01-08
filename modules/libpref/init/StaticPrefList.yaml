@@ -1018,6 +1018,11 @@
   value: @IS_NOT_MOZILLA_OFFICIAL@
   mirror: always
 
+- name: browser.download.sanitize_non_media_extensions
+  type: bool
+  value: true
+  mirror: always
+
 # Image document's automatic image sizing.
 - name: browser.enable_automatic_image_resizing
   type: bool
@@ -4746,7 +4751,7 @@
 #ifdef XP_WIN
 - name: gfx.webrender.enabled-no-gpu-process-with-angle-win
   type: bool
-  value: @IS_EARLY_BETA_OR_EARLIER@
+  value: true
   mirror: once
 #endif
 
@@ -6291,6 +6296,13 @@
 - name: layout.css.clip-path-path.enabled
   type: RelaxedAtomicBool
   value: true
+  mirror: always
+  rust: true
+
+# Is the image-set() function enabled?
+- name: layout.css.image-set.enabled
+  type: RelaxedAtomicBool
+  value: false
   mirror: always
   rust: true
 

@@ -41,12 +41,12 @@ using namespace js;
 using namespace js::frontend;
 
 AbstractScopePtr ScopeStencil::enclosing(
-    CompilationInfo& compilationInfo) const {
+    CompilationState& compilationState) const {
   if (enclosing_) {
-    return AbstractScopePtr(compilationInfo, *enclosing_);
+    return AbstractScopePtr(compilationState, *enclosing_);
   }
 
-  return AbstractScopePtr(compilationInfo.input.enclosingScope);
+  return AbstractScopePtr(compilationState.input.enclosingScope);
 }
 
 Scope* ScopeStencil::enclosingExistingScope(
@@ -615,7 +615,7 @@ bool CompilationInfo::instantiateStencils(JSContext* cx,
 bool CompilationInfo::instantiateStencilsAfterPreparation(
     JSContext* cx, CompilationInput& input, CompilationStencil& stencil,
     CompilationGCOutput& gcOutput) {
-  if (!gcOutput.functions.resize(stencil.scriptData.length())) {
+  if (!gcOutput.functions.resize(stencil.scriptData.size())) {
     ReportOutOfMemory(cx);
     return false;
   }
@@ -705,7 +705,7 @@ bool CompilationInfoVector::buildDelazificationIndices(JSContext* cx) {
 
   MOZ_ASSERT(keyToIndex.count() == delazifications.length());
 
-  for (size_t i = 1; i < initial.stencil.scriptData.length(); i++) {
+  for (size_t i = 1; i < initial.stencil.scriptData.size(); i++) {
     auto key = toFunctionKey(initial.stencil.scriptData[i].extent);
     auto ptr = keyToIndex.lookup(key);
     if (!ptr) {
@@ -773,7 +773,7 @@ bool CompilationInfoVector::instantiateStencilsAfterPreparation(
 /* static */
 bool CompilationInfo::prepareInputAndStencilForInstantiate(
     JSContext* cx, CompilationInput& input, CompilationStencil& stencil) {
-  if (!input.atomCache.allocate(cx, stencil.parserAtomData.length())) {
+  if (!input.atomCache.allocate(cx, stencil.parserAtomData.size())) {
     return false;
   }
 
@@ -783,11 +783,11 @@ bool CompilationInfo::prepareInputAndStencilForInstantiate(
 /* static */
 bool CompilationInfo::prepareGCOutputForInstantiate(
     JSContext* cx, CompilationStencil& stencil, CompilationGCOutput& gcOutput) {
-  if (!gcOutput.functions.reserve(stencil.scriptData.length())) {
+  if (!gcOutput.functions.reserve(stencil.scriptData.size())) {
     ReportOutOfMemory(cx);
     return false;
   }
-  if (!gcOutput.scopes.reserve(stencil.scopeData.length())) {
+  if (!gcOutput.scopes.reserve(stencil.scopeData.size())) {
     ReportOutOfMemory(cx);
     return false;
   }
@@ -824,14 +824,14 @@ bool CompilationInfoVector::prepareForInstantiate(
   size_t maxScopeDataLength = 0;
   size_t maxParserAtomDataLength = 0;
   for (auto& delazification : delazifications) {
-    if (maxParserAtomDataLength < delazification.parserAtomData.length()) {
-      maxParserAtomDataLength = delazification.parserAtomData.length();
+    if (maxParserAtomDataLength < delazification.parserAtomData.size()) {
+      maxParserAtomDataLength = delazification.parserAtomData.size();
     }
-    if (maxScriptDataLength < delazification.scriptData.length()) {
-      maxScriptDataLength = delazification.scriptData.length();
+    if (maxScriptDataLength < delazification.scriptData.size()) {
+      maxScriptDataLength = delazification.scriptData.size();
     }
-    if (maxScopeDataLength < delazification.scopeData.length()) {
-      maxScopeDataLength = delazification.scopeData.length();
+    if (maxScopeDataLength < delazification.scopeData.size()) {
+      maxScopeDataLength = delazification.scopeData.size();
     }
   }
 
@@ -912,18 +912,18 @@ bool CompilationInfoVector::deserializeStencils(JSContext* cx,
   return true;
 }
 
-CompilationState::CompilationState(JSContext* cx,
-                                   LifoAllocScope& frontendAllocScope,
-                                   const JS::ReadOnlyCompileOptions& options,
-                                   CompilationInfo& compilationInfo,
-                                   Scope* enclosingScope /* = nullptr */,
-                                   JSObject* enclosingEnv /* = nullptr */)
+CompilationState::CompilationState(
+    JSContext* cx, LifoAllocScope& frontendAllocScope,
+    const JS::ReadOnlyCompileOptions& options, CompilationInfo& compilationInfo,
+    InheritThis inheritThis /* = InheritThis::No */,
+    Scope* enclosingScope /* = nullptr */,
+    JSObject* enclosingEnv /* = nullptr */)
     : directives(options.forceStrictMode()),
-      scopeContext(cx, enclosingScope, enclosingEnv),
+      scopeContext(cx, inheritThis, enclosingScope, enclosingEnv),
       usedNames(cx),
       allocScope(frontendAllocScope),
-      parserAtoms(cx->runtime(), compilationInfo.alloc,
-                  compilationInfo.stencil.parserAtomData) {}
+      input(compilationInfo.input),
+      parserAtoms(cx->runtime(), compilationInfo.alloc) {}
 
 bool SharedDataContainer::prepareStorageFor(JSContext* cx,
                                             size_t nonLazyScriptCount,
@@ -1019,6 +1019,49 @@ bool SharedDataContainer::addAndShare(JSContext* cx, ScriptIndex index,
 
   Matcher m{cx, index, data};
   return storage.match(m);
+}
+
+template <typename T, typename VectorT>
+bool CopyVectorToSpan(JSContext* cx, LifoAlloc& alloc, mozilla::Span<T>& span,
+                      VectorT& vec) {
+  auto len = vec.length();
+  if (len == 0) {
+    return true;
+  }
+
+  auto* p = alloc.newArrayUninitialized<T>(len);
+  if (!p) {
+    js::ReportOutOfMemory(cx);
+    return false;
+  }
+  span = mozilla::Span(p, len);
+  memcpy(span.data(), vec.begin(), sizeof(T) * len);
+  return true;
+}
+
+bool CompilationState::finish(JSContext* cx, CompilationInfo& compilationInfo) {
+  if (!CopyVectorToSpan(cx, compilationInfo.alloc,
+                        compilationInfo.stencil.regExpData, regExpData)) {
+    return false;
+  }
+
+  if (!CopyVectorToSpan(cx, compilationInfo.alloc,
+                        compilationInfo.stencil.scriptData, scriptData)) {
+    return false;
+  }
+
+  if (!CopyVectorToSpan(cx, compilationInfo.alloc,
+                        compilationInfo.stencil.scopeData, scopeData)) {
+    return false;
+  }
+
+  if (!CopyVectorToSpan(cx, compilationInfo.alloc,
+                        compilationInfo.stencil.parserAtomData,
+                        parserAtoms.entries())) {
+    return false;
+  }
+
+  return true;
 }
 
 #if defined(DEBUG) || defined(JS_JITSPEW)
@@ -1879,13 +1922,9 @@ void CompilationAtomCache::returnBuffer(AtomCacheVector& atoms) {
   atoms = std::move(atoms_);
 }
 
-const ParserAtom* CompilationStencil::getParserAtomAt(
-    JSContext* cx, TaggedParserAtomIndex taggedIndex) const {
-  if (taggedIndex.isParserAtomIndex()) {
-    auto index = taggedIndex.toParserAtomIndex();
-    MOZ_ASSERT(index < parserAtomData.length());
-    return parserAtomData[index]->asAtom();
-  }
+const ParserAtom* GetWellKnownParserAtomAt(JSContext* cx,
+                                           TaggedParserAtomIndex taggedIndex) {
+  MOZ_ASSERT(!taggedIndex.isParserAtomIndex());
 
   if (taggedIndex.isWellKnownAtomId()) {
     auto index = taggedIndex.toWellKnownAtomId();
@@ -1900,4 +1939,26 @@ const ParserAtom* CompilationStencil::getParserAtomAt(
   MOZ_ASSERT(taggedIndex.isStaticParserString2());
   auto index = taggedIndex.toStaticParserString2();
   return WellKnownParserAtoms::getStatic2(index);
+}
+
+const ParserAtom* CompilationState::getParserAtomAt(
+    JSContext* cx, TaggedParserAtomIndex taggedIndex) const {
+  if (taggedIndex.isParserAtomIndex()) {
+    auto index = taggedIndex.toParserAtomIndex();
+    MOZ_ASSERT(index < parserAtoms.entries().length());
+    return parserAtoms.entries()[index]->asAtom();
+  }
+
+  return GetWellKnownParserAtomAt(cx, taggedIndex);
+}
+
+const ParserAtom* CompilationStencil::getParserAtomAt(
+    JSContext* cx, TaggedParserAtomIndex taggedIndex) const {
+  if (taggedIndex.isParserAtomIndex()) {
+    auto index = taggedIndex.toParserAtomIndex();
+    MOZ_ASSERT(index < parserAtomData.size());
+    return parserAtomData[index]->asAtom();
+  }
+
+  return GetWellKnownParserAtomAt(cx, taggedIndex);
 }

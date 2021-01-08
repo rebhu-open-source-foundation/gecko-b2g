@@ -216,7 +216,7 @@ static UniquePtr<typename ConcreteScope::RuntimeData> CopyScopeData(
 template <typename ConcreteScope>
 static void MarkParserScopeData(JSContext* cx,
                                 typename ConcreteScope::ParserData* data,
-                                frontend::CompilationStencil& stencil) {
+                                frontend::CompilationState& compilationState) {
   auto* names = data->trailingNames.start();
   uint32_t length = data->slotInfo.length;
   for (size_t i = 0; i < length; i++) {
@@ -224,7 +224,7 @@ static void MarkParserScopeData(JSContext* cx,
     if (!index) {
       continue;
     }
-    stencil.getParserAtomAt(cx, index)->markUsedByStencil();
+    compilationState.getParserAtomAt(cx, index)->markUsedByStencil();
   }
 }
 
@@ -510,7 +510,7 @@ uint32_t Scope::firstFrameSlot() const {
     case ScopeKind::ClassBody:
       // For intra-frame scopes, find the enclosing scope's next frame slot.
       MOZ_ASSERT(is<LexicalScope>());
-      return LexicalScope::nextFrameSlot(AbstractScopePtr(enclosing()));
+      return LexicalScope::nextFrameSlot(enclosing());
 
     case ScopeKind::NamedLambda:
     case ScopeKind::StrictNamedLambda:
@@ -762,28 +762,45 @@ bool Scope::dumpForDisassemble(JSContext* cx, JS::Handle<Scope*> scope,
 #endif /* defined(DEBUG) || defined(JS_JITSPEW) */
 
 /* static */
-uint32_t LexicalScope::nextFrameSlot(const AbstractScopePtr& scope) {
-  for (AbstractScopePtrIter si(scope); si; si++) {
+uint32_t LexicalScope::nextFrameSlot(Scope* scope) {
+  for (ScopeIter si(scope); si; si++) {
     switch (si.kind()) {
       case ScopeKind::With:
         continue;
+
       case ScopeKind::Function:
+        return si.scope()->as<FunctionScope>().nextFrameSlot();
+
       case ScopeKind::FunctionBodyVar:
+        return si.scope()->as<VarScope>().nextFrameSlot();
+
       case ScopeKind::Lexical:
       case ScopeKind::SimpleCatch:
       case ScopeKind::Catch:
       case ScopeKind::FunctionLexical:
       case ScopeKind::ClassBody:
+        return si.scope()->as<LexicalScope>().nextFrameSlot();
+
       case ScopeKind::NamedLambda:
       case ScopeKind::StrictNamedLambda:
+        // Named lambda scopes cannot have frame slots.
+        return 0;
+
       case ScopeKind::Eval:
       case ScopeKind::StrictEval:
+        return si.scope()->as<EvalScope>().nextFrameSlot();
+
       case ScopeKind::Global:
       case ScopeKind::NonSyntactic:
+        return 0;
+
       case ScopeKind::Module:
+        return si.scope()->as<ModuleScope>().nextFrameSlot();
+
       case ScopeKind::WasmInstance:
       case ScopeKind::WasmFunction:
-        return si.abstractScopePtr().nextFrameSlot();
+        // Invalid; MOZ_CRASH below.
+        break;
     }
   }
   MOZ_CRASH("Not an enclosing intra-frame Scope");
@@ -1956,12 +1973,12 @@ JS::ubi::Node::Size JS::ubi::Concrete<Scope>::size(
 /* static */
 bool ScopeStencil::createForFunctionScope(
     JSContext* cx, frontend::CompilationInfo& compilationInfo,
+    frontend::CompilationState& compilationState,
     FunctionScope::ParserData* data, bool hasParameterExprs,
     bool needsEnvironment, ScriptIndex functionIndex, bool isArrow,
     mozilla::Maybe<ScopeIndex> enclosing, ScopeIndex* index) {
-  frontend::CompilationStencil& stencil = compilationInfo.stencil;
   if (data) {
-    MarkParserScopeData<FunctionScope>(cx, data, stencil);
+    MarkParserScopeData<FunctionScope>(cx, data, compilationState);
   } else {
     data = NewEmptyParserScopeData<FunctionScope>(cx, compilationInfo.alloc);
     if (!data) {
@@ -1980,14 +1997,14 @@ bool ScopeStencil::createForFunctionScope(
     return false;
   }
 
-  *index = stencil.scopeData.length();
+  *index = compilationState.scopeData.length();
   if (uint32_t(*index) >= TaggedScriptThingIndex::IndexLimit) {
     ReportAllocationOverflow(cx);
     return false;
   }
-  if (!stencil.scopeData.emplaceBack(ScopeKind::Function, enclosing,
-                                     firstFrameSlot, envShape, data,
-                                     mozilla::Some(functionIndex), isArrow)) {
+  if (!compilationState.scopeData.emplaceBack(
+          ScopeKind::Function, enclosing, firstFrameSlot, envShape, data,
+          mozilla::Some(functionIndex), isArrow)) {
     js::ReportOutOfMemory(cx);
     return false;
   }
@@ -1996,12 +2013,12 @@ bool ScopeStencil::createForFunctionScope(
 
 /* static */
 bool ScopeStencil::createForLexicalScope(
-    JSContext* cx, frontend::CompilationInfo& compilationInfo, ScopeKind kind,
+    JSContext* cx, frontend::CompilationInfo& compilationInfo,
+    frontend::CompilationState& compilationState, ScopeKind kind,
     LexicalScope::ParserData* data, uint32_t firstFrameSlot,
     mozilla::Maybe<ScopeIndex> enclosing, ScopeIndex* index) {
-  frontend::CompilationStencil& stencil = compilationInfo.stencil;
   if (data) {
-    MarkParserScopeData<LexicalScope>(cx, data, stencil);
+    MarkParserScopeData<LexicalScope>(cx, data, compilationState);
   } else {
     data = NewEmptyParserScopeData<LexicalScope>(cx, compilationInfo.alloc);
     if (!data) {
@@ -2015,13 +2032,13 @@ bool ScopeStencil::createForLexicalScope(
     return false;
   }
 
-  *index = stencil.scopeData.length();
+  *index = compilationState.scopeData.length();
   if (uint32_t(*index) >= TaggedScriptThingIndex::IndexLimit) {
     ReportAllocationOverflow(cx);
     return false;
   }
-  if (!stencil.scopeData.emplaceBack(kind, enclosing, firstFrameSlot, envShape,
-                                     data)) {
+  if (!compilationState.scopeData.emplaceBack(kind, enclosing, firstFrameSlot,
+                                              envShape, data)) {
     js::ReportOutOfMemory(cx);
     return false;
   }
@@ -2029,12 +2046,12 @@ bool ScopeStencil::createForLexicalScope(
 }
 
 bool ScopeStencil::createForVarScope(
-    JSContext* cx, frontend::CompilationInfo& compilationInfo, ScopeKind kind,
+    JSContext* cx, frontend::CompilationInfo& compilationInfo,
+    frontend::CompilationState& compilationState, ScopeKind kind,
     VarScope::ParserData* data, uint32_t firstFrameSlot, bool needsEnvironment,
     mozilla::Maybe<ScopeIndex> enclosing, ScopeIndex* index) {
-  frontend::CompilationStencil& stencil = compilationInfo.stencil;
   if (data) {
-    MarkParserScopeData<VarScope>(cx, data, stencil);
+    MarkParserScopeData<VarScope>(cx, data, compilationState);
   } else {
     data = NewEmptyParserScopeData<VarScope>(cx, compilationInfo.alloc);
     if (!data) {
@@ -2048,13 +2065,13 @@ bool ScopeStencil::createForVarScope(
     return false;
   }
 
-  *index = stencil.scopeData.length();
+  *index = compilationState.scopeData.length();
   if (uint32_t(*index) >= TaggedScriptThingIndex::IndexLimit) {
     ReportAllocationOverflow(cx);
     return false;
   }
-  if (!stencil.scopeData.emplaceBack(kind, enclosing, firstFrameSlot, envShape,
-                                     data)) {
+  if (!compilationState.scopeData.emplaceBack(kind, enclosing, firstFrameSlot,
+                                              envShape, data)) {
     js::ReportOutOfMemory(cx);
     return false;
   }
@@ -2063,11 +2080,11 @@ bool ScopeStencil::createForVarScope(
 
 /* static */
 bool ScopeStencil::createForGlobalScope(
-    JSContext* cx, frontend::CompilationInfo& compilationInfo, ScopeKind kind,
+    JSContext* cx, frontend::CompilationInfo& compilationInfo,
+    frontend::CompilationState& compilationState, ScopeKind kind,
     GlobalScope::ParserData* data, ScopeIndex* index) {
-  frontend::CompilationStencil& stencil = compilationInfo.stencil;
   if (data) {
-    MarkParserScopeData<GlobalScope>(cx, data, stencil);
+    MarkParserScopeData<GlobalScope>(cx, data, compilationState);
   } else {
     data = NewEmptyParserScopeData<GlobalScope>(cx, compilationInfo.alloc);
     if (!data) {
@@ -2084,13 +2101,13 @@ bool ScopeStencil::createForGlobalScope(
 
   mozilla::Maybe<ScopeIndex> enclosing;
 
-  *index = stencil.scopeData.length();
+  *index = compilationState.scopeData.length();
   if (uint32_t(*index) >= TaggedScriptThingIndex::IndexLimit) {
     ReportAllocationOverflow(cx);
     return false;
   }
-  if (!stencil.scopeData.emplaceBack(kind, enclosing, firstFrameSlot, envShape,
-                                     data)) {
+  if (!compilationState.scopeData.emplaceBack(kind, enclosing, firstFrameSlot,
+                                              envShape, data)) {
     js::ReportOutOfMemory(cx);
     return false;
   }
@@ -2099,12 +2116,12 @@ bool ScopeStencil::createForGlobalScope(
 
 /* static */
 bool ScopeStencil::createForEvalScope(
-    JSContext* cx, frontend::CompilationInfo& compilationInfo, ScopeKind kind,
+    JSContext* cx, frontend::CompilationInfo& compilationInfo,
+    frontend::CompilationState& compilationState, ScopeKind kind,
     EvalScope::ParserData* data, mozilla::Maybe<ScopeIndex> enclosing,
     ScopeIndex* index) {
-  frontend::CompilationStencil& stencil = compilationInfo.stencil;
   if (data) {
-    MarkParserScopeData<EvalScope>(cx, data, stencil);
+    MarkParserScopeData<EvalScope>(cx, data, compilationState);
   } else {
     data = NewEmptyParserScopeData<EvalScope>(cx, compilationInfo.alloc);
     if (!data) {
@@ -2119,13 +2136,13 @@ bool ScopeStencil::createForEvalScope(
     return false;
   }
 
-  *index = stencil.scopeData.length();
+  *index = compilationState.scopeData.length();
   if (uint32_t(*index) >= TaggedScriptThingIndex::IndexLimit) {
     ReportAllocationOverflow(cx);
     return false;
   }
-  if (!stencil.scopeData.emplaceBack(kind, enclosing, firstFrameSlot, envShape,
-                                     data)) {
+  if (!compilationState.scopeData.emplaceBack(kind, enclosing, firstFrameSlot,
+                                              envShape, data)) {
     js::ReportOutOfMemory(cx);
     return false;
   }
@@ -2135,11 +2152,10 @@ bool ScopeStencil::createForEvalScope(
 /* static */
 bool ScopeStencil::createForModuleScope(
     JSContext* cx, frontend::CompilationInfo& compilationInfo,
-    ModuleScope::ParserData* data, mozilla::Maybe<ScopeIndex> enclosing,
-    ScopeIndex* index) {
-  frontend::CompilationStencil& stencil = compilationInfo.stencil;
+    frontend::CompilationState& compilationState, ModuleScope::ParserData* data,
+    mozilla::Maybe<ScopeIndex> enclosing, ScopeIndex* index) {
   if (data) {
-    MarkParserScopeData<ModuleScope>(cx, data, stencil);
+    MarkParserScopeData<ModuleScope>(cx, data, compilationState);
   } else {
     data = NewEmptyParserScopeData<ModuleScope>(cx, compilationInfo.alloc);
     if (!data) {
@@ -2162,13 +2178,13 @@ bool ScopeStencil::createForModuleScope(
     return false;
   }
 
-  *index = stencil.scopeData.length();
+  *index = compilationState.scopeData.length();
   if (uint32_t(*index) >= TaggedScriptThingIndex::IndexLimit) {
     ReportAllocationOverflow(cx);
     return false;
   }
-  if (!stencil.scopeData.emplaceBack(ScopeKind::Module, enclosing,
-                                     firstFrameSlot, envShape, data)) {
+  if (!compilationState.scopeData.emplaceBack(ScopeKind::Module, enclosing,
+                                              firstFrameSlot, envShape, data)) {
     js::ReportOutOfMemory(cx);
     return false;
   }
@@ -2200,20 +2216,19 @@ bool ScopeStencil::createSpecificShape(JSContext* cx, ScopeKind kind,
 /* static */
 bool ScopeStencil::createForWithScope(JSContext* cx,
                                       CompilationInfo& compilationInfo,
+                                      CompilationState& compilationState,
                                       mozilla::Maybe<ScopeIndex> enclosing,
                                       ScopeIndex* index) {
-  frontend::CompilationStencil& stencil = compilationInfo.stencil;
-
   uint32_t firstFrameSlot = 0;
   mozilla::Maybe<uint32_t> envShape;
 
-  *index = stencil.scopeData.length();
+  *index = compilationState.scopeData.length();
   if (uint32_t(*index) >= TaggedScriptThingIndex::IndexLimit) {
     ReportAllocationOverflow(cx);
     return false;
   }
-  if (!stencil.scopeData.emplaceBack(ScopeKind::With, enclosing, firstFrameSlot,
-                                     envShape)) {
+  if (!compilationState.scopeData.emplaceBack(ScopeKind::With, enclosing,
+                                              firstFrameSlot, envShape)) {
     js::ReportOutOfMemory(cx);
     return false;
   }

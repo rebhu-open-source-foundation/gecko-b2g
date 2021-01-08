@@ -6,7 +6,8 @@
 
 #include "frontend/StencilXdr.h"  // StencilXDR
 
-#include "mozilla/Variant.h"  // mozilla::AsVariant
+#include "mozilla/OperatorNewExtensions.h"  // mozilla::KnownNotNull
+#include "mozilla/Variant.h"                // mozilla::AsVariant
 
 #include <stddef.h>     // size_t
 #include <stdint.h>     // uint8_t, uint16_t, uint32_t
@@ -248,44 +249,9 @@ static XDRResult XDRVector(XDRState<mode>* xdr, VecType& vec) {
   return Ok();
 }
 
-template <typename ItemType, XDRMode mode, typename VecType>
-static XDRResult XDRVectorContent(XDRState<mode>* xdr, VecType& vec) {
-#ifdef __cpp_lib_has_unique_object_representations
-  static_assert(std::has_unique_object_representations<ItemType>(),
-                "vector item structure must be fully packed");
-#endif
-
-  uint32_t length;
-
-  if (mode == XDR_ENCODE) {
-    MOZ_ASSERT(vec.length() <= UINT32_MAX);
-    length = vec.length();
-  }
-
-  MOZ_TRY(xdr->codeUint32(&length));
-
-  if (mode == XDR_DECODE) {
-    MOZ_ASSERT(vec.empty());
-    if (!vec.growByUninitialized(length)) {
-      js::ReportOutOfMemory(xdr->cx());
-      return xdr->fail(JS::TranscodeResult_Throw);
-    }
-  }
-
-  MOZ_TRY(xdr->codeBytes(vec.begin(), sizeof(ItemType) * length));
-
-  return Ok();
-}
-
 template <XDRMode mode, typename T>
-static XDRResult XDRSpanContent(XDRState<mode>* xdr, mozilla::Span<T>& span) {
-#ifdef __cpp_lib_has_unique_object_representations
-  static_assert(std::has_unique_object_representations<T>(),
-                "span item structure must be fully packed");
-#endif
-
-  uint32_t size;
-
+static XDRResult XDRSpanUninitialized(XDRState<mode>* xdr,
+                                      mozilla::Span<T>& span, uint32_t& size) {
   if (mode == XDR_ENCODE) {
     MOZ_ASSERT(span.size() <= UINT32_MAX);
     size = span.size();
@@ -305,6 +271,33 @@ static XDRResult XDRSpanContent(XDRState<mode>* xdr, mozilla::Span<T>& span) {
     }
   }
 
+  return Ok();
+}
+
+template <XDRMode mode, typename T>
+static XDRResult XDRSpanInitialized(XDRState<mode>* xdr,
+                                    mozilla::Span<T>& span) {
+  uint32_t size;
+  MOZ_TRY(XDRSpanUninitialized(xdr, span, size));
+
+  if (mode == XDR_DECODE) {
+    for (size_t i = 0; i < size; i++) {
+      new (mozilla::KnownNotNull, &span[i]) T();
+    }
+  }
+
+  return Ok();
+}
+
+template <XDRMode mode, typename T>
+static XDRResult XDRSpanContent(XDRState<mode>* xdr, mozilla::Span<T>& span) {
+#ifdef __cpp_lib_has_unique_object_representations
+  static_assert(std::has_unique_object_representations<T>(),
+                "span item structure must be fully packed");
+#endif
+
+  uint32_t size;
+  MOZ_TRY(XDRSpanUninitialized(xdr, span, size));
   MOZ_TRY(xdr->codeBytes(span.data(), sizeof(T) * size));
 
   return Ok();
@@ -749,12 +742,12 @@ XDRResult XDRCompilationStencil(XDRState<mode>* xdr,
   // All of the vector-indexed data elements referenced by the
   // main script tree must be materialized first.
 
-  MOZ_TRY(XDRVector(xdr, stencil.scopeData));
+  MOZ_TRY(XDRSpanInitialized(xdr, stencil.scopeData));
   for (auto& entry : stencil.scopeData) {
     MOZ_TRY(StencilXDR::Scope(xdr, entry));
   }
 
-  MOZ_TRY(XDRVectorContent<RegExpStencil>(xdr, stencil.regExpData));
+  MOZ_TRY(XDRSpanContent(xdr, stencil.regExpData));
 
   MOZ_TRY(XDRVector(xdr, stencil.bigIntData));
   for (auto& entry : stencil.bigIntData) {
@@ -770,7 +763,7 @@ XDRResult XDRCompilationStencil(XDRState<mode>* xdr,
 
   // Now serialize the vector of ScriptStencils.
 
-  MOZ_TRY(XDRVector(xdr, stencil.scriptData));
+  MOZ_TRY(XDRSpanInitialized(xdr, stencil.scriptData));
   for (auto& entry : stencil.scriptData) {
     MOZ_TRY(StencilXDR::Script(xdr, entry));
   }
