@@ -408,7 +408,9 @@ void FunctionBox::copyScriptFields(ScriptStencil& script) {
 
   SharedContext::copyScriptFields(script);
 
-  script.memberInitializers = memberInitializers_;
+  if (memberInitializers_) {
+    script.setMemberInitializers(*memberInitializers_);
+  }
 
   isScriptFieldCopiedToStencil = true;
 }
@@ -423,8 +425,12 @@ void FunctionBox::copyFunctionFields(ScriptStencil& script) {
   }
   script.functionFlags = flags_;
   script.nargs = nargs_;
-  script.lazyFunctionEnclosingScopeIndex_ = enclosingScopeIndex_;
-  script.wasFunctionEmitted = wasEmitted_;
+  if (enclosingScopeIndex_) {
+    script.setLazyFunctionEnclosingScopeIndex(*enclosingScopeIndex_);
+  }
+  if (wasEmitted_) {
+    script.setWasFunctionEmitted();
+  }
 
   isFunctionFieldCopiedToStencil = true;
 }
@@ -441,12 +447,16 @@ void FunctionBox::copyUpdatedExtent() {
 
 void FunctionBox::copyUpdatedMemberInitializers() {
   ScriptStencil& script = functionStencil();
-  script.memberInitializers = memberInitializers_;
+  if (memberInitializers_) {
+    script.setMemberInitializers(*memberInitializers_);
+  }
 }
 
 void FunctionBox::copyUpdatedEnclosingScopeIndex() {
   ScriptStencil& script = functionStencil();
-  script.lazyFunctionEnclosingScopeIndex_ = enclosingScopeIndex_;
+  if (enclosingScopeIndex_) {
+    script.setLazyFunctionEnclosingScopeIndex(*enclosingScopeIndex_);
+  }
 }
 
 void FunctionBox::copyUpdatedAtomAndFlags() {
@@ -460,7 +470,9 @@ void FunctionBox::copyUpdatedAtomAndFlags() {
 
 void FunctionBox::copyUpdatedWasEmitted() {
   ScriptStencil& script = functionStencil();
-  script.wasFunctionEmitted = wasEmitted_;
+  if (wasEmitted_) {
+    script.setWasFunctionEmitted();
+  }
 }
 
 }  // namespace frontend

@@ -13,6 +13,7 @@
 
 #include "frontend/CompilationInfo.h"
 #include "frontend/NameCollections.h"
+#include "frontend/StencilXdr.h"  // CanCopyDataToDisk
 #include "vm/JSContext.h"
 #include "vm/Printer.h"
 #include "vm/Runtime.h"
@@ -807,24 +808,9 @@ bool WellKnownParserAtoms::init(JSContext* cx) {
 namespace js {
 
 template <XDRMode mode>
-XDRResult XDRTaggedParserAtomIndex(XDRState<mode>* xdr,
-                                   TaggedParserAtomIndex* taggedIndex) {
-  return xdr->codeUint32(taggedIndex->rawData());
-}
-
-template XDRResult XDRTaggedParserAtomIndex(XDRState<XDR_ENCODE>* xdr,
-                                            TaggedParserAtomIndex* taggedIndex);
-template XDRResult XDRTaggedParserAtomIndex(XDRState<XDR_DECODE>* xdr,
-                                            TaggedParserAtomIndex* taggedIndex);
-
-template <XDRMode mode>
 XDRResult XDRParserAtomEntry(XDRState<mode>* xdr, ParserAtomEntry** entryp) {
-#ifdef __cpp_lib_has_unique_object_representations
-  // We check endianess before decoding so if structures are fully packed, we
-  // may transcode them directly as raw bytes.
-  static_assert(std::has_unique_object_representations<ParserAtomEntry>(),
-                "ParserAtomEntry structure must be fully packed");
-#endif
+  static_assert(CanCopyDataToDisk<ParserAtomEntry>::value,
+                "ParserAtomEntry cannot be bulk-copied to disk.");
 
   constexpr size_t HeaderSize = sizeof(ParserAtomEntry);
   auto ComputeTotalLength = [](bool hasLatin1Chars, size_t length) {

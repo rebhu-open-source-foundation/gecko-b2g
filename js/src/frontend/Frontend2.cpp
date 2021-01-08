@@ -375,9 +375,10 @@ UniquePtr<ImmutableScriptData> ConvertImmutableScriptData(
 // used by a script into ScriptThingsVector.
 bool ConvertGCThings(JSContext* cx, const SmooshResult& result,
                      const SmooshScriptStencil& smooshScript,
-                     LifoAlloc& stencilAlloc,
+                     CompilationInfo& compilationInfo,
+                     CompilationState& compilationState,
                      Vector<const ParserAtom*>& allAtoms,
-                     ScriptStencil& script) {
+                     ScriptIndex scriptIndex) {
   size_t ngcthings = smooshScript.gcthings.len;
 
   // If there are no things, avoid the allocation altogether.
@@ -385,9 +386,9 @@ bool ConvertGCThings(JSContext* cx, const SmooshResult& result,
     return true;
   }
 
-  mozilla::Span<TaggedScriptThingIndex> stencilThings =
-      NewScriptThingSpanUninitialized(cx, stencilAlloc, ngcthings);
-  if (stencilThings.empty()) {
+  TaggedScriptThingIndex* cursor = nullptr;
+  if (!compilationState.allocateGCThingsUninitialized(cx, scriptIndex,
+                                                      ngcthings, &cursor)) {
     return false;
   }
 
@@ -395,7 +396,7 @@ bool ConvertGCThings(JSContext* cx, const SmooshResult& result,
     SmooshGCThing& item = smooshScript.gcthings.data[i];
 
     // Pointer to the uninitialized element.
-    void* raw = &stencilThings[i];
+    void* raw = &cursor[i];
 
     switch (item.tag) {
       case SmooshGCThing::Tag::Null: {
@@ -421,7 +422,6 @@ bool ConvertGCThings(JSContext* cx, const SmooshResult& result,
     }
   }
 
-  script.gcThings = stencilThings;
   return true;
 }
 
@@ -434,6 +434,7 @@ bool ConvertScriptStencil(JSContext* cx, const SmooshResult& result,
                           const SmooshScriptStencil& smooshScript,
                           Vector<const ParserAtom*>& allAtoms,
                           CompilationInfo& compilationInfo,
+                          CompilationState& compilationState,
                           ScriptIndex scriptIndex) {
   using ImmutableFlags = js::ImmutableScriptFlagsEnum;
 
@@ -479,7 +480,7 @@ bool ConvertScriptStencil(JSContext* cx, const SmooshResult& result,
       return false;
     }
 
-    script.hasSharedData = true;
+    script.setHasSharedData();
   }
 
   script.extent.sourceStart = smooshScript.extent.source_start;
@@ -496,14 +497,16 @@ bool ConvertScriptStencil(JSContext* cx, const SmooshResult& result,
     script.functionFlags = FunctionFlags(smooshScript.fun_flags);
     script.nargs = smooshScript.fun_nargs;
     if (smooshScript.lazy_function_enclosing_scope_index.IsSome()) {
-      script.lazyFunctionEnclosingScopeIndex_ = mozilla::Some(ScopeIndex(
+      script.setLazyFunctionEnclosingScopeIndex(ScopeIndex(
           smooshScript.lazy_function_enclosing_scope_index.AsSome()));
     }
-    script.wasFunctionEmitted = smooshScript.was_function_emitted;
+    if (smooshScript.was_function_emitted) {
+      script.setWasFunctionEmitted();
+    }
   }
 
-  if (!ConvertGCThings(cx, result, smooshScript, compilationInfo.alloc,
-                       allAtoms, script)) {
+  if (!ConvertGCThings(cx, result, smooshScript, compilationInfo,
+                       compilationState, allAtoms, scriptIndex)) {
     return false;
   }
 
@@ -643,9 +646,14 @@ bool Smoosh::compileGlobalScriptToStencil(JSContext* cx,
         CompilationStencil();
 
     if (!ConvertScriptStencil(cx, result, result.scripts.data[i], allAtoms,
-                              compilationInfo, ScriptIndex(i))) {
+                              compilationInfo, compilationState,
+                              ScriptIndex(i))) {
       return false;
     }
+  }
+
+  if (!compilationState.finish(cx, compilationInfo)) {
+    return true;
   }
 
   return true;

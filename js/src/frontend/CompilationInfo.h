@@ -234,9 +234,13 @@ struct MOZ_RAII CompilationState {
 
   // Temporary space to accumulate stencil data.
   // Copied to CompilationStencil by `finish` method.
+  //
+  // See corresponding CompilationStencil fields for desription.
   Vector<RegExpStencil, 0, js::SystemAllocPolicy> regExpData;
   Vector<ScriptStencil, 0, js::SystemAllocPolicy> scriptData;
   Vector<ScopeStencil, 0, js::SystemAllocPolicy> scopeData;
+  Vector<BaseParserScopeData*, 0, js::SystemAllocPolicy> scopeNames;
+  Vector<TaggedScriptThingIndex, 0, js::SystemAllocPolicy> gcThingData;
 
   // Table of parser atoms for this compilation.
   ParserAtomsTable parserAtoms;
@@ -259,6 +263,15 @@ struct MOZ_RAII CompilationState {
 
   const ParserAtom* getParserAtomAt(JSContext* cx,
                                     TaggedParserAtomIndex taggedIndex) const;
+
+  // Allocate space for `length` gcthings, and return the address of the
+  // first element to `cursor` to initialize on the caller.
+  bool allocateGCThingsUninitialized(JSContext* cx, ScriptIndex scriptIndex,
+                                     size_t length,
+                                     TaggedScriptThingIndex** cursor);
+
+  bool appendGCThings(JSContext* cx, ScriptIndex scriptIndex,
+                      mozilla::Span<const TaggedScriptThingIndex> things);
 };
 
 // Store shared data for non-lazy script.
@@ -305,8 +318,12 @@ struct CompilationStencil {
   // function.
   mozilla::Span<ScriptStencil> scriptData;
   SharedDataContainer sharedData;
+  mozilla::Span<TaggedScriptThingIndex> gcThingData;
 
+  // scopeData and scopeNames have the same size, and i-th scopeNames contains
+  // the names for the bindings contained in the slot defined by i-th scopeData.
   mozilla::Span<ScopeStencil> scopeData;
+  mozilla::Span<BaseParserScopeData*> scopeNames;
 
   // Module metadata if this is a module compile.
   mozilla::Maybe<StencilModuleMetadata> moduleMetadata;
@@ -598,10 +615,6 @@ struct CompilationInfoVector {
 
   void trace(JSTracer* trc);
 };
-
-// Allocate an uninitialized script-things array using the Stencil's allocator.
-mozilla::Span<TaggedScriptThingIndex> NewScriptThingSpanUninitialized(
-    JSContext* cx, LifoAlloc& alloc, uint32_t ngcthings);
 
 }  // namespace frontend
 }  // namespace js
