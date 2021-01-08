@@ -4107,10 +4107,6 @@ WifiWorker.prototype = {
     }
     let self = this;
     function networkReady() {
-      let isHidden = network => {
-        return "scanSsid" in network && network.scanSsid;
-      };
-
       let makeConnection = function(network) {
         WifiManager.loopDetectionCount = 0;
         WifiConfigManager.updateLastSelectedNetwork(network.netId, function() {
@@ -4125,20 +4121,17 @@ WifiWorker.prototype = {
           for (let net of networks) {
             if (networkKey == net.networkKey) {
               makeConnection(privnet);
+              WifiNetworkSelector.skipNetworkSelection = false;
               return;
             }
           }
+          WifiNetworkSelector.skipNetworkSelection = false;
           self._sendMessage(message, false, "network not found", msg);
         };
 
-        // Try to start a single scan if it is a hidden network.
-        // Otherwise, we could just make connection directly.
-        if (isHidden(privnet)) {
-          self.waitForScan(callback);
-          WifiManager.handleScanRequest(true, function() {});
-        } else {
-          makeConnection(privnet);
-        }
+        self.waitForScan(callback);
+        WifiNetworkSelector.skipNetworkSelection = true;
+        WifiManager.handleScanRequest(true, function() {});
       }
 
       if (dontConnect) {

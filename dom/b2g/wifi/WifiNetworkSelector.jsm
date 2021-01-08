@@ -57,8 +57,11 @@ this.WifiNetworkSelector = (function() {
   // Once a candidate is found, the iterator will stop.
   var networkSelectors = [savedNetworkSelector, passpointNetworkSelector];
 
-  // WifiNetworkSelector functions
+  // WifiNetworkSelector members
+  wifiNetworkSelector.skipNetworkSelection = false;
   wifiNetworkSelector.bssidDenylist = bssidDenylist;
+
+  // WifiNetworkSelector functions
   wifiNetworkSelector.updateBssidDenylist = updateBssidDenylist;
   wifiNetworkSelector.selectNetwork = selectNetwork;
   wifiNetworkSelector.trackBssid = trackBssid;
@@ -133,6 +136,11 @@ this.WifiNetworkSelector = (function() {
   }
 
   function isNetworkSelectionNeeded(wifiState, wifiInfo) {
+    if (wifiNetworkSelector.skipNetworkSelection) {
+      debug("skipNetworkSelection flag is TRUE.");
+      return false;
+    }
+
     if (wifiState == "connected" || wifiState == "associated") {
       if (!wifiInfo) {
         return false;
