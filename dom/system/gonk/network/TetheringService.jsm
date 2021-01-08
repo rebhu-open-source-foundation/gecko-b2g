@@ -49,6 +49,13 @@ XPCOMUtils.defineLazyServiceGetter(
   "nsISettingsManager"
 );
 
+XPCOMUtils.defineLazyServiceGetter(
+  this,
+  "gRndisController",
+  "@mozilla.org/network/rndiscontroller;1",
+  "nsIRndisController"
+);
+
 XPCOMUtils.defineLazyGetter(this, "ppmm", () => {
   return Cc["@mozilla.org/parentprocessmessagemanager;1"].getService();
 });
@@ -774,11 +781,11 @@ TetheringService.prototype = {
     }
 
     if (!aEnable) {
-      gNetworkService.enableUsbRndis(
-        false,
-        aMsgCallback,
-        this.enableUsbRndisResult.bind(this)
-      );
+      gRndisController.setupRndis(false, {
+        onResult(success) {
+          self.setupRndisResult(success, false, aMsgCallback);
+        },
+      });
       return;
     }
 
@@ -801,20 +808,20 @@ TetheringService.prototype = {
           );
           return;
         }
-        gNetworkService.enableUsbRndis(
-          true,
-          aMsgCallback,
-          this.enableUsbRndisResult.bind(this)
-        );
+        gRndisController.setupRndis(true, {
+          onResult(success) {
+            self.setupRndisResult(success, true, aMsgCallback);
+          },
+        });
       });
       return;
     }
 
-    gNetworkService.enableUsbRndis(
-      true,
-      aMsgCallback,
-      this.enableUsbRndisResult.bind(this)
-    );
+    gRndisController.setupRndis(true, {
+      onResult(success) {
+        self.setupRndisResult(success, true, aMsgCallback);
+      },
+    });
   },
 
   // Enable/disable USB tethering by sending commands to netd.
@@ -823,8 +830,10 @@ TetheringService.prototype = {
     let params = this.getUSBTetheringParameters(aEnable, aTetheringInterface);
 
     if (params === null) {
-      gNetworkService.enableUsbRndis(false, aMsgCallback, function() {
-        self.usbTetheringResult(aEnable, "Invalid parameters", aMsgCallback);
+      gRndisController.setupRndis(false, {
+        onResult(success) {
+          self.usbTetheringResult(aEnable, "Invalid parameters", aMsgCallback);
+        },
       });
       return;
     }
@@ -850,7 +859,7 @@ TetheringService.prototype = {
     return DEFAULT_USB_INTERFACE_NAME;
   },
 
-  enableUsbRndisResult(aSuccess, aEnable, aMsgCallback) {
+  setupRndisResult(aSuccess, aEnable, aMsgCallback) {
     let self = this;
     if (aSuccess) {
       // If enable is false, don't find usb interface cause it is already down,
@@ -865,18 +874,21 @@ TetheringService.prototype = {
         this.usbTetheringResult.bind(this, aEnable)
       );
     } else {
-      gNetworkService.enableUsbRndis(false, aMsgCallback, function() {
-        self.usbTetheringResult(
-          aEnable,
-          "enableUsbRndisResult failure",
-          aMsgCallback
-        );
+      gRndisController.setupRndis(false, {
+        onResult(success) {
+          self.usbTetheringResult(
+            aEnable,
+            "setupRndisResult failure",
+            aMsgCallback
+          );
+        },
       });
       throw new Error("failed to set USB Function to adb");
     }
   },
 
   usbTetheringResult(aEnable, aError, aMsgCallback) {
+    let self = this;
     debug(
       "usbTetheringResult callback. enable: " + aEnable + ", error: " + aError
     );
@@ -886,14 +898,18 @@ TetheringService.prototype = {
       if (this.dunRequired) {
         this.handleDunConnection(false);
         if (aError == "Dun connection failed") {
-          gNetworkService.enableUsbRndis(
-            true,
-            aMsgCallback,
-            this.enableUsbRndisResult.bind(this)
-          );
+          gRndisController.setupRndis(true, {
+            onResult(success) {
+              self.setupRndisResult(success, true, aMsgCallback);
+            },
+          });
           return;
         }
       }
+      // Reset rndis when tethering cmd failed.
+      gRndisController.setupRndis(false, {
+        onResult(success) {},
+      });
       this._usbTetheringRequestRestart = false;
       this._usbTetheringAction = TETHERING_STATE_IDLE;
       this.usbState = Ci.nsITetheringService.TETHERING_STATE_INACTIVE;
