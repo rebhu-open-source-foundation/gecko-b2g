@@ -97,7 +97,7 @@ this.ActivitiesServiceFilter = {
       // For any incoming property.
       for (let prop in aValues) {
         // If this is unknown for the app, let's continue.
-        if (!(prop in filtersMap)) {
+        if (!filtersMap.has(prop)) {
           continue;
         }
 
@@ -106,16 +106,16 @@ this.ActivitiesServiceFilter = {
         }
 
         // Otherwise, let's check the value against the filter.
-        if (!matchObject(aValues[prop], filtersMap[prop].filter)) {
+        if (!matchObject(aValues[prop], filtersMap.get(prop).filter)) {
           return false;
         }
 
-        filtersMap[prop].found = true;
+        filtersMap.get(prop).found = true;
       }
 
       // Required filters:
-      for (let filter in filtersMap) {
-        if (filtersMap[filter].filter.required && !filtersMap[filter].found) {
+      for (const value of filtersMap.values()) {
+        if (value.filter.required && !value.found) {
           return false;
         }
       }
