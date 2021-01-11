@@ -2675,18 +2675,20 @@ RadioInterface.prototype = {
                 "] < RIL_REQUEST_SET_FACILITY_LOCK"
             );
           }
-        } else if (DEBUG) {
-          this.debug(
-            "RILJ: [" +
-              response.rilMessageToken +
-              "] < RIL_REQUEST_SET_FACILITY_LOCK error = " +
-              result.errorMsg +
-              " (" +
-              response.errorMsg +
-              ")" +
-              "remainingRetries = " +
-              response.remainingRetries
-          );
+        } else {
+          if (DEBUG) {
+            this.debug(
+              "RILJ: [" +
+                response.rilMessageToken +
+                "] < RIL_REQUEST_SET_FACILITY_LOCK error = " +
+                result.errorMsg +
+                " (" +
+                response.errorMsg +
+                ")" +
+                "remainingRetries = " +
+                response.remainingRetries
+            );
+          }
           result.remainingRetries = response.remainingRetries;
         }
         break;
@@ -2699,20 +2701,23 @@ RadioInterface.prototype = {
                 "] < RIL_REQUEST_ENTER_SIM_PIN"
             );
           }
-        } else if (DEBUG) {
-          this.debug(
-            "RILJ: [" +
-              response.rilMessageToken +
-              "] < RIL_REQUEST_ENTER_SIM_PIN error = " +
-              result.errorMsg +
-              " (" +
-              response.errorMsg +
-              ")" +
-              ", remainingRetries = " +
-              JSON.stringify(response.remainingRetries)
-          );
+        } else {
+          if (DEBUG) {
+            this.debug(
+              "RILJ: [" +
+                response.rilMessageToken +
+                "] < RIL_REQUEST_ENTER_SIM_PIN error = " +
+                result.errorMsg +
+                " (" +
+                response.errorMsg +
+                ")" +
+                ", remainingRetries = " +
+                JSON.stringify(response.remainingRetries)
+            );
+          }
           result.remainingRetries = response.remainingRetries;
         }
+
         break;
       case "enterICCPUK":
         if (response.errorMsg == 0) {
@@ -2723,18 +2728,20 @@ RadioInterface.prototype = {
                 "] < RIL_REQUEST_ENTER_SIM_PUK"
             );
           }
-        } else if (DEBUG) {
-          this.debug(
-            "RILJ: [" +
-              response.rilMessageToken +
-              "] < RIL_REQUEST_ENTER_SIM_PUK error = " +
-              result.errorMsg +
-              " (" +
-              response.errorMsg +
-              ")" +
-              ", remainingRetries = " +
-              JSON.stringify(response.remainingRetries)
-          );
+        } else {
+          if (DEBUG) {
+            this.debug(
+              "RILJ: [" +
+                response.rilMessageToken +
+                "] < RIL_REQUEST_ENTER_SIM_PUK error = " +
+                result.errorMsg +
+                " (" +
+                response.errorMsg +
+                ")" +
+                ", remainingRetries = " +
+                JSON.stringify(response.remainingRetries)
+            );
+          }
           result.remainingRetries = response.remainingRetries;
         }
         break;
@@ -2747,18 +2754,20 @@ RadioInterface.prototype = {
                 "] < RIL_REQUEST_ENTER_SIM_PIN2"
             );
           }
-        } else if (DEBUG) {
-          this.debug(
-            "RILJ: [" +
-              response.rilMessageToken +
-              "] < RIL_REQUEST_ENTER_SIM_PIN2 error = " +
-              result.errorMsg +
-              " (" +
-              response.errorMsg +
-              ")" +
-              ", remainingRetries = " +
-              JSON.stringify(response.remainingRetries)
-          );
+        } else {
+          if (DEBUG) {
+            this.debug(
+              "RILJ: [" +
+                response.rilMessageToken +
+                "] < RIL_REQUEST_ENTER_SIM_PIN2 error = " +
+                result.errorMsg +
+                " (" +
+                response.errorMsg +
+                ")" +
+                ", remainingRetries = " +
+                JSON.stringify(response.remainingRetries)
+            );
+          }
           result.remainingRetries = response.remainingRetries;
         }
         break;
@@ -2771,18 +2780,20 @@ RadioInterface.prototype = {
                 "] < RIL_REQUEST_ENTER_SIM_PUK2"
             );
           }
-        } else if (DEBUG) {
-          this.debug(
-            "RILJ: [" +
-              response.rilMessageToken +
-              "] < RIL_REQUEST_ENTER_SIM_PUK2 error = " +
-              result.errorMsg +
-              " (" +
-              response.errorMsg +
-              ")" +
-              ", remainingRetries = " +
-              JSON.stringify(response.remainingRetries)
-          );
+        } else {
+          if (DEBUG) {
+            this.debug(
+              "RILJ: [" +
+                response.rilMessageToken +
+                "] < RIL_REQUEST_ENTER_SIM_PUK2 error = " +
+                result.errorMsg +
+                " (" +
+                response.errorMsg +
+                ")" +
+                ", remainingRetries = " +
+                JSON.stringify(response.remainingRetries)
+            );
+          }
           result.remainingRetries = response.remainingRetries;
         }
         break;
@@ -2795,18 +2806,20 @@ RadioInterface.prototype = {
                 "] < RIL_REQUEST_CHANGE_SIM_PIN"
             );
           }
-        } else if (DEBUG) {
-          this.debug(
-            "RILJ: [" +
-              response.rilMessageToken +
-              "] < RIL_REQUEST_CHANGE_SIM_PIN error = " +
-              result.errorMsg +
-              " (" +
-              response.errorMsg +
-              ")" +
-              ", remainingRetries = " +
-              JSON.stringify(response.remainingRetries)
-          );
+        } else {
+          if (DEBUG) {
+            this.debug(
+              "RILJ: [" +
+                response.rilMessageToken +
+                "] < RIL_REQUEST_CHANGE_SIM_PIN error = " +
+                result.errorMsg +
+                " (" +
+                response.errorMsg +
+                ")" +
+                ", remainingRetries = " +
+                JSON.stringify(response.remainingRetries)
+            );
+          }
           result.remainingRetries = response.remainingRetries;
         }
         break;
@@ -2819,18 +2832,20 @@ RadioInterface.prototype = {
                 "] < RIL_REQUEST_CHANGE_SIM_PIN2"
             );
           }
-        } else if (DEBUG) {
-          this.debug(
-            "RILJ: [" +
-              response.rilMessageToken +
-              "] < RIL_REQUEST_CHANGE_SIM_PIN2 error = " +
-              result.errorMsg +
-              " (" +
-              response.errorMsg +
-              ")" +
-              ", remainingRetries = " +
-              JSON.stringify(response.remainingRetries)
-          );
+        } else {
+          if (DEBUG) {
+            this.debug(
+              "RILJ: [" +
+                response.rilMessageToken +
+                "] < RIL_REQUEST_CHANGE_SIM_PIN2 error = " +
+                result.errorMsg +
+                " (" +
+                response.errorMsg +
+                ")" +
+                ", remainingRetries = " +
+                JSON.stringify(response.remainingRetries)
+            );
+          }
           result.remainingRetries = response.remainingRetries;
         }
         break;
