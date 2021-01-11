@@ -50,12 +50,25 @@ export class ContentSection extends React.PureComponent {
     return (
       <div className="home-section">
         <div id="shortcuts-section" className="section">
+          <label className="switch">
+            <input
+              checked={topSitesEnabled}
+              type="checkbox"
+              onChange={this.onPreferenceSelect}
+              preference="feeds.topsites"
+              aria-labelledby="custom-shortcuts-title"
+              aria-describedby="custom-shortcuts-subtitle"
+            />
+            <span className="slider" role="presentation"></span>
+          </label>
           <div>
             <h2
+              id="custom-shortcuts-title"
               className="title"
               data-l10n-id="newtab-custom-shortcuts-title"
             />
             <p
+              id="custom-shortcuts-subtitle"
               className="subtitle"
               data-l10n-id="newtab-custom-shortcuts-subtitle"
             ></p>
@@ -77,6 +90,7 @@ export class ContentSection extends React.PureComponent {
                   value={topSitesRowsCount}
                   onChange={this.onPreferenceSelect}
                   disabled={!topSitesEnabled}
+                  aria-labelledby="custom-shortcuts-title"
                 >
                   <option
                     value="1"
@@ -100,7 +114,7 @@ export class ContentSection extends React.PureComponent {
                   />
                 </select>
                 {this.props.mayHaveSponsoredTopSites && (
-                  <div className="check-wrapper">
+                  <div className="check-wrapper" role="presentation">
                     <input
                       id="sponsored-shortcuts"
                       className="sponsored-checkbox"
@@ -120,76 +134,68 @@ export class ContentSection extends React.PureComponent {
               </div>
             </div>
           </div>
-          <label className="switch">
-            <input
-              checked={topSitesEnabled}
-              type="checkbox"
-              onChange={this.onPreferenceSelect}
-              preference="feeds.topsites"
-            />
-            <span className="slider"></span>
-          </label>
         </div>
 
         {this.props.pocketRegion && (
           <div id="pocket-section" className="section">
-            <div>
-              <h2 className="title" data-l10n-id="newtab-custom-pocket-title" />
-              <p
-                className="subtitle"
-                data-l10n-id="newtab-custom-pocket-subtitle"
-              />
-              <div
-                className={`more-info-pocket-wrapper ${
-                  pocketEnabled ? "" : "shrink"
-                }`}
-              >
-                <div
-                  className={`more-information ${
-                    pocketEnabled ? "expand" : "shrink"
-                  }`}
-                >
-                  <div className="check-wrapper">
-                    <input
-                      id="sponsored-pocket"
-                      className="sponsored-checkbox"
-                      disabled={!pocketEnabled}
-                      checked={showSponsoredPocketEnabled}
-                      type="checkbox"
-                      onChange={this.onPreferenceSelect}
-                      preference="showSponsored"
-                      eventSource="POCKET_SPOCS"
-                    />
-                    <label
-                      className="sponsored"
-                      htmlFor="sponsored-pocket"
-                      data-l10n-id="newtab-custom-pocket-sponsored"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
             <label className="switch">
               <input
                 checked={pocketEnabled}
                 type="checkbox"
                 onChange={this.onPreferenceSelect}
                 preference="feeds.section.topstories"
-                eventSource="TOP_STORIES"
+                aria-labelledby="custom-pocket-title"
+                aria-describedby="custom-pocket-subtitle"
               />
-              <span className="slider"></span>
+              <span className="slider" role="presentation"></span>
             </label>
+            <div>
+              <h2
+                id="custom-pocket-title"
+                className="title"
+                data-l10n-id="newtab-custom-pocket-title"
+              />
+              <p
+                id="custom-pocket-subtitle"
+                className="subtitle"
+                data-l10n-id="newtab-custom-pocket-subtitle"
+              />
+              {this.props.mayHaveSponsoredStories && (
+                <div
+                  className={`more-info-pocket-wrapper ${
+                    pocketEnabled ? "" : "shrink"
+                  }`}
+                >
+                  <div
+                    className={`more-information ${
+                      pocketEnabled ? "expand" : "shrink"
+                    }`}
+                  >
+                    <div className="check-wrapper" role="presentation">
+                      <input
+                        id="sponsored-pocket"
+                        className="sponsored-checkbox"
+                        disabled={!pocketEnabled}
+                        checked={showSponsoredPocketEnabled}
+                        type="checkbox"
+                        onChange={this.onPreferenceSelect}
+                        preference="showSponsored"
+                        eventSource="POCKET_SPOCS"
+                      />
+                      <label
+                        className="sponsored"
+                        htmlFor="sponsored-pocket"
+                        data-l10n-id="newtab-custom-pocket-sponsored"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
         <div id="recent-section" className="section">
-          <div>
-            <h2 className="title" data-l10n-id="newtab-custom-recent-title" />
-            <p
-              className="subtitle"
-              data-l10n-id="newtab-custom-recent-subtitle"
-            />
-          </div>
           <label className="switch">
             <input
               checked={highlightsEnabled}
@@ -197,31 +203,52 @@ export class ContentSection extends React.PureComponent {
               onChange={this.onPreferenceSelect}
               preference="feeds.section.highlights"
               eventSource="HIGHLIGHTS"
+              aria-labelledby="custom-recent-title"
+              aria-describedby="custom-recent-subtitle"
             />
-            <span className="slider"></span>
+            <span className="slider" role="presentation"></span>
           </label>
+          <div>
+            <h2
+              id="custom-recent-title"
+              className="title"
+              data-l10n-id="newtab-custom-recent-title"
+            />
+            <p
+              id="custom-recent-subtitle"
+              className="subtitle"
+              data-l10n-id="newtab-custom-recent-subtitle"
+            />
+          </div>
         </div>
 
         <div id="snippets-section" className="section">
-          <div>
-            <h2 className="title" data-l10n-id="newtab-custom-snippets-title" />
-            <p
-              className="subtitle"
-              data-l10n-id="newtab-custom-snippets-subtitle"
-            />
-          </div>
           <label className="switch">
             <input
               checked={snippetsEnabled}
               type="checkbox"
               onChange={this.onPreferenceSelect}
               preference="feeds.snippets"
+              aria-labelledby="custom-snippets-title"
+              aria-describedby="custom-snippets-subtitle"
             />
-            <span className="slider"></span>
+            <span className="slider" role="presentation"></span>
           </label>
+          <div>
+            <h2
+              id="custom-snippets-title"
+              className="title"
+              data-l10n-id="newtab-custom-snippets-title"
+            />
+            <p
+              id="custom-snippets-subtitle"
+              className="subtitle"
+              data-l10n-id="newtab-custom-snippets-subtitle"
+            />
+          </div>
         </div>
 
-        <span className="divider"></span>
+        <span className="divider" role="separator"></span>
 
         <div>
           <button

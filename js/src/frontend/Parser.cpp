@@ -267,6 +267,13 @@ FunctionBox* PerHandlerParser<ParseHandler>::newFunctionBox(
     return nullptr;
   }
 
+  if (!handler_.canSkipLazyInnerFunctions()) {
+    if (!compilationState_.scriptExtent.emplaceBack()) {
+      js::ReportOutOfMemory(cx_);
+      return nullptr;
+    }
+  }
+
   // This source extent will be further filled in during the remainder of parse.
   SourceExtent extent;
   extent.toStringStart = toStringStart;
@@ -1965,6 +1972,10 @@ bool PerHandlerParser<FullParseHandler>::finishFunction(
   funbox->finishScriptFlags();
   funbox->copyFunctionFields(script);
   funbox->copyScriptFields(script);
+  if (!handler_.canSkipLazyInnerFunctions()) {
+    SourceExtent& extent = funbox->functionStencilExtent();
+    funbox->copyScriptExtent(extent);
+  }
 
   return true;
 }
@@ -1983,10 +1994,12 @@ bool PerHandlerParser<SyntaxParseHandler>::finishFunction(
 
   FunctionBox* funbox = pc_->functionBox();
   ScriptStencil& script = funbox->functionStencil();
+  SourceExtent& extent = funbox->functionStencilExtent();
 
   funbox->finishScriptFlags();
   funbox->copyFunctionFields(script);
   funbox->copyScriptFields(script);
+  funbox->copyScriptExtent(extent);
 
   // Elide nullptr sentinels from end of binding list. These are inserted for
   // each scope regardless of if any bindings are actually closed over.
@@ -3301,10 +3314,6 @@ FunctionNode* Parser<FullParseHandler, Unit>::standaloneLazyFunction(
                                        syntaxKind)) {
     MOZ_ASSERT(directives == newDirectives);
     return null();
-  }
-
-  if (fun->isClassConstructor()) {
-    funbox->setCtorToStringEnd(fun->baseScript()->extent().toStringEnd);
   }
 
   if (!CheckParseTree(cx_, alloc_, funNode)) {

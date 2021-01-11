@@ -603,7 +603,7 @@ nsChangeHint nsStyleOutline::CalcDifference(
 nsStyleList::nsStyleList(const Document& aDocument)
     : mListStylePosition(NS_STYLE_LIST_STYLE_POSITION_OUTSIDE),
       mQuotes(StyleQuotes::Auto()),
-      mListStyleImage(StyleImageUrlOrNone::None()),
+      mListStyleImage(StyleImage::None()),
       mImageRegion(StyleClipRectOrAuto::Auto()),
       mMozListReversed(StyleMozListReversed::False) {
   MOZ_COUNT_CTOR(nsStyleList);
@@ -627,14 +627,8 @@ nsStyleList::nsStyleList(const nsStyleList& aSource)
 void nsStyleList::TriggerImageLoads(Document& aDocument,
                                     const nsStyleList* aOldStyle) {
   MOZ_ASSERT(NS_IsMainThread());
-
-  if (mListStyleImage.IsUrl() && !mListStyleImage.AsUrl().IsImageResolved()) {
-    auto* oldUrl = aOldStyle && aOldStyle->mListStyleImage.IsUrl()
-                       ? &aOldStyle->mListStyleImage.AsUrl()
-                       : nullptr;
-    const_cast<StyleComputedImageUrl&>(mListStyleImage.AsUrl())
-        .ResolveImage(aDocument, oldUrl);
-  }
+  mListStyleImage.ResolveImage(
+      aDocument, aOldStyle ? &aOldStyle->mListStyleImage : nullptr);
 }
 
 nsChangeHint nsStyleList::CalcDifference(
@@ -1536,6 +1530,10 @@ bool StyleImage::StartDecoding() const {
 
 template <>
 bool StyleImage::IsOpaque() const {
+  if (IsImageSet()) {
+    return FinalImage().IsOpaque();
+  }
+
   if (!IsComplete()) {
     return false;
   }
@@ -1592,11 +1590,10 @@ bool StyleImage::IsComplete() const {
              (status & imgIRequest::STATUS_SIZE_AVAILABLE) &&
              (status & imgIRequest::STATUS_FRAME_COMPLETE);
     }
+    case Tag::ImageSet:
+      return FinalImage().IsComplete();
     // Bug 546052 cross-fade not yet implemented.
     case Tag::CrossFade:
-      return true;
-    case Tag::ImageSet:
-      // TODO: return if the selected image is complete.
       return true;
   }
   MOZ_ASSERT_UNREACHABLE("unexpected image type");
@@ -1623,8 +1620,7 @@ bool StyleImage::IsSizeAvailable() const {
              (status & imgIRequest::STATUS_SIZE_AVAILABLE);
     }
     case Tag::ImageSet:
-      // TODO: Reenter on the selected image.
-      return true;
+      return FinalImage().IsSizeAvailable();
     case Tag::CrossFade:
       // TODO: Bug 546052 cross-fade not yet implemented.
       return true;
@@ -1716,7 +1712,7 @@ nsStyleImageLayers::nsStyleImageLayers(const nsStyleImageLayers& aSource)
 
 static bool AnyLayerIsElementImage(const nsStyleImageLayers& aLayers) {
   NS_FOR_VISIBLE_IMAGE_LAYERS_BACK_TO_FRONT(i, aLayers) {
-    if (aLayers.mLayers[i].mImage.IsElement()) {
+    if (aLayers.mLayers[i].mImage.FinalImage().IsElement()) {
       return true;
     }
   }
@@ -1749,8 +1745,9 @@ nsChangeHint nsStyleImageLayers::CalcDifference(
       const Layer& lessLayersLayer = lessLayers.mLayers[i];
       nsChangeHint layerDifference =
           moreLayersLayer.CalcDifference(lessLayersLayer);
-      if (layerDifference && (moreLayersLayer.mImage.IsElement() ||
-                              lessLayersLayer.mImage.IsElement())) {
+      if (layerDifference &&
+          (moreLayersLayer.mImage.FinalImage().IsElement() ||
+           lessLayersLayer.mImage.FinalImage().IsElement())) {
         layerDifference |=
             nsChangeHint_UpdateEffects | nsChangeHint_RepaintFrame;
       }
@@ -1854,6 +1851,7 @@ bool nsStyleImageLayers::operator==(const nsStyleImageLayers& aOther) const {
 static bool SizeDependsOnPositioningAreaSize(const StyleBackgroundSize& aSize,
                                              const StyleImage& aImage) {
   MOZ_ASSERT(!aImage.IsNone(), "caller should have handled this");
+  MOZ_ASSERT(!aImage.IsImageSet(), "caller should have handled this");
 
   // Contain and cover straightforwardly depend on frame size.
   if (aSize.IsCover() || aSize.IsContain()) {
@@ -1957,7 +1955,7 @@ bool nsStyleImageLayers::Layer::
   }
 
   return mPosition.DependsOnPositioningAreaSize() ||
-         SizeDependsOnPositioningAreaSize(mSize, mImage) ||
+         SizeDependsOnPositioningAreaSize(mSize, mImage.FinalImage()) ||
          mRepeat.DependsOnPositioningAreaSize();
 }
 

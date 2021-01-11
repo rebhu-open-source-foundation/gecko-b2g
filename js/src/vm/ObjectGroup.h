@@ -61,7 +61,7 @@ class ObjectGroup : public gc::TenuredCellWithNonGCPointer<const JSClass> {
   JS::Realm* realm_;  // set by constructor
 
   // Non-null only for typed objects.
-  TypeDescr* typeDescr_ = nullptr;
+  GCPtr<TypeDescr*> typeDescr_;  // set by constructor
 
   // END OF PROPERTIES
 
@@ -82,6 +82,9 @@ class ObjectGroup : public gc::TenuredCellWithNonGCPointer<const JSClass> {
   friend class js::jit::MacroAssembler;
 
  public:
+  inline ObjectGroup(const JSClass* clasp, TaggedProto proto, JS::Realm* realm,
+                     TypeDescr* descr);
+
   bool hasDynamicPrototype() const { return proto_.isDynamic(); }
 
   const GCPtr<TaggedProto>& proto() const { return proto_; }
@@ -107,11 +110,6 @@ class ObjectGroup : public gc::TenuredCellWithNonGCPointer<const JSClass> {
     return *typeDescr_;
   }
 
-  void setTypeDescr(TypeDescr* descr) { typeDescr_ = descr; }
-
- public:
-  inline ObjectGroup(const JSClass* clasp, TaggedProto proto, JS::Realm* realm);
-
   /* Helpers */
 
   void traceChildren(JSTracer* trc);
@@ -127,11 +125,9 @@ class ObjectGroup : public gc::TenuredCellWithNonGCPointer<const JSClass> {
                   offsetof(JS::shadow::ObjectGroup, proto));
   }
 
-  // Static accessors for ObjectGroupRealm NewTable.
-
   static ObjectGroup* defaultNewGroup(JSContext* cx, const JSClass* clasp,
                                       TaggedProto proto,
-                                      JSObject* associated = nullptr);
+                                      Handle<TypeDescr*> descr = nullptr);
 };
 
 // Structure used to manage the groups in a realm.

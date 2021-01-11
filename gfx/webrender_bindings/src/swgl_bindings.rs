@@ -42,12 +42,14 @@ pub extern "C" fn wr_swgl_make_current(ctx: *mut c_void) {
 #[no_mangle]
 pub extern "C" fn wr_swgl_init_default_framebuffer(
     ctx: *mut c_void,
+    x: i32,
+    y: i32,
     width: i32,
     height: i32,
     stride: i32,
     buf: *mut c_void,
 ) {
-    swgl::Context::from(ctx).init_default_framebuffer(width, height, stride, buf);
+    swgl::Context::from(ctx).init_default_framebuffer(x, y, width, height, stride, buf);
 }
 
 #[no_mangle]
@@ -926,7 +928,8 @@ impl SwCompositeThread {
 pub struct SwCompositor {
     gl: swgl::Context,
     native_gl: Option<Rc<dyn gl::Gl>>,
-    compositor: Option<WrCompositor>,
+    compositor: WrCompositor,
+    use_native_compositor: bool,
     surfaces: HashMap<NativeSurfaceId, SwSurface>,
     frame_surfaces: Vec<(
         NativeSurfaceId,
@@ -960,13 +963,18 @@ pub struct SwCompositor {
 }
 
 impl SwCompositor {
-    pub fn new(gl: swgl::Context, native_gl: Option<Rc<dyn gl::Gl>>, compositor: Option<WrCompositor>) -> Self {
+    pub fn new(
+        gl: swgl::Context,
+        native_gl: Option<Rc<dyn gl::Gl>>,
+        compositor: WrCompositor,
+        use_native_compositor: bool,
+    ) -> Self {
         let depth_id = gl.gen_textures(1)[0];
         // Only create the SwComposite thread if we're neither using OpenGL composition nor a native
         // render compositor. Thus, we are compositing into the main software framebuffer, which in
         // that case benefits from compositing asynchronously while we are updating tiles.
-        assert!(native_gl.is_none() || compositor.is_none());
-        let composite_thread = if native_gl.is_none() && compositor.is_none() {
+        assert!(native_gl.is_none() || !use_native_compositor);
+        let composite_thread = if native_gl.is_none() && !use_native_compositor {
             Some(SwCompositeThread::new())
         } else {
             None
@@ -974,6 +982,7 @@ impl SwCompositor {
         SwCompositor {
             gl,
             compositor,
+            use_native_compositor,
             surfaces: HashMap::new(),
             frame_surfaces: Vec::new(),
             late_surfaces: Vec::new(),
@@ -1280,8 +1289,8 @@ impl Compositor for SwCompositor {
         tile_size: DeviceIntSize,
         is_opaque: bool,
     ) {
-        if let Some(compositor) = &mut self.compositor {
-            compositor.create_surface(id, virtual_offset, tile_size, is_opaque);
+        if self.use_native_compositor {
+            self.compositor.create_surface(id, virtual_offset, tile_size, is_opaque);
         }
         self.max_tile_size = DeviceIntSize::new(
             self.max_tile_size.width.max(tile_size.width),
@@ -1291,8 +1300,8 @@ impl Compositor for SwCompositor {
     }
 
     fn create_external_surface(&mut self, id: NativeSurfaceId, is_opaque: bool) {
-        if let Some(compositor) = &mut self.compositor {
-            compositor.create_external_surface(id, is_opaque);
+        if self.use_native_compositor {
+            self.compositor.create_external_surface(id, is_opaque);
         }
         self.surfaces
             .insert(id, SwSurface::new(DeviceIntSize::zero(), is_opaque));
@@ -1302,8 +1311,8 @@ impl Compositor for SwCompositor {
         if let Some(surface) = self.surfaces.remove(&id) {
             self.deinit_surface(&surface);
         }
-        if let Some(compositor) = &mut self.compositor {
-            compositor.destroy_surface(id);
+        if self.use_native_compositor {
+            self.compositor.destroy_surface(id);
         }
     }
 
@@ -1320,14 +1329,14 @@ impl Compositor for SwCompositor {
 
         self.deinit_shader();
 
-        if let Some(compositor) = &mut self.compositor {
-            compositor.deinit();
+        if self.use_native_compositor {
+            self.compositor.deinit();
         }
     }
 
     fn create_tile(&mut self, id: NativeTileId) {
-        if let Some(compositor) = &mut self.compositor {
-            compositor.create_tile(id);
+        if self.use_native_compositor {
+            self.compositor.create_tile(id);
         }
         if let Some(surface) = self.surfaces.get_mut(&id.surface_id) {
             let mut tile = SwTile::new(id.x, id.y);
@@ -1392,14 +1401,14 @@ impl Compositor for SwCompositor {
                 self.deinit_tile(&tile);
             }
         }
-        if let Some(compositor) = &mut self.compositor {
-            compositor.destroy_tile(id);
+        if self.use_native_compositor {
+            self.compositor.destroy_tile(id);
         }
     }
 
     fn attach_external_image(&mut self, id: NativeSurfaceId, external_image: ExternalImageId) {
-        if let Some(compositor) = &mut self.compositor {
-            compositor.attach_external_image(id, external_image);
+        if self.use_native_compositor {
+            self.compositor.attach_external_image(id, external_image);
         }
         if let Some(surface) = self.surfaces.get_mut(&id) {
             // Surfaces with attached external images have a single tile at the origin encompassing
@@ -1413,8 +1422,8 @@ impl Compositor for SwCompositor {
     }
 
     fn invalidate_tile(&mut self, id: NativeTileId) {
-        if let Some(compositor) = &mut self.compositor {
-            compositor.invalidate_tile(id);
+        if self.use_native_compositor {
+            self.compositor.invalidate_tile(id);
         }
         if let Some(surface) = self.surfaces.get_mut(&id.surface_id) {
             if let Some(tile) = surface.tiles.iter_mut().find(|t| t.x == id.x && t.y == id.y) {
@@ -1441,8 +1450,8 @@ impl Compositor for SwCompositor {
 
                 let mut stride = 0;
                 let mut buf = ptr::null_mut();
-                if let Some(compositor) = &mut self.compositor {
-                    if let Some(tile_info) = compositor.map_tile(id, dirty_rect, valid_rect) {
+                if self.use_native_compositor {
+                    if let Some(tile_info) = self.compositor.map_tile(id, dirty_rect, valid_rect) {
                         stride = tile_info.stride;
                         buf = tile_info.data;
                     }
@@ -1514,8 +1523,8 @@ impl Compositor for SwCompositor {
                 // sure that any delayed clears are resolved
                 let (swbuf, _, _, stride) = self.gl.get_color_buffer(tile.fbo_id, true);
 
-                if let Some(compositor) = &mut self.compositor {
-                    compositor.unmap_tile();
+                if self.use_native_compositor {
+                    self.compositor.unmap_tile();
                     return;
                 }
 
@@ -1569,16 +1578,13 @@ impl Compositor for SwCompositor {
     }
 
     fn begin_frame(&mut self) {
-        if let Some(compositor) = &mut self.compositor {
-            compositor.begin_frame();
+        if self.use_native_compositor {
+            self.compositor.begin_frame();
         }
         self.frame_surfaces.clear();
         self.late_surfaces.clear();
 
         self.reset_overlaps();
-        if self.composite_thread.is_some() {
-            self.locked_framebuffer = self.gl.lock_framebuffer(0);
-        }
     }
 
     fn add_surface(
@@ -1588,8 +1594,8 @@ impl Compositor for SwCompositor {
         clip_rect: DeviceIntRect,
         filter: ImageRendering,
     ) {
-        if let Some(compositor) = &mut self.compositor {
-            compositor.add_surface(id, transform, clip_rect, filter);
+        if self.use_native_compositor {
+            self.compositor.add_surface(id, transform, clip_rect, filter);
         }
 
         if self.composite_thread.is_some() {
@@ -1615,6 +1621,8 @@ impl Compositor for SwCompositor {
     /// be added to the late_surfaces queue to be processed at the end of the
     /// frame.
     fn start_compositing(&mut self, dirty_rects: &[DeviceIntRect]) {
+        self.compositor.start_compositing(dirty_rects);
+
         if dirty_rects.len() == 1 {
             // Factor dirty rect into surface clip rects and discard surfaces that are
             // entirely clipped out.
@@ -1635,6 +1643,8 @@ impl Compositor for SwCompositor {
                 }
             }
 
+            self.locked_framebuffer = self.gl.lock_framebuffer(0);
+
             composite_thread.start_compositing();
             // Issue any initial composite jobs for the SwComposite thread.
             let mut lock = composite_thread.lock();
@@ -1652,8 +1662,8 @@ impl Compositor for SwCompositor {
     }
 
     fn end_frame(&mut self) {
-        if let Some(compositor) = &mut self.compositor {
-            compositor.end_frame();
+        if self.use_native_compositor {
+            self.compositor.end_frame();
         } else if let Some(native_gl) = &self.native_gl {
             let (_, fw, fh, _) = self.gl.get_color_buffer(0, false);
             let viewport = DeviceIntRect::from_size(DeviceIntSize::new(fw, fh));
@@ -1724,18 +1734,11 @@ impl Compositor for SwCompositor {
     }
 
     fn enable_native_compositor(&mut self, enable: bool) {
-        if let Some(compositor) = &mut self.compositor {
-            compositor.enable_native_compositor(enable);
-        }
+        self.compositor.enable_native_compositor(enable);
+        self.use_native_compositor = enable;
     }
 
     fn get_capabilities(&self) -> CompositorCapabilities {
-        if let Some(compositor) = &self.compositor {
-            compositor.get_capabilities()
-        } else {
-            CompositorCapabilities {
-                virtual_surface_size: 0,
-            }
-        }
+        self.compositor.get_capabilities()
     }
 }
