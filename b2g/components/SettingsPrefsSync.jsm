@@ -376,31 +376,43 @@ this.SettingsPrefsSync = {
     );
   },
 
-  // Observes the accessibility.screenreader setting and attach AccessFu.
-  setupAccessibility() {
+  // Attach or detach AccessFu
+  updateAccessFu(value) {
     let accessibilityScope = {};
+    if (!("AccessFu" in accessibilityScope)) {
+      ChromeUtils.import(
+        "resource://gre/modules/accessibility/AccessFu.jsm",
+        accessibilityScope
+      );
+    }
+
+    if (value) {
+      accessibilityScope.AccessFu.attach(this.window);
+    } else {
+      accessibilityScope.AccessFu.detach();
+    }
+  },
+
+  // Observes the accessibility.screenreader setting
+  setupAccessibility() {
     this.addSettingsObserver(
       "accessibility.screenreader",
       {
         observeSetting: info => {
-          if (info) {
-            let value = JSON.parse(info.value);
-            if (!("AccessFu" in accessibilityScope)) {
-              ChromeUtils.import(
-                "resource://gre/modules/accessibility/AccessFu.jsm",
-                accessibilityScope
-              );
-            }
-
-            if (value) {
-              accessibilityScope.AccessFu.attach(this.window);
-            } else {
-              accessibilityScope.AccessFu.detach();
-            }
+          if (!info) {
+            return;
           }
+          let value = JSON.parse(info.value);
+          this.updateAccessFu(value);
         },
       },
       "Failed to add a setting observer for accessibility.screenreader"
+    );
+
+    this.getSettingWithDefault("accessibility.screenreader", false).then(
+      setting => {
+        this.updateAccessFu(setting.value);
+      }
     );
   },
 
