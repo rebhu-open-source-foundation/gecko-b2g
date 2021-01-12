@@ -47,6 +47,13 @@ namespace mozilla {
 
 namespace widget {
 
+// In content editable node, when there are hidden elements such as <br>, it
+// may need more than one (usually less than 3 times) move/extend operations
+// to change the selection range. If we cannot change the selection range
+// with more than 20 opertations, we are likely being blocked and cannot change
+// the selection range any more.
+#define MAX_BLOCKED_COUNT 20
+
 bool isDateTimeTypes(nsAString& inputType) {
   return inputType.EqualsIgnoreCase("datetime") ||
          inputType.EqualsIgnoreCase("datetime-local") ||
@@ -210,6 +217,146 @@ nsIEditor* getEditor(Element* aElement) {
   }
 
   return editor;
+}
+
+bool setSelectionRange(Element* aElement, uint32_t aStart, uint32_t aEnd) {
+  if (!dom::EditableUtils::isContentEditable(aElement) &&
+      !isPlainTextField(aElement)) {
+    // Skip HTMLOptionElement and HTMLSelectElement elements, as they don't
+    // support the operation of setSelectionRange
+    return false;
+  }
+  nsAutoString text;
+  nsresult rv = NS_ERROR_FAILURE;
+  if (dom::EditableUtils::isContentEditable(aElement)) {
+    rv = getContentEditableText(aElement, text);
+  } else {
+    RefPtr<HTMLTextAreaElement> textArea =
+        HTMLTextAreaElement::FromNodeOrNull(aElement);
+    RefPtr<HTMLInputElement> input = HTMLInputElement::FromNodeOrNull(aElement);
+    if (textArea) {
+      textArea->GetValue(text);
+      rv = NS_OK;
+    } else if (input) {
+      input->GetValue(text, CallerType::NonSystem);
+      rv = NS_OK;
+    } else {
+      IME_LOGD(
+          "GeckoEditableSupport: setSelectionRange: Fail, unknow plain text");
+      return false;
+    }
+  }
+  if (rv != NS_OK) {
+    return false;
+  }
+  uint32_t length = text.Length();
+  if (aEnd > length) {
+    aEnd = length;
+  }
+  if (aStart > aEnd) {
+    aStart = aEnd;
+  }
+  if (isPlainTextField(aElement)) {
+    ErrorResult eRv;
+    RefPtr<HTMLTextAreaElement> textArea =
+        HTMLTextAreaElement::FromNodeOrNull(aElement);
+    RefPtr<HTMLInputElement> input = HTMLInputElement::FromNodeOrNull(aElement);
+    Optional<nsAString> direction;
+    nsAutoString dir(u"forward"_ns);
+    direction = &dir;
+    if (textArea) {
+      textArea->SetSelectionRange(aStart, aEnd, direction, eRv);
+    } else if (input) {
+      input->SetSelectionRange(aStart, aEnd, direction, eRv);
+    } else {
+      IME_LOGD(
+          "GeckoEditableSupport: setSelectionRange: Fail, unknow plain text");
+    }
+    if (NS_WARN_IF(eRv.Failed())) {
+      IME_LOGD(
+          "GeckoEditableSupport: setSelectionRange: Fail to SetSelectionRange");
+      return false;
+    }
+    return true;
+  } else if (dom::EditableUtils::isContentEditable(aElement)) {
+    // set the selection range of contenteditable elements
+    nsCOMPtr<Document> document = aElement->OwnerDoc();
+    nsCOMPtr<nsPIDOMWindowOuter> window = document->GetWindow();
+    RefPtr<Selection> selection = window->GetSelection();
+
+    // Move the caret to the start position
+    ErrorResult eRv;
+    selection->CollapseInLimiter(aElement, 0);
+    for (uint32_t i = 0; i < aStart; i++) {
+      selection->Modify(u"move"_ns, u"forward"_ns, u"character"_ns, eRv);
+      if (NS_WARN_IF(eRv.Failed())) {
+        IME_LOGD(
+            "GeckoEditableSupport: setSelectionRange: Fail to "
+            "SetSelectionRange");
+        return false;
+      }
+    }
+
+    // Avoid entering infinite loop in case we cannot change the selection
+    // range. See bug https://bugzilla.mozilla.org/show_bug.cgi?id=978918
+
+    uint32_t oldStart = getSelectionStart(aElement);
+    uint32_t counter = 0;
+    while (oldStart < aStart) {
+      selection->Modify(u"move"_ns, u"forward"_ns, u"character"_ns, eRv);
+      uint32_t newStart = getSelectionStart(aElement);
+      if (oldStart == newStart) {
+        counter++;
+        if (counter > MAX_BLOCKED_COUNT) {
+          return false;
+        }
+      } else {
+        counter = 0;
+        oldStart = newStart;
+      }
+    }
+
+    // Extend the selection to the end position
+    for (uint32_t i = aStart; i < aEnd; i++) {
+      selection->Modify(u"extend"_ns, u"forward"_ns, u"character"_ns, eRv);
+      if (NS_WARN_IF(eRv.Failed())) {
+        IME_LOGD(
+            "GeckoEditableSupport: setSelectionRange: Fail to "
+            "SetSelectionRange");
+        return false;
+      }
+    }
+
+    // Avoid entering infinite loop in case we cannot change the selection
+    // range. See bug https://bugzilla.mozilla.org/show_bug.cgi?id=978918
+    counter = 0;
+    int32_t selectionLength = aEnd - aStart;
+    int32_t oldSelectionLength =
+        getSelectionEnd(aElement) - getSelectionStart(aElement);
+    while (oldSelectionLength < selectionLength) {
+      selection->Modify(u"extend"_ns, u"forward"_ns, u"character"_ns, eRv);
+      if (NS_WARN_IF(eRv.Failed())) {
+        IME_LOGD(
+            "GeckoEditableSupport: setSelectionRange: Fail to "
+            "SetSelectionRange");
+        return false;
+      }
+      int32_t newSelectionLength =
+          getSelectionEnd(aElement) - getSelectionStart(aElement);
+      if (oldSelectionLength == newSelectionLength) {
+        counter++;
+        if (counter > MAX_BLOCKED_COUNT) {
+          return false;
+        }
+      } else {
+        counter = 0;
+        oldSelectionLength = newSelectionLength;
+      }
+    }
+    return true;
+  }
+  IME_LOGD("GeckoEditableSupport: setSelectionRange: Fail, unknow input type");
+  return false;
 }
 
 TextEventDispatcher* getTextEventDispatcherFromFocus() {
@@ -1100,6 +1247,97 @@ GeckoEditableSupport::ClearAll(uint32_t aId,
 
   if (aListener) {
     aListener->OnClearAll(aId, rv);
+  }
+  return rv;
+}
+
+NS_IMETHODIMP
+GeckoEditableSupport::ReplaceSurroundingText(
+    uint32_t aId, nsIEditableSupportListener* aListener, const nsAString& aText,
+    int32_t aOffset, int32_t aLength) {
+  IME_LOGD("-- GeckoEditableSupport::ReplaceSurroundingText");
+  IME_LOGD("-- EditableSupport aText:[%s]", NS_ConvertUTF16toUTF8(aText).get());
+  nsresult rv = NS_ERROR_ABORT;
+  int32_t start = 0, end = 0;
+  do {
+    nsFocusManager* focusManager = nsFocusManager::GetFocusManager();
+    if (!focusManager) {
+      break;
+    }
+
+    Element* focusedElement = focusManager->GetFocusedElement();
+    if (!focusedElement) {
+      break;
+    }
+
+    nsCOMPtr<nsIEditor> editor = getEditor(focusedElement);
+    if (!editor) {
+      break;
+    }
+    if (aLength < 0) {
+      break;
+    }
+
+    // Change selection range before replacing. For content editable element,
+    // searching the node for setting selection range is not needed when the
+    // selection is collapsed within a text node.
+    bool fastPathHit = false;
+    if (!isPlainTextField(focusedElement)) {
+      nsCOMPtr<Document> document = focusedElement->GetComposedDoc();
+      nsCOMPtr<nsPIDOMWindowOuter> window = document->GetWindow();
+      RefPtr<Selection> selection = window->GetSelection();
+      RefPtr<nsINode> anchorNode = selection->GetAnchorNode();
+      if (selection->IsCollapsed() && anchorNode &&
+          anchorNode->NodeType() == nsINode::TEXT_NODE) {
+        start = selection->AnchorOffset() + aOffset;
+        end = start + aLength;
+        // Fallback to setSelectionRange() if the replacement span multiple
+        // nodes.
+        nsAutoString textContent;
+        ErrorResult eRv;
+        anchorNode->GetTextContent(textContent, eRv);
+        if (NS_WARN_IF(eRv.Failed())) {
+          break;
+        }
+        if (start >= 0 && end <= static_cast<int32_t>(textContent.Length())) {
+          fastPathHit = true;
+          selection->CollapseInLimiter(anchorNode, start);
+          selection->Extend(anchorNode, end);
+        }
+      }
+    }
+    if (!fastPathHit) {
+      start = (int32_t)getSelectionStart(focusedElement) + aOffset;
+      if (start < 0) {
+        start = 0;
+      }
+      end = start + aLength;
+      if (start != (int32_t)getSelectionStart(focusedElement) ||
+          end != (int32_t)getSelectionEnd(focusedElement)) {
+        if (!setSelectionRange(focusedElement, start, end)) {
+          IME_LOGD("-- GeckoEditableSupport::ReplaceSurroundingText Failed.");
+          break;
+        }
+      }
+    }
+
+    if (aLength) {
+      // Delete the selected text.
+      editor->DeleteSelection(nsIEditor::ePrevious, nsIEditor::eStrip);
+    }
+    if (!aText.IsVoid()) {
+      //// We don't use CR but LF
+      //// see https://bugzilla.mozilla.org/show_bug.cgi?id=902847
+      nsString text(aText);
+      text.ReplaceSubstring(u"\r", u"\n");
+      //// Insert the text to be replaced with.
+      editor->InsertText(text);
+    }
+    rv = NS_OK;
+  } while (0);
+
+  if (aListener) {
+    aListener->OnReplaceSurroundingText(aId, rv);
   }
   return rv;
 }
