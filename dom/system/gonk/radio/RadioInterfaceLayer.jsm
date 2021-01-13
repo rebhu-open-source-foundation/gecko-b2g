@@ -1129,7 +1129,15 @@ RadioInterface.prototype = {
         );
         break;
       // Cameron TODO complete the modem reset.
-      case "modemrestart":
+      case "modemReset":
+        let reason = message.reason;
+        if (DEBUG) {
+          this.debug(
+            "RILJ: [UNSL]< RIL_UNSOL_MODEM_RESTART reason = " +
+              JSON.stringify(reason)
+          );
+        }
+
         gMobileConnectionService.notifyModemRestart(
           this.clientId,
           message.reason
@@ -1261,16 +1269,6 @@ RadioInterface.prototype = {
         if (DEBUG) {
           this.debug(
             "RILJ: [UNSL]< RIL_UNSOL_RESPONSE_IMS_NETWORK_STATE_CHANGED "
-          );
-        }
-        break;
-      case "modemReset":
-        // Cameon TODO complete the modem reset feature.
-        let reason = message.reason;
-        if (DEBUG) {
-          this.debug(
-            "RILJ: [UNSL]< RIL_UNSOL_MODEM_RESTART reason = " +
-              JSON.stringify(reason)
           );
         }
         break;
