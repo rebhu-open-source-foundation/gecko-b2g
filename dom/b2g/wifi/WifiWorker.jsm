@@ -2879,6 +2879,39 @@ function WifiWorker() {
         return;
       }
 
+      // If got multiple networks with same bssid in the scan results,
+      // keep the most current one which has biggest tsf.
+      let filterExpiredBssid = function() {
+        scanResults.forEach((currentResult, index) => {
+          let existedNewer = scanResults.some(
+            filterResult =>
+              filterResult.bssid === currentResult.bssid &&
+              filterResult.tsf > currentResult.tsf
+          );
+
+          // Existed results newer, then remove current result
+          if (existedNewer) {
+            debug(
+              "filter out" +
+                " " +
+                currentResult.ssid +
+                " " +
+                currentResult.bssid +
+                " " +
+                currentResult.frequency +
+                " " +
+                currentResult.tsf +
+                " " +
+                currentResult.capability +
+                " " +
+                currentResult.signal
+            );
+            scanResults.splice(index, 1);
+          }
+        });
+      };
+
+      filterExpiredBssid();
       let capabilities = WifiManager.getCapabilities();
 
       // Now that we have scan results, there's no more need to continue
