@@ -548,7 +548,7 @@ void GonkGPSGeolocationProvider::Init() {
     }
     Return<bool> gnssVcResult =
         mGnssVisibilityControlHal->setCallback(gnssVcCbIface);
-    if (!gnssVcResult.isOk()) {
+    if (!gnssVcResult.isOk() || !gnssVcResult) {
       ERR("SetCallback for Gnss VC Interface fails");
     }
   }
@@ -644,13 +644,13 @@ void GonkGPSGeolocationProvider::StartGPS() {
         0);  // preferred time
   }
 
-  if (!result.isOk()) {
+  if (!result.isOk() || !result) {
     ERR("failed to set IGnss position mode");
     return;
   }
   DBG("mGnssHal->start");
   result = mGnssHal->start();
-  if (!result.isOk()) {
+  if (!result.isOk() || !result) {
     ERR("failed to start IGnss HAL");
   }
 }
@@ -663,7 +663,7 @@ void GonkGPSGeolocationProvider::ShutdownGPS() {
   if (mGnssHal != nullptr) {
     DBG("mGnssHal->stop");
     auto result = mGnssHal->stop();
-    if (!result.isOk()) {
+    if (!result.isOk() || !result) {
       ERR("failed to stop IGnss HAL");
     }
   }
@@ -925,7 +925,7 @@ NS_IMETHODIMP GonkGPSGeolocationProvider::HandleSettings(
 
       auto result =
           mGnssVisibilityControlHal->enableNfwLocationAccess(hidlProxyApps);
-      if (!result.isOk()) {
+      if (!result.isOk() || !result) {
         ERR("Failed to enableNfwLocationAccess");
       }
     }
