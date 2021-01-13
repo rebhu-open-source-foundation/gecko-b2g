@@ -3806,6 +3806,9 @@ void HTMLMediaElement::UpdateOutputTrackSources() {
     mOutputStreams.RemoveElementAt(i);
     if (mOutputStreams.IsEmpty()) {
       mTracksCaptured = nullptr;
+      // mTracksCaptured is one of the Watchables triggering this method.
+      // Unsetting it here means we'll run through this method again very soon.
+      return;
     }
   }
 
