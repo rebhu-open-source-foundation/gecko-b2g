@@ -4659,6 +4659,11 @@ WifiWorker.prototype = {
   updateWifiState() {
     let enabled = Services.prefs.getBoolPref(PREFERENCE_WIFI_ENABLED, false);
     debug((enabled ? "Enable" : "Disable") + " wifi from preference");
+
+    if (!enabled && !WifiManager.enabled) {
+      BinderServices.wifi.onWifiStateChanged(WifiConstants.WIFI_STATE_DISABLED);
+    }
+
     this.handleWifiEnabled(enabled, function(ok) {
       if (ok && WifiManager.supplicantStarted) {
         WifiManager.supplicantConnected();
