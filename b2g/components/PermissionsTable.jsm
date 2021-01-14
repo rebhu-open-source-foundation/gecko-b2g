@@ -28,6 +28,7 @@ this.defaultPermissions = [
   "vibration",
   "networkstats-perm",
   "lock-orientation",
+  "push",
 ];
 
 /**
