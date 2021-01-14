@@ -1701,8 +1701,12 @@ nsresult nsHttpChannel::CallOnStartRequest() {
         request.mPromise->Resolve(std::move(child), __func__);
       }
     } else {
-      docListener->AttachStreamFilter(request.mChildProcessId)
-          ->ChainTo(request.mPromise.forget(), __func__);
+      if (docListener) {
+        docListener->AttachStreamFilter(request.mChildProcessId)
+            ->ChainTo(request.mPromise.forget(), __func__);
+      } else {
+        request.mPromise->Reject(false, __func__);
+      }
     }
     request.mPromise = nullptr;
   }
@@ -2504,6 +2508,11 @@ nsresult nsHttpChannel::ContinueProcessResponse3(nsresult rv) {
             ("Suspending the transaction, asynchronously prompting for "
              "credentials"));
         mTransactionPump->Suspend();
+
+#ifdef DEBUG
+        // This is for test purposes only. See bug 1683176 for details.
+        gHttpHandler->OnTransactionSuspendedDueToAuthentication(this);
+#endif
         rv = NS_OK;
       } else if (NS_FAILED(rv)) {
         LOG(("ProcessAuthentication failed [rv=%" PRIx32 "]\n",
