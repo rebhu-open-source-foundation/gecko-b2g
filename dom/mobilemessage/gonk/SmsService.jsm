@@ -925,6 +925,24 @@ SmsService.prototype = {
     );
   },
 
+  _handleSmsDataMessage(aMessage, aServiceId) {
+    try {
+      gSmsMessenger.notifyDataSms(
+        aServiceId,
+        aMessage.iccId,
+        aMessage.sender,
+        this._getPhoneNumber(aServiceId),
+        aMessage.originatorPort,
+        aMessage.destinationPort,
+        aMessage.fullData
+      );
+    } catch (e) {
+      if (DEBUG) {
+        debug("Failed to _broadcastSmsSystemMessage: " + e);
+      }
+    }
+  },
+
   _handleCellbroadcastMessageReceived(aMessage, aServiceId) {
     let gonkCellBroadcastMessage = {
       QueryInterface: ChromeUtils.generateQI([Ci.nsIGonkCellBroadcastMessage]),
@@ -988,6 +1006,8 @@ SmsService.prototype = {
       let handler = this._portAddressedSmsApps[aMessage.destinationPort];
       if (handler) {
         handler(aMessage, aServiceId);
+      } else {
+        this._handleSmsDataMessage(aMessage, aServiceId);
       }
       return true;
     }

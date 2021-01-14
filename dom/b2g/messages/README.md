@@ -17,6 +17,7 @@ System messages are messages from the system, they are sent by the system based 
 | bluetooth-pairing-request                 | bluetooth-privileged |
 | bluetooth-pbap-request                    | bluetooth-privileged |
 | cellbroadcast-received                    | cellbroadcast        |
+| data-sms-received                         | sms                  |
 | icc-stkcommand                            | settings:read, settings:write |
 | media-button                              |                      |
 | sms-delivery-error                        | sms                  |

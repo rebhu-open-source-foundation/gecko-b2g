@@ -74,6 +74,7 @@ void BuildPermissionsTable() {
                                      "bluetooth-privileged"_ns);
   sSystemMessagePermissionsTable.Put(u"cellbroadcast-received"_ns,
                                      "cellbroadcast"_ns);
+  sSystemMessagePermissionsTable.Put(u"data-sms-received"_ns, "sms"_ns);
   sSystemMessagePermissionsTable.Put(u"icc-stkcommand"_ns,
                                      "settings:read,settings:write"_ns);
   sSystemMessagePermissionsTable.Put(u"media-button"_ns, EmptyCString());
