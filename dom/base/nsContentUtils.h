@@ -643,6 +643,8 @@ class nsContentUtils {
    */
   static bool IsHTMLBlockLevelElement(nsIContent* aContent);
 
+  static bool PushVisible(JSContext* aCx, JSObject* aObj);
+
   enum ParseHTMLIntegerResultFlags {
     eParseHTMLInteger_NoFlags = 0,
     // eParseHTMLInteger_NonStandard is set if the string representation of the

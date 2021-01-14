@@ -190,6 +190,7 @@
 #include "mozilla/dom/WindowContext.h"
 #include "mozilla/dom/WorkerCommon.h"
 #include "mozilla/dom/WorkerPrivate.h"
+#include "mozilla/dom/WorkerRunnable.h"
 #include "mozilla/dom/XULCommandEvent.h"
 #include "mozilla/fallible.h"
 #include "mozilla/gfx/2D.h"
@@ -1729,6 +1730,69 @@ bool nsContentUtils::IsHTMLBlockLevelElement(nsIContent* aContent) {
       nsGkAtoms::listing, nsGkAtoms::menu, nsGkAtoms::nav, nsGkAtoms::ol,
       nsGkAtoms::p, nsGkAtoms::pre, nsGkAtoms::section, nsGkAtoms::table,
       nsGkAtoms::ul, nsGkAtoms::xmp);
+}
+
+class GetPushPermissionRunnable final : public WorkerMainThreadRunnable {
+  uint32_t mPermission;
+
+ public:
+  explicit GetPushPermissionRunnable(WorkerPrivate* aWorker)
+      : WorkerMainThreadRunnable(aWorker,
+                                 "nsContentUtils :: Get Push Permission"_ns),
+        mPermission(nsIPermissionManager::DENY_ACTION) {}
+
+  bool MainThreadRun() override {
+    nsresult rv;
+    nsCOMPtr<nsIPermissionManager> permMgr =
+        do_GetService(NS_PERMISSIONMANAGER_CONTRACTID, &rv);
+    NS_ENSURE_SUCCESS(rv, false);
+
+    rv = permMgr->TestExactPermissionFromPrincipal(mWorkerPrivate->GetPrincipal(),
+                                              "push"_ns, &mPermission);
+    NS_ENSURE_SUCCESS(rv, false);
+
+    return true;
+  }
+
+  uint32_t GetPermission() { return mPermission; }
+};
+
+/* static */
+bool nsContentUtils::PushVisible(JSContext* aCx, JSObject* aObj) {
+  if (ThreadsafeIsCallerChrome()) {
+    return true;
+  }
+  uint32_t perm = nsIPermissionManager::DENY_ACTION;
+
+  if (NS_IsMainThread()) {
+    nsresult rv;
+    nsCOMPtr<nsIPermissionManager> permMgr =
+        do_GetService(NS_PERMISSIONMANAGER_CONTRACTID, &rv);
+    NS_ENSURE_SUCCESS(rv, false);
+    JS::RootedObject contentScope(aCx, aObj);
+    JSAutoRealm ar(aCx, contentScope);
+    nsIPrincipal* principal = xpc::GetObjectPrincipal(contentScope);
+
+    if (principal->GetIsNullPrincipal()) {
+      return false;
+    }
+
+    rv = permMgr->TestExactPermissionFromPrincipal(principal, "push"_ns, &perm);
+    NS_ENSURE_SUCCESS(rv, false);
+    return perm == nsIPermissionManager::ALLOW_ACTION;
+  }
+
+  WorkerPrivate* worker = GetCurrentThreadWorkerPrivate();
+  MOZ_ASSERT(worker);
+  ErrorResult result;
+  RefPtr<GetPushPermissionRunnable> r = new GetPushPermissionRunnable(worker);
+  r->Dispatch(Canceling, result);
+  if (result.Failed()) {
+    return false;
+  }
+  perm = r->GetPermission();
+
+  return perm == nsIPermissionManager::ALLOW_ACTION;
 }
 
 /* static */
