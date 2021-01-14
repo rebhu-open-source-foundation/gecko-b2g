@@ -9,7 +9,7 @@ variables:
   GIT_DEPTH: 1
   # specify '1.48.0_1' in favor of the ambiguous 'latest' since pull_policy of runners are 'if-not-present'
   # in this way unnecessary `docker pull` can be prevented.
-  DEFAULT_DOCKER_IMAGE: "${CI_REGISTRY}/re/kaios-build/next/daily:1.48.0_1"
+  DEFAULT_DOCKER_IMAGE: "${CI_REGISTRY}/re/kaios-build/next/daily:1.49.0"
   # GIT_CLONE_PATH would be overidden with "koost" if pipeline gets triggered from within koost
   GIT_CLONE_PATH: ${CI_BUILDS_DIR}/${CI_PROJECT_NAMESPACE}/gecko
 
@@ -112,7 +112,7 @@ lint:
 .get_mozbuild: &get_mozbuild
   - |
     case "${PREFERRED_MOZBUILD_VER}" in
-    "3"|"4")
+    "3"|"4"|"5")
       if [ "$(cat ${HOME}/.mozbuild/ver)" != "${PREFERRED_MOZBUILD_VER}" ]; then
         echo -e "\033[1;33mNeed mozbuild at ver ${PREFERRED_MOZBUILD_VER}.\033[0m"
         remote_mozbuild="https://packages.preprod.kaiostech.com/ndk/v${PREFERRED_MOZBUILD_VER}/mozbuild.tar.bz2"
@@ -138,10 +138,10 @@ lint:
 
 build:desktop:
   variables:
-    DEFAULT_DOCKER_IMAGE: "${CI_REGISTRY}/re/kaios-build/next/desktop:1.48.0_1"
+    DEFAULT_DOCKER_IMAGE: "${CI_REGISTRY}/re/kaios-build/next/desktop:1.49.0"
     MOZ_OBJDIR: 'objdir-desktop-gecko'
     MOZCONFIG: 'mozconfig-b2g-desktop'
-    PREFERRED_MOZBUILD_VER: '3'
+    PREFERRED_MOZBUILD_VER: '5'
   stage: build
   before_script:
     - *global_setup
