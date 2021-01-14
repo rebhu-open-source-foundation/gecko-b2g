@@ -181,6 +181,49 @@ static const VolumeData gVolumeData[] = {
     {u"audio.volume.telephony"_ns, AUDIO_STREAM_VOICE_CALL},
     {u"audio.volume.bt_sco"_ns, AUDIO_STREAM_BLUETOOTH_SCO}};
 
+class VolumeCurves {
+ public:
+  explicit VolumeCurves(int32_t aStreamType) : mStreamType(aStreamType) {
+    MOZ_ASSERT(aStreamType < AUDIO_STREAM_CNT);
+  }
+  VolumeCurves() = delete;
+  ~VolumeCurves() = default;
+
+  void Build(uint32_t aDevice) {
+    nsTArray<float> curve;
+    for (uint32_t i = 0; i <= MaxIndex(); i++) {
+      curve.AppendElement(ComputeVolume(i, aDevice));
+    }
+    mCurves.Put(aDevice, std::move(curve));
+  }
+
+  float GetVolume(uint32_t aIndex, uint32_t aDevice) {
+    if (aIndex > MaxIndex()) {
+      aIndex = MaxIndex();
+    }
+
+    nsTArray<float>* curve;
+    if (curve = mCurves.GetValue(aDevice)) {
+      MOZ_ASSERT(curve->Length() == MaxIndex() + 1);
+      return curve->ElementAt(aIndex);
+    }
+    return ComputeVolume(aIndex, aDevice);
+  }
+
+ private:
+  inline int MaxIndex() { return sMaxStreamVolumeTbl[mStreamType]; }
+
+  float ComputeVolume(uint32_t aIndex, uint32_t aDevice) {
+    float decibel = AudioSystem::getStreamVolumeDB(
+        static_cast<audio_stream_type_t>(mStreamType), aIndex, aDevice);
+    // decibel to amplitude
+    return exp(decibel * 0.115129f);
+  }
+
+  nsDataHashtable<nsUint32HashKey, nsTArray<float>> mCurves;
+  const int32_t mStreamType;
+};
+
 class GonkAudioPortCallback : public AudioSystem::AudioPortCallback {
  public:
   virtual void onAudioPortListUpdate() {
@@ -889,6 +932,14 @@ AudioManager::AudioManager()
     LOGE("Failed to Get SETTINGS MANAGER to AddObserver!");
   }
 
+#ifdef PRODUCT_MANUFACTURER_QUALCOMM
+  // Build FM volume curves from music stream.
+  mFmVolumeCurves = MakeUnique<VolumeCurves>(AUDIO_STREAM_MUSIC);
+  mFmVolumeCurves->Build(AUDIO_DEVICE_OUT_SPEAKER);
+  mFmVolumeCurves->Build(AUDIO_DEVICE_OUT_WIRED_HEADSET);
+  mFmVolumeCurves->Build(AUDIO_DEVICE_OUT_WIRED_HEADPHONE);
+#endif
+
 #ifdef PRODUCT_MANUFACTURER_MTK
   if (NS_FAILED(obs->AddObserver(this, SCREEN_STATE_CHANGED, false))) {
     NS_WARNING("Failed to add screen-state-changed observer!");
@@ -1142,10 +1193,7 @@ void AudioManager::UpdateFmVolume() {
 #if defined(PRODUCT_MANUFACTURER_QUALCOMM)
   uint32_t device = GetDeviceForFm();
   uint32_t volIndex = mStreamStates[AUDIO_STREAM_MUSIC]->GetVolumeIndex(device);
-  float volDb =
-      AudioSystem::getStreamVolumeDB(AUDIO_STREAM_MUSIC, volIndex, device);
-  // decibel to amplitude
-  float volume = (float)exp(volDb * 0.115129);
+  float volume = mFmVolumeCurves->GetVolume(volIndex, device);
   SetParameters("fm_volume=%f", volume);
 #elif defined(PRODUCT_MANUFACTURER_SPRD)
   uint32_t device = GetDeviceForFm();
