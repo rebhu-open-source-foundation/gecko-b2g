@@ -5073,8 +5073,9 @@ mozilla::ipc::IPCResult ContentParent::RecvAddGeolocationListener(
     const bool& aHighAccuracy) {
   // To ensure no geolocation updates are skipped, we always force the
   // creation of a new listener.
+  int32_t watchId = AddGeolocationListener(this, this, aHighAccuracy);
   RecvRemoveGeolocationListener();
-  mGeolocationWatchID = AddGeolocationListener(this, this, aHighAccuracy);
+  mGeolocationWatchID = watchId;
   return IPC_OK();
 }
 
@@ -5092,8 +5093,9 @@ mozilla::ipc::IPCResult ContentParent::RecvSetGeolocationHigherAccuracy(
   // This should never be called without a listener already present,
   // so this check allows us to forgo securing privileges.
   if (mGeolocationWatchID != -1) {
+    int32_t watchId = AddGeolocationListener(this, this, aEnable);
     RecvRemoveGeolocationListener();
-    mGeolocationWatchID = AddGeolocationListener(this, this, aEnable);
+    mGeolocationWatchID = watchId;
   }
   return IPC_OK();
 }

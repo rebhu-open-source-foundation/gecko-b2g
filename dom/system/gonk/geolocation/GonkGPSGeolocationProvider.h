@@ -88,6 +88,8 @@ class GonkGPSGeolocationProvider : public nsIGeolocationProvider,
   void ShutdownGPS();
 
   void InjectLocation(double latitude, double longitude, float accuracy);
+  // Set the GnssPositionMode to HAL, return true on success.
+  bool SetPositionMode(bool enableHighAccuracy);
 
   NS_IMETHOD HandleSettings(nsISettingInfo* const info, bool isObserved);
 
