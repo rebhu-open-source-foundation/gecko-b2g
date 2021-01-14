@@ -456,6 +456,25 @@ TetheringService.prototype = {
     return null;
   },
 
+  getActiveNetworkInfo() {
+    if (this.dunRequired) {
+      let allNetworkInfo = gNetworkManager.allNetworkInfo;
+      for (let networkId in allNetworkInfo) {
+        let networkInfo = allNetworkInfo[networkId];
+        if (
+          (networkInfo.type == Ci.nsINetworkInfo.NETWORK_TYPE_MOBILE_DUN ||
+            networkInfo.type == Ci.nsINetworkInfo.NETWORK_TYPE_WIFI) &&
+          networkInfo.state === Ci.nsINetworkInfo.NETWORK_STATE_CONNECTED
+        ) {
+          return networkInfo;
+        }
+      }
+    } else {
+      return gNetworkManager.activeNetworkInfo;
+    }
+    return null;
+  },
+
   /**
    * Callback when dun connection fails to connect within timeout.
    */
@@ -562,10 +581,6 @@ TetheringService.prototype = {
     aCallback(dun);
   },
 
-  getUSBTetheringParameters(aEnable, aTetheringInterface) {
-    return this.getUSBTetheringConfiguration(aEnable, aTetheringInterface);
-  },
-
   fillUSBTetheringConfiguration(aConfig) {
     let config = {};
     let check = function(field, _default) {
@@ -607,9 +622,12 @@ TetheringService.prototype = {
     config.externalIfname = this._externalInterface[TETHERING_TYPE_USB];
     config.enable = aEnable;
     config.link = aEnable ? NETWORK_INTERFACE_UP : NETWORK_INTERFACE_DOWN;
-    config.dnses = gNetworkManager.activeNetworkInfo
-      ? gNetworkManager.activeNetworkInfo.getDnses()
+
+    let activeNetworkInfo = this.getActiveNetworkInfo();
+    config.dnses = activeNetworkInfo
+      ? activeNetworkInfo.getDnses()
       : new Array(0);
+    config.ipv6Ip = this.getIpv6TetheringAddress(activeNetworkInfo);
 
     // Using the default values here until application supports these settings.
     if (
@@ -663,12 +681,11 @@ TetheringService.prototype = {
     // Fill in config's required fields.
     aConfig.ifname = this._internalInterface[TETHERING_TYPE_WIFI];
     aConfig.internalIfname = this._internalInterface[TETHERING_TYPE_WIFI];
-    aConfig.dnses = gNetworkManager.activeNetworkInfo
-      ? gNetworkManager.activeNetworkInfo.getDnses()
+    let activeNetworkInfo = this.getActiveNetworkInfo();
+    aConfig.dnses = activeNetworkInfo
+      ? activeNetworkInfo.getDnses()
       : new Array(0);
-    aConfig.ipv6Ip = this.getIpv6TetheringAddress(
-      gNetworkManager.activeNetworkInfo
-    );
+    aConfig.ipv6Ip = this.getIpv6TetheringAddress(activeNetworkInfo);
 
     // WifiWorker will do the enabled/disabled check.
 
@@ -827,18 +844,21 @@ TetheringService.prototype = {
   // Enable/disable USB tethering by sending commands to netd.
   setUSBTethering(aEnable, aTetheringInterface, aMsgCallback, aCallback) {
     let self = this;
-    let params = this.getUSBTetheringParameters(aEnable, aTetheringInterface);
+    let config = this.getUSBTetheringConfiguration(
+      aEnable,
+      aTetheringInterface
+    );
 
-    if (params === null) {
+    if (config === null) {
       gRndisController.setupRndis(false, {
         onResult(success) {
-          self.usbTetheringResult(aEnable, "Invalid parameters", aMsgCallback);
+          self.usbTetheringResult(aEnable, "Invalid config", aMsgCallback);
         },
       });
       return;
     }
 
-    gNetworkService.setUSBTethering(aEnable, params, aMsgCallback, aCallback);
+    gNetworkService.setUSBTethering(aEnable, config, aMsgCallback, aCallback);
   },
 
   getUsbInterface() {
@@ -1223,16 +1243,16 @@ TetheringService.prototype = {
       return false;
     }
 
+    let activeNetworkInfo = this.getActiveNetworkInfo();
     if (
-      gNetworkManager.activeNetworkInfo &&
-      gNetworkManager.activeNetworkInfo.type ==
-        Ci.nsINetworkInfo.NETWORK_TYPE_WIFI
+      activeNetworkInfo &&
+      activeNetworkInfo.type == Ci.nsINetworkInfo.NETWORK_TYPE_WIFI
     ) {
       // Get external interface ipaddr & prefix
       let ips = {};
       let prefixLengths = {};
       let localConfig = this._usbTetheringConfig;
-      gNetworkManager.activeNetworkInfo.getAddresses(ips, prefixLengths);
+      activeNetworkInfo.getAddresses(ips, prefixLengths);
 
       if (!localConfig.ip || !ips.value || !prefixLengths.value) {
         debug("fail to compare subnet due to empty argument");
