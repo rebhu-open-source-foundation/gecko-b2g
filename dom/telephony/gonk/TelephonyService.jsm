@@ -322,7 +322,7 @@ var ALWAYS_TRY_IMS_FOR_EMERGENCY = false;
 
 var DEBUG;
 function debug(s) {
-  console.log("TelephonyService: " + s + "\n");
+  dump("TelephonyService: " + s + "\n");
 }
 
 /* global gRadioInterfaceLayer */
