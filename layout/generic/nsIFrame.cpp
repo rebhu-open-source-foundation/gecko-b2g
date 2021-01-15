@@ -11210,7 +11210,13 @@ CompositorHitTestInfo nsIFrame::GetCompositorHitTestInfo(
   const StylePointerEvents pointerEvents =
       StyleUI()->GetEffectivePointerEvents(this);
   if (pointerEvents == StylePointerEvents::None) {
-    return result;
+    // For SubDocumentFrame, it may still request for pointer events.
+    // Return if it is a non-SubDocumentFrame or a frame without
+    // mozpasspointerevents.
+    nsSubDocumentFrame* subdocumentFrame = do_QueryFrame(this);
+    if (!subdocumentFrame || !subdocumentFrame->PassPointerEventsToChildren()) {
+      return result;
+    }
   }
   if (!StyleVisibility()->IsVisible()) {
     return result;
