@@ -553,6 +553,11 @@ void SandboxBrokerPolicyFactory::InitContentPolicy() {
   // To connect to the api-daemon
   policy->AddPath(SandboxBroker::MAY_CONNECT, "/dev/socket/api-daemon");
 
+  // To access tzdata file defined in bionic/libc/tzcode/bionic.cpp
+  policy->AddPath(rdonly, "/data/misc/zoneinfo/current/tzdata");
+  policy->AddPath(rdonly, "/apex/com.android.tzdata/etc/tz/tzdata");
+  policy->AddPath(rdonly, "/apex/com.android.runtime/etc/tz/tzdata");
+  policy->AddPath(rdonly, "/system/usr/share/zoneinfo/tzdata");
 #endif // MOZ_WIDGET_GONK
 
   // Read any extra paths that will get write permissions,
