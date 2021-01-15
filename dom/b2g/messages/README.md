@@ -29,6 +29,7 @@ System messages are messages from the system, they are sent by the system based 
 | telephony-new-call                        | telephony            |
 | telephony-tty-mode-changed                | telephony            |
 | ussd-received                             | mobileconnection     |
+| wappush-received                          | wappush              |
 
 ## For front-end and application developers
 

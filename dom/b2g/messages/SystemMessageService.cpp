@@ -91,6 +91,7 @@ void BuildPermissionsTable() {
                                      "telephony"_ns);
   sSystemMessagePermissionsTable.Put(u"ussd-received"_ns,
                                      "mobileconnection"_ns);
+  sSystemMessagePermissionsTable.Put(u"wappush-received"_ns, "wappush"_ns);
   /**
    * Note: Please do NOT directly add new entries at the bottom of this table,
    * try to insert them alphabetically.

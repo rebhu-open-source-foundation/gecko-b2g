@@ -331,6 +331,11 @@ this.PermissionsTable = {
     signed: DENY_ACTION,
     core: ALLOW_ACTION,
   },
+  wappush: {
+    pwa: DENY_ACTION,
+    signed: DENY_ACTION,
+    core: ALLOW_ACTION,
+  },
   "webapps-manage": {
     pwa: DENY_ACTION,
     signed: DENY_ACTION,
