@@ -28,10 +28,10 @@ namespace js {
 struct SourceExtent;
 
 namespace frontend {
-struct CompilationInfo;
-struct CompilationInfoVector;
-struct CompilationInput;
 struct CompilationStencil;
+struct CompilationStencilSet;
+struct CompilationInput;
+struct BaseCompilationStencil;
 }  // namespace frontend
 
 class LifoAlloc;
@@ -283,7 +283,7 @@ class XDRState : public XDRCoderBase {
   JSContext* cx() const { return mainBuf.cx(); }
   virtual bool isForStencil() const { return false; }
   virtual XDRResultT<bool> checkAlreadyCoded(
-      const frontend::CompilationStencil& stencil) {
+      const frontend::BaseCompilationStencil& stencil) {
     return false;
   }
 
@@ -302,7 +302,7 @@ class XDRState : public XDRCoderBase {
   virtual XDRAtomMap& atomMap() { MOZ_CRASH("does not have atomMap"); }
   virtual uint32_t& natoms() { MOZ_CRASH("does not have atomMap."); }
 
-  // The number of chunks (CompilationStencils) in the buffer.
+  // The number of chunks (BaseCompilationStencils) in the buffer.
   virtual uint32_t& nchunks() { MOZ_CRASH("does not have atomMap."); }
 
   virtual bool hasAtomTable() const { return false; }
@@ -322,7 +322,7 @@ class XDRState : public XDRCoderBase {
   }
 
   virtual XDRResult codeDelazificationStencils(
-      frontend::CompilationInfoVector& compilationInfos) {
+      frontend::CompilationStencilSet& stencilSet) {
     MOZ_CRASH("cannot code delazification stencils.");
   }
 
@@ -546,8 +546,8 @@ class XDRState : public XDRCoderBase {
   XDRResult codeFunction(JS::MutableHandleFunction objp,
                          HandleScriptSourceObject sourceObject = nullptr);
   XDRResult codeScript(MutableHandleScript scriptp);
-  XDRResult codeStencil(frontend::CompilationInfo& compilationInfo);
-  XDRResult codeFunctionStencil(frontend::CompilationStencil& stencil);
+  XDRResult codeStencil(frontend::CompilationStencil& stencil);
+  XDRResult codeFunctionStencil(frontend::BaseCompilationStencil& stencil);
 };
 
 using XDREncoder = XDRState<XDR_ENCODE>;
@@ -588,7 +588,7 @@ class XDRDecoder : public XDRDecoderBase {
  * with a freshly initialized `parserAtoms` table.
  *
  * The decoded stencils are outputted to the default-initialized
- * `compilationInfo` parameter of `codeStencil` method, and decoded atoms are
+ * `stencil` parameter of `codeStencil` method, and decoded atoms are
  * interned into the `parserAtoms` parameter of the ctor.
  *
  * The decoded stencils borrow the input `buffer`/`range`, and the consumer
@@ -627,7 +627,7 @@ class XDRStencilDecoder : public XDRDecoderBase {
   bool hasOptions() const override { return true; }
   const JS::ReadOnlyCompileOptions& options() override { return *options_; }
 
-  XDRResult codeStencils(frontend::CompilationInfoVector& compilationInfos);
+  XDRResult codeStencils(frontend::CompilationStencilSet& stencilSet);
 
  private:
   const JS::ReadOnlyCompileOptions* options_;
@@ -814,11 +814,13 @@ class XDRIncrementalStencilEncoder : public XDRIncrementalEncoderBase {
   // 3. initial compilation chunk
   //   a. number of atoms
   //   b. atoms
-  //   c. CompilationStencil
+  //   c. BaseCompilationStencil
+  //   d. ScriptStencilExtra array
+  //   e. moduleMetadata if exists
   // 4. array of delazification chunks
   //   a. number of atoms
   //   b. atoms
-  //   c. CompilationStencil
+  //   c. BaseCompilationStencil
 
   // A set of functions that is passed to codeFunctionStencil.
   // Used to avoid encoding delazification for same function twice.
@@ -833,13 +835,13 @@ class XDRIncrementalStencilEncoder : public XDRIncrementalEncoderBase {
   virtual ~XDRIncrementalStencilEncoder() = default;
 
   XDRResultT<bool> checkAlreadyCoded(
-      const frontend::CompilationStencil& stencil) override;
+      const frontend::BaseCompilationStencil& stencil) override;
 
   bool isForStencil() const override { return true; }
 
   XDRResult linearize(JS::TranscodeBuffer& buffer) override;
 
-  XDRResult codeStencils(frontend::CompilationInfoVector& compilationInfos);
+  XDRResult codeStencils(frontend::CompilationStencilSet& stencilSet);
 };
 
 template <XDRMode mode>
@@ -858,6 +860,10 @@ XDRResult XDRParserAtomEntry(XDRState<mode>* xdr,
 template <XDRMode mode>
 XDRResult XDRCompilationInput(XDRState<mode>* xdr,
                               frontend::CompilationInput& input);
+
+template <XDRMode mode>
+XDRResult XDRBaseCompilationStencil(XDRState<mode>* xdr,
+                                    frontend::BaseCompilationStencil& stencil);
 
 template <XDRMode mode>
 XDRResult XDRCompilationStencil(XDRState<mode>* xdr,

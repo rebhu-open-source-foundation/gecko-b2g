@@ -371,6 +371,10 @@ pref("browser.urlbar.shortcuts.history", true);
 
 pref("browser.urlbar.eventTelemetry.enabled", false);
 
+// When we send events to Urlbar extensions, we wait this amount of time in
+// milliseconds for them to respond before timing out.
+pref("browser.urlbar.extension.timeout", 400);
+
 // Controls when to DNS resolve single word search strings, after they were
 // searched for. If the string is resolved as a valid host, show a
 // "Did you mean to go to 'host'" prompt.
@@ -1353,6 +1357,14 @@ pref("browser.partnerlink.campaign.topsites", "amzn_2020_a1");
 // TabModalPromptBox (false).
 pref("prompts.tabChromePromptSubDialog", true);
 
+// Whether to show the dialogs opened at the content level, such as
+// alert() or prompt(), using a SubDialogManager in the TabDialogBox.
+#ifdef EARLY_BETA_OR_EARLIER
+  pref("prompts.contentPromptSubDialog", true);
+#else
+  pref("prompts.contentPromptSubDialog", false);
+#endif
+
 // Activates preloading of the new tab url.
 pref("browser.newtab.preload", true);
 
@@ -2127,6 +2139,7 @@ pref("devtools.command-button-screenshot.enabled", false);
 pref("devtools.command-button-rulers.enabled", false);
 pref("devtools.command-button-measure.enabled", false);
 pref("devtools.command-button-noautohide.enabled", false);
+pref("devtools.command-button-errorcount.enabled", true);
 #ifndef MOZILLA_OFFICIAL
   pref("devtools.command-button-fission-prefs.enabled", true);
 #endif

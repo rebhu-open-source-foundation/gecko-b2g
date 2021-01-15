@@ -78,6 +78,9 @@ webext_storage_bridge = { path = "../../../components/extensions/storage/webext_
 # Gecko <-> SIDL integration
 gecko_sidl = { path = "../../../../b2g/sidl/gecko_sidl" }
 
+[target.'cfg(target_os = "linux")'.dependencies]
+rust_minidump_writer_linux = { path = "../../../../toolkit/crashreporter/rust_minidump_writer_linux" }
+
 [build-dependencies]
 rustc_version = "0.2"
 

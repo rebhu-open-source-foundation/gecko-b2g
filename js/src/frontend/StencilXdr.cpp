@@ -14,9 +14,10 @@
 #include <type_traits>  // std::has_unique_object_representations
 #include <utility>      // std::forward
 
-#include "frontend/ScriptIndex.h"  // ScriptIndex
-#include "vm/JSScript.h"           // js::CheckCompileOptionsMatch
-#include "vm/StencilEnums.h"       // js::ImmutableScriptFlagsEnum
+#include "frontend/CompilationInfo.h"  // BaseCompilationStencil
+#include "frontend/ScriptIndex.h"      // ScriptIndex
+#include "vm/JSScript.h"               // js::CheckCompileOptionsMatch
+#include "vm/StencilEnums.h"           // js::ImmutableScriptFlagsEnum
 
 using namespace js;
 using namespace js::frontend;
@@ -514,12 +515,8 @@ template XDRResult XDRSharedDataContainer(XDRState<XDR_DECODE>* xdr,
                                           SharedDataContainer& sharedData);
 
 template <XDRMode mode>
-XDRResult XDRCompilationStencil(XDRState<mode>* xdr,
-                                CompilationStencil& stencil) {
-  if (!stencil.asmJS.empty()) {
-    return xdr->fail(JS::TranscodeResult_Failure_AsmJSNotSupported);
-  }
-
+XDRResult XDRBaseCompilationStencil(XDRState<mode>* xdr,
+                                    BaseCompilationStencil& stencil) {
   MOZ_TRY(xdr->codeUint64(&stencil.functionKey));
 
   // All of the vector-indexed data elements referenced by the
@@ -553,10 +550,31 @@ XDRResult XDRCompilationStencil(XDRState<mode>* xdr,
   // Now serialize the vector of ScriptStencils.
 
   MOZ_TRY(XDRSpanContent(xdr, stencil.scriptData));
+
+  return Ok();
+}
+
+template XDRResult XDRBaseCompilationStencil(XDRState<XDR_ENCODE>* xdr,
+                                             BaseCompilationStencil& stencil);
+
+template XDRResult XDRBaseCompilationStencil(XDRState<XDR_DECODE>* xdr,
+                                             BaseCompilationStencil& stencil);
+
+template <XDRMode mode>
+XDRResult XDRCompilationStencil(XDRState<mode>* xdr,
+                                CompilationStencil& stencil) {
+  if (!stencil.asmJS.empty()) {
+    return xdr->fail(JS::TranscodeResult_Failure_AsmJSNotSupported);
+  }
+
+  MOZ_TRY(XDRBaseCompilationStencil(xdr, stencil));
+
   MOZ_TRY(XDRSpanContent(xdr, stencil.scriptExtra));
 
-  if (stencil.isInitialStencil() &&
-      stencil.scriptExtra[CompilationInfo::TopLevelIndex].isModule()) {
+  // We don't support coding non-initial CompilationStencil.
+  MOZ_ASSERT(stencil.isInitialStencil());
+
+  if (stencil.scriptExtra[CompilationStencil::TopLevelIndex].isModule()) {
     if (mode == XDR_DECODE) {
       stencil.moduleMetadata.emplace();
     }
@@ -566,6 +584,7 @@ XDRResult XDRCompilationStencil(XDRState<mode>* xdr,
 
   return Ok();
 }
+
 template XDRResult XDRCompilationStencil(XDRState<XDR_ENCODE>* xdr,
                                          CompilationStencil& stencil);
 
