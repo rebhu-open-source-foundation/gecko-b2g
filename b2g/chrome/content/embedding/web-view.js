@@ -406,6 +406,15 @@
       this.log(`creating xul:browser`);
       // Creates a xul:browser with default attributes.
       this.browser = document.createXULElement("browser");
+
+      // Wait both for connectedCallback and openWindowInfo are available then
+      // setup the browser.
+      if (this._openWindowInfo !== undefined) {
+        this.setupBrowser();
+      }
+    }
+
+    setupBrowser() {
       // Identify this `<browser>` element uniquely to Marionette, devtools, etc.
       this.browser.permanentKey = new (Cu.getGlobalForObject(
         Services
@@ -434,6 +443,8 @@
       this.browser.delayConnectedCallback = () => {
         return false;
       };
+      this.log(`setupBrowser remote=${this.browser.getAttribute("remote")}`);
+      this.browser.openWindowInfo = this._openWindowInfo;
 
       this.browser.addEventListener("processready", evt => {
         evt.stopPropagation();
@@ -504,6 +515,20 @@
       // Set the src to load once we have setup all listeners to not miss progress events
       // like loadstart.
       src && this.browser.setAttribute("src", src);
+    }
+
+    set openWindowInfo(val) {
+      this.log(`set openWindowInfo`);
+      this._openWindowInfo = val;
+      // Wait both for connectedCallback and openWindowInfo are available then
+      // setup the browser. Check permanentKey to avoid initializing twice.
+      if (this.browser && this.browser.permanentKey === undefined) {
+        this.setupBrowser();
+      }
+    }
+
+    get openWindowInfo() {
+      return this._openWindowInfo;
     }
 
     disconnectedCallback() {
