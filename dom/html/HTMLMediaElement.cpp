@@ -1501,7 +1501,7 @@ class HTMLMediaElement::AudioChannelAgentCallback final
         mAudioChannel(aChannel),
         mAudioChannelVolume(1.0),
         mPlayingThroughTheAudioChannel(false),
-        mSuspended(nsISuspendedTypes::NONE_SUSPENDED),
+        mSuspended(false),
         mIsOwnerAudible(IsOwnerAudible()),
         mIsShutDown(false) {
     MOZ_ASSERT(mOwner);
@@ -1570,10 +1570,10 @@ class HTMLMediaElement::AudioChannelAgentCallback final
 
     switch (aSuspend) {
       case nsISuspendedTypes::NONE_SUSPENDED:
-        Resume();
+        SetSuspended(false);
         break;
       case nsISuspendedTypes::SUSPENDED_PAUSE:
-        Suspend(aSuspend);
+        SetSuspended(true);
         break;
       default:
         MOZ_LOG(AudioChannelService::GetAudioChannelLog(), LogLevel::Debug,
@@ -1634,10 +1634,7 @@ class HTMLMediaElement::AudioChannelAgentCallback final
     return mOwner->Volume() * mAudioChannelVolume;
   }
 
-  SuspendTypes GetSuspendType() const {
-    MOZ_ASSERT(!mIsShutDown);
-    return mSuspended;
-  }
+  bool IsSuspended() const { return mSuspended; }
 
  private:
   ~AudioChannelAgentCallback() { MOZ_ASSERT(mIsShutDown); };
@@ -1683,60 +1680,20 @@ class HTMLMediaElement::AudioChannelAgentCallback final
     mOwner->AudioCaptureTrackChange(false);
   }
 
-  void SetSuspended(SuspendTypes aSuspend) {
-    if (mSuspended == aSuspend) {
+  void SetSuspended(bool aSuspended) {
+    if (mSuspended == aSuspended) {
       return;
     }
 
-    mOwner->DispatchAsyncEvent(aSuspend == nsISuspendedTypes::NONE_SUSPENDED
-                                   ? u"mozinterruptend"_ns
-                                   : u"mozinterruptbegin"_ns);
-
-    mSuspended = aSuspend;
     MOZ_LOG(AudioChannelService::GetAudioChannelLog(), LogLevel::Debug,
             ("HTMLMediaElement::AudioChannelAgentCallback, "
-             "SetAudioChannelSuspended, "
-             "this = %p, aSuspend = %s\n",
-             this, SuspendTypeToStr(aSuspend)));
-  }
+             "SetAudioChannelSuspended, this = %p, aSuspended = %d\n",
+             this, aSuspended));
 
-  void Resume() {
-    if (!IsSuspended()) {
-      MOZ_LOG(AudioChannelService::GetAudioChannelLog(), LogLevel::Debug,
-              ("HTMLMediaElement::AudioChannelAgentCallback, "
-               "ResumeFromAudioChannel, "
-               "this = %p, don't need to be resumed!\n",
-               this));
-      return;
-    }
-
-    SetSuspended(nsISuspendedTypes::NONE_SUSPENDED);
-    IgnoredErrorResult rv;
-    RefPtr<Promise> toBeIgnored = mOwner->Play(rv);
-    MOZ_ASSERT_IF(
-        toBeIgnored && toBeIgnored->State() == Promise::PromiseState::Rejected,
-        rv.Failed());
-    if (rv.Failed()) {
-      NS_WARNING("Not able to resume from AudioChannel.");
-    }
-
-    NotifyAudioPlaybackChanged(
-        AudioChannelService::AudibleChangedReasons::ePauseStateChanged);
-  }
-
-  void Suspend(SuspendTypes aSuspend) {
-    if (IsSuspended()) {
-      return;
-    }
-
-    SetSuspended(aSuspend);
-    if (aSuspend == nsISuspendedTypes::SUSPENDED_PAUSE) {
-      IgnoredErrorResult rv;
-      mOwner->Pause(rv);
-      if (NS_WARN_IF(rv.Failed())) {
-        return;
-      }
-    }
+    mSuspended = aSuspended;
+    mOwner->SetSuspendedByAudioChannel(aSuspended);
+    mOwner->DispatchAsyncEvent(aSuspended ? u"mozinterruptbegin"_ns
+                                          : u"mozinterruptend"_ns);
     NotifyAudioPlaybackChanged(
         AudioChannelService::AudibleChangedReasons::ePauseStateChanged);
   }
@@ -1748,13 +1705,9 @@ class HTMLMediaElement::AudioChannelAgentCallback final
     return false;
   }
 
-  bool IsSuspended() const {
-    return (mSuspended == nsISuspendedTypes::SUSPENDED_PAUSE);
-  }
-
   AudibleState IsOwnerAudible() const {
     // Suspended or paused media doesn't produce any sound.
-    if (mSuspended != nsISuspendedTypes::NONE_SUSPENDED || mOwner->mPaused) {
+    if (IsSuspended() || mOwner->mPaused) {
       return AudibleState::eNotAudible;
     }
     return mOwner->IsAudible() ? AudibleState::eAudible
@@ -1818,11 +1771,9 @@ class HTMLMediaElement::AudioChannelAgentCallback final
   float mAudioChannelVolume;
   // Is this media element playing?
   bool mPlayingThroughTheAudioChannel;
-  // We have different kinds of suspended cases,
-  // - SUSPENDED_PAUSE
   // It's used when we temporary lost platform audio focus. MediaElement can
   // only be resumed when we gain the audio focus again.
-  SuspendTypes mSuspended;
+  bool mSuspended;
   // Indicate whether media element is audible for users.
   AudibleState mIsOwnerAudible;
   bool mIsShutDown;
@@ -6199,8 +6150,7 @@ bool HTMLMediaElement::CanActivateAutoplay() {
     return false;
   }
 
-  if (mAudioChannelWrapper && mAudioChannelWrapper->GetSuspendType() ==
-                                  nsISuspendedTypes::SUSPENDED_PAUSE) {
+  if (mAudioChannelWrapper && mAudioChannelWrapper->IsSuspended()) {
     return false;
   }
 
@@ -6513,9 +6463,11 @@ void HTMLMediaElement::UpdateMediaSize(const nsIntSize& aSize) {
   mWatchManager.ManualNotify(&HTMLMediaElement::UpdateReadyStateInternal);
 }
 
-void HTMLMediaElement::SuspendOrResumeElement(bool aSuspendElement) {
-  LOG(LogLevel::Debug, ("%p SuspendOrResumeElement(suspend=%d) docHidden=%d",
-                        this, aSuspendElement, OwnerDoc()->Hidden()));
+void HTMLMediaElement::SuspendOrResumeElement(bool aSuspendElement,
+                                              bool aSuspendEvents) {
+  LOG(LogLevel::Debug,
+      ("%p SuspendOrResumeElement(suspend=%d, suspendEvents=%d) docHidden=%d",
+       this, aSuspendElement, aSuspendEvents, OwnerDoc()->Hidden()));
 
   if (aSuspendElement == mSuspendedByInactiveDocOrDocshell) {
     return;
@@ -6531,7 +6483,7 @@ void HTMLMediaElement::SuspendOrResumeElement(bool aSuspendElement) {
       mDecoder->Suspend();
       mDecoder->SetDelaySeekMode(true);
     }
-    mEventDeliveryPaused = true;
+    mEventDeliveryPaused = aSuspendEvents;
     // We won't want to resume media element from the bfcache.
     ClearResumeDelayedMediaPlaybackAgentIfNeeded();
     mMediaControlKeyListener->StopIfNeeded();
@@ -6579,6 +6531,15 @@ bool HTMLMediaElement::ShouldBeSuspendedByInactiveDocShell() const {
   return bc && !bc->IsActive() && bc->Top()->GetSuspendMediaWhenInactive();
 }
 
+void HTMLMediaElement::SetSuspendedByAudioChannel(bool aSuspended) {
+  mSuspendedByAudioChannel = aSuspended;
+  // Make sure the logic is kept same as NotifyOwnerDocumentActivityChanged().
+  bool shouldSuspend =
+      !OwnerDoc()->IsActive() || ShouldBeSuspendedByInactiveDocShell();
+  SuspendOrResumeElement(shouldSuspend || mSuspendedByAudioChannel,
+                         shouldSuspend);
+}
+
 void HTMLMediaElement::NotifyOwnerDocumentActivityChanged() {
   if (mDecoder && !IsBeingDestroyed()) {
     NotifyDecoderActivityChanges();
@@ -6589,7 +6550,8 @@ void HTMLMediaElement::NotifyOwnerDocumentActivityChanged() {
   // the media would be not visible and we don't want them to continue playing.
   bool shouldSuspend =
       !OwnerDoc()->IsActive() || ShouldBeSuspendedByInactiveDocShell();
-  SuspendOrResumeElement(shouldSuspend);
+  SuspendOrResumeElement(shouldSuspend || mSuspendedByAudioChannel,
+                         shouldSuspend);
 
   // If the owning document has become inactive we should shutdown the CDM.
   if (!OwnerDoc()->IsCurrentActiveDocument() && mMediaKeys) {
@@ -6921,8 +6883,7 @@ bool HTMLMediaElement::AudioChannelAgentBlockedPlay() {
     return true;
   }
 
-  const auto suspendType = mAudioChannelWrapper->GetSuspendType();
-  return suspendType == nsISuspendedTypes::SUSPENDED_PAUSE;
+  return mAudioChannelWrapper->IsSuspended();
 }
 
 static const char* VisibilityString(Visibility aVisibility) {

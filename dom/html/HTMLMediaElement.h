@@ -1243,7 +1243,7 @@ class HTMLMediaElement : public nsGenericHTMLElement,
    * playback, event delivery would also be suspended (and events queued) until
    * the element is resumed.
    */
-  void SuspendOrResumeElement(bool aSuspendElement);
+  void SuspendOrResumeElement(bool aSuspendElement, bool aSuspendEvents);
 
   // Get the HTMLMediaElement object if the decoder is being used from an
   // HTML media element, and null otherwise.
@@ -1866,6 +1866,10 @@ class HTMLMediaElement : public nsGenericHTMLElement,
   // Return true if the docshell is inactive and explicitly wants to stop media
   // playing in that shell.
   bool ShouldBeSuspendedByInactiveDocShell() const;
+
+  void SetSuspendedByAudioChannel(bool aSuspended);
+
+  bool mSuspendedByAudioChannel = false;
 
   // For debugging bug 1407148.
   void AssertReadyStateIsNothing();
