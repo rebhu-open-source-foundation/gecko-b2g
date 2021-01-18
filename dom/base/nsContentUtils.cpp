@@ -6679,7 +6679,8 @@ bool nsContentUtils::AllowXULXBLForPrincipal(nsIPrincipal* aPrincipal) {
 
   return (StaticPrefs::dom_allow_XUL_XBL_for_file() &&
           aPrincipal->SchemeIs("file")) ||
-         IsSitePermAllow(aPrincipal, "allowXULXBL"_ns);
+         IsSitePermAllow(aPrincipal, "allowXULXBL"_ns) ||
+         IsSitePermAllow(aPrincipal, "web-view"_ns);
 }
 
 bool nsContentUtils::IsPDFJSEnabled() {

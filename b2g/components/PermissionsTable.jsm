@@ -342,6 +342,11 @@ this.PermissionsTable = {
     signed: DENY_ACTION,
     core: ALLOW_ACTION,
   },
+  "web-view": {
+    pwa: DENY_ACTION,
+    signed: ALLOW_ACTION,
+    core: ALLOW_ACTION,
+  },
   "webapps-manage": {
     pwa: DENY_ACTION,
     signed: DENY_ACTION,

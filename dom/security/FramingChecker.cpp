@@ -103,6 +103,11 @@ bool FramingChecker::CheckOneFrameOptionsPolicy(nsIHttpChannel* aHttpChannel,
       return true;
     }
 
+    if (principal &&
+        nsContentUtils::IsSitePermAllow(principal, "web-view"_ns)) {
+      return true;
+    }
+
     if (checkSameOrigin) {
       bool isPrivateWin = false;
       bool isSameOrigin = false;
