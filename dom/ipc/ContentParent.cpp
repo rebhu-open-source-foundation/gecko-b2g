@@ -321,6 +321,10 @@ using namespace mozilla::system;
 #  include "mozilla/dom/FMRadioParent.h"
 #endif
 
+#ifdef ENABLE_RSU
+#   include "mozilla/dom/RSUParent.h"
+#endif
+
 #include "mozilla/RemoteSpellCheckEngineParent.h"
 
 #include "Crypto.h"
@@ -4764,6 +4768,22 @@ PFMRadioParent* ContentParent::AllocPFMRadioParent() {
 
 bool ContentParent::DeallocPFMRadioParent(PFMRadioParent* aActor) {
   delete aActor;
+  return true;
+}
+#endif
+
+#ifdef ENABLE_RSU
+PRSUParent*
+ContentParent::AllocPRSUParent()
+{
+  RefPtr<RSUParent> actor = new RSUParent();
+  return actor.forget().take();
+}
+
+bool
+ContentParent::DeallocPRSUParent(PRSUParent* aActor)
+{
+  RefPtr<RSUParent> actor = dont_AddRef(static_cast<RSUParent*>(aActor));
   return true;
 }
 #endif

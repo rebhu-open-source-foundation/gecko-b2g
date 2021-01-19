@@ -269,6 +269,11 @@ this.PermissionsTable = {
     signed: DENY_ACTION,
     core: ALLOW_ACTION,
   },
+  rsu: {
+    pwa: DENY_ACTION,
+    signed: DENY_ACTION,
+    core: ALLOW_ACTION,
+  },
   settings: {
     pwa: DENY_ACTION,
     signed: DENY_ACTION,

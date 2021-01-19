@@ -1054,6 +1054,12 @@ class ContentParent final
   bool DeallocPFMRadioParent(PFMRadioParent* aActor);
 #endif
 
+#ifdef ENABLE_RSU
+  PRSUParent* AllocPRSUParent();
+
+  bool DeallocPRSUParent(PRSUParent*);
+#endif
+
   PBenchmarkStorageParent* AllocPBenchmarkStorageParent();
 
   bool DeallocPBenchmarkStorageParent(PBenchmarkStorageParent* aActor);

@@ -291,6 +291,10 @@
 #  include "mozilla/dom/PFMRadioChild.h"
 #endif
 
+#ifdef ENABLE_RSU
+#include "mozilla/dom/RSUChild.h"
+#endif
+
 #include "ClearOnShutdown.h"
 #include "DomainPolicy.h"
 #include "GMPServiceChild.h"
@@ -2258,6 +2262,22 @@ PFMRadioChild* ContentChild::AllocPFMRadioChild() {
 }
 
 bool ContentChild::DeallocPFMRadioChild(PFMRadioChild* aActor) {
+  delete aActor;
+  return true;
+}
+#endif
+
+#ifdef ENABLE_RSU
+PRSUChild*
+ContentChild::AllocPRSUChild()
+{
+  MOZ_CRASH("No one should be allocating PRSUChild actors");
+  return nullptr;
+}
+
+bool
+ContentChild::DeallocPRSUChild(PRSUChild* aActor)
+{
   delete aActor;
   return true;
 }

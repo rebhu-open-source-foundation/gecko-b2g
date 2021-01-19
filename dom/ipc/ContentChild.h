@@ -286,6 +286,12 @@ class ContentChild final : public PContentChild,
   bool DeallocPFMRadioChild(PFMRadioChild* aActor);
 #endif
 
+#ifdef ENABLE_RSU
+  PRSUChild* AllocPRSUChild();
+
+  bool DeallocPRSUChild(PRSUChild*);
+#endif
+
   PBenchmarkStorageChild* AllocPBenchmarkStorageChild();
 
   bool DeallocPBenchmarkStorageChild(PBenchmarkStorageChild* aActor);
