@@ -11247,14 +11247,16 @@ CompositorHitTestInfo nsIFrame::GetCompositorHitTestInfo(
     // frames, are the event targets for any regions viewport frames may cover.
     return result;
   }
+  bool hitTestDispatchToContent = false;
   const StylePointerEvents pointerEvents =
       StyleUI()->GetEffectivePointerEvents(this);
   if (pointerEvents == StylePointerEvents::None) {
-    // For SubDocumentFrame, it may still request for pointer events.
-    // Return if it is a non-SubDocumentFrame or a frame without
-    // mozpasspointerevents.
-    nsSubDocumentFrame* subdocumentFrame = do_QueryFrame(this);
-    if (!subdocumentFrame || !subdocumentFrame->PassPointerEventsToChildren()) {
+    if (nsSubDocumentFrame* subdocumentFrame = do_QueryFrame(this)) {
+      // For SubDocumentFrame, it may still request for pointer events.
+      hitTestDispatchToContent =
+          subdocumentFrame->PassPointerEventsToChildren();
+    }
+    if (!hitTestDispatchToContent) {
       return result;
     }
   }
@@ -11264,6 +11266,11 @@ CompositorHitTestInfo nsIFrame::GetCompositorHitTestInfo(
 
   // Anything that didn't match the above conditions is visible to hit-testing.
   result = CompositorHitTestFlags::eVisibleToHitTest;
+  if (hitTestDispatchToContent) {
+    // Events may handled by content, add the flags to invoke APZ waiting for
+    // results from the main thread.
+    result += CompositorHitTestDispatchToContent;
+  }
   if (SVGIntegrationUtils::UsingMaskOrClipPathForFrame(this)) {
     // If WebRender is enabled, simple clip-paths can be converted into WR
     // clips that WR knows how to hit-test against, so we don't need to mark
