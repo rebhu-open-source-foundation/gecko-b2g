@@ -260,6 +260,9 @@ void AudioManager::HandleAudioFlingerDied() {
   MaybeUpdateVolumeSettingToDatabase(true);
 
   AudioSystem::setAssistantUid(AUDIO_UID_INVALID);
+
+  AudioSystem::setForceUse(AUDIO_POLICY_FORCE_FOR_SYSTEM,
+                           AUDIO_POLICY_FORCE_SYSTEM_ENFORCED);
 }
 
 class SettingInfo final : public nsISettingInfo {
@@ -905,6 +908,11 @@ AudioManager::AudioManager()
   // incorrectly muting our audio input because we don't meet some criteria of
   // assistant app.
   AudioSystem::setAssistantUid(AUDIO_UID_INVALID);
+
+  // If this is not set, AUDIO_STREAM_ENFORCED_AUDIBLE will be mapped to
+  // AUDIO_STREAM_MUSIC inside AudioPolicyManager.
+  AudioSystem::setForceUse(AUDIO_POLICY_FORCE_FOR_SYSTEM,
+                           AUDIO_POLICY_FORCE_SYSTEM_ENFORCED);
 }
 
 AudioManager::~AudioManager() {
