@@ -1234,4 +1234,4 @@ pref("ril.alwaysTryImsForEcc", true);
 pref("device.mvs", true);
 #endif
 
-pref("dom.popup_allowed_events", "change click dblclick auxclick mouseup pointerup notificationclick reset submit touchend contextmenu keydown");
+pref("dom.popup_allowed_events", "change click dblclick auxclick mouseup pointerup notificationclick reset submit touchend contextmenu keydown keyup");
