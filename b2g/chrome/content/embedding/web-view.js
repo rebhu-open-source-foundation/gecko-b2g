@@ -23,13 +23,6 @@
     "nsIKeyboardAppProxy"
   );
 
-  XPCOMUtils.defineLazyServiceGetter(
-    Services,
-    "DataControlService",
-    "@kaiostech.com/datacontrolservice;1",
-    "nsIDataControlService"
-  );
-
   // Enable logs when according to the pref value, and listen to changes.
   let webViewLogEnabled = Services.prefs.getBoolPref(
     "webview.log.enabled",
@@ -434,7 +427,6 @@
         evt.stopPropagation();
         this._pid = parseInt(evt.target.getAttribute("processid")) || -1;
         this.dispatchCustomEvent("processready", { processid: this._pid });
-        this.updateDCSState(true);
       });
 
       this.appendChild(this.browser);
@@ -471,7 +463,6 @@
                     reason: "content-kill",
                   });
                 }
-                self.updateDCSState(false);
               }, 250);
               break;
             }
@@ -506,7 +497,6 @@
         this.browser.removeEventListener(name, this);
       });
 
-      this.updateDCSState(false);
       this.browser.removeProgressListener(this.progressListener);
       this.progressListener = null;
 
@@ -648,7 +638,6 @@
         let current = this.browser.docShellIsActive;
         this.browser.docShellIsActive = val;
         if (current !== val) {
-          this.updateDCSState(val);
           this.log(`change docShellIsActive from ${current} to ${val}`);
           this.dispatchCustomEvent("visibilitychange", { visible: val });
           // "visibilitychange" event is dispatched on webview itself.
@@ -761,12 +750,6 @@
     deactivateKeyForwarding() {
       this.log(`deactivateKeyForwarding`);
       Services.KeyboardAppProxy.deactivate();
-    }
-
-    updateDCSState(val) {
-      if (Services.DataControlService) {
-        Services.DataControlService.updateVisible(this._pid, val);
-      }
     }
   }
 
