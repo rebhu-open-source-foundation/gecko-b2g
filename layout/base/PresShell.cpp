@@ -1294,6 +1294,7 @@ void PresShell::Destroy() {
         }
       }
     }
+    mPresContext->ClearOneShotPostRefreshObservers();
   }
 
 #ifdef MOZ_REFLOW_PERF

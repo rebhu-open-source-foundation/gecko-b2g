@@ -868,12 +868,6 @@
                        key="key_openAddons"
                        command="Tools:Addons"
                        />
-        <toolbarbutton id="appMenu-ssb-button"
-                       class="subviewbutton subviewbutton-iconic subviewbutton-nav"
-                       label="Sites in App Mode"
-                       closemenu="none"
-                       oncommand="PanelUI.showSubView('appMenu-SSBView', this)"
-                       hidden="true" persist="hidden"/>
         <toolbarbutton id="appMenu-preferences-button"
                        class="subviewbutton subviewbutton-iconic"
 #ifdef XP_WIN
@@ -945,10 +939,9 @@
         <toolbarbutton id="appMenu-quit-button"
                        class="subviewbutton subviewbutton-iconic"
 #ifdef XP_WIN
-                       label="&quitApplicationCmdWin2.label;"
-                       tooltiptext="&quitApplicationCmdWin2.tooltip;"
+                       data-l10n-id="menu-quit-button-win"
 #else
-                       label="&quitApplicationCmd.label;"
+                       data-l10n-id="menu-quit-button"
 #endif
                        key="key_quitApplication"
                        command="cmd_quitApplication"/>
@@ -1181,11 +1174,6 @@
         </vbox>
         <button id="PanelUI-panic-view-button"
                 data-l10n-id="panic-button-forget-button"/>
-      </vbox>
-    </panelview>
-
-    <panelview id="appMenu-SSBView" class="PanelUI-subView">
-      <vbox class="panel-subview-body">
       </vbox>
     </panelview>
 
