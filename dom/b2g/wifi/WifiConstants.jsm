@@ -22,6 +22,11 @@ const WifiConstants = {
   MIN_RSSI: -100,
   MAX_RSSI: -55,
 
+  // for traffic
+  FILTER_TIME_CONSTANT: 3000.0,
+  FULL_SCAN_MAX_TX_RATE: 20, // android value: 8
+  FULL_SCAN_MAX_RX_RATE: 40, // android value: 16
+
   MODE_ESS: 0,
   MODE_IBSS: 1,
 

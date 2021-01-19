@@ -525,6 +525,96 @@ var WifiManager = (function() {
     });
   }
 
+  var lastTrafficStats = null;
+  function trafficHeavy(callback) {
+    wifiCommand.getLinkLayerStats(function(result) {
+      if (result.status != SUCCESS) {
+        debug("getLinkLayerStats failed");
+        callback(false);
+        return;
+      }
+
+      let linkLayerStats = result.linkLayerStats;
+      let trafficOverThreshold = false;
+      let txSuccessRate = 0;
+      let rxSuccessRate = 0;
+
+      if (lastTrafficStats != null) {
+        let lastLinkLayerStats = lastTrafficStats.lastLinkLayerStats;
+        txSuccessRate = lastTrafficStats.txSuccessRate;
+        rxSuccessRate = lastTrafficStats.rxSuccessRate;
+
+        let be = linkLayerStats.wmeBePktStats;
+        let bk = linkLayerStats.wmeBkPktStats;
+        let vi = linkLayerStats.wmeViPktStats;
+        let vo = linkLayerStats.wmeVoPktStats;
+        let lbe = lastLinkLayerStats.wmeBePktStats;
+        let lbk = lastLinkLayerStats.wmeBkPktStats;
+        let lvi = lastLinkLayerStats.wmeViPktStats;
+        let lvo = lastLinkLayerStats.wmeVoPktStats;
+
+        let txSuccessDelta =
+          be.txMpdu +
+          bk.txMpdu +
+          vi.txMpdu +
+          vo.txMpdu -
+          (lbe.txMpdu + lbk.txMpdu + lvi.txMpdu + lvo.txMpdu);
+        let rxSuccessDelta =
+          be.rxMpdu +
+          bk.rxMpdu +
+          vi.rxMpdu +
+          vo.rxMpdu -
+          (lbe.rxMpdu + lbk.rxMpdu + lvi.rxMpdu + lvo.rxMpdu);
+        let timeMsDelta =
+          linkLayerStats.timeStampMs - lastLinkLayerStats.timeStampMs;
+        let lastSampleWeight = Math.exp(
+          (-1.0 * timeMsDelta) / WifiConstants.FILTER_TIME_CONSTANT
+        );
+        let currentSampleWeight = 1.0 - lastSampleWeight;
+
+        debug(
+          "Traffic state:" +
+            " txSuccessDelta=" +
+            txSuccessDelta +
+            ", rxSuccessDelta=" +
+            rxSuccessDelta +
+            ", timeMsDelta=" +
+            timeMsDelta +
+            ", lastSampleWeight=" +
+            lastSampleWeight.toFixed(5)
+        );
+
+        txSuccessRate =
+          txSuccessRate * lastSampleWeight +
+          ((txSuccessDelta * 1000.0) / timeMsDelta) * currentSampleWeight;
+        rxSuccessRate =
+          rxSuccessRate * lastSampleWeight +
+          ((rxSuccessDelta * 1000.0) / timeMsDelta) * currentSampleWeight;
+        trafficOverThreshold =
+          txSuccessRate > WifiConstants.FULL_SCAN_MAX_TX_RATE ||
+          rxSuccessRate > WifiConstants.FULL_SCAN_MAX_RX_RATE;
+
+        debug(
+          "Traffic state:" +
+            " txSuccessRate=" +
+            txSuccessRate.toFixed(2) +
+            ", rxSuccessRate=" +
+            rxSuccessRate.toFixed(2) +
+            ", trafficOverThreshold=" +
+            trafficOverThreshold
+        );
+      } else {
+        lastTrafficStats = Object.create(null);
+      }
+
+      lastTrafficStats.txSuccessRate = txSuccessRate;
+      lastTrafficStats.rxSuccessRate = rxSuccessRate;
+      lastTrafficStats.lastLinkLayerStats = linkLayerStats;
+
+      callback(trafficOverThreshold);
+    });
+  }
+
   function handleScanRequest(fullScan, callback) {
     if (!manager.enabled) {
       debug("WiFi is off, skip scan request");
@@ -608,22 +698,31 @@ var WifiManager = (function() {
         ) {
           tryFullBandScan = true;
         }
-        // TODO: 1. too much traffic, hence no full band scan.
-        //       2. Don't scan if lots of packets are being sent.
-        if (!tryFullBandScan && manager.configurationChannels.size > 0) {
-          handleScanRequest(false, function() {});
-        } else {
-          lastFullBandConnectedTimeMilli = now_ms;
-          if (
-            fullBandConnectedTimeIntervalMilli <
-            maxFullBandConnectedTimeIntervalMilli
-          ) {
-            // Increase the interval
-            fullBandConnectedTimeIntervalMilli =
-              (fullBandConnectedTimeIntervalMilli * 12) / 8;
+        // TODO: Don't scan if lots of packets are being sent.
+
+        // If the WiFi traffic is heavy, only partial scan is proposed.
+        trafficHeavy(function(isTrafficHeavy) {
+          if (isTrafficHeavy) {
+            tryFullBandScan = false;
           }
-          handleScanRequest(false, function() {});
-        }
+
+          if (!tryFullBandScan && manager.configurationChannels.size > 0) {
+            handleScanRequest(false, function() {});
+          } else {
+            lastFullBandConnectedTimeMilli = now_ms;
+            if (
+              fullBandConnectedTimeIntervalMilli <
+              maxFullBandConnectedTimeIntervalMilli
+            ) {
+              // Increase the interval
+              fullBandConnectedTimeIntervalMilli =
+                (fullBandConnectedTimeIntervalMilli * 12) / 8;
+            }
+
+            handleScanRequest(true, function() {});
+            delayScanInterval = fullBandConnectedTimeIntervalMilli;
+          }
+        });
       } else if (!manager.isConnectState(manager.state)) {
         delayScanInterval = WifiConstants.WIFI_SCHEDULED_SCAN_INTERVAL;
         handleScanRequest(true, function() {});
