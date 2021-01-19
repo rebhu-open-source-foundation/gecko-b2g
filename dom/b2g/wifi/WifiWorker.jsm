@@ -276,6 +276,7 @@ XPCOMUtils.defineLazyModuleGetter(
 
 var wifiInfo = new WifiInfo();
 var lastNetwork = null;
+var autoRoaming = false;
 
 function debug(s) {
   if (gDebug) {
@@ -1110,7 +1111,6 @@ var WifiManager = (function() {
     ["WPS_CONNECTION_PBC_OVERLAP", wps_pbc_overlap],
   ]);
 
-  var isDriverRoaming = false;
   // Handle events sent to us by the event worker.
   function handleEvent(event, iface) {
     debug("Event coming: [" + iface + "] " + event.name);
@@ -1155,6 +1155,7 @@ var WifiManager = (function() {
       }
     } else if (manager.isConnectState(manager.state)) {
       manager.lastDriverRoamAttempt = 0;
+      autoRoaming = false;
       wifiInfo.reset();
     }
 
@@ -1162,25 +1163,11 @@ var WifiManager = (function() {
       return;
     }
 
-    // Check device in roaming state or not.
-    if (manager.state === "COMPLETED" && fields.state === "ASSOCIATED") {
-      debug("Driver Roaming starts.");
-      isDriverRoaming = true;
-    } else if (!manager.isConnectState(fields.state)) {
-      debug("Driver Roaming resets flag.");
-      isDriverRoaming = false;
-    }
-
-    fields.isDriverRoaming = isDriverRoaming;
-
     notifyStateChange(fields);
     if (fields.state === "COMPLETED") {
       manager.lastDriverRoamAttempt = 0;
       manager.targetNetworkId = WifiConstants.INVALID_NETWORK_ID;
       onconnected();
-      if (isDriverRoaming) {
-        isDriverRoaming = false;
-      }
     }
   }
 
@@ -1267,6 +1254,7 @@ var WifiManager = (function() {
       }
     }
 
+    autoRoaming = false;
     wifiInfo.reset();
     // Restore power save and suspend optimizations when dhcp failed.
     postDhcpSetup(function(ok) {});
@@ -1999,7 +1987,7 @@ var WifiManager = (function() {
     }
     let network = WifiConfigManager.getNetworkConfiguration(config.netId);
     network.bssid = config.bssid;
-    manager.connect(network, callback);
+    manager.startToConnect(network, callback);
   };
 
   manager.setFirmwareRoamingConfiguration = function() {
@@ -2022,21 +2010,23 @@ var WifiManager = (function() {
   };
 
   manager.removeNetworks = function(callback) {
-    wifiCommand.removeNetworks(function(result) {
+    wifiCommand.removeNetworks(result => {
       callback(result.status == SUCCESS);
     });
   };
 
-  manager.connect = function(config, callback) {
+  manager.startToConnect = function(config, callback) {
     manager.targetNetworkId = config.netId;
-    wifiCommand.connect(config, function(result) {
+    autoRoaming = false;
+    wifiCommand.startToConnect(config, result => {
       callback(result.status == SUCCESS);
     });
   };
 
   manager.startToRoam = function(config, callback) {
     manager.targetNetworkId = config.netId;
-    wifiCommand.startToRoam(config, function(result) {
+    autoRoaming = true;
+    wifiCommand.startToRoam(config, result => {
       callback(result.status == SUCCESS);
     });
   };
@@ -2290,6 +2280,10 @@ var WifiNetworkInterface = {
   NETWORK_TYPE_MOBILE_SUPL: Ci.nsINetworkInfo.NETWORK_TYPE_MOBILE_SUPL,
 
   updateConfig(action, config) {
+    if (autoRoaming) {
+      return;
+    }
+
     debug(
       "Interface " +
         this.info.name +
@@ -2448,17 +2442,16 @@ function WifiWorker() {
   Services.obs.addObserver(this, kCaptivePortalLoginSuccessEvent);
   Services.prefs.addObserver(kPrefDefaultServiceId, this);
 
-  this.wantScanResults = [];
+  this._wantScanResults = [];
 
   this._addingNetworks = Object.create(null);
 
-  this.ipAddress = "";
+  this._ipAddress = "";
 
   this._lastConnectionInfo = null;
   this._connectionInfoTimer = null;
   this._listeners = [];
-  this.wifiDisableDelayId = null;
-  this.isDriverRoaming = false;
+  this._wifiDisableDelayId = null;
 
   gTelephonyService.registerListener(this);
 
@@ -2500,7 +2493,7 @@ function WifiWorker() {
     }
     if ("netId" in net) {
       pub.known = true;
-      if (net.netId == wifiInfo.networkId && self.ipAddress) {
+      if (net.netId == wifiInfo.networkId && self._ipAddress) {
         pub.connected = true;
         if (lastNetwork.everValidated) {
           pub.hasInternet = true;
@@ -2794,7 +2787,7 @@ function WifiWorker() {
         if (wifiInfo.networkId !== WifiConstants.INVALID_NETWORK_ID) {
           lastNetwork.netId = wifiInfo.networkId;
         }
-        self._fireEvent("onconnecting", { network: netToDOM(lastNetwork) });
+        self.handleConnectionStateChanged("onconnecting", lastNetwork);
         break;
       case "ASSOCIATED":
         if (!lastNetwork) {
@@ -2802,21 +2795,15 @@ function WifiWorker() {
         }
         lastNetwork.bssid = wifiInfo.bssid;
         lastNetwork.ssid = quote(wifiInfo.wifiSsid);
-        lastNetwork.isDriverRoaming = this.isDriverRoaming;
         lastNetwork.netId = wifiInfo.networkId;
-        WifiConfigManager.fetchNetworkConfiguration(lastNetwork, function() {
-          if (!lastNetwork.isDriverRoaming) {
-            // Notify again because we get complete network information.
-            self._fireEvent("onconnecting", { network: netToDOM(lastNetwork) });
-          }
+        WifiConfigManager.fetchNetworkConfiguration(lastNetwork, () => {
+          self.handleConnectionStateChanged("onconnecting", lastNetwork);
         });
         break;
       case "COMPLETED":
         var _oncompleted = function() {
           self._startConnectionInfoTimer();
-          if (!lastNetwork.isDriverRoaming) {
-            self._fireEvent("onassociate", { network: netToDOM(lastNetwork) });
-          }
+          self.handleConnectionStateChanged("onassociate", lastNetwork);
         };
 
         if (!lastNetwork) {
@@ -2825,7 +2812,6 @@ function WifiWorker() {
         lastNetwork.bssid = wifiInfo.bssid;
         lastNetwork.ssid = quote(wifiInfo.wifiSsid);
         lastNetwork.netId = wifiInfo.networkId;
-        lastNetwork.isDriverRoaming = this.isDriverRoaming;
         WifiConfigManager.setEverConnected(lastNetwork, true);
         WifiConfigManager.fetchNetworkConfiguration(lastNetwork, _oncompleted);
         break;
@@ -2860,7 +2846,7 @@ function WifiWorker() {
           clearTimeout(self.handlePromptUnvalidatedId);
           self.handlePromptUnvalidatedId = null;
         }
-        self.ipAddress = "";
+        self._ipAddress = "";
 
         WifiManager.connectionDropped(function() {});
 
@@ -2952,27 +2938,28 @@ function WifiWorker() {
       dnses: [this.info.dns1_str, this.info.dns2_str],
     });
 
-    self.ipAddress = this.info.ipaddr_str;
+    self._ipAddress = this.info.ipaddr_str;
 
     // We start the connection information timer when we associate, but
     // don't have our IP address until here. Make sure that we fire a new
     // connectionInformation event with the IP address the next time the
     // timer fires.
     self._lastConnectionInfo = null;
-    if (!lastNetwork.isDriverRoaming) {
-      self._fireEvent("onconnect", { network: netToDOM(lastNetwork) });
-    }
+    self.handleConnectionStateChanged("onconnect", lastNetwork);
     WifiManager.postDhcpSetup(function() {});
+
+    // Reset roaming state.
+    autoRoaming = false;
   };
 
   WifiManager.onscanresultsavailable = function() {
     WifiManager.getScanResults(this.type, function(data) {
       if (data.status != SUCCESS) {
-        if (self.wantScanResults.length !== 0) {
-          self.wantScanResults.forEach(function(callback) {
+        if (self._wantScanResults.length !== 0) {
+          self._wantScanResults.forEach(function(callback) {
             callback(null);
           });
-          self.wantScanResults = [];
+          self._wantScanResults = [];
         }
         return;
       }
@@ -3096,7 +3083,7 @@ function WifiWorker() {
 
           if (
             network.netId == wifiInfo.networkId &&
-            self.ipAddress &&
+            self._ipAddress &&
             result.associated
           ) {
             network.connected = true;
@@ -3158,11 +3145,11 @@ function WifiWorker() {
       if (!WifiManager.wpsStarted && self.networksArray.length > 0) {
         self.handleScanResults(self.networksArray);
       }
-      if (self.wantScanResults.length !== 0) {
-        self.wantScanResults.forEach(callback => {
+      if (self._wantScanResults.length !== 0) {
+        self._wantScanResults.forEach(callback => {
           callback(self.networksArray);
         });
-        self.wantScanResults = [];
+        self._wantScanResults = [];
       }
       self._fireEvent("scanresult", {
         scanResult: JSON.stringify(self.networksArray),
@@ -3184,16 +3171,16 @@ function WifiWorker() {
       let imsDelayTimeout = 7000;
       imsDelayTimeout = Services.prefs.getIntPref("vowifi.delay.timer", 5000);
       debug("delay " + imsDelayTimeout / 1000 + " secs for disabling wifi");
-      self.wifiDisableDelayId = setTimeout(
+      self._wifiDisableDelayId = setTimeout(
         WifiManager.setWifiDisable,
         imsDelayTimeout
       );
     } else {
-      if (self.wifiDisableDelayId === null) {
+      if (self._wifiDisableDelayId === null) {
         return;
       }
-      clearTimeout(self.wifiDisableDelayId);
-      self.wifiDisableDelayId = null;
+      clearTimeout(self._wifiDisableDelayId);
+      self._wifiDisableDelayId = null;
       imsService.unregisterListener(self);
     }
   };
@@ -3477,7 +3464,7 @@ WifiWorker.prototype = {
             }
           } else {
             debug(
-              "reconnect from " +
+              "Reconnect from " +
                 currentAssociationId +
                 " to " +
                 targetAssociationId
@@ -3501,6 +3488,17 @@ WifiWorker.prototype = {
     }
   },
 
+  handleConnectionStateChanged(event, network) {
+    if (autoRoaming) {
+      // Currently we are in roaming stage, which means that we've already
+      // connected and have IP address. Therefore, the supplicant state should
+      // not be reflected into upper layer.
+      // Network state should be updated after roaming completed.
+      return;
+    }
+    this._fireEvent(event, { network: netToDOM(network) });
+  },
+
   handlePromptUnvalidatedId: null,
   handlePromptUnvalidated() {
     this.handlePromptUnvalidatedId = null;
@@ -3519,7 +3517,7 @@ WifiWorker.prototype = {
 
   // Internal methods.
   waitForScan(callback) {
-    this.wantScanResults.push(callback);
+    this._wantScanResults.push(callback);
   },
 
   _startConnectionInfoTimer() {
@@ -3571,7 +3569,7 @@ WifiWorker.prototype = {
           signalStrength: rssi,
           relSignalStrength: WifiConfigUtils.calculateSignal(rssi),
           linkSpeed,
-          ipAddress: self.ipAddress,
+          ipAddress: self._ipAddress,
         };
         let last = self._lastConnectionInfo;
         // Only fire the event if the link speed changed or the signal
@@ -3843,8 +3841,8 @@ WifiWorker.prototype = {
 
           if (count++ >= 3) {
             timer = null;
-            self.wantScanResults.splice(
-              self.wantScanResults.indexOf(waitForScanCallback),
+            self._wantScanResults.splice(
+              self._wantScanResults.indexOf(waitForScanCallback),
               1
             );
             callback.onfailure();
@@ -4303,7 +4301,7 @@ WifiWorker.prototype = {
       let makeConnection = function(network) {
         WifiManager.loopDetectionCount = 0;
         WifiConfigManager.updateLastSelectedNetwork(network.netId, function() {
-          WifiManager.connect(network, function(ok) {
+          WifiManager.startToConnect(network, function(ok) {
             self._sendMessage(message, ok, ok, msg);
           });
         });
