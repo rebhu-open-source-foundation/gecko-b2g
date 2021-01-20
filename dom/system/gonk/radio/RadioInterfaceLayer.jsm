@@ -1118,16 +1118,6 @@ RadioInterface.prototype = {
       case "cdma-info-rec-received":
         this.handleCdmaInformationRecords(message.records);
         break;
-      case "pcochange":
-        let connHandler = gDataCallManager.getDataCallHandler(this.clientId);
-        connHandler.updatePcoData(
-          message.pco.cid,
-          message.pco.bearerProto,
-          message.pco.pcoId,
-          message.pco.contents,
-          message.pco.contents.length
-        );
-        break;
       // Cameron TODO complete the modem reset.
       case "modemReset":
         let reason = message.reason;
@@ -1263,6 +1253,15 @@ RadioInterface.prototype = {
             "RILJ: [UNSL]< RIL_UNSOL_PCO_DATA pco = " + JSON.stringify(pco)
           );
         }
+
+        let connHandler = gDataCallManager.getDataCallHandler(this.clientId);
+        connHandler.updatePcoData(
+          pco.cid,
+          pco.bearerProto,
+          pco.pcoId,
+          pco.contents,
+          pco.contents.length
+        );
         break;
       case "imsNetworkStateChanged":
         // Gecko do not handle this UNSL command.

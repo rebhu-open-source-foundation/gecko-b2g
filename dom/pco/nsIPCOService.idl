@@ -4,7 +4,7 @@
 
 #include "nsISupports.idl"
 
-[scriptable, uuid(46859c88-9946-4d63-a0e3-72b0f3e1da14)]
+[scriptable, uuid(e3b1cf07-a6d9-4236-b60e-c02ea15f4867)]
 interface nsIPCOService : nsISupports
 {
   void updatePcoData([optional] in unsigned long count,
@@ -13,8 +13,8 @@ interface nsIPCOService : nsISupports
   /**
    * Get the restrict status.
    *
-   * @param aAppId
-   *        Follow the app id to check the restrict status.
+   * @param origin
+   *        Follow the origin to check the restrict status.
    */
-  boolean getRestriction([optional] in long aAppId);
+  boolean getRestriction(in AString origin);
 };
