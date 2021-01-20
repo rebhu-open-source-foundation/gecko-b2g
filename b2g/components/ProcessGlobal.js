@@ -248,6 +248,18 @@ ProcessGlobal.prototype = {
         allFrames: true,
       },
 
+      VoiceInputStyle: {
+        child: {
+          moduleURI: "resource://gre/actors/VoiceInputStyleChild.jsm",
+          events: {
+            IMEFocus: {},
+            IMEBlur: {},
+          },
+        },
+        allFrames: true,
+        includeChrome: true,
+      },
+
       WebViewForContent: {
         child: {
           moduleURI: "resource://gre/actors/WebViewForContentChild.jsm",
