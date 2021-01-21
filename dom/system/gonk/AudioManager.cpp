@@ -1193,7 +1193,8 @@ void AudioManager::UpdateFmVolume() {
 #if defined(PRODUCT_MANUFACTURER_QUALCOMM)
   uint32_t device = GetDeviceForFm();
   uint32_t volIndex = mStreamStates[AUDIO_STREAM_MUSIC]->GetVolumeIndex(device);
-  float volume = mFmVolumeCurves->GetVolume(volIndex, device);
+  float volume =
+      mFmContentVolume * mFmVolumeCurves->GetVolume(volIndex, device);
   SetParameters("fm_volume=%f", volume);
 #elif defined(PRODUCT_MANUFACTURER_SPRD)
   uint32_t device = GetDeviceForFm();
@@ -1251,6 +1252,13 @@ AudioManager::SetFmRadioAudioEnabled(bool aEnabled) {
   if (aEnabled) {
     SetFmMuted(false);
   }
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+AudioManager::SetFmRadioContentVolume(float aVolume) {
+  mFmContentVolume = std::max(aVolume, 0.0f);
+  UpdateFmVolume();
   return NS_OK;
 }
 

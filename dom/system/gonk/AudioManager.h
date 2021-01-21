@@ -143,6 +143,8 @@ class AudioManager final : public nsIAudioManager, public nsIObserver {
   bool mIsMicMuted = false;
 #endif
 
+  float mFmContentVolume = 1.0f;
+
   void HandleBluetoothStatusChanged(nsISupports* aSubject, const char* aTopic,
                                     const nsCString aAddress);
 
