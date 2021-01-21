@@ -792,7 +792,6 @@ Result_t WifiNative::StartSoftAp(SoftapConfigurationOptions* aSoftapConfig,
   result = sWifiHal->SetSoftapCountryCode(countryCode);
   if (result != nsIWifiResult::SUCCESS) {
     WIFI_LOGE(LOG_TAG, "Failed to set country code");
-    return result;
   }
 
   // start softap from hostapd.
