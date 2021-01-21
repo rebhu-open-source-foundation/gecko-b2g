@@ -3039,6 +3039,11 @@ function WifiWorker() {
             result.associated
         );
 
+        // Discard network with invalid SSID
+        if (result.ssid == null || result.ssid.length == 0) {
+          continue;
+        }
+
         let signalLevel = result.signal / 100;
         let infoElement = WifiConfigUtils.parseInformationElements(ie);
         let flags = WifiConfigUtils.parseCapabilities(
