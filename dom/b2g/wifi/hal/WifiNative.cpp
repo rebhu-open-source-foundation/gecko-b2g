@@ -555,8 +555,8 @@ Result_t WifiNative::GetScanResults(int32_t aScanType, nsWifiResult* aResult) {
     WIFI_LOGE(LOG_TAG, "Invalid scan type: %d", aScanType);
   }
 
-  if (nativeScanResults.empty()) {
-    WIFI_LOGE(LOG_TAG, "No scan result available");
+  if (result != nsIWifiResult::SUCCESS) {
+    WIFI_LOGE(LOG_TAG, "GetScanResults failed");
     return result;
   }
 

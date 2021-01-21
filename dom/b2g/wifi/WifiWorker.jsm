@@ -2967,16 +2967,18 @@ function WifiWorker() {
 
   WifiManager.onscanresultsavailable = function() {
     WifiManager.getScanResults(this.type, function(data) {
-      let scanResults = data.getScanResults();
-
-      WifiManager.cachedScanResults = [];
-      if (scanResults.length <= 0 && self.wantScanResults.length !== 0) {
-        self.wantScanResults.forEach(function(callback) {
-          callback(null);
-        });
-        self.wantScanResults = [];
+      if (data.status != SUCCESS) {
+        if (self.wantScanResults.length !== 0) {
+          self.wantScanResults.forEach(function(callback) {
+            callback(null);
+          });
+          self.wantScanResults = [];
+        }
         return;
       }
+
+      let scanResults = data.getScanResults();
+      WifiManager.cachedScanResults = [];
 
       // If got multiple networks with same bssid in the scan results,
       // keep the most current one which has biggest tsf.
@@ -3148,7 +3150,7 @@ function WifiWorker() {
         }
       }
 
-      if (!WifiManager.wpsStarted) {
+      if (!WifiManager.wpsStarted && self.networksArray.length > 0) {
         self.handleScanResults(self.networksArray);
       }
       if (self.wantScanResults.length !== 0) {
