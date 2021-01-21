@@ -1223,12 +1223,6 @@ pref("captivedetect.canonicalContent", "success");
 pref("externalAPI.websocket.protocols", "kaios-services");
 pref("externalAPI.websocket.url", "ws://localhost/");
 
-// B2G IMS feature
-#ifdef B2G_IMS
-pref("b2g.ims.enabled", true);
-pref("ril.alwaysTryImsForEcc", true);
-#endif
-
 //MVS featrue
 #if B2G_CCUSTOM_MODULES == C001
 pref("device.mvs", true);
