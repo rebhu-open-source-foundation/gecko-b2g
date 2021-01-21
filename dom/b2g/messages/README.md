@@ -14,6 +14,7 @@ System messages are messages from the system, they are sent by the system based 
 | bluetooth-opp-transfer-complete           | bluetooth-privileged |
 | bluetooth-opp-transfer-start              | bluetooth-privileged |
 | bluetooth-opp-update-progress             | bluetooth-privileged |
+| bluetooth-pairing-aborted                 | bluetooth-privileged |
 | bluetooth-pairing-request                 | bluetooth-privileged |
 | bluetooth-pbap-request                    | bluetooth-privileged |
 | cellbroadcast-received                    | cellbroadcast        |

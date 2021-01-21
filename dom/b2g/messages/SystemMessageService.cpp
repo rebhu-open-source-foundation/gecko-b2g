@@ -68,6 +68,8 @@ void BuildPermissionsTable() {
                                      "bluetooth-privileged"_ns);
   sSystemMessagePermissionsTable.Put(u"bluetooth-opp-update-progress"_ns,
                                      "bluetooth-privileged"_ns);
+  sSystemMessagePermissionsTable.Put(u"bluetooth-pairing-aborted"_ns,
+                                     "bluetooth-privileged"_ns);
   sSystemMessagePermissionsTable.Put(u"bluetooth-pairing-request"_ns,
                                      "bluetooth-privileged"_ns);
   sSystemMessagePermissionsTable.Put(u"bluetooth-pbap-request"_ns,
