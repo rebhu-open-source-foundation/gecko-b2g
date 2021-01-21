@@ -562,6 +562,16 @@ fn eval_moz_print_preview(
     query_value.map_or(is_print_preview, |v| v == is_print_preview)
 }
 
+fn eval_moz_non_native_content_theme(
+    device: &Device,
+    query_value: Option<bool>,
+    _: Option<RangeOrOperator>,
+) -> bool {
+    let non_native_theme =
+        unsafe { bindings::Gecko_MediaFeatures_ShouldAvoidNativeTheme(device.document()) };
+    query_value.map_or(non_native_theme, |v| v == non_native_theme)
+}
+
 fn eval_moz_is_resource_document(
     device: &Device,
     query_value: Option<bool>,
@@ -838,6 +848,12 @@ pub static MEDIA_FEATURES: [MediaFeatureDescription; 56] = [
         atom!("-moz-print-preview"),
         AllowsRanges::No,
         Evaluator::BoolInteger(eval_moz_print_preview),
+        ParsingRequirements::CHROME_AND_UA_ONLY,
+    ),
+    feature!(
+        atom!("-moz-non-native-content-theme"),
+        AllowsRanges::No,
+        Evaluator::BoolInteger(eval_moz_non_native_content_theme),
         ParsingRequirements::CHROME_AND_UA_ONLY,
     ),
     system_metric_feature!(atom!("-moz-scrollbar-start-backward")),

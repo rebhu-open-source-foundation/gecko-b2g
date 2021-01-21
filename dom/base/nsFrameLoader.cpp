@@ -2678,7 +2678,7 @@ bool nsFrameLoader::TryRemoteBrowser() {
   // Check if we should report a browser-crashed error because the browser
   // failed to start.
   if (XRE_IsParentProcess() && mOwnerContent && mOwnerContent->IsXULElement()) {
-    MaybeNotifyCrashed(nullptr, nullptr);
+    MaybeNotifyCrashed(nullptr, ContentParentId(), nullptr);
   }
 
   return false;
@@ -3690,6 +3690,7 @@ void nsFrameLoader::SetWillChangeProcess() {
 }
 
 void nsFrameLoader::MaybeNotifyCrashed(BrowsingContext* aBrowsingContext,
+                                       ContentParentId aChildID,
                                        mozilla::ipc::MessageChannel* aChannel) {
   if (mTabProcessCrashFired) {
     return;
@@ -3737,6 +3738,7 @@ void nsFrameLoader::MaybeNotifyCrashed(BrowsingContext* aBrowsingContext,
   if (aBrowsingContext) {
     init.mBrowsingContextId = aBrowsingContext->Id();
     init.mIsTopFrame = aBrowsingContext->IsTop();
+    init.mChildID = aChildID;
   }
 
   RefPtr<FrameCrashedEvent> event = FrameCrashedEvent::Constructor(

@@ -30,6 +30,14 @@
         "resource:///modules/UrlbarProviderOpenTabs.jsm"
       );
 
+      if (AppConstants.MOZ_CRASHREPORTER) {
+        ChromeUtils.defineModuleGetter(
+          this,
+          "TabCrashHandler",
+          "resource:///modules/ContentCrashHandlers.jsm"
+        );
+      }
+
       Services.obs.addObserver(this, "contextual-identity-updated");
 
       Services.els.addSystemEventListener(document, "keydown", this, false);
@@ -5026,7 +5034,12 @@
       if (includeLabel) {
         label = tab._fullLabel || tab.getAttribute("label");
       }
-      if (Services.prefs.getBoolPref("browser.tabs.tooltipsShowPid", false)) {
+      if (
+        Services.prefs.getBoolPref(
+          "browser.tabs.tooltipsShowPidAndActiveness",
+          false
+        )
+      ) {
         if (tab.linkedBrowser) {
           // When enabled, show the PID of the content process, and if
           // we're running with fission enabled, try to include PIDs for
@@ -5044,6 +5057,9 @@
               }
               label += "]";
             }
+          }
+          if (tab.linkedBrowser.docShellIsActive) {
+            label += " [A]";
           }
         }
       }
@@ -5479,11 +5495,16 @@
       );
 
       let onTabCrashed = event => {
-        if (!event.isTrusted || !event.isTopFrame) {
+        if (!event.isTrusted) {
           return;
         }
 
         let browser = event.originalTarget;
+
+        if (!event.isTopFrame) {
+          TabCrashHandler.onSubFrameCrash(browser, event.childID);
+          return;
+        }
 
         // Preloaded browsers do not actually have any tabs. If one crashes,
         // it should be released and removed.
