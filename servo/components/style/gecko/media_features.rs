@@ -639,7 +639,7 @@ macro_rules! system_metric_feature {
 /// to support new types in these entries and (2) ensuring that either
 /// nsPresContext::MediaFeatureValuesChanged is called when the value that
 /// would be returned by the evaluator function could change.
-pub static MEDIA_FEATURES: [MediaFeatureDescription; 56] = [
+pub static MEDIA_FEATURES: [MediaFeatureDescription; 57] = [
     feature!(
         atom!("width"),
         AllowsRanges::Yes,
