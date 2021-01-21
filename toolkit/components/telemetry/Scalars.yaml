@@ -671,6 +671,7 @@ browser.startup:
     bug_numbers:
       - 1622263
       - 1614351
+      - 1683101
     description: >
       How the about:home startup cache functioned on startup.
 
@@ -685,7 +686,7 @@ browser.startup:
       8: User did not load about:home on its own by default.
       9: Cache is disabled because about:newtab preloading is disabled.
 
-    expires: "87"
+    expires: "92"
     kind: uint
     notification_emails:
       - mconley@mozilla.com
@@ -700,11 +701,12 @@ browser.startup:
     bug_numbers:
       - 1622263
       - 1614351
+      - 1683101
     description: >
       True if the about:home startup cache was written via the AsyncShutdown
       blocker.
 
-    expires: "87"
+    expires: "92"
     kind: boolean
     notification_emails:
       - mconley@mozilla.com
@@ -4130,38 +4132,6 @@ pdf.viewer:
     record_in_processes:
       - 'main'
       - 'content'
-
-# The following section contains scalars for the Unknown Content Type (Helper App) dialog.
-unknowncontenttype:
-  pdf_action:
-    bug_numbers:
-      - 773942
-    description: >
-      A counter incremented every time a user uses the Unknown Content Type dialog
-      for PDF files, with counts grouped by action chosen (see keys). Some external
-      applications that have very high adoption are counted specifically.
-      Note: 'OPEN_WITH_SYSTEM_DEFAULT' may eventually resolve to one of Acrobat, Foxit, MsEdge, Chromium, etc.
-    keyed: true
-    keys:
-      - 'OPEN_WITH_INTERNAL_HANDLER'
-      - 'OPEN_WITH_SYSTEM_DEFAULT'
-      - 'OPEN_WITH_ACROBAT'
-      - 'OPEN_WITH_FOXIT'
-      - 'OPEN_WITH_MSEDGE'
-      - 'OPEN_WITH_CHROMIUM'
-      - 'OPEN_WITH_PREVIEW'
-      - 'OPEN_WITH_OTHER'
-      - 'SAVE'
-      - 'CANCEL'
-    expires: "85"
-    kind: uint
-    notification_emails:
-      - jaws@mozilla.com
-    release_channel_collection: opt-out
-    products:
-      - 'firefox'
-    record_in_processes:
-      - 'main'
 
 # The following section contains scalars for printing.
 printing:

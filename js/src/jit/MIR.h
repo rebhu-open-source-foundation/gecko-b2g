@@ -8793,6 +8793,10 @@ class MMegamorphicLoadSlot : public MUnaryInstruction,
   MMegamorphicLoadSlot(MDefinition* obj, PropertyName* name)
       : MUnaryInstruction(classOpcode, obj), name_(name) {
     setResultType(MIRType::Value);
+
+    // Bails when non-native or accessor properties are encountered, so we can't
+    // DCE this instruction.
+    setGuard();
   }
 
  public:
@@ -8825,6 +8829,10 @@ class MMegamorphicLoadSlotByValue
   MMegamorphicLoadSlotByValue(MDefinition* obj, MDefinition* idVal)
       : MBinaryInstruction(classOpcode, obj, idVal) {
     setResultType(MIRType::Value);
+
+    // Bails when non-native or accessor properties are encountered, so we can't
+    // DCE this instruction.
+    setGuard();
   }
 
  public:
@@ -8883,6 +8891,10 @@ class MMegamorphicHasProp
   MMegamorphicHasProp(MDefinition* obj, MDefinition* idVal, bool hasOwn)
       : MBinaryInstruction(classOpcode, obj, idVal), hasOwn_(hasOwn) {
     setResultType(MIRType::Boolean);
+
+    // Bails when non-native or accessor properties are encountered, so we can't
+    // DCE this instruction.
+    setGuard();
   }
 
  public:
@@ -11188,6 +11200,7 @@ class MObjectClassToString : public MUnaryInstruction,
                              public SingleObjectPolicy::Data {
   explicit MObjectClassToString(MDefinition* obj)
       : MUnaryInstruction(classOpcode, obj) {
+    setGuard();
     setMovable();
     setResultType(MIRType::String);
   }
@@ -11197,10 +11210,17 @@ class MObjectClassToString : public MUnaryInstruction,
   TRIVIAL_NEW_WRAPPERS
   NAMED_OPERANDS((0, object))
 
-  AliasSet getAliasSet() const override { return AliasSet::None(); }
+  AliasSet getAliasSet() const override {
+    // Tests @@toStringTag is neither present on this object nor on any object
+    // of the prototype chain.
+    return AliasSet::Load(AliasSet::ObjectFields | AliasSet::FixedSlot |
+                          AliasSet::DynamicSlot);
+  }
   bool congruentTo(const MDefinition* ins) const override {
     return congruentIfOperandsEqual(ins);
   }
+
+  bool possiblyCalls() const override { return true; }
 };
 
 class MCheckReturn : public MBinaryInstruction, public BoxInputsPolicy::Data {
