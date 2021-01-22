@@ -524,6 +524,17 @@ SmsService.prototype = {
           return false;
         }
         let error = Ci.nsIMobileMessageCallback.UNKNOWN_ERROR;
+        if (
+          aResponse.reason ===
+          Ci.nsIImsMMTelFeature.RESULT_ERROR_FDN_CHECK_FAILURE
+        ) {
+          error = Ci.nsIMobileMessageCallback.FDN_CHECK_ERROR;
+        } else if (
+          aResponse.reason === Ci.nsIImsMMTelFeature.RESULT_ERROR_NO_SERVICE ||
+          aResponse.reason === Ci.nsIImsMMTelFeature.RESULT_RADIO_NOT_AVAILABLE
+        ) {
+          error = Ci.nsIMobileMessageCallback.NO_SIGNAL_ERROR;
+        }
         this._notifySendingError(error, sentMessage, aSilent, aRequest);
         return false;
       } // End of IMS send failure.
@@ -2148,7 +2159,7 @@ ImsSmsProvider.prototype = {
         }
       }
 
-      let keepCallback = pendOp.callback({ status: aStatus });
+      let keepCallback = pendOp.callback({ status: aStatus, reason: aReason });
       if (!keepCallback) {
         delete this._pendingOp[aToken];
       }
