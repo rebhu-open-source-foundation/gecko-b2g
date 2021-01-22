@@ -993,12 +993,15 @@ TelephonyService.prototype = {
   },
 
   // All calls in the conference is regarded as one conference call.
-  _numCallsOnLine(aClientId) {
+  _numCallsOnLine(aClientId, aRadioTech = -1) {
     let numCalls = 0;
     let hasConference = false;
 
     for (let cid in this._currentCalls[aClientId]) {
       let call = this._currentCalls[aClientId][cid];
+      if (aRadioTech !== -1 && call.radioTech !== aRadioTech) {
+        continue;
+      }
       if (call.isConference) {
         hasConference = true;
       } else {
@@ -1385,7 +1388,7 @@ TelephonyService.prototype = {
 
     if (
       this._isImsClient(aClientId) ||
-      this._useImsForEmergency(aOptions.isEmergency)
+      this._useImsForEmergency(aOptions.isEmergency, aClientId)
     ) {
       this._dialImsCall(aClientId, aOptions, aCallback);
       return;
@@ -3771,8 +3774,21 @@ TelephonyService.prototype = {
     return this._twoDigitShortCodes.includes(aNumber);
   },
 
-  _useImsForEmergency(aIsEmergency) {
+  _useImsForEmergency(aIsEmergency, aClientId) {
     if (!aIsEmergency) {
+      return false;
+    }
+
+    // This is a workaround for CS + PS call issue.
+    // We are not capable to handle CS + PS calls in same slot imultaneously.
+    // TBD. to create CS, PS call trackers spearately and a call manager to
+    // manage call trackers.
+    if (
+      this._numCallsOnLine(aClientId, Ci.nsITelephonyCallInfo.RADIO_TECH_CS)
+    ) {
+      if (DEBUG) {
+        debug("don't use IMS for ECC due to CS call is ongoing");
+      }
       return false;
     }
 

@@ -5648,6 +5648,8 @@ RadioInterface.prototype = {
       call.name = rilCallResponse[i].name;
       call.namePresentation = rilCallResponse[i].namePresentation;
 
+      call.radioTech = Ci.nsITelephonyCallInfo.RADIO_TECH_CS;
+
       let rilUusInfos = rilCallResponse[i].getUusInfo();
       let uusInfos = {};
       for (let j = 0; j < rilUusInfos.length; j++) {
