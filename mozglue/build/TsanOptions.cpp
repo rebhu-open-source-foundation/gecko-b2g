@@ -217,9 +217,6 @@ extern "C" const char* __tsan_default_suppressions() {
          "race:nsSocketTransport::OnMsgInputClosed\n"
          "race:nsSocketTransport::OpenOutputStream\n"
 
-         // Bug 1607138
-         "race:gXPCOMThreadsShutDown\n"
-
          // Bug 1615017
          "race:CacheFileMetadata::SetHash\n"
          "race:CacheFileMetadata::OnDataWritten\n"
@@ -291,10 +288,6 @@ extern "C" const char* __tsan_default_suppressions() {
          // Bug 1683404
          "race:nsTimerImpl::Shutdown\n"
          "race:nsTimerImpl::CancelImpl\n"
-
-         // Bug 1645696
-         "race:nsHttpHandler::PrefsChanged\n"
-         "race:nsHttpConnection::Activate\n"
 
          // Bug 1682951
          "race:storage::Connection::Release\n"

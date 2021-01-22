@@ -6,7 +6,6 @@
 
 #include "gc/Marking-inl.h"
 
-#include "mozilla/ArrayUtils.h"
 #include "mozilla/DebugOnly.h"
 #include "mozilla/IntegerRange.h"
 #include "mozilla/Maybe.h"
@@ -3216,7 +3215,7 @@ JSObject* js::TenuringTracer::moveToTenuredSlow(JSObject* src) {
   tenuredCells++;
 
   // Copy the Cell contents.
-  MOZ_ASSERT(OffsetFromChunkStart(src) >= sizeof(ChunkHeader));
+  MOZ_ASSERT(OffsetFromChunkStart(src) >= sizeof(ChunkBase));
   MOZ_ASSERT(OffsetToChunkEnd(src) >= ptrdiff_t(srcSize));
   js_memcpy(dst, src, srcSize);
 
@@ -3264,7 +3263,7 @@ inline JSObject* js::TenuringTracer::movePlainObjectToTenured(
   tenuredCells++;
 
   // Copy the Cell contents.
-  MOZ_ASSERT(OffsetFromChunkStart(src) >= sizeof(ChunkHeader));
+  MOZ_ASSERT(OffsetFromChunkStart(src) >= sizeof(ChunkBase));
   MOZ_ASSERT(OffsetToChunkEnd(src) >= ptrdiff_t(srcSize));
   js_memcpy(dst, src, srcSize);
 
@@ -4106,9 +4105,9 @@ uintptr_t* GetMarkWordAddress(Cell* cell) {
 
   MarkBitmapWord* wordp;
   uintptr_t mask;
-  ChunkBase* chunk = gc::detail::GetCellChunkBase(&cell->asTenured());
-  chunk->bitmap.getMarkWordAndMask(&cell->asTenured(), ColorBit::BlackBit,
-                                   &wordp, &mask);
+  TenuredChunkBase* chunk = gc::detail::GetCellChunkBase(&cell->asTenured());
+  chunk->markBits.getMarkWordAndMask(&cell->asTenured(), ColorBit::BlackBit,
+                                     &wordp, &mask);
   return reinterpret_cast<uintptr_t*>(wordp);
 }
 
@@ -4122,8 +4121,8 @@ uintptr_t GetMarkMask(Cell* cell, uint32_t colorBit) {
   ColorBit bit = colorBit == 0 ? ColorBit::BlackBit : ColorBit::GrayOrBlackBit;
   MarkBitmapWord* wordp;
   uintptr_t mask;
-  ChunkBase* chunk = gc::detail::GetCellChunkBase(&cell->asTenured());
-  chunk->bitmap.getMarkWordAndMask(&cell->asTenured(), bit, &wordp, &mask);
+  TenuredChunkBase* chunk = gc::detail::GetCellChunkBase(&cell->asTenured());
+  chunk->markBits.getMarkWordAndMask(&cell->asTenured(), bit, &wordp, &mask);
   return mask;
 }
 

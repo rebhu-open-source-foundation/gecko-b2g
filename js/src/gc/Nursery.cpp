@@ -62,10 +62,14 @@ struct alignas(gc::CellAlignBytes) js::Nursery::Canary {
 #endif
 
 namespace js {
-struct NurseryChunk {
-  gc::ChunkHeader header;
+struct NurseryChunk : public ChunkBase {
   char data[Nursery::NurseryChunkUsableSize];
-  static NurseryChunk* fromChunk(gc::Chunk* chunk);
+
+  static NurseryChunk* fromChunk(gc::TenuredChunk* chunk);
+
+  explicit NurseryChunk(JSRuntime* runtime)
+      : ChunkBase(runtime, &runtime->gc.storeBuffer()) {}
+
   void poisonAndInit(JSRuntime* rt, size_t size = ChunkSize);
   void poisonRange(size_t from, size_t size, uint8_t value,
                    MemCheckKind checkKind);
@@ -78,7 +82,6 @@ struct NurseryChunk {
 
   uintptr_t start() const { return uintptr_t(&data); }
   uintptr_t end() const { return uintptr_t(this) + ChunkSize; }
-  gc::Chunk* toChunk(GCRuntime* gc);
 };
 static_assert(sizeof(js::NurseryChunk) == gc::ChunkSize,
               "Nursery chunk size must match gc::Chunk size.");
@@ -86,10 +89,10 @@ static_assert(sizeof(js::NurseryChunk) == gc::ChunkSize,
 }  // namespace js
 
 inline void js::NurseryChunk::poisonAndInit(JSRuntime* rt, size_t size) {
-  MOZ_ASSERT(size >= sizeof(header));
+  MOZ_ASSERT(size >= sizeof(ChunkBase));
   MOZ_ASSERT(size <= ChunkSize);
   poisonRange(0, size, JS_FRESH_NURSERY_PATTERN, MemCheckKind::MakeUndefined);
-  new (&header) gc::ChunkHeader(rt, &rt->gc.storeBuffer());
+  new (this) NurseryChunk(rt);
 }
 
 inline void js::NurseryChunk::poisonRange(size_t from, size_t size,
@@ -107,109 +110,77 @@ inline void js::NurseryChunk::poisonRange(size_t from, size_t size,
 
 inline void js::NurseryChunk::poisonAfterEvict(size_t extent) {
   MOZ_ASSERT(extent <= ChunkSize);
-  poisonRange(sizeof(header), extent - sizeof(header), JS_SWEPT_NURSERY_PATTERN,
-              MemCheckKind::MakeNoAccess);
+  poisonRange(sizeof(ChunkBase), extent - sizeof(ChunkBase),
+              JS_SWEPT_NURSERY_PATTERN, MemCheckKind::MakeNoAccess);
 }
 
 inline void js::NurseryChunk::markPagesUnusedHard(size_t from) {
-  MOZ_ASSERT(from >= sizeof(ChunkHeader));  // Don't touch the header.
+  MOZ_ASSERT(from >= sizeof(ChunkBase));  // Don't touch the header.
   MOZ_ASSERT(from <= ChunkSize);
   uintptr_t start = uintptr_t(this) + from;
   MarkPagesUnusedHard(reinterpret_cast<void*>(start), ChunkSize - from);
 }
 
 inline bool js::NurseryChunk::markPagesInUseHard(size_t to) {
-  MOZ_ASSERT(to >= sizeof(ChunkHeader));
+  MOZ_ASSERT(to >= sizeof(ChunkBase));
   MOZ_ASSERT(to <= ChunkSize);
   return MarkPagesInUseHard(this, to);
 }
 
 // static
-inline js::NurseryChunk* js::NurseryChunk::fromChunk(Chunk* chunk) {
+inline js::NurseryChunk* js::NurseryChunk::fromChunk(TenuredChunk* chunk) {
   return reinterpret_cast<NurseryChunk*>(chunk);
 }
 
-inline Chunk* js::NurseryChunk::toChunk(GCRuntime* gc) {
-  auto* chunk = reinterpret_cast<Chunk*>(this);
-  chunk->init(gc);
-  return chunk;
+js::NurseryDecommitTask::NurseryDecommitTask(gc::GCRuntime* gc)
+    : GCParallelTask(gc) {}
+
+bool js::NurseryDecommitTask::isEmpty(
+    const AutoLockHelperThreadState& lock) const {
+  return chunksToDecommit().empty() && !partialChunk;
+}
+
+bool js::NurseryDecommitTask::reserveSpaceForBytes(size_t nbytes) {
+  MOZ_ASSERT(isIdle());
+  size_t nchunks = HowMany(nbytes, ChunkSize);
+  return chunksToDecommit().reserve(nchunks);
 }
 
 void js::NurseryDecommitTask::queueChunk(
-    NurseryChunk* nchunk, const AutoLockHelperThreadState& lock) {
-  // Using the chunk pointers to build the queue is infallible.
-  Chunk* chunk = nchunk->toChunk(gc);
-  chunk->info.prev = nullptr;
-  chunk->info.next = queue;
-  queue = chunk;
+    NurseryChunk* chunk, const AutoLockHelperThreadState& lock) {
+  MOZ_ASSERT(isIdle(lock));
+  MOZ_ALWAYS_TRUE(chunksToDecommit().append(chunk));
 }
 
 void js::NurseryDecommitTask::queueRange(
     size_t newCapacity, NurseryChunk& newChunk,
     const AutoLockHelperThreadState& lock) {
-  MOZ_ASSERT(!partialChunk || partialChunk == &newChunk);
+  MOZ_ASSERT(isIdle(lock));
+  MOZ_ASSERT(!partialChunk);
+  MOZ_ASSERT(newCapacity < ChunkSize);
+  MOZ_ASSERT(newCapacity % SystemPageSize() == 0);
 
-  // Only save this to decommit later if there's at least one page to
-  // decommit.
-  if (RoundUp(newCapacity, SystemPageSize()) >=
-      RoundDown(Nursery::NurseryChunkUsableSize, SystemPageSize())) {
-    // Clear the existing decommit request because it may be a larger request
-    // for the same chunk.
-    partialChunk = nullptr;
-    return;
-  }
   partialChunk = &newChunk;
   partialCapacity = newCapacity;
 }
 
-Chunk* js::NurseryDecommitTask::popChunk(
-    const AutoLockHelperThreadState& lock) {
-  if (!queue) {
-    return nullptr;
-  }
-
-  Chunk* chunk = queue;
-  queue = chunk->info.next;
-  chunk->info.next = nullptr;
-  MOZ_ASSERT(chunk->info.prev == nullptr);
-  return chunk;
-}
-
 void js::NurseryDecommitTask::run(AutoLockHelperThreadState& lock) {
-  Chunk* chunk;
-  while ((chunk = popChunk(lock)) || partialChunk) {
-    if (chunk) {
-      AutoUnlockHelperThreadState unlock(lock);
-      decommitChunk(chunk);
-      continue;
-    }
-
-    if (partialChunk) {
-      decommitRange(lock);
-      continue;
-    }
-  }
-}
-
-void js::NurseryDecommitTask::decommitChunk(Chunk* chunk) {
-  chunk->decommitAllArenas();
-  {
-    AutoLockGC lock(gc);
-    gc->recycleChunk(chunk, lock);
-  }
-}
-
-void js::NurseryDecommitTask::decommitRange(AutoLockHelperThreadState& lock) {
-  // Clear this field here before releasing the lock. While the lock is
-  // released the main thread may make new decommit requests or update the range
-  // of the current requested chunk, but it won't attempt to use any
-  // might-be-decommitted-soon memory.
-  NurseryChunk* thisPartialChunk = partialChunk;
-  size_t thisPartialCapacity = partialCapacity;
-  partialChunk = nullptr;
-  {
+  while (!chunksToDecommit().empty()) {
+    NurseryChunk* nurseryChunk = chunksToDecommit().popCopy();
     AutoUnlockHelperThreadState unlock(lock);
-    thisPartialChunk->markPagesUnusedHard(thisPartialCapacity);
+    auto* tenuredChunk = reinterpret_cast<TenuredChunk*>(nurseryChunk);
+    tenuredChunk->init(gc);
+    AutoLockGC lock(gc);
+    gc->recycleChunk(tenuredChunk, lock);
+  }
+
+  if (partialChunk) {
+    {
+      AutoUnlockHelperThreadState unlock(lock);
+      partialChunk->markPagesUnusedHard(partialCapacity);
+    }
+    partialChunk = nullptr;
+    partialCapacity = 0;
   }
 }
 
@@ -309,7 +280,9 @@ bool js::Nursery::initFirstChunk(AutoLockGCBgAlloc& lock) {
   MOZ_ASSERT(!isEnabled());
 
   capacity_ = tunables().gcMinNurseryBytes();
-  if (!allocateNextChunk(0, lock)) {
+
+  if (!decommitTask.reserveSpaceForBytes(capacity_) ||
+      !allocateNextChunk(0, lock)) {
     capacity_ = 0;
     return false;
   }
@@ -331,10 +304,11 @@ void js::Nursery::disable() {
     return;
   }
 
-  // Freeing the chunks must not race with decommitting part of one of our
-  // chunks. So join the decommitTask here and also below.
+  // Free all chunks.
   decommitTask.join();
   freeChunksFrom(0);
+  decommitTask.runFromMainThread();
+
   capacity_ = 0;
 
   // We must reset currentEnd_ so that there is no space for anything in the
@@ -344,8 +318,6 @@ void js::Nursery::disable() {
   currentBigIntEnd_ = 0;
   position_ = 0;
   gc->storeBuffer().disable();
-
-  decommitTask.join();
 }
 
 void js::Nursery::enableStrings() {
@@ -695,11 +667,29 @@ void js::Nursery::freeBuffer(void* buffer, size_t nbytes) {
   }
 }
 
-void Nursery::setIndirectForwardingPointer(void* oldData, void* newData) {
+#ifdef DEBUG
+/* static */
+inline bool Nursery::checkForwardingPointerLocation(void* ptr,
+                                                    bool expectedInside) {
+  if (isInside(ptr) == expectedInside) {
+    return true;
+  }
+
   // If a zero-capacity elements header lands right at the end of a chunk then
-  // elements data will appear to be in the next chunk.
-  MOZ_ASSERT(isInside(oldData) || (uintptr_t(oldData) & ChunkMask) == 0);
-  MOZ_ASSERT(!isInside(newData) || (uintptr_t(newData) & ChunkMask) == 0);
+  // elements data will appear to be in the next chunk. If we have a pointer to
+  // the very start of a chunk, check the previous chunk.
+  if ((uintptr_t(ptr) & ChunkMask) == 0 &&
+      isInside(reinterpret_cast<uint8_t*>(ptr) - 1) == expectedInside) {
+    return true;
+  }
+
+  return false;
+}
+#endif
+
+void Nursery::setIndirectForwardingPointer(void* oldData, void* newData) {
+  MOZ_ASSERT(checkForwardingPointerLocation(oldData, true));
+  MOZ_ASSERT(checkForwardingPointerLocation(newData, false));
 
   AutoEnterOOMUnsafeRegion oomUnsafe;
 #ifdef DEBUG
@@ -1512,7 +1502,7 @@ bool js::Nursery::allocateNextChunk(const unsigned chunkno,
     return false;
   }
 
-  Chunk* newChunk;
+  TenuredChunk* newChunk;
   newChunk = gc->getOrAllocChunk(lock);
   if (!newChunk) {
     chunks_.shrinkTo(priorCount);
@@ -1537,6 +1527,8 @@ void js::Nursery::maybeResizeNursery(JSGCInvocationKind kind,
   }
 #endif
 
+  decommitTask.join();
+
   size_t newCapacity =
       mozilla::Clamp(targetSize(kind, reason), tunables().gcMinNurseryBytes(),
                      tunables().gcMaxNurseryBytes());
@@ -1547,6 +1539,11 @@ void js::Nursery::maybeResizeNursery(JSGCInvocationKind kind,
     growAllocableSpace(newCapacity);
   } else if (newCapacity < capacity()) {
     shrinkAllocableSpace(newCapacity);
+  }
+
+  AutoLockHelperThreadState lock;
+  if (!decommitTask.isEmpty(lock)) {
+    decommitTask.startOrRunIfIdle(lock);
   }
 }
 
@@ -1653,10 +1650,6 @@ void js::Nursery::clearRecentGrowthData() {
 
 /* static */
 size_t js::Nursery::roundSize(size_t size) {
-  static_assert(SubChunkStep > sizeof(gc::ChunkHeader),
-                "Don't allow the nursery to overwrite the header when using "
-                "less than a chunk");
-
   size_t step = size >= ChunkSize ? ChunkSize : SubChunkStep;
   size = Round(size, step);
 
@@ -1670,10 +1663,11 @@ void js::Nursery::growAllocableSpace(size_t newCapacity) {
   MOZ_ASSERT(newCapacity <= tunables().gcMaxNurseryBytes());
   MOZ_ASSERT(newCapacity > capacity());
 
-  if (isSubChunkMode()) {
-    // Avoid growing into an area that's about to be decommitted.
-    decommitTask.join();
+  if (!decommitTask.reserveSpaceForBytes(newCapacity)) {
+    return;
+  }
 
+  if (isSubChunkMode()) {
     MOZ_ASSERT(currentChunk_ == 0);
 
     // The remainder of the chunk may have been decommitted.
@@ -1718,7 +1712,6 @@ void js::Nursery::freeChunksFrom(const unsigned firstFreeChunk) {
     for (size_t i = firstChunkToDecommit; i < chunks_.length(); i++) {
       decommitTask.queueChunk(chunks_[i], lock);
     }
-    decommitTask.startOrRunIfIdle(lock);
   }
 
   chunks_.shrinkTo(firstFreeChunk);
@@ -1759,7 +1752,6 @@ void js::Nursery::shrinkAllocableSpace(size_t newCapacity) {
 
     AutoLockHelperThreadState lock;
     decommitTask.queueRange(capacity_, chunk(0), lock);
-    decommitTask.startOrRunIfIdle(lock);
   }
 }
 

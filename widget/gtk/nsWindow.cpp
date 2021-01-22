@@ -1248,9 +1248,11 @@ void nsWindow::Move(double aX, double aY) {
   }
 }
 
-bool nsWindow::IsWaylandPopup() {
-  return !mIsX11Display && mIsTopLevel && mWindowType == eWindowType_popup;
+bool nsWindow::IsPopup() {
+  return mIsTopLevel && mWindowType == eWindowType_popup;
 }
+
+bool nsWindow::IsWaylandPopup() { return !mIsX11Display && IsPopup(); }
 
 void nsWindow::HideWaylandTooltips() {
   while (gVisibleWaylandPopupWindows) {
@@ -1777,8 +1779,7 @@ void nsWindow::NativeMoveResizeWaylandPopup(GdkPoint* aPosition,
   }
 #endif
 
-  if (isWidgetVisible &&
-      !g_signal_handler_find(
+  if (!g_signal_handler_find(
           gdkWindow, G_SIGNAL_MATCH_FUNC, 0, 0, nullptr,
           FuncToGpointer(NativeMoveResizeWaylandPopupCallback), this)) {
     g_signal_connect(gdkWindow, "moved-to-rect",
@@ -5789,6 +5790,15 @@ nsresult nsWindow::UpdateTranslucentWindowAlphaInternal(const nsIntRect& aRect,
   return NS_OK;
 }
 
+bool nsWindow::GetTitlebarRect(mozilla::gfx::Rect& aRect) {
+  if (!mGdkWindow || !mDrawInTitlebar) {
+    return false;
+  }
+
+  aRect = gfx::Rect(0, 0, mBounds.width, TITLEBAR_SHAPE_MASK_HEIGHT);
+  return true;
+}
+
 void nsWindow::UpdateTitlebarTransparencyBitmap() {
   NS_ASSERTION(mTransparencyBitmapForTitlebar,
                "Transparency bitmap is already used to draw window shape");
@@ -7714,10 +7724,10 @@ gint nsWindow::GdkScaleFactor() {
       (gint(*)(GdkWindow*))dlsym(RTLD_DEFAULT, "gdk_window_get_scale_factor");
   if (sGdkWindowGetScaleFactorPtr && scaledGdkWindow) {
     mWindowScaleFactor = (*sGdkWindowGetScaleFactorPtr)(scaledGdkWindow);
+    mWindowScaleFactorChanged = false;
   } else {
     mWindowScaleFactor = ScreenHelperGTK::GetGTKMonitorScaleFactor();
   }
-  mWindowScaleFactorChanged = false;
 
   return mWindowScaleFactor;
 }

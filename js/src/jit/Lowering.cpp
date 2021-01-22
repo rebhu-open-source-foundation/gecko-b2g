@@ -1964,18 +1964,17 @@ void LIRGenerator::visitToDouble(MToDouble* convert) {
     }
 
     case MIRType::Null:
-      MOZ_ASSERT(conversion != MToFPInstruction::NumbersOnly &&
-                 conversion != MToFPInstruction::NonNullNonStringPrimitives);
+      MOZ_ASSERT(conversion == MToFPInstruction::NonStringPrimitives);
       lowerConstantDouble(0, convert);
       break;
 
     case MIRType::Undefined:
-      MOZ_ASSERT(conversion != MToFPInstruction::NumbersOnly);
+      MOZ_ASSERT(conversion == MToFPInstruction::NonStringPrimitives);
       lowerConstantDouble(GenericNaN(), convert);
       break;
 
     case MIRType::Boolean:
-      MOZ_ASSERT(conversion != MToFPInstruction::NumbersOnly);
+      MOZ_ASSERT(conversion == MToFPInstruction::NonStringPrimitives);
       [[fallthrough]];
 
     case MIRType::Int32: {
@@ -2017,18 +2016,17 @@ void LIRGenerator::visitToFloat32(MToFloat32* convert) {
     }
 
     case MIRType::Null:
-      MOZ_ASSERT(conversion != MToFPInstruction::NumbersOnly &&
-                 conversion != MToFPInstruction::NonNullNonStringPrimitives);
+      MOZ_ASSERT(conversion == MToFPInstruction::NonStringPrimitives);
       lowerConstantFloat32(0, convert);
       break;
 
     case MIRType::Undefined:
-      MOZ_ASSERT(conversion != MToFPInstruction::NumbersOnly);
+      MOZ_ASSERT(conversion == MToFPInstruction::NonStringPrimitives);
       lowerConstantFloat32(GenericNaN(), convert);
       break;
 
     case MIRType::Boolean:
-      MOZ_ASSERT(conversion != MToFPInstruction::NumbersOnly);
+      MOZ_ASSERT(conversion == MToFPInstruction::NonStringPrimitives);
       [[fallthrough]];
 
     case MIRType::Int32: {

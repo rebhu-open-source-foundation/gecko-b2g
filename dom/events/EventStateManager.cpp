@@ -2780,14 +2780,14 @@ nsIFrame* EventStateManager::ComputeScrollTargetAndMayAdjustWheelEvent(
       }
     }
 
-    uint32_t directions =
+    layers::ScrollDirections directions =
         scrollableFrame->GetAvailableScrollingDirectionsForUserInputEvents();
-    if ((!(directions & nsIScrollableFrame::VERTICAL) &&
-         !(directions & nsIScrollableFrame::HORIZONTAL)) ||
+    if ((!(directions.contains(layers::ScrollDirection::eVertical)) &&
+         !(directions.contains(layers::ScrollDirection::eHorizontal))) ||
         (checkIfScrollableY && !checkIfScrollableX &&
-         !(directions & nsIScrollableFrame::VERTICAL)) ||
+         !(directions.contains(layers::ScrollDirection::eVertical))) ||
         (checkIfScrollableX && !checkIfScrollableY &&
-         !(directions & nsIScrollableFrame::HORIZONTAL))) {
+         !(directions.contains(layers::ScrollDirection::eHorizontal)))) {
       continue;
     }
 
@@ -3103,17 +3103,18 @@ void EventStateManager::DecideGestureEvent(WidgetGestureNotifyEvent* aEvent,
           displayPanFeedback = false;
         }
       } else {  // Not a XUL box
-        uint32_t scrollbarVisibility =
+        layers::ScrollDirections scrollbarVisibility =
             scrollableFrame->GetScrollbarVisibility();
 
         // Check if we have visible scrollbars
-        if (scrollbarVisibility & nsIScrollableFrame::VERTICAL) {
+        if (scrollbarVisibility.contains(layers::ScrollDirection::eVertical)) {
           panDirection = WidgetGestureNotifyEvent::ePanVertical;
           displayPanFeedback = true;
           break;
         }
 
-        if (scrollbarVisibility & nsIScrollableFrame::HORIZONTAL) {
+        if (scrollbarVisibility.contains(
+                layers::ScrollDirection::eHorizontal)) {
           panDirection = WidgetGestureNotifyEvent::ePanHorizontal;
           displayPanFeedback = true;
         }
@@ -3278,7 +3279,8 @@ nsresult EventStateManager::PostHandleEvent(nsPresContext* aPresContext,
   // Add special cases here.
   if (!mCurrentTarget && aEvent->mMessage != eMouseUp &&
       aEvent->mMessage != eMouseDown && aEvent->mMessage != eDragEnter &&
-      aEvent->mMessage != eDragOver) {
+      aEvent->mMessage != eDragOver && aEvent->mMessage != ePointerUp &&
+      aEvent->mMessage != ePointerCancel) {
     return NS_OK;
   }
 
@@ -3918,6 +3920,7 @@ void EventStateManager::NotifyDestroyPresContext(nsPresContext* aPresContext) {
     SetContentState(nullptr, NS_EVENT_STATE_HOVER);
   }
   mPointersEnterLeaveHelper.Clear();
+  PointerEventHandler::NotifyDestroyPresContext(aPresContext);
 }
 
 void EventStateManager::SetPresContext(nsPresContext* aPresContext) {
@@ -5721,10 +5724,8 @@ void EventStateManager::ContentRemoved(Document* aDocument,
   if (aContent->IsAnyOfHTMLElements(nsGkAtoms::a, nsGkAtoms::area) &&
       (aContent->AsElement()->State().HasAtLeastOneOfStates(
           NS_EVENT_STATE_FOCUS | NS_EVENT_STATE_HOVER))) {
-    nsGenericHTMLElement* element =
-        static_cast<nsGenericHTMLElement*>(aContent);
-    element->LeaveLink(
-        element->GetPresContext(nsGenericHTMLElement::eForComposedDoc));
+    Element* element = aContent->AsElement();
+    element->LeaveLink(element->GetPresContext(Element::eForComposedDoc));
   }
 
   IMEStateManager::OnRemoveContent(mPresContext, aContent);

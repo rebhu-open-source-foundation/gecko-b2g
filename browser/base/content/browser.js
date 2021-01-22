@@ -27,7 +27,6 @@ XPCOMUtils.defineLazyModuleGetters(this, {
   CFRPageActions: "resource://activity-stream/lib/CFRPageActions.jsm",
   CharsetMenu: "resource://gre/modules/CharsetMenu.jsm",
   Color: "resource://gre/modules/Color.jsm",
-  ContentSearch: "resource:///modules/ContentSearch.jsm",
   ContextualIdentityService:
     "resource://gre/modules/ContextualIdentityService.jsm",
   CustomizableUI: "resource:///modules/CustomizableUI.jsm",
@@ -555,6 +554,18 @@ XPCOMUtils.defineLazyPreferenceGetter(
   this,
   "gProton",
   "browser.proton.enabled",
+  false,
+  (pref, oldValue, newValue) => {
+    document.documentElement.toggleAttribute("proton", newValue);
+  }
+);
+
+/* Temporary pref while we settle some questions around new tab design.
+   This will eventually be removed and browser.proton.enabled will be used instead. */
+XPCOMUtils.defineLazyPreferenceGetter(
+  this,
+  "gProtonTabs",
+  "browser.proton.tabs.enabled",
   false,
   (pref, oldValue, newValue) => {
     document.documentElement.toggleAttribute("proton", newValue);
@@ -4300,9 +4311,12 @@ const BrowserSearch = {
       csp
     );
     if (engine) {
-      BrowserSearchTelemetry.recordSearch(gBrowser, engine, "contextmenu", {
-        url,
-      });
+      BrowserSearchTelemetry.recordSearch(
+        gBrowser.selectedBrowser,
+        engine,
+        "contextmenu",
+        { url }
+      );
     }
   },
 
@@ -4319,7 +4333,12 @@ const BrowserSearch = {
       csp
     );
     if (engine) {
-      BrowserSearchTelemetry.recordSearch(gBrowser, engine, "system", { url });
+      BrowserSearchTelemetry.recordSearch(
+        gBrowser.selectedBrowser,
+        engine,
+        "system",
+        { url }
+      );
     }
   },
 
@@ -4339,12 +4358,10 @@ const BrowserSearch = {
     );
 
     BrowserSearchTelemetry.recordSearch(
-      gBrowser,
+      gBrowser.selectedBrowser,
       result.engine,
       "webextension",
-      {
-        url: result.url,
-      }
+      { url: result.url }
     );
   },
 

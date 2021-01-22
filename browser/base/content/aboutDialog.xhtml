@@ -32,6 +32,8 @@
         >
 #ifdef XP_MACOSX
 #include macWindow.inc.xhtml
+#else
+  <script src="chrome://browser/content/utilityOverlay.js"/>
 #endif
 
   <linkset>
@@ -126,7 +128,7 @@
               </hbox>
               <description class="text-blurb">
                 <label is="text-link" onclick="openHelpLink('firefox-help')" data-l10n-id="aboutdialog-help-user"/>
-                <label is="text-link" onclick="openFeedbackPage()" data-l10n-id="aboutdialog-submit-feedback"/>
+                <label id="submit-feedback" is="text-link" onclick="openFeedbackPage()" data-l10n-id="aboutdialog-submit-feedback"/>
               </description>
             </vbox>
 #endif

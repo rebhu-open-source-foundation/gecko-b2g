@@ -851,6 +851,7 @@ class MacroAssembler : public MacroAssemblerSpecific {
   inline void move16To64SignExtend(Register src, Register64 dest) PER_ARCH;
   inline void move32To64SignExtend(Register src, Register64 dest) PER_ARCH;
 
+  inline void move32SignExtendToPtr(Register src, Register dest) PER_ARCH;
   inline void move32ZeroExtendToPtr(Register src, Register dest) PER_ARCH;
 
   // Copy a constant, typed-register, or a ValueOperand into a ValueOperand
@@ -1431,10 +1432,12 @@ class MacroAssembler : public MacroAssemblerSpecific {
   inline void branchNeg32(Condition cond, Register reg,
                           Label* label) PER_SHARED_ARCH;
 
-  inline void branchAddPtr(Condition cond, Register src, Register dest,
+  template <typename T>
+  inline void branchAddPtr(Condition cond, T src, Register dest,
                            Label* label) PER_SHARED_ARCH;
 
-  inline void branchSubPtr(Condition cond, Register src, Register dest,
+  template <typename T>
+  inline void branchSubPtr(Condition cond, T src, Register dest,
                            Label* label) PER_SHARED_ARCH;
 
   inline void branchMulPtr(Condition cond, Register src, Register dest,
@@ -1855,6 +1858,12 @@ class MacroAssembler : public MacroAssemblerSpecific {
                           Register src, Register dest)
       DEFINED_ON(arm, arm64, mips_shared, x86_shared);
 
+  inline void cmpPtrMovePtr(Condition cond, Register lhs, Register rhs,
+                            Register src, Register dest) PER_ARCH;
+
+  inline void cmpPtrMovePtr(Condition cond, Register lhs, const Address& rhs,
+                            Register src, Register dest) PER_ARCH;
+
   inline void cmp32Load32(Condition cond, Register lhs, const Address& rhs,
                           const Address& src, Register dest)
       DEFINED_ON(arm, arm64, mips_shared, x86_shared);
@@ -1901,6 +1910,13 @@ class MacroAssembler : public MacroAssemblerSpecific {
       DEFINED_ON(arm, arm64, mips_shared, x86, x64);
   inline void spectreBoundsCheck32(Register index, const Address& length,
                                    Register maybeScratch, Label* failure)
+      DEFINED_ON(arm, arm64, mips_shared, x86, x64);
+
+  inline void spectreBoundsCheckPtr(Register index, Register length,
+                                    Register maybeScratch, Label* failure)
+      DEFINED_ON(arm, arm64, mips_shared, x86, x64);
+  inline void spectreBoundsCheckPtr(Register index, const Address& length,
+                                    Register maybeScratch, Label* failure)
       DEFINED_ON(arm, arm64, mips_shared, x86, x64);
 
   // ========================================================================
@@ -3595,8 +3611,12 @@ class MacroAssembler : public MacroAssemblerSpecific {
   //     data-dependency which prevents any futher executions until the load is
   //     resolved.
 
-  void spectreMaskIndex(Register index, Register length, Register output);
-  void spectreMaskIndex(Register index, const Address& length, Register output);
+  void spectreMaskIndex32(Register index, Register length, Register output);
+  void spectreMaskIndex32(Register index, const Address& length,
+                          Register output);
+  void spectreMaskIndexPtr(Register index, Register length, Register output);
+  void spectreMaskIndexPtr(Register index, const Address& length,
+                           Register output);
 
   // The length must be a power of two. Performs a bounds check and Spectre
   // index masking.

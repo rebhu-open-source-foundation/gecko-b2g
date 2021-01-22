@@ -1235,7 +1235,8 @@ class ASRouterAdminInner extends react__WEBPACK_IMPORTED_MODULE_3___default.a.Pu
         content: "iridium@particlecore.github.io",
         experiment: "ua-onboarding",
         variation: "chrome",
-        ua: "Google Chrome 123"
+        ua: "Google Chrome 123",
+        dltoken: "00000000-0000-0000-0000-000000000000"
       }
     };
   }
@@ -1996,6 +1997,12 @@ class ASRouterAdminInner extends react__WEBPACK_IMPORTED_MODULE_3___default.a.Pu
       placeholder: "Google Chrome 123",
       value: this.state.attributionParameters.ua,
       onChange: this.onChangeAttributionParameters
+    }), " ")), react__WEBPACK_IMPORTED_MODULE_3___default.a.createElement("tr", null, react__WEBPACK_IMPORTED_MODULE_3___default.a.createElement("td", null, react__WEBPACK_IMPORTED_MODULE_3___default.a.createElement("b", null, " Download Token ")), react__WEBPACK_IMPORTED_MODULE_3___default.a.createElement("td", null, " ", react__WEBPACK_IMPORTED_MODULE_3___default.a.createElement("input", {
+      type: "text",
+      name: "dltoken",
+      placeholder: "00000000-0000-0000-0000-000000000000",
+      value: this.state.attributionParameters.dltoken,
+      onChange: this.onChangeAttributionParameters
     }), " ")), react__WEBPACK_IMPORTED_MODULE_3___default.a.createElement("tr", null, react__WEBPACK_IMPORTED_MODULE_3___default.a.createElement("td", null, " ", react__WEBPACK_IMPORTED_MODULE_3___default.a.createElement("button", {
       className: "ASRouterButton primary button",
       onClick: this.setAttribution
@@ -2539,9 +2546,11 @@ class ASRouterUISurface extends react__WEBPACK_IMPORTED_MODULE_7___default.a.Pur
       message
     } = this.state;
     const eventType = `${message.provider}_user_event`;
+    const source = extraProps.id;
+    delete extraProps.id;
     _asrouter_utils__WEBPACK_IMPORTED_MODULE_2__["ASRouterUtils"].sendTelemetry({
+      source,
       message_id: message.id,
-      source: extraProps.id,
       action: eventType,
       ...extraProps
     });

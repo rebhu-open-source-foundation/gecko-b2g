@@ -403,17 +403,18 @@ let JSWINDOWACTORS = {
     },
     child: {
       moduleURI: "resource:///actors/ContentSearchChild.jsm",
-      matches: [
-        "about:home",
-        "about:newtab",
-        "about:welcome",
-        "about:privatebrowsing",
-        "chrome://mochitests/content/*",
-      ],
       events: {
         ContentSearchClient: { capture: true, wantUntrusted: true },
       },
     },
+    matches: [
+      "about:home",
+      "about:welcome",
+      "about:newtab",
+      "about:privatebrowsing",
+      "about:test-about-content-search-ui",
+    ],
+    remoteTypes: ["privilegedabout"],
   },
 
   ContextMenu: {
@@ -1124,7 +1125,11 @@ BrowserGlue.prototype = {
           Cu.reportError(ex);
         }
         let win = BrowserWindowTracker.getTopWindow();
-        BrowserSearchTelemetry.recordSearch(win.gBrowser, engine, "urlbar");
+        BrowserSearchTelemetry.recordSearch(
+          win.gBrowser.selectedBrowser,
+          engine,
+          "urlbar"
+        );
         break;
       case "browser-search-engine-modified":
         // Ensure we cleanup the hiddenOneOffs pref when removing

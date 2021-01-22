@@ -3763,13 +3763,13 @@ void MacroAssembler::emitPreBarrierFastPath(JSRuntime* rt, MIRType type,
   // If the GC thing is in the nursery, we don't need to barrier it.
   if (type == MIRType::Value || type == MIRType::Object ||
       type == MIRType::String) {
-    branch32(Assembler::Equal, Address(temp2, gc::ChunkLocationOffset),
-             Imm32(int32_t(gc::ChunkLocation::Nursery)), noBarrier);
+    branchPtr(Assembler::NotEqual, Address(temp2, gc::ChunkStoreBufferOffset),
+              ImmWord(0), noBarrier);
   } else {
 #ifdef DEBUG
     Label isTenured;
-    branch32(Assembler::NotEqual, Address(temp2, gc::ChunkLocationOffset),
-             Imm32(int32_t(gc::ChunkLocation::Nursery)), &isTenured);
+    branchPtr(Assembler::Equal, Address(temp2, gc::ChunkStoreBufferOffset),
+              ImmWord(0), &isTenured);
     assumeUnreachable("JIT pre-barrier: unexpected nursery pointer");
     bind(&isTenured);
 #endif
@@ -3875,8 +3875,8 @@ void MacroAssembler::atomicIsLockFreeJS(Register value, Register output) {
 // ========================================================================
 // Spectre Mitigations.
 
-void MacroAssembler::spectreMaskIndex(Register index, Register length,
-                                      Register output) {
+void MacroAssembler::spectreMaskIndex32(Register index, Register length,
+                                        Register output) {
   MOZ_ASSERT(JitOptions.spectreIndexMasking);
   MOZ_ASSERT(length != output);
   MOZ_ASSERT(index != output);
@@ -3885,8 +3885,8 @@ void MacroAssembler::spectreMaskIndex(Register index, Register length,
   cmp32Move32(Assembler::Below, index, length, index, output);
 }
 
-void MacroAssembler::spectreMaskIndex(Register index, const Address& length,
-                                      Register output) {
+void MacroAssembler::spectreMaskIndex32(Register index, const Address& length,
+                                        Register output) {
   MOZ_ASSERT(JitOptions.spectreIndexMasking);
   MOZ_ASSERT(index != length.base);
   MOZ_ASSERT(length.base != output);
@@ -3894,6 +3894,27 @@ void MacroAssembler::spectreMaskIndex(Register index, const Address& length,
 
   move32(Imm32(0), output);
   cmp32Move32(Assembler::Below, index, length, index, output);
+}
+
+void MacroAssembler::spectreMaskIndexPtr(Register index, Register length,
+                                         Register output) {
+  MOZ_ASSERT(JitOptions.spectreIndexMasking);
+  MOZ_ASSERT(length != output);
+  MOZ_ASSERT(index != output);
+
+  movePtr(ImmWord(0), output);
+  cmpPtrMovePtr(Assembler::Below, index, length, index, output);
+}
+
+void MacroAssembler::spectreMaskIndexPtr(Register index, const Address& length,
+                                         Register output) {
+  MOZ_ASSERT(JitOptions.spectreIndexMasking);
+  MOZ_ASSERT(index != length.base);
+  MOZ_ASSERT(length.base != output);
+  MOZ_ASSERT(index != output);
+
+  movePtr(ImmWord(0), output);
+  cmpPtrMovePtr(Assembler::Below, index, length, index, output);
 }
 
 void MacroAssembler::boundsCheck32PowerOfTwo(Register index, uint32_t length,
