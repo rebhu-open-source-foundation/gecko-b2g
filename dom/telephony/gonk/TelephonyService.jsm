@@ -3613,8 +3613,10 @@ TelephonyService.prototype = {
   _initImsPhones() {
     this._imsPhones = [];
     for (let index = 0; index < this._numClients; index++) {
-      let imsPhone = gImsPhoneService.getPhoneByServiceId(index);
-      this._imsPhones.push(imsPhone);
+      if (this._isImsClient(index)) {
+        let imsPhone = gImsPhoneService.getPhoneByServiceId(index);
+        this._imsPhones.push(imsPhone);
+      }
     }
   },
 
