@@ -108,7 +108,8 @@ static const CSSCoord kMinimumThinScrollbarSize = 6.0f;
 static const CSSCoord kMinimumColorPickerHeight = 32.0f;
 static const CSSCoord kMinimumRangeThumbSize = 20.0f;
 static const CSSCoord kMinimumDropdownArrowButtonWidth = 18.0f;
-static const CSSCoord kMinimumSpinnerButtonWidth = 31.0f;
+static const CSSCoord kMinimumSpinnerButtonWidth = 18.0f;
+static const CSSCoord kMinimumSpinnerButtonHeight = 9.0f;
 static const CSSCoord kButtonBorderWidth = 1.0f;
 static const CSSCoord kMenulistBorderWidth = 1.0f;
 static const CSSCoord kTextFieldBorderWidth = 1.0f;
@@ -197,25 +198,6 @@ class nsNativeBasicTheme : protected nsNativeTheme, public nsITheme {
   static bool IsColorPickerButton(nsIFrame* aFrame);
   static bool IsRootScrollbar(nsIFrame* aFrame);
   static LayoutDeviceRect FixAspectRatio(const LayoutDeviceRect& aRect);
-
-  // This pushes and pops a clip rect to the draw target.
-  //
-  // This is done to reduce fuzz in places where we may have antialiasing,
-  // because skia is not clip-invariant: given different clips, it does not
-  // guarantee the same result, even if the painted content doesn't intersect
-  // the clips.
-  //
-  // This is a bit sad, overall, but...
-  struct MOZ_RAII AutoClipRect {
-    AutoClipRect(DrawTarget& aDt, const LayoutDeviceRect& aRect) : mDt(aDt) {
-      mDt.PushClipRect(aRect.ToUnknownRect());
-    }
-
-    ~AutoClipRect() { mDt.PopClip(); }
-
-   private:
-    DrawTarget& mDt;
-  };
 
   virtual std::pair<sRGBColor, sRGBColor> ComputeCheckboxColors(
       const EventStates& aState, StyleAppearance aAppearance);

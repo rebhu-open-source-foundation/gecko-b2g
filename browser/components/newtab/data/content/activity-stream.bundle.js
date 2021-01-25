@@ -637,6 +637,7 @@ class BaseContent extends react__WEBPACK_IMPORTED_MODULE_8___default.a.PureCompo
     this.openPreferences = this.openPreferences.bind(this);
     this.openCustomizationMenu = this.openCustomizationMenu.bind(this);
     this.closeCustomizationMenu = this.closeCustomizationMenu.bind(this);
+    this.handleOnKeyDown = this.handleOnKeyDown.bind(this);
     this.onWindowScroll = debounce(this.onWindowScroll.bind(this), 5);
     this.setPref = this.setPref.bind(this);
     this.state = {
@@ -647,10 +648,12 @@ class BaseContent extends react__WEBPACK_IMPORTED_MODULE_8___default.a.PureCompo
 
   componentDidMount() {
     global.addEventListener("scroll", this.onWindowScroll);
+    global.addEventListener("keydown", this.handleOnKeyDown);
   }
 
   componentWillUnmount() {
     global.removeEventListener("scroll", this.onWindowScroll);
+    global.removeEventListener("keydown", this.handleOnKeyDown);
   }
 
   onWindowScroll() {
@@ -686,9 +689,17 @@ class BaseContent extends react__WEBPACK_IMPORTED_MODULE_8___default.a.PureCompo
   }
 
   closeCustomizationMenu() {
-    this.setState({
-      customizeMenuVisible: false
-    });
+    if (this.state.customizeMenuVisible) {
+      this.setState({
+        customizeMenuVisible: false
+      });
+    }
+  }
+
+  handleOnKeyDown(e) {
+    if (e.key === "Escape") {
+      this.closeCustomizationMenu();
+    }
   }
 
   setPref(pref, value) {
@@ -752,7 +763,8 @@ class BaseContent extends react__WEBPACK_IMPORTED_MODULE_8___default.a.PureCompo
       onClick: this.openPreferences,
       icon: prefsButtonIcon
     }), react__WEBPACK_IMPORTED_MODULE_8___default.a.createElement("div", {
-      className: outerClassName
+      className: outerClassName,
+      onClick: this.closeCustomizationMenu
     }, react__WEBPACK_IMPORTED_MODULE_8___default.a.createElement("main", null, prefs.showSearch && react__WEBPACK_IMPORTED_MODULE_8___default.a.createElement("div", {
       className: "non-collapsible-section"
     }, react__WEBPACK_IMPORTED_MODULE_8___default.a.createElement(content_src_components_ErrorBoundary_ErrorBoundary__WEBPACK_IMPORTED_MODULE_6__["ErrorBoundary"], null, react__WEBPACK_IMPORTED_MODULE_8___default.a.createElement(content_src_components_Search_Search__WEBPACK_IMPORTED_MODULE_9__["Search"], _extends({
@@ -14319,7 +14331,8 @@ class ContentSection_ContentSection extends external_React_default.a.PureCompone
       onChange: this.onPreferenceSelect,
       preference: "feeds.topsites",
       "aria-labelledby": "custom-shortcuts-title",
-      "aria-describedby": "custom-shortcuts-subtitle"
+      "aria-describedby": "custom-shortcuts-subtitle",
+      eventSource: "TOP_SITES"
     }), external_React_default.a.createElement("span", {
       className: "slider",
       role: "presentation"
@@ -14372,7 +14385,8 @@ class ContentSection_ContentSection extends external_React_default.a.PureCompone
       checked: showSponsoredTopSitesEnabled,
       type: "checkbox",
       onChange: this.onPreferenceSelect,
-      preference: "showSponsoredTopSites"
+      preference: "showSponsoredTopSites",
+      eventSource: "SPONSORED_TOP_SITES"
     }), external_React_default.a.createElement("label", {
       className: "sponsored",
       htmlFor: "sponsored-shortcuts",
@@ -14389,7 +14403,8 @@ class ContentSection_ContentSection extends external_React_default.a.PureCompone
       onChange: this.onPreferenceSelect,
       preference: "feeds.section.topstories",
       "aria-labelledby": "custom-pocket-title",
-      "aria-describedby": "custom-pocket-subtitle"
+      "aria-describedby": "custom-pocket-subtitle",
+      eventSource: "TOP_STORIES"
     }), external_React_default.a.createElement("span", {
       className: "slider",
       role: "presentation"
@@ -14462,7 +14477,8 @@ class ContentSection_ContentSection extends external_React_default.a.PureCompone
       onChange: this.onPreferenceSelect,
       preference: "feeds.snippets",
       "aria-labelledby": "custom-snippets-title",
-      "aria-describedby": "custom-snippets-subtitle"
+      "aria-describedby": "custom-snippets-subtitle",
+      eventSource: "SNIPPETS"
     }), external_React_default.a.createElement("span", {
       className: "slider",
       role: "presentation"

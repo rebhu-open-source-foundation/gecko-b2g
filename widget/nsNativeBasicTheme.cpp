@@ -21,6 +21,29 @@ using namespace mozilla::gfx;
 
 NS_IMPL_ISUPPORTS_INHERITED(nsNativeBasicTheme, nsNativeTheme, nsITheme)
 
+namespace {
+
+// This pushes and pops a clip rect to the draw target.
+//
+// This is done to reduce fuzz in places where we may have antialiasing,
+// because skia is not clip-invariant: given different clips, it does not
+// guarantee the same result, even if the painted content doesn't intersect
+// the clips.
+//
+// This is a bit sad, overall, but...
+struct MOZ_RAII AutoClipRect {
+  AutoClipRect(DrawTarget& aDt, const LayoutDeviceRect& aRect) : mDt(aDt) {
+    mDt.PushClipRect(aRect.ToUnknownRect());
+  }
+
+  ~AutoClipRect() { mDt.PopClip(); }
+
+ private:
+  DrawTarget& mDt;
+};
+
+}  // namespace
+
 static bool IsScrollbarWidthThin(nsIFrame* aFrame) {
   ComputedStyle* style = nsLayoutUtils::StyleForScrollbar(aFrame);
   auto scrollbarWidth = style->StyleUIReset()->mScrollbarWidth;
@@ -757,28 +780,21 @@ void nsNativeBasicTheme::PaintSpinnerButton(nsIFrame* aFrame,
 
   aDrawTarget->Stroke(path, ColorPattern(ToDeviceColor(borderColor)),
                       StrokeOptions(kSpinnerBorderWidth * aDpiRatio));
-
-  const float arrowPolygonX[] = {-3.5f, -0.5f, 0.5f,  3.5f,  3.5f,
-                                 3.0f,  0.5f,  -0.5f, -3.0f, -3.5f};
-  float arrowPolygonY[] = {-3.5f, -0.5f, -0.5f, -3.5f, -5.0f,
-                           -5.0f, -2.0f, -2.0f, -5.0f, -5.0f};
-
+  const float arrowPolygonX[] = {-5.25f, -0.75f, 0.75f,  5.25f, 5.25f,
+                                 4.5f,   0.75f,  -0.75f, -4.5f, -5.25f};
+  const float arrowPolygonY[] = {-1.875f, 2.625f, 2.625f, -1.875f, -4.125f,
+                                 -4.125f, 0.375f, 0.375f, -4.125f, -4.125f};
   const int32_t arrowNumPoints = ArrayLength(arrowPolygonX);
-  const float scale = ScaleToWidgetRect(aRect);
-
-  if (aAppearance == StyleAppearance::SpinnerUpbutton) {
-    for (int32_t i = 0; i < arrowNumPoints; i++) {
-      arrowPolygonY[i] *= -1;
-    }
-  }
-
-  auto center = aRect.Center().ToUnknownPoint();
+  const float scaleX = ScaleToWidgetRect(aRect);
+  const float scaleY =
+      aAppearance == StyleAppearance::SpinnerDownbutton ? scaleX : -scaleX;
 
   builder = aDrawTarget->CreatePathBuilder();
-  p = center + Point(arrowPolygonX[0] * scale, arrowPolygonY[0] * scale);
+  auto center = aRect.Center().ToUnknownPoint();
+  p = center + Point(arrowPolygonX[0] * scaleX, arrowPolygonY[0] * scaleY);
   builder->MoveTo(p);
   for (int32_t i = 1; i < arrowNumPoints; i++) {
-    p = center + Point(arrowPolygonX[i] * scale, arrowPolygonY[i] * scale);
+    p = center + Point(arrowPolygonX[i] * scaleX, arrowPolygonY[i] * scaleY);
     builder->LineTo(p);
   }
   path = builder->Finish();
@@ -1184,6 +1200,15 @@ nsNativeBasicTheme::DrawWidgetBackground(gfxContext* aContext, nsIFrame* aFrame,
     }
   }
 
+  // Hack to avoid skia fuzziness: Add a dummy clip if the widget doesn't
+  // overflow devPxRect.
+  Maybe<AutoClipRect> maybeClipRect;
+  if (aAppearance != StyleAppearance::FocusOutline &&
+      aAppearance != StyleAppearance::Range &&
+      !eventState.HasState(NS_EVENT_STATE_FOCUSRING)) {
+    maybeClipRect.emplace(*dt, devPxRect);
+  }
+
   DPIRatio dpiRatio = GetDPIRatio(aFrame);
 
   switch (aAppearance) {
@@ -1431,6 +1456,7 @@ nsNativeBasicTheme::GetMinimumWidgetSize(nsPresContext* aPresContext,
     case StyleAppearance::SpinnerUpbutton:
     case StyleAppearance::SpinnerDownbutton:
       aResult->width = (kMinimumSpinnerButtonWidth * dpiRatio).Rounded();
+      aResult->height = (kMinimumSpinnerButtonHeight * dpiRatio).Rounded();
       break;
     case StyleAppearance::ScrollbarbuttonUp:
     case StyleAppearance::ScrollbarbuttonDown:

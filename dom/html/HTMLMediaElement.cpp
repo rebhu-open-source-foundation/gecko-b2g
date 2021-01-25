@@ -2392,7 +2392,7 @@ void HTMLMediaElement::AbortExistingLoads() {
       // will now be reported as 0. The playback position was non-zero when
       // we destroyed the decoder, so fire a timeupdate event so that the
       // change will be reflected in the controls.
-      FireTimeUpdate(false);
+      FireTimeUpdate(TimeupdateType::eMandatory);
     }
     DispatchAsyncEvent(u"emptied"_ns);
     UpdateAudioChannelPlayingState();
@@ -3424,7 +3424,7 @@ void HTMLMediaElement::PauseInternal() {
   ClearResumeDelayedMediaPlaybackAgentIfNeeded();
 
   if (!oldPaused) {
-    FireTimeUpdate(false);
+    FireTimeUpdate(TimeupdateType::eMandatory);
     DispatchAsyncEvent(u"pause"_ns);
     AsyncRejectPendingPlayPromises(NS_ERROR_DOM_MEDIA_ABORT_ERR);
   }
@@ -5246,7 +5246,7 @@ void HTMLMediaElement::UpdateSrcStreamTime() {
     return;
   }
 
-  FireTimeUpdate(true);
+  FireTimeUpdate(TimeupdateType::ePeriodic);
 }
 
 void HTMLMediaElement::SetupSrcMediaStreamPlayback(DOMMediaStream* aStream) {
@@ -5608,7 +5608,7 @@ void HTMLMediaElement::PlaybackEnded() {
     }
   }
 
-  FireTimeUpdate(false);
+  FireTimeUpdate(TimeupdateType::eMandatory);
 
   if (!mPaused) {
     Pause();
@@ -5638,7 +5638,7 @@ void HTMLMediaElement::SeekCompleted() {
   if (mTextTrackManager) {
     mTextTrackManager->DidSeek();
   }
-  FireTimeUpdate(false);
+  FireTimeUpdate(TimeupdateType::eMandatory);
   DispatchAsyncEvent(u"seeked"_ns);
   // We changed whether we're seeking so we need to AddRemoveSelfReference
   AddRemoveSelfReference();
@@ -6041,7 +6041,7 @@ void HTMLMediaElement::ChangeReadyState(nsMediaReadyState aState) {
     DispatchAsyncEvent(u"waiting"_ns);
   } else if (oldState >= HAVE_FUTURE_DATA && mReadyState < HAVE_FUTURE_DATA &&
              !Paused() && !Ended() && !mErrorSink->mError) {
-    FireTimeUpdate(false);
+    FireTimeUpdate(TimeupdateType::eMandatory);
     DispatchAsyncEvent(u"waiting"_ns);
   }
 
@@ -6749,25 +6749,38 @@ void HTMLMediaElement::SetRequestHeaders(nsIHttpChannel* aChannel) {
   MOZ_ASSERT(NS_SUCCEEDED(rv));
 }
 
-void HTMLMediaElement::FireTimeUpdate(bool aPeriodic) {
+bool HTMLMediaElement::ShouldQueueTimeupdateAsyncTask(
+    TimeupdateType aType) const {
+  NS_ASSERTION(NS_IsMainThread(), "Should be on main thread.");
+  // That means dispatching `timeupdate` is mandatorily required in the spec.
+  if (aType == TimeupdateType::eMandatory) {
+    return true;
+  }
+
+  // The timeupdate only occurs when the current playback position changes.
+  // https://html.spec.whatwg.org/multipage/media.html#event-media-timeupdate
+  if (mLastCurrentTime == CurrentTime()) {
+    return false;
+  }
+
+  // Number of milliseconds between timeupdate events as defined by spec.
+  if (!mQueueTimeUpdateRunnerTime.IsNull() &&
+      TimeStamp::Now() - mQueueTimeUpdateRunnerTime <
+          TimeDuration::FromMilliseconds(TIMEUPDATE_MS)) {
+    return false;
+  }
+  return true;
+}
+
+void HTMLMediaElement::FireTimeUpdate(TimeupdateType aType) {
   NS_ASSERTION(NS_IsMainThread(), "Should be on main thread.");
 
-  TimeStamp now = TimeStamp::Now();
-  double time = CurrentTime();
-
-  // Fire a timeupdate event if this is not a periodic update (i.e. it's a
-  // timeupdate event mandated by the spec), or if it's a periodic update
-  // and TIMEUPDATE_MS has passed since the last timeupdate event fired and
-  // the time has changed.
-  if (!aPeriodic || (mLastCurrentTime != time &&
-                     (mTimeUpdateTime.IsNull() ||
-                      now - mTimeUpdateTime >=
-                          TimeDuration::FromMilliseconds(TIMEUPDATE_MS)))) {
+  if (ShouldQueueTimeupdateAsyncTask(aType)) {
     DispatchAsyncEvent(u"timeupdate"_ns);
-    mTimeUpdateTime = now;
-    mLastCurrentTime = time;
+    mQueueTimeUpdateRunnerTime = TimeStamp::Now();
+    mLastCurrentTime = CurrentTime();
   }
-  if (mFragmentEnd >= 0.0 && time >= mFragmentEnd) {
+  if (mFragmentEnd >= 0.0 && CurrentTime() >= mFragmentEnd) {
     Pause();
     mFragmentEnd = -1.0;
     mFragmentStart = -1.0;

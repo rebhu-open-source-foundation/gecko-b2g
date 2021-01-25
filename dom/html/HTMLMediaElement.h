@@ -151,6 +151,17 @@ class HTMLMediaElement : public nsGenericHTMLElement,
 
   void ReportCanPlayTelemetry();
 
+  // `eMandatory`: `timeupdate` occurs according to the spec requirement.
+  // Eg.
+  // https://html.spec.whatwg.org/multipage/media.html#seeking:event-media-timeupdate
+  // `ePeriodic` : `timeupdate` occurs regularly and should follow the rule
+  // of not dispatching that event within 250 ms. Eg.
+  // https://html.spec.whatwg.org/multipage/media.html#offsets-into-the-media-resource:event-media-timeupdate
+  enum class TimeupdateType : bool {
+    eMandatory = false,
+    ePeriodic = true,
+  };
+
   /**
    * This is used when the browser is constructing a video element to play
    * a channel that we've already started loading. The src attribute and
@@ -438,7 +449,11 @@ class HTMLMediaElement : public nsGenericHTMLElement,
    * last 250ms, as required by the spec when the current time is periodically
    * increasing during playback.
    */
-  void FireTimeUpdate(bool aPeriodic) final;
+  void FireTimeUpdate(TimeupdateType aType);
+
+  void MaybeQueueTimeupdateEvent() final {
+    FireTimeUpdate(TimeupdateType::ePeriodic);
+  }
 
   // WebIDL
 
@@ -1548,9 +1563,9 @@ class HTMLMediaElement : public nsGenericHTMLElement,
   // UpdatePreloadAction().
   PreloadAction mPreloadAction = PRELOAD_UNDEFINED;
 
-  // Time that the last timeupdate event was fired. Read/Write from the
+  // Time that the last timeupdate event was queued. Read/Write from the
   // main thread only.
-  TimeStamp mTimeUpdateTime;
+  TimeStamp mQueueTimeUpdateRunnerTime;
 
   // Time that the last progress event was fired. Read/Write from the
   // main thread only.
@@ -1562,7 +1577,7 @@ class HTMLMediaElement : public nsGenericHTMLElement,
   // Read/Write from the main thread only.
   TimeStamp mDataTime;
 
-  // Media 'currentTime' value when the last timeupdate event occurred.
+  // Media 'currentTime' value when the last timeupdate event was queued.
   // Read/Write from the main thread only.
   double mLastCurrentTime = 0.0;
 
@@ -1915,6 +1930,9 @@ class HTMLMediaElement : public nsGenericHTMLElement,
 
   // Return true if the media element is being used in picture in picture mode.
   bool IsBeingUsedInPictureInPictureMode() const;
+
+  // Return true if we should queue a 'timeupdate' event runner to main thread.
+  bool ShouldQueueTimeupdateAsyncTask(TimeupdateType aType) const;
 };
 
 // Check if the context is chrome or has the debugger or tabs permission

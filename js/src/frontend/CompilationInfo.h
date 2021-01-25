@@ -7,11 +7,11 @@
 #ifndef frontend_CompilationInfo_h
 #define frontend_CompilationInfo_h
 
-#include "mozilla/Assertions.h"  // MOZ_ASSERT
+#include "mozilla/AlreadyAddRefed.h"  // already_AddRefed
+#include "mozilla/Assertions.h"       // MOZ_ASSERT
 #include "mozilla/Attributes.h"
 #include "mozilla/RefPtr.h"  // RefPtr
 #include "mozilla/Span.h"
-#include "mozilla/Variant.h"  // mozilla::Variant, mozilla::AsVariant
 
 #include "builtin/ModuleObject.h"
 #include "ds/LifoAlloc.h"
@@ -120,9 +120,10 @@ struct CompilationAtomCache {
   bool hasAtomAt(ParserAtomIndex index) const;
   bool setAtomAt(JSContext* cx, ParserAtomIndex index, JSAtom* atom);
   bool allocate(JSContext* cx, size_t length);
+  bool extendIfNecessary(JSContext* cx, size_t length);
 
   void stealBuffer(AtomCacheVector& atoms);
-  void returnBuffer(AtomCacheVector& atoms);
+  void releaseBuffer(AtomCacheVector& atoms);
 
   void trace(JSTracer* trc);
 } JS_HAZ_GC_POINTER;
@@ -275,17 +276,64 @@ struct MOZ_RAII CompilationState {
 
 // Store shared data for non-lazy script.
 struct SharedDataContainer {
-  using SingleSharedData = RefPtr<js::SharedImmutableScriptData>;
+  // NOTE: While stored, we must hold a ref-count and care must be taken when
+  //       updating or clearing the pointer.
+  using SingleSharedDataPtr = SharedImmutableScriptData*;
+
   using SharedDataVector =
       Vector<RefPtr<js::SharedImmutableScriptData>, 0, js::SystemAllocPolicy>;
+  using SharedDataVectorPtr = SharedDataVector*;
+
   using SharedDataMap =
       HashMap<ScriptIndex, RefPtr<js::SharedImmutableScriptData>,
               mozilla::DefaultHasher<ScriptIndex>, js::SystemAllocPolicy>;
+  using SharedDataMapPtr = SharedDataMap*;
 
-  mozilla::Variant<SingleSharedData, SharedDataVector, SharedDataMap> storage;
+ private:
+  enum {
+    SingleTag = 0,
+    VectorTag = 1,
+    MapTag = 2,
 
+    TagMask = 3,
+  };
+
+  uintptr_t data_ = 0;
+
+ public:
   // Defaults to SingleSharedData for delazification vector.
-  SharedDataContainer() : storage(mozilla::AsVariant(SingleSharedData())) {}
+  SharedDataContainer() = default;
+
+  ~SharedDataContainer();
+
+  bool initVector(JSContext* cx);
+  bool initMap(JSContext* cx);
+
+  bool isEmpty() const { return (data_) == SingleTag; }
+  bool isSingle() const { return (data_ & TagMask) == SingleTag; }
+  bool isVector() const { return (data_ & TagMask) == VectorTag; }
+  bool isMap() const { return (data_ & TagMask) == MapTag; }
+
+  void setSingle(already_AddRefed<SharedImmutableScriptData>&& data) {
+    MOZ_ASSERT(isEmpty());
+    data_ = reinterpret_cast<uintptr_t>(data.take());
+    MOZ_ASSERT(isSingle());
+  }
+
+  SingleSharedDataPtr asSingle() {
+    MOZ_ASSERT(isSingle());
+    MOZ_ASSERT(!isEmpty());
+    static_assert(SingleTag == 0);
+    return reinterpret_cast<SingleSharedDataPtr>(data_);
+  }
+  SharedDataVectorPtr asVector() {
+    MOZ_ASSERT(isVector());
+    return reinterpret_cast<SharedDataVectorPtr>(data_ & ~TagMask);
+  }
+  SharedDataMapPtr asMap() {
+    MOZ_ASSERT(isMap());
+    return reinterpret_cast<SharedDataMapPtr>(data_ & ~TagMask);
+  }
 
   bool prepareStorageFor(JSContext* cx, size_t nonLazyScriptCount,
                          size_t allScriptCount);
@@ -620,29 +668,17 @@ struct CompilationStencilSet : public CompilationStencil {
 
   MOZ_MUST_USE bool buildDelazificationIndices(JSContext* cx);
 
-  // Parameterized chunk size to use for LifoAlloc.
-  static constexpr size_t LifoAllocChunkSize = 512;
-
  public:
-  LifoAlloc allocForDelazifications;
   Vector<BaseCompilationStencil, 0, js::SystemAllocPolicy> delazifications;
   ScriptIndexVector delazificationIndices;
   CompilationAtomCache::AtomCacheVector delazificationAtomCache;
 
   CompilationStencilSet(JSContext* cx,
                         const JS::ReadOnlyCompileOptions& options)
-      : CompilationStencil(cx, options),
-        allocForDelazifications(LifoAllocChunkSize) {}
+      : CompilationStencil(cx, options) {}
 
   // Move constructor is necessary to use Rooted.
-  CompilationStencilSet(CompilationStencilSet&& other) noexcept
-      : CompilationStencil(std::move(other)),
-        allocForDelazifications(LifoAllocChunkSize),
-        delazifications(std::move(other.delazifications)),
-        delazificationAtomCache(std::move(other.delazificationAtomCache)) {
-    // Steal the data from the LifoAlloc.
-    allocForDelazifications.steal(&other.allocForDelazifications);
-  }
+  CompilationStencilSet(CompilationStencilSet&& other) = default;
 
   // To avoid any misuses, make sure this is neither copyable or assignable.
   CompilationStencilSet(const CompilationStencilSet&) = delete;
@@ -662,8 +698,6 @@ struct CompilationStencilSet : public CompilationStencil {
   MOZ_MUST_USE bool deserializeStencils(JSContext* cx,
                                         const JS::TranscodeRange& range,
                                         bool* succeededOut);
-
-  void trace(JSTracer* trc);
 };
 
 }  // namespace frontend

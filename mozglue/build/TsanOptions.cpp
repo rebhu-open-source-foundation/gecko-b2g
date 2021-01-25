@@ -102,6 +102,8 @@ extern "C" const char* __tsan_default_suppressions() {
          "deadlock:third_party/rust/rkv/src/env.rs\n"
          // Bug 1680655 - permanent
          "deadlock:EncryptedClientHelloServer\n"
+         // Bug 1682861 - permanent
+         "deadlock:nsDOMWindowUtils::CompareCanvases\n"
 
 
 
@@ -291,6 +293,14 @@ extern "C" const char* __tsan_default_suppressions() {
 
          // Bug 1682951
          "race:storage::Connection::Release\n"
+
+         // Bug 1682928
+         "race:EventSourceImpl::OnStopRequest\n"
+         "race:UpdateDontKeepAlive\n"
+
+         // Bug 1683357
+         "race:image::ImageSurfaceCache::SuggestedSizeInternal\n"
+         "race:image::RasterImage::SetMetadata\n"
 
       // End of suppressions.
       ;  // Please keep this semicolon.
