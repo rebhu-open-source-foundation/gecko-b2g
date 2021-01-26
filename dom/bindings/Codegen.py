@@ -3714,7 +3714,8 @@ class CGCreateInterfaceObjectsMethod(CGAbstractMethod):
                                         ${name}, aDefineOnGlobal,
                                         ${unscopableNames},
                                         ${isGlobal},
-                                        ${legacyWindowAliases});
+                                        ${legacyWindowAliases},
+                                        ${isNamespace});
             """,
             protoClass=protoClass,
             parentProto=parentProto,
@@ -3734,6 +3735,7 @@ class CGCreateInterfaceObjectsMethod(CGAbstractMethod):
             legacyWindowAliases="legacyWindowAliases"
             if self.haveLegacyWindowAliases
             else "nullptr",
+            isNamespace=toStringBool(self.descriptor.interface.isNamespace()),
         )
 
         # If we fail after here, we must clear interface and prototype caches

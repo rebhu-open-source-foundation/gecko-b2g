@@ -133,7 +133,7 @@ Scope* ScopeStencil::createScope(JSContext* cx, CompilationInput& input,
 }
 
 static bool CreateLazyScript(JSContext* cx, CompilationInput& input,
-                             BaseCompilationStencil& stencil,
+                             const BaseCompilationStencil& stencil,
                              CompilationGCOutput& gcOutput,
                              const ScriptStencil& script,
                              const ScriptStencilExtra& scriptExtra,
@@ -156,6 +156,10 @@ static bool CreateLazyScript(JSContext* cx, CompilationInput& input,
                                 lazy->gcthingsForInit())) {
       return false;
     }
+  }
+
+  if (scriptExtra.useMemberInitializers()) {
+    lazy->setMemberInitializers(scriptExtra.memberInitializers());
   }
 
   function->initScript(lazy);
@@ -213,7 +217,7 @@ static JSFunction* CreateFunctionFast(JSContext* cx, CompilationInput& input,
 }
 
 static JSFunction* CreateFunction(JSContext* cx, CompilationInput& input,
-                                  BaseCompilationStencil& stencil,
+                                  const BaseCompilationStencil& stencil,
                                   const ScriptStencil& script,
                                   const ScriptStencilExtra& scriptExtra,
                                   ScriptIndex functionIndex) {
@@ -270,7 +274,7 @@ static JSFunction* CreateFunction(JSContext* cx, CompilationInput& input,
 }
 
 static bool InstantiateAtoms(JSContext* cx, CompilationInput& input,
-                             BaseCompilationStencil& stencil) {
+                             const BaseCompilationStencil& stencil) {
   return InstantiateMarkedAtoms(cx, stencil.parserAtomData, input.atomCache);
 }
 
@@ -306,7 +310,7 @@ static bool InstantiateScriptSourceObject(JSContext* cx,
 // Instantiate ModuleObject. Further initialization is done after the associated
 // BaseScript is instantiated in InstantiateTopLevel.
 static bool InstantiateModuleObject(JSContext* cx, CompilationInput& input,
-                                    CompilationStencil& stencil,
+                                    const CompilationStencil& stencil,
                                     CompilationGCOutput& gcOutput) {
   MOZ_ASSERT(stencil.scriptExtra[CompilationStencil::TopLevelIndex].isModule());
 
@@ -321,7 +325,7 @@ static bool InstantiateModuleObject(JSContext* cx, CompilationInput& input,
 
 // Instantiate JSFunctions for each FunctionBox.
 static bool InstantiateFunctions(JSContext* cx, CompilationInput& input,
-                                 BaseCompilationStencil& stencil,
+                                 const BaseCompilationStencil& stencil,
                                  CompilationGCOutput& gcOutput) {
   using ImmutableFlags = ImmutableScriptFlagsEnum;
 
@@ -386,7 +390,7 @@ static bool InstantiateFunctions(JSContext* cx, CompilationInput& input,
 // associated JSFunction pointer, and also should be called before
 // InstantiateScriptStencils, given JSScript needs Scope pointer in gc things.
 static bool InstantiateScopes(JSContext* cx, CompilationInput& input,
-                              BaseCompilationStencil& stencil,
+                              const BaseCompilationStencil& stencil,
                               CompilationGCOutput& gcOutput) {
   // While allocating Scope object from ScopeStencil, Scope object for the
   // enclosing Scope should already be allocated.
@@ -418,7 +422,7 @@ static bool InstantiateScopes(JSContext* cx, CompilationInput& input,
 // compilation. Note that standalone functions and functions being delazified
 // are handled below with other top-levels.
 static bool InstantiateScriptStencils(JSContext* cx, CompilationInput& input,
-                                      CompilationStencil& stencil,
+                                      const CompilationStencil& stencil,
                                       CompilationGCOutput& gcOutput) {
   MOZ_ASSERT(input.lazy == nullptr);
 
@@ -468,7 +472,7 @@ static bool InstantiateScriptStencils(JSContext* cx, CompilationInput& input,
 // Instantiate the Stencil for the top-level script of the compilation. This
 // includes standalone functions and functions being delazified.
 static bool InstantiateTopLevel(JSContext* cx, CompilationInput& input,
-                                BaseCompilationStencil& stencil,
+                                const BaseCompilationStencil& stencil,
                                 CompilationGCOutput& gcOutput) {
   const ScriptStencil& scriptStencil =
       stencil.scriptData[CompilationStencil::TopLevelIndex];
@@ -542,7 +546,7 @@ static bool InstantiateTopLevel(JSContext* cx, CompilationInput& input,
 // to both initial and delazification parses. The functions being update may or
 // may not have bytecode at this point.
 static void UpdateEmittedInnerFunctions(JSContext* cx, CompilationInput& input,
-                                        BaseCompilationStencil& stencil,
+                                        const BaseCompilationStencil& stencil,
                                         CompilationGCOutput& gcOutput) {
   for (auto item :
        CompilationStencil::functionScriptStencils(stencil, gcOutput)) {
@@ -563,10 +567,6 @@ static void UpdateEmittedInnerFunctions(JSContext* cx, CompilationInput& input,
       ScopeIndex index = scriptStencil.lazyFunctionEnclosingScopeIndex();
       Scope* scope = gcOutput.scopes[index];
       script->setEnclosingScope(scope);
-
-      if (scriptStencil.hasMemberInitializers()) {
-        script->setMemberInitializers(scriptStencil.memberInitializers());
-      }
 
       // Inferred and Guessed names are computed by BytecodeEmitter and so may
       // need to be applied to existing JSFunctions during delazification.
@@ -591,7 +591,7 @@ static void UpdateEmittedInnerFunctions(JSContext* cx, CompilationInput& input,
 
 // During initial parse we must link lazy-functions-inside-lazy-functions to
 // their enclosing script.
-static void LinkEnclosingLazyScript(BaseCompilationStencil& stencil,
+static void LinkEnclosingLazyScript(const BaseCompilationStencil& stencil,
                                     CompilationGCOutput& gcOutput) {
   for (auto item :
        CompilationStencil::functionScriptStencils(stencil, gcOutput)) {
@@ -620,8 +620,8 @@ static void LinkEnclosingLazyScript(BaseCompilationStencil& stencil,
 #ifdef DEBUG
 // Some fields aren't used in delazification, given the target functions and
 // scripts are already instantiated, but they still should match.
-static void AssertDelazificationFieldsMatch(BaseCompilationStencil& stencil,
-                                            CompilationGCOutput& gcOutput) {
+static void AssertDelazificationFieldsMatch(
+    const BaseCompilationStencil& stencil, CompilationGCOutput& gcOutput) {
   for (auto item :
        CompilationStencil::functionScriptStencils(stencil, gcOutput)) {
     auto& scriptStencil = item.script;
@@ -686,8 +686,8 @@ bool CompilationStencil::instantiateStencils(JSContext* cx,
 
 /* static */
 bool CompilationStencil::instantiateStencilsAfterPreparation(
-    JSContext* cx, CompilationInput& input, BaseCompilationStencil& stencil,
-    CompilationGCOutput& gcOutput) {
+    JSContext* cx, CompilationInput& input,
+    const BaseCompilationStencil& stencil, CompilationGCOutput& gcOutput) {
   // Distinguish between the initial (possibly lazy) compile and any subsequent
   // delazification compiles. Delazification will update existing GC things.
   bool isInitialParse = (input.lazy == nullptr);
@@ -699,7 +699,7 @@ bool CompilationStencil::instantiateStencilsAfterPreparation(
 
   // Phase 2: Instantiate ScriptSourceObject, ModuleObject, JSFunctions.
   if (isInitialParse) {
-    CompilationStencil& initialStencil = stencil.asCompilationStencil();
+    const CompilationStencil& initialStencil = stencil.asCompilationStencil();
 
     if (!InstantiateScriptSourceObject(cx, input, gcOutput)) {
       return false;
@@ -1100,7 +1100,8 @@ bool SharedDataContainer::prepareStorageFor(JSContext* cx,
   return true;
 }
 
-js::SharedImmutableScriptData* SharedDataContainer::get(ScriptIndex index) {
+js::SharedImmutableScriptData* SharedDataContainer::get(
+    ScriptIndex index) const {
   if (isSingle()) {
     if (index == CompilationStencil::TopLevelIndex) {
       return asSingle();
@@ -1205,7 +1206,7 @@ bool CompilationState::finish(JSContext* cx, CompilationStencil& stencil) {
 }
 
 mozilla::Span<TaggedScriptThingIndex> ScriptStencil::gcthings(
-    BaseCompilationStencil& stencil) const {
+    const BaseCompilationStencil& stencil) const {
   return stencil.gcThingData.Subspan(gcThingsOffset, gcThingsLength);
 }
 
@@ -1668,6 +1669,9 @@ static void DumpImmutableScriptFlags(js::JSONPrinter& json,
         case ImmutableScriptFlagsEnum::IsFieldInitializer:
           json.value("IsFieldInitializer");
           break;
+        case ImmutableScriptFlagsEnum::UseMemberInitializers:
+          json.value("UseMemberInitializers");
+          break;
         case ImmutableScriptFlagsEnum::HasRest:
           json.value("HasRest");
           break;
@@ -1828,10 +1832,6 @@ void ScriptStencil::dump(js::JSONPrinter& json,
 
 void ScriptStencil::dumpFields(js::JSONPrinter& json,
                                BaseCompilationStencil* stencil) {
-  if (hasMemberInitializers()) {
-    json.property("memberInitializers", memberInitializers_);
-  }
-
   json.formatProperty("gcThingsOffset", "CompilationGCThingIndex(%u)",
                       gcThingsOffset.index);
   json.property("gcThingsLength", gcThingsLength);
@@ -1853,9 +1853,6 @@ void ScriptStencil::dumpFields(js::JSONPrinter& json,
   }
   if (flags_ & HasSharedDataFlag) {
     json.value("HasSharedDataFlag");
-  }
-  if (flags_ & HasMemberInitializersFlag) {
-    json.value("HasMemberInitializersFlag");
   }
   if (flags_ & HasLazyFunctionEnclosingScopeIndexFlag) {
     json.value("HasLazyFunctionEnclosingScopeIndexFlag");
@@ -1903,6 +1900,8 @@ void ScriptStencilExtra::dumpFields(js::JSONPrinter& json) {
   json.property("lineno", extent.lineno);
   json.property("column", extent.column);
   json.endObject();
+
+  json.property("memberInitializers", memberInitializers_);
 
   json.property("nargs", nargs);
 }

@@ -191,8 +191,18 @@ void AccessibleCaretManager::HideCaretsAndDispatchCaretStateChangedEvent() {
   }
 }
 
+auto AccessibleCaretManager::MaybeFlushLayout() -> Terminated {
+  if (mPresShell) {
+    // `MaybeFlush` doesn't access the PresShell after flushing, so it's OK to
+    // mark it as live.
+    mLayoutFlusher.MaybeFlush(MOZ_KnownLive(*mPresShell));
+  }
+
+  return IsTerminated();
+}
+
 void AccessibleCaretManager::UpdateCarets(const UpdateCaretsHintSet& aHint) {
-  if (mLayoutFlusher.MaybeFlush(*this) == Terminated::Yes) {
+  if (MaybeFlushLayout() == Terminated::Yes) {
     return;
   }
 
@@ -355,7 +365,7 @@ void AccessibleCaretManager::UpdateCaretsForSelectionMode(
 
   if (mIsCaretPositionChanged) {
     // Flush layout to make the carets intersection correct.
-    if (mLayoutFlusher.MaybeFlush(*this) == Terminated::Yes) {
+    if (MaybeFlushLayout() == Terminated::Yes) {
       return;
     }
   }
@@ -1034,18 +1044,17 @@ void AccessibleCaretManager::ClearMaintainedSelection() const {
   }
 }
 
-auto AccessibleCaretManager::LayoutFlusher::MaybeFlush(
-    const AccessibleCaretManager& aAccessibleCaretManager) -> Terminated {
-  if (aAccessibleCaretManager.mPresShell && mAllowFlushing) {
+void AccessibleCaretManager::LayoutFlusher::MaybeFlush(
+    const PresShell& aPresShell) {
+  if (mAllowFlushing) {
     AutoRestore<bool> flushing(mFlushing);
     mFlushing = true;
 
-    if (Document* doc = aAccessibleCaretManager.mPresShell->GetDocument()) {
+    if (Document* doc = aPresShell.GetDocument()) {
       doc->FlushPendingNotifications(FlushType::Layout);
+      // Don't access the PresShell after flushing, it could've become invalid.
     }
   }
-
-  return aAccessibleCaretManager.IsTerminated();
 }
 
 nsIFrame* AccessibleCaretManager::GetFrameForFirstRangeStartOrLastRangeEnd(
@@ -1414,7 +1423,7 @@ void AccessibleCaretManager::StopSelectionAutoScrollTimer() const {
 
 void AccessibleCaretManager::DispatchCaretStateChangedEvent(
     CaretChangedReason aReason) {
-  if (mLayoutFlusher.MaybeFlush(*this) == Terminated::Yes) {
+  if (MaybeFlushLayout() == Terminated::Yes) {
     return;
   }
 

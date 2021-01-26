@@ -156,7 +156,9 @@ ReflowInput::ReflowInput(nsPresContext* aPresContext,
                          const ReflowInput& aParentReflowInput,
                          nsIFrame* aFrame, const LogicalSize& aAvailableSpace,
                          const Maybe<LogicalSize>& aContainingBlockSize,
-                         InitFlags aFlags, ComputeSizeFlags aComputeSizeFlags)
+                         InitFlags aFlags,
+                         const StyleSizeOverrides& aSizeOverrides,
+                         ComputeSizeFlags aComputeSizeFlags)
     : SizeComputationInput(aFrame, aParentReflowInput.mRenderingContext),
       mParentReflowInput(&aParentReflowInput),
       mFloatManager(aParentReflowInput.mFloatManager),
@@ -169,6 +171,7 @@ ReflowInput::ReflowInput(nsPresContext* aPresContext,
               ? aParentReflowInput.mPercentBSizeObserver
               : nullptr),
       mFlags(aParentReflowInput.mFlags),
+      mStyleSizeOverrides(aSizeOverrides),
       mComputeSizeFlags(aComputeSizeFlags),
       mReflowDepth(aParentReflowInput.mReflowDepth + 1),
       mAvailableSize(aAvailableSpace) {
@@ -747,16 +750,6 @@ void ReflowInput::InitDynamicReflowRoot() {
   } else {
     mFrame->RemoveStateBits(NS_FRAME_DYNAMIC_REFLOW_ROOT);
   }
-}
-
-nscoord ReflowInput::GetContainingBlockContentISize(
-    WritingMode aWritingMode) const {
-  if (!mCBReflowInput) {
-    return 0;
-  }
-  return mCBReflowInput->GetWritingMode().IsOrthogonalTo(aWritingMode)
-             ? mCBReflowInput->ComputedBSize()
-             : mCBReflowInput->ComputedISize();
 }
 
 /* static */
@@ -1630,7 +1623,7 @@ void ReflowInput::InitAbsoluteConstraints(nsPresContext* aPresContext,
         cbSize.ConvertTo(wm, cbwm).ISize(wm),  // XXX or AvailableISize()?
         ComputedLogicalMargin(wm).Size(wm) +
             ComputedLogicalOffsets(wm).Size(wm),
-        ComputedLogicalBorderPadding(wm).Size(wm), mComputeSizeFlags);
+        ComputedLogicalBorderPadding(wm).Size(wm), {}, mComputeSizeFlags);
     ComputedISize() = sizeResult.mLogicalSize.ISize(wm);
     ComputedBSize() = sizeResult.mLogicalSize.BSize(wm);
     NS_ASSERTION(ComputedISize() >= 0, "Bogus inline-size");
@@ -2356,10 +2349,11 @@ void ReflowInput::InitConstraints(
         cbSize.ISize(wm) = AvailableISize();
       }
 
-      auto size = mFrame->ComputeSize(
-          mRenderingContext, wm, cbSize, AvailableISize(),
-          ComputedLogicalMargin(wm).Size(wm),
-          ComputedLogicalBorderPadding(wm).Size(wm), mComputeSizeFlags);
+      auto size =
+          mFrame->ComputeSize(mRenderingContext, wm, cbSize, AvailableISize(),
+                              ComputedLogicalMargin(wm).Size(wm),
+                              ComputedLogicalBorderPadding(wm).Size(wm),
+                              mStyleSizeOverrides, mComputeSizeFlags);
 
       ComputedISize() = size.mLogicalSize.ISize(wm);
       ComputedBSize() = size.mLogicalSize.BSize(wm);
