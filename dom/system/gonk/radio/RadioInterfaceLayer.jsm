@@ -4162,6 +4162,27 @@ RadioInterface.prototype = {
           );
         }
         break;
+      case "setDataProfile":
+        if (response.errorMsg == 0) {
+          if (DEBUG) {
+            this.debug(
+              "RILJ: [" +
+                response.rilMessageToken +
+                "] < RIL_REQUEST_SET_DATA_PROFILE"
+            );
+          }
+        } else if (DEBUG) {
+          this.debug(
+            "RILJ: [" +
+              response.rilMessageToken +
+              "] < RIL_REQUEST_SET_DATA_PROFILE error = " +
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
+          );
+        }
+        break;
       case "iccOpenChannel":
         break;
       case "iccCloseChannel":
@@ -6762,6 +6783,9 @@ RadioInterface.prototype = {
           message.isRoaming
         );
         break;
+      case "setDataProfile":
+        this.processSetDataProfile(message);
+        break;
       case "iccOpenChannel":
         break;
       case "iccCloseChannel":
@@ -7968,6 +7992,43 @@ RadioInterface.prototype = {
       );
     }
     this.rilworker.sendEnvelope(options.rilMessageToken, contents);
+  },
+
+  processSetDataProfile(message) {
+    // profileList must be a nsIDataProfile list.
+    if (!(message.profileList instanceof Array)) {
+      message.errorMsg = RIL.GECKO_ERROR_INVALID_ARGUMENTS;
+      this.handleRilResponse(message);
+      return;
+    }
+
+    let profileList = [];
+    message.profileList.forEach(function(profile) {
+      if (!(profile instanceof Ci.nsIDataProfile)) {
+        profileList.push(new DataProfile(profile));
+      } else {
+        profileList.push(profile);
+      }
+    });
+
+    let roaming;
+    if (!message.isRoaming) {
+      roaming = this.dataRegistrationState.roaming;
+    }
+
+    if (DEBUG) {
+      this.debug(
+        "RILJ: [" +
+          message.rilMessageToken +
+          "] > RIL_REQUEST_SET_DATA_PROFILE profile = " +
+          JSON.stringify(profileList)
+      );
+    }
+    this.rilworker.setDataProfile(
+      message.rilMessageToken,
+      profileList,
+      roaming
+    );
   },
 
   sendWorkerMessage(rilMessageType, message, callback) {
