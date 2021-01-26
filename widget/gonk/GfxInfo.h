@@ -52,6 +52,7 @@ class GfxInfo : public GfxInfoBase {
   NS_IMETHOD GetDisplayHeight(nsTArray<uint32_t>& aDisplayHeight) override;
   NS_IMETHOD GetDrmRenderDevice(nsACString& aDrmRenderDevice) override;
   NS_IMETHODIMP GetEmbeddedInFirefoxReality(bool* aEmbeddedInFirefoxReality) override;
+  NS_IMETHOD GetTestType(nsAString& aTestType) override;
   using GfxInfoBase::GetFeatureStatus;
   using GfxInfoBase::GetFeatureSuggestedDriverVersion;
   // using GfxInfoBase::GetWebGLParameter;
