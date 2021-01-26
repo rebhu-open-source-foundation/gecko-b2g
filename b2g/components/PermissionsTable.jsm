@@ -352,6 +352,11 @@ this.PermissionsTable = {
     signed: DENY_ACTION,
     core: ALLOW_ACTION,
   },
+  "worker-activity": {
+    pwa: DENY_ACTION,
+    signed: ALLOW_ACTION,
+    core: ALLOW_ACTION,
+  },
   /**
    * Note: Please do NOT directly add new permission names at the bottom of
    * this table, try to insert them alphabetically.
