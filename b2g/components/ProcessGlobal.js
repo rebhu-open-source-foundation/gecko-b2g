@@ -252,7 +252,7 @@ ProcessGlobal.prototype = {
         child: {
           moduleURI: "resource://gre/actors/WebViewForContentChild.jsm",
           events: {
-            DOMContentLoaded: {},
+            DOMContentLoaded: { capture: true },
           },
         },
         allFrames: true,
