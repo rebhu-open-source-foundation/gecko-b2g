@@ -240,14 +240,14 @@ this.PermissionsTable = {
     signed: DENY_ACTION,
     core: ALLOW_ACTION,
   },
-  mobilenetwork: {
-    pwa: DENY_ACTION,
-    signed: ALLOW_ACTION,
-  },
   mobileconnection: {
     pwa: DENY_ACTION,
     signed: DENY_ACTION,
     core: ALLOW_ACTION,
+  },
+  mobilenetwork: {
+    pwa: DENY_ACTION,
+    signed: ALLOW_ACTION,
   },
   permissions: {
     pwa: DENY_ACTION,
@@ -332,11 +332,6 @@ this.PermissionsTable = {
     signed: DENY_ACTION,
     core: ALLOW_ACTION,
   },
-  "wifi-manage": {
-    pwa: DENY_ACTION,
-    signed: DENY_ACTION,
-    core: ALLOW_ACTION,
-  },
   wappush: {
     pwa: DENY_ACTION,
     signed: DENY_ACTION,
@@ -348,6 +343,11 @@ this.PermissionsTable = {
     core: ALLOW_ACTION,
   },
   "webapps-manage": {
+    pwa: DENY_ACTION,
+    signed: DENY_ACTION,
+    core: ALLOW_ACTION,
+  },
+  "wifi-manage": {
     pwa: DENY_ACTION,
     signed: DENY_ACTION,
     core: ALLOW_ACTION,
