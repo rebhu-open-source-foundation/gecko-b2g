@@ -608,7 +608,8 @@ bool frontend::SourceAwareCompiler<Unit>::createSourceAndParser(
     syntaxParser.emplace(cx, stencil.input.options, sourceBuffer_.units(),
                          sourceBuffer_.length(),
                          /* foldConstants = */ false, stencil,
-                         compilationState_, nullptr, nullptr);
+                         compilationState_,
+                         /* syntaxParser = */ nullptr);
     if (!syntaxParser->checkOptions()) {
       return false;
     }
@@ -617,7 +618,7 @@ bool frontend::SourceAwareCompiler<Unit>::createSourceAndParser(
   parser.emplace(cx, stencil.input.options, sourceBuffer_.units(),
                  sourceBuffer_.length(),
                  /* foldConstants = */ true, stencil, compilationState_,
-                 syntaxParser.ptrOr(nullptr), nullptr);
+                 syntaxParser.ptrOr(nullptr));
   parser->ss = stencil.input.source();
   return parser->checkOptions();
 }
@@ -1005,6 +1006,7 @@ static bool CompileLazyFunctionToStencilImpl(JSContext* cx,
                                              Handle<BaseScript*> lazy,
                                              const Unit* units, size_t length) {
   MOZ_ASSERT(cx->compartment() == lazy->compartment());
+  MOZ_ASSERT(!stencil.isInitialStencil());
 
   // We can only compile functions whose parents have previously been
   // compiled, because compilation requires full information about the
@@ -1024,7 +1026,8 @@ static bool CompileLazyFunctionToStencilImpl(JSContext* cx,
 
   Parser<FullParseHandler, Unit> parser(
       cx, stencil.input.options, units, length,
-      /* foldConstants = */ true, stencil, compilationState, nullptr, lazy);
+      /* foldConstants = */ true, stencil, compilationState,
+      /* syntaxParser = */ nullptr);
   if (!parser.checkOptions()) {
     return false;
   }
@@ -1061,10 +1064,6 @@ static bool CompileLazyFunctionToStencilImpl(JSContext* cx,
   if (!compilationState.finish(cx, stencil)) {
     return false;
   }
-
-  // Record the FunctionKey in the BaseCompilationStencil since it does not
-  // contain any of the SourceExtents itself.
-  stencil.functionKey = BaseCompilationStencil::toFunctionKey(lazy->extent());
 
   assertException.reset();
   return true;

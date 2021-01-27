@@ -6,6 +6,7 @@
 #include "nsNativeBasicTheme.h"
 
 #include "gfxBlur.h"
+#include "mozilla/MathAlgorithms.h"
 #include "mozilla/dom/Document.h"
 #include "mozilla/gfx/Rect.h"
 #include "mozilla/gfx/Types.h"
@@ -42,6 +43,14 @@ struct MOZ_RAII AutoClipRect {
   DrawTarget& mDt;
 };
 
+static LayoutDeviceIntCoord SnapBorderWidth(
+    CSSCoord aCssWidth, nsNativeBasicTheme::DPIRatio aDpiRatio) {
+  if (aCssWidth == 0.0f) {
+    return 0;
+  }
+  return std::max(LayoutDeviceIntCoord(1), (aCssWidth * aDpiRatio).Truncated());
+}
+
 }  // namespace
 
 static bool IsScrollbarWidthThin(nsIFrame* aFrame) {
@@ -51,11 +60,15 @@ static bool IsScrollbarWidthThin(nsIFrame* aFrame) {
 }
 
 /* static */
-auto nsNativeBasicTheme::GetDPIRatio(nsIFrame* aFrame) -> DPIRatio {
-  return DPIRatio(float(AppUnitsPerCSSPixel()) /
-                  aFrame->PresContext()
-                      ->DeviceContext()
-                      ->AppUnitsPerDevPixelAtUnitFullZoom());
+auto nsNativeBasicTheme::GetDPIRatio(nsIFrame* aFrame,
+                                     StyleAppearance aAppearance) -> DPIRatio {
+  nsPresContext* pc = aFrame->PresContext();
+  // Widgets react to zoom, except scrollbars.
+  nscoord auPerPx =
+      IsWidgetScrollbarPart(aAppearance)
+          ? pc->DeviceContext()->AppUnitsPerDevPixelAtUnitFullZoom()
+          : pc->AppUnitsPerDevPixel();
+  return DPIRatio(float(AppUnitsPerCSSPixel()) / auPerPx);
 }
 
 /* static */
@@ -73,12 +86,6 @@ bool nsNativeBasicTheme::IsDateTimeResetButton(nsIFrame* aFrame) {
     }
   }
   return false;
-}
-
-/* static */
-bool nsNativeBasicTheme::IsDateTimeTextField(nsIFrame* aFrame) {
-  nsDateTimeControlFrame* dateTimeFrame = do_QueryFrame(aFrame);
-  return dateTimeFrame;
 }
 
 /* static */
@@ -484,7 +491,7 @@ void nsNativeBasicTheme::PaintRoundedRect(DrawTarget* aDrawTarget,
                                           CSSCoord aBorderWidth,
                                           RectCornerRadii aDpiAdjustedRadii,
                                           DPIRatio aDpiRatio) {
-  const LayoutDeviceCoord borderWidth(aBorderWidth * aDpiRatio);
+  const LayoutDeviceCoord borderWidth(SnapBorderWidth(aBorderWidth, aDpiRatio));
 
   LayoutDeviceRect rect(aRect);
   // Deflate the rect by half the border width, so that the middle of the stroke
@@ -513,12 +520,11 @@ void nsNativeBasicTheme::PaintCheckboxControl(DrawTarget* aDrawTarget,
                                               const LayoutDeviceRect& aRect,
                                               const EventStates& aState,
                                               DPIRatio aDpiRatio) {
-  const CSSCoord borderWidth = 2.0f;
   const CSSCoord radius = 2.0f;
   auto [backgroundColor, borderColor] =
       ComputeCheckboxColors(aState, StyleAppearance::Checkbox);
   PaintRoundedRectWithRadius(aDrawTarget, aRect, backgroundColor, borderColor,
-                             borderWidth, radius, aDpiRatio);
+                             kCheckboxRadioBorderWidth, radius, aDpiRatio);
 
   if (aState.HasState(NS_EVENT_STATE_FOCUSRING)) {
     PaintRoundedFocusRect(aDrawTarget, aRect, aDpiRatio, 5.0f, 1.0f);
@@ -1180,8 +1186,6 @@ nsNativeBasicTheme::DrawWidgetBackground(gfxContext* aContext, nsIFrame* aFrame,
                                          const nsRect& aRect,
                                          const nsRect& /* aDirtyRect */) {
   DrawTarget* dt = aContext->GetDrawTarget();
-  // FIXME(emilio): Why does this use AppUnitsPerDevPixel() but GetDPIRatio()
-  // uses AppUnitsPerDevPixelAtUnitFullZoom()?
   const nscoord twipsPerPixel = aFrame->PresContext()->AppUnitsPerDevPixel();
   EventStates eventState = GetContentState(aFrame, aAppearance);
   EventStates docState = aFrame->GetContent()->OwnerDoc()->GetDocumentState();
@@ -1209,7 +1213,7 @@ nsNativeBasicTheme::DrawWidgetBackground(gfxContext* aContext, nsIFrame* aFrame,
     maybeClipRect.emplace(*dt, devPxRect);
   }
 
-  DPIRatio dpiRatio = GetDPIRatio(aFrame);
+  DPIRatio dpiRatio = GetDPIRatio(aFrame, aAppearance);
 
   switch (aAppearance) {
     case StyleAppearance::Radio: {
@@ -1340,29 +1344,28 @@ aManager, nsIFrame* aFrame, StyleAppearance aAppearance, const nsRect& aRect) {
 
 LayoutDeviceIntMargin nsNativeBasicTheme::GetWidgetBorder(
     nsDeviceContext* aContext, nsIFrame* aFrame, StyleAppearance aAppearance) {
-  DPIRatio dpiRatio = GetDPIRatio(aFrame);
+  DPIRatio dpiRatio = GetDPIRatio(aFrame, aAppearance);
   switch (aAppearance) {
     case StyleAppearance::Textfield:
     case StyleAppearance::Textarea:
     case StyleAppearance::NumberInput: {
-      // FIXME: Do we want this margin not to be int-based? The native windows
-      // theme rounds (see ScaleForDPI)...
-      LayoutDeviceIntCoord w = (kTextFieldBorderWidth * dpiRatio).Rounded();
+      LayoutDeviceIntCoord w = SnapBorderWidth(kTextFieldBorderWidth, dpiRatio);
       return LayoutDeviceIntMargin(w, w, w, w);
     }
     case StyleAppearance::Listbox:
     case StyleAppearance::Menulist:
     case StyleAppearance::MenulistButton: {
-      LayoutDeviceIntCoord w = (kMenulistBorderWidth * dpiRatio).Rounded();
+      LayoutDeviceIntCoord w = SnapBorderWidth(kMenulistBorderWidth, dpiRatio);
       return LayoutDeviceIntMargin(w, w, w, w);
     }
     case StyleAppearance::Button: {
-      LayoutDeviceIntCoord w = (kButtonBorderWidth * dpiRatio).Rounded();
+      LayoutDeviceIntCoord w = SnapBorderWidth(kButtonBorderWidth, dpiRatio);
       return LayoutDeviceIntMargin(w, w, w, w);
     }
     case StyleAppearance::Checkbox:
     case StyleAppearance::Radio: {
-      LayoutDeviceIntCoord w = (kCheckboxRadioBorderWidth * dpiRatio).Rounded();
+      LayoutDeviceIntCoord w =
+          SnapBorderWidth(kCheckboxRadioBorderWidth, dpiRatio);
       return LayoutDeviceIntMargin(w, w, w, w);
     }
     default:
@@ -1386,6 +1389,11 @@ bool nsNativeBasicTheme::GetWidgetPadding(nsDeviceContext* aContext,
       break;
   }
   return false;
+}
+
+static int GetScrollbarButtonCount() {
+  int32_t buttons = LookAndFeel::GetInt(LookAndFeel::IntID::ScrollArrowStyle);
+  return CountPopulation32(static_cast<uint32_t>(buttons));
 }
 
 bool nsNativeBasicTheme::GetWidgetOverflow(nsDeviceContext* aContext,
@@ -1436,7 +1444,7 @@ nsNativeBasicTheme::GetMinimumWidgetSize(nsPresContext* aPresContext,
                                          StyleAppearance aAppearance,
                                          LayoutDeviceIntSize* aResult,
                                          bool* aIsOverridable) {
-  DPIRatio dpiRatio = GetDPIRatio(aFrame);
+  DPIRatio dpiRatio = GetDPIRatio(aFrame, aAppearance);
 
   aResult->width = aResult->height = (kMinimumWidgetSize * dpiRatio).Rounded();
 
@@ -1481,6 +1489,24 @@ nsNativeBasicTheme::GetMinimumWidgetSize(nsPresContext* aPresContext,
       } else {
         aResult->SizeTo((kMinimumScrollbarSize * dpiRatio).Rounded(),
                         (kMinimumScrollbarSize * dpiRatio).Rounded());
+
+        // If the scrollbar has any buttons, then we increase the minimum
+        // size so that they fit too.
+        //
+        // FIXME(heycam): We should probably ensure that the thumb disappears
+        // if a scrollbar is big enough to fit the buttons but not the thumb,
+        // which is what the Windows native theme does.  If we do that, then
+        // the minimum size here needs to be reduced accordingly.
+        switch (aAppearance) {
+          case StyleAppearance::ScrollbarHorizontal:
+            aResult->width *= GetScrollbarButtonCount() + 1;
+            break;
+          case StyleAppearance::ScrollbarVertical:
+            aResult->height *= GetScrollbarButtonCount() + 1;
+            break;
+          default:
+            break;
+        }
       }
       break;
     }

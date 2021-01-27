@@ -2780,6 +2780,28 @@ bool WarpCacheIRTranspiler::emitNumberMinMax(bool isMax,
   return defineOperand(resultId, ins);
 }
 
+bool WarpCacheIRTranspiler::emitInt32MinMaxArrayResult(ObjOperandId arrayId,
+                                                       bool isMax) {
+  MDefinition* array = getOperand(arrayId);
+
+  auto* ins = MMinMaxArray::New(alloc(), array, MIRType::Int32, isMax);
+  add(ins);
+
+  pushResult(ins);
+  return true;
+}
+
+bool WarpCacheIRTranspiler::emitNumberMinMaxArrayResult(ObjOperandId arrayId,
+                                                        bool isMax) {
+  MDefinition* array = getOperand(arrayId);
+
+  auto* ins = MMinMaxArray::New(alloc(), array, MIRType::Double, isMax);
+  add(ins);
+
+  pushResult(ins);
+  return true;
+}
+
 bool WarpCacheIRTranspiler::emitMathAbsInt32Result(Int32OperandId inputId) {
   MDefinition* input = getOperand(inputId);
 

@@ -170,13 +170,7 @@ impl SwTile {
         clip_rect: &DeviceIntRect,
     ) -> Option<DeviceIntRect> {
         let origin = self.origin(surface);
-        // If the tile was invalidated this frame, then we don't have precise
-        // bounds. Instead, just use the default surface tile size.
-        let bounds = if self.invalid.get() {
-            DeviceIntRect::new(origin, surface.tile_size)
-        } else {
-            self.valid_rect.translate(origin.to_vector())
-        };
+        let bounds = self.valid_rect.translate(origin.to_vector());
         let device_rect = transform.outer_transformed_rect(&bounds.to_f32())?.round_out().to_i32();
         device_rect.intersection(clip_rect)
     }
@@ -1426,13 +1420,14 @@ impl Compositor for SwCompositor {
         }
     }
 
-    fn invalidate_tile(&mut self, id: NativeTileId) {
+    fn invalidate_tile(&mut self, id: NativeTileId, valid_rect: DeviceIntRect) {
         if self.use_native_compositor {
-            self.compositor.invalidate_tile(id);
+            self.compositor.invalidate_tile(id, valid_rect);
         }
         if let Some(surface) = self.surfaces.get_mut(&id.surface_id) {
             if let Some(tile) = surface.tiles.iter_mut().find(|t| t.x == id.x && t.y == id.y) {
                 tile.invalid.set(true);
+                tile.valid_rect = valid_rect;
             }
         }
     }
@@ -1448,7 +1443,7 @@ impl Compositor for SwCompositor {
         if let Some(surface) = self.surfaces.get_mut(&id.surface_id) {
             if let Some(tile) = surface.tiles.iter_mut().find(|t| t.x == id.x && t.y == id.y) {
                 tile.dirty_rect = dirty_rect;
-                tile.valid_rect = valid_rect;
+                assert_eq!(tile.valid_rect, valid_rect);
                 if valid_rect.is_empty() {
                     return surface_info;
                 }
@@ -1625,8 +1620,30 @@ impl Compositor for SwCompositor {
     /// frame will not have overlap dependencies assigned and so must instead
     /// be added to the late_surfaces queue to be processed at the end of the
     /// frame.
-    fn start_compositing(&mut self, dirty_rects: &[DeviceIntRect]) {
-        self.compositor.start_compositing(dirty_rects);
+    fn start_compositing(
+        &mut self,
+        dirty_rects: &[DeviceIntRect],
+        _opaque_rects: &[DeviceIntRect],
+    ) {
+        // Opaque rects are currently only computed here, not by WR itself, so we
+        // ignore the passed parameter and forward our own version onto the native
+        // compositor.
+        let mut opaque_rects : Vec<DeviceIntRect> = Vec::new();
+        for &(ref id, ref transform, ref clip_rect, _filter) in &self.frame_surfaces {
+            if let Some(surface) = self.surfaces.get(id) {
+                if !surface.is_opaque {
+                    continue;
+                }
+
+                for tile in &surface.tiles {
+                    if let Some(rect) = tile.overlap_rect(surface, transform, clip_rect) {
+                        opaque_rects.push(rect);
+                    }
+                }
+            }
+        }
+
+        self.compositor.start_compositing(dirty_rects, &opaque_rects);
 
         if dirty_rects.len() == 1 {
             // Factor dirty rect into surface clip rects and discard surfaces that are

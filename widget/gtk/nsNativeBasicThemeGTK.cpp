@@ -41,7 +41,7 @@ nsNativeBasicThemeGTK::GetMinimumWidgetSize(nsPresContext* aPresContext,
                                             StyleAppearance aAppearance,
                                             LayoutDeviceIntSize* aResult,
                                             bool* aIsOverridable) {
-  DPIRatio dpiRatio = GetDPIRatio(aFrame);
+  DPIRatio dpiRatio = GetDPIRatio(aFrame, aAppearance);
 
   switch (aAppearance) {
     case StyleAppearance::ScrollbarVertical:
@@ -71,9 +71,11 @@ nsNativeBasicThemeGTK::GetMinimumWidgetSize(nsPresContext* aPresContext,
   }
 
   switch (aAppearance) {
+    case StyleAppearance::ScrollbarHorizontal:
     case StyleAppearance::ScrollbarthumbHorizontal:
       aResult->width = kGtkMinimumScrollbarThumbSize * dpiRatio;
       break;
+    case StyleAppearance::ScrollbarVertical:
     case StyleAppearance::ScrollbarthumbVertical:
       aResult->height = kGtkMinimumScrollbarThumbSize * dpiRatio;
       break;

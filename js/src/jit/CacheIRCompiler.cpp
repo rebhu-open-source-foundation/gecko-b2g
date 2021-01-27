@@ -4629,6 +4629,53 @@ bool CacheIRCompiler::emitNumberMinMax(bool isMax, NumberOperandId firstId,
   return true;
 }
 
+bool CacheIRCompiler::emitInt32MinMaxArrayResult(ObjOperandId arrayId,
+                                                 bool isMax) {
+  JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
+
+  AutoOutputRegister output(*this);
+  Register array = allocator.useRegister(masm, arrayId);
+
+  AutoScratchRegister scratch(allocator, masm);
+  AutoScratchRegister scratch2(allocator, masm);
+  AutoScratchRegisterMaybeOutputType scratch3(allocator, masm, output);
+  AutoScratchRegisterMaybeOutput result(allocator, masm, output);
+
+  FailurePath* failure;
+  if (!addFailurePath(&failure)) {
+    return false;
+  }
+
+  masm.minMaxArrayInt32(array, result, scratch, scratch2, scratch3, isMax,
+                        failure->label());
+  masm.tagValue(JSVAL_TYPE_INT32, result, output.valueReg());
+  return true;
+}
+
+bool CacheIRCompiler::emitNumberMinMaxArrayResult(ObjOperandId arrayId,
+                                                  bool isMax) {
+  JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
+
+  AutoOutputRegister output(*this);
+  Register array = allocator.useRegister(masm, arrayId);
+
+  AutoAvailableFloatRegister result(*this, FloatReg0);
+  AutoAvailableFloatRegister floatScratch(*this, FloatReg1);
+
+  AutoScratchRegister scratch1(allocator, masm);
+  AutoScratchRegister scratch2(allocator, masm);
+
+  FailurePath* failure;
+  if (!addFailurePath(&failure)) {
+    return false;
+  }
+
+  masm.minMaxArrayNumber(array, result, floatScratch, scratch1, scratch2, isMax,
+                         failure->label());
+  masm.boxDouble(result, output.valueReg(), result);
+  return true;
+}
+
 bool CacheIRCompiler::emitMathFunctionNumberResultShared(
     UnaryMathFunction fun, FloatRegister inputScratch, ValueOperand output) {
   UnaryMathFunctionType funPtr = GetUnaryMathFunctionPtr(fun);

@@ -192,19 +192,19 @@ template <class ParseHandler>
 PerHandlerParser<ParseHandler>::PerHandlerParser(
     JSContext* cx, const ReadOnlyCompileOptions& options, bool foldConstants,
     CompilationStencil& stencil, CompilationState& compilationState,
-    BaseScript* lazyOuterFunction, void* internalSyntaxParser)
+    void* internalSyntaxParser)
     : ParserBase(cx, options, foldConstants, stencil, compilationState),
-      handler_(cx, compilationState.allocScope.alloc(), lazyOuterFunction),
-      internalSyntaxParser_(internalSyntaxParser) {}
+      handler_(cx, compilationState.allocScope.alloc(), stencil.input.lazy),
+      internalSyntaxParser_(internalSyntaxParser) {
+  MOZ_ASSERT(stencil.isInitialStencil() == !stencil.input.lazy);
+}
 
 template <class ParseHandler, typename Unit>
 GeneralParser<ParseHandler, Unit>::GeneralParser(
     JSContext* cx, const ReadOnlyCompileOptions& options, const Unit* units,
     size_t length, bool foldConstants, CompilationStencil& stencil,
-    CompilationState& compilationState, SyntaxParser* syntaxParser,
-    BaseScript* lazyOuterFunction)
-    : Base(cx, options, foldConstants, stencil, compilationState, syntaxParser,
-           lazyOuterFunction),
+    CompilationState& compilationState, SyntaxParser* syntaxParser)
+    : Base(cx, options, foldConstants, stencil, compilationState, syntaxParser),
       tokenStream(cx, &compilationState.parserAtoms, options, units, length) {}
 
 template <typename Unit>
@@ -266,7 +266,7 @@ FunctionBox* PerHandlerParser<ParseHandler>::newFunctionBox(
     return nullptr;
   }
 
-  if (!handler_.canSkipLazyInnerFunctions()) {
+  if (this->stencil_.isInitialStencil()) {
     if (!compilationState_.scriptExtra.emplaceBack()) {
       js::ReportOutOfMemory(cx_);
       return nullptr;
@@ -1471,7 +1471,7 @@ LexicalScopeNode* PerHandlerParser<FullParseHandler>::finishLexicalScope(
 template <class ParseHandler>
 bool PerHandlerParser<ParseHandler>::checkForUndefinedPrivateFields(
     EvalSharedContext* evalSc) {
-  if (handler_.canSkipLazyClosedOverBindings()) {
+  if (!this->stencil_.isInitialStencil()) {
     // We're delazifying -- so we already checked private names during first
     // parse.
     return true;
@@ -1969,9 +1969,8 @@ bool PerHandlerParser<FullParseHandler>::finishFunction(
 
   funbox->finishScriptFlags();
   funbox->copyFunctionFields(script);
-  funbox->copyScriptFields(script);
 
-  if (!handler_.canSkipLazyInnerFunctions()) {
+  if (this->stencil_.isInitialStencil()) {
     ScriptStencilExtra& scriptExtra = funbox->functionExtraStencil();
     funbox->copyFunctionExtraFields(scriptExtra);
     funbox->copyScriptExtraFields(scriptExtra);
@@ -1997,7 +1996,6 @@ bool PerHandlerParser<SyntaxParseHandler>::finishFunction(
 
   funbox->finishScriptFlags();
   funbox->copyFunctionFields(script);
-  funbox->copyScriptFields(script);
 
   ScriptStencilExtra& scriptExtra = funbox->functionExtraStencil();
   funbox->copyFunctionExtraFields(scriptExtra);
@@ -2797,7 +2795,6 @@ bool Parser<FullParseHandler, Unit>::skipLazyInnerFunction(
   ScriptStencil& script = funbox->functionStencil();
   funbox->initFromLazyFunction(fun);
   funbox->copyFunctionFields(script);
-  funbox->copyScriptFields(script);
 
   MOZ_ASSERT_IF(pc_->isFunctionBox(),
                 pc_->functionBox()->index() < funbox->index());

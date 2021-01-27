@@ -1265,6 +1265,22 @@
     second: NumberId
     result: NumberId
 
+- name: Int32MinMaxArrayResult
+  shared: true
+  transpile: true
+  cost_estimate: 3
+  args:
+    array: ObjId
+    isMax: BoolImm
+
+- name: NumberMinMaxArrayResult
+  shared: true
+  transpile: true
+  cost_estimate: 3
+  args:
+    array: ObjId
+    isMax: BoolImm
+
 - name: MathFunctionNumberResult
   shared: true
   transpile: true

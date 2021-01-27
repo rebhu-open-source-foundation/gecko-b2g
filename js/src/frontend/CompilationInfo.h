@@ -418,7 +418,6 @@ struct BaseCompilationStencil {
 
   bool isInitialStencil() const { return functionKey == NullFunctionKey; }
 
-  bool isCompilationStencil() const { return isInitialStencil(); }
   inline CompilationStencil& asCompilationStencil();
   inline const CompilationStencil& asCompilationStencil() const;
 
@@ -628,6 +627,10 @@ struct CompilationStencil : public BaseCompilationStencil {
     return ScriptStencilIterable(stencil, gcOutput);
   }
 
+  void setFunctionKey(BaseScript* lazy) {
+    functionKey = toFunctionKey(lazy->extent());
+  }
+
   void trace(JSTracer* trc);
 
 #if defined(DEBUG) || defined(JS_JITSPEW)
@@ -638,14 +641,18 @@ struct CompilationStencil : public BaseCompilationStencil {
 };
 
 inline CompilationStencil& BaseCompilationStencil::asCompilationStencil() {
-  MOZ_ASSERT(isCompilationStencil());
+  MOZ_ASSERT(isInitialStencil(),
+             "cast from BaseCompilationStencil to CompilationStencil is "
+             "allowed only for initial stencil");
   return *static_cast<CompilationStencil*>(this);
 }
 
 inline const CompilationStencil& BaseCompilationStencil::asCompilationStencil()
     const {
-  MOZ_ASSERT(isCompilationStencil());
-  return *reinterpret_cast<const CompilationStencil*>(this);
+  MOZ_ASSERT(isInitialStencil(),
+             "cast from BaseCompilationStencil to CompilationStencil is "
+             "allowed only for initial stencil");
+  return *static_cast<const CompilationStencil*>(this);
 }
 
 inline ScriptStencilIterable::ScriptAndFunction
