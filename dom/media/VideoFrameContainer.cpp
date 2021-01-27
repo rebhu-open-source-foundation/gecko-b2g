@@ -195,6 +195,18 @@ void VideoFrameContainer::SetCurrentFramesLocked(
   }
 }
 
+void VideoFrameContainer::ClearCurrentFrame() {
+  MutexAutoLock lock(mMutex);
+
+  // See comment in SetCurrentFrame for the reasoning behind
+  // using a kungFuDeathGrip here.
+  nsTArray<ImageContainer::OwningImage> kungFuDeathGrip;
+  mImageContainer->GetCurrentImages(&kungFuDeathGrip);
+
+  mImageContainer->ClearAllImages();
+  mImageContainer->ClearCachedResources();
+}
+
 void VideoFrameContainer::ClearFutureFrames(TimeStamp aNow) {
   MutexAutoLock lock(mMutex);
 

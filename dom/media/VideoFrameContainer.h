@@ -62,6 +62,7 @@ class VideoFrameContainer {
                      nsTArray<ImageContainer::NonOwningImage>());
   }
 
+  void ClearCurrentFrame();
   // Make the current frame the only frame in the container, i.e. discard
   // all future frames.
   void ClearFutureFrames(TimeStamp aNow = TimeStamp::Now());
