@@ -449,7 +449,7 @@ XPCOMUtils.defineLazyServiceGetter(
         if (this.geolocationActive != oldState) {
           this.dispatchEvent(
             new CustomEvent("geolocation-status", {
-              detail: this.geolocationActive,
+              detail: { active: this.geolocationActive },
             })
           );
         }
