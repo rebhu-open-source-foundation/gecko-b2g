@@ -268,12 +268,16 @@ var Activities = {
         break;
       case "service-worker-shutdown":
         let origin = Services.io.newURI(aData).prePath;
-        debug("ServiceWorker service-worker-shutdown origin=" + origin);
         let messages = [];
         for (const [key, value] of Object.entries(this.callers)) {
           if (value.handlerOrigin == origin) {
             debug(
-              "ServiceWorker found " + key + " handler=" + value.handlerOrigin
+              "Handler shutdown due to service worker shutdown, caller=" +
+                value.origin +
+                " handler=" +
+                value.handlerOrigin +
+                " handlerPID=" +
+                value.handlerPID
             );
             messages.push(key);
           }
@@ -282,7 +286,7 @@ var Activities = {
         messages.forEach(function(id) {
           self.trySendAndCleanup(id, "Activity:FireError", {
             id,
-            error: "SERVICE_WORKER_SHUTDOWN",
+            error: "ACTIVITY_HANDLER_SHUTDOWN",
           });
         });
         break;
@@ -457,6 +461,7 @@ var Activities = {
 
       case "Activity:Ready":
         caller.handlerMM = mm;
+        caller.handlerPID = msg.handlerPID;
         break;
       case "Activity:PostResult":
         this.trySendAndCleanup(msg.id, "Activity:FireSuccess", msg);
@@ -497,14 +502,16 @@ var Activities = {
         for (let id in this.callers) {
           if (this.callers[id].handlerMM == mm) {
             debug(
-              "child-process-shutdown caller=" +
-                this.callers[id].pageURL +
+              "Handler shutdown due to hosted process shutdown, caller=" +
+                this.callers[id].origin +
                 " handler=" +
-                this.callers[id].handlerOrigin
+                this.callers[id].handlerOrigin +
+                " handlerPID=" +
+                this.callers[id].handlerPID
             );
             this.trySendAndCleanup(id, "Activity:FireError", {
               id,
-              error: "PROCESS_SHUTDOWN",
+              error: "ACTIVITY_HANDLER_SHUTDOWN",
             });
             break;
           }
@@ -551,7 +558,6 @@ var Activities = {
       "activity-closed",
       this.callers[id].childID
     );
-    debug("removeCaller " + id + " handler=" + this.callers[id].handlerOrigin);
     delete this.callers[id];
   },
 };
