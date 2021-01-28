@@ -684,6 +684,7 @@ void LIRGenerator::visitTest(MTest* test) {
     // Compare and branch Int32, Symbol or Object pointers.
     if (comp->isInt32Comparison() ||
         comp->compareType() == MCompare::Compare_UInt32 ||
+        comp->compareType() == MCompare::Compare_UIntPtr ||
         comp->compareType() == MCompare::Compare_Object ||
         comp->compareType() == MCompare::Compare_Symbol) {
       JSOp op = ReorderComparison(comp->jsop(), &left, &right);
@@ -929,6 +930,7 @@ void LIRGenerator::visitCompare(MCompare* comp) {
   // Compare Int32, Symbol, Object or Wasm pointers.
   if (comp->isInt32Comparison() ||
       comp->compareType() == MCompare::Compare_UInt32 ||
+      comp->compareType() == MCompare::Compare_UIntPtr ||
       comp->compareType() == MCompare::Compare_Object ||
       comp->compareType() == MCompare::Compare_Symbol ||
       comp->compareType() == MCompare::Compare_RefOrNull) {
@@ -2218,6 +2220,45 @@ void LIRGenerator::visitTruncateToInt32(MTruncateToInt32* truncate) {
       // Strings are complicated - we don't handle them yet.
       MOZ_CRASH("unexpected type");
   }
+}
+
+void LIRGenerator::visitInt32ToIntPtr(MInt32ToIntPtr* ins) {
+  MDefinition* input = ins->input();
+  MOZ_ASSERT(input->type() == MIRType::Int32);
+  MOZ_ASSERT(ins->type() == MIRType::IntPtr);
+
+  // If the result is only used by instructions that expect a bounds-checked
+  // index, we must have eliminated or hoisted a bounds check and we can assume
+  // the index is non-negative. This lets us generate more efficient code.
+  // In debug builds we verify this non-negative assumption at runtime.
+  if (ins->canBeNegative()) {
+    bool canBeNegative = false;
+    for (MUseDefIterator iter(ins); iter; iter++) {
+      if (!iter.def()->isSpectreMaskIndex() &&
+          !iter.def()->isLoadUnboxedScalar() &&
+          !iter.def()->isStoreUnboxedScalar() &&
+          !iter.def()->isLoadDataViewElement() &&
+          !iter.def()->isStoreDataViewElement()) {
+        canBeNegative = true;
+        break;
+      }
+    }
+    if (!canBeNegative) {
+      ins->setCanNotBeNegative();
+    }
+  }
+
+  auto* lir = new (alloc()) LInt32ToIntPtr(useRegisterAtStart(input));
+  define(lir, ins);
+}
+
+void LIRGenerator::visitAdjustDataViewLength(MAdjustDataViewLength* ins) {
+  MDefinition* input = ins->input();
+  MOZ_ASSERT(input->type() == MIRType::Int32);
+
+  auto* lir = new (alloc()) LAdjustDataViewLength(useRegisterAtStart(input));
+  assignSnapshot(lir, ins->bailoutKind());
+  defineReuseInput(lir, ins, 0);
 }
 
 void LIRGenerator::visitToBigInt(MToBigInt* ins) {
@@ -5376,6 +5417,13 @@ void LIRGenerator::visitConstant(MConstant* ins) {
       break;
     case MIRType::Int64:
       defineInt64(new (alloc()) LInteger64(ins->toInt64()), ins);
+      break;
+    case MIRType::IntPtr:
+#ifdef JS_64BIT
+      defineInt64(new (alloc()) LInteger64(ins->toIntPtr()), ins);
+#else
+      define(new (alloc()) LInteger(ins->toIntPtr()), ins);
+#endif
       break;
     case MIRType::String:
       define(new (alloc()) LPointer(ins->toString()), ins);

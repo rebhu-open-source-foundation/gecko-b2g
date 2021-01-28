@@ -348,7 +348,7 @@ class AccessibleCaretManager {
     // OnScrollPositionChanged().
     bool mAllowFlushing = true;
 
-  private:
+   private:
     // Whether we're flushing layout, used for sanity-checking.
     bool mFlushing = false;
   };

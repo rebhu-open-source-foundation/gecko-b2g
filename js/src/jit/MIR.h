@@ -1332,6 +1332,7 @@ class MConstant : public MNullaryInstruction {
       bool b;
       int32_t i32;
       int64_t i64;
+      intptr_t iptr;
       float f;
       double d;
       JSString* str;
@@ -1357,7 +1358,7 @@ class MConstant : public MNullaryInstruction {
   MConstant(TempAllocator& alloc, const Value& v);
   explicit MConstant(JSObject* obj);
   explicit MConstant(float f);
-  explicit MConstant(int64_t i);
+  explicit MConstant(MIRType type, int64_t i);
 
  public:
   INSTRUCTION_HEADER(Constant)
@@ -1366,6 +1367,7 @@ class MConstant : public MNullaryInstruction {
   static MConstant* New(TempAllocator& alloc, const Value& v, MIRType type);
   static MConstant* NewFloat32(TempAllocator& alloc, double d);
   static MConstant* NewInt64(TempAllocator& alloc, int64_t i);
+  static MConstant* NewIntPtr(TempAllocator& alloc, intptr_t i);
   static MConstant* NewObject(TempAllocator& alloc, JSObject* v);
   static MConstant* Copy(TempAllocator& alloc, MConstant* src) {
     return new (alloc) MConstant(*src);
@@ -1421,6 +1423,10 @@ class MConstant : public MNullaryInstruction {
   int64_t toInt64() const {
     MOZ_ASSERT(type() == MIRType::Int64);
     return payload_.i64;
+  }
+  intptr_t toIntPtr() const {
+    MOZ_ASSERT(type() == MIRType::IntPtr);
+    return payload_.iptr;
   }
   bool isInt32(int32_t i) const {
     return type() == MIRType::Int32 && payload_.i32 == i;
@@ -2707,6 +2713,9 @@ class MCompare : public MBinaryInstruction, public ComparePolicy::Data {
     // Int64 compared as unsigneds.
     Compare_UInt64,
 
+    // IntPtr compared as unsigneds.
+    Compare_UIntPtr,
+
     // Double compared to Double
     Compare_Double,
 
@@ -2878,7 +2887,8 @@ class MBox : public MUnaryInstruction, public NoTypePolicy::Data {
 // lir->jsop() instead of the mir->jsop() when it is present.
 static inline Assembler::Condition JSOpToCondition(
     MCompare::CompareType compareType, JSOp op) {
-  bool isSigned = (compareType != MCompare::Compare_UInt32);
+  bool isSigned = (compareType != MCompare::Compare_UInt32 &&
+                   compareType != MCompare::Compare_UIntPtr);
   return JSOpToCondition(op, isSigned);
 }
 
@@ -3242,10 +3252,7 @@ class MReturnFromCtor : public MBinaryInstruction,
 class MToFPInstruction : public MUnaryInstruction, public ToDoublePolicy::Data {
  public:
   // Types of values which can be converted.
-  enum ConversionKind {
-    NonStringPrimitives,
-    NumbersOnly
-  };
+  enum ConversionKind { NonStringPrimitives, NumbersOnly };
 
  private:
   ConversionKind conversion_;
@@ -3617,6 +3624,68 @@ class MWasmAnyRefFromJSObject : public MUnaryInstruction,
     return congruentIfOperandsEqual(ins);
   }
 
+  AliasSet getAliasSet() const override { return AliasSet::None(); }
+};
+
+// Converts an int32 value to intptr by sign-extending it.
+class MInt32ToIntPtr : public MUnaryInstruction,
+                       public UnboxedInt32Policy<0>::Data {
+  bool canBeNegative_ = true;
+
+  explicit MInt32ToIntPtr(MDefinition* def)
+      : MUnaryInstruction(classOpcode, def) {
+    setResultType(MIRType::IntPtr);
+    setMovable();
+  }
+
+ public:
+  INSTRUCTION_HEADER(Int32ToIntPtr)
+  TRIVIAL_NEW_WRAPPERS
+
+  bool canBeNegative() const { return canBeNegative_; }
+  void setCanNotBeNegative() { canBeNegative_ = false; }
+
+  void computeRange(TempAllocator& alloc) override;
+  void collectRangeInfoPreTrunc() override;
+
+  MDefinition* foldsTo(TempAllocator& alloc) override;
+
+  bool congruentTo(const MDefinition* ins) const override {
+    return congruentIfOperandsEqual(ins);
+  }
+  AliasSet getAliasSet() const override { return AliasSet::None(); }
+};
+
+// Subtracts (byteSize - 1) from the input value. Bails out if the result is
+// negative. This is used to implement bounds checks for DataView accesses.
+class MAdjustDataViewLength : public MUnaryInstruction,
+                              public NoTypePolicy::Data {
+  const uint32_t byteSize_;
+
+  MAdjustDataViewLength(MDefinition* input, uint32_t byteSize)
+      : MUnaryInstruction(classOpcode, input), byteSize_(byteSize) {
+    MOZ_ASSERT(input->type() == MIRType::Int32);
+    MOZ_ASSERT(byteSize > 1);
+    setResultType(MIRType::Int32);
+    setMovable();
+    setGuard();
+  }
+
+ public:
+  INSTRUCTION_HEADER(AdjustDataViewLength)
+  TRIVIAL_NEW_WRAPPERS
+
+  uint32_t byteSize() const { return byteSize_; }
+
+  bool congruentTo(const MDefinition* ins) const override {
+    if (!ins->isAdjustDataViewLength()) {
+      return false;
+    }
+    if (ins->toAdjustDataViewLength()->byteSize() != byteSize()) {
+      return false;
+    }
+    return congruentIfOperandsEqual(ins);
+  }
   AliasSet getAliasSet() const override { return AliasSet::None(); }
 };
 
@@ -4817,18 +4886,12 @@ class MHypot : public MVariadicInstruction, public AllDoublePolicy::Data {
 //   - Performs the complete exponentiation operation in assembly code.
 //   - Bails out if the result doesn't fit in Int32.
 class MPow : public MBinaryInstruction, public PowPolicy::Data {
-  // If true, convert the power operand to int32 instead of double (this only
-  // affects the Double specialization). This exists because we can sometimes
-  // get more precise types during MIR building than in type analysis.
-  bool powerIsInt32_ : 1;
-
   // If true, the result is guaranteed to never be negative zero, as long as the
   // power is a positive number.
-  bool canBeNegativeZero_ : 1;
+  bool canBeNegativeZero_;
 
   MPow(MDefinition* input, MDefinition* power, MIRType specialization)
-      : MBinaryInstruction(classOpcode, input, power),
-        powerIsInt32_(power->type() == MIRType::Int32) {
+      : MBinaryInstruction(classOpcode, input, power) {
     MOZ_ASSERT(specialization == MIRType::Int32 ||
                specialization == MIRType::Double);
     setResultType(specialization);
@@ -4850,12 +4913,8 @@ class MPow : public MBinaryInstruction, public PowPolicy::Data {
 
   MDefinition* input() const { return lhs(); }
   MDefinition* power() const { return rhs(); }
-  bool powerIsInt32() const { return powerIsInt32_; }
 
   bool congruentTo(const MDefinition* ins) const override {
-    if (!ins->isPow() || ins->toPow()->powerIsInt32() != powerIsInt32()) {
-      return false;
-    }
     return congruentIfOperandsEqual(ins);
   }
   AliasSet getAliasSet() const override { return AliasSet::None(); }
@@ -11433,7 +11492,7 @@ class MAtomicIsLockFree : public MUnaryInstruction,
 
 class MCompareExchangeTypedArrayElement
     : public MQuaternaryInstruction,
-      public MixPolicy<UnboxedInt32Policy<1>, TruncateToInt32Policy<2>,
+      public MixPolicy<TruncateToInt32Policy<2>,
                        TruncateToInt32Policy<3>>::Data {
   Scalar::Type arrayType_;
 
@@ -11445,6 +11504,7 @@ class MCompareExchangeTypedArrayElement
       : MQuaternaryInstruction(classOpcode, elements, index, oldval, newval),
         arrayType_(arrayType) {
     MOZ_ASSERT(elements->type() == MIRType::Elements);
+    MOZ_ASSERT(index->type() == MIRType::Int32);
     setGuard();  // Not removable
   }
 
@@ -11463,9 +11523,8 @@ class MCompareExchangeTypedArrayElement
   }
 };
 
-class MAtomicExchangeTypedArrayElement
-    : public MTernaryInstruction,
-      public MixPolicy<UnboxedInt32Policy<1>, TruncateToInt32Policy<2>>::Data {
+class MAtomicExchangeTypedArrayElement : public MTernaryInstruction,
+                                         public TruncateToInt32Policy<2>::Data {
   Scalar::Type arrayType_;
 
   MAtomicExchangeTypedArrayElement(MDefinition* elements, MDefinition* index,
@@ -11473,6 +11532,7 @@ class MAtomicExchangeTypedArrayElement
       : MTernaryInstruction(classOpcode, elements, index, value),
         arrayType_(arrayType) {
     MOZ_ASSERT(elements->type() == MIRType::Elements);
+    MOZ_ASSERT(index->type() == MIRType::Int32);
     MOZ_ASSERT(arrayType <= Scalar::Uint32);
     setGuard();  // Not removable
   }
@@ -11491,9 +11551,8 @@ class MAtomicExchangeTypedArrayElement
   }
 };
 
-class MAtomicTypedArrayElementBinop
-    : public MTernaryInstruction,
-      public MixPolicy<UnboxedInt32Policy<1>, TruncateToInt32Policy<2>>::Data {
+class MAtomicTypedArrayElementBinop : public MTernaryInstruction,
+                                      public TruncateToInt32Policy<2>::Data {
  private:
   AtomicOp op_;
   Scalar::Type arrayType_;
@@ -11506,6 +11565,7 @@ class MAtomicTypedArrayElementBinop
         op_(op),
         arrayType_(arrayType) {
     MOZ_ASSERT(elements->type() == MIRType::Elements);
+    MOZ_ASSERT(index->type() == MIRType::Int32);
     setGuard();  // Not removable
   }
 

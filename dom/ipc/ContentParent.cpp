@@ -72,6 +72,7 @@
 #include "mozilla/HangDetails.h"
 #include "mozilla/LoginReputationIPC.h"
 #include "mozilla/LookAndFeel.h"
+#include "mozilla/Maybe.h"
 #include "mozilla/NullPrincipal.h"
 #include "mozilla/PerformanceMetricsCollector.h"
 #include "mozilla/Preferences.h"
@@ -435,6 +436,12 @@ LazyLogModule gProcessLog("Process");
 
 static std::map<RemoteDecodeIn, PDMFactory::MediaCodecsSupported>
     sCodecsSupported;
+
+/* static */
+uint32_t ContentParent::sMaxContentProcesses = 0;
+
+/* static */
+Maybe<TimeStamp> ContentParent::sLastContentProcessLaunch = Nothing();
 
 /* static */
 LogModule* ContentParent::GetLog() { return gProcessLog; }
@@ -2780,6 +2787,7 @@ bool ContentParent::LaunchSubprocessSync(
   }
   const bool ok = mSubprocess->WaitForProcessHandle();
   if (ok && LaunchSubprocessResolve(/* aIsSync = */ true, aInitialPriority)) {
+    ContentParent::DidLaunchSubprocess();
     return true;
   }
   LaunchSubprocessReject();
@@ -2809,6 +2817,7 @@ RefPtr<ContentParent::LaunchPromise> ContentParent::LaunchSubprocessAsync(
         if (aValue.IsResolve() &&
             self->LaunchSubprocessResolve(/* aIsSync = */ false,
                                           aInitialPriority)) {
+          ContentParent::DidLaunchSubprocess();
           return LaunchPromise::CreateAndResolve(self, __func__);
         }
         self->LaunchSubprocessReject();
@@ -5184,6 +5193,10 @@ mozilla::ipc::IPCResult ContentParent::RecvConsoleMessage(
 mozilla::ipc::IPCResult ContentParent::RecvReportFrameTimingData(
     uint64_t aInnerWindowId, const nsString& entryName,
     const nsString& initiatorType, UniquePtr<PerformanceTimingData>&& aData) {
+  if (!aData) {
+    return IPC_FAIL(this, "aData should not be null");
+  }
+
   RefPtr<WindowGlobalParent> parent =
       WindowGlobalParent::GetByInnerWindowId(aInnerWindowId);
   if (!parent || !parent->GetContentParent()) {
@@ -8096,6 +8109,28 @@ NS_IMETHODIMP ContentParent::GetCanSend(bool* aCanSend) {
 ContentParent* ContentParent::AsContentParent() { return this; }
 
 JSActorManager* ContentParent::AsJSActorManager() { return this; }
+
+/* static */
+void ContentParent::DidLaunchSubprocess() {
+  TimeStamp now = TimeStamp::Now();
+  uint32_t count = 0;
+  for (auto* parent : ContentParent::AllProcesses(ContentParent::eLive)) {
+    Unused << parent;
+    count += 1;
+  }
+
+  if (count > sMaxContentProcesses) {
+    Telemetry::Accumulate(Telemetry::CONTENT_PROCESS_MAX, count);
+  }
+
+  if (sLastContentProcessLaunch) {
+    TimeStamp last = *sLastContentProcessLaunch;
+
+    Telemetry::AccumulateTimeDelta(
+        Telemetry::CONTENT_PROCESS_TIME_SINCE_LAST_LAUNCH_MS, last, now);
+  }
+  sLastContentProcessLaunch = Some(now);
+}
 
 }  // namespace dom
 }  // namespace mozilla

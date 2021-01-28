@@ -96,8 +96,7 @@ AccessibleCaretManager::AccessibleCaretManager(PresShell* aPresShell)
 }
 
 AccessibleCaretManager::LayoutFlusher::~LayoutFlusher() {
-  MOZ_RELEASE_ASSERT(!mFlushing,
-                     "Going away in MaybeFlush? Bad!");
+  MOZ_RELEASE_ASSERT(!mFlushing, "Going away in MaybeFlush? Bad!");
 }
 
 void AccessibleCaretManager::Terminate() {

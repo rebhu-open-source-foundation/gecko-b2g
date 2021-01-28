@@ -625,12 +625,7 @@ input:is([type=reset], [type=button], [type=submit]):hover {
 ::file-selector-button:active:hover,
 button:active:hover,
 input:is([type=reset], [type=button], [type=submit], [type=color]):active:hover {
-%ifndef XP_MACOSX
-  padding-block: 0;
-  padding-inline: 9px 7px;
-%endif
   border-style: inset;
-  background-color: ButtonFace;
 }
 
 ::file-selector-button:active:hover,
@@ -658,11 +653,7 @@ input:is([type=reset], [type=button], [type=submit]):active:hover {
 button:is(:disabled, :disabled:active),
 input:is([type=reset], [type=button], [type=submit], [type=color]):is(:disabled, :disabled:active),
 select:is(:disabled, :disabled:active) > button {
-  /* The sum of border and padding on block-start and block-end
-     must be the same here and for text inputs */
-  padding-block: 0;
-  padding-inline: 8px;
-  border: 2px outset ThreeDLightShadow;
+  border-style: outset;
   cursor: unset;
 }
 
@@ -1042,14 +1033,6 @@ input:is([type=date], [type=time]) {
 
 input:is([type=date], [type=time]):is(:disabled, :read-only) {
   color: GrayText;
-}
-
-@media (-moz-non-native-content-theme) {
-  /* TODO(emilio): This is an odd special-case... */
-  input:is([type=date], [type=time]) {
-    padding-inline: 3px;
-    padding-block: 2px 0;
-  }
 }
 
 input:autofill, input:-moz-autofill-preview {

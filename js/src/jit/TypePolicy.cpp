@@ -170,6 +170,12 @@ bool ComparePolicy::adjustInputs(TempAllocator& alloc,
     return true;
   }
 
+  if (compare->compareType() == MCompare::Compare_UIntPtr) {
+    MOZ_ASSERT(compare->lhs()->type() == MIRType::IntPtr);
+    MOZ_ASSERT(compare->rhs()->type() == MIRType::IntPtr);
+    return true;
+  }
+
   // Compare_BigInt_Int32 specialization is done for "BigInt <cmp> Int32".
   // Compare_BigInt_Double specialization is done for "BigInt <cmp> Double".
   // Compare_BigInt_String specialization is done for "BigInt <cmp> String".
@@ -328,11 +334,13 @@ bool PowPolicy::adjustInputs(TempAllocator& alloc, MInstruction* ins) const {
   }
 
   // Power may be an int32 or a double. Integers receive a faster path.
-  if (ins->toPow()->power()->type() == MIRType::Int32) {
-    return true;
-  }
-  if (ins->toPow()->powerIsInt32()) {
-    return UnboxedInt32Policy<1>::staticAdjustInputs(alloc, ins);
+  MDefinition* power = ins->toPow()->power();
+  if (power->isToDouble()) {
+    MDefinition* input = power->toToDouble()->input();
+    if (input->type() == MIRType::Int32) {
+      ins->replaceOperand(1, input);
+      return true;
+    }
   }
   return DoublePolicy<1>::staticAdjustInputs(alloc, ins);
 }
@@ -1073,12 +1081,12 @@ bool TypedArrayIndexPolicy::adjustInputs(TempAllocator& alloc,
   _(FloatingPointPolicy<0>)                                                   \
   _(UnboxedInt32Policy<0>)                                                    \
   _(UnboxedInt32Policy<1>)                                                    \
+  _(TruncateToInt32Policy<2>)                                                 \
   _(MixPolicy<ObjectPolicy<0>, StringPolicy<1>, BoxPolicy<2>>)                \
   _(MixPolicy<ObjectPolicy<0>, BoxPolicy<1>, BoxPolicy<2>>)                   \
   _(MixPolicy<ObjectPolicy<0>, BoxPolicy<1>, ObjectPolicy<2>>)                \
   _(MixPolicy<ObjectPolicy<0>, UnboxedInt32Policy<1>, BoxPolicy<2>>)          \
   _(MixPolicy<ObjectPolicy<0>, UnboxedInt32Policy<1>, UnboxedInt32Policy<2>>) \
-  _(MixPolicy<UnboxedInt32Policy<1>, TruncateToInt32Policy<2>>)               \
   _(MixPolicy<ObjectPolicy<0>, BoxPolicy<2>>)                                 \
   _(MixPolicy<ObjectPolicy<0>, ObjectPolicy<1>, UnboxedInt32Policy<2>>)       \
   _(MixPolicy<ObjectPolicy<0>, ObjectPolicy<1>, ObjectPolicy<2>>)             \
@@ -1088,8 +1096,7 @@ bool TypedArrayIndexPolicy::adjustInputs(TempAllocator& alloc,
   _(MixPolicy<ObjectPolicy<0>, StringPolicy<1>, UnboxedInt32Policy<2>>)       \
   _(MixPolicy<ObjectPolicy<0>, UnboxedInt32Policy<1>, UnboxedInt32Policy<2>,  \
               UnboxedInt32Policy<3>>)                                         \
-  _(MixPolicy<UnboxedInt32Policy<1>, TruncateToInt32Policy<2>,                \
-              TruncateToInt32Policy<3>>)                                      \
+  _(MixPolicy<TruncateToInt32Policy<2>, TruncateToInt32Policy<3>>)            \
   _(MixPolicy<ObjectPolicy<0>, CacheIdPolicy<1>, NoFloatPolicy<2>>)           \
   _(MixPolicy<ObjectPolicy<0>, BoxExceptPolicy<1, MIRType::Object>,           \
               CacheIdPolicy<2>>)                                              \

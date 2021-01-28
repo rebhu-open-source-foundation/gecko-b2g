@@ -34,7 +34,6 @@ Link::Link(Element* aElement)
       mNeedsRegistration(false),
       mRegistered(false),
       mHasPendingLinkUpdate(false),
-      mInDNSPrefetch(false),
       mHistory(true) {
   MOZ_ASSERT(mElement, "Must have an element");
 }
@@ -45,15 +44,11 @@ Link::Link()
       mNeedsRegistration(false),
       mRegistered(false),
       mHasPendingLinkUpdate(false),
-      mInDNSPrefetch(false),
       mHistory(false) {}
 
 Link::~Link() {
   // !mElement is for mock_Link.
   MOZ_ASSERT(!mElement || !mElement->IsInComposedDoc());
-  if (IsInDNSPrefetch()) {
-    HTMLDNSPrefetch::LinkDestroyed(this);
-  }
   UnregisterFromHistory();
 }
 
@@ -61,28 +56,6 @@ bool Link::ElementHasHref() const {
   return mElement->HasAttr(kNameSpaceID_None, nsGkAtoms::href) ||
          (!mElement->IsHTMLElement() &&
           mElement->HasAttr(kNameSpaceID_XLink, nsGkAtoms::href));
-}
-
-void Link::TryDNSPrefetch() {
-  MOZ_ASSERT(mElement->IsInComposedDoc());
-  if (ElementHasHref() && HTMLDNSPrefetch::IsAllowed(mElement->OwnerDoc())) {
-    HTMLDNSPrefetch::Prefetch(this, HTMLDNSPrefetch::Priority::Low);
-  }
-}
-
-void Link::CancelDNSPrefetch(nsWrapperCache::FlagsType aDeferredFlag,
-                             nsWrapperCache::FlagsType aRequestedFlag) {
-  // If prefetch was deferred, clear flag and move on
-  if (mElement->HasFlag(aDeferredFlag)) {
-    mElement->UnsetFlags(aDeferredFlag);
-    // Else if prefetch was requested, clear flag and send cancellation
-  } else if (mElement->HasFlag(aRequestedFlag)) {
-    mElement->UnsetFlags(aRequestedFlag);
-    // Possible that hostname could have changed since binding, but since this
-    // covers common cases, most DNS prefetch requests will be canceled
-    HTMLDNSPrefetch::CancelPrefetch(this, HTMLDNSPrefetch::Priority::Low,
-                                    NS_ERROR_ABORT);
-  }
 }
 
 void Link::VisitedQueryFinished(bool aVisited) {
@@ -502,12 +475,11 @@ void Link::ResetLinkState(bool aNotify, bool aHasHref) {
     }
   }
 
-  // If we have an href, and we're not a <link>, we should register with the
-  // history.
+  // If we have an href, we should register with the history.
   //
   // FIXME(emilio): Do we really want to allow all MathML elements to be
   // :visited? That seems not great.
-  mNeedsRegistration = aHasHref && !mElement->IsHTMLElement(nsGkAtoms::link);
+  mNeedsRegistration = aHasHref;
 
   // If we've cached the URI, reset always invalidates it.
   UnregisterFromHistory();
@@ -566,11 +538,8 @@ void Link::SetHrefAttribute(nsIURI* aURI) {
 size_t Link::SizeOfExcludingThis(mozilla::SizeOfState& aState) const {
   size_t n = 0;
 
-  if (mCachedURI) {
-    nsCOMPtr<nsISizeOf> iface = do_QueryInterface(mCachedURI);
-    if (iface) {
-      n += iface->SizeOfIncludingThis(aState.mMallocSizeOf);
-    }
+  if (nsCOMPtr<nsISizeOf> iface = do_QueryInterface(mCachedURI)) {
+    n += iface->SizeOfIncludingThis(aState.mMallocSizeOf);
   }
 
   // The following members don't need to be measured:
