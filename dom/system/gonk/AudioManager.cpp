@@ -1096,6 +1096,7 @@ AudioManager::SetPhoneState(int32_t aState) {
     return NS_ERROR_FAILURE;
   }
 
+  MaybeUpdateVolumeSettingToDatabase();
   mPhoneState = aState;
   return NS_OK;
 }
