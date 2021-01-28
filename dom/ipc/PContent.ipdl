@@ -224,6 +224,12 @@ struct SystemFontListEntry {
 };
 #endif
 
+struct DeviceStorageIsDiskFullParams
+{
+  nsString type;
+  nsString storageName;
+};
+
 struct DeviceStorageFreeSpaceParams
 {
   nsString type;
@@ -320,6 +326,7 @@ union DeviceStorageParams
   DeviceStorageGetParams;
   DeviceStorageDeleteParams;
   DeviceStorageEnumerationParams;
+  DeviceStorageIsDiskFullParams;
   DeviceStorageFreeSpaceParams;
   DeviceStorageUsedSpaceParams;
   DeviceStorageAvailableParams;
