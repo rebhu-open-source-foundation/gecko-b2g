@@ -1703,9 +1703,9 @@ nsresult AudioManager::VolumeStreamState::SetVolumeIndex(uint32_t aIndex,
 
 void AudioManager::VolumeStreamState::RestoreVolumeIndexToAllDevices() {
   for (auto iter = mVolumeIndexes.Iter(); !iter.Done(); iter.Next()) {
-    const uint32_t& key = iter.Key();
-    uint32_t& index = iter.Data();
-    SetVolumeIndex(key, index, /* aUpdateCache */ false);
+    uint32_t device = iter.Key();
+    uint32_t index = iter.Data();
+    SetVolumeIndex(index, device, /* aUpdateCache */ false);
   }
 }
 
