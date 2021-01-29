@@ -1803,11 +1803,15 @@ void MInitializedLength::computeRange(TempAllocator& alloc) {
 }
 
 void MArrayBufferViewLength::computeRange(TempAllocator& alloc) {
-  setRange(Range::NewUInt32Range(alloc, 0, INT32_MAX));
+  if (ArrayBufferObject::maxBufferByteLength() <= INT32_MAX) {
+    setRange(Range::NewUInt32Range(alloc, 0, INT32_MAX));
+  }
 }
 
 void MArrayBufferViewByteOffset::computeRange(TempAllocator& alloc) {
-  setRange(Range::NewUInt32Range(alloc, 0, INT32_MAX));
+  if (ArrayBufferObject::maxBufferByteLength() <= INT32_MAX) {
+    setRange(Range::NewUInt32Range(alloc, 0, INT32_MAX));
+  }
 }
 
 void MTypedArrayElementShift::computeRange(TempAllocator& alloc) {
@@ -2353,6 +2357,16 @@ bool RangeAnalysis::tryHoistBoundsCheck(MBasicBlock* header,
       MOZ_ASSERT(length->isConstant());
       MInstruction* lengthIns = length->toInstruction();
       lengthIns->block()->moveBefore(preLoop->lastIns(), lengthIns);
+    }
+
+    // If the length is IntPtr, convert the upperTerm to that as well for the
+    // bounds check.
+    if (length->type() == MIRType::IntPtr) {
+      MOZ_ASSERT(upperTerm->type() == MIRType::Int32);
+      upperTerm = MInt32ToIntPtr::New(alloc(), upperTerm);
+      upperTerm->computeRange(alloc());
+      upperTerm->collectRangeInfoPreTrunc();
+      preLoop->insertBefore(preLoop->lastIns(), upperTerm->toInstruction());
     }
 
     MBoundsCheck* upperCheck = MBoundsCheck::New(alloc(), upperTerm, length);

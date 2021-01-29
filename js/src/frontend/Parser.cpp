@@ -354,9 +354,8 @@ typename ParseHandler::ListNodeType GeneralParser<ParseHandler, Unit>::parse() {
   SourceExtent extent = SourceExtent::makeGlobalExtent(
       /* len = */ 0, options().lineno, options().column);
   Directives directives(options().forceStrictMode());
-  GlobalSharedContext globalsc(cx_, ScopeKind::Global,
-                               this->getCompilationStencil(), directives,
-                               extent);
+  GlobalSharedContext globalsc(cx_, ScopeKind::Global, this->stencil_,
+                               directives, extent);
   SourceParseContext globalpc(this, &globalsc, /* newDirectives = */ nullptr);
   if (!globalpc.init()) {
     return null();
@@ -849,8 +848,8 @@ bool PerHandlerParser<ParseHandler>::
       //   After closed-over-bindings are snapshotted in the handler,
       //   remove this.
       const ParserAtom* parserAtom =
-          this->compilationState_.parserAtoms.internJSAtom(
-              cx_, this->getCompilationStencil(), name);
+          this->compilationState_.parserAtoms.internJSAtom(cx_, this->stencil_,
+                                                           name);
       if (!parserAtom) {
         return false;
       }
@@ -1594,12 +1593,12 @@ LexicalScopeNode* Parser<FullParseHandler, Unit>::evalBody(
 
 #ifdef DEBUG
   if (evalpc.superScopeNeedsHomeObject() &&
-      this->getCompilationStencil().input.enclosingScope) {
+      this->stencil_.input.enclosingScope) {
     // If superScopeNeedsHomeObject_ is set and we are an entry-point
     // ParseContext, then we must be emitting an eval script, and the
     // outer function must already be marked as needing a home object
     // since it contains an eval.
-    ScopeIter si(this->getCompilationStencil().input.enclosingScope);
+    ScopeIter si(this->stencil_.input.enclosingScope);
     for (; si; si++) {
       if (si.kind() == ScopeKind::Function) {
         JSFunction* fun = si.scope()->as<FunctionScope>().canonicalFunction();
@@ -2793,7 +2792,7 @@ bool Parser<FullParseHandler, Unit>::skipLazyInnerFunction(
   }
 
   ScriptStencil& script = funbox->functionStencil();
-  funbox->initFromLazyFunction(fun);
+  funbox->initFromLazyFunctionToSkip(fun);
   funbox->copyFunctionFields(script);
 
   MOZ_ASSERT_IF(pc_->isFunctionBox(),
@@ -3279,9 +3278,8 @@ FunctionNode* Parser<FullParseHandler, Unit>::standaloneLazyFunction(
   if (!funbox) {
     return null();
   }
-  funbox->initFromLazyFunction(fun);
-  funbox->initStandalone(this->compilationState_.scopeContext, fun->flags(),
-                         syntaxKind);
+  funbox->initFromLazyFunction(fun, this->compilationState_.scopeContext,
+                               fun->flags(), syntaxKind);
   if (funbox->useMemberInitializers()) {
     funbox->setMemberInitializers(fun->baseScript()->getMemberInitializers());
   }
@@ -10465,24 +10463,31 @@ BigIntLiteral* Parser<FullParseHandler, Unit>::newBigInt() {
   // BigIntLiteralSuffix (the trailing "n").  Note that NonDecimalIntegerLiteral
   // productions start with 0[bBoOxX], indicating binary/octal/hex.
   const auto& chars = tokenStream.getCharBuffer();
+  if (chars.length() > UINT32_MAX) {
+    ReportAllocationOverflow(cx_);
+    return null();
+  }
 
-  BigIntIndex index(this->getCompilationStencil().bigIntData.length());
+  BigIntIndex index(this->compilationState_.bigIntData.length());
   if (uint32_t(index) >= TaggedScriptThingIndex::IndexLimit) {
     ReportAllocationOverflow(cx_);
     return null();
   }
-  if (!this->getCompilationStencil().bigIntData.emplaceBack()) {
+  if (!this->compilationState_.bigIntData.emplaceBack()) {
     js::ReportOutOfMemory(cx_);
     return null();
   }
 
-  if (!this->getCompilationStencil().bigIntData[index].init(this->cx_, chars)) {
+  if (!this->compilationState_.bigIntData[index].init(
+          this->cx_, this->stencilAlloc(), chars)) {
     return null();
   }
 
+  bool isZero = this->compilationState_.bigIntData[index].isZero();
+
   // Should the operations below fail, the buffer held by data will
   // be cleaned up by the CompilationStencil destructor.
-  return handler_.newBigInt(index, this->getCompilationStencil(), pos());
+  return handler_.newBigInt(index, isZero, pos());
 }
 
 template <typename Unit>

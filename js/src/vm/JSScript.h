@@ -1564,6 +1564,17 @@ class BaseScript : public gc::TenuredCellWithNonGCPointer<uint8_t> {
     MOZ_ASSERT(extent_.toStringStart <= extent_.sourceStart);
     MOZ_ASSERT(extent_.sourceStart <= extent_.sourceEnd);
     MOZ_ASSERT(extent_.sourceEnd <= extent_.toStringEnd);
+
+    // The immutableFlags determine if the arguments-analysis will need to be
+    // run. We track if we need to run the analysis and the result of the
+    // analysis on the mutableFlags. The analysis is deterministic so we only
+    // need it once, even if we relazify, etc.
+    if (argumentsHasVarBinding()) {
+      setFlag(MutableFlags::NeedsArgsObj, alwaysNeedsArgsObj());
+      setFlag(MutableFlags::NeedsArgsAnalysis, !alwaysNeedsArgsObj());
+    } else {
+      MOZ_ASSERT(!alwaysNeedsArgsObj());
+    }
   }
 
   void setJitCodeRaw(uint8_t* code) { setHeaderPtr(code); }
@@ -2080,10 +2091,6 @@ class JSScript : public js::BaseScript {
   static void argumentsOptimizationFailed(JSContext* cx,
                                           js::HandleScript script);
 
-  // Update the the arguments analysis flags based on the frontend
-  // derived information.
-  void resetArgsUsageAnalysis();
-
   /*
    * Arguments access (via JSOp::*Arg* opcodes) must access the canonical
    * location for the argument. If an arguments object exists AND it's mapped
@@ -2477,8 +2484,7 @@ JSScript* CloneScriptIntoFunction(JSContext* cx, HandleScope enclosingScope,
                                   Handle<ScriptSourceObject*> sourceObject,
                                   SourceExtent* maybeClassExtent = nullptr);
 
-JSScript* CloneGlobalScript(JSContext* cx, ScopeKind scopeKind,
-                            HandleScript src);
+JSScript* CloneGlobalScript(JSContext* cx, HandleScript src);
 
 bool CheckCompileOptionsMatch(const JS::ReadOnlyCompileOptions& options,
                               js::ImmutableScriptFlags flags,

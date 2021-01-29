@@ -27,7 +27,6 @@
 #include "nsIAuthPromptProvider.h"
 #include "nsIBrowserDOMWindow.h"
 #include "nsIDOMEventListener.h"
-#include "nsIKeyEventInPluginCallback.h"
 #include "nsIRemoteTab.h"
 #include "nsIWidget.h"
 #include "nsWeakReference.h"
@@ -84,7 +83,6 @@ class StructuredCloneData;
 class BrowserParent final : public PBrowserParent,
                             public nsIDOMEventListener,
                             public nsIAuthPromptProvider,
-                            public nsIKeyEventInPluginCallback,
                             public nsSupportsWeakReference,
                             public TabContext,
                             public LiveResizeListener {
@@ -384,13 +382,6 @@ class BrowserParent final : public PBrowserParent,
   mozilla::ipc::IPCResult RecvSetInputContext(
       const widget::InputContext& aContext,
       const widget::InputContextAction& aAction);
-
-  // See nsIKeyEventInPluginCallback
-  virtual void HandledWindowedPluginKeyEvent(
-      const NativeEventData& aKeyEventData, bool aIsConsumed) override;
-
-  mozilla::ipc::IPCResult RecvOnWindowedPluginKeyEvent(
-      const NativeEventData& aKeyEventData);
 
   mozilla::ipc::IPCResult RecvRequestFocus(const bool& aCanRaise,
                                            const CallerType aCallerType);

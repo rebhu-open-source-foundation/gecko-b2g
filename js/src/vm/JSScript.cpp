@@ -37,7 +37,7 @@
 #include "frontend/CompilationInfo.h"  // frontend::BaseCompilationStencil
 #include "frontend/SharedContext.h"
 #include "frontend/SourceNotes.h"  // SrcNote, SrcNoteType, SrcNoteIterator
-#include "frontend/StencilXdr.h"   // frontend::StencilXdr::SharedData
+#include "frontend/StencilXdr.h"  // frontend::StencilXdr::SharedData, CanCopyDataToDisk
 #include "gc/FreeOp.h"
 #include "jit/BaselineJIT.h"
 #include "jit/CacheIRHealth.h"
@@ -944,69 +944,40 @@ ImmutableScriptData::ImmutableScriptData(uint32_t codeLength,
 template <XDRMode mode>
 XDRResult js::XDRImmutableScriptData(XDRState<mode>* xdr,
                                      UniquePtr<ImmutableScriptData>& isd) {
-  uint32_t codeLength = 0;
-  uint32_t noteLength = 0;
-  uint32_t numResumeOffsets = 0;
-  uint32_t numScopeNotes = 0;
-  uint32_t numTryNotes = 0;
+  static_assert(frontend::CanCopyDataToDisk<ImmutableScriptData>::value,
+                "ImmutableScriptData cannot be bulk-copied to disk");
+  static_assert(frontend::CanCopyDataToDisk<jsbytecode>::value,
+                "jsbytecode cannot be bulk-copied to disk");
+  static_assert(frontend::CanCopyDataToDisk<SrcNote>::value,
+                "SrcNote cannot be bulk-copied to disk");
+  static_assert(frontend::CanCopyDataToDisk<ScopeNote>::value,
+                "ScopeNote cannot be bulk-copied to disk");
+  static_assert(frontend::CanCopyDataToDisk<TryNote>::value,
+                "TryNote cannot be bulk-copied to disk");
 
-  JSContext* cx = xdr->cx();
-
+  uint32_t size;
   if (mode == XDR_ENCODE) {
-    codeLength = isd->codeLength();
-    noteLength = isd->noteLength();
-
-    numResumeOffsets = isd->resumeOffsets().size();
-    numScopeNotes = isd->scopeNotes().size();
-    numTryNotes = isd->tryNotes().size();
+    size = isd->immutableData().size();
   }
+  MOZ_TRY(xdr->codeUint32(&size));
 
-  MOZ_TRY(xdr->codeUint32(&codeLength));
-  MOZ_TRY(xdr->codeUint32(&noteLength));
-  MOZ_TRY(xdr->codeUint32(&numResumeOffsets));
-  MOZ_TRY(xdr->codeUint32(&numScopeNotes));
-  MOZ_TRY(xdr->codeUint32(&numTryNotes));
-
-  if (mode == XDR_DECODE) {
-    isd =
-        ImmutableScriptData::new_(cx, codeLength, noteLength, numResumeOffsets,
-                                  numScopeNotes, numTryNotes);
+  uint8_t* data;
+  if (mode == XDR_ENCODE) {
+    data = const_cast<uint8_t*>(isd->immutableData().data());
+    MOZ_ASSERT(data == reinterpret_cast<const uint8_t*>(isd.get()),
+               "Decode below relies on the data placement");
+  } else {
+    isd = ImmutableScriptData::new_(xdr->cx(), size);
     if (!isd) {
       return xdr->fail(JS::TranscodeResult_Throw);
     }
+    data = reinterpret_cast<uint8_t*>(isd.get());
   }
-
-  MOZ_TRY(xdr->codeUint32(&isd->mainOffset));
-  MOZ_TRY(xdr->codeUint32(&isd->nfixed));
-  MOZ_TRY(xdr->codeUint32(&isd->nslots));
-  MOZ_TRY(xdr->codeUint32(&isd->bodyScopeIndex.index));
-  MOZ_TRY(xdr->codeUint32(&isd->numICEntries));
-  MOZ_TRY(xdr->codeUint16(&isd->funLength));
-
-  static_assert(sizeof(jsbytecode) == 1);
-  static_assert(sizeof(SrcNote) == 1);
-
-  jsbytecode* code = isd->code();
-  SrcNote* notes = isd->notes();
-  MOZ_TRY(xdr->codeBytes(code, codeLength));
-  MOZ_TRY(xdr->codeBytes(notes, noteLength));
-
-  for (uint32_t& elem : isd->resumeOffsets()) {
-    MOZ_TRY(xdr->codeUint32(&elem));
-  }
-
-  for (ScopeNote& elem : isd->scopeNotes()) {
-    MOZ_TRY(xdr->codeUint32(&elem.index.index));
-    MOZ_TRY(xdr->codeUint32(&elem.start));
-    MOZ_TRY(xdr->codeUint32(&elem.length));
-    MOZ_TRY(xdr->codeUint32(&elem.parent));
-  }
-
-  for (TryNote& elem : isd->tryNotes()) {
-    MOZ_TRY(xdr->codeUint32(&elem.kind_));
-    MOZ_TRY(xdr->codeUint32(&elem.stackDepth));
-    MOZ_TRY(xdr->codeUint32(&elem.start));
-    MOZ_TRY(xdr->codeUint32(&elem.length));
+  MOZ_TRY(xdr->codeBytes(data, size));
+  if (mode == XDR_DECODE) {
+#ifdef DEBUG
+    isd->validate(size);
+#endif
   }
 
   return Ok();
@@ -1216,9 +1187,6 @@ XDRResult js::XDRScript(XDRState<mode>* xdr, HandleScope scriptEnclosingScope,
       return xdr->fail(JS::TranscodeResult_Throw);
     }
     scriptp.set(script);
-
-    // Reset the mutable flags to request arguments analysis as needed.
-    script->resetArgsUsageAnalysis();
 
     // Set the script in its function now so that inner scripts to be
     // decoded may iterate the static scope chain.
@@ -3512,23 +3480,32 @@ bool ScriptSource::setSourceMapURL(JSContext* cx, UniqueTwoByteChars&& url) {
  * TryNote          tryNotes()
  */
 
-js::UniquePtr<ImmutableScriptData> js::ImmutableScriptData::new_(
-    JSContext* cx, uint32_t codeLength, uint32_t noteLength,
-    uint32_t numResumeOffsets, uint32_t numScopeNotes, uint32_t numTryNotes) {
+/* static */ CheckedInt<uint32_t> ImmutableScriptData::sizeFor(
+    uint32_t codeLength, uint32_t noteLength, uint32_t numResumeOffsets,
+    uint32_t numScopeNotes, uint32_t numTryNotes) {
   // Take a count of which optional arrays will be used and need offset info.
   unsigned numOptionalArrays = unsigned(numResumeOffsets > 0) +
                                unsigned(numScopeNotes > 0) +
                                unsigned(numTryNotes > 0);
 
   // Compute size including trailing arrays.
-  CheckedInt<Offset> size = sizeof(ImmutableScriptData);
+  CheckedInt<uint32_t> size = sizeof(ImmutableScriptData);
   size += sizeof(Flags);
-  size += CheckedInt<Offset>(codeLength) * sizeof(jsbytecode);
-  size += CheckedInt<Offset>(noteLength) * sizeof(SrcNote);
-  size += CheckedInt<Offset>(numOptionalArrays) * sizeof(Offset);
-  size += CheckedInt<Offset>(numResumeOffsets) * sizeof(uint32_t);
-  size += CheckedInt<Offset>(numScopeNotes) * sizeof(ScopeNote);
-  size += CheckedInt<Offset>(numTryNotes) * sizeof(TryNote);
+  size += CheckedInt<uint32_t>(codeLength) * sizeof(jsbytecode);
+  size += CheckedInt<uint32_t>(noteLength) * sizeof(SrcNote);
+  size += CheckedInt<uint32_t>(numOptionalArrays) * sizeof(Offset);
+  size += CheckedInt<uint32_t>(numResumeOffsets) * sizeof(uint32_t);
+  size += CheckedInt<uint32_t>(numScopeNotes) * sizeof(ScopeNote);
+  size += CheckedInt<uint32_t>(numTryNotes) * sizeof(TryNote);
+
+  return size;
+}
+
+js::UniquePtr<ImmutableScriptData> js::ImmutableScriptData::new_(
+    JSContext* cx, uint32_t codeLength, uint32_t noteLength,
+    uint32_t numResumeOffsets, uint32_t numScopeNotes, uint32_t numTryNotes) {
+  auto size = sizeFor(codeLength, noteLength, numResumeOffsets, numScopeNotes,
+                      numTryNotes);
   if (!size.isValid()) {
     ReportAllocationOverflow(cx);
     return nullptr;
@@ -3554,6 +3531,24 @@ js::UniquePtr<ImmutableScriptData> js::ImmutableScriptData::new_(
 
   return result;
 }
+
+js::UniquePtr<ImmutableScriptData> js::ImmutableScriptData::new_(
+    JSContext* cx, uint32_t totalSize) {
+  void* raw = cx->pod_malloc<uint8_t>(totalSize);
+  MOZ_ASSERT(uintptr_t(raw) % alignof(ImmutableScriptData) == 0);
+  UniquePtr<ImmutableScriptData> result(
+      reinterpret_cast<ImmutableScriptData*>(raw));
+  return result;
+}
+
+#ifdef DEBUG
+void js::ImmutableScriptData::validate(uint32_t totalSize) {
+  auto size = sizeFor(codeLength(), noteLength(), resumeOffsets().size(),
+                      scopeNotes().size(), tryNotes().size());
+  MOZ_ASSERT(size.isValid());
+  MOZ_ASSERT(size.value() == totalSize);
+}
+#endif
 
 /* static */
 SharedImmutableScriptData* SharedImmutableScriptData::create(JSContext* cx) {
@@ -3873,9 +3868,6 @@ bool JSScript::fullyInitFromStencil(
                                                 .scriptExtra[scriptIndex]
                                                 .immutableFlags);
 
-  // Derive initial mutable flags
-  script->resetArgsUsageAnalysis();
-
   // Create and initialize PrivateScriptData
   if (!PrivateScriptData::InitFromStencil(cx, script, input, stencil, gcOutput,
                                           scriptIndex)) {
@@ -3963,14 +3955,6 @@ JSScript* JSScript::fromStencil(JSContext* cx,
   }
 
   return script;
-}
-
-void JSScript::resetArgsUsageAnalysis() {
-  MOZ_ASSERT_IF(alwaysNeedsArgsObj(), argumentsHasVarBinding());
-  if (argumentsHasVarBinding()) {
-    setFlag(MutableFlags::NeedsArgsObj, alwaysNeedsArgsObj());
-    setFlag(MutableFlags::NeedsArgsAnalysis, !alwaysNeedsArgsObj());
-  }
 }
 
 #ifdef DEBUG
@@ -4538,9 +4522,6 @@ static JSScript* CopyScriptImpl(JSContext* cx, HandleScript src,
     return nullptr;
   }
 
-  // Reset the mutable flags to request arguments analysis as needed.
-  dst->resetArgsUsageAnalysis();
-
   // Maintain this flag when cloning self-hosted functions.
   if (src->isInlinableLargeFunction()) {
     dst->setIsInlinableLargeFunction();
@@ -4557,10 +4538,10 @@ static JSScript* CopyScriptImpl(JSContext* cx, HandleScript src,
   return dst;
 }
 
-JSScript* js::CloneGlobalScript(JSContext* cx, ScopeKind scopeKind,
-                                HandleScript src) {
-  MOZ_ASSERT(scopeKind == ScopeKind::Global ||
-             scopeKind == ScopeKind::NonSyntactic);
+JSScript* js::CloneGlobalScript(JSContext* cx, HandleScript src) {
+  MOZ_ASSERT(src->realm() != cx->realm(),
+             "js::CloneGlobalScript should only be used for for realm "
+             "mismatches. Otherwise just share the script directly.");
 
   Rooted<ScriptSourceObject*> sourceObject(cx, src->sourceObject());
   if (cx->compartment() != sourceObject->compartment()) {
@@ -4573,7 +4554,7 @@ JSScript* js::CloneGlobalScript(JSContext* cx, ScopeKind scopeKind,
   MOZ_ASSERT(src->bodyScopeIndex() == GCThingIndex::outermostScopeIndex());
   Rooted<GCVector<Scope*>> scopes(cx, GCVector<Scope*>(cx));
   Rooted<GlobalScope*> original(cx, &src->bodyScope()->as<GlobalScope>());
-  GlobalScope* clone = GlobalScope::clone(cx, original, scopeKind);
+  GlobalScope* clone = GlobalScope::clone(cx, original);
   if (!clone || !scopes.append(clone)) {
     return nullptr;
   }
@@ -4599,6 +4580,10 @@ JSScript* js::CloneScriptIntoFunction(JSContext* cx, HandleScope enclosingScope,
                                       HandleFunction fun, HandleScript src,
                                       Handle<ScriptSourceObject*> sourceObject,
                                       SourceExtent* maybeClassExtent) {
+  MOZ_ASSERT(src->realm() != cx->realm(),
+             "js::CloneScriptIntoFunction should only be used for for realm "
+             "mismatches. Otherwise just share the script directly.");
+
   // We are either delazifying a self-hosted lazy function or the function
   // should be in an inactive state.
   MOZ_ASSERT(fun->isIncomplete() || fun->hasSelfHostedLazyScript());

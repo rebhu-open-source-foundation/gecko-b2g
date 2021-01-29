@@ -6781,7 +6781,10 @@ nsresult nsHttpChannel::MaybeStartDNSPrefetch() {
     // When LoadUseHTTPSSVC() is true, we should really "fetch" the HTTPS RR,
     // not "prefetch", since DNS prefetch can be disabled by the pref.
     if (LoadUseHTTPSSVC() ||
-        gHttpHandler->UseHTTPSRRForSpeculativeConnection()) {
+        (gHttpHandler->UseHTTPSRRForSpeculativeConnection() &&
+         !mHTTPSSVCRecord)) {
+      MOZ_ASSERT(!mHTTPSSVCRecord);
+
       OriginAttributes originAttributes;
       StoragePrincipalHelper::GetOriginAttributesForHTTPSRR(this,
                                                             originAttributes);
@@ -8977,7 +8980,11 @@ void nsHttpChannel::OnHTTPSRRAvailable(nsIDNSHTTPSSVCRecord* aRecord) {
   LOG(("nsHttpChannel::OnHTTPSRRAvailable [this=%p, aRecord=%p]\n", this,
        aRecord));
 
-  MOZ_ASSERT(!mHTTPSSVCRecord);
+  if (mHTTPSSVCRecord) {
+    MOZ_ASSERT(false, "OnHTTPSRRAvailable called twice!");
+    return;
+  }
+
   nsCOMPtr<nsIDNSHTTPSSVCRecord> record = aRecord;
   mHTTPSSVCRecord.emplace(std::move(record));
   const nsCOMPtr<nsIDNSHTTPSSVCRecord>& httprr = mHTTPSSVCRecord.ref();
@@ -9693,8 +9700,11 @@ nsresult nsHttpChannel::MaybeRaceCacheWithNetwork() {
   rv = netLinkSvc->GetLinkType(&linkType);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  if (!(linkType == nsINetworkLinkService::LINK_TYPE_UNKNOWN ||
-        linkType == nsINetworkLinkService::LINK_TYPE_ETHERNET ||
+  if (!(linkType == nsINetworkLinkService::LINK_TYPE_ETHERNET ||
+#ifndef MOZ_WIDGET_ANDROID
+        // On Android we don't assume an unknown link type is unmetered
+        linkType == nsINetworkLinkService::LINK_TYPE_UNKNOWN ||
+#endif
         linkType == nsINetworkLinkService::LINK_TYPE_USB ||
         linkType == nsINetworkLinkService::LINK_TYPE_WIFI)) {
     return NS_OK;

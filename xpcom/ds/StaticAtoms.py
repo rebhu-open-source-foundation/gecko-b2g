@@ -860,8 +860,6 @@ STATIC_ATOMS = [
     Atom("onMozAfterPaint", "onMozAfterPaint"),
     Atom("onmozfullscreenchange", "onmozfullscreenchange"),
     Atom("onmozfullscreenerror", "onmozfullscreenerror"),
-    Atom("onmozkeydownonplugin", "onmozkeydownonplugin"),
-    Atom("onmozkeyuponplugin", "onmozkeyuponplugin"),
     Atom("onmozpointerlockchange", "onmozpointerlockchange"),
     Atom("onmozpointerlockerror", "onmozpointerlockerror"),
     Atom("onMozMousePixelScroll", "onMozMousePixelScroll"),

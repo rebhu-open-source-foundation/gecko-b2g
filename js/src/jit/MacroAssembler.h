@@ -4213,9 +4213,13 @@ class MacroAssembler : public MacroAssemblerSpecific {
       JS::ExpandoAndGeneration* expandoAndGeneration, uint64_t generation,
       Label* fail);
 
-  void loadArrayBufferByteLengthInt32(Register obj, Register output);
-  void loadArrayBufferViewByteOffsetInt32(Register obj, Register output);
-  void loadArrayBufferViewLengthInt32(Register obj, Register output);
+  void loadArrayBufferByteLengthInt32(Register obj, Register output,
+                                      Label* fail);
+  void loadArrayBufferViewByteOffsetInt32(Register obj, Register output,
+                                          Label* fail);
+  void loadArrayBufferViewLengthInt32(Register obj, Register output,
+                                      Label* fail);
+  void loadArrayBufferViewLengthPtr(Register obj, Register output);
 
  private:
   void isCallableOrConstructor(bool isCallable, Register obj, Register output,

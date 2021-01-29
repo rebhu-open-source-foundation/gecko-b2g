@@ -388,7 +388,7 @@ class FunctionBox : public SuspendableContext {
   // This is set by the BytecodeEmitter of the enclosing script when a reference
   // to this function is generated. This is also used to determine a hoisted
   // function already is referenced by the bytecode.
-  bool wasEmitted_ : 1;
+  bool wasEmittedByEnclosingScript_ : 1;
 
   // Need to emit a synthesized Annex B assignment
   bool isAnnexB : 1;
@@ -413,6 +413,14 @@ class FunctionBox : public SuspendableContext {
   // True if this is part of initial compilation.
   // False if this is part of delazification.
   bool isInitialCompilation : 1;
+
+  // True if this is standalone function
+  // (new Function() including generator/async, or event handler).
+  bool isStandalone : 1;
+
+  // Valid only if isStandalone is true.
+  // True if this standalone function has non-syntactic enclosing scope.
+  bool hasNonSyntacticEnclosingScopeForStandalone : 1;
 
   // End of fields.
 
@@ -445,20 +453,29 @@ class FunctionBox : public SuspendableContext {
     extraVarScopeBindings_ = bindings;
   }
 
-  void initFromLazyFunction(JSFunction* fun);
-
+  void initFromLazyFunction(JSFunction* fun, ScopeContext& scopeContext,
+                            FunctionFlags flags, FunctionSyntaxKind kind);
+  void initFromLazyFunctionToSkip(JSFunction* fun);
   void initStandalone(ScopeContext& scopeContext, FunctionFlags flags,
                       FunctionSyntaxKind kind);
 
+ private:
+  void initFromLazyFunctionShared(JSFunction* fun);
+  void initStandaloneOrLazy(ScopeContext& scopeContext, FunctionFlags flags,
+                            FunctionSyntaxKind kind);
+
+ public:
   void initWithEnclosingParseContext(ParseContext* enclosing,
                                      FunctionFlags flags,
                                      FunctionSyntaxKind kind);
 
   void setEnclosingScopeForInnerLazyFunction(ScopeIndex scopeIndex);
 
-  bool wasEmitted() const { return wasEmitted_; }
-  void setWasEmitted(bool wasEmitted) {
-    wasEmitted_ = wasEmitted;
+  bool wasEmittedByEnclosingScript() const {
+    return wasEmittedByEnclosingScript_;
+  }
+  void setWasEmittedByEnclosingScript(bool wasEmitted) {
+    wasEmittedByEnclosingScript_ = wasEmitted;
     if (isFunctionFieldCopiedToStencil) {
       copyUpdatedWasEmitted();
     }

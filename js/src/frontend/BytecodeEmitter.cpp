@@ -1669,12 +1669,13 @@ bool BytecodeEmitter::addObjLiteralData(ObjLiteralWriter& writer,
   }
   memcpy(code, writer.getCode().data(), len);
 
-  ObjLiteralIndex objIndex(stencil.objLiteralData.length());
+  ObjLiteralIndex objIndex(compilationState.objLiteralData.length());
   if (uint32_t(objIndex) >= TaggedScriptThingIndex::IndexLimit) {
     ReportAllocationOverflow(cx);
     return false;
   }
-  if (!stencil.objLiteralData.emplaceBack(code, len, writer.getFlags())) {
+  if (!compilationState.objLiteralData.emplaceBack(code, len,
+                                                   writer.getFlags())) {
     js::ReportOutOfMemory(cx);
     return false;
   }
@@ -5822,10 +5823,10 @@ MOZ_NEVER_INLINE bool BytecodeEmitter::emitFunction(
                          ? FunctionEmitter::IsHoisted::Yes
                          : FunctionEmitter::IsHoisted::No);
 
-  // Set the |wasEmitted| flag in the funbox once the function has been
-  // emitted. Function definitions that need hoisting to the top of the
+  // |wasEmittedByEnclosingScript| flag is set to true once the function has
+  // been emitted. Function definitions that need hoisting to the top of the
   // function will be seen by emitFunction in two places.
-  if (funbox->wasEmitted()) {
+  if (funbox->wasEmittedByEnclosingScript()) {
     if (!fe.emitAgain()) {
       //            [stack]
       return false;
