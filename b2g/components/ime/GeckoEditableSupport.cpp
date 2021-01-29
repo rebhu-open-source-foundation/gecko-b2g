@@ -22,6 +22,7 @@
 #include "nsIDocShell.h"
 #include "mozilla/dom/IMELog.h"
 #include "mozilla/dom/InputMethodService.h"
+#include "nsCharSeparatedTokenizer.h"
 #include "nsFocusManager.h"
 #include "mozilla/dom/HTMLInputElement.h"
 #include "mozilla/dom/HTMLTextAreaElement.h"

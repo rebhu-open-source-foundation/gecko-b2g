@@ -1225,8 +1225,8 @@ pref("externalAPI.websocket.url", "ws://localhost/");
 pref("device.mvs", true);
 #endif
 
-pref("voice-input.enabled", true);
-pref("voice-input.icon-url", "http://shared.localhost/icons/voice-input.svg");
+pref("voice-input.enabled", false);
+pref("voice-input.icon-url", "http://shared.localhost/style/voice-input/icons/voice-input.svg");
 pref("voice-input.supported-types", "text, search, url, tel, number, month, week");
 
 pref("dom.popup_allowed_events", "change click dblclick auxclick mouseup pointerup notificationclick reset submit touchend contextmenu keydown keyup");
