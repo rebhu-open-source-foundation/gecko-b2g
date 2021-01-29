@@ -6448,6 +6448,7 @@ ICCPDUHelperObject.prototype = {
          *       bit 8 = 1
          *       UCS2 character whose char code is (Ch_n & 0x7f) + offset
          */
+        GsmPDUHelper.initWith(value);
         let len = GsmPDUHelper.readHexOctet();
         let offset, headerLen;
         if (scheme == 0x81) {
@@ -6471,14 +6472,16 @@ ICCPDUHelperObject.prototype = {
             while (i + count + 1 < len) {
               count++;
               if (GsmPDUHelper.readHexOctet() & 0x80) {
+                GsmPDUHelper.seekIncoming(-1 * PDU_HEX_OCTET_SIZE);
                 gotUCS2 = 1;
                 break;
               }
             }
             // Unread.
             // +1 for the GSM alphabet indexed at i,
-            GsmPDUHelper.seekIncoming(-1 * (count + 1) * PDU_HEX_OCTET_SIZE);
-            str += this.read8BitUnpackedToString(count + 1 - gotUCS2);
+            //GsmPDUHelper.seekIncoming(-1 * (count + 1) * PDU_HEX_OCTET_SIZE);
+            let gsm8bitValue = value.slice(GsmPDUHelper.pduReadIndex -(count * PDU_HEX_OCTET_SIZE));
+            str += this.read8BitUnpackedToString(gsm8bitValue, count + 1 - gotUCS2);
             i += count - gotUCS2;
           }
         }
@@ -6576,12 +6579,12 @@ ICCPDUHelperObject.prototype = {
     }
     let GsmPDUHelper = this.context.GsmPDUHelper;
 
-    let temp = GsmPDUHelper.processHexToInt(value.slice(0, 2), 16);
+    let scheme = GsmPDUHelper.processHexToInt(value.slice(0, 2), 16);
     // Read the 1st octet to determine the encoding.
-    if (temp == 0x80 || temp == 0x81 || temp == 0x82) {
+    if (scheme == 0x80 || scheme == 0x81 || scheme == 0x82) {
       numOctets--;
       value = value.slice(2);
-      let string = this.readICCUCS2String(temp, value, numOctets);
+      let string = this.readICCUCS2String(scheme, value, numOctets);
       return string;
     }
     let string = this.read8BitUnpackedToString(value, numOctets);
