@@ -290,6 +290,16 @@ var Activities = {
               { wrappedJSObject: detail },
               "activity-aborted"
             );
+          } else if (value.origin == origin) {
+            debug(
+              "Remove caller due to service worker shutdown, caller=" +
+                value.origin +
+                " handler=" +
+                value.handlerOrigin +
+                " handlerPID=" +
+                value.handlerPID
+            );
+            messages.push(key);
           }
         }
         let self = this;
@@ -543,7 +553,13 @@ var Activities = {
               id,
               error: "ACTIVITY_HANDLER_SHUTDOWN",
             });
-            break;
+          } else if (this.callers[id].mm == mm) {
+            // if the caller crash, remove it from the callers.
+            debug(
+              "Caller shutdown due to process shutdown, caller=" +
+                this.callers[id].origin
+            );
+            this.removeCaller(id);
           }
         }
         break;
