@@ -280,6 +280,16 @@ var Activities = {
                 value.handlerPID
             );
             messages.push(key);
+
+            let detail = {
+              reason: "service-worker-shutdown",
+              caller: value.origin,
+              handler: value.handlerOrigin,
+            };
+            Services.obs.notifyObservers(
+              { wrappedJSObject: detail },
+              "activity-aborted"
+            );
           }
         }
         let self = this;
@@ -456,6 +466,15 @@ var Activities = {
         break;
 
       case "Activity:Cancel":
+        let detail = {
+          reason: "caller-canceled",
+          caller: this.callers[msg.id].origin,
+          handler: this.callers[msg.id].handlerOrigin,
+        };
+        Services.obs.notifyObservers(
+          { wrappedJSObject: detail },
+          "activity-aborted"
+        );
         this.trySendAndCleanup(msg.id, "Activity:FireCancel", msg);
         break;
 
@@ -509,6 +528,17 @@ var Activities = {
                 " handlerPID=" +
                 this.callers[id].handlerPID
             );
+
+            let detail = {
+              reason: "process-shutdown",
+              caller: this.callers[id].origin,
+              handler: this.callers[id].handlerOrigin,
+            };
+            Services.obs.notifyObservers(
+              { wrappedJSObject: detail },
+              "activity-aborted"
+            );
+
             this.trySendAndCleanup(id, "Activity:FireError", {
               id,
               error: "ACTIVITY_HANDLER_SHUTDOWN",

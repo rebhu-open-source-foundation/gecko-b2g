@@ -341,6 +341,15 @@ XPCOMUtils.defineLazyServiceGetter(
       }, "activity-choice");
 
       Services.obs.addObserver((subject, topic, data) => {
+        _webembed_log("receive activity-aborted");
+        this.dispatchEvent(
+          new CustomEvent(topic, {
+            detail: subject.wrappedJSObject,
+          })
+        );
+      }, "activity-aborted");
+
+      Services.obs.addObserver((subject, topic, data) => {
         _webembed_log(`receive inputmethod-contextchange: ${data}`);
         if (data == null) {
           return;
