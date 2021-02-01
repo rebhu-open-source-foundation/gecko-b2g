@@ -92,6 +92,11 @@ bool isVoiceInputSupported(Element* aElement,
   }
   aElement->GetAttribute(u"type"_ns, attributeValue);
   for (uint32_t i = 0; i < aSupportedTypes.Length(); ++i) {
+    if (attributeValue.Equals(aSupportedTypes[i])) {
+      return true;
+    }
+  }
+  if (EditableUtils::isContentEditable(aElement)) {
     return true;
   }
   return false;
