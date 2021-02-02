@@ -86,7 +86,8 @@ bool isVoiceInputSupported(Element* aElement,
   nsAutoString attributeValue;
   aElement->GetAttribute(u"x-inputmode"_ns, attributeValue);
   if (attributeValue.LowerCaseEqualsASCII("native") ||
-      attributeValue.LowerCaseEqualsASCII("plain")) {
+      attributeValue.LowerCaseEqualsASCII("plain") ||
+      attributeValue.LowerCaseEqualsASCII("spell")) {
     return false;
   }
   aElement->GetAttribute(u"type"_ns, attributeValue);
