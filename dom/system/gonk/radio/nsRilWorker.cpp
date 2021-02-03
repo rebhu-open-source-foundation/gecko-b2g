@@ -1407,6 +1407,16 @@ NS_IMETHODIMP nsRilWorker::GetRadioCapability(int32_t serial) {
   return NS_OK;
 }
 
+NS_IMETHODIMP nsRilWorker::StopNetworkScan(int32_t serial) {
+  DEBUG("nsRilWorker: [%d] > RIL_REQUEST_STOP_NETWORK_SCAN", serial);
+  GetRadioProxy();
+  if (mRadioProxy == nullptr) {
+    ERROR("No Radio HAL exist");
+  }
+  mRadioProxy->stopNetworkScan(serial);
+
+  return NS_OK;
+}
 void nsRilWorker::sendRilIndicationResult(nsRilIndicationResult* aIndication) {
   DEBUG("nsRilWorker: [USOL]< %s",
         NS_LossyConvertUTF16toASCII(aIndication->mRilMessageType).get());
