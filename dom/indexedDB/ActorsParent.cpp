@@ -1253,7 +1253,8 @@ class DatabaseConnection::UpdateRefcountFunction final
   DatabaseConnection* const mConnection;
   FileManager& mFileManager;
   nsClassHashtable<nsUint64HashKey, FileInfoEntry> mFileInfoEntries;
-  nsDataHashtable<nsUint64HashKey, FileInfoEntry*> mSavepointEntriesIndex;
+  nsDataHashtable<nsUint64HashKey, NotNull<FileInfoEntry*>>
+      mSavepointEntriesIndex;
 
   nsTArray<int64_t> mJournalsToCreateBeforeCommit;
   nsTArray<int64_t> mJournalsToRemoveAfterCommit;
@@ -7589,8 +7590,7 @@ void DatabaseConnection::UpdateRefcountFunction::RollbackSavepoint() {
   MOZ_ASSERT(mInSavepoint);
 
   for (const auto& entry : mSavepointEntriesIndex) {
-    auto* const value = entry.GetData();
-    value->DecBySavepointDelta();
+    entry.GetData()->DecBySavepointDelta();
   }
 
   mInSavepoint = false;
@@ -7649,8 +7649,8 @@ nsresult DatabaseConnection::UpdateRefcountFunction::ProcessValue(
     const int64_t id = file.FileInfo().Id();
     MOZ_ASSERT(id > 0);
 
-    FileInfoEntry* const entry = mFileInfoEntries.LookupOrAddFromFactory(
-        id, [&file] { return MakeUnique<FileInfoEntry>(file.FileInfoPtr()); });
+    const auto entry = WrapNotNull(mFileInfoEntries.LookupOrAddFromFactory(
+        id, [&file] { return MakeUnique<FileInfoEntry>(file.FileInfoPtr()); }));
 
     if (mInSavepoint) {
       mSavepointEntriesIndex.Put(id, entry);
@@ -12220,8 +12220,8 @@ nsresult FileManager::Init(nsIFile* aDirectory,
         // object alive.
         MOZ_ASSERT(dbRefCnt > 0);
         mFileInfos.Put(
-            id, new FileInfo(FileManagerGuard{}, SafeRefPtrFromThis(), id,
-                             static_cast<nsrefcnt>(dbRefCnt)));
+            id, MakeNotNull<FileInfo*>(FileManagerGuard{}, SafeRefPtrFromThis(),
+                                       id, static_cast<nsrefcnt>(dbRefCnt)));
 
         mLastFileId = std::max(id, mLastFileId);
 
@@ -13229,11 +13229,12 @@ void DeleteFilesRunnable::Open() {
     return;
   }
 
-  mState = State_DirectoryOpenPending;
-
-  RefPtr<DirectoryLock> pendingDirectoryLock = quotaManager->OpenDirectory(
+  RefPtr<DirectoryLock> directoryLock = quotaManager->CreateDirectoryLock(
       mFileManager->Type(), mFileManager->GroupAndOrigin(), quota::Client::IDB,
-      /* aExclusive */ false, this);
+      /* aExclusive */ false);
+
+  mState = State_DirectoryOpenPending;
+  directoryLock->Acquire(this);
 }
 
 void DeleteFilesRunnable::DoDatabaseWork() {
@@ -13428,12 +13429,14 @@ nsresult Maintenance::OpenDirectory() {
 
   // Get a shared lock for <profile>/storage/*/*/idb
 
-  mState = State::DirectoryOpenPending;
-  RefPtr<DirectoryLock> pendingDirectoryLock =
-      QuotaManager::Get()->OpenDirectoryInternal(
+  RefPtr<DirectoryLock> directoryLock =
+      QuotaManager::Get()->CreateDirectoryLockInternal(
           Nullable<PersistenceType>(), OriginScope::FromNull(),
           Nullable<Client::Type>(Client::IDB),
-          /* aExclusive */ false, this);
+          /* aExclusive */ false);
+
+  mState = State::DirectoryOpenPending;
+  directoryLock->Acquire(this);
 
   return NS_OK;
 }
@@ -15746,11 +15749,13 @@ nsresult FactoryOp::OpenDirectory() {
         IDB_TRY_RETURN(MOZ_TO_RESULT_INVOKE_TYPED(nsString, dbFile, GetPath));
       }()));
 
+  RefPtr<DirectoryLock> directoryLock = quotaManager->CreateDirectoryLock(
+      persistenceType, mQuotaInfo, Client::IDB,
+      /* aExclusive */ false);
+
   mState = State::DirectoryOpenPending;
 
-  RefPtr<DirectoryLock> pendingDirectoryLock =
-      quotaManager->OpenDirectory(persistenceType, mQuotaInfo, Client::IDB,
-                                  /* aExclusive */ false, this);
+  directoryLock->Acquire(this);
 
   return NS_OK;
 }

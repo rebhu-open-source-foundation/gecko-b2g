@@ -200,7 +200,6 @@ XPCOMUtils.defineLazyScriptGetter(
   [
     "DownloadsPanel",
     "DownloadsOverlayLoader",
-    "DownloadsSubview",
     "DownloadsView",
     "DownloadsViewUI",
     "DownloadsViewController",
@@ -1947,11 +1946,6 @@ var gBrowserInit = {
     gProtectionsHandler.init();
     HomePage.delayedStartup().catch(Cu.reportError);
 
-    let safeMode = document.getElementById("helpSafeMode");
-    if (Services.appinfo.inSafeMode) {
-      document.l10n.setAttributes(safeMode, "menu-help-safe-mode-with-addons");
-    }
-
     // BiDi UI
     gBidiUI = isBidiEnabled();
     if (gBidiUI) {
@@ -1966,6 +1960,26 @@ var gBrowserInit = {
     if (!Services.prefs.getBoolPref("ui.click_hold_context_menus", false)) {
       SetClickAndHoldHandlers();
     }
+
+    function initBackForwardButtonTooltip(tooltipId, l10nId, shortcutId) {
+      let shortcut = document.getElementById(shortcutId);
+      shortcut = ShortcutUtils.prettifyShortcut(shortcut);
+
+      let tooltip = document.getElementById(tooltipId);
+      document.l10n.setAttributes(tooltip, l10nId, { shortcut });
+    }
+
+    initBackForwardButtonTooltip(
+      "back-button-tooltip-description",
+      "navbar-tooltip-back-2",
+      "goBackKb"
+    );
+
+    initBackForwardButtonTooltip(
+      "forward-button-tooltip-description",
+      "navbar-tooltip-forward-2",
+      "goForwardKb"
+    );
 
     PlacesToolbarHelper.init();
 
@@ -8854,6 +8868,7 @@ class TabDialogBox {
       sizeTo,
       keepOpenSameOriginNav,
       modalType = null,
+      allowFocusCheckbox = false,
     } = {},
     ...aParams
   ) {
@@ -8871,9 +8886,13 @@ class TabDialogBox {
         this._onFirstDialogOpen();
       }
 
-      let closingCallback = () => {
+      let closingCallback = event => {
         if (!hasDialogs) {
           this._onLastDialogClose();
+        }
+
+        if (allowFocusCheckbox) {
+          this.maybeSetAllowTabSwitchPermission(event.target);
         }
       };
 
@@ -9019,6 +9038,28 @@ class TabDialogBox {
       this._buildContentPromptDialog();
     }
     return this._contentDialogManager;
+  }
+
+  onNextPromptShowAllowFocusCheckboxFor(principal) {
+    this._allowTabFocusByPromptPrincipal = principal;
+  }
+
+  /**
+   * Sets the "focus-tab-by-prompt" permission for the dialog.
+   */
+  maybeSetAllowTabSwitchPermission(dialog) {
+    let checkbox = dialog.querySelector("checkbox");
+
+    if (checkbox.checked) {
+      Services.perms.addFromPrincipal(
+        this._allowTabFocusByPromptPrincipal,
+        "focus-tab-by-prompt",
+        Services.perms.ALLOW_ACTION
+      );
+    }
+
+    // Don't show the "allow tab switch checkbox" for subsequent prompts.
+    this._allowTabFocusByPromptPrincipal = null;
   }
 }
 

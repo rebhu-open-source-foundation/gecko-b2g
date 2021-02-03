@@ -5350,7 +5350,7 @@ static bool DumpAST(JSContext* cx, const JS::ReadOnlyCompileOptions& options,
 
 #if defined(DEBUG)
   js::Fprinter out(stderr);
-  DumpParseTree(pn, out);
+  DumpParseTree(&parser, pn, out);
 #endif
 
   return true;
@@ -10852,11 +10852,15 @@ static bool SetContextOptions(JSContext* cx, const OptionParser& op) {
   }
 
   if (op.getBoolOption("enable-large-buffers")) {
-    ArrayBufferObject::supportLargeBuffers = true;
+    JS::SetLargeArrayBuffersEnabled(true);
   }
 
   if (op.getBoolOption("disable-bailout-loop-check")) {
     jit::JitOptions.disableBailoutLoopCheck = true;
+  }
+
+  if (op.getBoolOption("scalar-replace-arguments")) {
+    jit::JitOptions.scalarReplaceArguments = true;
   }
 
 #if defined(JS_CODEGEN_ARM)
@@ -11564,6 +11568,8 @@ int main(int argc, char** argv, char** envp) {
           "On-Stack Replacement (default: on, off to disable)") ||
       !op.addBoolOption('\0', "disable-bailout-loop-check",
                         "Turn off bailout loop check") ||
+      !op.addBoolOption('\0', "scalar-replace-arguments",
+                        "Use scalar replacement to optimize ArgumentsObject") ||
       !op.addStringOption(
           '\0', "ion-limit-script-size", "on/off",
           "Don't compile very large scripts (default: on, off to disable)") ||

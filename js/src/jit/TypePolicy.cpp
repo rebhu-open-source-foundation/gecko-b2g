@@ -279,6 +279,7 @@ bool TestPolicy::adjustInputs(TempAllocator& alloc, MInstruction* ins) const {
     case MIRType::Double:
     case MIRType::Float32:
     case MIRType::Symbol:
+    case MIRType::BigInt:
     case MIRType::Object:
       break;
 
@@ -290,6 +291,7 @@ bool TestPolicy::adjustInputs(TempAllocator& alloc, MInstruction* ins) const {
     }
 
     default:
+      MOZ_ASSERT(IsMagicType(op->type()));
       ins->replaceOperand(0, BoxAt(alloc, ins, op));
       break;
   }

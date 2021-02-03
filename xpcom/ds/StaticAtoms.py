@@ -2445,7 +2445,7 @@ STATIC_ATOMS = [
     # MSE
     Atom("onsourceopen", "onsourceopen"),
     Atom("onsourceended", "onsourceended"),
-    Atom("onsourceclosed", "onsourceclosed"),
+    Atom("onsourceclose", "onsourceclose"),
     Atom("onupdatestart", "onupdatestart"),
     Atom("onupdate", "onupdate"),
     Atom("onupdateend", "onupdateend"),

@@ -1403,6 +1403,10 @@ Document::Document(const char* aContentType)
       mOnloadBlockCount(0),
       mAsyncOnloadBlockCount(0),
       mWriteLevel(0),
+      mLazyLoadImageCount(0),
+      mLazyLoadImageStarted(0),
+      mLazyLoadImageReachViewportLoading(0),
+      mLazyLoadImageReachViewportLoaded(0),
       mContentEditableCount(0),
       mEditingState(EditingState::eOff),
       mCompatMode(eCompatibility_FullStandards),
@@ -2374,6 +2378,7 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INTERNAL(Document)
 
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mOnloadBlocker)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mLazyLoadImageObserver)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mLazyLoadImageObserverViewport)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mDOMImplementation)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mImageMaps)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mOrientationPendingPromise)
@@ -2496,6 +2501,7 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(Document)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mSecurityInfo)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mDisplayDocument)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mLazyLoadImageObserver)
+  NS_IMPL_CYCLE_COLLECTION_UNLINK(mLazyLoadImageObserverViewport)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mFontFaceSet)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mReadyForIdle)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mDocumentL10n)
@@ -11912,19 +11918,18 @@ NS_IMPL_ISUPPORTS(StubCSSLoaderObserver, nsICSSLoaderObserver)
 SheetPreloadStatus Document::PreloadStyle(
     nsIURI* uri, const Encoding* aEncoding, const nsAString& aCrossOriginAttr,
     const enum ReferrerPolicy aReferrerPolicy, const nsAString& aIntegrity,
-    bool aIsLinkPreload) {
+    css::StylePreloadKind aKind) {
+  MOZ_ASSERT(aKind != css::StylePreloadKind::None);
+
   // The CSSLoader will retain this object after we return.
   nsCOMPtr<nsICSSLoaderObserver> obs = new StubCSSLoaderObserver();
 
   nsCOMPtr<nsIReferrerInfo> referrerInfo =
       ReferrerInfo::CreateFromDocumentAndPolicyOverride(this, aReferrerPolicy);
 
-  auto preloadType = aIsLinkPreload ? css::Loader::IsPreload::FromLink
-                                    : css::Loader::IsPreload::FromParser;
-
   // Charset names are always ASCII.
   auto result = CSSLoader()->LoadSheet(
-      uri, preloadType, aEncoding, referrerInfo, obs,
+      uri, aKind, aEncoding, referrerInfo, obs,
       Element::StringToCORSMode(aCrossOriginAttr), aIntegrity);
   if (result.isErr()) {
     return SheetPreloadStatus::Errored;
@@ -15065,6 +15070,25 @@ void Document::ReportDocumentUseCounters() {
             (" > %s\n", Telemetry::GetHistogramName(id)));
     Telemetry::Accumulate(id, 1);
   }
+
+  ReportDocumentLazyLoadCounters();
+}
+
+void Document::ReportDocumentLazyLoadCounters() {
+  if (!mLazyLoadImageCount) {
+    return;
+  }
+  Telemetry::Accumulate(Telemetry::LAZYLOAD_IMAGE_TOTAL, mLazyLoadImageCount);
+  Telemetry::Accumulate(Telemetry::LAZYLOAD_IMAGE_STARTED,
+                        mLazyLoadImageStarted);
+  Telemetry::Accumulate(Telemetry::LAZYLOAD_IMAGE_NOT_VIEWPORT,
+                        mLazyLoadImageStarted -
+                            mLazyLoadImageReachViewportLoading -
+                            mLazyLoadImageReachViewportLoaded);
+  Telemetry::Accumulate(Telemetry::LAZYLOAD_IMAGE_VIEWPORT_LOADING,
+                        mLazyLoadImageReachViewportLoading);
+  Telemetry::Accumulate(Telemetry::LAZYLOAD_IMAGE_VIEWPORT_LOADED,
+                        mLazyLoadImageReachViewportLoaded);
 }
 
 void Document::SendPageUseCounters() {
@@ -15191,6 +15215,22 @@ DOMIntersectionObserver& Document::EnsureLazyLoadImageObserver() {
         DOMIntersectionObserver::CreateLazyLoadObserver(*this);
   }
   return *mLazyLoadImageObserver;
+}
+
+DOMIntersectionObserver& Document::EnsureLazyLoadImageObserverViewport() {
+  if (!mLazyLoadImageObserverViewport) {
+    mLazyLoadImageObserverViewport =
+        DOMIntersectionObserver::CreateLazyLoadObserverViewport(*this);
+  }
+  return *mLazyLoadImageObserverViewport;
+}
+
+void Document::IncLazyLoadImageReachViewport(bool aLoading) {
+  if (aLoading) {
+    ++mLazyLoadImageReachViewportLoading;
+  } else {
+    ++mLazyLoadImageReachViewportLoaded;
+  }
 }
 
 void Document::NotifyLayerManagerRecreated() {
@@ -16633,85 +16673,11 @@ void Document::DoCacheAllKnownLangPrefs() {
   mMayNeedFontPrefsUpdate = false;
 }
 
-nsAtom* Document::CJKFromTLD() {
-  // Using mOriginalURI instead of mBaseDomain, because the former
-  // does not change over time.
-  if (!mOriginalURI) {
-    return nsGkAtoms::Unicode;
-  }
-  nsCOMPtr<nsIURI> innermost = NS_GetInnermostURI(mOriginalURI);
-  nsAutoCString tld;
-  nsAutoCString host;
-  innermost->GetAsciiHost(host);
-  if (host.IsEmpty()) {
-    return nsGkAtoms::Unicode;
-  }
-  // First let's see if the host is DNS-absolute and ends with a
-  // dot and get rid of that one.
-  if (host.Last() == '.') {
-    host.SetLength(host.Length() - 1);
-  }
-  int32_t index = host.RFindChar('.');
-  if (index == kNotFound) {
-    return nsGkAtoms::Unicode;
-  }
-  // We tolerate an IPv4 component as generic "TLD", so don't
-  // bother checking.
-  ToLowerCase(Substring(host, index + 1, host.Length() - (index + 1)), tld);
-
-  if (tld.Length() == 2) {
-    if (tld.EqualsLiteral("cn") || tld.EqualsLiteral("sg")) {
-      return nsGkAtoms::Chinese;
-    }
-
-    if (tld.EqualsLiteral("tw")) {
-      return nsGkAtoms::Taiwanese;
-    }
-
-    if (tld.EqualsLiteral("hk") || tld.EqualsLiteral("mo")) {
-      return nsGkAtoms::HongKongChinese;
-    }
-
-    if (tld.EqualsLiteral("jp")) {
-      return nsGkAtoms::Japanese;
-    }
-
-    if (tld.EqualsLiteral("kr") || tld.EqualsLiteral("kp")) {
-      return nsGkAtoms::ko;
-    }
-  } else if (StringBeginsWith(tld, "xn--"_ns)) {
-    if (tld.EqualsLiteral("xn--fiqs8S") ||     // 中国
-        tld.EqualsLiteral("xn--fiqz9S") ||     // 中國
-        tld.EqualsLiteral("xn--yfro4i67o") ||  // 新加坡
-        tld.EqualsLiteral("xn--clchc0ea0b2g2a9gcd")) {  // சிங்கப்பூர்
-      return nsGkAtoms::Chinese;
-    }
-
-    if (tld.EqualsLiteral("xn--kpry57d") ||  // 台灣
-        tld.EqualsLiteral("xn--kprw13d")) {  // 台湾
-      return nsGkAtoms::Taiwanese;
-    }
-
-    if (tld.EqualsLiteral("xn--j6w193g") ||  // 香港
-        tld.EqualsLiteral("xn--mix891f")) {  // 澳門
-      return nsGkAtoms::HongKongChinese;
-    }
-
-    if (tld.EqualsLiteral("xn--3e0b707e")) {  // 한국
-      return nsGkAtoms::ko;
-    }
-  }
-  return nsGkAtoms::Unicode;
-}
-
 void Document::RecomputeLanguageFromCharset() {
   nsLanguageAtomService* service = nsLanguageAtomService::GetService();
   RefPtr<nsAtom> language = service->LookupCharSet(mCharacterSet);
   if (language == nsGkAtoms::Unicode) {
-    language = CJKFromTLD();
-    if (language == nsGkAtoms::Unicode) {
-      language = service->GetLocaleLanguage();
-    }
+    language = service->GetLocaleLanguage();
   }
 
   if (language == mLanguageFromCharset) {
@@ -16860,11 +16826,19 @@ StylePrefersColorScheme Document::PrefersColorScheme(
     return StylePrefersColorScheme::Light;
   }
 
-  if (nsPresContext* pc = GetPresContext()) {
-    if (auto devtoolsOverride = pc->GetOverridePrefersColorScheme()) {
-      return *devtoolsOverride;
+  if (auto* bc = GetBrowsingContext()) {
+    switch (bc->Top()->PrefersColorSchemeOverride()) {
+      case dom::PrefersColorSchemeOverride::Dark:
+        return StylePrefersColorScheme::Dark;
+      case dom::PrefersColorSchemeOverride::Light:
+        return StylePrefersColorScheme::Light;
+      case dom::PrefersColorSchemeOverride::None:
+      case dom::PrefersColorSchemeOverride::EndGuard_:
+        break;
     }
+  }
 
+  if (nsPresContext* pc = GetPresContext()) {
     if (pc->IsPrintingOrPrintPreview()) {
       return StylePrefersColorScheme::Light;
     }

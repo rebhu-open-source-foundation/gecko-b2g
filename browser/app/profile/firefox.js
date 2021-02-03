@@ -582,9 +582,7 @@ pref("browser.tabs.tooltipsShowPidAndActiveness", false);
 pref("security.allow_eval_with_system_principal", false);
 pref("security.allow_eval_in_parent_process", false);
 
-#if defined(NIGHTLY_BUILD)
-  pref("security.allow_parent_unrestricted_js_loads", false);
-#endif
+pref("security.allow_parent_unrestricted_js_loads", false);
 
 // Unload tabs when available memory is running low
 pref("browser.tabs.unloadOnLowMemory", false);
@@ -1382,8 +1380,6 @@ pref("browser.newtabpage.activity-stream.newNewtabExperience.colors", "#0090ED,#
   pref("browser.newtabpage.activity-stream.debug", false);
 #endif
 
-pref("browser.library.activity-stream.enabled", true);
-
 // The remote FxA root content URL for the Activity Stream firstrun page.
 pref("browser.newtabpage.activity-stream.fxaccounts.endpoint", "https://accounts.firefox.com/");
 
@@ -1398,7 +1394,7 @@ pref("browser.newtabpage.activity-stream.asrouter.providers.message-groups", "{\
 // this page over http opens us up to a man-in-the-middle attack that we'd rather not face. If you are a downstream
 // repackager of this code using an alternate snippet url, please keep your users safe
 pref("browser.newtabpage.activity-stream.asrouter.providers.snippets", "{\"id\":\"snippets\",\"enabled\":true,\"type\":\"remote\",\"url\":\"https://snippets.cdn.mozilla.net/%STARTPAGE_VERSION%/%NAME%/%VERSION%/%APPBUILDID%/%BUILD_TARGET%/%LOCALE%/%CHANNEL%/%OS_VERSION%/%DISTRIBUTION%/%DISTRIBUTION_VERSION%/\",\"updateCycleInMs\":14400000}");
-pref("browser.newtabpage.activity-stream.asrouter.providers.messaging-experiments", "{\"id\":\"messaging-experiments\",\"enabled\":true,\"type\":\"remote-experiments\",\"messageGroups\":[\"cfr\",\"whats-new-panel\",\"moments-page\",\"snippets\",\"cfr-fxa\",\"aboutwelcome\"],\"updateCycleInMs\":3600000}");
+pref("browser.newtabpage.activity-stream.asrouter.providers.messaging-experiments", "{\"id\":\"messaging-experiments\",\"enabled\":true,\"type\":\"remote-experiments\",\"messageGroups\":[\"cfr\",\"whats-new-panel\",\"moments-page\",\"snippets\",\"cfr-fxa\",\"aboutwelcome\",\"infobar\"],\"updateCycleInMs\":3600000}");
 
 // ASRouter user prefs
 pref("browser.newtabpage.activity-stream.asrouter.userprefs.cfr.addons", true);
@@ -2120,14 +2116,6 @@ pref("devtools.browsertoolbox.fission", true);
 #else
 pref("devtools.browsertoolbox.fission", false);
 #endif
-
-// This pref is also related to fission, but not only. It allows the toolbox
-// to stay open even if the debugged tab switches to another process.
-// It can happen between two documents, one running in the parent process like
-// about:sessionrestore and another one running in the content process like
-// any web page. Or between two distinct domain when running with fission turned
-// on. See bug 1565263.
-pref("devtools.target-switching.enabled", true);
 
 // Toolbox Button preferences
 pref("devtools.command-button-pick.enabled", true);
