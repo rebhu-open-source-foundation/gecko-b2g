@@ -307,6 +307,7 @@
 using namespace mozilla::system;
 #  include "nsISystemWorkerManager.h"
 #  include "SystemWorkerManager.h"
+#  include "mozilla/dom/time/DateCacheCleaner.h"
 #endif
 
 #ifdef MOZ_WIDGET_GTK
@@ -777,6 +778,10 @@ void ContentParent::StartUp() {
 
 #if defined(XP_MACOSX) && defined(MOZ_SANDBOX)
   sMacSandboxParams = MakeUnique<std::vector<std::string>>();
+#endif
+
+#ifdef MOZ_WIDGET_GONK
+  DateCacheCleaner::InitializeSingleton();
 #endif
 }
 

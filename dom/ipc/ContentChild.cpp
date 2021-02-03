@@ -234,6 +234,7 @@
 #  include "nsVolume.h"
 #  include "nsVolumeService.h"
 #  include "SpeakerManagerService.h"
+#  include "mozilla/dom/time/DateCacheCleaner.h"
 #endif
 
 #ifdef XP_WIN
@@ -1383,6 +1384,10 @@ void ContentChild::InitXPCOM(
 
   // Set the dynamic scalar definitions for this process.
   TelemetryIPC::AddDynamicScalarDefinitions(aXPCOMInit.dynamicScalarDefs());
+
+#ifdef MOZ_WIDGET_GONK
+  DateCacheCleaner::InitializeSingleton();
+#endif
 }
 
 mozilla::ipc::IPCResult ContentChild::RecvRequestMemoryReport(
