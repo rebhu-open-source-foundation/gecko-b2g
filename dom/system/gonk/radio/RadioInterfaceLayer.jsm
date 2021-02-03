@@ -1259,8 +1259,7 @@ RadioInterface.prototype = {
           pco.cid,
           pco.bearerProto,
           pco.pcoId,
-          pco.contents,
-          pco.contents.length
+          pco.getContents()
         );
         break;
       case "imsNetworkStateChanged":
