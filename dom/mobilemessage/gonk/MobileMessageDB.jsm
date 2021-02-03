@@ -3470,6 +3470,7 @@ MobileMessageDB.prototype = {
               deleted[i] = true;
               deletedInfo.messageIds.push(messageIds[i]);
             }
+            deletedInfo.threadIds.push(event.target.result[0].threadId);
             updateThreadInfo();
           } else {
             for (let i = 0; i < length; i++) {
