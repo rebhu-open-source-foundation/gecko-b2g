@@ -2235,6 +2235,7 @@ nsresult MediaManager::CollectRecordingStatus(nsPIDOMWindowInner* aWindow) {
 
   nsCOMPtr<nsPIDOMWindowOuter> topWindow =
       aWindow->GetOuterWindow()->GetInProcessTop();
+  NS_ENSURE_TRUE(topWindow, NS_ERROR_FAILURE);
 
   // Combine status in the same window tree.
   bool audio = false, video = false;
