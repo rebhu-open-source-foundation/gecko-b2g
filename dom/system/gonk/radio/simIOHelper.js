@@ -4489,6 +4489,64 @@ SimRecordHelperObject.prototype = {
     );
   },
 
+  // Sim refresh file updated.
+  handleFileUpdate(aEfId) {
+    switch (aEfId) {
+      case ICC_EF_MSISDN:
+        if (DEBUG) this.context.debug("File refresh for EF_MSISDN.");
+        if (ICCUtilsHelper.isICCServiceAvailable("MSISDN")) {
+          if (DEBUG) {
+            this.context.debug("MSISDN: MSISDN is available");
+          }
+          this.readMSISDN();
+        } else if (DEBUG) {
+          this.context.debug("MSISDN: MSISDN service is not available");
+        }
+        break;
+      case ICC_EF_AD:
+        if (DEBUG) this.context.debug("File refresh for EF_AD.");
+        this.readAD();
+        break;
+      case ICC_EF_MBDN:
+        if (DEBUG) this.context.debug("File refresh for EF_MBDN.");
+        if (ICCUtilsHelper.isICCServiceAvailable("MDN")) {
+          if (DEBUG) {
+            this.context.debug("MDN: MDN available.");
+          }
+          this.readMBDN();
+        } else {
+          if (DEBUG) {
+            this.context.debug("MDN: MDN service is not available");
+          }
+
+          if (ICCUtilsHelper.isCphsServiceAvailable("MBN")) {
+            // read CPHS_MBN in advance if MBDN is not available.
+            this.readCphsMBN();
+          } else if (DEBUG) {
+            this.context.debug("CPHS_MBN: CPHS_MBN service is not available");
+          }
+        }
+        break;
+      case ICC_EF_SPDI:
+        if (DEBUG) this.context.debug("File refresh for EF_SPDI.");
+        if (ICCUtilsHelper.isICCServiceAvailable("SPDI")) {
+          if (DEBUG) {
+            this.context.debug("SPDI: SPDI available.");
+          }
+          this.readSPDI();
+        } else if (DEBUG) {
+          this.context.debug("SPDI: SPDI service is not available");
+        }
+        break;
+      default:
+        // No one knew how to handle this particular file, so to be safe just
+        // fetch all records.
+        if (DEBUG) this.context.debug("SIM Refresh for all.");
+        fetchSimRecords();
+        break;
+    }
+  },
+
   /**
    * Read EF_phase.
    * This EF is only available in SIM.
@@ -6028,6 +6086,11 @@ ISimRecordHelperObject.prototype = {
 
     this.readIMPI();
     this.readIMPU();
+  },
+
+  // Sim refresh file updated.
+  handleFileUpdate(aEfId) {
+    //TODO complete the isim part.
   },
 
   readIMPI() {

@@ -1183,6 +1183,7 @@ RadioInterface.prototype = {
               JSON.stringify(refreshResult)
           );
         }
+        this.handleSimRefresh(refreshResult);
         break;
       case "restrictedStateChanged":
         let restrictedState = message.restrictedState;
@@ -4864,6 +4865,58 @@ RadioInterface.prototype = {
   exitEmergencyCbMode() {
     this.cancelEmergencyCbModeTimeout();
     this.sendRilRequest("sendExitEmergencyCbModeRequest", null);
+  },
+
+  handleSimRefresh(aRefreshResult) {
+    if (!aRefreshResult) {
+      if (DEBUG) {
+        this.debug("aRefreshResult null.");
+      }
+      return;
+    }
+
+    // Match the aid.
+    let aid = aRefreshResult.aid;
+    let simRecord;
+    if (this.simIOcontext.SimRecordHelper.aid === aid) {
+      if (DEBUG) {
+        this.debug("SimRecordHelper. aid = " + aid);
+      }
+      simRecord = this.simIOcontext.SimRecordHelper;
+    } else if (this.simIOcontext.ISimRecordHelper.aid === aid) {
+      if (DEBUG) {
+        this.debug("ISimRecordHelper. aid = " + aid);
+      }
+      simRecord = this.simIOcontext.ISimRecordHelper;
+    } else {
+      // TODO: handle ruim later.
+      if (DEBUG) {
+        this.debug("aid not match. aid = " + aid);
+      }
+      return;
+    }
+
+    let efId = aRefreshResult.efId;
+    if (!efId) {
+      if (DEBUG) {
+        this.debug("efId null.");
+      }
+      return;
+    }
+
+    switch (aRefreshResult.type) {
+      case RIL.SIM_FILE_UPDATE:
+        if (DEBUG) {
+          this.debug("handleSimRefresh with SIM_FILE_UPDATED");
+        }
+        simRecord.handleFileUpdate(efId);
+        break;
+      default:
+        if (DEBUG) {
+          this.debug("handleSimRefresh with unknown operation");
+        }
+        break;
+    }
   },
 
   /**
