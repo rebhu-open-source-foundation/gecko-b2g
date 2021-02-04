@@ -1386,6 +1386,8 @@ if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
         'b2g/telephony/ims/BnImsConfig.h',
         'b2g/telephony/ims/BnImsConfigCallback.h',
         'b2g/telephony/ims/BnImsDtmfCallback.h',
+        'b2g/telephony/ims/BnImsEcbm.h',
+        'b2g/telephony/ims/BnImsEcbmListener.h',
         'b2g/telephony/ims/BnImsFeatureStatusListener.h',
         'b2g/telephony/ims/BnImsMMTelFeature.h',
         'b2g/telephony/ims/BnImsMMTelListener.h',
