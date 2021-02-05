@@ -495,7 +495,7 @@ Result<nsCOMPtr<mozIStorageConnection>, nsresult> CreateWebAppsStoreConnection(
                                  &aWebAppsStoreFile)
           .orElse([](const nsresult rv)
                       -> Result<nsCOMPtr<mozIStorageConnection>, nsresult> {
-            if (rv == NS_ERROR_FILE_CORRUPTED) {
+            if (IsDatabaseCorruptionError(rv)) {
               // Don't throw an error, leave a corrupted webappsstore database
               // as it is.
               return nsCOMPtr<mozIStorageConnection>{};
@@ -630,8 +630,6 @@ Result<mozilla::Ok, nsresult> CollectEachFileEntry(
 
 }  // namespace
 
-enum class ShouldUpdateLockIdTableFlag { No, Yes };
-
 class DirectoryLockImpl final : public DirectoryLock {
   const NotNull<RefPtr<QuotaManager>> mQuotaManager;
 
@@ -661,13 +659,13 @@ class DirectoryLockImpl final : public DirectoryLock {
   FlippedOnce<false> mInvalidated;
 
  public:
-  DirectoryLockImpl(MovingNotNull<RefPtr<QuotaManager>> aQuotaManager,
-                    const int64_t aId,
-                    const Nullable<PersistenceType>& aPersistenceType,
-                    const nsACString& aGroup, const OriginScope& aOriginScope,
-                    const Nullable<Client::Type>& aClientType, bool aExclusive,
-                    bool aInternal,
-                    ShouldUpdateLockIdTableFlag aShouldUpdateLockIdTableFlag);
+  DirectoryLockImpl(
+      MovingNotNull<RefPtr<QuotaManager>> aQuotaManager, const int64_t aId,
+      const Nullable<PersistenceType>& aPersistenceType,
+      const nsACString& aGroup, const OriginScope& aOriginScope,
+      const Nullable<Client::Type>& aClientType, bool aExclusive,
+      bool aInternal,
+      QuotaManager::ShouldUpdateLockIdTableFlag aShouldUpdateLockIdTableFlag);
 
   void AssertIsOnOwningThread() const
 #ifdef DEBUG
@@ -700,7 +698,7 @@ class DirectoryLockImpl final : public DirectoryLock {
   // The problem is that directory locks for eviction must be currently created
   // while the mutex lock is already acquired. So we decided to have two tables
   // for now and to not register directory locks for eviction in
-  // QuotaMnaager::mDirectoryLockIdTable. This can be improved in future after
+  // QuotaManager::mDirectoryLockIdTable. This can be improved in future after
   // some refactoring of the mutex locking.
   bool ShouldUpdateLockIdTable() const { return mShouldUpdateLockIdTable; }
 
@@ -2738,7 +2736,8 @@ DirectoryLockImpl::DirectoryLockImpl(
     const Nullable<PersistenceType>& aPersistenceType, const nsACString& aGroup,
     const OriginScope& aOriginScope, const Nullable<Client::Type>& aClientType,
     const bool aExclusive, const bool aInternal,
-    const ShouldUpdateLockIdTableFlag aShouldUpdateLockIdTableFlag)
+    const QuotaManager::ShouldUpdateLockIdTableFlag
+        aShouldUpdateLockIdTableFlag)
     : mQuotaManager(std::move(aQuotaManager)),
       mPersistenceType(aPersistenceType),
       mGroup(aGroup),
@@ -2748,7 +2747,7 @@ DirectoryLockImpl::DirectoryLockImpl(
       mExclusive(aExclusive),
       mInternal(aInternal),
       mShouldUpdateLockIdTable(aShouldUpdateLockIdTableFlag ==
-                               ShouldUpdateLockIdTableFlag::Yes),
+                               QuotaManager::ShouldUpdateLockIdTableFlag::Yes),
       mRegistered(false) {
   AssertIsOnOwningThread();
   MOZ_ASSERT_IF(aOriginScope.IsOrigin(), !aOriginScope.GetOrigin().IsEmpty());
@@ -2932,7 +2931,8 @@ RefPtr<DirectoryLock> DirectoryLockImpl::Specialize(
       Nullable<PersistenceType>(aPersistenceType), aGroupAndOrigin.mGroup,
       OriginScope::FromOrigin(aGroupAndOrigin.mOrigin),
       Nullable<Client::Type>(aClientType),
-      /* aExclusive */ false, mInternal, ShouldUpdateLockIdTableFlag::Yes);
+      /* aExclusive */ false, mInternal,
+      QuotaManager::ShouldUpdateLockIdTableFlag::Yes);
   if (NS_WARN_IF(!Overlaps(*lock))) {
     return nullptr;
   }
@@ -3659,7 +3659,8 @@ bool QuotaManager::IsDotFile(const nsAString& aFileName) {
 RefPtr<DirectoryLockImpl> QuotaManager::CreateDirectoryLock(
     const Nullable<PersistenceType>& aPersistenceType, const nsACString& aGroup,
     const OriginScope& aOriginScope, const Nullable<Client::Type>& aClientType,
-    bool aExclusive, bool aInternal) {
+    bool aExclusive, bool aInternal,
+    const ShouldUpdateLockIdTableFlag aShouldUpdateLockIdTableFlag) {
   AssertIsOnOwningThread();
   MOZ_ASSERT_IF(aOriginScope.IsOrigin(), !aOriginScope.GetOrigin().IsEmpty());
   MOZ_ASSERT_IF(!aInternal, !aPersistenceType.IsNull());
@@ -3673,7 +3674,7 @@ RefPtr<DirectoryLockImpl> QuotaManager::CreateDirectoryLock(
   return MakeRefPtr<DirectoryLockImpl>(
       WrapNotNullUnchecked(this), GenerateDirectoryLockId(), aPersistenceType,
       aGroup, aOriginScope, aClientType, aExclusive, aInternal,
-      ShouldUpdateLockIdTableFlag::Yes);
+      aShouldUpdateLockIdTableFlag);
 }
 
 RefPtr<DirectoryLockImpl> QuotaManager::CreateDirectoryLockForEviction(
@@ -3682,13 +3683,12 @@ RefPtr<DirectoryLockImpl> QuotaManager::CreateDirectoryLockForEviction(
   MOZ_ASSERT(aPersistenceType != PERSISTENCE_TYPE_INVALID);
   MOZ_ASSERT(!aGroupAndOrigin.mOrigin.IsEmpty());
 
-  return MakeRefPtr<DirectoryLockImpl>(
-      WrapNotNullUnchecked(this), GenerateDirectoryLockId(),
-      Nullable<PersistenceType>(aPersistenceType), aGroupAndOrigin.mGroup,
-      OriginScope::FromOrigin(aGroupAndOrigin.mOrigin),
-      Nullable<Client::Type>(),
-      /* aExclusive */ true, /* aInternal */ true,
-      ShouldUpdateLockIdTableFlag::No);
+  return CreateDirectoryLock(Nullable<PersistenceType>(aPersistenceType),
+                             aGroupAndOrigin.mGroup,
+                             OriginScope::FromOrigin(aGroupAndOrigin.mOrigin),
+                             Nullable<Client::Type>(),
+                             /* aExclusive */ true, /* aInternal */ true,
+                             QuotaManager::ShouldUpdateLockIdTableFlag::No);
 }
 
 void QuotaManager::RegisterDirectoryLock(DirectoryLockImpl& aLock) {
@@ -3777,10 +3777,13 @@ uint64_t QuotaManager::CollectOriginsForEviction(
   AssertIsOnOwningThread();
   MOZ_ASSERT(aLocks.IsEmpty());
 
+  // XXX This looks as if this could/should also use CollectLRUOriginInfosUntil,
+  // or maybe a generalization if that.
+
   struct MOZ_STACK_CLASS Helper final {
     static void GetInactiveOriginInfos(
         const nsTArray<NotNull<RefPtr<OriginInfo>>>& aOriginInfos,
-        const nsTArray<NotNull<DirectoryLockImpl*>>& aLocks,
+        const nsTArray<NotNull<const DirectoryLockImpl*>>& aLocks,
         OriginInfosFlatTraversable& aInactiveOriginInfos) {
       for (const auto& originInfo : aOriginInfos) {
         MOZ_ASSERT(originInfo->mGroupInfo->mPersistenceType !=
@@ -3810,74 +3813,86 @@ uint64_t QuotaManager::CollectOriginsForEviction(
 
   // Split locks into separate arrays and filter out locks for persistent
   // storage, they can't block us.
-  nsTArray<NotNull<DirectoryLockImpl*>> temporaryStorageLocks;
-  nsTArray<NotNull<DirectoryLockImpl*>> defaultStorageLocks;
-  for (const NotNull<DirectoryLockImpl*>& lock : mDirectoryLocks) {
-    const Nullable<PersistenceType>& persistenceType =
-        lock->NullablePersistenceType();
+  const auto [temporaryStorageLocks, defaultStorageLocks] = [this] {
+    nsTArray<NotNull<const DirectoryLockImpl*>> temporaryStorageLocks;
+    nsTArray<NotNull<const DirectoryLockImpl*>> defaultStorageLocks;
+    for (NotNull<const DirectoryLockImpl*> const lock : mDirectoryLocks) {
+      const Nullable<PersistenceType>& persistenceType =
+          lock->NullablePersistenceType();
 
-    if (persistenceType.IsNull()) {
-      temporaryStorageLocks.AppendElement(lock);
-      defaultStorageLocks.AppendElement(lock);
-    } else if (persistenceType.Value() == PERSISTENCE_TYPE_TEMPORARY) {
-      temporaryStorageLocks.AppendElement(lock);
-    } else if (persistenceType.Value() == PERSISTENCE_TYPE_DEFAULT) {
-      defaultStorageLocks.AppendElement(lock);
-    } else {
-      MOZ_ASSERT(persistenceType.Value() == PERSISTENCE_TYPE_PERSISTENT);
+      if (persistenceType.IsNull()) {
+        temporaryStorageLocks.AppendElement(lock);
+        defaultStorageLocks.AppendElement(lock);
+      } else if (persistenceType.Value() == PERSISTENCE_TYPE_TEMPORARY) {
+        temporaryStorageLocks.AppendElement(lock);
+      } else if (persistenceType.Value() == PERSISTENCE_TYPE_DEFAULT) {
+        defaultStorageLocks.AppendElement(lock);
+      } else {
+        MOZ_ASSERT(persistenceType.Value() == PERSISTENCE_TYPE_PERSISTENT);
 
-      // Do nothing here, persistent origins don't need to be collected ever.
+        // Do nothing here, persistent origins don't need to be collected ever.
+      }
     }
-  }
 
-  OriginInfosFlatTraversable inactiveOrigins;
+    return std::pair(std::move(temporaryStorageLocks),
+                     std::move(defaultStorageLocks));
+  }();
 
   // Enumerate and process inactive origins. This must be protected by the
   // mutex.
   MutexAutoLock lock(mQuotaMutex);
 
-  for (const auto& entry : mGroupInfoPairs) {
-    const auto& pair = entry.GetData();
+  const auto [inactiveOrigins, sizeToBeFreed] =
+      [this, &temporaryStorageLocks = temporaryStorageLocks,
+       &defaultStorageLocks = defaultStorageLocks, aMinSizeToBeFreed] {
+        nsTArray<NotNull<RefPtr<const OriginInfo>>> inactiveOrigins;
+        for (const auto& entry : mGroupInfoPairs) {
+          const auto& pair = entry.GetData();
 
-    MOZ_ASSERT(!entry.GetKey().IsEmpty());
-    MOZ_ASSERT(pair);
+          MOZ_ASSERT(!entry.GetKey().IsEmpty());
+          MOZ_ASSERT(pair);
 
-    RefPtr<GroupInfo> groupInfo =
-        pair->LockedGetGroupInfo(PERSISTENCE_TYPE_TEMPORARY);
-    if (groupInfo) {
-      Helper::GetInactiveOriginInfos(groupInfo->mOriginInfos,
-                                     temporaryStorageLocks, inactiveOrigins);
-    }
+          RefPtr<GroupInfo> groupInfo =
+              pair->LockedGetGroupInfo(PERSISTENCE_TYPE_TEMPORARY);
+          if (groupInfo) {
+            Helper::GetInactiveOriginInfos(groupInfo->mOriginInfos,
+                                           temporaryStorageLocks,
+                                           inactiveOrigins);
+          }
 
-    groupInfo = pair->LockedGetGroupInfo(PERSISTENCE_TYPE_DEFAULT);
-    if (groupInfo) {
-      Helper::GetInactiveOriginInfos(groupInfo->mOriginInfos,
-                                     defaultStorageLocks, inactiveOrigins);
-    }
-  }
+          groupInfo = pair->LockedGetGroupInfo(PERSISTENCE_TYPE_DEFAULT);
+          if (groupInfo) {
+            Helper::GetInactiveOriginInfos(
+                groupInfo->mOriginInfos, defaultStorageLocks, inactiveOrigins);
+          }
+        }
 
 #ifdef DEBUG
-  // Make sure the array is sorted correctly.
-  const bool inactiveOriginsSorted =
-      std::is_sorted(inactiveOrigins.cbegin(), inactiveOrigins.cend(),
-                     [](const auto& lhs, const auto& rhs) {
-                       return lhs->mAccessTime < rhs->mAccessTime;
-                     });
-  MOZ_ASSERT(inactiveOriginsSorted);
+        // Make sure the array is sorted correctly.
+        const bool inactiveOriginsSorted =
+            std::is_sorted(inactiveOrigins.cbegin(), inactiveOrigins.cend(),
+                           [](const auto& lhs, const auto& rhs) {
+                             return lhs->mAccessTime < rhs->mAccessTime;
+                           });
+        MOZ_ASSERT(inactiveOriginsSorted);
 #endif
 
-  // Create a list of inactive and the least recently used origins
-  // whose aggregate size is greater or equals the minimal size to be freed.
-  uint64_t sizeToBeFreed = 0;
-  for (uint32_t count = inactiveOrigins.Length(), index = 0; index < count;
-       index++) {
-    if (sizeToBeFreed >= aMinSizeToBeFreed) {
-      inactiveOrigins.TruncateLength(index);
-      break;
-    }
+        // Create a list of inactive and the least recently used origins
+        // whose aggregate size is greater or equals the minimal size to be
+        // freed.
+        uint64_t sizeToBeFreed = 0;
+        for (uint32_t count = inactiveOrigins.Length(), index = 0;
+             index < count; index++) {
+          if (sizeToBeFreed >= aMinSizeToBeFreed) {
+            inactiveOrigins.TruncateLength(index);
+            break;
+          }
 
-    sizeToBeFreed += inactiveOrigins[index]->LockedUsage();
-  }
+          sizeToBeFreed += inactiveOrigins[index]->LockedUsage();
+        }
+
+        return std::pair(std::move(inactiveOrigins), sizeToBeFreed);
+      }();
 
   if (sizeToBeFreed >= aMinSizeToBeFreed) {
     // Success, add directory locks for these origins, so any other
@@ -5863,8 +5878,8 @@ QuotaManager::CreateLocalStorageArchiveConnectionFromWebAppsStore() {
       QM_TRY(lsArchiveTmpConnection->ExecuteSimpleSQL(
           "PRAGMA journal_mode = DELETE;"_ns));
 
-      // The connection will be now implicitely closed (it's always safer to
-      // close database connection before we manipulate underlying file)
+      // Close the connection explicitly. We are going to rename the file below.
+      QM_TRY(lsArchiveTmpConnection->Close());
     }
 
     // Finally, rename ls-archive-tmp.sqlite to ls-archive.sqlite
@@ -5942,7 +5957,7 @@ QuotaManager::CreateLocalStorageArchiveConnection() {
                                    OpenUnsharedDatabase, lsArchiveFile)
             .orElse([&removed, &lsArchiveFile, &ss](const nsresult rv)
                         -> Result<nsCOMPtr<mozIStorageConnection>, nsresult> {
-              if (!removed && rv == NS_ERROR_FILE_CORRUPTED) {
+              if (!removed && IsDatabaseCorruptionError(rv)) {
                 QM_TRY(lsArchiveFile->Remove(false));
 
                 removed = true;
@@ -6078,8 +6093,11 @@ nsresult QuotaManager::EnsureStorageIsInitialized() {
       Initialization::Storage,
       [&self = *this] { return static_cast<bool>(self.mStorageConnection); });
 
-  const auto contextLogExtraInfo = ScopedLogExtraInfo{
-      ScopedLogExtraInfo::kTagContext, "Initialization::Storage"_ns};
+  const auto contextLogExtraInfo =
+      autoRecord.IsFirstInitializationAttempt()
+          ? Some(ScopedLogExtraInfo{ScopedLogExtraInfo::kTagContext,
+                                    "Initialization::Storage"_ns})
+          : Nothing{};
 
   QM_TRY_INSPECT(const auto& storageFile, QM_NewLocalFile(mBasePath));
 
@@ -6121,8 +6139,8 @@ nsresult QuotaManager::EnsureStorageIsInitialized() {
   QM_TRY_UNWRAP(auto connection,
                 MOZ_TO_RESULT_INVOKE_TYPED(nsCOMPtr<mozIStorageConnection>, ss,
                                            OpenUnsharedDatabase, storageFile)
-                    .orElse(ErrToOkOrErr<NS_ERROR_FILE_CORRUPTED, nullptr,
-                                         nsCOMPtr<mozIStorageConnection>>));
+                    .orElse(FilterDatabaseCorruptionError<
+                            nullptr, nsCOMPtr<mozIStorageConnection>>));
 
   if (!connection) {
     // Nuke the database file.
@@ -6371,10 +6389,11 @@ RefPtr<DirectoryLock> QuotaManager::CreateDirectoryLock(
     Client::Type aClientType, bool aExclusive) {
   AssertIsOnOwningThread();
 
-  return CreateDirectoryLock(
-      Nullable<PersistenceType>(aPersistenceType), aGroupAndOrigin.mGroup,
-      OriginScope::FromOrigin(aGroupAndOrigin.mOrigin),
-      Nullable<Client::Type>(aClientType), aExclusive, false);
+  return CreateDirectoryLock(Nullable<PersistenceType>(aPersistenceType),
+                             aGroupAndOrigin.mGroup,
+                             OriginScope::FromOrigin(aGroupAndOrigin.mOrigin),
+                             Nullable<Client::Type>(aClientType), aExclusive,
+                             false, ShouldUpdateLockIdTableFlag::Yes);
 }
 
 RefPtr<DirectoryLock> QuotaManager::CreateDirectoryLockInternal(
@@ -6385,7 +6404,7 @@ RefPtr<DirectoryLock> QuotaManager::CreateDirectoryLockInternal(
 
   return CreateDirectoryLock(aPersistenceType, ""_ns, aOriginScope,
                              Nullable<Client::Type>(aClientType), aExclusive,
-                             true);
+                             true, ShouldUpdateLockIdTableFlag::Yes);
 }
 
 Result<std::pair<nsCOMPtr<nsIFile>, bool>, nsresult>
@@ -6513,8 +6532,11 @@ nsresult QuotaManager::EnsureTemporaryStorageIsInitialized() {
       Initialization::TemporaryStorage,
       [&self = *this] { return self.mTemporaryStorageInitialized; });
 
-  const auto contextLogExtraInfo = ScopedLogExtraInfo{
-      ScopedLogExtraInfo::kTagContext, "Initialization::TemporaryStorage"_ns};
+  const auto contextLogExtraInfo =
+      autoRecord.IsFirstInitializationAttempt()
+          ? Some(ScopedLogExtraInfo{ScopedLogExtraInfo::kTagContext,
+                                    "Initialization::TemporaryStorage"_ns})
+          : Nothing{};
 
   QM_TRY_INSPECT(
       const auto& storageDir,

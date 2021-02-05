@@ -3326,7 +3326,7 @@ nsresult nsLayoutUtils::PaintFrame(gfxContext* aRenderingContext,
                      presShell->GetRootScrollFrame())) {
         if (dom::Element* element =
                 presShell->GetDocument()->GetDocumentElement()) {
-          if (!DisplayPortUtils::HasDisplayPort(element)) {
+          if (!DisplayPortUtils::HasNonMinimalDisplayPort(element)) {
             APZCCallbackHelper::InitializeRootDisplayport(presShell);
           }
         }
@@ -8318,6 +8318,9 @@ ScrollMetadata nsLayoutUtils::ComputeScrollMetadata(
                               ? metrics.GetCriticalDisplayPort()
                               : metrics.GetDisplayPort());
     }
+
+    metrics.SetMinimalDisplayPort(
+        aContent->GetProperty(nsGkAtoms::MinimalDisplayPort));
   }
 
   const nsIScrollableFrame* scrollableFrame = nullptr;

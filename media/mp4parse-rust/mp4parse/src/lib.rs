@@ -3154,7 +3154,7 @@ fn get_audio_object_type(bit_reader: &mut BitReader) -> Result<u16> {
 /// See MPEG-4 Systems (ISO 14496-1:2010) § 7.2.6.7 and probably 14496-3 somewhere?
 fn read_ds_descriptor(data: &[u8], esds: &mut ES_Descriptor) -> Result<()> {
     // Check if we are in a Visual esda Box.
-    if (esds.audio_codec == CodecType::Unknown && esds.video_codec != CodecType::Unknown) {
+    if esds.audio_codec == CodecType::Unknown && esds.video_codec != CodecType::Unknown {
         esds.decoder_specific_data.extend_from_slice(data)?;
         return Ok(());
     }

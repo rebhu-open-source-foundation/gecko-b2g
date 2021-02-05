@@ -256,6 +256,31 @@
 # The apz prefs are explained in AsyncPanZoomController.cpp
 #---------------------------------------------------------------------------
 
+- name: apz.wr.activate_all_scroll_frames
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+- name: apz.wr.activate_all_scroll_frames_when_fission
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+- name: apz.nonwr.activate_all_scroll_frames
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+- name: apz.nonwr.activate_all_scroll_frames_when_fission
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+- name: apz.prefer_jank_minimal_displayports
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
 - name: apz.allow_double_tap_zooming
   type: RelaxedAtomicBool
   value: true
@@ -482,7 +507,7 @@
     type: RelaxedAtomicBool
     value: true
     mirror: always
-    
+
 -   name: apz.gtk.touchpad_pinch.enabled
     type: RelaxedAtomicBool
     value: false
@@ -1925,6 +1950,12 @@
 
 # Support @autocomplete values for form autofill feature.
 - name: dom.forms.autocomplete.formautofill
+  type: bool
+  value: false
+  mirror: always
+
+# Only trusted submit event could trigger form submission.
+- name: dom.forms.submit.trusted_event_only
   type: bool
   value: false
   mirror: always
@@ -8923,6 +8954,14 @@
   value: false
   mirror: always
 
+# If we should wait for TRR service confirmation to complete before enabling
+# TRR for lookups when fallback is enabled. Confirmation is always skipped when
+# global mode is TRR-only (no fallback).
+- name: network.trr.wait-for-confirmation
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
 # Use GET (rather than POST)
 - name: network.trr.useGET
   type: RelaxedAtomicBool
@@ -10061,6 +10100,18 @@
   mirror: always
   rust: true
 
+- name: telemetry.fog.test.activity_limit
+  type: RelaxedAtomicUint32
+  value: 120
+  mirror: always
+  rust: true
+
+- name: telemetry.fog.test.inactivity_limit
+  type: RelaxedAtomicUint32
+  value: 1200
+  mirror: always
+  rust: true
+
 #---------------------------------------------------------------------------
 # Prefs starting with "test."
 #---------------------------------------------------------------------------
@@ -10082,6 +10133,21 @@
 - name: threads.medium_high_event_queue.enabled
   type: RelaxedAtomicBool
   value: true
+  mirror: always
+
+#---------------------------------------------------------------------------
+# Prefs starting with "timer."
+#---------------------------------------------------------------------------
+
+# Since our timestamp on macOS does not increment while the system is asleep, we
+# should ignore sleep/wake notifications to make timer thread process timers.
+- name: timer.ignore_sleep_wake_notifications
+  type: RelaxedAtomicBool
+#ifdef XP_MACOSX
+  value: true
+#else
+  value: false
+#endif
   mirror: always
 
 #---------------------------------------------------------------------------
@@ -10689,6 +10755,43 @@
 #else
   value: false
 #endif
+  mirror: always
+
+# The size in CSS pixels at full zoom of the minimum scrollbar width.
+- name: widget.gtk.non-native.scrollbar.normal-size
+  type: uint32_t
+  value: 12
+  mirror: always
+
+# The size in CSS pixels at full zoom of the "thin" scrollbars.
+- name: widget.gtk.non-native.scrollbar.thin-size
+  type: uint32_t
+  value: 6
+  mirror: always
+
+# The amount of space that the thumb should fill the scrollbar, from zero to
+# one.
+- name: widget.gtk.non-native.scrollbar.thumb-size
+  type: float
+  value: 0.75
+  mirror: always
+
+# The minimum size of the scroll thumb, in the scrollbar direction.
+- name: widget.gtk.non-native.scrollbar.thumb-cross-size
+  type: uint32_t
+  value: 40
+  mirror: always
+
+# Whether the thumb should be rounded for the non-native scrollbars.
+- name: widget.gtk.non-native.round-thumb
+  type: bool
+  value: true
+  mirror: always
+
+# Whether buttons shouldn't be suppressed for non-native scrollbars.
+- name: widget.gtk.non-native.scrollbar.allow-buttons
+  type: bool
+  value: false
   mirror: always
 
 # Preference to disable dark scrollbar implementation.

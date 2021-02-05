@@ -752,8 +752,6 @@ child:
       Endpoint<PRemoteDecoderManagerChild> video,
       uint32_t[] namespaces);
 
-    async AudioDefaultDeviceChange();
-
     async SpeakerManagerNotify();
 
     async NetworkLinkTypeChange(uint32_t type);
