@@ -4543,6 +4543,12 @@
   value: true
   mirror: always
 
+# Disable using native font source of freetype, for use in tests.
+- name: gfx.font_rendering.native_font_source_none
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
 #  Whether to enable LayerScope tool and default listening port.
 - name: gfx.layerscope.enabled
   type: RelaxedAtomicBool
