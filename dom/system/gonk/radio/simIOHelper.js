@@ -3705,9 +3705,7 @@ ICCRecordHelperObject.prototype = {
         //this.context.RuimRecordHelper.fetchRuimRecords();
         break;
     }
-    //Cameron mark first.
-    //console.log("Cameron, fetchICCRecords fetchISimRecords");
-    //this.context.ISimRecordHelper.fetchISimRecords();
+    this.context.ISimRecordHelper.fetchISimRecords();
   },
 
   /**
@@ -6097,32 +6095,21 @@ ISimRecordHelperObject.prototype = {
     let ICCFileHelper = this.context.ICCFileHelper;
     let ICCIOHelper = this.context.ICCIOHelper;
 
-    function callback() {
-      let Buf = this.context.Buf;
-      let strLen = Buf.readInt32();
-      let octetLen = strLen / PDU_HEX_OCTET_SIZE;
-      let readLen = 0;
-
+    function callback(options) {
       let GsmPDUHelper = this.context.GsmPDUHelper;
+      GsmPDUHelper.initWith(options.simResponse);
       let tlvTag = GsmPDUHelper.readHexOctet();
       let tlvLen = GsmPDUHelper.readHexOctet();
-      readLen += 2; // For tag and length fields.
       if (tlvTag === ICC_ISIM_NAI_TLV_DATA_OBJECT_TAG) {
         let str = "";
         for (let i = 0; i < tlvLen; i++) {
           str += String.fromCharCode(GsmPDUHelper.readHexOctet());
         }
-        readLen += tlvLen;
         if (DEBUG) {
           this.context.debug("impi : " + str);
         }
         this.impi = str;
       }
-
-      // Consume unread octets.
-      Buf.seekIncoming((octetLen - readLen) * Buf.PDU_HEX_OCTET_SIZE);
-      Buf.readStringDelimiter(strLen);
-
       this._handleIsimInfoChange();
     }
 
@@ -6141,22 +6128,18 @@ ISimRecordHelperObject.prototype = {
     let ICCIOHelper = this.context.ICCIOHelper;
 
     function callback(options) {
-      let Buf = this.context.Buf;
       let GsmPDUHelper = this.context.GsmPDUHelper;
+      GsmPDUHelper.initWith(options.simResponse);
+
       let ICCIOHelper = this.context.ICCIOHelper;
-      let strLen = Buf.readInt32();
-      let octetLen = strLen / PDU_HEX_OCTET_SIZE;
-      let readLen = 0;
 
       let tlvTag = GsmPDUHelper.readHexOctet();
       let tlvLen = GsmPDUHelper.readHexOctet();
-      readLen += 2; // For tag and length fields.
       if (tlvTag === ICC_ISIM_URI_TLV_DATA_OBJECTTAG) {
         let str = "";
         for (let i = 0; i < tlvLen; i++) {
           str += String.fromCharCode(GsmPDUHelper.readHexOctet());
         }
-        readLen += tlvLen;
         if (str.length) {
           if (DEBUG) {
             this.context.debug("impu : " + str);
@@ -6164,10 +6147,6 @@ ISimRecordHelperObject.prototype = {
           this.impus.push(str);
         }
       }
-
-      // Consume unread octets.
-      Buf.seekIncoming((octetLen - readLen) * Buf.PDU_HEX_OCTET_SIZE);
-      Buf.readStringDelimiter(strLen);
 
       if (options.p1 < options.totalRecords) {
         ICCIOHelper.loadNextRecord(options);

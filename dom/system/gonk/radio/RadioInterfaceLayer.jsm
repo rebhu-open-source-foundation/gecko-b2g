@@ -1085,6 +1085,9 @@ RadioInterface.prototype = {
         this.handleIccMwis(message.mwi);
         break;
       case "isiminfochange":
+        if (DEBUG) {
+          this.debug("isiminfochange message=" + JSON.stringify(message));
+        }
         gIccService.notifyIsimInfoChanged(
           this.clientId,
           message.impi ? message : null
