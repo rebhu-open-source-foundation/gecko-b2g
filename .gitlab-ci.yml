@@ -169,8 +169,8 @@ build:emulator:
 
 build:arm:
   variables:
-    GONK_PATH: "${CI_PROJECT_DIR}/gonk-q"
-    GECKO_OBJDIR: "${CI_PROJECT_DIR}/objdir-arm-gecko"
+    GONK_PATH: "${CI_BUILDS_DIR}/kaios/gecko/gonk-q"
+    GECKO_OBJDIR: "${CI_BUILDS_DIR}/kaios/gecko/objdir-arm-gecko"
     GONK_PRODUCT_NAME: msm8937_32go
     GET_FRAMEBUFFER_FORMAT_FROM_HWC: 1
     PLATFORM_VERSION: 29
