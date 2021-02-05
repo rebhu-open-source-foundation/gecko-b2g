@@ -17,6 +17,7 @@
 #include "nsIMemoryReporter.h"
 #ifdef MOZ_WIDGET_GONK
 #include "GfxDebugger.h"
+#include "mozilla/LinuxUtils.h"
 #include "ui/PixelFormat.h"
 #endif
 #include "nsPrintfCString.h"
@@ -34,8 +35,6 @@ map<base::ProcessId, SharedBufferManagerParent* > SharedBufferManagerParent::sMa
 StaticAutoPtr<Monitor> SharedBufferManagerParent::sManagerMonitor;
 uint64_t SharedBufferManagerParent::sBufferKey(0);
 
-// FIXME
-#if 0
 #ifdef MOZ_WIDGET_GONK
 class GrallocReporter final : public nsIMemoryReporter
 {
@@ -77,12 +76,11 @@ public:
             pidName.get(), pid, gb->getWidth(), height, bpp, stride);
 
         rv = aHandleReport->Callback(EmptyCString(), gpath, KIND_OTHER, UNITS_BYTES, amount,
-            NS_LITERAL_CSTRING(
               "Special RAM that can be shared between processes and directly accessed by "
               "both the CPU and GPU. Gralloc memory is usually a relatively precious "
               "resource, with much less available than generic RAM. When it's exhausted, "
               "graphics performance can suffer. This value can be incorrect because of race "
-              "conditions."),
+              "conditions."_ns,
             aData);
         if (rv != NS_OK) {
           if (SharedBufferManagerParent::sManagerMonitor) {
@@ -111,7 +109,6 @@ void InitGralloc() {
   RegisterStrongMemoryReporter(new GrallocReporter());
 #endif
 }
-#endif
 
 /**
  * Task that deletes SharedBufferManagerParent on a specified thread.

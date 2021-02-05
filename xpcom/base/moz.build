@@ -209,6 +209,14 @@ GeneratedFile(
 )
 GeneratedFile("error_list.rs", script="ErrorList.py", entry_point="error_list_rs")
 
+if CONFIG['OS_ARCH'] == 'Linux':
+    SOURCES += [
+        'LinuxUtils.cpp',
+    ]
+    EXPORTS.mozilla += [
+        'LinuxUtils.h',
+    ]
+
 if CONFIG["MOZ_WIDGET_TOOLKIT"] == "cocoa":
     SOURCES += [
         "nsMacUtilsImpl.cpp",

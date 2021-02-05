@@ -161,6 +161,9 @@ static const uint32_t kDefaultGlyphCacheSize = -1;
 
 namespace mozilla {
 namespace layers {
+#ifdef MOZ_WIDGET_GONK
+void InitGralloc();
+#endif
 void ShutdownTileCache();
 } // namespace layers
 } // namespace mozilla
@@ -1045,6 +1048,10 @@ void gfxPlatform::Init() {
   Preferences::RegisterPrefixCallbacks(FontPrefChanged, kObservedPrefs);
 
   GLContext::PlatformStartup();
+
+#ifdef MOZ_WIDGET_GONK
+  mozilla::layers::InitGralloc();
+#endif
 
   Preferences::RegisterCallbackAndCall(RecordingPrefChanged,
                                        "gfx.2d.recording");
