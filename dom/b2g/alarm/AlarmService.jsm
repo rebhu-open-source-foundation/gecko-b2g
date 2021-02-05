@@ -45,6 +45,10 @@ XPCOMUtils.defineLazyGetter(this, "powerManagerService", function() {
   );
 });
 
+XPCOMUtils.defineLazyGetter(this, "timeService", function() {
+  return Cc["@mozilla.org/sidl-native/time;1"].getService(Ci.nsITime);
+});
+
 /**
  * AlarmService provides an API to schedule alarms using the device's RTC.
  *
@@ -72,6 +76,26 @@ this.AlarmService = {
     ].getService(Ci.nsIAlarmHalService));
 
     alarmHalService.setAlarmFiredCb(this._onAlarmFired.bind(this));
+
+    timeService.addObserver(
+      timeService.TIME_CHANGED,
+      {
+        notify: aTimeInfo => {
+          debug(
+            `TIME_CHANGED ${aTimeInfo?.reason} ${aTimeInfo?.delta} ${aTimeInfo?.timezone}`
+          );
+          systemmessenger.broadcastMessage("system-time-change", {
+            reason: aTimeInfo?.reason,
+            delta: aTimeInfo?.delta,
+            timezone: aTimeInfo?.timezone,
+          });
+        },
+      },
+      {
+        resolve: () => debug("resolve: addObserver on TIME_CHANGED"),
+        reject: () => debug("reject: addObserver on TIME_CHANGED"),
+      }
+    );
 
     /* TODO: hal timezone change
     alarmHalService.setTimezoneChangedCb(this._onTimezoneChanged.bind(this));
