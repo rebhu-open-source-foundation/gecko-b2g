@@ -6088,7 +6088,22 @@ ISimRecordHelperObject.prototype = {
 
   // Sim refresh file updated.
   handleFileUpdate(aEfId) {
-    //TODO complete the isim part.
+    switch (aEfId) {
+      case ICC_EF_ISIM_IMPI:
+        if (DEBUG) this.context.debug("File refresh for EF_ISIM_IMPI.");
+        this.readIMPI();
+        break;
+      case ICC_EF_ISIM_IMPU:
+        if (DEBUG) this.context.debug("File refresh for ISIM_IMPU.");
+        this.readIMPU();
+        break;
+      default:
+        // No one knew how to handle this particular file, so to be safe just
+        // fetch all records.
+        if (DEBUG) this.context.debug("ISIM Refresh for all.");
+        fetchISimRecords();
+        break;
+    }
   },
 
   readIMPI() {
