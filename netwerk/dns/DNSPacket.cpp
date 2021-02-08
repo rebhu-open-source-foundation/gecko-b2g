@@ -456,7 +456,8 @@ nsresult DNSPacket::DecodeInternal(
   LOG(("TRR Decode %s RCODE %d\n", aHost.get(), rcode));
   if (rcode) {
     if (aReason == nsHostRecord::TRR_UNSET) {
-      aReason = nsHostRecord::TRR_RCODE_FAIL;
+      aReason = rcode == 0x03 ? nsHostRecord::TRR_NXDOMAIN
+                              : nsHostRecord::TRR_RCODE_FAIL;
     }
   }
 
@@ -954,6 +955,10 @@ nsresult DNSPacket::DecodeInternal(
       aTypeResult.is<TypeRecordEmpty>()) {
     // no entries were stored!
     LOG(("TRR: No entries were stored!\n"));
+    if (aReason == nsHostRecord::TRR_UNSET) {
+      aReason = nsHostRecord::TRR_NO_ANSWERS;
+    }
+
     if (extendedError != UINT16_MAX && hardFail(extendedError)) {
       return NS_ERROR_DEFINITIVE_UNKNOWN_HOST;
     }

@@ -4964,6 +4964,9 @@ void nsFocusManager::NotifyOfReFocus(nsIContent& aContent) {
   if (!window || window != mFocusedWindow) {
     return;
   }
+  if (!aContent.IsInComposedDoc() || IsNonFocusableRoot(&aContent)) {
+    return;
+  }
   nsIDocShell* docShell = window->GetDocShell();
   if (!docShell) {
     return;
