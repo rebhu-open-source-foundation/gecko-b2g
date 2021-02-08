@@ -577,7 +577,7 @@
         "oop-frameloader-crashed"
       );
       Services.obs.removeObserver(this.crashObserver, "ipc:content-shutdown");
-      this.cleanedUp = true;
+      this._cleanedUp = true;
     }
 
     dispatchCustomEvent(name, detail) {
