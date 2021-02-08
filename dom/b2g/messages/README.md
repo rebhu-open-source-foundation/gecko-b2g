@@ -26,7 +26,7 @@ System messages are messages from the system, they are sent by the system based 
 | sms-failed                                | sms                  |
 | sms-received                              | sms                  |
 | sms-sent                                  | sms                  |
-| system-time-change                        |                      |
+| system-time-change                        | system-time:read |
 | telephony-call-ended                      | telephony            |
 | telephony-hac-mode-changed                | telephony            |
 | telephony-new-call                        | telephony            |
