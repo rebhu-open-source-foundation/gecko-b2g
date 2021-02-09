@@ -73,7 +73,7 @@
 #include "frontend/BytecodeCompilation.h"
 #include "frontend/BytecodeCompiler.h"
 #include "frontend/BytecodeEmitter.h"
-#include "frontend/CompilationInfo.h"
+#include "frontend/CompilationStencil.h"
 #ifdef JS_ENABLE_SMOOSH
 #  include "frontend/Frontend2.h"
 #endif
@@ -2310,6 +2310,11 @@ static bool Evaluate(JSContext* cx, unsigned argc, Value* vp) {
             cx,
             "saveIncrementalBytecode and saveBytecode cannot be used"
             " at the same time.");
+        return false;
+      }
+      if (saveIncrementalBytecode && js::UseOffThreadParseGlobal()) {
+        JS_ReportErrorASCII(
+            cx, "saveIncrementalBytecode cannot be used with legacy XDR.");
         return false;
       }
     }

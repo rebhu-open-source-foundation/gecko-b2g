@@ -42,7 +42,7 @@
 #include "builtin/Symbol.h"
 #include "frontend/BytecodeCompilation.h"  // frontend::CompileGlobalScriptToStencil, frontend::InstantiateStencils
 #include "frontend/BytecodeCompiler.h"
-#include "frontend/CompilationInfo.h"  // frontend::CompilationStencilSet, frontend::CompilationGCOutput
+#include "frontend/CompilationStencil.h"  // frontend::CompilationStencilSet, frontend::CompilationGCOutput
 #include "gc/FreeOp.h"
 #include "gc/Marking.h"
 #include "gc/Policy.h"
@@ -5821,19 +5821,7 @@ JS_PUBLIC_API JS::TranscodeResult JS::DecodeScriptAndStartIncrementalEncoding(
     JSContext* cx, const ReadOnlyCompileOptions& options,
     TranscodeBuffer& buffer, JS::MutableHandleScript scriptp,
     size_t cursorIndex) {
-  if (!options.useStencilXDR) {
-    JS::TranscodeResult res =
-        JS::DecodeScript(cx, options, buffer, scriptp, cursorIndex);
-    if (res != JS::TranscodeResult_Ok) {
-      return res;
-    }
-
-    if (!scriptp->scriptSource()->xdrEncodeTopLevel(cx, scriptp)) {
-      return JS::TranscodeResult_Throw;
-    }
-
-    return JS::TranscodeResult_Ok;
-  }
+  MOZ_DIAGNOSTIC_ASSERT(options.useStencilXDR);
 
   Rooted<frontend::CompilationStencilSet> stencilSet(
       cx, frontend::CompilationStencilSet(cx, options));
@@ -5844,7 +5832,7 @@ JS_PUBLIC_API JS::TranscodeResult JS::DecodeScriptAndStartIncrementalEncoding(
     return res;
   }
 
-  UniquePtr<XDRIncrementalEncoderBase> xdrEncoder;
+  UniquePtr<XDRIncrementalStencilEncoder> xdrEncoder;
   if (!stencilSet.get().input.source()->xdrEncodeStencils(cx, stencilSet.get(),
                                                           xdrEncoder)) {
     return JS::TranscodeResult_Throw;

@@ -4200,7 +4200,7 @@ bool BrowserParent::HitTest(const nsRect& aRect) {
 PKeyboardEventForwarderParent*
 BrowserParent::AllocPKeyboardEventForwarderParent() {
   RefPtr<KeyboardEventForwarderParent> actor =
-      new KeyboardEventForwarderParent(this);
+      new KeyboardEventForwarderParent();
   return actor.forget().take();
 }
 

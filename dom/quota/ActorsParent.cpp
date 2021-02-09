@@ -695,10 +695,21 @@ Result<mozilla::Ok, nsresult> CollectEachFileEntry(
       aDirectory,
       [&aFileFunc, &aDirectoryFunc](
           const nsCOMPtr<nsIFile>& file) -> Result<mozilla::Ok, nsresult> {
-        QM_TRY_INSPECT(const bool& isDirectory,
-                       MOZ_TO_RESULT_INVOKE(file, IsDirectory));
+        QM_TRY_INSPECT(const auto& dirEntryKind, GetDirEntryKind(*file));
 
-        return isDirectory ? aDirectoryFunc(file) : aFileFunc(file);
+        switch (dirEntryKind) {
+          case nsIFileKind::ExistsAsDirectory:
+            return aDirectoryFunc(file);
+
+          case nsIFileKind::ExistsAsFile:
+            return aFileFunc(file);
+
+          case nsIFileKind::DoesNotExist:
+            // Ignore files that got removed externally while iterating.
+            break;
+        }
+
+        return Ok{};
       });
 }
 
@@ -707,6 +718,8 @@ Result<mozilla::Ok, nsresult> CollectEachFileEntry(
  ******************************************************************************/
 
 }  // namespace
+
+enum class ShouldUpdateLockIdTableFlag { No, Yes };
 
 class DirectoryLockImpl final : public DirectoryLock {
   const NotNull<RefPtr<QuotaManager>> mQuotaManager;
@@ -737,13 +750,51 @@ class DirectoryLockImpl final : public DirectoryLock {
   FlippedOnce<false> mInvalidated;
 
  public:
-  DirectoryLockImpl(
-      MovingNotNull<RefPtr<QuotaManager>> aQuotaManager, const int64_t aId,
+  DirectoryLockImpl(MovingNotNull<RefPtr<QuotaManager>> aQuotaManager,
+                    const Nullable<PersistenceType>& aPersistenceType,
+                    const nsACString& aGroup, const OriginScope& aOriginScope,
+                    const Nullable<Client::Type>& aClientType, bool aExclusive,
+                    bool aInternal,
+                    ShouldUpdateLockIdTableFlag aShouldUpdateLockIdTableFlag);
+
+  static RefPtr<DirectoryLockImpl> Create(
+      MovingNotNull<RefPtr<QuotaManager>> aQuotaManager,
+      PersistenceType aPersistenceType,
+      const quota::GroupAndOrigin& aGroupAndOrigin, Client::Type aClientType,
+      bool aExclusive) {
+    return Create(std::move(aQuotaManager),
+                  Nullable<PersistenceType>(aPersistenceType),
+                  aGroupAndOrigin.mGroup,
+                  OriginScope::FromOrigin(aGroupAndOrigin.mOrigin),
+                  Nullable<Client::Type>(aClientType), aExclusive, false,
+                  ShouldUpdateLockIdTableFlag::Yes);
+  }
+
+  static RefPtr<DirectoryLockImpl> CreateForEviction(
+      MovingNotNull<RefPtr<QuotaManager>> aQuotaManager,
+      PersistenceType aPersistenceType,
+      const quota::GroupAndOrigin& aGroupAndOrigin) {
+    MOZ_ASSERT(aPersistenceType != PERSISTENCE_TYPE_INVALID);
+    MOZ_ASSERT(!aGroupAndOrigin.mOrigin.IsEmpty());
+
+    return Create(std::move(aQuotaManager),
+                  Nullable<PersistenceType>(aPersistenceType),
+                  aGroupAndOrigin.mGroup,
+                  OriginScope::FromOrigin(aGroupAndOrigin.mOrigin),
+                  Nullable<Client::Type>(),
+                  /* aExclusive */ true, /* aInternal */ true,
+                  ShouldUpdateLockIdTableFlag::No);
+  }
+
+  static RefPtr<DirectoryLockImpl> CreateInternal(
+      MovingNotNull<RefPtr<QuotaManager>> aQuotaManager,
       const Nullable<PersistenceType>& aPersistenceType,
-      const nsACString& aGroup, const OriginScope& aOriginScope,
-      const Nullable<Client::Type>& aClientType, bool aExclusive,
-      bool aInternal,
-      QuotaManager::ShouldUpdateLockIdTableFlag aShouldUpdateLockIdTableFlag);
+      const OriginScope& aOriginScope,
+      const Nullable<Client::Type>& aClientType, bool aExclusive) {
+    return Create(std::move(aQuotaManager), aPersistenceType, ""_ns,
+                  aOriginScope, aClientType, aExclusive, true,
+                  ShouldUpdateLockIdTableFlag::Yes);
+  }
 
   void AssertIsOnOwningThread() const
 #ifdef DEBUG
@@ -865,6 +916,27 @@ class DirectoryLockImpl final : public DirectoryLock {
 
  private:
   ~DirectoryLockImpl();
+
+  static RefPtr<DirectoryLockImpl> Create(
+      MovingNotNull<RefPtr<QuotaManager>> aQuotaManager,
+      const Nullable<PersistenceType>& aPersistenceType,
+      const nsACString& aGroup, const OriginScope& aOriginScope,
+      const Nullable<Client::Type>& aClientType, bool aExclusive,
+      bool aInternal,
+      ShouldUpdateLockIdTableFlag aShouldUpdateLockIdTableFlag) {
+    MOZ_ASSERT_IF(aOriginScope.IsOrigin(), !aOriginScope.GetOrigin().IsEmpty());
+    MOZ_ASSERT_IF(!aInternal, !aPersistenceType.IsNull());
+    MOZ_ASSERT_IF(!aInternal,
+                  aPersistenceType.Value() != PERSISTENCE_TYPE_INVALID);
+    MOZ_ASSERT_IF(!aInternal, !aGroup.IsEmpty());
+    MOZ_ASSERT_IF(!aInternal, aOriginScope.IsOrigin());
+    MOZ_ASSERT_IF(!aInternal, !aClientType.IsNull());
+    MOZ_ASSERT_IF(!aInternal, aClientType.Value() < Client::TypeMax());
+
+    return MakeRefPtr<DirectoryLockImpl>(
+        std::move(aQuotaManager), aPersistenceType, aGroup, aOriginScope,
+        aClientType, aExclusive, aInternal, aShouldUpdateLockIdTableFlag);
+  }
 };
 
 const DirectoryLockImpl* AsDirectoryLockImpl(
@@ -2083,7 +2155,6 @@ bool gQuotaManagerInitialized = false;
 #endif
 
 StaticRefPtr<QuotaManager> gInstance;
-bool gCreateFailed = false;
 mozilla::Atomic<bool> gShutdown(false);
 
 // A time stamp that can only be accessed on the main thread.
@@ -2431,41 +2502,49 @@ int64_t GetLastModifiedTime(nsIFile* aFile, bool aPersistent) {
       MOZ_ASSERT(aFile);
       MOZ_ASSERT(aTimestamp);
 
-      QM_TRY_INSPECT(const bool& isDirectory,
-                     MOZ_TO_RESULT_INVOKE(aFile, IsDirectory));
+      QM_TRY_INSPECT(const auto& dirEntryKind, GetDirEntryKind(*aFile));
 
-      if (!isDirectory) {
-        QM_TRY_INSPECT(
-            const auto& leafName,
-            MOZ_TO_RESULT_INVOKE_TYPED(nsAutoString, aFile, GetLeafName));
+      switch (dirEntryKind) {
+        case nsIFileKind::ExistsAsDirectory:
+          QM_TRY(CollectEachFile(*aFile,
+                                 [&aTimestamp](const nsCOMPtr<nsIFile>& file)
+                                     -> Result<mozilla::Ok, nsresult> {
+                                   QM_TRY(
+                                       GetLastModifiedTime(file, aTimestamp));
 
-        // Bug 1595445 will handle unknown files here.
+                                   return Ok{};
+                                 }));
+          break;
 
-        if (IsOriginMetadata(leafName) || IsTempMetadata(leafName) ||
-            IsDotFile(leafName)) {
-          return NS_OK;
+        case nsIFileKind::ExistsAsFile: {
+          QM_TRY_INSPECT(
+              const auto& leafName,
+              MOZ_TO_RESULT_INVOKE_TYPED(nsAutoString, aFile, GetLeafName));
+
+          // Bug 1595445 will handle unknown files here.
+
+          if (IsOriginMetadata(leafName) || IsTempMetadata(leafName) ||
+              IsDotFile(leafName)) {
+            return NS_OK;
+          }
+
+          QM_TRY_UNWRAP(int64_t timestamp,
+                        MOZ_TO_RESULT_INVOKE(aFile, GetLastModifiedTime));
+
+          // Need to convert from milliseconds to microseconds.
+          MOZ_ASSERT((INT64_MAX / PR_USEC_PER_MSEC) > timestamp);
+          timestamp *= int64_t(PR_USEC_PER_MSEC);
+
+          if (timestamp > *aTimestamp) {
+            *aTimestamp = timestamp;
+          }
+          break;
         }
 
-        QM_TRY_UNWRAP(int64_t timestamp,
-                      MOZ_TO_RESULT_INVOKE(aFile, GetLastModifiedTime));
-
-        // Need to convert from milliseconds to microseconds.
-        MOZ_ASSERT((INT64_MAX / PR_USEC_PER_MSEC) > timestamp);
-        timestamp *= int64_t(PR_USEC_PER_MSEC);
-
-        if (timestamp > *aTimestamp) {
-          *aTimestamp = timestamp;
-        }
-        return NS_OK;
+        case nsIFileKind::DoesNotExist:
+          // Ignore files that got removed externally while iterating.
+          break;
       }
-
-      QM_TRY(CollectEachFile(*aFile,
-                             [&aTimestamp](const nsCOMPtr<nsIFile>& file)
-                                 -> Result<mozilla::Ok, nsresult> {
-                               QM_TRY(GetLastModifiedTime(file, aTimestamp));
-
-                               return Ok{};
-                             }));
 
       return NS_OK;
     }
@@ -2810,22 +2889,21 @@ RefPtr<DirectoryLock> DirectoryLock::Specialize(
 void DirectoryLock::Log() const { AsDirectoryLockImpl(this)->Log(); }
 
 DirectoryLockImpl::DirectoryLockImpl(
-    MovingNotNull<RefPtr<QuotaManager>> aQuotaManager, const int64_t aId,
+    MovingNotNull<RefPtr<QuotaManager>> aQuotaManager,
     const Nullable<PersistenceType>& aPersistenceType, const nsACString& aGroup,
     const OriginScope& aOriginScope, const Nullable<Client::Type>& aClientType,
     const bool aExclusive, const bool aInternal,
-    const QuotaManager::ShouldUpdateLockIdTableFlag
-        aShouldUpdateLockIdTableFlag)
+    const ShouldUpdateLockIdTableFlag aShouldUpdateLockIdTableFlag)
     : mQuotaManager(std::move(aQuotaManager)),
       mPersistenceType(aPersistenceType),
       mGroup(aGroup),
       mOriginScope(aOriginScope),
       mClientType(aClientType),
-      mId(aId),
+      mId(mQuotaManager->GenerateDirectoryLockId()),
       mExclusive(aExclusive),
       mInternal(aInternal),
       mShouldUpdateLockIdTable(aShouldUpdateLockIdTableFlag ==
-                               QuotaManager::ShouldUpdateLockIdTableFlag::Yes),
+                               ShouldUpdateLockIdTableFlag::Yes),
       mRegistered(false) {
   AssertIsOnOwningThread();
   MOZ_ASSERT_IF(aOriginScope.IsOrigin(), !aOriginScope.GetOrigin().IsEmpty());
@@ -3004,13 +3082,11 @@ RefPtr<DirectoryLock> DirectoryLockImpl::Specialize(
     return nullptr;
   }
 
-  RefPtr<DirectoryLockImpl> lock = new DirectoryLockImpl(
-      mQuotaManager, mQuotaManager->GenerateDirectoryLockId(),
-      Nullable<PersistenceType>(aPersistenceType), aGroupAndOrigin.mGroup,
-      OriginScope::FromOrigin(aGroupAndOrigin.mOrigin),
+  RefPtr<DirectoryLockImpl> lock = Create(
+      mQuotaManager, Nullable<PersistenceType>(aPersistenceType),
+      aGroupAndOrigin.mGroup, OriginScope::FromOrigin(aGroupAndOrigin.mOrigin),
       Nullable<Client::Type>(aClientType),
-      /* aExclusive */ false, mInternal,
-      QuotaManager::ShouldUpdateLockIdTableFlag::Yes);
+      /* aExclusive */ false, mInternal, ShouldUpdateLockIdTableFlag::Yes);
   if (NS_WARN_IF(!Overlaps(*lock))) {
     return nullptr;
   }
@@ -3659,30 +3735,39 @@ nsresult QuotaManager::Initialize() {
   return NS_OK;
 }
 
-void QuotaManager::GetOrCreate(nsIRunnable* aCallback,
-                               nsIEventTarget* aMainEventTarget) {
+// static
+Result<MovingNotNull<RefPtr<QuotaManager>>, nsresult>
+QuotaManager::GetOrCreate() {
   AssertIsOnBackgroundThread();
 
-  if (IsShuttingDown()) {
-    MOZ_ASSERT(false, "Calling QuotaManager::GetOrCreate() after shutdown!");
-    return;
+  if (gInstance) {
+    return WrapMovingNotNullUnchecked(RefPtr<QuotaManager>{gInstance});
   }
 
-  if (NS_WARN_IF(!gBasePath)) {
-    NS_WARNING("profile-do-change must precede QuotaManager::GetOrCreate()");
-    MOZ_ASSERT(!gInstance);
-  } else if (gInstance || gCreateFailed) {
-    MOZ_ASSERT_IF(gCreateFailed, !gInstance);
-  } else {
-    RefPtr<QuotaManager> manager = new QuotaManager(*gBasePath, *gStorageName);
+  QM_TRY(OkIf(gBasePath), Err(NS_ERROR_FAILURE), [](const auto&) {
+    NS_WARNING(
+        "Trying to create QuotaManager before profile-do-change! "
+        "Forgot to call do_get_profile()?");
+  });
 
-    nsresult rv = manager->Init();
-    if (NS_WARN_IF(NS_FAILED(rv))) {
-      gCreateFailed = true;
-    } else {
-      gInstance = manager;
-    }
-  }
+  QM_TRY(OkIf(!IsShuttingDown()), Err(NS_ERROR_FAILURE), [](const auto&) {
+    MOZ_ASSERT(false,
+               "Trying to create QuotaManager after profile-before-change-qm!");
+  });
+
+  auto instance = MakeRefPtr<QuotaManager>(*gBasePath, *gStorageName);
+
+  QM_TRY(instance->Init());
+
+  gInstance = instance;
+
+  return WrapMovingNotNullUnchecked(std::move(instance));
+}
+
+void QuotaManager::GetOrCreate(nsIRunnable* aCallback) {
+  AssertIsOnBackgroundThread();
+
+  Unused << GetOrCreate();
 
   MOZ_ALWAYS_SUCCEEDS(NS_DispatchToCurrentThread(aCallback));
 }
@@ -3732,41 +3817,6 @@ bool QuotaManager::IsOSMetadata(const nsAString& aFileName) {
 // static
 bool QuotaManager::IsDotFile(const nsAString& aFileName) {
   return aFileName.First() == char16_t('.');
-}
-
-RefPtr<DirectoryLockImpl> QuotaManager::CreateDirectoryLock(
-    const Nullable<PersistenceType>& aPersistenceType, const nsACString& aGroup,
-    const OriginScope& aOriginScope, const Nullable<Client::Type>& aClientType,
-    bool aExclusive, bool aInternal,
-    const ShouldUpdateLockIdTableFlag aShouldUpdateLockIdTableFlag) {
-  AssertIsOnOwningThread();
-  MOZ_ASSERT_IF(aOriginScope.IsOrigin(), !aOriginScope.GetOrigin().IsEmpty());
-  MOZ_ASSERT_IF(!aInternal, !aPersistenceType.IsNull());
-  MOZ_ASSERT_IF(!aInternal,
-                aPersistenceType.Value() != PERSISTENCE_TYPE_INVALID);
-  MOZ_ASSERT_IF(!aInternal, !aGroup.IsEmpty());
-  MOZ_ASSERT_IF(!aInternal, aOriginScope.IsOrigin());
-  MOZ_ASSERT_IF(!aInternal, !aClientType.IsNull());
-  MOZ_ASSERT_IF(!aInternal, aClientType.Value() < Client::TypeMax());
-
-  return MakeRefPtr<DirectoryLockImpl>(
-      WrapNotNullUnchecked(this), GenerateDirectoryLockId(), aPersistenceType,
-      aGroup, aOriginScope, aClientType, aExclusive, aInternal,
-      aShouldUpdateLockIdTableFlag);
-}
-
-RefPtr<DirectoryLockImpl> QuotaManager::CreateDirectoryLockForEviction(
-    PersistenceType aPersistenceType, const GroupAndOrigin& aGroupAndOrigin) {
-  AssertIsOnOwningThread();
-  MOZ_ASSERT(aPersistenceType != PERSISTENCE_TYPE_INVALID);
-  MOZ_ASSERT(!aGroupAndOrigin.mOrigin.IsEmpty());
-
-  return CreateDirectoryLock(Nullable<PersistenceType>(aPersistenceType),
-                             aGroupAndOrigin.mGroup,
-                             OriginScope::FromOrigin(aGroupAndOrigin.mOrigin),
-                             Nullable<Client::Type>(),
-                             /* aExclusive */ true, /* aInternal */ true,
-                             QuotaManager::ShouldUpdateLockIdTableFlag::No);
 }
 
 void QuotaManager::RegisterDirectoryLock(DirectoryLockImpl& aLock) {
@@ -3977,8 +4027,8 @@ uint64_t QuotaManager::CollectOriginsForEviction(
     // operations for them will be delayed (until origin eviction is finalized).
 
     for (const auto& originInfo : inactiveOrigins) {
-      RefPtr<DirectoryLockImpl> lock = CreateDirectoryLockForEviction(
-          originInfo->mGroupInfo->mPersistenceType,
+      RefPtr<DirectoryLockImpl> lock = DirectoryLockImpl::CreateForEviction(
+          WrapNotNullUnchecked(this), originInfo->mGroupInfo->mPersistenceType,
           GroupAndOrigin{originInfo->mGroupInfo->mGroup, originInfo->mOrigin});
 
       lock->Acquire();
@@ -5102,65 +5152,75 @@ nsresult QuotaManager::InitializeRepository(PersistenceType aPersistenceType) {
                   ([this, &childDirectory, &renameAndInitInfos,
                     aPersistenceType]() -> Result<Ok, nsresult> {
                     QM_TRY_INSPECT(
-                        const bool& isDirectory,
-                        MOZ_TO_RESULT_INVOKE(childDirectory, IsDirectory));
-
-                    QM_TRY_INSPECT(
                         const auto& leafName,
                         MOZ_TO_RESULT_INVOKE_TYPED(nsAutoString, childDirectory,
                                                    GetLeafName));
 
-                    if (!isDirectory) {
-                      if (IsOSMetadata(leafName) || IsDotFile(leafName)) {
-                        return Ok{};
+                    QM_TRY_INSPECT(const auto& dirEntryKind,
+                                   GetDirEntryKind(*childDirectory));
+
+                    switch (dirEntryKind) {
+                      case nsIFileKind::ExistsAsDirectory: {
+                        QM_TRY_UNWRAP(
+                            auto metadata,
+                            GetDirectoryMetadataWithQuotaInfo2WithRestore(
+                                childDirectory,
+                                /* aPersistent */ false));
+
+                        // FIXME(tt): The check for origin name consistency can
+                        // be removed once we have an upgrade to traverse origin
+                        // directories and check through the directory metadata
+                        // files.
+                        const auto originSanitized = MakeSanitizedOriginCString(
+                            metadata.mQuotaInfo.mOrigin);
+
+                        NS_ConvertUTF16toUTF8 utf8LeafName(leafName);
+                        if (!originSanitized.Equals(utf8LeafName)) {
+                          QM_WARNING(
+                              "The name of the origin directory (%s) doesn't "
+                              "match the sanitized origin string (%s) in the "
+                              "metadata file!",
+                              utf8LeafName.get(), originSanitized.get());
+
+                          // If it's the known case, we try to restore the
+                          // origin directory name if it's possible.
+                          if (originSanitized.Equals(utf8LeafName + "."_ns)) {
+                            renameAndInitInfos.AppendElement(RenameAndInitInfo{
+                                std::move(childDirectory),
+                                std::move(metadata.mQuotaInfo),
+                                metadata.mTimestamp, metadata.mPersisted});
+                            break;
+                          }
+
+                          // XXXtt: Try to restore the unknown cases base on the
+                          // content for their metadata files. Note that if the
+                          // restore fails, QM should maintain a list and ensure
+                          // they won't be accessed after initialization.
+                        }
+
+                        QM_TRY(InitializeOrigin(
+                            aPersistenceType, metadata.mQuotaInfo,
+                            metadata.mTimestamp, metadata.mPersisted,
+                            childDirectory));
+
+                        break;
                       }
 
-                      // Unknown files during initialization are now allowed.
-                      // Just warn if we find them.
-                      UNKNOWN_FILE_WARNING(leafName);
-                      return Ok{};
+                      case nsIFileKind::ExistsAsFile:
+                        if (IsOSMetadata(leafName) || IsDotFile(leafName)) {
+                          break;
+                        }
+
+                        // Unknown files during initialization are now allowed.
+                        // Just warn if we find them.
+                        UNKNOWN_FILE_WARNING(leafName);
+                        break;
+
+                      case nsIFileKind::DoesNotExist:
+                        // Ignore files that got removed externally while
+                        // iterating.
+                        break;
                     }
-
-                    QM_TRY_UNWRAP(auto metadata,
-                                  GetDirectoryMetadataWithQuotaInfo2WithRestore(
-                                      childDirectory,
-                                      /* aPersistent */ false));
-
-                    // FIXME(tt): The check for origin name consistency can
-                    // be removed once we have an upgrade to traverse origin
-                    // directories and check through the directory metadata
-                    // files.
-                    const auto originSanitized =
-                        MakeSanitizedOriginCString(metadata.mQuotaInfo.mOrigin);
-
-                    NS_ConvertUTF16toUTF8 utf8LeafName(leafName);
-                    if (!originSanitized.Equals(utf8LeafName)) {
-                      QM_WARNING(
-                          "The name of the origin directory (%s) doesn't "
-                          "match the sanitized origin string (%s) in the "
-                          "metadata file!",
-                          utf8LeafName.get(), originSanitized.get());
-
-                      // If it's the known case, we try to restore the origin
-                      // directory name if it's possible.
-                      if (originSanitized.Equals(utf8LeafName + "."_ns)) {
-                        renameAndInitInfos.AppendElement(RenameAndInitInfo{
-                            std::move(childDirectory),
-                            std::move(metadata.mQuotaInfo), metadata.mTimestamp,
-                            metadata.mPersisted});
-                        return Ok{};
-                      }
-
-                      // XXXtt: Try to restore the unknown cases base on the
-                      // content for their metadata files. Note that if the
-                      // restore fails, QM should maintain a list and ensure
-                      // they won't be accessed after initialization.
-                    }
-
-                    QM_TRY(
-                        InitializeOrigin(aPersistenceType, metadata.mQuotaInfo,
-                                         metadata.mTimestamp,
-                                         metadata.mPersisted, childDirectory));
 
                     return Ok{};
                   }()),
@@ -5249,86 +5309,98 @@ nsresult QuotaManager::InitializeOrigin(PersistenceType aPersistenceType,
               QM_TRY(
                   ([this, &file, trackQuota, aPersistenceType, &aGroupAndOrigin,
                     &clientUsages]() -> Result<Ok, nsresult> {
-                    QM_TRY_INSPECT(const bool& isDirectory,
-                                   MOZ_TO_RESULT_INVOKE(file, IsDirectory));
-
                     QM_TRY_INSPECT(const auto& leafName,
                                    MOZ_TO_RESULT_INVOKE_TYPED(
                                        nsAutoString, file, GetLeafName));
 
-                    if (!isDirectory) {
-                      if (IsOriginMetadata(leafName)) {
-                        return Ok{};
-                      }
+                    QM_TRY_INSPECT(const auto& dirEntryKind,
+                                   GetDirEntryKind(*file));
 
-                      if (IsTempMetadata(leafName)) {
-                        QM_TRY(file->Remove(/* recursive */ false));
+                    switch (dirEntryKind) {
+                      case nsIFileKind::ExistsAsDirectory: {
+                        Client::Type clientType;
+                        const bool ok = Client::TypeFromText(
+                            leafName, clientType, fallible);
+                        if (!ok) {
+                          // Unknown directories during initialization are now
+                          // allowed. Just warn if we find them.
+                          UNKNOWN_FILE_WARNING(leafName);
+                          break;
+                        }
 
-                        return Ok{};
-                      }
+                        if (trackQuota) {
+                          QM_TRY_INSPECT(
+                              const auto& usageInfo,
+                              (*mClients)[clientType]->InitOrigin(
+                                  aPersistenceType, aGroupAndOrigin,
+                                  /* aCanceled */ Atomic<bool>(false)));
 
-                      if (IsOSMetadata(leafName) || IsDotFile(leafName)) {
-                        return Ok{};
-                      }
+                          MOZ_ASSERT(!clientUsages[clientType]);
 
-                      // Unknown files during initialization are now allowed.
-                      // Just warn if we find them.
-                      UNKNOWN_FILE_WARNING(leafName);
-                      // Bug 1595448 will handle the case for unknown files
-                      // like idb, cache, or ls.
-                      return Ok{};
-                    }
-
-                    Client::Type clientType;
-                    const bool ok =
-                        Client::TypeFromText(leafName, clientType, fallible);
-                    if (!ok) {
-                      // Unknown directories during initialization are now
-                      // allowed. Just warn if we find them.
-                      UNKNOWN_FILE_WARNING(leafName);
-                      return Ok{};
-                    }
-
-                    if (trackQuota) {
-                      QM_TRY_INSPECT(const auto& usageInfo,
-                                     (*mClients)[clientType]->InitOrigin(
+                          if (usageInfo.TotalUsage()) {
+                            // XXX(Bug 1683863) Until we identify the root cause
+                            // of seemingly converted-from-negative usage
+                            // values, we will just treat them as unset here,
+                            // but log a warning to the browser console.
+                            if (static_cast<int64_t>(*usageInfo.TotalUsage()) >=
+                                0) {
+                              clientUsages[clientType] = usageInfo.TotalUsage();
+                            } else {
+#if defined(EARLY_BETA_OR_EARLIER) || defined(DEBUG)
+                              const nsCOMPtr<nsIConsoleService> console =
+                                  do_GetService(NS_CONSOLESERVICE_CONTRACTID);
+                              if (console) {
+                                console->LogStringMessage(
+                                    nsString(
+                                        u"QuotaManager warning: client "_ns +
+                                        leafName +
+                                        u" reported negative usage for group "_ns +
+                                        NS_ConvertUTF8toUTF16(
+                                            aGroupAndOrigin.mGroup) +
+                                        u", origin "_ns +
+                                        NS_ConvertUTF8toUTF16(
+                                            aGroupAndOrigin.mOrigin))
+                                        .get());
+                              }
+#endif
+                            }
+                          }
+                        } else {
+                          QM_TRY((*mClients)[clientType]
+                                     ->InitOriginWithoutTracking(
                                          aPersistenceType, aGroupAndOrigin,
                                          /* aCanceled */ Atomic<bool>(false)));
-
-                      MOZ_ASSERT(!clientUsages[clientType]);
-
-                      if (usageInfo.TotalUsage()) {
-                        // XXX(Bug 1683863) Until we identify the root cause of
-                        // seemingly converted-from-negative usage values, we
-                        // will just treat them as unset here, but log a warning
-                        // to the browser console.
-                        if (static_cast<int64_t>(*usageInfo.TotalUsage()) >=
-                            0) {
-                          clientUsages[clientType] = usageInfo.TotalUsage();
-                        } else {
-#if defined(EARLY_BETA_OR_EARLIER) || defined(DEBUG)
-                          const nsCOMPtr<nsIConsoleService> console =
-                              do_GetService(NS_CONSOLESERVICE_CONTRACTID);
-                          if (console) {
-                            console->LogStringMessage(
-                                nsString(
-                                    u"QuotaManager warning: client "_ns +
-                                    leafName +
-                                    u" reported negative usage for group "_ns +
-                                    NS_ConvertUTF8toUTF16(
-                                        aGroupAndOrigin.mGroup) +
-                                    u", origin "_ns +
-                                    NS_ConvertUTF8toUTF16(
-                                        aGroupAndOrigin.mOrigin))
-                                    .get());
-                          }
-#endif
                         }
+
+                        break;
                       }
-                    } else {
-                      QM_TRY((*mClients)[clientType]->InitOriginWithoutTracking(
-                          aPersistenceType, aGroupAndOrigin,
-                          /* aCanceled */ Atomic<bool>(false)));
+
+                      case nsIFileKind::ExistsAsFile:
+                        if (IsOriginMetadata(leafName)) {
+                          break;
+                        }
+
+                        if (IsTempMetadata(leafName)) {
+                          QM_TRY(file->Remove(/* recursive */ false));
+
+                          break;
+                        }
+
+                        if (IsOSMetadata(leafName) || IsDotFile(leafName)) {
+                          break;
+                        }
+
+                        // Unknown files during initialization are now allowed.
+                        // Just warn if we find them.
+                        UNKNOWN_FILE_WARNING(leafName);
+                        // Bug 1595448 will handle the case for unknown files
+                        // like idb, cache, or ls.
+                        break;
+
+                      case nsIFileKind::DoesNotExist:
+                        // Ignore files that got removed externally while
+                        // iterating.
+                        break;
                     }
 
                     return Ok{};
@@ -5784,55 +5856,64 @@ nsresult QuotaManager::MaybeRemoveLocalStorageDirectories() {
         }
 #endif
 
-        QM_TRY_INSPECT(const bool& isDirectory,
-                       MOZ_TO_RESULT_INVOKE(originDir, IsDirectory));
+        QM_TRY_INSPECT(const auto& dirEntryKind, GetDirEntryKind(*originDir));
 
-        if (!isDirectory) {
-          QM_TRY_INSPECT(
-              const auto& leafName,
-              MOZ_TO_RESULT_INVOKE_TYPED(nsAutoString, originDir, GetLeafName));
+        switch (dirEntryKind) {
+          case nsIFileKind::ExistsAsDirectory: {
+            QM_TRY_INSPECT(
+                const auto& lsDir,
+                CloneFileAndAppend(*originDir, NS_LITERAL_STRING_FROM_CSTRING(
+                                                   LS_DIRECTORY_NAME)));
 
-          // Unknown files during upgrade are allowed. Just warn if we find
-          // them.
-          if (!IsOSMetadata(leafName)) {
-            UNKNOWN_FILE_WARNING(leafName);
+            {
+              QM_TRY_INSPECT(const bool& exists,
+                             MOZ_TO_RESULT_INVOKE(lsDir, Exists));
+
+              if (!exists) {
+                return Ok{};
+              }
+            }
+
+            {
+              QM_TRY_INSPECT(const bool& isDirectory,
+                             MOZ_TO_RESULT_INVOKE(lsDir, IsDirectory));
+
+              if (!isDirectory) {
+                QM_WARNING("ls entry is not a directory!");
+
+                return Ok{};
+              }
+            }
+
+            nsString path;
+            QM_TRY(lsDir->GetPath(path));
+
+            QM_WARNING("Deleting %s directory!",
+                       NS_ConvertUTF16toUTF8(path).get());
+
+            QM_TRY(lsDir->Remove(/* aRecursive */ true));
+
+            break;
           }
 
-          return Ok{};
-        }
+          case nsIFileKind::ExistsAsFile: {
+            QM_TRY_INSPECT(const auto& leafName,
+                           MOZ_TO_RESULT_INVOKE_TYPED(nsAutoString, originDir,
+                                                      GetLeafName));
 
-        QM_TRY_INSPECT(
-            const auto& lsDir,
-            CloneFileAndAppend(
-                *originDir, NS_LITERAL_STRING_FROM_CSTRING(LS_DIRECTORY_NAME)));
+            // Unknown files during upgrade are allowed. Just warn if we find
+            // them.
+            if (!IsOSMetadata(leafName)) {
+              UNKNOWN_FILE_WARNING(leafName);
+            }
 
-        {
-          QM_TRY_INSPECT(const bool& exists,
-                         MOZ_TO_RESULT_INVOKE(lsDir, Exists));
-
-          if (!exists) {
-            return Ok{};
+            break;
           }
+
+          case nsIFileKind::DoesNotExist:
+            // Ignore files that got removed externally while iterating.
+            break;
         }
-
-        {
-          QM_TRY_INSPECT(const bool& isDirectory,
-                         MOZ_TO_RESULT_INVOKE(lsDir, IsDirectory));
-
-          if (!isDirectory) {
-            QM_WARNING("ls entry is not a directory!");
-
-            return Ok{};
-          }
-        }
-
-        nsString path;
-        QM_TRY(lsDir->GetPath(path));
-
-        QM_WARNING("Deleting %s directory!", NS_ConvertUTF16toUTF8(path).get());
-
-        QM_TRY(lsDir->Remove(/* aRecursive */ true));
-
         return Ok{};
       }));
 
@@ -6382,11 +6463,8 @@ RefPtr<DirectoryLock> QuotaManager::CreateDirectoryLock(
     Client::Type aClientType, bool aExclusive) {
   AssertIsOnOwningThread();
 
-  return CreateDirectoryLock(Nullable<PersistenceType>(aPersistenceType),
-                             aGroupAndOrigin.mGroup,
-                             OriginScope::FromOrigin(aGroupAndOrigin.mOrigin),
-                             Nullable<Client::Type>(aClientType), aExclusive,
-                             false, ShouldUpdateLockIdTableFlag::Yes);
+  return DirectoryLockImpl::Create(WrapNotNullUnchecked(this), aPersistenceType,
+                                   aGroupAndOrigin, aClientType, aExclusive);
 }
 
 RefPtr<DirectoryLock> QuotaManager::CreateDirectoryLockInternal(
@@ -6395,9 +6473,9 @@ RefPtr<DirectoryLock> QuotaManager::CreateDirectoryLockInternal(
     bool aExclusive) {
   AssertIsOnOwningThread();
 
-  return CreateDirectoryLock(aPersistenceType, ""_ns, aOriginScope,
-                             Nullable<Client::Type>(aClientType), aExclusive,
-                             true, ShouldUpdateLockIdTableFlag::Yes);
+  return DirectoryLockImpl::CreateInternal(WrapNotNullUnchecked(this),
+                                           aPersistenceType, aOriginScope,
+                                           aClientType, aExclusive);
 }
 
 Result<std::pair<nsCOMPtr<nsIFile>, bool>, nsresult>
@@ -8547,56 +8625,66 @@ Result<UsageInfo, nsresult> QuotaUsageRequestBase::GetUsageForOriginEntries(
       aDirectory, mCanceled, UsageInfo{},
       [&](UsageInfo oldUsageInfo, const nsCOMPtr<nsIFile>& file)
           -> mozilla::Result<UsageInfo, nsresult> {
-        QM_TRY_INSPECT(const bool& isDirectory,
-                       MOZ_TO_RESULT_INVOKE(file, IsDirectory));
-
         QM_TRY_INSPECT(
             const auto& leafName,
             MOZ_TO_RESULT_INVOKE_TYPED(nsAutoString, file, GetLeafName));
 
-        if (!isDirectory) {
-          // We are maintaining existing behavior for unknown files here (just
-          // continuing).
-          // This can possibly be used by developers to add temporary backups
-          // into origin directories without losing get usage functionality.
-          if (IsTempMetadata(leafName)) {
-            if (!aInitialized) {
-              QM_TRY(file->Remove(/* recursive */ false));
+        QM_TRY_INSPECT(const auto& dirEntryKind, GetDirEntryKind(*file));
+
+        switch (dirEntryKind) {
+          case nsIFileKind::ExistsAsDirectory: {
+            Client::Type clientType;
+            const bool ok =
+                Client::TypeFromText(leafName, clientType, fallible);
+            if (!ok) {
+              // Unknown directories during getting usage for an origin (even
+              // for an uninitialized origin) are now allowed. Just warn if we
+              // find them.
+              UNKNOWN_FILE_WARNING(leafName);
+              break;
             }
 
-            return oldUsageInfo;
+            Client* const client = aQuotaManager.GetClient(clientType);
+            MOZ_ASSERT(client);
+
+            QM_TRY_INSPECT(
+                const auto& usageInfo,
+                aInitialized ? client->GetUsageForOrigin(
+                                   aPersistenceType, aGroupAndOrigin, mCanceled)
+                             : client->InitOrigin(aPersistenceType,
+                                                  aGroupAndOrigin, mCanceled));
+            return oldUsageInfo + usageInfo;
           }
 
-          if (IsOriginMetadata(leafName) || IsOSMetadata(leafName) ||
-              IsDotFile(leafName)) {
-            return oldUsageInfo;
-          }
+          case nsIFileKind::ExistsAsFile:
+            // We are maintaining existing behavior for unknown files here (just
+            // continuing).
+            // This can possibly be used by developers to add temporary backups
+            // into origin directories without losing get usage functionality.
+            if (IsTempMetadata(leafName)) {
+              if (!aInitialized) {
+                QM_TRY(file->Remove(/* recursive */ false));
+              }
 
-          // Unknown files during getting usage for an origin (even for an
-          // uninitialized origin) are now allowed. Just warn if we find them.
-          UNKNOWN_FILE_WARNING(leafName);
-          return oldUsageInfo;
+              break;
+            }
+
+            if (IsOriginMetadata(leafName) || IsOSMetadata(leafName) ||
+                IsDotFile(leafName)) {
+              break;
+            }
+
+            // Unknown files during getting usage for an origin (even for an
+            // uninitialized origin) are now allowed. Just warn if we find them.
+            UNKNOWN_FILE_WARNING(leafName);
+            break;
+
+          case nsIFileKind::DoesNotExist:
+            // Ignore files that got removed externally while iterating.
+            break;
         }
 
-        Client::Type clientType;
-        const bool ok = Client::TypeFromText(leafName, clientType, fallible);
-        if (!ok) {
-          // Unknown directories during getting usage for an origin (even for an
-          // uninitialized origin) are now allowed. Just warn if we find them.
-          UNKNOWN_FILE_WARNING(leafName);
-          return oldUsageInfo;
-        }
-
-        Client* const client = aQuotaManager.GetClient(clientType);
-        MOZ_ASSERT(client);
-
-        QM_TRY_INSPECT(const auto& usageInfo,
-                       aInitialized
-                           ? client->GetUsageForOrigin(
-                                 aPersistenceType, aGroupAndOrigin, mCanceled)
-                           : client->InitOrigin(aPersistenceType,
-                                                aGroupAndOrigin, mCanceled));
-        return oldUsageInfo + usageInfo;
+        return oldUsageInfo;
       })));
 }
 
@@ -8660,24 +8748,32 @@ nsresult TraverseRepositoryHelper::TraverseRepository(
       [this, aPersistenceType, &aQuotaManager,
        persistent = aPersistenceType == PERSISTENCE_TYPE_PERSISTENT](
           const nsCOMPtr<nsIFile>& originDir) -> Result<Ok, nsresult> {
-        QM_TRY_INSPECT(const bool& isDirectory,
-                       MOZ_TO_RESULT_INVOKE(originDir, IsDirectory));
+        QM_TRY_INSPECT(const auto& dirEntryKind, GetDirEntryKind(*originDir));
 
-        if (!isDirectory) {
-          QM_TRY_INSPECT(
-              const auto& leafName,
-              MOZ_TO_RESULT_INVOKE_TYPED(nsAutoString, originDir, GetLeafName));
+        switch (dirEntryKind) {
+          case nsIFileKind::ExistsAsDirectory:
+            QM_TRY(ProcessOrigin(aQuotaManager, *originDir, persistent,
+                                 aPersistenceType));
+            break;
 
-          // Unknown files during getting usages are allowed. Just warn if we
-          // find them.
-          if (!IsOSMetadata(leafName)) {
-            UNKNOWN_FILE_WARNING(leafName);
+          case nsIFileKind::ExistsAsFile: {
+            QM_TRY_INSPECT(const auto& leafName,
+                           MOZ_TO_RESULT_INVOKE_TYPED(nsAutoString, originDir,
+                                                      GetLeafName));
+
+            // Unknown files during getting usages are allowed. Just warn if we
+            // find them.
+            if (!IsOSMetadata(leafName)) {
+              UNKNOWN_FILE_WARNING(leafName);
+            }
+
+            break;
           }
-          return Ok{};
-        }
 
-        QM_TRY(ProcessOrigin(aQuotaManager, *originDir, persistent,
-                             aPersistenceType));
+          case nsIFileKind::DoesNotExist:
+            // Ignore files that got removed externally while iterating.
+            break;
+        }
 
         return Ok{};
       }));
@@ -9268,84 +9364,95 @@ void ClearRequestBase::DeleteFiles(QuotaManager& aQuotaManager,
                }(),
            aPersistenceType, &aQuotaManager, &directoriesForRemovalRetry,
            this](nsCOMPtr<nsIFile>&& file) -> mozilla::Result<Ok, nsresult> {
-            QM_TRY_INSPECT(const bool& isDirectory,
-                           MOZ_TO_RESULT_INVOKE(file, IsDirectory));
-
             QM_TRY_INSPECT(
                 const auto& leafName,
                 MOZ_TO_RESULT_INVOKE_TYPED(nsAutoString, file, GetLeafName));
 
-            if (!isDirectory) {
-              // Unknown files during clearing are allowed. Just warn if we find
-              // them.
-              if (!IsOSMetadata(leafName)) {
-                UNKNOWN_FILE_WARNING(leafName);
+            QM_TRY_INSPECT(const auto& dirEntryKind, GetDirEntryKind(*file));
+
+            switch (dirEntryKind) {
+              case nsIFileKind::ExistsAsDirectory: {
+                // Skip the origin directory if it doesn't match the pattern.
+                if (!originScope.Matches(OriginScope::FromOrigin(
+                        NS_ConvertUTF16toUTF8(leafName)))) {
+                  break;
+                }
+
+                const bool persistent =
+                    aPersistenceType == PERSISTENCE_TYPE_PERSISTENT;
+
+                QM_TRY_INSPECT(
+                    const auto& metadata,
+                    aQuotaManager.GetDirectoryMetadataWithQuotaInfo2WithRestore(
+                        file, persistent));
+
+                if (!mClientType.IsNull()) {
+                  nsAutoString clientDirectoryName;
+                  QM_TRY(
+                      OkIf(Client::TypeToText(mClientType.Value(),
+                                              clientDirectoryName, fallible)),
+                      Err(NS_ERROR_FAILURE));
+
+                  QM_TRY(file->Append(clientDirectoryName));
+
+                  QM_TRY_INSPECT(const bool& exists,
+                                 MOZ_TO_RESULT_INVOKE(file, Exists));
+
+                  if (!exists) {
+                    break;
+                  }
+                }
+
+                // We can't guarantee that this will always succeed on
+                // Windows...
+                if (NS_FAILED((file->Remove(true)))) {
+                  NS_WARNING("Failed to remove directory, retrying later.");
+
+                  directoriesForRemovalRetry.AppendElement(std::move(file));
+                }
+
+                const bool initialized =
+                    aPersistenceType == PERSISTENCE_TYPE_PERSISTENT
+                        ? aQuotaManager.IsOriginInitialized(
+                              metadata.mQuotaInfo.mOrigin)
+                        : aQuotaManager.IsTemporaryStorageInitialized();
+
+                // If it hasn't been initialized, we don't need to update the
+                // quota and notify the removing client.
+                if (!initialized) {
+                  break;
+                }
+
+                if (aPersistenceType != PERSISTENCE_TYPE_PERSISTENT) {
+                  if (mClientType.IsNull()) {
+                    aQuotaManager.RemoveQuotaForOrigin(aPersistenceType,
+                                                       metadata.mQuotaInfo);
+                  } else {
+                    aQuotaManager.ResetUsageForClient(aPersistenceType,
+                                                      metadata.mQuotaInfo,
+                                                      mClientType.Value());
+                  }
+                }
+
+                aQuotaManager.OriginClearCompleted(
+                    aPersistenceType, metadata.mQuotaInfo.mOrigin, mClientType);
+
+                break;
               }
-              return Ok{};
+
+              case nsIFileKind::ExistsAsFile:
+                // Unknown files during clearing are allowed. Just warn if we
+                // find them.
+                if (!IsOSMetadata(leafName)) {
+                  UNKNOWN_FILE_WARNING(leafName);
+                }
+
+                break;
+
+              case nsIFileKind::DoesNotExist:
+                // Ignore files that got removed externally while iterating.
+                break;
             }
-
-            // Skip the origin directory if it doesn't match the pattern.
-            if (!originScope.Matches(
-                    OriginScope::FromOrigin(NS_ConvertUTF16toUTF8(leafName)))) {
-              return Ok{};
-            }
-
-            const bool persistent =
-                aPersistenceType == PERSISTENCE_TYPE_PERSISTENT;
-
-            QM_TRY_INSPECT(
-                const auto& metadata,
-                aQuotaManager.GetDirectoryMetadataWithQuotaInfo2WithRestore(
-                    file, persistent));
-
-            if (!mClientType.IsNull()) {
-              nsAutoString clientDirectoryName;
-              QM_TRY(OkIf(Client::TypeToText(mClientType.Value(),
-                                             clientDirectoryName, fallible)),
-                     Err(NS_ERROR_FAILURE));
-
-              QM_TRY(file->Append(clientDirectoryName));
-
-              QM_TRY_INSPECT(const bool& exists,
-                             MOZ_TO_RESULT_INVOKE(file, Exists));
-
-              if (!exists) {
-                return Ok{};
-              }
-            }
-
-            // We can't guarantee that this will always succeed on
-            // Windows...
-            if (NS_FAILED((file->Remove(true)))) {
-              NS_WARNING("Failed to remove directory, retrying later.");
-
-              directoriesForRemovalRetry.AppendElement(std::move(file));
-            }
-
-            const bool initialized =
-                aPersistenceType == PERSISTENCE_TYPE_PERSISTENT
-                    ? aQuotaManager.IsOriginInitialized(
-                          metadata.mQuotaInfo.mOrigin)
-                    : aQuotaManager.IsTemporaryStorageInitialized();
-
-            // If it hasn't been initialized, we don't need to update the quota
-            // and notify the removing client.
-            if (!initialized) {
-              return Ok{};
-            }
-
-            if (aPersistenceType != PERSISTENCE_TYPE_PERSISTENT) {
-              if (mClientType.IsNull()) {
-                aQuotaManager.RemoveQuotaForOrigin(aPersistenceType,
-                                                   metadata.mQuotaInfo);
-              } else {
-                aQuotaManager.ResetUsageForClient(
-                    aPersistenceType, metadata.mQuotaInfo, mClientType.Value());
-              }
-            }
-
-            aQuotaManager.OriginClearCompleted(
-                aPersistenceType, metadata.mQuotaInfo.mOrigin, mClientType);
 
             return Ok{};
           }),

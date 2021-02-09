@@ -92,9 +92,10 @@ nsresult Http3Session::Init(const nsHttpConnectionInfo* aConnInfo,
 
   // Get the local and remote address neqo needs it.
   NetAddr selfAddr;
-  if (NS_FAILED(mSocketTransport->GetSelfAddr(&selfAddr))) {
+  nsresult rv = mSocketTransport->GetSelfAddr(&selfAddr);
+  if (NS_FAILED(rv)) {
     LOG3(("Http3Session::Init GetSelfAddr failed [this=%p]", this));
-    return NS_ERROR_FAILURE;
+    return rv;
   }
   char buf[kIPv6CStrBufSize];
   selfAddr.ToStringBuffer(buf, kIPv6CStrBufSize);
@@ -114,9 +115,10 @@ nsresult Http3Session::Init(const nsHttpConnectionInfo* aConnInfo,
   }
 
   NetAddr peerAddr;
-  if (NS_FAILED(mSocketTransport->GetPeerAddr(&peerAddr))) {
+  rv = mSocketTransport->GetPeerAddr(&peerAddr);
+  if (NS_FAILED(rv)) {
     LOG3(("Http3Session::Init GetPeerAddr failed [this=%p]", this));
-    return NS_ERROR_FAILURE;
+    return rv;
   }
   peerAddr.ToStringBuffer(buf, kIPv6CStrBufSize);
 
@@ -142,7 +144,7 @@ nsresult Http3Session::Init(const nsHttpConnectionInfo* aConnInfo,
        peerAddrStr.get(), gHttpHandler->DefaultQpackTableSize(),
        gHttpHandler->DefaultHttp3MaxBlockedStreams(), this));
 
-  nsresult rv = NeqoHttp3Conn::Init(
+  rv = NeqoHttp3Conn::Init(
       mConnInfo->GetOrigin(), mConnInfo->GetNPNToken(), selfAddrStr,
       peerAddrStr, gHttpHandler->DefaultQpackTableSize(),
       gHttpHandler->DefaultHttp3MaxBlockedStreams(),
@@ -161,6 +163,7 @@ nsresult Http3Session::Init(const nsHttpConnectionInfo* aConnInfo,
       LOG(("Can send ZeroRtt data"));
       RefPtr<Http3Session> self(this);
       mState = ZERORTT;
+      mZeroRttStarted = TimeStamp::Now();
       // Let the nsHttpConnectionMgr know that the connection can accept
       // transactions.
       // We need to dispatch the following function to this thread so that
@@ -174,6 +177,10 @@ nsresult Http3Session::Init(const nsHttpConnectionInfo* aConnInfo,
       NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
                            "NS_DispatchToCurrentThread failed");
     }
+  }
+
+  if (mState != ZERORTT) {
+    ZeroRttTelemetry(ZeroRttOutcome::NOT_USED);
   }
 
   // After this line, Http3Session and HttpConnectionUDP become a cycle. We put
@@ -436,6 +443,7 @@ nsresult Http3Session::ProcessEvents(uint32_t count) {
         if (mState == ZERORTT) {
           mState = INITIALIZING;
           Finish0Rtt(true);
+          ZeroRttTelemetry(ZeroRttOutcome::USED_REJECTED);
         }
         break;
       case Http3Event::Tag::ResumptionToken: {
@@ -459,6 +467,7 @@ nsresult Http3Session::ProcessEvents(uint32_t count) {
         mSocketControl->HandshakeCompleted();
         if (was0RTT) {
           Finish0Rtt(false);
+          ZeroRttTelemetry(ZeroRttOutcome::USED_SUCCEEDED);
         }
 
         OnTransportStatus(mSocketTransport, NS_NET_STATUS_CONNECTED_TO, 0);
@@ -1153,6 +1162,12 @@ void Http3Session::CloseInternal(bool aCallNeqoClose) {
   if (mState != CONNECTED) {
     mBeforeConnectedError = true;
   }
+
+  if (mState == ZERORTT) {
+    ZeroRttTelemetry(aCallNeqoClose ? ZeroRttOutcome::USED_CONN_CLOSED_BY_NECKO
+                                    : ZeroRttOutcome::USED_CONN_ERROR);
+  }
+
   mState = CLOSING;
   Shutdown();
 
@@ -1708,6 +1723,35 @@ void Http3Session::ReportHttp3Connection() {
     mHttp3ConnectionReported = true;
     gHttpHandler->ConnMgr()->ReportHttp3Connection(mSegmentReaderWriter);
     MaybeResumeSend();
+  }
+}
+
+void Http3Session::ZeroRttTelemetry(ZeroRttOutcome aOutcome) {
+  Telemetry::Accumulate(Telemetry::HTTP3_0RTT_STATE, aOutcome);
+
+  nsAutoCString key;
+
+  switch (aOutcome) {
+    case USED_SUCCEEDED:
+      key = "succeeded"_ns;
+      break;
+    case USED_REJECTED:
+      key = "rejected"_ns;
+      break;
+    case USED_CONN_ERROR:
+      key = "conn_error"_ns;
+      break;
+    case USED_CONN_CLOSED_BY_NECKO:
+      key = "conn_closed_by_necko"_ns;
+      break;
+    default:
+      break;
+  }
+
+  if (!key.IsEmpty()) {
+    MOZ_ASSERT(mZeroRttStarted);
+    Telemetry::AccumulateTimeDelta(Telemetry::HTTP3_0RTT_STATE_DURATION, key,
+                                   mZeroRttStarted, TimeStamp::Now());
   }
 }
 
