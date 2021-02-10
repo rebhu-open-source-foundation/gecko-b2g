@@ -1791,6 +1791,12 @@
   value: true
   mirror: always
 
+# Whether event timing will be gathered and returned by performance observer*
+- name: dom.enable_event_timing
+  type: RelaxedAtomicBool
+  value: @IS_NIGHTLY_BUILD@
+  mirror: always
+
 # Whether performance.GetEntries* will contain an entry for the active document
 - name: dom.enable_performance_navigation_timing
   type: bool
@@ -5617,17 +5623,6 @@
   mirror: once
   do_not_use_directly: true
 
-- name: layers.advanced.basic-layer.enabled
-  type: RelaxedAtomicBool
-  value: false
-  mirror: always
-
-# Whether we allow advanced layers with fission
-- name: layers.advanced.fission.enabled
-  type: bool
-  value: false
-  mirror: always
-
 # Whether we allow AMD switchable graphics.
 - name: layers.amd-switchable-gfx.enabled
   type: bool
@@ -5907,52 +5902,6 @@
   value: -1
   mirror: always
 
-- name: layers.mlgpu.enabled
-  type: bool
-  value: false
-  mirror: once
-  do_not_use_directly: true
-
-- name: layers.mlgpu.enable-buffer-cache
-  type: bool
-  value: true
-  mirror: once
-
-- name: layers.mlgpu.enable-buffer-sharing
-  type: bool
-  value: true
-  mirror: once
-
-- name: layers.mlgpu.enable-clear-view
-  type: bool
-  value: true
-  mirror: once
-
-- name: layers.mlgpu.enable-cpu-occlusion
-  type: bool
-  value: true
-  mirror: once
-
-- name: layers.mlgpu.enable-depth-buffer
-  type: bool
-  value: false
-  mirror: once
-
-- name: layers.mlgpu.enable-invalidation
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-
-# Both this and the master "enabled" pref must be on to use Advanced Layers
-# on Windows 7.
-- name: layers.mlgpu.enable-on-windows7
-  type: bool
-#if defined(XP_WIN)
-  value: true
-#else
-  value: false
-#endif
-  mirror: once
 
 # Whether to animate simple opacity and transforms on the compositor.
 - name: layers.offmainthreadcomposition.async-animations
@@ -8975,12 +8924,6 @@
   value: false
   mirror: always
 
-# Allow AAAA entries to be used "early", before the A results are in
-- name: network.trr.early-AAAA
-  type: RelaxedAtomicBool
-  value: false
-  mirror: always
-
 # When true, it only sends AAAA when the system has IPv6 connectivity
 - name: network.trr.skip-AAAA-when-not-supported
   type: RelaxedAtomicBool
@@ -8990,14 +8933,6 @@
 # Whether to apply split horizon mitigations when using TRR.
 # These include adding the DNS suffix to the excluded domains
 - name: network.trr.split_horizon_mitigations
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-
-# When true, the DNS request will wait for both A and AAAA responses
-# (if both have been requested) before notifying the listeners.
-# When true, it effectively cancels `network.trr.early-AAAA`
-- name: network.trr.wait-for-A-and-AAAA
   type: RelaxedAtomicBool
   value: true
   mirror: always
@@ -10739,11 +10674,6 @@
   value: true
   mirror: always
 
-- name: webgl.oop.via-pcq
-  type: RelaxedAtomicBool
-  value: false
-  mirror: always
-
 #---------------------------------------------------------------------------
 # Prefs starting with "widget."
 #---------------------------------------------------------------------------
@@ -10796,6 +10726,19 @@
 - name: widget.gtk.non-native.scrollbar.allow-buttons
   type: bool
   value: false
+  mirror: always
+
+# Whether we should use the default accent color or the theme-provided one.
+#
+# TODO(emilio): This should probably do the right thing in most other
+# platforms, but stick to the standard colors on those.
+- name: widget.non-native.use-theme-accent
+  type: bool
+#ifdef MOZ_WIDGET_GTK
+  value: true
+#else
+  value: false
+#endif
   mirror: always
 
 # Preference to disable dark scrollbar implementation.

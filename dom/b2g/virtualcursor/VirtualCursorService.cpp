@@ -38,16 +38,23 @@ already_AddRefed<VirtualCursorProxy> VirtualCursorService::GetOrCreateCursor(
     nsPIDOMWindowOuter* aWindow) {
   MOZ_ASSERT(NS_IsMainThread());
   RefPtr<VirtualCursorService> service = GetService();
-  RefPtr<VirtualCursorProxy> cursor;
-  cursor = service->mCursorMap.LookupForAdd(aWindow).OrInsert([&]() {
-    RefPtr<dom::BrowserChild> browser = BrowserChild::GetFrom(aWindow);
-    LayoutDeviceIntPoint offset(browser->GetChromeOffset());
-    if (XRE_GetProcessType() == GeckoProcessType_Content) {
-      return new VirtualCursorProxy(aWindow, new CursorRemote(aWindow), offset);
-    }
-    return new VirtualCursorProxy(aWindow, service, offset);
-  });
-  return cursor.forget();
+
+  return service->mCursorMap
+      .WithEntryHandle(
+          aWindow,
+          [&](auto&& entry) {
+            return entry.OrInsertWith([&] {
+              RefPtr<dom::BrowserChild> browser =
+                  BrowserChild::GetFrom(aWindow);
+              LayoutDeviceIntPoint offset(browser->GetChromeOffset());
+              if (XRE_GetProcessType() == GeckoProcessType_Content) {
+                return new VirtualCursorProxy(
+                    aWindow, new CursorRemote(aWindow), offset);
+              }
+              return new VirtualCursorProxy(aWindow, service, offset);
+            });
+          })
+      .forget();
 }
 
 /* static */

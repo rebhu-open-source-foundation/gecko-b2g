@@ -3256,6 +3256,15 @@ static bool MoveToPending(nsIFile* dumpFile, nsIFile* extraFile,
   return true;
 }
 
+static void MaybeAnnotateDumperError(const ClientInfo& aClientInfo,
+                                     AnnotationTable& aAnnotations) {
+#if defined(MOZ_OXIDIZED_BREAKPAD)
+  if (aClientInfo.had_error()) {
+    aAnnotations[Annotation::DumperError] = *aClientInfo.error_msg();
+  }
+#endif
+}
+
 static void OnChildProcessDumpRequested(void* aContext,
                                         const ClientInfo& aClientInfo,
                                         const xpstring& aFilePath) {
@@ -3270,7 +3279,6 @@ static void OnChildProcessDumpRequested(void* aContext,
   CreateFileFromPath(aFilePath, getter_AddRefs(minidump));
 
   ProcessId pid = aClientInfo.pid();
-
   if (ShouldReport()) {
     nsCOMPtr<nsIFile> memoryReport;
     if (memoryReportPath) {
@@ -3292,6 +3300,8 @@ static void OnChildProcessDumpRequested(void* aContext,
       pd->sequence = ++crashSequence;
       pd->annotations = MakeUnique<AnnotationTable>();
       PopulateContentProcessAnnotations(*(pd->annotations));
+      MaybeAnnotateDumperError(aClientInfo, *(pd->annotations));
+
 #ifdef MOZ_CRASHREPORTER_INJECTOR
       runCallback = nullptr != pd->callback;
 #endif
