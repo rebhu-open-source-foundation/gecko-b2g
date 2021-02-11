@@ -823,6 +823,7 @@ pref("browser.preferences.experimental.hidden", false);
 pref("browser.preferences.defaultPerformanceSettings.enabled", true);
 
 pref("browser.proton.enabled", false);
+pref("browser.proton.toolbar.version", 0);
 
 // Backspace and Shift+Backspace behavior
 // 0 goes Back/Forward
@@ -953,6 +954,9 @@ pref("browser.sessionstore.max_write_failures", 5);
 
 // Whether to warn the user when quitting, even though their tabs will be restored.
 pref("browser.sessionstore.warnOnQuit", false);
+
+// Don't quit the browser when Ctrl + Q is pressed.
+pref("browser.quitShortcut.disabled", false);
 
 // allow META refresh by default
 pref("accessibility.blockautorefresh", false);
@@ -2406,8 +2410,12 @@ pref("devtools.browserconsole.input.editorWidth", 0);
 // Display an onboarding UI for the Editor mode.
 pref("devtools.webconsole.input.editorOnboarding", true);
 
-// Disable the new performance recording panel by default
-pref("devtools.performance.new-panel-enabled", false);
+// Enable the new performance recording panel in Nightly builds.
+#if defined(NIGHTLY_BUILD)
+  pref("devtools.performance.new-panel-enabled", true);
+#else
+  pref("devtools.performance.new-panel-enabled", false);
+#endif
 
 // Enable message grouping in the console, true by default
 pref("devtools.webconsole.groupWarningMessages", true);
