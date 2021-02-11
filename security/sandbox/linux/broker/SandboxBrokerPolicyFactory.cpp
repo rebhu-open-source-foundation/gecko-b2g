@@ -538,6 +538,9 @@ void SandboxBrokerPolicyFactory::InitContentPolicy() {
   policy->AddPath(rdwr, "/dev/ashmem");
   policy->AddPath(rdwr, "/dev/ion");
 
+  // Android emulator GPU
+  policy->AddPath(rdwr, "/dev/goldfish_pipe");
+
 #  if MOZ_SANDBOX_GPU_NODE == GPU_NODE_adreno
   policy->AddPath(rdwr, "/dev/kgsl-3d0");
   policy->AddPath(rdwr, "/dev/kgsl-2d0");
