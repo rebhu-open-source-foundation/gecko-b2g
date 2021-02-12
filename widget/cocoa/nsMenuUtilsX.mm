@@ -62,14 +62,14 @@ uint8_t nsMenuUtilsX::GeckoModifiersForNodeAttribute(const nsString& modifiersAt
   char* str = ToNewCString(modifiersAttribute);
   char* newStr;
   char* token = strtok_r(str, ", \t", &newStr);
-  while (token != NULL) {
-    if (strcmp(token, "shift") == 0)
+  while (token != nullptr) {
+    if (strcmp(token, "shift") == 0) {
       modifiers |= knsMenuItemShiftModifier;
-    else if (strcmp(token, "alt") == 0)
+    } else if (strcmp(token, "alt") == 0) {
       modifiers |= knsMenuItemAltModifier;
-    else if (strcmp(token, "control") == 0)
+    } else if (strcmp(token, "control") == 0) {
       modifiers |= knsMenuItemControlModifier;
-    else if ((strcmp(token, "accel") == 0) || (strcmp(token, "meta") == 0)) {
+    } else if ((strcmp(token, "accel") == 0) || (strcmp(token, "meta") == 0)) {
       modifiers |= knsMenuItemCommandModifier;
     }
     token = strtok_r(newStr, ", \t", &newStr);
@@ -82,20 +82,28 @@ uint8_t nsMenuUtilsX::GeckoModifiersForNodeAttribute(const nsString& modifiersAt
 unsigned int nsMenuUtilsX::MacModifiersForGeckoModifiers(uint8_t geckoModifiers) {
   unsigned int macModifiers = 0;
 
-  if (geckoModifiers & knsMenuItemShiftModifier) macModifiers |= NSEventModifierFlagShift;
-  if (geckoModifiers & knsMenuItemAltModifier) macModifiers |= NSEventModifierFlagOption;
-  if (geckoModifiers & knsMenuItemControlModifier) macModifiers |= NSEventModifierFlagControl;
-  if (geckoModifiers & knsMenuItemCommandModifier) macModifiers |= NSEventModifierFlagCommand;
+  if (geckoModifiers & knsMenuItemShiftModifier) {
+    macModifiers |= NSEventModifierFlagShift;
+  }
+  if (geckoModifiers & knsMenuItemAltModifier) {
+    macModifiers |= NSEventModifierFlagOption;
+  }
+  if (geckoModifiers & knsMenuItemControlModifier) {
+    macModifiers |= NSEventModifierFlagControl;
+  }
+  if (geckoModifiers & knsMenuItemCommandModifier) {
+    macModifiers |= NSEventModifierFlagCommand;
+  }
 
   return macModifiers;
 }
 
 nsMenuBarX* nsMenuUtilsX::GetHiddenWindowMenuBar() {
   nsIWidget* hiddenWindowWidgetNoCOMPtr = nsCocoaUtils::GetHiddenWindowWidget();
-  if (hiddenWindowWidgetNoCOMPtr)
+  if (hiddenWindowWidgetNoCOMPtr) {
     return static_cast<nsCocoaWindow*>(hiddenWindowWidgetNoCOMPtr)->GetMenuBar();
-  else
-    return nullptr;
+  }
+  return nullptr;
 }
 
 // It would be nice if we could localize these edit menu names.
@@ -189,29 +197,73 @@ int nsMenuUtilsX::CalculateNativeInsertionPoint(nsMenuObjectX* aParent, nsMenuOb
     uint32_t numMenus = menubarParent->GetMenuCount();
     for (uint32_t i = 0; i < numMenus; i++) {
       nsMenuX* currMenu = menubarParent->GetMenuAt(i);
-      if (currMenu == aChild) return insertionPoint;  // we found ourselves, break out
-      if (currMenu && [currMenu->NativeMenuItem() menu]) insertionPoint++;
+      if (currMenu == aChild) {
+        return insertionPoint;  // we found ourselves, break out
+      }
+      if (currMenu && [currMenu->NativeMenuItem() menu]) {
+        insertionPoint++;
+      }
     }
   } else if (parentType == eSubmenuObjectType || parentType == eStandaloneNativeMenuObjectType) {
     nsMenuX* menuParent;
-    if (parentType == eSubmenuObjectType)
+    if (parentType == eSubmenuObjectType) {
       menuParent = static_cast<nsMenuX*>(aParent);
-    else
+    } else {
       menuParent = static_cast<nsStandaloneNativeMenu*>(aParent)->GetMenuXObject();
+    }
 
     uint32_t numItems = menuParent->GetItemCount();
     for (uint32_t i = 0; i < numItems; i++) {
       // Using GetItemAt instead of GetVisibleItemAt to avoid O(N^2)
       nsMenuObjectX* currItem = menuParent->GetItemAt(i);
-      if (currItem == aChild) return insertionPoint;  // we found ourselves, break out
+      if (currItem == aChild) {
+        return insertionPoint;  // we found ourselves, break out
+      }
       NSMenuItem* nativeItem = nil;
       nsMenuObjectTypeX currItemType = currItem->MenuObjectType();
-      if (currItemType == eSubmenuObjectType)
+      if (currItemType == eSubmenuObjectType) {
         nativeItem = static_cast<nsMenuX*>(currItem)->NativeMenuItem();
-      else
+      } else {
         nativeItem = (NSMenuItem*)(currItem->NativeData());
-      if ([nativeItem menu]) insertionPoint++;
+      }
+      if ([nativeItem menu]) {
+        insertionPoint++;
+      }
     }
   }
   return insertionPoint;
+}
+
+NSMenuItem* nsMenuUtilsX::NativeMenuItemWithLocation(NSMenu* aRootMenu, NSString* aLocationString,
+                                                     bool aIsMenuBar) {
+  NSArray* indexes = [aLocationString componentsSeparatedByString:@"|"];
+  unsigned int pathLength = [indexes count];
+  if (pathLength == 0) {
+    return nil;
+  }
+
+  NSMenu* currentSubmenu = aRootMenu;
+  for (unsigned int depth = 0; depth < pathLength; depth++) {
+    NSInteger targetIndex = [[indexes objectAtIndex:depth] integerValue];
+    if (aIsMenuBar && depth == 0) {
+      // We remove the application menu from consideration for the top-level menu.
+      targetIndex++;
+    }
+    int itemCount = [currentSubmenu numberOfItems];
+    if (targetIndex < itemCount) {
+      NSMenuItem* menuItem = [currentSubmenu itemAtIndex:targetIndex];
+      // if this is the last index just return the menu item
+      if (depth == pathLength - 1) {
+        return menuItem;
+      }
+      // if this is not the last index find the submenu and keep going
+      if ([menuItem hasSubmenu]) {
+        currentSubmenu = [menuItem submenu];
+      } else {
+        return nil;
+      }
+    }
+  }
+
+  return nil;
 }

@@ -2535,6 +2535,12 @@ void CodeGenerator::visitWasmBinarySimd128(LWasmBinarySimd128* ins) {
       masm.unsignedCompareInt32x4(Assembler::AboveOrEqual, rhs, lhsDest, temp1,
                                   temp2);
       break;
+    case wasm::SimdOp::I64x2Eq:
+      masm.compareInt64x2(Assembler::Equal, rhs, lhsDest);
+      break;
+    case wasm::SimdOp::I64x2Ne:
+      masm.compareInt64x2(Assembler::NotEqual, rhs, lhsDest);
+      break;
     case wasm::SimdOp::F32x4Eq:
       masm.compareFloat32x4(Assembler::Equal, rhs, lhsDest);
       break;
@@ -2618,12 +2624,9 @@ void CodeGenerator::visitWasmBinarySimd128(LWasmBinarySimd128* ins) {
       masm.q15MulrSatInt16x8(rhs, lhsDest);
       break;
 #  ifdef ENABLE_WASM_SIMD_WORMHOLE
-    case wasm::SimdOp::MozWHSELFTEST: {
-      static const int8_t mask[16] = {0xD, 0xE, 0xA, 0xD, 0xD, 0,   0,   0xD,
-                                      0xC, 0xA, 0xF, 0xE, 0xB, 0xA, 0xB, 0xE};
-      masm.loadConstantSimd128(SimdConstant::CreateX16(mask), lhsDest);
+    case wasm::SimdOp::MozWHSELFTEST:
+      masm.loadConstantSimd128(wasm::WormholeSignature(), lhsDest);
       break;
-    }
     case wasm::SimdOp::MozWHPMADDUBSW:
       masm.vpmaddubsw(rhs, lhsDest, lhsDest);
       break;
@@ -3423,6 +3426,9 @@ void CodeGenerator::visitWasmReduceSimd128(LWasmReduceSimd128* ins) {
     case wasm::SimdOp::I32x4AllTrue:
       masm.allTrueInt32x4(src, ToRegister(dest));
       break;
+    case wasm::SimdOp::I64x2AllTrue:
+      masm.allTrueInt64x2(src, ToRegister(dest));
+      break;
     case wasm::SimdOp::I8x16Bitmask:
       masm.bitmaskInt8x16(src, ToRegister(dest));
       break;
@@ -3475,7 +3481,8 @@ void CodeGenerator::visitWasmReduceAndBranchSimd128(
       break;
     case wasm::SimdOp::I8x16AllTrue:
     case wasm::SimdOp::I16x8AllTrue:
-    case wasm::SimdOp::I32x4AllTrue: {
+    case wasm::SimdOp::I32x4AllTrue:
+    case wasm::SimdOp::I64x2AllTrue: {
       // Compare all lanes to zero, set the zero flag if none of the lanes are
       // zero, and branch on that.
       ScratchSimd128Scope tmp(masm);
@@ -3489,6 +3496,9 @@ void CodeGenerator::visitWasmReduceAndBranchSimd128(
           break;
         case wasm::SimdOp::I32x4AllTrue:
           masm.vpcmpeqd(Operand(src), tmp, tmp);
+          break;
+        case wasm::SimdOp::I64x2AllTrue:
+          masm.vpcmpeqq(Operand(src), tmp, tmp);
           break;
         default:
           MOZ_CRASH();

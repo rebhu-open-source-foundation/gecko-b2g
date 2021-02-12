@@ -178,8 +178,8 @@ class TypedArrayObject : public ArrayBufferViewObject {
   static bool copyWithin_impl(JSContext* cx, const CallArgs& args);
 };
 
-MOZ_MUST_USE bool TypedArray_bufferGetter(JSContext* cx, unsigned argc,
-                                          Value* vp);
+[[nodiscard]] bool TypedArray_bufferGetter(JSContext* cx, unsigned argc,
+                                           Value* vp);
 
 extern TypedArrayObject* NewTypedArrayWithTemplateAndLength(
     JSContext* cx, HandleObject templateObj, int32_t len);
@@ -309,7 +309,7 @@ static inline constexpr unsigned TypedArrayShift(Scalar::Type viewType) {
   }
 }
 
-static inline unsigned TypedArrayElemSize(Scalar::Type viewType) {
+static inline constexpr unsigned TypedArrayElemSize(Scalar::Type viewType) {
   return 1u << TypedArrayShift(viewType);
 }
 

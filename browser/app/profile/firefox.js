@@ -2171,7 +2171,11 @@ pref("devtools.inspector.compatibility.enabled", true);
 pref("devtools.inspector.compatibility.enabled", false);
 #endif
 // Enable color scheme simulation in the inspector.
+#if defined(NIGHTLY_BUILD)
 pref("devtools.inspector.color-scheme-simulation.enabled", true);
+#else
+pref("devtools.inspector.color-scheme-simulation.enabled", false);
+#endif
 // Enable overflow debugging in the inspector.
 pref("devtools.overflow.debugging.enabled", true);
 
@@ -2410,12 +2414,8 @@ pref("devtools.browserconsole.input.editorWidth", 0);
 // Display an onboarding UI for the Editor mode.
 pref("devtools.webconsole.input.editorOnboarding", true);
 
-// Enable the new performance recording panel in Nightly builds.
-#if defined(NIGHTLY_BUILD)
-  pref("devtools.performance.new-panel-enabled", true);
-#else
-  pref("devtools.performance.new-panel-enabled", false);
-#endif
+// Disable the new performance recording panel by default
+pref("devtools.performance.new-panel-enabled", false);
 
 // Enable message grouping in the console, true by default
 pref("devtools.webconsole.groupWarningMessages", true);

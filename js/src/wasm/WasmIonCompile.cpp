@@ -4325,12 +4325,7 @@ static bool EmitShuffleSimd128(FunctionCompiler& f) {
   }
 
 #  ifdef ENABLE_WASM_SIMD_WORMHOLE
-  static const uint8_t trigger[] = {31, 0, 30, 2,  29, 4,  28, 6,
-                                    27, 8, 26, 10, 25, 12, 24};
-  static_assert(sizeof(trigger) == 15);
-
-  if (f.moduleEnv().features.simdWormhole &&
-      memcmp(control.bytes, trigger, sizeof(trigger)) == 0) {
+  if (f.moduleEnv().simdWormholeEnabled() && IsWormholeTrigger(control)) {
     switch (control.bytes[15]) {
       case 0:
         f.iter().setResult(
@@ -4947,6 +4942,8 @@ static bool EmitBodyExprs(FunctionCompiler& f) {
           case uint32_t(SimdOp::I16x8Ne):
           case uint32_t(SimdOp::I32x4Eq):
           case uint32_t(SimdOp::I32x4Ne):
+          case uint32_t(SimdOp::I64x2Eq):
+          case uint32_t(SimdOp::I64x2Ne):
           case uint32_t(SimdOp::F32x4Eq):
           case uint32_t(SimdOp::F32x4Ne):
           case uint32_t(SimdOp::F64x2Eq):
@@ -5083,6 +5080,7 @@ static bool EmitBodyExprs(FunctionCompiler& f) {
           case uint32_t(SimdOp::I8x16AllTrue):
           case uint32_t(SimdOp::I16x8AllTrue):
           case uint32_t(SimdOp::I32x4AllTrue):
+          case uint32_t(SimdOp::I64x2AllTrue):
           case uint32_t(SimdOp::I8x16Bitmask):
           case uint32_t(SimdOp::I16x8Bitmask):
           case uint32_t(SimdOp::I32x4Bitmask):
