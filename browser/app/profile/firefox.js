@@ -1346,7 +1346,7 @@ pref("browser.menu.showCharacterEncoding", "chrome://browser/locale/browser.prop
 // This is a fallback value for when prompt callers do not specify a modalType.
 pref("prompts.defaultModalType", 3);
 
-#ifdef NIGHTLY_BUILD
+#ifdef EARLY_BETA_OR_EARLIER
   pref("browser.topsites.useRemoteSetting", true);
 #else
   pref("browser.topsites.useRemoteSetting", false);
@@ -1369,6 +1369,15 @@ pref("prompts.tabChromePromptSubDialog", true);
 #else
   pref("prompts.contentPromptSubDialog", false);
 #endif
+
+// Whether to show window-modal dialogs opened for browser windows
+// in a SubDialog inside their parent, instead of an OS level window.
+#ifdef NIGHTLY_BUILD
+  pref("prompts.windowPromptSubDialog", true);
+#else
+  pref("prompts.windowPromptSubDialog", false);
+#endif
+
 
 // Activates preloading of the new tab url.
 pref("browser.newtab.preload", true);
@@ -2414,8 +2423,12 @@ pref("devtools.browserconsole.input.editorWidth", 0);
 // Display an onboarding UI for the Editor mode.
 pref("devtools.webconsole.input.editorOnboarding", true);
 
-// Disable the new performance recording panel by default
-pref("devtools.performance.new-panel-enabled", false);
+// Enable the new performance recording panel in Nightly builds.
+#if defined(NIGHTLY_BUILD)
+  pref("devtools.performance.new-panel-enabled", true);
+#else
+  pref("devtools.performance.new-panel-enabled", false);
+#endif
 
 // Enable message grouping in the console, true by default
 pref("devtools.webconsole.groupWarningMessages", true);

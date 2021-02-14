@@ -10600,7 +10600,8 @@ void ReflowCountMgr::Add(const char* aName, nsIFrame* aFrame) {
 
   if (mDumpFrameCounts) {
     auto* const counter = mCounts.WithEntryHandle(aName, [this](auto&& entry) {
-      return entry.OrInsertWith([this] { return new ReflowCounter(this); })
+      return entry
+          .OrInsertWith([this] { return MakeUnique<ReflowCounter>(this); })
           .get();
     });
     counter->Add();
@@ -10614,7 +10615,7 @@ void ReflowCountMgr::Add(const char* aName, nsIFrame* aFrame) {
         mIndiFrameCounts.WithEntryHandle(key, [&](auto&& entry) {
           return entry
               .OrInsertWith([&aName, &aFrame, this]() {
-                auto counter = new IndiReflowCounter(this);
+                auto counter = MakeUnique<IndiReflowCounter>(this);
                 counter->mFrame = aFrame;
                 counter->mName.AssignASCII(aName);
                 return counter;
@@ -10706,7 +10707,7 @@ void ReflowCountMgr::PaintCount(const char* aName,
 void ReflowCountMgr::DoGrandTotals() {
   mCounts.WithEntryHandle(kGrandTotalsStr, [this](auto&& entry) {
     if (!entry) {
-      entry.Insert(new ReflowCounter(this));
+      entry.Insert(MakeUnique<ReflowCounter>(this));
     } else {
       entry.Data()->ClearTotals();
     }
@@ -10778,7 +10779,7 @@ void ReflowCountMgr::DoIndiTotalsTree() {
 void ReflowCountMgr::DoGrandHTMLTotals() {
   mCounts.WithEntryHandle(kGrandTotalsStr, [this](auto&& entry) {
     if (!entry) {
-      entry.Insert(new ReflowCounter(this));
+      entry.Insert(MakeUnique<ReflowCounter>(this));
     } else {
       entry.Data()->ClearTotals();
     }
@@ -10851,7 +10852,7 @@ void ReflowCountMgr::ClearTotals() {
 void ReflowCountMgr::ClearGrandTotals() {
   mCounts.WithEntryHandle(kGrandTotalsStr, [&](auto&& entry) {
     if (!entry) {
-      entry.Insert(new ReflowCounter(this));
+      entry.Insert(MakeUnique<ReflowCounter>(this));
     } else {
       entry.Data()->ClearTotals();
       entry.Data()->SetTotalsCache();

@@ -3052,6 +3052,8 @@ class MacroAssembler : public MacroAssemblerSpecific {
 
   void convertInt64ToDouble(Register64 src, FloatRegister dest) PER_ARCH;
 
+  void convertIntPtrToDouble(Register src, FloatRegister dest) PER_ARCH;
+
  public:
   // ========================================================================
   // wasm support
@@ -4206,8 +4208,9 @@ class MacroAssembler : public MacroAssemblerSpecific {
 
   void loadArgumentsObjectLength(Register obj, Register output, Label* fail);
 
-  void branchArgumentsObjectHasOverridenIterator(Register obj, Register temp,
-                                                 Label* label);
+  void branchTestArgumentsObjectFlags(Register obj, Register temp,
+                                      uint32_t flags, Condition cond,
+                                      Label* label);
 
   void typedArrayElementSize(Register obj, Register output);
   void branchIfClassIsNotTypedArray(Register clasp, Label* notTypedArray);
@@ -4329,13 +4332,11 @@ class MacroAssembler : public MacroAssemblerSpecific {
       JS::ExpandoAndGeneration* expandoAndGeneration, uint64_t generation,
       Label* fail);
 
-  void loadArrayBufferByteLengthInt32(Register obj, Register output,
-                                      Label* fail);
-  void loadArrayBufferViewByteOffsetInt32(Register obj, Register output,
-                                          Label* fail);
-  void loadArrayBufferViewLengthInt32(Register obj, Register output,
-                                      Label* fail);
-  void loadArrayBufferViewLengthPtr(Register obj, Register output);
+  void guardNonNegativeIntPtrToInt32(Register reg, Label* fail);
+
+  void loadArrayBufferByteLengthIntPtr(Register obj, Register output);
+  void loadArrayBufferViewByteOffsetIntPtr(Register obj, Register output);
+  void loadArrayBufferViewLengthIntPtr(Register obj, Register output);
 
  private:
   void isCallableOrConstructor(bool isCallable, Register obj, Register output,

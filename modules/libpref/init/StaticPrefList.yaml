@@ -4341,13 +4341,18 @@
 #endif
   mirror: always
 
+- name: gfx.color_management.force_srgb
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
 - name: gfx.color_management.enablev4
   type: RelaxedAtomicBool
   value: false
   mirror: always
 
 # 0 = Off, 1 = Full, 2 = Tagged Images Only.
-# See eCMSMode in gfx/thebes/gfxPlatform.h.
+# See CMSMode in gfx/thebes/gfxPlatform.h.
 - name: gfx.color_management.mode
   type: RelaxedAtomicInt32
   value: 2
@@ -6211,6 +6216,13 @@
   type: RelaxedAtomicBool
   value: false
   mirror: always
+
+# Whether non-standard caption-side values are enabled
+- name: layout.css.caption-side-non-standard.enabled
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+  rust: true
 
 # Whether Constructable Stylesheets are enabled in script.
 - name: layout.css.constructable-stylesheets.enabled

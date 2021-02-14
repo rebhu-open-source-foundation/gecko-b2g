@@ -651,12 +651,13 @@
   args:
     array: ObjId
 
-- name: GuardArgumentsObjectNotOverriddenIterator
+- name: GuardArgumentsObjectFlags
   shared: true
   transpile: true
   cost_estimate: 1
   args:
     obj: ObjId
+    flags: ByteImm
 
 - name: LoadObject
   shared: true
@@ -978,6 +979,13 @@
     obj: ObjId
 
 - name: TypedArrayByteOffsetInt32Result
+  shared: true
+  transpile: true
+  cost_estimate: 1
+  args:
+    obj: ObjId
+
+- name: TypedArrayByteOffsetDoubleResult
   shared: true
   transpile: true
   cost_estimate: 1
@@ -1782,7 +1790,21 @@
   args:
     obj: ObjId
 
+- name: LoadArrayBufferByteLengthDoubleResult
+  shared: true
+  transpile: true
+  cost_estimate: 1
+  args:
+    obj: ObjId
+
 - name: LoadTypedArrayLengthInt32Result
+  shared: true
+  transpile: true
+  cost_estimate: 1
+  args:
+    obj: ObjId
+
+- name: LoadTypedArrayLengthDoubleResult
   shared: true
   transpile: true
   cost_estimate: 1

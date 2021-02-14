@@ -2800,20 +2800,24 @@ bool JSRuntime::initSelfHosting(JSContext* cx) {
   CompileOptions options(cx);
   FillSelfHostingCompileOptions(options);
 
-  Rooted<UniquePtr<frontend::CompilationStencil>> stencil(
-      cx, MakeUnique<frontend::CompilationStencil>(cx, options));
-  if (!stencil.get()) {
-    return false;
-  }
-
-  if (!stencil->input.initForSelfHostingGlobal(cx)) {
-    return false;
-  }
+  Rooted<frontend::CompilationInput> input(cx,
+                                           frontend::CompilationInput(options));
+  UniquePtr<frontend::CompilationStencil> stencil;
 
   // Try initializing from Stencil XDR.
   bool decodeOk = false;
   if (selfHostedXDR.length() > 0) {
-    if (!stencil->deserializeStencils(cx, selfHostedXDR, &decodeOk)) {
+    if (!input.get().initForSelfHostingGlobal(cx)) {
+      return false;
+    }
+
+    stencil = cx->make_unique<frontend::CompilationStencil>(input.get());
+    if (!stencil) {
+      return false;
+    }
+
+    if (!stencil->deserializeStencils(cx, input.get(), selfHostedXDR,
+                                      &decodeOk)) {
       return false;
     }
   }
@@ -2839,15 +2843,16 @@ bool JSRuntime::initSelfHosting(JSContext* cx) {
       return false;
     }
 
-    if (!frontend::CompileGlobalScriptToStencil(cx, *stencil, srcBuf,
-                                                ScopeKind::Global)) {
+    stencil = frontend::CompileGlobalScriptToStencil(cx, input.get(), srcBuf,
+                                                     ScopeKind::Global);
+    if (!stencil) {
       return false;
     }
 
     // Serialize the stencil to XDR.
     if (selfHostedXDRWriter) {
       JS::TranscodeBuffer xdrBuffer;
-      if (!stencil->serializeStencils(cx, xdrBuffer)) {
+      if (!stencil->serializeStencils(cx, input.get(), xdrBuffer)) {
         return false;
       }
 
@@ -2862,8 +2867,8 @@ bool JSRuntime::initSelfHosting(JSContext* cx) {
   //       below.
   {
     Rooted<frontend::CompilationGCOutput> output(cx);
-    if (!frontend::CompilationStencil::instantiateStencils(cx, *stencil,
-                                                           output.get())) {
+    if (!frontend::CompilationStencil::instantiateStencils(
+            cx, input.get(), *stencil, output.get())) {
       return false;
     }
 

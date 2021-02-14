@@ -1754,12 +1754,6 @@ AttachDecision GetPropIRGenerator::tryAttachTypedArrayLength(HandleObject obj,
     return AttachDecision::NoAction;
   }
 
-  // For now only optimize when the result fits in an int32.
-  auto* tarr = &obj->as<TypedArrayObject>();
-  if (tarr->length().get() > INT32_MAX) {
-    return AttachDecision::NoAction;
-  }
-
   if (mode_ != ICState::Mode::Specialized) {
     return AttachDecision::NoAction;
   }
@@ -1782,11 +1776,17 @@ AttachDecision GetPropIRGenerator::tryAttachTypedArrayLength(HandleObject obj,
     return AttachDecision::NoAction;
   }
 
+  auto* tarr = &obj->as<TypedArrayObject>();
+
   maybeEmitIdGuard(id);
   // Emit all the normal guards for calling this native, but specialize
   // callNativeGetterResult.
   EmitCallGetterResultGuards(writer, obj, holder, shape, objId, mode_);
-  writer.loadTypedArrayLengthInt32Result(objId);
+  if (tarr->length().get() <= INT32_MAX) {
+    writer.loadTypedArrayLengthInt32Result(objId);
+  } else {
+    writer.loadTypedArrayLengthDoubleResult(objId);
+  }
   writer.returnFromIC();
 
   trackAttached("TypedArrayLength");
@@ -1892,7 +1892,8 @@ AttachDecision GetPropIRGenerator::tryAttachArgumentsObjectIterator(
     MOZ_ASSERT(args->is<UnmappedArgumentsObject>());
     writer.guardClass(objId, GuardClassKind::UnmappedArguments);
   }
-  writer.guardArgumentsObjectNotOverriddenIterator(objId);
+  uint32_t flags = ArgumentsObject::ITERATOR_OVERRIDDEN_BIT;
+  writer.guardArgumentsObjectFlags(objId, flags);
 
   ObjOperandId iterId = writer.loadObject(&iterator.toObject());
   writer.loadObjectResult(iterId);
@@ -2138,18 +2139,13 @@ AttachDecision GetPropIRGenerator::tryAttachArgumentsObjectArg(
   }
   auto* args = &obj->as<ArgumentsObject>();
 
-  // No elements must have been overriden.
+  // No elements must have been overridden or deleted.
   if (args->hasOverriddenElement()) {
     return AttachDecision::NoAction;
   }
 
   // Check bounds.
   if (index >= args->initialLength()) {
-    return AttachDecision::NoAction;
-  }
-
-  // Ensure no elements were ever deleted.
-  if (args->isAnyElementDeleted()) {
     return AttachDecision::NoAction;
   }
 
@@ -7703,11 +7699,7 @@ AttachDecision CallIRGenerator::tryAttachTypedArrayByteOffset(
   MOZ_ASSERT(args_[0].isObject());
   MOZ_ASSERT(args_[0].toObject().is<TypedArrayObject>());
 
-  // For now only optimize when the result fits in an int32.
   auto* tarr = &args_[0].toObject().as<TypedArrayObject>();
-  if (tarr->byteOffset().get() > INT32_MAX) {
-    return AttachDecision::NoAction;
-  }
 
   // Initialize the input operand.
   Int32OperandId argcId(writer.setInputOperandId(0));
@@ -7716,7 +7708,11 @@ AttachDecision CallIRGenerator::tryAttachTypedArrayByteOffset(
 
   ValOperandId argId = writer.loadArgumentFixedSlot(ArgumentKind::Arg0, argc_);
   ObjOperandId objArgId = writer.guardToObject(argId);
-  writer.typedArrayByteOffsetInt32Result(objArgId);
+  if (tarr->byteOffset().get() <= INT32_MAX) {
+    writer.typedArrayByteOffsetInt32Result(objArgId);
+  } else {
+    writer.typedArrayByteOffsetDoubleResult(objArgId);
+  }
   writer.returnFromIC();
 
   trackAttached("TypedArrayByteOffset");
@@ -7758,11 +7754,7 @@ AttachDecision CallIRGenerator::tryAttachTypedArrayLength(
 
   MOZ_ASSERT(args_[0].toObject().is<TypedArrayObject>());
 
-  // For now only optimize when the result fits in an int32.
   auto* tarr = &args_[0].toObject().as<TypedArrayObject>();
-  if (tarr->length().get() > INT32_MAX) {
-    return AttachDecision::NoAction;
-  }
 
   // Initialize the input operand.
   Int32OperandId argcId(writer.setInputOperandId(0));
@@ -7776,7 +7768,11 @@ AttachDecision CallIRGenerator::tryAttachTypedArrayLength(
     writer.guardIsNotProxy(objArgId);
   }
 
-  writer.loadTypedArrayLengthInt32Result(objArgId);
+  if (tarr->length().get() <= INT32_MAX) {
+    writer.loadTypedArrayLengthInt32Result(objArgId);
+  } else {
+    writer.loadTypedArrayLengthDoubleResult(objArgId);
+  }
   writer.returnFromIC();
 
   trackAttached("TypedArrayLength");
@@ -7797,11 +7793,7 @@ AttachDecision CallIRGenerator::tryAttachArrayBufferByteLength(
 
   MOZ_ASSERT(args_[0].toObject().is<ArrayBufferObject>());
 
-  // For now only optimize when the result fits in an int32.
   auto* buffer = &args_[0].toObject().as<ArrayBufferObject>();
-  if (buffer->byteLength().get() > INT32_MAX) {
-    return AttachDecision::NoAction;
-  }
 
   // Initialize the input operand.
   Int32OperandId argcId(writer.setInputOperandId(0));
@@ -7815,7 +7807,11 @@ AttachDecision CallIRGenerator::tryAttachArrayBufferByteLength(
     writer.guardIsNotProxy(objArgId);
   }
 
-  writer.loadArrayBufferByteLengthInt32Result(objArgId);
+  if (buffer->byteLength().get() <= INT32_MAX) {
+    writer.loadArrayBufferByteLengthInt32Result(objArgId);
+  } else {
+    writer.loadArrayBufferByteLengthDoubleResult(objArgId);
+  }
   writer.returnFromIC();
 
   trackAttached("ArrayBufferByteLength");
@@ -8220,8 +8216,18 @@ AttachDecision CallIRGenerator::tryAttachFunApply(HandleFunction calleeFunc) {
   }
 
   CallFlags::ArgFormat format = CallFlags::Standard;
-  if (args_[1].isMagic(JS_OPTIMIZED_ARGUMENTS) && !script_->needsArgsObj()) {
-    format = CallFlags::FunApplyArgs;
+  if (args_[1].isObject() && args_[1].toObject().is<ArgumentsObject>()) {
+    Rooted<ArgumentsObject*> argsObj(
+        cx_, &args_[1].toObject().as<ArgumentsObject>());
+    if (argsObj->hasOverriddenElement() || argsObj->anyArgIsForwarded() ||
+        argsObj->hasOverriddenLength() ||
+        argsObj->initialLength() > JIT_ARGS_LENGTH_MAX) {
+      return AttachDecision::NoAction;
+    }
+    format = CallFlags::FunApplyArgsObj;
+  } else if (args_[1].isMagic(JS_OPTIMIZED_ARGUMENTS) &&
+             !script_->needsArgsObj()) {
+    format = CallFlags::FunApplyMagicArgs;
   } else if (args_[1].isObject() && args_[1].toObject().is<ArrayObject>() &&
              args_[1].toObject().as<ArrayObject>().length() <=
                  JIT_ARGS_LENGTH_MAX) {
@@ -8245,7 +8251,19 @@ AttachDecision CallIRGenerator::tryAttachFunApply(HandleFunction calleeFunc) {
 
   ValOperandId argValId =
       writer.loadArgumentFixedSlot(ArgumentKind::Arg1, argc_);
-  if (format == CallFlags::FunApplyArgs) {
+
+  if (format == CallFlags::FunApplyArgsObj) {
+    ObjOperandId argObjId = writer.guardToObject(argValId);
+    if (args_[1].toObject().is<MappedArgumentsObject>()) {
+      writer.guardClass(argObjId, GuardClassKind::MappedArguments);
+    } else {
+      MOZ_ASSERT(args_[1].toObject().is<UnmappedArgumentsObject>());
+      writer.guardClass(argObjId, GuardClassKind::UnmappedArguments);
+    }
+    uint8_t flags = ArgumentsObject::ELEMENT_OVERRIDDEN_BIT |
+                    ArgumentsObject::FORWARDED_ARGUMENTS_BIT;
+    writer.guardArgumentsObjectFlags(argObjId, flags);
+  } else if (format == CallFlags::FunApplyMagicArgs) {
     writer.guardMagicValue(argValId, JS_OPTIMIZED_ARGUMENTS);
     writer.guardFrameHasNoArgumentsObject();
   } else {

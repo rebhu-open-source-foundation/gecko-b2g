@@ -35,7 +35,8 @@
   _(MarkRuntime, "mkRntm")                    \
   _(MarkDebugger, "mkDbgr")                   \
   _(SweepCaches, "swpCch")                    \
-  _(CollectToFP, "collct")                    \
+  _(CollectToObjFP, "colObj")                 \
+  _(CollectToStrFP, "colStr")                 \
   _(ObjectsTenuredCallback, "tenCB")          \
   _(Sweep, "sweep")                           \
   _(UpdateJitActivations, "updtIn")           \
@@ -122,8 +123,6 @@ class TenuringTracer final : public GenericTracer {
   gc::RelocationOverlay** objTail;
   gc::StringRelocationOverlay* stringHead;
   gc::StringRelocationOverlay** stringTail;
-  gc::RelocationOverlay* bigIntHead;
-  gc::RelocationOverlay** bigIntTail;
 
   TenuringTracer(JSRuntime* rt, Nursery* nursery);
 
@@ -156,7 +155,6 @@ class TenuringTracer final : public GenericTracer {
  private:
   inline void insertIntoObjectFixupList(gc::RelocationOverlay* entry);
   inline void insertIntoStringFixupList(gc::StringRelocationOverlay* entry);
-  inline void insertIntoBigIntFixupList(gc::RelocationOverlay* entry);
 
   template <typename T>
   inline T* allocTenured(JS::Zone* zone, gc::AllocKind kind);
@@ -697,9 +695,13 @@ class Nursery {
   void doPretenuring(JSRuntime* rt, JS::GCReason reason,
                      bool highPromotionRate);
 
-  // Move the object at |src| in the Nursery to an already-allocated cell
-  // |dst| in Tenured.
-  void collectToFixedPoint(TenuringTracer& trc);
+  // Move all objects and everything they can reach to the tenured heap.
+  void collectToObjectFixedPoint(TenuringTracer& mover);
+
+  // Move all strings and all strings they can reach to the tenured heap, and
+  // additionally do any fixups for when strings are pointing into memory that
+  // was deduplicated.
+  void collectToStringFixedPoint(TenuringTracer& mover);
 
   // The dependent string chars needs to be relocated if the base which it's
   // using chars from has been deduplicated.

@@ -2690,7 +2690,8 @@ void ScriptSource::addSizeOfIncludingThis(mozilla::MallocSizeOf mallocSizeOf,
 }
 
 bool ScriptSource::xdrEncodeInitialStencil(
-    JSContext* cx, frontend::CompilationStencil& stencil,
+    JSContext* cx, frontend::CompilationInput& input,
+    frontend::CompilationStencil& stencil,
     UniquePtr<XDRIncrementalStencilEncoder>& xdrEncoder) {
   // Encoding failures are reported by the xdrFinalizeEncoder function.
   if (containsAsmJS()) {
@@ -2706,7 +2707,7 @@ bool ScriptSource::xdrEncodeInitialStencil(
   AutoIncrementalTimer timer(cx->realm()->timers.xdrEncodingTime);
   auto failureCase = mozilla::MakeScopeExit([&] { xdrEncoder.reset(nullptr); });
 
-  XDRResult res = xdrEncoder->codeStencil(stencil);
+  XDRResult res = xdrEncoder->codeStencil(input, stencil);
   if (res.isErr()) {
     // On encoding failure, let failureCase destroy encoder and return true
     // to avoid failing any currently executing script.
@@ -2722,9 +2723,10 @@ bool ScriptSource::xdrEncodeInitialStencil(
 }
 
 bool ScriptSource::xdrEncodeStencils(
-    JSContext* cx, frontend::CompilationStencil& stencil,
+    JSContext* cx, frontend::CompilationInput& input,
+    frontend::CompilationStencil& stencil,
     UniquePtr<XDRIncrementalStencilEncoder>& xdrEncoder) {
-  if (!xdrEncodeInitialStencil(cx, stencil, xdrEncoder)) {
+  if (!xdrEncodeInitialStencil(cx, input, stencil, xdrEncoder)) {
     return false;
   }
 
@@ -3849,9 +3851,10 @@ bool JSScript::fullyInitFromStencil(
 }
 
 JSScript* JSScript::fromStencil(JSContext* cx,
-                                const js::frontend::CompilationStencil& stencil,
+                                frontend::CompilationInput& input,
+                                const frontend::CompilationStencil& stencil,
                                 frontend::CompilationGCOutput& gcOutput,
-                                const js::frontend::ScriptIndex scriptIndex) {
+                                frontend::ScriptIndex scriptIndex) {
   js::frontend::ScriptStencil& scriptStencil = stencil.scriptData[scriptIndex];
   js::frontend::ScriptStencilExtra& scriptExtra =
       stencil.scriptExtra[scriptIndex];
@@ -3871,7 +3874,7 @@ JSScript* JSScript::fromStencil(JSContext* cx,
     return nullptr;
   }
 
-  if (!fullyInitFromStencil(cx, stencil.input, stencil, gcOutput, script,
+  if (!fullyInitFromStencil(cx, input, stencil, gcOutput, script,
                             scriptIndex)) {
     return nullptr;
   }
@@ -4862,6 +4865,19 @@ bool JSScript::formalIsAliased(unsigned argSlot) {
     }
   }
   MOZ_CRASH("Argument slot not found");
+}
+
+bool JSScript::anyFormalIsAliased() {
+  if (functionHasParameterExprs()) {
+    return false;
+  }
+
+  for (PositionalFormalParameterIter fi(this); fi; fi++) {
+    if (fi.closedOver()) {
+      return true;
+    }
+  }
+  return false;
 }
 
 bool JSScript::formalLivesInArgumentsObject(unsigned argSlot) {

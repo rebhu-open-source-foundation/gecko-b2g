@@ -1025,7 +1025,8 @@ class ScriptSource {
   // instantiating stencil (so, corresponding canonical ScriptSourceObject
   // gets created).
   bool xdrEncodeInitialStencil(
-      JSContext* cx, frontend::CompilationStencil& stencil,
+      JSContext* cx, frontend::CompilationInput& input,
+      frontend::CompilationStencil& stencil,
       UniquePtr<XDRIncrementalStencilEncoder>& xdrEncoder);
 
   // Create a new XDR encoder, and encode the stencils.
@@ -1033,7 +1034,8 @@ class ScriptSource {
   // Caller is responsible for calling `setIncrementalEncoder` after
   // instantiating stencil (so, corresponding canonical ScriptSourceObject
   // gets created).
-  bool xdrEncodeStencils(JSContext* cx, frontend::CompilationStencil& stencil,
+  bool xdrEncodeStencils(JSContext* cx, frontend::CompilationInput& input,
+                         frontend::CompilationStencil& stencil,
                          UniquePtr<XDRIncrementalStencilEncoder>& xdrEncoder);
 
   void setIncrementalEncoder(XDRIncrementalStencilEncoder* xdrEncoder);
@@ -1903,9 +1905,10 @@ class JSScript : public js::BaseScript {
   // Allocate a JSScript and initialize it with bytecode. This consumes
   // allocations within the stencil.
   static JSScript* fromStencil(JSContext* cx,
+                               js::frontend::CompilationInput& input,
                                const js::frontend::CompilationStencil& stencil,
                                js::frontend::CompilationGCOutput& gcOutput,
-                               const js::frontend::ScriptIndex scriptIndex);
+                               js::frontend::ScriptIndex scriptIndex);
 
 #ifdef DEBUG
  private:
@@ -2320,6 +2323,7 @@ class JSScript : public js::BaseScript {
   }
 
   bool formalIsAliased(unsigned argSlot);
+  bool anyFormalIsAliased();
   bool formalLivesInArgumentsObject(unsigned argSlot);
 
   // See comment above 'debugMode' in Realm.h for explanation of

@@ -1741,64 +1741,33 @@ void MacroAssembler::setIsDefinitelyTypedArrayConstructor(Register obj,
   bind(&done);
 }
 
-void MacroAssembler::loadArrayBufferByteLengthInt32(Register obj,
-                                                    Register output,
-                                                    Label* fail) {
+void MacroAssembler::guardNonNegativeIntPtrToInt32(Register reg, Label* fail) {
+#ifdef DEBUG
+  Label ok;
+  branchPtr(Assembler::NotSigned, reg, reg, &ok);
+  assumeUnreachable("Unexpected negative value");
+  bind(&ok);
+#endif
+
+#ifdef JS_64BIT
+  branchPtr(Assembler::Above, reg, Imm32(INT32_MAX), fail);
+#endif
+}
+
+void MacroAssembler::loadArrayBufferByteLengthIntPtr(Register obj,
+                                                     Register output) {
   Address slotAddr(obj, ArrayBufferObject::offsetOfByteLengthSlot());
   loadPrivate(slotAddr, output);
-
-  if (fail && ArrayBufferObject::maxBufferByteLength() > INT32_MAX) {
-    branchPtr(Assembler::Above, output, Imm32(INT32_MAX), fail);
-    return;
-  }
-
-#ifdef DEBUG
-  Label ok;
-  branchPtr(Assembler::BelowOrEqual, output, Imm32(INT32_MAX), &ok);
-  assumeUnreachable("Expecting length to fit in int32");
-  bind(&ok);
-#endif
 }
 
-void MacroAssembler::loadArrayBufferViewByteOffsetInt32(Register obj,
-                                                        Register output,
-                                                        Label* fail) {
+void MacroAssembler::loadArrayBufferViewByteOffsetIntPtr(Register obj,
+                                                         Register output) {
   Address slotAddr(obj, ArrayBufferViewObject::byteOffsetOffset());
   loadPrivate(slotAddr, output);
-
-  if (fail && ArrayBufferObject::maxBufferByteLength() > INT32_MAX) {
-    branchPtr(Assembler::Above, output, Imm32(INT32_MAX), fail);
-    return;
-  }
-
-#ifdef DEBUG
-  Label ok;
-  branchPtr(Assembler::BelowOrEqual, output, Imm32(INT32_MAX), &ok);
-  assumeUnreachable("Expecting offset to fit in int32");
-  bind(&ok);
-#endif
 }
 
-void MacroAssembler::loadArrayBufferViewLengthInt32(Register obj,
-                                                    Register output,
-                                                    Label* fail) {
-  loadArrayBufferViewLengthPtr(obj, output);
-
-  if (fail && ArrayBufferObject::maxBufferByteLength() > INT32_MAX) {
-    branchPtr(Assembler::Above, output, Imm32(INT32_MAX), fail);
-    return;
-  }
-
-#ifdef DEBUG
-  Label ok;
-  branchPtr(Assembler::BelowOrEqual, output, Imm32(INT32_MAX), &ok);
-  assumeUnreachable("Expecting length to fit in int32");
-  bind(&ok);
-#endif
-}
-
-void MacroAssembler::loadArrayBufferViewLengthPtr(Register obj,
-                                                  Register output) {
+void MacroAssembler::loadArrayBufferViewLengthIntPtr(Register obj,
+                                                     Register output) {
   Address slotAddr(obj, ArrayBufferViewObject::lengthOffset());
   loadPrivate(slotAddr, output);
 }
@@ -4263,10 +4232,6 @@ void MacroAssembler::loadArgumentsObjectElement(Register obj, Register index,
   // Load ArgumentsData.
   loadPrivate(Address(obj, ArgumentsObject::getDataSlotOffset()), temp);
 
-  // Fail if we have a RareArgumentsData (elements were deleted).
-  branchPtr(Assembler::NotEqual,
-            Address(temp, offsetof(ArgumentsData, rareData)), ImmWord(0), fail);
-
   // Guard the argument is not a FORWARD_TO_CALL_SLOT MagicValue.
   BaseValueIndex argValue(temp, index, ArgumentsData::offsetOfArgs());
   branchTestMagic(Assembler::Equal, argValue, fail);
@@ -4287,15 +4252,17 @@ void MacroAssembler::loadArgumentsObjectLength(Register obj, Register output,
   rshift32(Imm32(ArgumentsObject::PACKED_BITS_COUNT), output);
 }
 
-void MacroAssembler::branchArgumentsObjectHasOverridenIterator(Register obj,
-                                                               Register temp,
-                                                               Label* label) {
+void MacroAssembler::branchTestArgumentsObjectFlags(Register obj, Register temp,
+                                                    uint32_t flags,
+                                                    Condition cond,
+                                                    Label* label) {
+  MOZ_ASSERT((flags & ~ArgumentsObject::PACKED_BITS_MASK) == 0);
+
   // Get initial length value.
   unboxInt32(Address(obj, ArgumentsObject::getInitialLengthSlotOffset()), temp);
 
-  // Ensure no overridden iterator.
-  branchTest32(Assembler::NonZero, temp,
-               Imm32(ArgumentsObject::ITERATOR_OVERRIDDEN_BIT), label);
+  // Test flags.
+  branchTest32(cond, temp, Imm32(flags), label);
 }
 
 static constexpr bool ValidateSizeRange(Scalar::Type from, Scalar::Type to) {

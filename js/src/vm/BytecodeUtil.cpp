@@ -12,7 +12,6 @@
 
 #define __STDC_FORMAT_MACROS
 
-#include "mozilla/Attributes.h"
 #include "mozilla/Maybe.h"
 #include "mozilla/ReverseIterator.h"
 #include "mozilla/Sprintf.h"
@@ -57,7 +56,8 @@
 #include "vm/Printer.h"
 #include "vm/Realm.h"
 #include "vm/Shape.h"
-#include "vm/ToSource.h"  // js::ValueToSource
+#include "vm/ToSource.h"       // js::ValueToSource
+#include "vm/WellKnownAtom.h"  // js_*_str
 
 #include "gc/GC-inl.h"
 #include "vm/BytecodeIterator-inl.h"

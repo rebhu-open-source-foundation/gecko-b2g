@@ -392,7 +392,8 @@ static XDRResult XDRStencilHeader(
 }
 
 template <XDRMode mode>
-XDRResult XDRState<mode>::codeStencil(frontend::CompilationStencil& stencil) {
+XDRResult XDRState<mode>::codeStencil(frontend::CompilationInput& input,
+                                      frontend::CompilationStencil& stencil) {
 #ifdef DEBUG
   auto sanityCheck = mozilla::MakeScopeExit(
       [&] { MOZ_ASSERT(validateResultCode(cx(), resultCode())); });
@@ -403,7 +404,7 @@ XDRResult XDRState<mode>::codeStencil(frontend::CompilationStencil& stencil) {
   // compile scripts via the bytecode emitter, which will insert these
   // instructions.
   if (mode == XDR_ENCODE) {
-    if (!!stencil.input.options.instrumentationKinds) {
+    if (!!input.options.instrumentationKinds) {
       return fail(JS::TranscodeResult_Failure);
     }
   }
@@ -412,9 +413,7 @@ XDRResult XDRState<mode>::codeStencil(frontend::CompilationStencil& stencil) {
   // the header data until the `linearize` call, but still prepend it to final
   // buffer before giving to the caller.
   if (mode == XDR_DECODE) {
-    RefPtr<ScriptSource> source;
-    MOZ_TRY(XDRStencilHeader(this, &stencil.input.options, source, &nchunks()));
-    stencil.input.setSource(source);
+    MOZ_TRY(XDRStencilHeader(this, &input.options, stencil.source, &nchunks()));
   }
 
   MOZ_TRY(XDRParserAtomTable(this, stencil));
@@ -478,7 +477,7 @@ XDRResult XDRIncrementalStencilEncoder::linearize(JS::TranscodeBuffer& buffer,
 void XDRDecoder::trace(JSTracer* trc) { atomTable_.trace(trc); }
 
 XDRResult XDRStencilDecoder::codeStencils(
-    frontend::CompilationStencil& stencil) {
+    frontend::CompilationInput& input, frontend::CompilationStencil& stencil) {
   MOZ_ASSERT(!stencil.delazificationSet);
 
   frontend::ParserAtomSpanBuilder parserAtomBuilder(cx()->runtime(),
@@ -486,7 +485,7 @@ XDRResult XDRStencilDecoder::codeStencils(
   parserAtomBuilder_ = &parserAtomBuilder;
   stencilAlloc_ = &stencil.alloc;
 
-  MOZ_TRY(codeStencil(stencil));
+  MOZ_TRY(codeStencil(input, stencil));
 
   // Decode any delazification stencil from XDR.
   if (nchunks_ > 1) {
@@ -514,6 +513,11 @@ XDRResult XDRStencilDecoder::codeStencils(
       MOZ_TRY(codeFunctionStencil(delazification));
     }
 
+    // NOTE: This also computes the `max*DataLength` values.
+    if (!delazificationSet->buildDelazificationIndices(cx(), stencil)) {
+      return fail(JS::TranscodeResult_Throw);
+    }
+
     stencil.delazificationSet = std::move(delazificationSet);
   }
 
@@ -521,10 +525,10 @@ XDRResult XDRStencilDecoder::codeStencils(
 }
 
 XDRResult XDRIncrementalStencilEncoder::codeStencils(
-    frontend::CompilationStencil& stencil) {
+    frontend::CompilationInput& input, frontend::CompilationStencil& stencil) {
   MOZ_ASSERT(encodedFunctions_.count() == 0);
 
-  MOZ_TRY(codeStencil(stencil));
+  MOZ_TRY(codeStencil(input, stencil));
 
   if (stencil.delazificationSet) {
     for (auto& delazification : stencil.delazificationSet->delazifications) {

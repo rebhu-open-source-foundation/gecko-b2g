@@ -49,6 +49,7 @@
 #include "vm/JSAtom.h"
 #include "vm/JSContext.h"
 #include "vm/Realm.h"
+#include "vm/WellKnownAtom.h"  // js_*_str
 
 using mozilla::AsciiAlphanumericToNumber;
 using mozilla::AssertedCast;
@@ -226,6 +227,13 @@ bool IsIdentifier(const Latin1Char* chars, size_t length) {
   }
 
   return true;
+}
+
+bool IsIdentifierASCII(char c) { return unicode::IsIdentifierStartASCII(c); }
+
+bool IsIdentifierASCII(char c1, char c2) {
+  return unicode::IsIdentifierStartASCII(c1) &&
+         unicode::IsIdentifierPartASCII(c2);
 }
 
 bool IsIdentifierNameOrPrivateName(const Latin1Char* chars, size_t length) {
