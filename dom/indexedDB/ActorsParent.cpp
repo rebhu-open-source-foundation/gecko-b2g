@@ -27,7 +27,6 @@
 #include "FileInfoT.h"
 #include "FileManager.h"
 #include "FileManagerBase.h"
-#include "GeckoProfiler.h"
 #include "IDBCursorType.h"
 #include "IDBObjectStore.h"
 #include "IDBTransaction.h"
@@ -76,6 +75,7 @@
 #include "mozilla/Mutex.h"
 #include "mozilla/NotNull.h"
 #include "mozilla/Preferences.h"
+#include "mozilla/ProfilerLabels.h"
 #include "mozilla/RefCountType.h"
 #include "mozilla/RefCounted.h"
 #include "mozilla/RemoteLazyInputStreamParent.h"
@@ -7641,8 +7641,14 @@ nsresult DatabaseConnection::UpdateRefcountFunction::ProcessValue(
     const int64_t id = file.FileInfo().Id();
     MOZ_ASSERT(id > 0);
 
-    const auto entry = WrapNotNull(mFileInfoEntries.LookupOrAddFromFactory(
-        id, [&file] { return MakeUnique<FileInfoEntry>(file.FileInfoPtr()); }));
+    const auto entry =
+        WrapNotNull(mFileInfoEntries
+                        .GetOrInsertWith(id,
+                                         [&file] {
+                                           return MakeUnique<FileInfoEntry>(
+                                               file.FileInfoPtr());
+                                         })
+                        .get());
 
     if (mInSavepoint) {
       mSavepointEntriesIndex.Put(id, entry);
@@ -7894,6 +7900,8 @@ uint64_t ConnectionPool::Start(
 
   const uint64_t transactionId = ++mNextTransactionId;
 
+  // To avoid always acquiring a lock, we don't use WithEntryHandle here, which
+  // would require a lock in any case.
   DatabaseInfo* dbInfo = mDatabases.Get(aDatabaseId);
 
   const bool databaseInfoIsNew = !dbInfo;

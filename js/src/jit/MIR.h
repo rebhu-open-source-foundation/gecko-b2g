@@ -3703,6 +3703,8 @@ class MNonNegativeIntPtrToInt32 : public MUnaryInstruction,
   INSTRUCTION_HEADER(NonNegativeIntPtrToInt32)
   TRIVIAL_NEW_WRAPPERS
 
+  void computeRange(TempAllocator& alloc) override;
+
   bool congruentTo(const MDefinition* ins) const override {
     return congruentIfOperandsEqual(ins);
   }
@@ -7454,6 +7456,30 @@ class MTypedArrayElementSize : public MUnaryInstruction,
   }
 
   void computeRange(TempAllocator& alloc) override;
+};
+
+// Guard an ArrayBufferView has an attached ArrayBuffer.
+class MGuardHasAttachedArrayBuffer : public MUnaryInstruction,
+                                     public SingleObjectPolicy::Data {
+  explicit MGuardHasAttachedArrayBuffer(MDefinition* obj)
+      : MUnaryInstruction(classOpcode, obj) {
+    setResultType(MIRType::Object);
+    setMovable();
+    setGuard();
+  }
+
+ public:
+  INSTRUCTION_HEADER(GuardHasAttachedArrayBuffer)
+  TRIVIAL_NEW_WRAPPERS
+  NAMED_OPERANDS((0, object))
+
+  bool congruentTo(const MDefinition* ins) const override {
+    return congruentIfOperandsEqual(ins);
+  }
+
+  AliasSet getAliasSet() const override {
+    return AliasSet::Load(AliasSet::ObjectFields | AliasSet::FixedSlot);
+  }
 };
 
 // Convert a Double into an IntPtr value for accessing a TypedArray or DataView

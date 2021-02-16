@@ -13,7 +13,6 @@
 #include "ClientLayerManager.h"
 #include "DisplayItemClip.h"
 #include "FrameLayerBuilder.h"
-#include "GeckoProfiler.h"
 #include "gfx2DGlue.h"
 #include "gfxContext.h"
 #include "gfxDrawable.h"
@@ -73,6 +72,8 @@
 #include "mozilla/PerfStats.h"
 #include "mozilla/Preferences.h"
 #include "mozilla/PresShell.h"
+#include "mozilla/ProfilerLabels.h"
+#include "mozilla/ProfilerMarkers.h"
 #include "mozilla/RestyleManager.h"
 #include "mozilla/ScrollOrigin.h"
 #include "mozilla/ServoStyleSet.h"
@@ -2195,6 +2196,17 @@ const nsIFrame* nsLayoutUtils::FindNearestCommonAncestorFrameWithinBlock(
   }
 
   return nullptr;
+}
+
+bool nsLayoutUtils::AuthorSpecifiedBorderBackgroundDisablesTheming(
+    StyleAppearance aAppearance) {
+  return aAppearance == StyleAppearance::NumberInput ||
+         aAppearance == StyleAppearance::Button ||
+         aAppearance == StyleAppearance::Textfield ||
+         aAppearance == StyleAppearance::Textarea ||
+         aAppearance == StyleAppearance::Listbox ||
+         aAppearance == StyleAppearance::Menulist ||
+         aAppearance == StyleAppearance::MenulistButton;
 }
 
 nsLayoutUtils::TransformResult nsLayoutUtils::TransformPoints(

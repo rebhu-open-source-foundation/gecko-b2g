@@ -3186,7 +3186,8 @@ bool CacheIRCompiler::emitLoadArrayBufferByteLengthDoubleResult(
   return true;
 }
 
-bool CacheIRCompiler::emitLoadTypedArrayLengthInt32Result(ObjOperandId objId) {
+bool CacheIRCompiler::emitLoadArrayBufferViewLengthInt32Result(
+    ObjOperandId objId) {
   JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
   AutoOutputRegister output(*this);
   Register obj = allocator.useRegister(masm, objId);
@@ -3203,7 +3204,8 @@ bool CacheIRCompiler::emitLoadTypedArrayLengthInt32Result(ObjOperandId objId) {
   return true;
 }
 
-bool CacheIRCompiler::emitLoadTypedArrayLengthDoubleResult(ObjOperandId objId) {
+bool CacheIRCompiler::emitLoadArrayBufferViewLengthDoubleResult(
+    ObjOperandId objId) {
   JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
   AutoOutputRegister output(*this);
   Register obj = allocator.useRegister(masm, objId);
@@ -3980,7 +3982,8 @@ bool CacheIRCompiler::emitIsCrossRealmArrayConstructorResult(
   return true;
 }
 
-bool CacheIRCompiler::emitTypedArrayByteOffsetInt32Result(ObjOperandId objId) {
+bool CacheIRCompiler::emitArrayBufferViewByteOffsetInt32Result(
+    ObjOperandId objId) {
   JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
 
   AutoOutputRegister output(*this);
@@ -3998,7 +4001,8 @@ bool CacheIRCompiler::emitTypedArrayByteOffsetInt32Result(ObjOperandId objId) {
   return true;
 }
 
-bool CacheIRCompiler::emitTypedArrayByteOffsetDoubleResult(ObjOperandId objId) {
+bool CacheIRCompiler::emitArrayBufferViewByteOffsetDoubleResult(
+    ObjOperandId objId) {
   JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
 
   AutoOutputRegister output(*this);
@@ -4012,6 +4016,48 @@ bool CacheIRCompiler::emitTypedArrayByteOffsetDoubleResult(ObjOperandId objId) {
   return true;
 }
 
+bool CacheIRCompiler::emitTypedArrayByteLengthInt32Result(ObjOperandId objId) {
+  JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
+
+  AutoOutputRegister output(*this);
+  AutoScratchRegisterMaybeOutput scratch1(allocator, masm, output);
+  AutoScratchRegister scratch2(allocator, masm);
+  Register obj = allocator.useRegister(masm, objId);
+
+  FailurePath* failure;
+  if (!addFailurePath(&failure)) {
+    return false;
+  }
+
+  masm.loadArrayBufferViewLengthIntPtr(obj, scratch1);
+  masm.guardNonNegativeIntPtrToInt32(scratch1, failure->label());
+  masm.typedArrayElementSize(obj, scratch2);
+
+  masm.branchMul32(Assembler::Overflow, scratch2.get(), scratch1,
+                   failure->label());
+
+  masm.tagValue(JSVAL_TYPE_INT32, scratch1, output.valueReg());
+  return true;
+}
+
+bool CacheIRCompiler::emitTypedArrayByteLengthDoubleResult(ObjOperandId objId) {
+  JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
+
+  AutoOutputRegister output(*this);
+  AutoScratchRegisterMaybeOutput scratch1(allocator, masm, output);
+  AutoScratchRegister scratch2(allocator, masm);
+  Register obj = allocator.useRegister(masm, objId);
+
+  masm.loadArrayBufferViewLengthIntPtr(obj, scratch1);
+  masm.typedArrayElementSize(obj, scratch2);
+  masm.mulPtr(scratch2, scratch1);
+
+  ScratchDoubleScope fpscratch(masm);
+  masm.convertIntPtrToDouble(scratch1, fpscratch);
+  masm.boxDouble(fpscratch, output.valueReg(), fpscratch);
+  return true;
+}
+
 bool CacheIRCompiler::emitTypedArrayElementSizeResult(ObjOperandId objId) {
   JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
 
@@ -4021,6 +4067,21 @@ bool CacheIRCompiler::emitTypedArrayElementSizeResult(ObjOperandId objId) {
 
   masm.typedArrayElementSize(obj, scratch);
   masm.tagValue(JSVAL_TYPE_INT32, scratch, output.valueReg());
+  return true;
+}
+
+bool CacheIRCompiler::emitGuardHasAttachedArrayBuffer(ObjOperandId objId) {
+  JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
+
+  AutoScratchRegister scratch(allocator, masm);
+  Register obj = allocator.useRegister(masm, objId);
+
+  FailurePath* failure;
+  if (!addFailurePath(&failure)) {
+    return false;
+  }
+
+  masm.branchIfHasDetachedArrayBuffer(obj, scratch, failure->label());
   return true;
 }
 
@@ -7380,6 +7441,30 @@ bool CacheIRCompiler::emitCallRegExpTesterResult(ObjOperandId regexpId,
   using Fn = bool (*)(JSContext*, HandleObject regexp, HandleString input,
                       int32_t lastIndex, int32_t * result);
   callvm.call<Fn, RegExpTesterRaw>();
+  return true;
+}
+
+bool CacheIRCompiler::emitRegExpFlagResult(ObjOperandId regexpId,
+                                           int32_t flagsMask) {
+  JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
+
+  AutoOutputRegister output(*this);
+  Register regexp = allocator.useRegister(masm, regexpId);
+  AutoScratchRegisterMaybeOutput scratch(allocator, masm, output);
+
+  Address flagsAddr(
+      regexp, NativeObject::getFixedSlotOffset(RegExpObject::flagsSlot()));
+  masm.unboxInt32(flagsAddr, scratch);
+
+  Label ifFalse, done;
+  masm.branchTest32(Assembler::Zero, scratch, Imm32(flagsMask), &ifFalse);
+  masm.moveValue(BooleanValue(true), output.valueReg());
+  masm.jump(&done);
+
+  masm.bind(&ifFalse);
+  masm.moveValue(BooleanValue(false), output.valueReg());
+
+  masm.bind(&done);
   return true;
 }
 

@@ -241,6 +241,16 @@ const browsingContextTargetPrototype = {
    *        The |docShell| for the debugged frame.
    * @param options Object
    *        Object with following attributes:
+   *        - isTopLevelTarget Boolean
+   *          Should be set to true for all top-level targets. A top level target
+   *          is the topmost target of a DevTools "session". For instance for a local
+   *          tab toolbox, the FrameTargetActor for the content page is the top level target.
+   *          For the Multiprocess Browser Toolbox, the parent process target is the top level
+   *          target.
+   *          At the moment this only impacts the BrowsingContextTarget `reconfigure`
+   *          implementation. But for server-side target switching this flag will be exposed
+   *          to the client and should be available for all target actor classes. It will be
+   *          used to detect target switching. (Bug 1644397)
    *        - followWindowGlobalLifeCycle Boolean
    *          If true, the target actor will only inspect the current WindowGlobal (and its children windows).
    *          But won't inspect next document loaded in the same BrowsingContext.
@@ -264,6 +274,7 @@ const browsingContextTargetPrototype = {
 
     this.followWindowGlobalLifeCycle = options.followWindowGlobalLifeCycle;
     this.doNotFireFrameUpdates = options.doNotFireFrameUpdates;
+    this.isTopLevelTarget = !!options.isTopLevelTarget;
 
     // A map of actor names to actor instances provided by extensions.
     this._extraActors = {};
@@ -289,7 +300,6 @@ const browsingContextTargetPrototype = {
     this.watchNewDocShells = false;
 
     this.traits = {
-      reconfigure: true,
       // Supports frame listing via `listFrames` request and `frameUpdate` events
       // as well as frame switching via `switchToFrame` request
       frames: true,
@@ -1013,7 +1023,7 @@ const browsingContextTargetPrototype = {
     // Firefox shutdown.
     if (this.docShell) {
       this._unwatchDocShell(this.docShell);
-      this._restoreDocumentSettings();
+      this._restoreTargetConfiguration();
     }
     this._unwatchDocshells();
 
@@ -1171,21 +1181,6 @@ const browsingContextTargetPrototype = {
   },
 
   /**
-   * Reconfigure options.
-   */
-  reconfigure(request) {
-    const options = request.options || {};
-
-    if (!this.docShell) {
-      // The browsing context is already closed.
-      return {};
-    }
-    this._toggleDevToolsSettings(options);
-
-    return {};
-  },
-
-  /**
    * Ensure that CSS error reporting is enabled.
    */
   async ensureCSSErrorReportingEnabled(request) {
@@ -1225,9 +1220,33 @@ const browsingContextTargetPrototype = {
   },
 
   /**
-   * Handle logic to enable/disable JS/cache/Service Worker testing.
+   * For browsing-context targets which can't use the watcher configuration
+   * actor (eg webextension targets), the client directly calls `reconfigure`.
+   * Once all targets support the watcher, this method can be removed.
    */
-  _toggleDevToolsSettings(options) {
+  reconfigure(request) {
+    const options = request.options || {};
+    return this.updateTargetConfiguration(options);
+  },
+
+  /**
+   * Apply target-specific options.
+   *
+   * This will be called by the watcher when the DevTools target-configuration
+   * is updated, or when a target is created via JSWindowActors.
+   */
+  updateTargetConfiguration(options = {}) {
+    if (!this.docShell) {
+      // The browsing context is already closed.
+      return;
+    }
+
+    if (!this.isTopLevelTarget) {
+      // DevTools target options should only apply to the top target and be
+      // propagated through the browsing context tree via the platform.
+      return;
+    }
+
     // Wait a tick so that the response packet can be dispatched before the
     // subsequent navigation event packet.
     let reload = false;
@@ -1265,23 +1284,17 @@ const browsingContextTargetPrototype = {
     if (typeof options.restoreFocus == "boolean") {
       this._restoreFocus = options.restoreFocus;
     }
-    // Reload if:
-    //  - there's an explicit `performReload` flag and it's true
-    //  - there's no `performReload` flag, but it makes sense to do so
-    const hasExplicitReloadFlag = "performReload" in options;
-    if (
-      (hasExplicitReloadFlag && options.performReload) ||
-      (!hasExplicitReloadFlag && reload)
-    ) {
+
+    if (reload) {
       this.reload();
     }
   },
 
   /**
-   * Opposite of the _toggleDevToolsSettings method, that reset document state
-   * when closing the toolbox.
+   * Opposite of the updateTargetConfiguration method, that resets document
+   * state when closing the toolbox.
    */
-  _restoreDocumentSettings() {
+  _restoreTargetConfiguration() {
     this._restoreJavascript();
     this._setCacheDisabled(false);
     this._setServiceWorkersTestingEnabled(false);

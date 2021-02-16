@@ -29,7 +29,6 @@
 #include <utility>
 #include "DirectoryLockImpl.h"
 #include "ErrorList.h"
-#include "GeckoProfiler.h"
 #include "MainThreadUtils.h"
 #include "mozIStorageAsyncConnection.h"
 #include "mozIStorageConnection.h"
@@ -53,6 +52,7 @@
 #include "mozilla/NotNull.h"
 #include "mozilla/OriginAttributes.h"
 #include "mozilla/Preferences.h"
+#include "mozilla/ProfilerLabels.h"
 #include "mozilla/RefPtr.h"
 #include "mozilla/Result.h"
 #include "mozilla/ResultExtensions.h"
@@ -533,12 +533,26 @@ Result<bool, nsresult> MaybeCreateOrUpgradeCache(
 nsresult InvalidateCache(mozIStorageConnection& aConnection) {
   AssertIsOnIOThread();
 
-  mozStorageTransaction transaction(
-      &aConnection, false, mozIStorageConnection::TRANSACTION_IMMEDIATE);
+  static constexpr auto kDeleteCacheQuery = "DELETE FROM origin;"_ns;
+  static constexpr auto kSetInvalidFlagQuery = "UPDATE cache SET valid = 0"_ns;
 
-  QM_TRY(aConnection.ExecuteSimpleSQL("DELETE FROM origin;"_ns));
-  QM_TRY(aConnection.ExecuteSimpleSQL("UPDATE cache SET valid = 0"_ns));
-  QM_TRY(transaction.Commit());
+  // XXX Use QM_TRY_OR_WARN here in/after Bug 1686191.
+  QM_TRY(([&]() -> Result<Ok, nsresult> {
+    mozStorageTransaction transaction(
+        &aConnection, false, mozIStorageConnection::TRANSACTION_IMMEDIATE);
+
+    QM_TRY(aConnection.ExecuteSimpleSQL(kDeleteCacheQuery));
+    QM_TRY(aConnection.ExecuteSimpleSQL(kSetInvalidFlagQuery));
+    QM_TRY(transaction.Commit());
+
+    return Ok{};
+  }()
+                       .orElse([&](const nsresult rv) -> Result<Ok, nsresult> {
+                         QM_TRY(aConnection.ExecuteSimpleSQL(
+                             kSetInvalidFlagQuery));
+
+                         return Ok{};
+                       })));
 
   return NS_OK;
 }
@@ -3278,21 +3292,20 @@ void QuotaManager::RegisterDirectoryLock(DirectoryLockImpl& aLock) {
     DirectoryLockTable& directoryLockTable =
         GetDirectoryLockTable(aLock.GetPersistenceType());
 
-    nsTArray<NotNull<DirectoryLockImpl*>>* array;
-    if (!directoryLockTable.Get(aLock.Origin(), &array)) {
-      array = new nsTArray<NotNull<DirectoryLockImpl*>>();
-      directoryLockTable.Put(aLock.Origin(), array);
-
-      if (!IsShuttingDown()) {
-        UpdateOriginAccessTime(aLock.GetPersistenceType(),
-                               aLock.OriginMetadata());
-      }
-    }
-
     // XXX It seems that the contents of the array are never actually used, we
     // just use that like an inefficient use counter. Can't we just change
     // DirectoryLockTable to a nsDataHashtable<nsCStringHashKey, uint32_t>?
-    array->AppendElement(WrapNotNullUnchecked(&aLock));
+    directoryLockTable
+        .GetOrInsertWith(
+            aLock.Origin(),
+            [this, &aLock] {
+              if (!IsShuttingDown()) {
+                UpdateOriginAccessTime(aLock.GetPersistenceType(),
+                                       aLock.OriginMetadata());
+              }
+              return MakeUnique<nsTArray<NotNull<DirectoryLockImpl*>>>();
+            })
+        ->AppendElement(WrapNotNullUnchecked(&aLock));
   }
 
   aLock.SetRegistered(true);
@@ -5479,7 +5492,7 @@ QuotaManager::CreateLocalStorageArchiveConnectionFromWebAppsStore() const {
       MOZ_TO_RESULT_INVOKE_TYPED(nsCOMPtr<mozIStorageConnection>, ss,
                                  OpenUnsharedDatabase, lsArchiveFile));
 
-  QM_TRY(StorageDBUpdater::Update(lsArchiveConnection));
+  QM_TRY(StorageDBUpdater::CreateCurrentSchema(lsArchiveConnection));
 
   return lsArchiveConnection;
 }
@@ -5543,6 +5556,10 @@ QuotaManager::CreateLocalStorageArchiveConnection() const {
               return Err(rv);
             }));
 
+    // XXX Similarly to CreateShadowStorageConnection, this might or might not
+    // deal with a fresh database file. It might be better to call
+    // StorageDBUpdater::CreateCurrentSchema if removed is true (and in that
+    // case we don't need a orElse part).
     QM_TRY(ToResult(StorageDBUpdater::Update(connection))
                .orElse([&removed, &connection, &lsArchiveFile,
                         &ss](const nsresult rv) -> Result<Ok, nsresult> {
@@ -5557,7 +5574,7 @@ QuotaManager::CreateLocalStorageArchiveConnection() const {
                                      nsCOMPtr<mozIStorageConnection>, ss,
                                      OpenUnsharedDatabase, lsArchiveFile));
 
-                   QM_TRY(StorageDBUpdater::Update(connection));
+                   QM_TRY(StorageDBUpdater::CreateCurrentSchema(connection));
 
                    return Ok{};
                  }
@@ -6610,12 +6627,10 @@ already_AddRefed<GroupInfo> QuotaManager::LockedGetOrCreateGroupInfo(
   mQuotaMutex.AssertCurrentThreadOwns();
   MOZ_ASSERT(aPersistenceType != PERSISTENCE_TYPE_PERSISTENT);
 
-  GroupInfoPair* pair;
-  if (!mGroupInfoPairs.Get(aGroup, &pair)) {
-    pair = new GroupInfoPair();
-    mGroupInfoPairs.Put(aGroup, pair);
-    // The hashtable is now responsible to delete the GroupInfoPair.
-  }
+  GroupInfoPair* const pair =
+      mGroupInfoPairs
+          .GetOrInsertWith(aGroup, [] { return MakeUnique<GroupInfoPair>(); })
+          .get();
 
   RefPtr<GroupInfo> groupInfo = pair->LockedGetGroupInfo(aPersistenceType);
   if (!groupInfo) {

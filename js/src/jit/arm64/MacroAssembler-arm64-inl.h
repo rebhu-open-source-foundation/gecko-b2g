@@ -429,14 +429,20 @@ void MacroAssembler::mul32(Register rhs, Register srcDest) {
 
 void MacroAssembler::mul32(Register src1, Register src2, Register dest,
                            Label* onOver) {
-  Smull(ARMRegister(dest, 64), ARMRegister(src1, 32), ARMRegister(src2, 32));
   if (onOver) {
+    Smull(ARMRegister(dest, 64), ARMRegister(src1, 32), ARMRegister(src2, 32));
     Cmp(ARMRegister(dest, 64), Operand(ARMRegister(dest, 32), vixl::SXTW));
     B(onOver, NotEqual);
-  }
 
-  // Clear upper 32 bits.
-  Mov(ARMRegister(dest, 32), ARMRegister(dest, 32));
+    // Clear upper 32 bits.
+    Mov(ARMRegister(dest, 32), ARMRegister(dest, 32));
+  } else {
+    Mul(ARMRegister(dest, 32), ARMRegister(src1, 32), ARMRegister(src2, 32));
+  }
+}
+
+void MacroAssembler::mulPtr(Register rhs, Register srcDest) {
+  Mul(ARMRegister(srcDest, 64), ARMRegister(srcDest, 64), ARMRegister(rhs, 64));
 }
 
 void MacroAssembler::mul64(Imm64 imm, const Register64& dest) {

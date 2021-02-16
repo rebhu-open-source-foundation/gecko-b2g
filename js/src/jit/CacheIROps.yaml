@@ -308,6 +308,14 @@
     input: StringId
     lastIndex: Int32Id
 
+- name: RegExpFlagResult
+  shared: true
+  transpile: true
+  cost_estimate: 2
+  args:
+    regexp: ObjId
+    flagsMask: Int32Imm
+
 - name: CallSubstringKernelResult
   shared: true
   transpile: true
@@ -978,21 +986,42 @@
   args:
     obj: ObjId
 
-- name: TypedArrayByteOffsetInt32Result
+- name: ArrayBufferViewByteOffsetInt32Result
   shared: true
   transpile: true
   cost_estimate: 1
   args:
     obj: ObjId
 
-- name: TypedArrayByteOffsetDoubleResult
+- name: ArrayBufferViewByteOffsetDoubleResult
   shared: true
   transpile: true
   cost_estimate: 1
+  args:
+    obj: ObjId
+
+- name: TypedArrayByteLengthInt32Result
+  shared: true
+  transpile: true
+  cost_estimate: 2
+  args:
+    obj: ObjId
+
+- name: TypedArrayByteLengthDoubleResult
+  shared: true
+  transpile: true
+  cost_estimate: 2
   args:
     obj: ObjId
 
 - name: TypedArrayElementSizeResult
+  shared: true
+  transpile: true
+  cost_estimate: 2
+  args:
+    obj: ObjId
+
+- name: GuardHasAttachedArrayBuffer
   shared: true
   transpile: true
   cost_estimate: 2
@@ -1797,14 +1826,14 @@
   args:
     obj: ObjId
 
-- name: LoadTypedArrayLengthInt32Result
+- name: LoadArrayBufferViewLengthInt32Result
   shared: true
   transpile: true
   cost_estimate: 1
   args:
     obj: ObjId
 
-- name: LoadTypedArrayLengthDoubleResult
+- name: LoadArrayBufferViewLengthDoubleResult
   shared: true
   transpile: true
   cost_estimate: 1

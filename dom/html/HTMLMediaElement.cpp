@@ -2255,7 +2255,6 @@ void HTMLMediaElement::AbortExistingLoads() {
   }
 
   RemoveMediaElementFromURITable();
-  mLoadingSrc = nullptr;
   mLoadingSrcTriggeringPrincipal = nullptr;
   DDLOG(DDLogCategory::Property, "loading_src", "");
   DDUNLINKCHILD(mMediaSource.get());
@@ -2566,7 +2565,11 @@ void HTMLMediaElement::SelectResource() {
           "Should think we're not loading from source children by default");
 
       RemoveMediaElementFromURITable();
-      mLoadingSrc = uri;
+      if (!mSrcMediaSource) {
+        mLoadingSrc = uri;
+      } else {
+        mLoadingSrc = nullptr;
+      }
       mLoadingSrcTriggeringPrincipal = mSrcAttrTriggeringPrincipal;
       DDLOG(DDLogCategory::Property, "loading_src",
             nsCString(NS_ConvertUTF16toUTF8(src)));
@@ -5159,6 +5162,7 @@ void HTMLMediaElement::UpdateSrcStreamTime() {
 void HTMLMediaElement::SetupSrcMediaStreamPlayback(DOMMediaStream* aStream) {
   NS_ASSERTION(!mSrcStream, "Should have been ended already");
 
+  mLoadingSrc = nullptr;
   mSrcStream = aStream;
 
   VideoFrameContainer* container = GetVideoFrameContainer();
@@ -5344,6 +5348,10 @@ void HTMLMediaElement::NotifyMediaStreamTrackRemoved(
 }
 
 void HTMLMediaElement::ProcessMediaFragmentURI() {
+  if (!mLoadingSrc) {
+    mFragmentStart = mFragmentEnd = -1.0;
+    return;
+  }
   nsMediaFragmentURIParser parser(mLoadingSrc);
 
   if (mDecoder && parser.HasEndTime()) {
