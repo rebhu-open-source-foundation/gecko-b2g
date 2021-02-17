@@ -150,6 +150,15 @@ const TCP_BUFFER_SIZES = [
   "122334,734003,2202010,32040,192239,576717", // ca
 ];
 
+const RIL_RADIO_CDMA_TECHNOLOGY_BITMASK =
+  (1 << (RIL.GECKO_RADIO_TECH.indexOf("is95a") - 1)) |
+  (1 << (RIL.GECKO_RADIO_TECH.indexOf("is95b") - 1)) |
+  (1 << (RIL.GECKO_RADIO_TECH.indexOf("1xrtt") - 1)) |
+  (1 << (RIL.GECKO_RADIO_TECH.indexOf("evdo0") - 1)) |
+  (1 << (RIL.GECKO_RADIO_TECH.indexOf("evdoa") - 1)) |
+  (1 << (RIL.GECKO_RADIO_TECH.indexOf("evdob") - 1)) |
+  (1 << (RIL.GECKO_RADIO_TECH.indexOf("ehrpd") - 1));
+
 // set to true in ril_consts.js to see debug messages
 var DEBUG = RIL_DEBUG.DEBUG_RIL;
 
@@ -615,6 +624,10 @@ function bitmaskToString(aBearerBitmask) {
   return val;
 }
 
+function bearerBitmapHasCdma(aBearerBitmask) {
+  return (RIL_RADIO_CDMA_TECHNOLOGY_BITMASK & aBearerBitmask) != 0;
+}
+
 function convertToDataCallType(aNetworkType) {
   switch (aNetworkType) {
     case NETWORK_TYPE_MOBILE:
@@ -797,13 +810,13 @@ DataCallHandler.prototype = {
   },
 
   /*_compareDataCallOptions: function(aDataCall, aNewDataCall) {
-    return aDataCall.apnProfile.apn == aNewDataCall.apnProfile.apn &&
-           aDataCall.apnProfile.user == aNewDataCall.apnProfile.user &&
-           aDataCall.apnProfile.password == aNewDataCall.apnProfile.passwd &&
-           aDataCall.apnProfile.authType == aNewDataCall.apnProfile.authType &&
-           aDataCall.apnProfile.protocol == aNewDataCall.apnProfile.protocol &&
-           aDataCall.apnProfile.roamingProtocol == aNewDataCall.apnProfile.roamingProtocol &&
-           aDataCall.apnProfile.bearerBitmap == aNewDataCall.apnProfile.bearer;
+    return aDataCall.dataProfile.apn == aNewDataCall.dataProfile.apn &&
+           aDataCall.dataProfile.user == aNewDataCall.dataProfile.user &&
+           aDataCall.dataProfile.password == aNewDataCall.dataProfile.passwd &&
+           aDataCall.dataProfile.authType == aNewDataCall.dataProfile.authType &&
+           aDataCall.dataProfile.protocol == aNewDataCall.dataProfile.protocol &&
+           aDataCall.dataProfile.roamingProtocol == aNewDataCall.dataProfile.roamingProtocol &&
+           aDataCall.dataProfile.bearerBitmap == aNewDataCall.dataProfile.bearerBitmap;
   },*/
 
   /**
@@ -978,6 +991,64 @@ DataCallHandler.prototype = {
     });
   },
 
+  createDataProfile(aApnSetting) {
+    if (!aApnSetting) {
+      return null;
+    }
+
+    let pdpType = RIL.RIL_DATACALL_PDP_TYPES.includes(aApnSetting.protocol)
+      ? aApnSetting.protocol
+      : RIL.GECKO_DATACALL_PDP_TYPE_IP;
+
+    let roamPdpType = RIL.RIL_DATACALL_PDP_TYPES.includes(
+      aApnSetting.roaming_protocol
+    )
+      ? aApnSetting.roaming_protocol
+      : RIL.GECKO_DATACALL_PDP_TYPE_IP;
+
+    let authtype = RIL.RIL_DATACALL_AUTH_TO_GECKO.indexOf(aApnSetting.authtype);
+    if (authtype == -1) {
+      authtype = RIL.RIL_DATACALL_AUTH_TO_GECKO.indexOf(
+        RIL.GECKO_DATACALL_AUTH_DEFAULT
+      );
+    }
+
+    //Convert apn bearer to profile type.
+    let profileType;
+    if (aApnSetting.bearer == 0 || aApnSetting.bearer == undefined) {
+      profileType = RIL.GECKO_PROFILE_INFO_TYPE_COMMON;
+    } else if (bearerBitmapHasCdma(aApnSetting.bearer)) {
+      profileType = RIL.GECKO_PROFILE_INFO_TYPE_3GPP2;
+    } else {
+      profileType = RIL.GECKO_PROFILE_INFO_TYPE_3GPP;
+    }
+
+    let dataProfile = {
+      profileId: aApnSetting.profileId || -1,
+      apn: aApnSetting.apn || "",
+      protocol: pdpType,
+      // Use the default authType if the value in database is invalid.
+      // For the case that user might not select the authentication type.
+      authType: authtype,
+      user: aApnSetting.user || "",
+      password: aApnSetting.password || "",
+      type: profileType,
+      maxConnsTime: aApnSetting.maxConnsTime || 0,
+      maxConns: aApnSetting.maxConns || 0,
+      waitTime: aApnSetting.waitTime || 0,
+      enabled: aApnSetting.enabled || true,
+      supportedApnTypesBitmap: aApnSetting.supportedApnTypesBitmap || 0,
+      roamingProtocol: roamPdpType,
+      bearerBitmap: aApnSetting.bearer || 0,
+      mtu: aApnSetting.mtu || 0,
+      mvnoType: aApnSetting.mvnoType || "",
+      mvnoMatchData: aApnSetting.mvnoMatchData || false,
+      modemCognitive: aApnSetting.modemCognitive || true,
+    };
+
+    return dataProfile;
+  },
+
   setInitialAttachApn(aNewApnSettings) {
     if (!aNewApnSettings) {
       return;
@@ -1027,58 +1098,12 @@ DataCallHandler.prototype = {
       return;
     }
 
-    let pdpType = RIL.RIL_DATACALL_PDP_TYPES.indexOf(initalAttachApn.protocol);
-    if (pdpType == -1) {
-      pdpType = RIL.GECKO_DATACALL_PDP_TYPE_IP;
-    } else {
-      pdpType = RIL.RIL_DATACALL_PDP_TYPES[pdpType];
-    }
-
-    let roamPdpType = RIL.RIL_DATACALL_PDP_TYPES.indexOf(
-      initalAttachApn.roaming_protocol
-    );
-    if (roamPdpType == -1) {
-      roamPdpType = RIL.GECKO_DATACALL_PDP_TYPE_IP;
-    } else {
-      roamPdpType = RIL.RIL_DATACALL_PDP_TYPES[roamPdpType];
-    }
-
-    let authtype = RIL.RIL_DATACALL_AUTH_TO_GECKO.indexOf(
-      initalAttachApn.authtype
-    );
-    if (authtype == -1) {
-      authtype = RIL.RIL_DATACALL_AUTH_TO_GECKO.indexOf(
-        RIL.GECKO_DATACALL_AUTH_DEFAULT
-      );
-    }
-
-    let apnProfile = {
-      profileId: initalAttachApn.profileId || -1,
-      apn: initalAttachApn.apn || "",
-      protocol: pdpType,
-      // Use the default authType if the value in database is invalid.
-      // For the case that user might not select the authentication type.
-      authType: authtype || -1,
-      user: initalAttachApn.user || "",
-      password: initalAttachApn.password || "",
-      type: initalAttachApn.type || 1,
-      maxConnsTime: initalAttachApn.maxConnsTime || -1,
-      maxConns: initalAttachApn.maxConns || -1,
-      waitTime: initalAttachApn.waitTime || -1,
-      enabled: initalAttachApn.enabled || false,
-      supportedApnTypesBitmap: initalAttachApn.supportedApnTypesBitmap || -1,
-      roamingProtocol: roamPdpType,
-      bearerBitmap: initalAttachApn.bearer || -1,
-      mtu: initalAttachApn.mtu || -1,
-      mvnoType: initalAttachApn.mvnoType || "",
-      mvnoMatchData: initalAttachApn.mvnoMatchData || "",
-      modemCognitive: initalAttachApn.modemCognitive || false,
-    };
+    let dataProfile = this.createDataProfile(initalAttachApn);
 
     this.debug(
-      "setInitialAttachApn.  apnProfile= " + JSON.stringify(apnProfile)
+      "setInitialAttachApn. dataProfile= " + JSON.stringify(dataProfile)
     );
-    this.dataCallInterface.setInitialAttachApn(apnProfile, dataInfo.roaming);
+    this.dataCallInterface.setInitialAttachApn(dataProfile, dataInfo.roaming);
   },
 
   updatePcoData(aCid, aBearerProtom, aPcoId, aContents) {
@@ -1744,45 +1769,7 @@ DataCallHandler.prototype = {
 function DataCall(aClientId, aApnSetting, aDataCallHandler) {
   this.clientId = aClientId;
   this.dataCallHandler = aDataCallHandler;
-
-  let authType = RIL.RIL_DATACALL_AUTH_TO_GECKO.indexOf(aApnSetting.authtype);
-  let protocol = RIL.RIL_DATACALL_PDP_TYPES.indexOf(aApnSetting.protocol);
-  let roamingProtocol = RIL.RIL_DATACALL_PDP_TYPES.indexOf(
-    aApnSetting.roaming_protocol
-  );
-  this.apnProfile = {
-    profileId: aApnSetting.profileId,
-    apn: aApnSetting.apn,
-    protocol:
-      protocol == -1
-        ? RIL.GECKO_DATACALL_PDP_TYPE_DEFAULT
-        : aApnSetting.protocol,
-    // Use the default authType if the value in database is invalid.
-    // For the case that user might not select the authentication type.
-    authType:
-      authType == -1
-        ? RIL.RIL_DATACALL_AUTH_TO_GECKO.indexOf(
-            RIL.GECKO_DATACALL_AUTH_DEFAULT
-          )
-        : authType,
-    user: aApnSetting.user,
-    password: aApnSetting.password,
-    type: aApnSetting.type,
-    maxConnsTime: aApnSetting.maxConnsTime,
-    maxConns: aApnSetting.maxConns,
-    waitTime: aApnSetting.waitTime,
-    enabled: aApnSetting.enabled,
-    supportedApnTypesBitmap: aApnSetting.supportedApnTypesBitmap,
-    roamingProtocol:
-      roamingProtocol == -1
-        ? RIL.GECKO_DATACALL_PDP_TYPE_DEFAULT
-        : aApnSetting.roaming_protocol,
-    bearerBitmap: aApnSetting.bearer,
-    mtu: aApnSetting.mtu,
-    mvnoType: aApnSetting.mvnoType,
-    mvnoMatchData: aApnSetting.mvnoMatchData,
-    modemCognitive: aApnSetting.modemCognitive,
-  };
+  this.dataProfile = this.dataCallHandler.createDataProfile(aApnSetting);
 
   this.linkInfo = {
     cid: null,
@@ -2430,7 +2417,7 @@ DataCall.prototype = {
 
     dcInterface.setupDataCall(
       radioTechnology,
-      this.apnProfile,
+      this.dataProfile,
       dataInfo.roaming,
       this.dataCallHandler.dataCallSettings.roamingEnabled,
       {

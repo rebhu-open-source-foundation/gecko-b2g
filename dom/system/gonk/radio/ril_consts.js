@@ -3955,6 +3955,56 @@ this.GECKO_RADIO_TECH = [
   "lte_ca",
 ];
 
+this.GECKO_3GPP_TECH = [
+  null,
+  "gprs",
+  "edge",
+  "umts",
+  null,
+  null,
+  null,
+  null,
+  null,
+  "hsdpa",
+  "hsupa",
+  "hspa",
+  null,
+  null,
+  "lte",
+  "hspa+",
+  "gsm",
+  "tdscdma",
+  "iwlan",
+  "lte_ca",
+];
+
+this.GECKO_3GPP2_TECH = [
+  null,
+  null,
+  null,
+  null,
+  "is95a",
+  "is95b",
+  "1xrtt",
+  "evdo0",
+  "evdoa",
+  null,
+  null,
+  null,
+  "evdob",
+  "ehrpd",
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+];
+
+this.GECKO_PROFILE_INFO_TYPE_COMMON = 0;
+this.GECKO_PROFILE_INFO_TYPE_3GPP = 1;
+this.GECKO_PROFILE_INFO_TYPE_3GPP2 = 2;
+
 this.GECKO_VOICEMAIL_MESSAGE_COUNT_UNKNOWN = -1;
 
 // Call forwarding action. Must be in sync with nsIMobileConnectionService interface
