@@ -7936,7 +7936,11 @@
 # Media Seamless Looping
 - name: media.seamless-looping
   type: RelaxedAtomicBool
+#ifdef MOZ_B2G
+  value: false
+#else
   value: true
+#endif
   mirror: always
 
 - name: media.autoplay.block-event.enabled
