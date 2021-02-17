@@ -80,16 +80,16 @@ enum CachedBool { eCachedBoolMiss, eCachedTrue, eCachedFalse };
 }
 
 - (void)dealloc {
-  NS_OBJC_BEGIN_TRY_ABORT_BLOCK;
+  NS_OBJC_BEGIN_TRY_IGNORE_BLOCK;
 
   [self invalidateChildren];
   [super dealloc];
 
-  NS_OBJC_END_TRY_ABORT_BLOCK;
+  NS_OBJC_END_TRY_IGNORE_BLOCK;
 }
 
 - (void)expire {
-  NS_OBJC_BEGIN_TRY_ABORT_BLOCK;
+  NS_OBJC_BEGIN_TRY_IGNORE_BLOCK;
 
   [self invalidateChildren];
 
@@ -97,7 +97,7 @@ enum CachedBool { eCachedBoolMiss, eCachedTrue, eCachedFalse };
 
   [super expire];
 
-  NS_OBJC_END_TRY_ABORT_BLOCK;
+  NS_OBJC_END_TRY_IGNORE_BLOCK;
 }
 
 - (BOOL)isExpired {
@@ -107,7 +107,7 @@ enum CachedBool { eCachedBoolMiss, eCachedTrue, eCachedFalse };
 }
 
 - (void)invalidateChildren {
-  NS_OBJC_BEGIN_TRY_ABORT_BLOCK;
+  NS_OBJC_BEGIN_TRY_IGNORE_BLOCK;
 
   // make room for new children
   if (mChildren) {
@@ -115,7 +115,7 @@ enum CachedBool { eCachedBoolMiss, eCachedTrue, eCachedFalse };
     mChildren = nil;
   }
 
-  NS_OBJC_END_TRY_ABORT_BLOCK;
+  NS_OBJC_END_TRY_IGNORE_BLOCK;
 }
 
 @end
@@ -219,12 +219,12 @@ enum CachedBool { eCachedBoolMiss, eCachedTrue, eCachedFalse };
 }
 
 - (void)dealloc {
-  NS_OBJC_BEGIN_TRY_ABORT_BLOCK;
+  NS_OBJC_BEGIN_TRY_IGNORE_BLOCK;
 
   [self invalidateColumns];
   [super dealloc];
 
-  NS_OBJC_END_TRY_ABORT_BLOCK;
+  NS_OBJC_END_TRY_IGNORE_BLOCK;
 }
 
 - (NSNumber*)moxRowCount {
@@ -345,12 +345,12 @@ enum CachedBool { eCachedBoolMiss, eCachedTrue, eCachedFalse };
 }
 
 - (void)invalidateColumns {
-  NS_OBJC_BEGIN_TRY_ABORT_BLOCK;
+  NS_OBJC_BEGIN_TRY_IGNORE_BLOCK;
   if (mColContainers) {
     [mColContainers release];
     mColContainers = nil;
   }
-  NS_OBJC_END_TRY_ABORT_BLOCK;
+  NS_OBJC_END_TRY_IGNORE_BLOCK;
 }
 
 @end
@@ -470,11 +470,11 @@ enum CachedBool { eCachedBoolMiss, eCachedTrue, eCachedFalse };
       // XUL trees store their columns in a group at the tree's first
       // child. Here, we iterate over that group to get each column's
       // native accessible and add it to our col array.
-      Accessible* treeColumns = treeAcc->GetChildAt(0);
+      Accessible* treeColumns = treeAcc->LocalChildAt(0);
       if (treeColumns) {
         uint32_t colCount = treeColumns->ChildCount();
         for (uint32_t i = 0; i < colCount; i++) {
-          Accessible* treeColumnItem = treeColumns->GetChildAt(i);
+          Accessible* treeColumnItem = treeColumns->LocalChildAt(i);
           [cols addObject:GetNativeFromGeckoAccessible(treeColumnItem)];
         }
         return cols;

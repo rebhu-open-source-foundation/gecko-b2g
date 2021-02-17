@@ -33,6 +33,8 @@ XPCOMUtils.defineLazyModuleGetters(this, {
     "resource://gre/modules/ContextualIdentityService.jsm",
   CustomizableUI: "resource:///modules/CustomizableUI.jsm",
   Deprecated: "resource://gre/modules/Deprecated.jsm",
+  DevToolsSocketStatus:
+    "resource://devtools/shared/security/DevToolsSocketStatus.jsm",
   DownloadsCommon: "resource:///modules/DownloadsCommon.jsm",
   DownloadUtils: "resource://gre/modules/DownloadUtils.jsm",
   E10SUtils: "resource://gre/modules/E10SUtils.jsm",
@@ -582,6 +584,15 @@ XPCOMUtils.defineLazyPreferenceGetter(
     document.documentElement.toggleAttribute("proton", newValue);
   }
 );
+
+/* Import aboutWelcomeFeature from Nimbus Experiment API
+   to access experiment values */
+XPCOMUtils.defineLazyGetter(this, "aboutWelcomeFeature", () => {
+  const { ExperimentFeature } = ChromeUtils.import(
+    "resource://messaging-system/experiments/ExperimentAPI.jsm"
+  );
+  return new ExperimentFeature("aboutwelcome");
+});
 
 customElements.setElementCreationCallback("translation-notification", () => {
   Services.scriptloader.loadSubScript(
@@ -1921,6 +1932,7 @@ var gBrowserInit = {
     this._handleURIToLoad();
 
     Services.obs.addObserver(gIdentityHandler, "perm-changed");
+    Services.obs.addObserver(gRemoteControl, "devtools-listening");
     Services.obs.addObserver(gRemoteControl, "marionette-listening");
     Services.obs.addObserver(gRemoteControl, "remote-listening");
     Services.obs.addObserver(
@@ -1964,6 +1976,11 @@ var gBrowserInit = {
     BrowserSearch.delayedStartupInit();
     gProtectionsHandler.init();
     HomePage.delayedStartup().catch(Cu.reportError);
+
+    let safeMode = document.getElementById("helpSafeMode");
+    if (Services.appinfo.inSafeMode) {
+      document.l10n.setAttributes(safeMode, "menu-help-safe-mode-with-addons");
+    }
 
     // BiDi UI
     gBidiUI = isBidiEnabled();
@@ -2194,7 +2211,16 @@ var gBrowserInit = {
     let shouldRemoveFocusedAttribute = true;
 
     this._callWithURIToLoad(uriToLoad => {
-      if (isBlankPageURL(uriToLoad) || uriToLoad == "about:privatebrowsing") {
+      // Check if user is enrolled in an aboutWelcome experiment that has skipFocus
+      // property set to true, if yes remove focus from urlbar for about:welcome
+      const aboutWelcomeSkipUrlBarFocus =
+        uriToLoad == "about:welcome" &&
+        aboutWelcomeFeature.getValue()?.skipFocus;
+
+      if (
+        (isBlankPageURL(uriToLoad) && !aboutWelcomeSkipUrlBarFocus) ||
+        uriToLoad == "about:privatebrowsing"
+      ) {
         gURLBar.select();
         shouldRemoveFocusedAttribute = false;
         return;
@@ -2545,6 +2571,7 @@ var gBrowserInit = {
       FullZoom.destroy();
 
       Services.obs.removeObserver(gIdentityHandler, "perm-changed");
+      Services.obs.removeObserver(gRemoteControl, "devtools-listening");
       Services.obs.removeObserver(gRemoteControl, "marionette-listening");
       Services.obs.removeObserver(gRemoteControl, "remote-listening");
       Services.obs.removeObserver(
@@ -8113,7 +8140,11 @@ const gRemoteControl = {
 
   updateVisualCue() {
     const mainWindow = document.documentElement;
-    if (Marionette.running || RemoteAgent.listening) {
+    if (
+      DevToolsSocketStatus.opened ||
+      Marionette.running ||
+      RemoteAgent.listening
+    ) {
       mainWindow.setAttribute("remotecontrol", "true");
     } else {
       mainWindow.removeAttribute("remotecontrol");

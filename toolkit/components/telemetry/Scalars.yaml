@@ -1235,11 +1235,12 @@ security:
       - 1265472
       - 1558870
       - 1630155
+      - 1689269
     description: >
       Counts of how often Web Authentication was used in this session, keyed
       by authenticator protocol, method and result. Currently: U2FRegisterFinish,
       U2FRegisterAbort, U2FSignFinish, U2FSignAbort.
-    expires: "88"
+    expires: "100"
     kind: uint
     keyed: true
     notification_emails:
@@ -2239,6 +2240,23 @@ media:
     products:
       - 'firefox'
     record_in_processes:
+      - 'content'
+
+  wmf_process_usage:
+    bug_numbers:
+      - 1690372
+    description: >
+      Record whether the WMF decoder module is used in content or chrome process.
+    expires: "93"
+    kind: boolean
+    notification_emails:
+      - alwu@mozilla.com
+      - bvandyk@mozilla.com
+    release_channel_collection: opt-out
+    products:
+      - 'firefox'
+    record_in_processes:
+      - 'main'
       - 'content'
 
 # The following section contains content process base counters.
