@@ -194,7 +194,7 @@ SharedBufferManagerParent::~SharedBufferManagerParent()
   MonitorAutoLock lock(*sManagerMonitor.get());
   sManagers.erase(mOwner);
 
-  // delete mThread invokes Thread::Stop, it should wait Thread::ThreadMain
+  // Delete mThread invokes Thread::Stop, it should wait Thread::ThreadMain
   // to finish before actually destroy mThread instance. If we do it not
   // in main thread, mThread instance will be destroyed before
   // Thread::ThreadMain finishes it's CleanUp. Crash occurres here.
