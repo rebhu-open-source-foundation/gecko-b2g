@@ -269,6 +269,14 @@ ProcessGlobal.prototype = {
         },
         allFrames: true,
       },
+
+      Prompt: {
+        parent: {
+          moduleURI: "resource://gre/actors/PromptParent.jsm",
+        },
+        includeChrome: true,
+        allFrames: true,
+      },
     };
 
     ActorManagerParent.addJSWindowActors(JSWINDOWACTORS);
