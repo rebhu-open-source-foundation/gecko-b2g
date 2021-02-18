@@ -219,10 +219,7 @@ var shell = {
     let data = message.data;
     let activity = activities[message.name];
 
-    let a = new window.WebActivity({
-      name: activity.name,
-      data,
-    });
+    let a = new window.WebActivity(activity.name, data);
 
     let promise = a.start();
     if (activity.response) {
