@@ -1348,10 +1348,10 @@ var PrintSettingsViewProxy = {
         switch (target.duplex) {
           case Ci.nsIPrintSettings.kDuplexNone:
             break;
-          case Ci.nsIPrintSettings.kDuplexFlipOnSideEdge:
-            return "side-edge";
-          case Ci.nsIPrintSettings.kDuplexFlipOnTopEdge:
-            return "top-edge";
+          case Ci.nsIPrintSettings.kDuplexFlipOnLongEdge:
+            return "long-edge";
+          case Ci.nsIPrintSettings.kDuplexFlipOnShortEdge:
+            return "short-edge";
           default:
             logger.warn("Unexpected duplex value: ", target.duplex);
         }
@@ -1447,10 +1447,10 @@ var PrintSettingsViewProxy = {
           switch (value) {
             case "off":
               break;
-            case "side-edge":
-              return Ci.nsIPrintSettings.kDuplexFlipOnSideEdge;
-            case "top-edge":
-              return Ci.nsIPrintSettings.kDuplexFlipOnTopEdge;
+            case "long-edge":
+              return Ci.nsIPrintSettings.kDuplexFlipOnLongEdge;
+            case "short-edge":
+              return Ci.nsIPrintSettings.kDuplexFlipOnShortEdge;
             default:
               logger.warn("Unexpected duplex name: ", value);
           }

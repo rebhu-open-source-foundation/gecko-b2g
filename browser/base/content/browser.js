@@ -579,10 +579,7 @@ XPCOMUtils.defineLazyPreferenceGetter(
   this,
   "gProtonTabs",
   "browser.proton.tabs.enabled",
-  false,
-  (pref, oldValue, newValue) => {
-    document.documentElement.toggleAttribute("proton", newValue);
-  }
+  false
 );
 
 /* Import aboutWelcomeFeature from Nimbus Experiment API
@@ -5779,6 +5776,15 @@ var TabsProgressListener = {
           stopwatchRunning /* we won't see STATE_START events for pre-rendered tabs */
         ) {
           if (recordLoadTelemetry) {
+            if (aBrowser.browsingContext?.topWindowContext?.hadLazyLoadImage) {
+              let timeElapsed = TelemetryStopwatch.timeElapsed(
+                histogram,
+                aBrowser
+              );
+              Services.telemetry
+                .getHistogramById("FX_LAZYLOAD_IMAGE_PAGE_LOAD_MS")
+                .add(timeElapsed);
+            }
             TelemetryStopwatch.finish(histogram, aBrowser);
             BrowserTelemetryUtils.recordSiteOriginTelemetry(browserWindows());
           }
