@@ -113,6 +113,10 @@ const DELIVERY_STATUS_ERROR = "error";
 
 const MESSAGE_CLASS_NORMAL = "normal";
 
+const ATTACHMENT_STATUS_NONE = "none";
+const ATTACHMENT_STATUS_NOT_DOWNLOADED = "not-downloaded";
+const ATTACHMENT_STATUS_DOWNLOADED = "downloaded";
+
 // We can´t create an IDBKeyCursor with a boolean, so we need to use numbers
 // instead.
 const FILTER_READ_UNREAD = 0;
@@ -306,6 +310,7 @@ var DEBUG = RIL_DEBUG.DEBUG_RIL;
  * |                                       |
  * | [MMS Only]                            |
  * | lastMessageSubject: String            |
+ * | lastMessageAttachementStatus: String  |
  * +---------------------------------------+
  * </pre>
  */
@@ -536,6 +541,32 @@ MobileMessageDB.prototype = {
         RIL_DEBUG.DEBUG_RIL ||
         Services.prefs.getBoolPref(RIL_DEBUG.PREF_RIL_DEBUG_ENABLED);
     } catch (e) {}
+  },
+
+  getAttachmentStatus(aMessageRecord) {
+    if (aMessageRecord && aMessageRecord.type == "mms") {
+      if (aMessageRecord.delivery == DELIVERY_NOT_DOWNLOADED) {
+        return ATTACHMENT_STATUS_NOT_DOWNLOADED;
+      }
+      let parts = aMessageRecord.parts;
+      if (!parts) {
+        return ATTACHMENT_STATUS_NONE;
+      }
+      for (let i = 0; i < parts.length; i++) {
+        let part = parts[i];
+        if (!part) {
+          continue;
+        }
+        let partHeaders = part.headers;
+        if (
+          partHeaders["content-type"].media != "application/smil" &&
+          partHeaders["content-type"].media != "text/plain"
+        ) {
+          return ATTACHMENT_STATUS_DOWNLOADED;
+        }
+      }
+    }
+    return ATTACHMENT_STATUS_NONE;
   },
 
   /**
@@ -1921,6 +1952,9 @@ MobileMessageDB.prototype = {
             threadRecord.body = aMessageRecord.body;
             threadRecord.lastMessageId = aMessageRecord.id;
             threadRecord.lastMessageType = aMessageRecord.type;
+            threadRecord.lastMessageAttachementStatus = self.getAttachmentStatus(
+              aMessageRecord
+            );
             needsUpdate = true;
           }
 
@@ -1942,7 +1976,9 @@ MobileMessageDB.prototype = {
         if (aMessageRecord.type == "mms") {
           lastMessageSubject = aMessageRecord.headers.subject;
         }
-
+        let lastMessageAttachementStatus = self.getAttachmentStatus(
+          aMessageRecord
+        );
         threadRecord = {
           participantIds,
           participantAddresses: aThreadParticipants.map(function(typedAddress) {
@@ -1951,6 +1987,7 @@ MobileMessageDB.prototype = {
           lastMessageId: aMessageRecord.id,
           lastTimestamp: timestamp,
           lastMessageSubject: lastMessageSubject || null,
+          lastMessageAttachementStatus,
           body: aMessageRecord.body,
           unreadCount: aMessageRecord.read ? 0 : 1,
           lastMessageType: aMessageRecord.type,
@@ -2279,6 +2316,7 @@ MobileMessageDB.prototype = {
     ignoredUnreadCount,
     deletedInfo
   ) {
+    let self = this;
     threadStore.get(threadId).onsuccess = function(event) {
       // This must exist.
       let threadRecord = event.target.result;
@@ -2324,6 +2362,9 @@ MobileMessageDB.prototype = {
             lastMessageSubject = nextMsg.headers.subject;
           }
           threadRecord.lastMessageSubject = lastMessageSubject || null;
+          threadRecord.lastMessageAttachementStatus = self.getAttachmentStatus(
+            nextMsg
+          );
           threadRecord.lastMessageId = nextMsg.id;
           threadRecord.lastTimestamp = nextMsg.timestamp;
           threadRecord.body = nextMsg.body;
@@ -4884,7 +4925,8 @@ GetThreadsCursor.prototype = {
         threadRecord.body,
         threadRecord.unreadCount,
         threadRecord.lastMessageType,
-        threadRecord.isGroup
+        threadRecord.isGroup,
+        threadRecord.lastMessageAttachementStatus
       );
       collector.notifyResult(txn, threadId, thread);
     };
