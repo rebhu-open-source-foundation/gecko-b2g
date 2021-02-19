@@ -25,6 +25,7 @@
 #include "Geolocation.h"
 #include "imgLoader.h"
 #include "mozilla/BasePrincipal.h"
+#include "mozilla/Components.h"
 #include "mozilla/HangDetails.h"
 #include "mozilla/LoadInfo.h"
 #include "mozilla/LookAndFeel.h"
@@ -2589,7 +2590,7 @@ mozilla::ipc::IPCResult ContentChild::RecvNotifyAlertsObserver(
 // touch pages. See GetSpecificMessageEventTarget.
 mozilla::ipc::IPCResult ContentChild::RecvNotifyVisited(
     nsTArray<VisitedQueryResult>&& aURIs) {
-  nsCOMPtr<IHistory> history = services::GetHistory();
+  nsCOMPtr<IHistory> history = components::History::Service();
   if (!history) {
     return IPC_OK();
   }
@@ -2658,7 +2659,7 @@ mozilla::ipc::IPCResult ContentChild::RecvAsyncMessage(
 mozilla::ipc::IPCResult ContentChild::RecvRegisterStringBundles(
     nsTArray<mozilla::dom::StringBundleDescriptor>&& aDescriptors) {
   nsCOMPtr<nsIStringBundleService> stringBundleService =
-      services::GetStringBundleService();
+      components::StringBundle::Service();
 
   for (auto& descriptor : aDescriptors) {
     stringBundleService->RegisterContentBundle(
@@ -2751,7 +2752,7 @@ mozilla::ipc::IPCResult ContentChild::RecvUpdateRequestedLocales(
 mozilla::ipc::IPCResult ContentChild::RecvAddPermission(
     const IPC::Permission& permission) {
   nsCOMPtr<nsIPermissionManager> permissionManagerIface =
-      services::GetPermissionManager();
+      components::PermissionManager::Service();
   PermissionManager* permissionManager =
       static_cast<PermissionManager*>(permissionManagerIface.get());
   MOZ_ASSERT(permissionManager,
@@ -2784,7 +2785,7 @@ mozilla::ipc::IPCResult ContentChild::RecvAddPermission(
 
 mozilla::ipc::IPCResult ContentChild::RecvRemoveAllPermissions() {
   nsCOMPtr<nsIPermissionManager> permissionManagerIface =
-      services::GetPermissionManager();
+      components::PermissionManager::Service();
   PermissionManager* permissionManager =
       static_cast<PermissionManager*>(permissionManagerIface.get());
   MOZ_ASSERT(permissionManager,

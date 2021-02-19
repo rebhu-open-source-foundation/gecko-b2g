@@ -36,7 +36,7 @@
 #include "mozilla/Base64.h"
 
 #include "mozilla/Logging.h"
-#include "mozilla/Services.h"
+#include "mozilla/Components.h"
 #include "nsAppRunner.h"
 #include "nsAppDirectoryServiceDefs.h"
 #include "nsCSSProps.h"
@@ -911,7 +911,7 @@ void gfxPlatform::Init() {
    * incase that code crashes. See bug #591561. */
   nsCOMPtr<nsIGfxInfo> gfxInfo;
   /* this currently will only succeed on Windows */
-  gfxInfo = services::GetGfxInfo();
+  gfxInfo = components::GfxInfo::Service();
 
   if (XRE_IsParentProcess()) {
     // Some gfxVars must be initialized prior gPlatform for coherent results.
@@ -1082,7 +1082,7 @@ void gfxPlatform::ReportTelemetry() {
   MOZ_RELEASE_ASSERT(XRE_IsParentProcess(),
                      "GFX: Only allowed to be called from parent process.");
 
-  nsCOMPtr<nsIGfxInfo> gfxInfo = services::GetGfxInfo();
+  nsCOMPtr<nsIGfxInfo> gfxInfo = components::GfxInfo::Service();
   nsTArray<uint32_t> displayWidths;
   nsTArray<uint32_t> displayHeights;
   gfxInfo->GetDisplayWidth(displayWidths);
@@ -1145,7 +1145,7 @@ void gfxPlatform::ReportTelemetry() {
 }
 
 static bool IsFeatureSupported(long aFeature, bool aDefault) {
-  nsCOMPtr<nsIGfxInfo> gfxInfo = services::GetGfxInfo();
+  nsCOMPtr<nsIGfxInfo> gfxInfo = components::GfxInfo::Service();
   nsCString blockId;
   int32_t status;
   if (!NS_SUCCEEDED(gfxInfo->GetFeatureStatus(aFeature, blockId, &status))) {
@@ -2512,7 +2512,7 @@ void gfxPlatform::InitAcceleration() {
   // explicit.
   MOZ_ASSERT(NS_IsMainThread(), "can only initialize prefs on the main thread");
 
-  nsCOMPtr<nsIGfxInfo> gfxInfo = services::GetGfxInfo();
+  nsCOMPtr<nsIGfxInfo> gfxInfo = components::GfxInfo::Service();
   nsCString discardFailureId;
   int32_t status;
 
@@ -2819,7 +2819,7 @@ void gfxPlatform::InitWebGLConfig() {
 
   if (!XRE_IsParentProcess()) return;
 
-  const nsCOMPtr<nsIGfxInfo> gfxInfo = services::GetGfxInfo();
+  const nsCOMPtr<nsIGfxInfo> gfxInfo = components::GfxInfo::Service();
 
   const auto IsFeatureOk = [&](const int32_t feature) {
     nsCString discardFailureId;
@@ -3217,7 +3217,7 @@ void gfxPlatform::GetCMSSupportInfo(mozilla::widget::InfoObject& aObj) {
 }
 
 void gfxPlatform::GetDisplayInfo(mozilla::widget::InfoObject& aObj) {
-  nsCOMPtr<nsIGfxInfo> gfxInfo = services::GetGfxInfo();
+  nsCOMPtr<nsIGfxInfo> gfxInfo = components::GfxInfo::Service();
 
   nsTArray<nsString> displayInfo;
   auto rv = gfxInfo->GetDisplayInfo(displayInfo);
@@ -3565,7 +3565,7 @@ void gfxPlatform::InitOpenGLConfig() {
 
 bool gfxPlatform::IsGfxInfoStatusOkay(int32_t aFeature, nsCString* aOutMessage,
                                       nsCString& aFailureId) {
-  nsCOMPtr<nsIGfxInfo> gfxInfo = services::GetGfxInfo();
+  nsCOMPtr<nsIGfxInfo> gfxInfo = components::GfxInfo::Service();
   if (!gfxInfo) {
     return true;
   }

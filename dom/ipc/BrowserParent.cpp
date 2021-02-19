@@ -15,6 +15,7 @@
 #  include "mozilla/a11y/ProxyAccessibleBase.h"
 #  include "nsAccessibilityService.h"
 #endif
+#include "mozilla/Components.h"
 #include "mozilla/dom/BrowserHost.h"
 #include "mozilla/dom/BrowsingContextGroup.h"
 #include "mozilla/dom/CancelContentJSOptionsBinding.h"
@@ -1843,6 +1844,17 @@ mozilla::ipc::IPCResult BrowserParent::RecvSynthesizeNativeTouchPoint(
     widget->SynthesizeNativeTouchPoint(aPointerId, aPointerState, aPoint,
                                        aPointerPressure, aPointerOrientation,
                                        responder.GetObserver());
+  }
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult BrowserParent::RecvSynthesizeNativeTouchPadPinch(
+    const TouchpadPinchPhase& aEventPhase, const float& aScale,
+    const LayoutDeviceIntPoint& aPoint, const int32_t& aModifierFlags) {
+  nsCOMPtr<nsIWidget> widget = GetWidget();
+  if (widget) {
+    widget->SynthesizeNativeTouchPadPinch(aEventPhase, aScale, aPoint,
+                                          aModifierFlags);
   }
   return IPC_OK();
 }
@@ -3960,7 +3972,7 @@ mozilla::ipc::IPCResult BrowserParent::RecvVisitURI(nsIURI* aURI,
   if (NS_WARN_IF(!widget)) {
     return IPC_OK();
   }
-  nsCOMPtr<IHistory> history = services::GetHistory();
+  nsCOMPtr<IHistory> history = components::History::Service();
   if (history) {
     Unused << history->VisitURI(widget, aURI, aLastVisitedURI, aFlags);
   }
@@ -3970,7 +3982,7 @@ mozilla::ipc::IPCResult BrowserParent::RecvVisitURI(nsIURI* aURI,
 mozilla::ipc::IPCResult BrowserParent::RecvQueryVisitedState(
     const nsTArray<RefPtr<nsIURI>>&& aURIs) {
 #ifdef MOZ_ANDROID_HISTORY
-  nsCOMPtr<IHistory> history = services::GetHistory();
+  nsCOMPtr<IHistory> history = components::History::Service();
   if (NS_WARN_IF(!history)) {
     return IPC_OK();
   }
