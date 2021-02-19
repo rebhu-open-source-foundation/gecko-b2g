@@ -6965,7 +6965,7 @@ RadioInterface.prototype = {
         this.processSendStkTimerExpiration(message);
         break;
       case "sendStkEventDownload":
-        this.processsendStkEventDownload(message);
+        this.processSendStkEventDownload(message);
         break;
       case "setCellBroadcastDisabled":
         // This is not a ril request.
