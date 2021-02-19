@@ -6394,7 +6394,7 @@ void HTMLMediaElement::SuspendOrResumeElement(bool aSuspendElement,
       mDecoder->Suspend();
       mDecoder->SetDelaySeekMode(true);
     }
-    mEventBlocker->SetBlockEventDelivery(true);
+    mEventBlocker->SetBlockEventDelivery(aSuspendEvents);
     // We won't want to resume media element from the bfcache.
     ClearResumeDelayedMediaPlaybackAgentIfNeeded();
     mMediaControlKeyListener->StopIfNeeded();
@@ -6441,11 +6441,18 @@ bool HTMLMediaElement::ShouldBeSuspendedByInactiveDocShell() const {
 
 void HTMLMediaElement::SetSuspendedByAudioChannel(bool aSuspended) {
   mSuspendedByAudioChannel = aSuspended;
-  // Make sure the logic is kept same as NotifyOwnerDocumentActivityChanged().
-  bool shouldSuspend =
+  NotifySuspendConditionChanged();
+}
+
+void HTMLMediaElement::NotifySuspendConditionChanged() {
+  // The logic of |isDocOrDocshellInactive| should be same as |shouldSuspend| in
+  // NotifyOwnerDocumentActivityChanged().
+  bool isDocOrDocshellInactive =
       !OwnerDoc()->IsActive() || ShouldBeSuspendedByInactiveDocShell();
-  SuspendOrResumeElement(shouldSuspend || mSuspendedByAudioChannel,
-                         shouldSuspend);
+  bool isVideoHidden = IsVideo() && HasVideo() && OwnerDoc()->Hidden();
+  bool shouldSuspend =
+      isDocOrDocshellInactive || isVideoHidden || mSuspendedByAudioChannel;
+  SuspendOrResumeElement(shouldSuspend, isDocOrDocshellInactive);
 }
 
 void HTMLMediaElement::NotifyOwnerDocumentActivityChanged() {
@@ -6453,13 +6460,16 @@ void HTMLMediaElement::NotifyOwnerDocumentActivityChanged() {
     NotifyDecoderActivityChanges();
   }
 
+#ifdef MOZ_B2G
+  NotifySuspendConditionChanged();
+#else
   // We would suspend media when the document is inactive, or its docshell has
   // been set to hidden and explicitly wants to suspend media. In those cases,
   // the media would be not visible and we don't want them to continue playing.
   bool shouldSuspend =
       !OwnerDoc()->IsActive() || ShouldBeSuspendedByInactiveDocShell();
-  SuspendOrResumeElement(shouldSuspend || mSuspendedByAudioChannel,
-                         shouldSuspend);
+  SuspendOrResumeElement(shouldSuspend, shouldSuspend);
+#endif
 
   // If the owning document has become inactive we should shutdown the CDM.
   if (!OwnerDoc()->IsCurrentActiveDocument() && mMediaKeys) {

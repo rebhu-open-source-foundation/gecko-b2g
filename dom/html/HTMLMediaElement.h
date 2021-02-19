@@ -1900,6 +1900,8 @@ class HTMLMediaElement : public nsGenericHTMLElement,
 
   bool mSuspendedByAudioChannel = false;
 
+  void NotifySuspendConditionChanged();
+
   // For debugging bug 1407148.
   void AssertReadyStateIsNothing();
 
