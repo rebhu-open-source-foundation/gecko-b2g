@@ -3755,6 +3755,16 @@
   value: 5
   mirror: always
 
+- name: dom.microphonetoggle.supported
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+- name: dom.microphonetoggle.hardwareKey
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
 # Whether we should enable virtual cursor or not
 - name: dom.virtualcursor.enabled
   type: bool
