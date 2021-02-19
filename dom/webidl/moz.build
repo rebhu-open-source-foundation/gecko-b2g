@@ -1326,7 +1326,6 @@ if CONFIG["MOZ_B2G_RIL"]:
         "TelephonyCallCapabilities.webidl",
         "TelephonyCallGroup.webidl",
         "TelephonyCallId.webidl",
-        "USSDSession.webidl",
         "Voicemail.webidl",
         "VoicemailStatus.webidl",
     ]
@@ -1352,7 +1351,6 @@ if CONFIG["MOZ_B2G_RIL"]:
         "SuppServiceNotificationEvent.webidl",
         "TelephonyCoverageLosingEvent.webidl",
         "TtyModeReceivedEvent.webidl",
-        "USSDReceivedEvent.webidl",
         "VoicemailEvent.webidl",
     ]
 

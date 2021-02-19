@@ -678,6 +678,53 @@ void Telephony::OwnAudioChannel(ErrorResult& aRv) {
   }
 }
 
+already_AddRefed<Promise> Telephony::SendUSSD(
+    const nsAString& aUssd, const Optional<uint32_t>& aServiceId,
+    ErrorResult& aRv) {
+  uint32_t serviceId = GetServiceId(aServiceId, true /* aGetIfActiveCall */);
+  nsCOMPtr<nsIGlobalObject> global = do_QueryInterface(GetOwner());
+  if (!global) {
+    return nullptr;
+  }
+
+  RefPtr<Promise> promise = Promise::Create(global, aRv);
+  if (aRv.Failed()) {
+    return nullptr;
+  }
+
+  nsCOMPtr<nsITelephonyCallback> callback = new TelephonyCallback(promise);
+
+  nsresult rv = mService->SendUSSD(serviceId, aUssd, callback);
+  if (NS_FAILED(rv)) {
+    promise->MaybeReject(NS_ERROR_DOM_INVALID_STATE_ERR);
+  }
+
+  return promise.forget();
+}
+
+already_AddRefed<Promise> Telephony::CancelUSSD(
+    const Optional<uint32_t>& aServiceId, ErrorResult& aRv) {
+  uint32_t serviceId = GetServiceId(aServiceId, true /* aGetIfActiveCall */);
+  nsCOMPtr<nsIGlobalObject> global = do_QueryInterface(GetOwner());
+  if (!global) {
+    return nullptr;
+  }
+
+  RefPtr<Promise> promise = Promise::Create(global, aRv);
+  if (aRv.Failed()) {
+    return nullptr;
+  }
+
+  nsCOMPtr<nsITelephonyCallback> callback = new TelephonyCallback(promise);
+
+  nsresult rv = mService->CancelUSSD(serviceId, callback);
+  if (NS_FAILED(rv)) {
+    promise->MaybeReject(NS_ERROR_DOM_INVALID_STATE_ERR);
+  }
+
+  return promise.forget();
+}
+
 nsresult Telephony::HandleAudioChannelState() {
   if (!mAudioChannelAgent) {
     return NS_OK;
