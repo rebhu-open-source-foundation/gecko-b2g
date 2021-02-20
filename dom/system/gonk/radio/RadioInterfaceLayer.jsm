@@ -6384,7 +6384,7 @@ RadioInterface.prototype = {
               " , serviceClass = " +
               message.serviceClass +
               " , number = " +
-              message.number || ""
+              message.number
           );
         }
         let toaNumber = this._toaFromString(message.number);
@@ -6408,7 +6408,9 @@ RadioInterface.prototype = {
               " , serviceClass = " +
               message.serviceClass +
               " , number = " +
-              message.number || ""
+              message.number +
+              " , timeSeconds = " +
+              message.timeSeconds
           );
         }
         let number = this._toaFromString(message.number);
@@ -6417,13 +6419,15 @@ RadioInterface.prototype = {
         this._callForwardOptions.serviceClass = message.serviceClass;
         this._callForwardOptions.number = message.number || "";
         this._callForwardOptions.toaNumner = number || "";
+        this._callForwardOptions.timeSeconds = message.timeSeconds;
         this.rilworker.setCallForwardStatus(
           message.rilMessageToken,
           message.action,
           message.reason,
           message.serviceClass,
           message.number || "",
-          number || ""
+          number || "",
+          message.timeseconds
         );
         break;
       case "queryCallWaiting":
