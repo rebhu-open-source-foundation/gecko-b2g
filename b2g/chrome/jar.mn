@@ -76,6 +76,11 @@ chrome.jar:
   content/system/js                           (content/default-apps/system/js/*)
   content/system/style                        (content/default-apps/system/style/*)
 
+toolkit.jar:
+  content/browser/index.html                  (content/default-apps/browser/index.html)
+  content/browser/js                          (content/default-apps/browser/js/*)
+  content/browser/style                       (content/default-apps/browser/style/*)
+
   content/settings/index.html                 (content/default-apps/settings/index.html)
   content/settings/js                         (content/default-apps/settings/js/*)
   content/settings/style                      (content/default-apps/settings/style/*)
@@ -85,11 +90,8 @@ chrome.jar:
 
   content/keyboard/index.html                 (content/default-apps/keyboard/index.html)
 
-toolkit.jar:
-  content/browser/index.html                  (content/default-apps/browser/index.html)
-  content/browser/js                          (content/default-apps/browser/js/*)
-  content/browser/style                       (content/default-apps/browser/style/*)
-
 # To access without system principal for test.
-% resource default-app-browser chrome://b2g/content/browser/ contentaccessible=yes
-% resource default-homescreen chrome://b2g/content/homescreen/ contentaccessible=yes
+% resource default-app-browser %content/browser/ contentaccessible=yes
+% resource default-app-homescreen %content/homescreen/ contentaccessible=yes
+% resource default-app-settings %content/settings/ contentaccessible=yes
+% resource default-app-keyboard %content/keyboard/ contentaccessible=yes
