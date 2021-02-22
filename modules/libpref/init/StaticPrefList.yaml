@@ -2691,6 +2691,23 @@
     mirror: always
 #endif
 
+# How many times we should retry directory removal or renaming if access was
+# denied?
+- name: dom.quotaManager.directoryRemovalOrRenaming.maxRetries
+  type: RelaxedAtomicUint32
+#ifdef XP_WIN
+  value: 10
+#else
+  value: 0
+#endif
+  mirror: always
+
+# How long we should wait between retries (in milliseconds)?
+- name: dom.quotaManager.directoryRemovalOrRenaming.delayMs
+  type: RelaxedAtomicUint32
+  value: 200
+  mirror: always
+
 # Reporting API.
 - name: dom.reporting.enabled
   type: RelaxedAtomicBool
@@ -7171,7 +7188,7 @@
 - name: media.cubeb.wasapi-raw
   type: RelaxedAtomicUint32
   mirror: always
-  value: 1
+  value: 0
 #endif // XP_WIN
 
 # ClockDrift desired buffering in milliseconds
@@ -8803,6 +8820,14 @@
 - name: network.dns.dns_query_single_label
   type: RelaxedAtomicBool
   value: false
+  mirror: always
+
+# When this pref is true we enforce a 253 character limit on domains we try to
+# resolve. See bug 1264117. If it doesn't cause any web-compat issues we can
+# remove it in a few releases
+- name: network.dns.limit_253_chars
+  type: RelaxedAtomicBool
+  value: true
   mirror: always
 
 # The proxy type. See nsIProtocolProxyService.idl

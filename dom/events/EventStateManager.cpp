@@ -724,8 +724,7 @@ nsresult EventStateManager::PreHandleEvent(nsPresContext* aPresContext,
       [[fallthrough]];
     case ePointerMove: {
       if (!mInTouchDrag &&
-          mouseEvent->mInputSource != dom::MouseEvent_Binding::MOZ_SOURCE_PEN &&
-          mouseEvent->mReason != WidgetMouseEvent::eSynthesized) {
+          PointerEventHandler::IsDragAndDropEnabled(*mouseEvent)) {
         GenerateDragGesture(aPresContext, mouseEvent);
       }
       // on the Mac, GenerateDragGesture() may not return until the drag
