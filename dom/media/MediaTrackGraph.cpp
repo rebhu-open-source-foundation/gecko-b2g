@@ -568,7 +568,7 @@ TrackTime MediaTrackGraphImpl::PlayAudio(AudioMixer* aMixer,
     TrackTime toWrite = end - t;
 
     if (blocked) {
-      output.InsertNullDataAtStart(toWrite);
+      output.AppendNullData(toWrite);
       ticksWritten += toWrite;
       LOG(LogLevel::Verbose,
           ("%p: MediaTrack %p writing %" PRId64 " blocking-silence samples for "
@@ -616,20 +616,20 @@ TrackTime MediaTrackGraphImpl::PlayAudio(AudioMixer* aMixer,
       output.ApplyVolume(mGlobalVolume * aTkv.mVolume);
     }
     t = end;
-
-    uint32_t outputChannels;
-    // Use the number of channel the driver expects: this is the number of
-    // channel that can be output by the underlying system level audio stream.
-    // Fall back to something sensible if this graph is being driven by a normal
-    // thread (this can happen when there are no output devices, etc.).
-    if (CurrentDriver()->AsAudioCallbackDriver()) {
-      outputChannels =
-          CurrentDriver()->AsAudioCallbackDriver()->OutputChannelCount();
-    } else {
-      outputChannels = AudioOutputChannelCount();
-    }
-    output.WriteTo(*aMixer, outputChannels, mSampleRate);
   }
+
+  uint32_t outputChannels;
+  // Use the number of channel the driver expects: this is the number of
+  // channel that can be output by the underlying system level audio stream.
+  // Fall back to something sensible if this graph is being driven by a normal
+  // thread (this can happen when there are no output devices, etc.).
+  if (CurrentDriver()->AsAudioCallbackDriver()) {
+    outputChannels =
+        CurrentDriver()->AsAudioCallbackDriver()->OutputChannelCount();
+  } else {
+    outputChannels = AudioOutputChannelCount();
+  }
+  output.WriteTo(*aMixer, outputChannels, mSampleRate);
   return ticksWritten;
 }
 
