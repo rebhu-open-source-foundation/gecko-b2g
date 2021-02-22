@@ -3490,11 +3490,13 @@ MobileMessageDB.prototype = {
           if (size === length) {
             messageStore.clear();
             threadStore.clear();
+            let threadsIdSet = new Set();
             for (let i = 0; i < length; i++) {
               deleted[i] = true;
               deletedInfo.messageIds.push(messageIds[i]);
+              threadsIdSet.add(event.target.result[i].threadId);
             }
-            deletedInfo.threadIds.push(event.target.result[0].threadId);
+            deletedInfo.threadIds.push(...Array.from(threadsIdSet));
             updateThreadInfo();
           } else {
             for (let i = 0; i < length; i++) {
