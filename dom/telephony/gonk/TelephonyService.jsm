@@ -593,6 +593,7 @@ function TelephonyService() {
   this._currentCalls = {};
   this._audioStates = [];
   this._ussdSessions = [];
+  this._twoDigitShortCodes = [];
 
   this._initConstByPrefs();
   this._initImsPhones();
@@ -3763,11 +3764,6 @@ TelephonyService.prototype = {
   _hangUpImsBackground(aClientId, aCallback) {
     let imsPhone = gImsPhoneService.getPhoneByServiceId(aClientId);
     imsPhone.hangupBackground(this._createSimpleImsCallback(aCallback));
-  },
-
-  _hanUpImsForeground(aClientId, aCallback) {
-    let imsPhone = gImsPhoneService.getPhoneByServiceId(aClientId);
-    imsPhone.hangupForeground(this._createSimpleImsCallback(aCallback));
   },
 
   _updateTwoDigitShortCodes() {
