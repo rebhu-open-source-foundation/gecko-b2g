@@ -861,6 +861,15 @@ AudioManager::AudioManager()
   AudioSystem::setErrorCallback(BinderDeadCallback);
   AudioSystem::addAudioPortCallback(mAudioPortCallbackHolder->Callback());
 
+#ifdef PRODUCT_MANUFACTURER_QUALCOMM
+  // Build FM volume curves from music stream. Make sure this is done before
+  // calling any volume setting functions.
+  mFmVolumeCurves = MakeUnique<VolumeCurves>(AUDIO_STREAM_MUSIC);
+  mFmVolumeCurves->Build(AUDIO_DEVICE_OUT_SPEAKER);
+  mFmVolumeCurves->Build(AUDIO_DEVICE_OUT_WIRED_HEADSET);
+  mFmVolumeCurves->Build(AUDIO_DEVICE_OUT_WIRED_HEADPHONE);
+#endif
+
   // Create VolumeStreamStates
   for (int32_t streamType = 0; streamType < AUDIO_STREAM_CNT; ++streamType) {
     auto streamState = MakeUnique<VolumeStreamState>(*this, streamType);
@@ -931,14 +940,6 @@ AudioManager::AudioManager()
   } else {
     LOGE("Failed to Get SETTINGS MANAGER to AddObserver!");
   }
-
-#ifdef PRODUCT_MANUFACTURER_QUALCOMM
-  // Build FM volume curves from music stream.
-  mFmVolumeCurves = MakeUnique<VolumeCurves>(AUDIO_STREAM_MUSIC);
-  mFmVolumeCurves->Build(AUDIO_DEVICE_OUT_SPEAKER);
-  mFmVolumeCurves->Build(AUDIO_DEVICE_OUT_WIRED_HEADSET);
-  mFmVolumeCurves->Build(AUDIO_DEVICE_OUT_WIRED_HEADPHONE);
-#endif
 
 #ifdef PRODUCT_MANUFACTURER_MTK
   if (NS_FAILED(obs->AddObserver(this, SCREEN_STATE_CHANGED, false))) {
