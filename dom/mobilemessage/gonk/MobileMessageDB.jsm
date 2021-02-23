@@ -1667,33 +1667,11 @@ MobileMessageDB.prototype = {
 
         let deletedInfo = { messageIds: [], threadIds: [] };
 
-        function removeGroupMark() {
-          // Use the no mark recipients after save message successfully.
-          if (aMessageRecord.isGroup) {
-            if (Array.isArray(aMessageRecord.headers.to)) {
-              let firstAddress = aMessageRecord.headers.to[0].address.replace(
-                "group",
-                ""
-              );
-              aMessageRecord.headers.to[0].address = firstAddress;
-            } else {
-              let firstAddress = aMessageRecord.headers.to.address.replace(
-                "group",
-                ""
-              );
-              aMessageRecord.headers.to.address = firstAddress;
-            }
-          }
-        }
-
         txn.oncomplete = function(event) {
           if (aMessageRecord.id > self.lastMessageId) {
             self.lastMessageId = aMessageRecord.id;
           }
 
-          if (aMessageRecord.isGroup) {
-            removeGroupMark();
-          }
           notifyResult(Cr.NS_OK, aMessageRecord);
           self.notifyDeletedInfo(deletedInfo);
         };
@@ -1706,9 +1684,6 @@ MobileMessageDB.prototype = {
               ? Cr.NS_ERROR_FILE_NO_DEVICE_SPACE
               : Cr.NS_ERROR_FAILURE;
 
-          if (aMessageRecord.isGroup) {
-            removeGroupMark();
-          }
           notifyResult(error, aMessageRecord);
         };
 
@@ -1903,11 +1878,6 @@ MobileMessageDB.prototype = {
     aDeletedInfo
   ) {
     let self = this;
-
-    // Need distinguish between group and mms which have the same recipients.
-    if (aMessageRecord.isGroup) {
-      aThreadParticipants[0].address += "group";
-    }
 
     this.findThreadRecordByTypedAddresses(
       aThreadStore,
@@ -2285,10 +2255,18 @@ MobileMessageDB.prototype = {
       );
 
       [aMessage.phoneNumber, normalizedAddress].forEach(function(item) {
-        let found = slicedReceivers.indexOf(item);
-        if (found !== -1) {
-          isSuccess = true;
-          slicedReceivers.splice(found, 1);
+        let foundIndex = -1;
+        for (var i = 0; i < slicedReceivers.length; i++) {
+          if (
+            gPhoneNumberUtils.match(slicedReceivers[i], aMessage.phoneNumber)
+          ) {
+            isSuccess = true;
+            foundIndex = i;
+            break;
+          }
+        }
+        if (foundIndex != -1) {
+          slicedReceivers.splice(foundIndex, 1);
         }
       });
     }
