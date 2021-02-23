@@ -2273,7 +2273,7 @@ void CompositorOGL::TryUnlockTextures() {
       if (actor) {
         base::ProcessId pid = actor->OtherPid();
         nsTArray<uint64_t>* textureIds =
-            texturesIdsToUnlockByPid.LookupOrAdd(pid);
+            texturesIdsToUnlockByPid.GetOrInsertNew(pid);
         textureIds->AppendElement(TextureHost::GetTextureSerial(actor));
       }
     }

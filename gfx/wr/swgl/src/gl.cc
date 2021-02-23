@@ -800,7 +800,8 @@ struct Program {
   macro(GL_HSL_HUE_KHR, 0, 0, 0)                                               \
   macro(GL_HSL_SATURATION_KHR, 0, 0, 0)                                        \
   macro(GL_HSL_COLOR_KHR, 0, 0, 0)                                             \
-  macro(GL_HSL_LUMINOSITY_KHR, 0, 0, 0)
+  macro(GL_HSL_LUMINOSITY_KHR, 0, 0, 0)                                        \
+  macro(SWGL_BLEND_DROP_SHADOW, 0, 0, 0)
 
 #define DEFINE_BLEND_KEY(...) BLEND_KEY(__VA_ARGS__),
 #define DEFINE_MASK_BLEND_KEY(...) MASK_BLEND_KEY(__VA_ARGS__),
@@ -3054,15 +3055,13 @@ static ALWAYS_INLINE WideRGBA8 pack_pixels_RGBA8(Float alpha,
 static ALWAYS_INLINE WideRGBA8 pack_pixels_RGBA8(float alpha,
                                                  float scale = 255.0f) {
   I32 i = round_pixel(alpha, scale);
-  HalfRGBA8 c = packRGBA8(i, i);
-  return combine(c, c);
+  return repeat2(packRGBA8(i, i));
 }
 
 UNUSED static ALWAYS_INLINE WideRGBA8 pack_pixels_RGBA8(const vec4_scalar& v,
                                                         float scale = 255.0f) {
   I32 i = round_pixel((Float){v.z, v.y, v.x, v.w}, scale);
-  HalfRGBA8 c = packRGBA8(i, i);
-  return combine(c, c);
+  return repeat2(packRGBA8(i, i));
 }
 
 static ALWAYS_INLINE WideRGBA8 pack_pixels_RGBA8() {
@@ -3274,8 +3273,11 @@ static inline vec3 set_lum_sat(vec3 base, vec3 sref, vec3 lref, Float alpha) {
 enum SWGLClipFlag {
   SWGL_CLIP_FLAG_MASK = 1 << 0,
   SWGL_CLIP_FLAG_AA = 1 << 1,
+  SWGL_CLIP_FLAG_BLEND_OVERRIDE = 1 << 2,
 };
 static int swgl_ClipFlags = 0;
+static BlendKey swgl_BlendOverride = BLEND_KEY_NONE;
+static WideRGBA8 swgl_BlendColorRGBA8 = {0};
 
 // A pointer into the color buffer for the start of the span.
 static void* swgl_SpanBuf = nullptr;
@@ -3433,7 +3435,7 @@ static ALWAYS_INLINE WideRGBA8 blend_pixels(uint32_t* buf, PackedRGBA8 pdst,
     // src*dst = dst + src*(k - dst) use addlow
     // for signed overflow
     return addlow(
-        dst, muldiv255(src, combine(ctx->blendcolor, ctx->blendcolor) - dst));
+        dst, muldiv255(src, repeat2(ctx->blendcolor) - dst));
 
   // We must explicitly handle the masked/anti-aliased secondary blend case.
   // The secondary color as well as the source must be multiplied by the
@@ -3441,20 +3443,20 @@ static ALWAYS_INLINE WideRGBA8 blend_pixels(uint32_t* buf, PackedRGBA8 pdst,
   case BLEND_KEY(GL_ONE, GL_ONE_MINUS_SRC1_COLOR): {
     WideRGBA8 secondary =
         muldiv256(dst,
-            pack_pixels_RGBA8(fragment_shader->gl_SecondaryFragColor, 256.0f));
+            pack_pixels_RGBA8(fragment_shader->gl_SecondaryFragColor, 256.49f));
     return src + dst - secondary;
   }
   case MASK_BLEND_KEY(GL_ONE, GL_ONE_MINUS_SRC1_COLOR): {
     WideRGBA8 secondary =
         muldiv256(dst,
-            pack_pixels_RGBA8(fragment_shader->gl_SecondaryFragColor, 256.0f));
+            pack_pixels_RGBA8(fragment_shader->gl_SecondaryFragColor, 256.49f));
     WideRGBA8 mask = load_clip_mask(buf, span);
     return muldiv255(src, mask) + dst - muldiv255(secondary, mask);
   }
   case AA_BLEND_KEY(GL_ONE, GL_ONE_MINUS_SRC1_COLOR): {
     WideRGBA8 secondary =
         muldiv256(dst,
-            pack_pixels_RGBA8(fragment_shader->gl_SecondaryFragColor, 256.0f));
+            pack_pixels_RGBA8(fragment_shader->gl_SecondaryFragColor, 256.49f));
     DO_AA(RGBA8, {
       src = muldiv256(src, aa);
       secondary = muldiv256(secondary, aa);
@@ -3464,7 +3466,7 @@ static ALWAYS_INLINE WideRGBA8 blend_pixels(uint32_t* buf, PackedRGBA8 pdst,
   case AA_MASK_BLEND_KEY(GL_ONE, GL_ONE_MINUS_SRC1_COLOR): {
     WideRGBA8 secondary =
         muldiv256(dst,
-            pack_pixels_RGBA8(fragment_shader->gl_SecondaryFragColor, 256.0f));
+            pack_pixels_RGBA8(fragment_shader->gl_SecondaryFragColor, 256.49f));
     WideRGBA8 mask = load_clip_mask(buf, span);
     DO_AA(RGBA8, mask = muldiv256(mask, aa));
     return muldiv255(src, mask) + dst - muldiv255(secondary, mask);
@@ -3615,6 +3617,15 @@ static ALWAYS_INLINE WideRGBA8 blend_pixels(uint32_t* buf, PackedRGBA8 pdst,
     DO_HSL(set_lum(srcC, dstC, srcDstA));
   BLEND_CASE(GL_HSL_LUMINOSITY_KHR):
     DO_HSL(set_lum(dstC, srcC, srcDstA));
+
+  // SWGL-specific extended blend modes.
+  BLEND_CASE(SWGL_BLEND_DROP_SHADOW): {
+    // Premultiplied alpha over blend, but with source color set to source alpha
+    // modulated with a constant color.
+    WideRGBA8 color = muldiv256(alphas(src), swgl_BlendColorRGBA8);
+    return color + dst - muldiv255(dst, alphas(color));
+  }
+
   default:
     UNREACHABLE;
     // return src;
@@ -3785,6 +3796,10 @@ struct ClipRect {
     if (ctx->blend) {
       blend_key = ctx->blend_key;
       if (swgl_ClipFlags) {
+        // If there is a blend override set, replace the blend key with it.
+        if (swgl_ClipFlags & SWGL_CLIP_FLAG_BLEND_OVERRIDE) {
+          blend_key = swgl_BlendOverride;
+        }
         // If a clip mask is available, set up blending state to use the clip
         // mask.
         if (swgl_ClipFlags & SWGL_CLIP_FLAG_MASK) {

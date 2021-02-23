@@ -49,7 +49,7 @@ nsITheme::Transparency nsNativeBasicThemeGTK::GetWidgetTransparency(
 }
 
 bool nsNativeBasicThemeGTK::ThemeSupportsScrollbarButtons() {
-  return StaticPrefs::widget_gtk_non_native_scrollbar_allow_buttons();
+  return StaticPrefs::widget_non_native_theme_gtk_scrollbar_allow_buttons();
 }
 
 auto nsNativeBasicThemeGTK::GetScrollbarSizes(nsPresContext* aPresContext,
@@ -58,8 +58,8 @@ auto nsNativeBasicThemeGTK::GetScrollbarSizes(nsPresContext* aPresContext,
   DPIRatio dpiRatio = GetDPIRatioForScrollbarPart(aPresContext);
   CSSCoord size =
       aWidth == StyleScrollbarWidth::Thin
-          ? StaticPrefs::widget_gtk_non_native_scrollbar_thin_size()
-          : StaticPrefs::widget_gtk_non_native_scrollbar_normal_size();
+          ? StaticPrefs::widget_non_native_theme_gtk_scrollbar_thin_size()
+          : StaticPrefs::widget_non_native_theme_gtk_scrollbar_normal_size();
   LayoutDeviceIntCoord s = (size * dpiRatio).Truncated();
   return {s, s};
 }
@@ -109,7 +109,7 @@ nsNativeBasicThemeGTK::GetMinimumWidgetSize(nsPresContext* aPresContext,
       aAppearance == StyleAppearance::ScrollbarthumbHorizontal ||
       aAppearance == StyleAppearance::ScrollbarthumbVertical) {
     CSSCoord thumbSize(
-        StaticPrefs::widget_gtk_non_native_scrollbar_thumb_cross_size());
+        StaticPrefs::widget_non_native_theme_gtk_scrollbar_thumb_cross_size());
     const bool isVertical =
         aAppearance == StyleAppearance::ScrollbarVertical ||
         aAppearance == StyleAppearance::ScrollbarthumbVertical;
@@ -125,7 +125,7 @@ nsNativeBasicThemeGTK::GetMinimumWidgetSize(nsPresContext* aPresContext,
 }
 
 void nsNativeBasicThemeGTK::PaintScrollbarThumb(
-    DrawTarget* aDrawTarget, const LayoutDeviceRect& aRect, bool aHorizontal,
+    DrawTarget& aDrawTarget, const LayoutDeviceRect& aRect, bool aHorizontal,
     nsIFrame* aFrame, const ComputedStyle& aStyle,
     const EventStates& aElementState, const EventStates& aDocumentState,
     DPIRatio aDpiRatio) {
@@ -136,12 +136,13 @@ void nsNativeBasicThemeGTK::PaintScrollbarThumb(
 
   {
     float factor = std::max(
-        0.0f, 1.0f - StaticPrefs::widget_gtk_non_native_scrollbar_thumb_size());
+        0.0f,
+        1.0f - StaticPrefs::widget_non_native_theme_gtk_scrollbar_thumb_size());
     thumbRect.Deflate((aHorizontal ? aRect.height : aRect.width) * factor);
   }
 
   LayoutDeviceCoord radius =
-      StaticPrefs::widget_gtk_non_native_round_thumb()
+      StaticPrefs::widget_non_native_theme_gtk_scrollbar_round_thumb()
           ? (aHorizontal ? thumbRect.height : thumbRect.width) / 2.0f
           : 0.0f;
 
@@ -149,7 +150,7 @@ void nsNativeBasicThemeGTK::PaintScrollbarThumb(
                              radius / aDpiRatio, aDpiRatio);
 }
 
-void nsNativeBasicThemeGTK::PaintScrollbar(DrawTarget* aDrawTarget,
+void nsNativeBasicThemeGTK::PaintScrollbar(DrawTarget& aDrawTarget,
                                            const LayoutDeviceRect& aRect,
                                            bool aHorizontal, nsIFrame* aFrame,
                                            const ComputedStyle& aStyle,
@@ -158,11 +159,11 @@ void nsNativeBasicThemeGTK::PaintScrollbar(DrawTarget* aDrawTarget,
   auto [trackColor, borderColor] =
       ComputeScrollbarColors(aFrame, aStyle, aDocumentState);
   Unused << borderColor;
-  aDrawTarget->FillRect(aRect.ToUnknownRect(),
-                        gfx::ColorPattern(ToDeviceColor(trackColor)));
+  aDrawTarget.FillRect(aRect.ToUnknownRect(),
+                       gfx::ColorPattern(ToDeviceColor(trackColor)));
 }
 
-void nsNativeBasicThemeGTK::PaintScrollCorner(DrawTarget* aDrawTarget,
+void nsNativeBasicThemeGTK::PaintScrollCorner(DrawTarget& aDrawTarget,
                                               const LayoutDeviceRect& aRect,
                                               nsIFrame* aFrame,
                                               const ComputedStyle& aStyle,
@@ -171,6 +172,6 @@ void nsNativeBasicThemeGTK::PaintScrollCorner(DrawTarget* aDrawTarget,
   auto [trackColor, borderColor] =
       ComputeScrollbarColors(aFrame, aStyle, aDocumentState);
   Unused << borderColor;
-  aDrawTarget->FillRect(aRect.ToUnknownRect(),
-                        gfx::ColorPattern(ToDeviceColor(trackColor)));
+  aDrawTarget.FillRect(aRect.ToUnknownRect(),
+                       gfx::ColorPattern(ToDeviceColor(trackColor)));
 }

@@ -1554,7 +1554,6 @@ void JS::BigInt::traceChildren(JSTracer* trc) {}
 static inline void CallTraceHook(JSTracer* trc, JSObject* obj) {
   const JSClass* clasp = obj->getClass();
   MOZ_ASSERT(clasp);
-  MOZ_ASSERT(obj->isNative() == clasp->isNative());
 
   if (clasp->hasTrace()) {
     AutoSetTracingSource asts(trc, obj);
@@ -1995,7 +1994,7 @@ scan_obj : {
 
   CallTraceHook(this, obj);
 
-  if (!obj->isNative()) {
+  if (!obj->is<NativeObject>()) {
     return;
   }
 
@@ -2897,7 +2896,7 @@ void js::gc::StoreBuffer::SlotsEdge::trace(TenuringTracer& mover) const {
   MOZ_ASSERT(IsCellPointerValid(obj));
 
   // Beware JSObject::swap exchanging a native object for a non-native one.
-  if (!obj->isNative()) {
+  if (!obj->is<NativeObject>()) {
     return;
   }
 
@@ -3118,7 +3117,7 @@ void js::gc::StoreBuffer::ValueEdge::trace(TenuringTracer& mover) const {
 void js::TenuringTracer::traceObject(JSObject* obj) {
   CallTraceHook(this, obj);
 
-  if (!obj->isNative()) {
+  if (!obj->is<NativeObject>()) {
     return;
   }
 
@@ -3245,7 +3244,7 @@ JSObject* js::TenuringTracer::moveToTenuredSlow(JSObject* src) {
   js_memcpy(dst, src, srcSize);
 
   // Move the slots and elements, if we need to.
-  if (src->isNative()) {
+  if (src->is<NativeObject>()) {
     NativeObject* ndst = &dst->as<NativeObject>();
     NativeObject* nsrc = &src->as<NativeObject>();
     tenuredSize += moveSlotsToTenured(ndst, nsrc);

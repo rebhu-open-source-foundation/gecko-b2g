@@ -74,7 +74,6 @@ RUN apt-get update && \
       wget \
       x11-utils \
       xvfb \
-      yasm \
       zip \
       linux-libc-dev \
       linux-libc-dev:$ARCH \

@@ -176,8 +176,8 @@ bool TRR::MaybeBlockRequest() {
         gTRRService->IsTemporarilyBlocked(mHost, mOriginSuffix, mPB, true)) {
       if (mType == TRRTYPE_A) {
         // count only blocklist for A records to avoid double counts
-        Telemetry::Accumulate(Telemetry::DNS_TRR_BLACKLISTED2,
-                              TRRService::AutoDetectedKey(), true);
+        Telemetry::Accumulate(Telemetry::DNS_TRR_BLACKLISTED3,
+                              TRRService::ProviderKey(), true);
       }
 
       RecordReason(nsHostRecord::TRR_HOST_BLOCKED_TEMPORARY);
@@ -191,8 +191,8 @@ bool TRR::MaybeBlockRequest() {
     }
 
     if (UseDefaultServer() && (mType == TRRTYPE_A)) {
-      Telemetry::Accumulate(Telemetry::DNS_TRR_BLACKLISTED2,
-                            TRRService::AutoDetectedKey(), false);
+      Telemetry::Accumulate(Telemetry::DNS_TRR_BLACKLISTED3,
+                            TRRService::ProviderKey(), false);
     }
   }
 
@@ -760,7 +760,11 @@ nsresult TRR::FailData(nsresult error) {
 void TRR::HandleDecodeError(nsresult aStatusCode) {
   auto rcode = mPacket->GetRCode();
   if (rcode.isOk() && rcode.unwrap() != 0) {
-    RecordReason(nsHostRecord::TRR_RCODE_FAIL);
+    if (rcode.unwrap() == 0x03) {
+      RecordReason(nsHostRecord::TRR_NXDOMAIN);
+    } else {
+      RecordReason(nsHostRecord::TRR_RCODE_FAIL);
+    }
   } else if (aStatusCode == NS_ERROR_UNKNOWN_HOST ||
              aStatusCode == NS_ERROR_DEFINITIVE_UNKNOWN_HOST) {
     RecordReason(nsHostRecord::TRR_NO_ANSWERS);
@@ -878,6 +882,28 @@ void TRR::ReportStatus(nsresult aStatusCode) {
   }
 }
 
+static void RecordHttpVersion(nsIHttpChannel* aHttpChannel) {
+  nsAutoCString protocol;
+  nsresult rv = aHttpChannel->GetProtocolVersion(protocol);
+  if (NS_FAILED(rv)) {
+    LOG(("Failed to get protocol version, rv=%x", (int)rv));
+    return;
+  }
+
+  if (protocol.LowerCaseEqualsLiteral("h2")) {
+    Telemetry::AccumulateCategorical(
+        Telemetry::LABELS_DNS_TRR_HTTP_VERSION::h_2);
+  } else if (protocol.LowerCaseEqualsLiteral("h3")) {
+    Telemetry::AccumulateCategorical(
+        Telemetry::LABELS_DNS_TRR_HTTP_VERSION::h_3);
+  } else {
+    Telemetry::AccumulateCategorical(
+        Telemetry::LABELS_DNS_TRR_HTTP_VERSION::h_1);
+  }
+
+  LOG(("DoH endpoint responded using HTTP version: %s", protocol.get()));
+}
+
 NS_IMETHODIMP
 TRR::OnStopRequest(nsIRequest* aRequest, nsresult aStatusCode) {
   // The dtor will be run after the function returns
@@ -923,6 +949,7 @@ TRR::OnStopRequest(nsIRequest* aRequest, nsresult aStatusCode) {
       if (NS_SUCCEEDED(rv) && UseDefaultServer()) {
         RecordReason(nsHostRecord::TRR_OK);
         RecordProcessingTime(channel);
+        RecordHttpVersion(httpChannel);
         return rv;
       }
     } else {
