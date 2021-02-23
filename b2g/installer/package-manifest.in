@@ -451,7 +451,6 @@ bin/libfreebl_32int64_3.so
 @RESPATH@/components/AppsServiceDelegate.js
 @RESPATH@/components/DirectoryProvider.js
 @RESPATH@/components/ProcessGlobal.js
-@RESPATH@/components/OMAContentHandler.js
 @RESPATH@/components/PaymentProviderStrategy.js
 @RESPATH@/components/RecoveryService.js
 @RESPATH@/components/MailtoProtocolHandler.js
