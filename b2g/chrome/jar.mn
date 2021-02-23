@@ -14,6 +14,7 @@ chrome.jar:
   content/shell_remote.js               (content/shell_remote.js)
   content/shell.js                      (content/shell.js)
   content/shell.css                     (content/shell.css)
+  content/TopLevelVideoDocument.css                     (content/TopLevelVideoDocument.css)
 #ifndef ANDROID
   content/desktop.css                   (content/desktop.css)
   content/desktop.js                    (content/desktop.js)
@@ -42,6 +43,7 @@ chrome.jar:
   content/images/errorpage-warning.png (content/images/errorpage-warning.png)
   content/images/arrowdown-16.png      (content/images/arrowdown-16.png)
   content/images/arrowright-16.png     (content/images/arrowright-16.png)
+  content/images/videoError.png   (content/images/videoError.png)
   content/images/playButton.svg   (content/images/playButton.svg)
   content/images/pauseButton.svg   (content/images/pauseButton.svg)
   content/images/fullscreenEnterButton.svg   (content/images/fullscreenEnterButton.svg)
