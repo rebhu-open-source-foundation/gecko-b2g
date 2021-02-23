@@ -73,7 +73,7 @@ class WebProgressListener final : public nsIWebProgressListener,
     RefPtr<CanonicalBrowsingContext> browsingContext =
         CanonicalBrowsingContext::Cast(
             BrowsingContext::GetCurrentTopByBrowserId(mBrowserId));
-    if (!browsingContext || browsingContext->IsDiscarded()) {
+    if (mPromise && (!browsingContext || browsingContext->IsDiscarded())) {
       CopyableErrorResult rv;
       rv.ThrowInvalidStateError("Unable to open window");
       mPromise->Reject(rv, __func__);
@@ -85,7 +85,7 @@ class WebProgressListener final : public nsIWebProgressListener,
 
     RefPtr<dom::WindowGlobalParent> wgp =
         browsingContext->GetCurrentWindowGlobal();
-    if (NS_WARN_IF(!wgp)) {
+    if (mPromise && NS_WARN_IF(!wgp)) {
       CopyableErrorResult rv;
       rv.ThrowInvalidStateError("Unable to open window");
       mPromise->Reject(rv, __func__);
@@ -113,14 +113,14 @@ class WebProgressListener final : public nsIWebProgressListener,
         wgp->DocumentPrincipal()->OriginAttributesRef().mPrivateBrowsingId > 0;
     nsresult rv = securityManager->CheckSameOriginURI(
         wgp->GetDocumentURI(), mBaseURI, false, isPrivateWin);
-    if (NS_FAILED(rv)) {
+    if (mPromise && NS_FAILED(rv)) {
       mPromise->Resolve(CopyableErrorResult(), __func__);
       mPromise = nullptr;
       return NS_OK;
     }
 
     Maybe<ClientInfo> info = wgp->GetClientInfo();
-    if (info.isNothing()) {
+    if (mPromise && info.isNothing()) {
       CopyableErrorResult rv;
       rv.ThrowInvalidStateError("Unable to open window");
       mPromise->Reject(rv, __func__);
