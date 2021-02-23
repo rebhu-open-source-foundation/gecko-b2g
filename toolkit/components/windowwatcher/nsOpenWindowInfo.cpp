@@ -73,11 +73,14 @@ nsBrowsingContextReadyCallback::~nsBrowsingContextReadyCallback() {
 
 NS_IMETHODIMP nsBrowsingContextReadyCallback::BrowsingContextReady(
     BrowsingContext* aBC) {
-  if (aBC) {
-    mPromise->Resolve(aBC, __func__);
-  } else {
-    mPromise->Reject(NS_ERROR_FAILURE, __func__);
+  if (mPromise) {
+    if (aBC) {
+      mPromise->Resolve(aBC, __func__);
+    } else {
+      mPromise->Reject(NS_ERROR_FAILURE, __func__);
+    }
+
+    mPromise = nullptr;
   }
-  mPromise = nullptr;
   return NS_OK;
 }
