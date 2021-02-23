@@ -294,7 +294,7 @@ void SystemMessageService::DoSubscribe(const nsAString& aMessageName,
     return;
   }
 
-  SubscriberTable* table = mSubscribers.LookupOrAdd(aMessageName);
+  SubscriberTable* table = mSubscribers.GetOrInsertNew(aMessageName);
   UniquePtr<SubscriberInfo> info(new SubscriberInfo(aScope, aOriginSuffix));
   table->Put(aOrigin, std::move(info));
 
