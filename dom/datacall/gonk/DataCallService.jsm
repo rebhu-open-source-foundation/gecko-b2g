@@ -182,6 +182,7 @@ DataCallService.prototype = {
       addresses,
       gateways: aNetwork.getGateways(),
       dnses: aNetwork.getDnses(),
+      netId: aNetwork.netId,
     };
 
     return dataCall;
@@ -399,8 +400,14 @@ DataCallService.prototype = {
       return;
     }
 
-    // Call this no matter what for ref counting in RadioInterfaceLayer.
-    ril.setupDataCallByType(type);
+    try {
+      // Call this no matter what for ref counting in RadioInterfaceLayer.
+      ril.setupDataCallByType(type);
+    } catch (e) {
+      // Throws radio fail
+      aTargetCallback({ errorMsg: "Error setting up data call: " + e });
+      return;
+    }
 
     if (ril.getDataCallStateByType(type) == NETWORK_STATE_CONNECTED) {
       let networkInfo = this._getNetworkInfo(serviceId, type);
