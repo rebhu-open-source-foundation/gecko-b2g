@@ -87,6 +87,7 @@ out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.wifi.supplicant@1.1.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.hardware.wifi.supplicant@1.2.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/android.system.wifi.keystore@1.0.so
+out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/binder_b2g_stub.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/binder_b2g_connectivity_interface-cpp.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/binder_b2g_system_interface-cpp.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/binder_b2g_telephony_interface-cpp.so
@@ -145,6 +146,7 @@ frameworks/native/libs/nativebase/include
 frameworks/native/libs/nativewindow/include
 frameworks/native/libs/ui/include
 frameworks/native/opengl/include
+gonk-misc/gonk-binder/binder_b2g_stub/include/
 hardware/interfaces/graphics/composer/2.1/utils/command-buffer/include
 hardware/interfaces/graphics/composer/2.2/utils/command-buffer/include
 hardware/interfaces/graphics/composer/2.3/utils/command-buffer/include
