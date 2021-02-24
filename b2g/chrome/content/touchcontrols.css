@@ -424,13 +424,14 @@
   font-weight: bold;
   margin-bottom: 20px;
   flex-grow: 1;
-  text-align: center;
+  margin-left: 15px;
+  font-family: 'Open Sans';
 }
 
 .duration {
-  display: inline-block;
   white-space: pre;
-  color: #929292;
+  float: right;
+  margin-right: 15px;
 }
 
 .statusIcon {
