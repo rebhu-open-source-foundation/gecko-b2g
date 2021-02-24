@@ -16,17 +16,12 @@
 
 "use strict";
 
-const { libcutils } = ChromeUtils.import(
-  "resource://gre/modules/systemlibs.js"
-);
 const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 const { Sntp } = ChromeUtils.import("resource://gre/modules/Sntp.jsm");
-const { FileUtils } = ChromeUtils.import(
-  "resource://gre/modules/FileUtils.jsm"
-);
+
 var RIL_DEBUG = ChromeUtils.import(
   "resource://gre/modules/ril_consts_debug.js"
 );
@@ -106,9 +101,8 @@ function NetworkTimeService() {
   }
   this._lastNitzData = [];
   this._suggestedTimeRequests = [];
-  // TODO, default auto clock and timezone to true before setting get ready.
-  this._clockAutoUpdateEnabled = /*false*/ true;
-  this._timezoneAutoUpdateEnabled = /*false*/ true;
+  this._clockAutoUpdateEnabled = false;
+  this._timezoneAutoUpdateEnabled = false;
   this._dataDefaultServiceId = -1;
 
   this._sntp = new Sntp(
@@ -215,7 +209,7 @@ NetworkTimeService.prototype = {
       return;
     }
 
-    // fallback to SNTP
+    // SNTP
     if (
       gNetworkManager.activeNetworkInfo &&
       gNetworkManager.activeNetworkInfo.state ==
@@ -233,14 +227,8 @@ NetworkTimeService.prototype = {
       return;
     }
 
-    // Set a sane minimum time.
-    let buildTime = libcutils.property_get("ro.build.date.utc", "0") * 1000;
-    let file = FileUtils.File("/system/b2g/b2g");
-    if (file.lastModifiedTime > buildTime) {
-      buildTime = file.lastModifiedTime;
-    }
-
-    aCallback.onSuggestedNetworkTimeResponse(buildTime);
+    // No network time is available, return now.
+    aCallback.onSuggestedNetworkTimeResponse(Date.now());
   },
 
   handle(aName, aResult) {
@@ -265,17 +253,6 @@ NetworkTimeService.prototype = {
           } else {
             // Or refresh the SNTP.
             this._sntp.request();
-          }
-        } else {
-          // Set a sane minimum time.
-          let buildTime =
-            libcutils.property_get("ro.build.date.utc", "0") * 1000;
-          let file = FileUtils.File("/system/b2g/b2g");
-          if (file.lastModifiedTime > buildTime) {
-            buildTime = file.lastModifiedTime;
-          }
-          if (buildTime > Date.now()) {
-            gTime.setTime(buildTime, this);
           }
         }
         break;
@@ -506,7 +483,7 @@ NetworkTimeService.prototype = {
     if (this._suggestedTimeRequests.length) {
       let suggestion = Date.now() + aOffset;
       for (let index = 0; index < this._suggestedTimeRequests.length; index++) {
-        this._clockAutoUpdateEnabled[index].onSuggestedNetworkTimeResponse(
+        this._suggestedTimeRequests[index].onSuggestedNetworkTimeResponse(
           suggestion
         );
       }
