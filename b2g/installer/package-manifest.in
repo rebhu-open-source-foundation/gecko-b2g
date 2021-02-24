@@ -355,6 +355,8 @@
 #ifdef XP_MACOSX
 @RESPATH@/res/MainMenu.nib/
 #endif
+@RESPATH@/contentaccessible/TopLevelVideoDocument.css
+@RESPATH@/contentaccessible/TopLevelImageDocument.css
 
 ; svg
 @RESPATH@/res/svg.css
