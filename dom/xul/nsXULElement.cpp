@@ -887,7 +887,7 @@ void nsXULElement::DestroyContent() {
   nsStyledElement::DestroyContent();
 }
 
-#ifdef DEBUG_FRAME_DUMP
+#if defined(MOZ_DOM_LIST) || defined(DEBUG_FRAME_DUMP)
 void nsXULElement::List(FILE* out, int32_t aIndent) const {
   nsCString prefix("XUL");
   if (HasSlots()) {

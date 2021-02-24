@@ -785,7 +785,11 @@ class nsIContent : public nsINode {
   ~nsIContent() = default;
 
  public:
-#ifdef DEBUG_FRAME_DUMP
+#ifdef DEBUG
+#  define MOZ_DOM_LIST
+#endif
+
+#if defined(MOZ_DOM_LIST) || defined(DEBUG_FRAME_DUMP)
   /**
    * List the content (and anything it contains) out to the given
    * file stream. Use aIndent as the base indent during formatting.

@@ -947,7 +947,7 @@
       // XXX https://bugzilla.mozilla.org/show_bug.cgi?id=22183#c239
       try {
         if (docElement.getAttribute("chromehidden").includes("location")) {
-          const uri = Services.uriFixup.createExposableURI(aBrowser.currentURI);
+          const uri = Services.io.createExposableURI(aBrowser.currentURI);
           let prefix = uri.prePath;
           if (uri.scheme == "about") {
             prefix = uri.spec;
@@ -2878,18 +2878,17 @@
 
         // Re-use existing selected tab if possible to avoid the overhead of
         // selecting a new tab.
-        if (select && this.selectedTab.userContextId == userContextId) {
+        if (
+          select &&
+          this.selectedTab.userContextId == userContextId &&
+          !SessionStore.isTabRestoring(this.selectedTab)
+        ) {
           tabWasReused = true;
           tab = this.selectedTab;
           if (!tabData.pinned) {
             this.unpinTab(tab);
           } else {
             this.pinTab(tab);
-          }
-          if (gMultiProcessBrowser && !tab.linkedBrowser.isRemoteBrowser) {
-            this.updateBrowserRemoteness(tab.linkedBrowser, {
-              remoteType: E10SUtils.DEFAULT_REMOTE_TYPE,
-            });
           }
         }
 

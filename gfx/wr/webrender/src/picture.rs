@@ -125,7 +125,7 @@ use crate::render_target::RenderTargetKind;
 use crate::render_task::{BlurTask, RenderTask, RenderTaskLocation, BlurTaskCache};
 use crate::render_task::{StaticRenderTaskSurface, RenderTaskKind};
 use crate::renderer::BlendMode;
-use crate::resource_cache::{ResourceCache, ImageGeneration};
+use crate::resource_cache::{ResourceCache, ImageGeneration, ImageRequest};
 use crate::space::{SpaceMapper, SpaceSnapper};
 use crate::scene::SceneProperties;
 use smallvec::SmallVec;
@@ -2948,11 +2948,23 @@ impl TileCacheInstance {
         api_keys: &[ImageKey; 3],
         resource_cache: &mut ResourceCache,
         composite_state: &mut CompositeState,
+        gpu_cache: &mut GpuCache,
         image_rendering: ImageRendering,
         color_depth: ColorDepth,
         color_space: YuvColorSpace,
         format: YuvFormat,
     ) -> bool {
+        for &key in api_keys {
+            // TODO: See comment in setup_compositor_surfaces_rgb.
+            resource_cache.request_image(ImageRequest {
+                    key,
+                    rendering: image_rendering,
+                    tile: None,
+                },
+                gpu_cache,
+            );
+        }
+
         self.setup_compositor_surfaces_impl(
             prim_info,
             flags,
@@ -2985,11 +2997,27 @@ impl TileCacheInstance {
         api_key: ImageKey,
         resource_cache: &mut ResourceCache,
         composite_state: &mut CompositeState,
+        gpu_cache: &mut GpuCache,
         image_rendering: ImageRendering,
         flip_y: bool,
     ) -> bool {
         let mut api_keys = [ImageKey::DUMMY; 3];
         api_keys[0] = api_key;
+
+        // TODO: The picture compositing code requires images promoted
+        // into their own picture cache slices to be requested every
+        // frame even if they are not visible. However the image updates
+        // are only reached on the prepare pass for visible primitives.
+        // So we make sure to trigger an image request when promoting
+        // the image here.
+        resource_cache.request_image(ImageRequest {
+                key: api_key,
+                rendering: image_rendering,
+                tile: None,
+            },
+            gpu_cache,
+        );
+
         self.setup_compositor_surfaces_impl(
             prim_info,
             flags,
@@ -3218,6 +3246,7 @@ impl TileCacheInstance {
         color_bindings: &ColorBindingStorage,
         surface_stack: &[SurfaceIndex],
         composite_state: &mut CompositeState,
+        gpu_cache: &mut GpuCache,
     ) {
         // This primitive exists on the last element on the current surface stack.
         profile_scope!("update_prim_dependencies");
@@ -3325,7 +3354,6 @@ impl TileCacheInstance {
         // then applied below.
         let mut backdrop_candidate = None;
 
-
         // For pictures, we don't (yet) know the valid clip rect, so we can't correctly
         // use it to calculate the local bounding rect for the tiles. If we include them
         // then we may calculate a bounding rect that is too large, since it won't include
@@ -3415,6 +3443,7 @@ impl TileCacheInstance {
                         image_data.key,
                         resource_cache,
                         composite_state,
+                        gpu_cache,
                         image_data.image_rendering,
                         promote_with_flip_y,
                     );
@@ -3471,6 +3500,7 @@ impl TileCacheInstance {
                         &prim_data.kind.yuv_key,
                         resource_cache,
                         composite_state,
+                        gpu_cache,
                         prim_data.kind.image_rendering,
                         prim_data.kind.color_depth,
                         prim_data.kind.color_space,
@@ -4491,12 +4521,13 @@ pub struct PicturePrimitive {
     /// it will be considered invisible.
     pub is_backface_visible: bool,
 
-    // If a mix-blend-mode, contains the render task for
-    // the readback of the framebuffer that we use to sample
-    // from in the mix-blend-mode shader.
-    // For drop-shadow filter, this will store the original
-    // picture task which would be rendered on screen after
-    // blur pass.
+    pub primary_render_task_id: Option<RenderTaskId>,
+    /// If a mix-blend-mode, contains the render task for
+    /// the readback of the framebuffer that we use to sample
+    /// from in the mix-blend-mode shader.
+    /// For drop-shadow filter, this will store the original
+    /// picture task which would be rendered on screen after
+    /// blur pass.
     pub secondary_render_task_id: Option<RenderTaskId>,
     /// How this picture should be composited.
     /// If None, don't composite - just draw directly on parent surface.
@@ -4638,6 +4669,7 @@ impl PicturePrimitive {
         PicturePrimitive {
             prim_list,
             state: None,
+            primary_render_task_id: None,
             secondary_render_task_id: None,
             requested_composite_mode,
             raster_config: None,
@@ -4668,6 +4700,9 @@ impl PicturePrimitive {
         tile_cache_logger: &mut TileCacheLogger,
         tile_caches: &mut FastHashMap<SliceId, Box<TileCacheInstance>>,
     ) -> Option<(PictureContext, PictureState, PrimitiveList)> {
+        self.primary_render_task_id = None;
+        self.secondary_render_task_id = None;
+
         if !self.is_visible() {
             return None;
         }
@@ -5172,6 +5207,7 @@ impl PicturePrimitive {
                     }
                 }
 
+                let primary_render_task_id;
                 match raster_config.composite_mode {
                     PictureCompositeMode::TileCache { .. } => {
                         unreachable!("handled above");
@@ -5259,6 +5295,8 @@ impl PicturePrimitive {
                             original_size.to_i32(),
                         );
 
+                        primary_render_task_id = Some(blur_render_task_id);
+
                         frame_state.init_surface_chain(
                             raster_config.surface_index,
                             blur_render_task_id,
@@ -5333,8 +5371,6 @@ impl PicturePrimitive {
                             picture_task_id,
                         );
 
-                        self.secondary_render_task_id = Some(picture_task_id);
-
                         let mut blur_tasks = BlurTaskCache::default();
 
                         self.extra_gpu_data_handles.resize(shadows.len(), GpuCacheHandle::new());
@@ -5355,7 +5391,9 @@ impl PicturePrimitive {
                             );
                         }
 
-                        // TODO(nical) the second one should to be the blur's task id but we have several blurs now
+                        primary_render_task_id = Some(blur_render_task_id);
+                        self.secondary_render_task_id = Some(picture_task_id);
+
                         frame_state.init_surface_chain(
                             raster_config.surface_index,
                             blur_render_task_id,
@@ -5477,6 +5515,8 @@ impl PicturePrimitive {
                             ).with_uv_rect_kind(uv_rect_kind)
                         );
 
+                        primary_render_task_id = Some(render_task_id);
+
                         frame_state.init_surface(
                             raster_config.surface_index,
                             render_task_id,
@@ -5521,6 +5561,8 @@ impl PicturePrimitive {
                             ).with_uv_rect_kind(uv_rect_kind)
                         );
 
+                        primary_render_task_id = Some(render_task_id);
+
                         frame_state.init_surface(
                             raster_config.surface_index,
                             render_task_id,
@@ -5563,6 +5605,8 @@ impl PicturePrimitive {
                                 )
                             ).with_uv_rect_kind(uv_rect_kind)
                         );
+
+                        primary_render_task_id = Some(render_task_id);
 
                         frame_state.init_surface(
                             raster_config.surface_index,
@@ -5607,6 +5651,8 @@ impl PicturePrimitive {
                                 )
                             ).with_uv_rect_kind(uv_rect_kind)
                         );
+
+                        primary_render_task_id = Some(render_task_id);
 
                         frame_state.init_surface(
                             raster_config.surface_index,
@@ -5662,6 +5708,8 @@ impl PicturePrimitive {
                             device_pixel_scale,
                         );
 
+                        primary_render_task_id = Some(filter_task_id);
+
                         frame_state.init_surface_chain(
                             raster_config.surface_index,
                             filter_task_id,
@@ -5672,6 +5720,8 @@ impl PicturePrimitive {
                     }
                 }
 
+                self.primary_render_task_id = primary_render_task_id;
+
                 // Update the device pixel ratio in the surface, in case it was adjusted due
                 // to the surface being too large. This ensures the correct scale is available
                 // in case it's used as input to a parent mix-blend-mode readback.
@@ -5681,6 +5731,7 @@ impl PicturePrimitive {
             }
             None => {}
         };
+
 
         #[cfg(feature = "capture")]
         {

@@ -498,10 +498,10 @@ class nsBaseWidget : public nsIWidget, public nsSupportsWeakReference {
     return NS_ERROR_UNEXPECTED;
   }
 
-  virtual nsresult SynthesizeNativeMouseEvent(LayoutDeviceIntPoint aPoint,
-                                              uint32_t aNativeMessage,
-                                              uint32_t aModifierFlags,
-                                              nsIObserver* aObserver) override {
+  virtual nsresult SynthesizeNativeMouseEvent(
+      LayoutDeviceIntPoint aPoint, NativeMouseMessage aNativeMessage,
+      mozilla::MouseButton aButton, nsIWidget::Modifiers aModifierFlags,
+      nsIObserver* aObserver) override {
     mozilla::widget::AutoObserverNotifier notifier(aObserver, "mouseevent");
     return NS_ERROR_UNEXPECTED;
   }

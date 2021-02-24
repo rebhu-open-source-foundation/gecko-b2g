@@ -1320,7 +1320,6 @@ nsGlobalWindowOuter::nsGlobalWindowOuter(uint64_t aWindowID)
       mIsClosed(false),
       mInClose(false),
       mHavePendingClose(false),
-      mIsPopupSpam(false),
       mBlockScriptedClosingFlag(false),
       mWasOffline(false),
       mCreatingInnerWindow(false),

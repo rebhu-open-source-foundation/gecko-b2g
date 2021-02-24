@@ -364,7 +364,7 @@ class nsXULElement : public nsStyledElement {
   virtual void DestroyContent() override;
   virtual void DoneAddingChildren(bool aHaveNotified) override;
 
-#ifdef DEBUG_FRAME_DUMP
+#if defined(MOZ_DOM_LIST) || defined(DEBUG_FRAME_DUMP)
   virtual void List(FILE* out, int32_t aIndent) const override;
   virtual void DumpContent(FILE* out, int32_t aIndent,
                            bool aDumpAll) const override {}
