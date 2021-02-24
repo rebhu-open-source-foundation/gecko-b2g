@@ -208,7 +208,7 @@ nsresult CursorSimulator::HandleEvent(Event* aEvent) {
       CursorOut();
     }
     if (!mFullScreenElement) {
-      CursorMove();
+      UpdatePos();
     }
     return NS_OK;
   }
@@ -231,10 +231,12 @@ nsresult CursorSimulator::HandleEvent(Event* aEvent) {
         gVirtualCursorLog, LogLevel::Debug,
         ("CursorSimulator element focus, is focused on an editable element=%d",
          focusedOnEditable));
-    if (!focusedOnEditable) {
-      UpdatePos();
-    } else {
+    if (focusedOnEditable ||
+        (mFullScreenElement &&
+         mFullScreenElement->IsHTMLElement(nsGkAtoms::video))) {
       CursorOut();
+    } else {
+      UpdatePos();
     }
     return NS_OK;
   }
@@ -920,6 +922,11 @@ void CursorSimulator::CursorMove() {
 
 void CursorSimulator::CursorOut(bool aCheckActive) {
   if (!aCheckActive || IsActive()) {
+    // Move the cursor position to -1,-1 so that it wonldn't hover on something
+    LayoutDeviceIntPoint point;
+    point.x = -1;
+    point.y = -1;
+    mDelegate->UpdatePos(point);
     mDelegate->CursorOut();
   }
 }
