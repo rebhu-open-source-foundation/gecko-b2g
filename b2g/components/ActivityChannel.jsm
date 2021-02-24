@@ -37,6 +37,7 @@ this.ActivityChannel.prototype = {
   asyncOpen(aListener, aContext) {
     Services.cpmm.sendAsyncMessage(this._activityName, this._activityDetails);
     // Let the listener cleanup.
+    aListener.onStartRequest(this);
     aListener.onStopRequest(this, aContext, Cr.NS_OK);
   },
 
