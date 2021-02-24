@@ -24,10 +24,6 @@ if (Services.prefs.getBoolPref("dom.alarm.debug", false)) {
   this.debug = function debug(aStr) {};
 }
 
-XPCOMUtils.defineLazyGetter(this, "appsService", function() {
-  return Cc["@mozilla.org/AppsService;1"].getService(Ci.nsIAppsService);
-});
-
 XPCOMUtils.defineLazyGetter(this, "systemmessenger", function() {
   return Cc["@mozilla.org/systemmessage-service;1"].getService(
     Ci.nsISystemMessageService
@@ -62,7 +58,6 @@ this.AlarmService = {
     debug("init()");
 
     Services.obs.addObserver(this, "profile-change-teardown");
-    Services.obs.addObserver(this, "webapps-clear-data");
 
     this._currentTimezoneOffset = new Date().getTimezoneOffset();
 
@@ -563,6 +558,34 @@ this.AlarmService = {
   },
 
   /*
+   * Remove the alarms associated with the url.
+   *
+   * @param string aUrl
+   *        Url for application which added the alarm.
+   * @returns void
+   */
+  removeByHost(aUrl) {
+    debug("removeByHost(" + aUrl + ")");
+
+    // Passing null to AlarmDB.getAll() returns all alarms directly.
+    if (!aUrl) {
+      return;
+    }
+
+    this._db.getAll(
+      aUrl,
+      function getAllSuccessCb(aAlarms) {
+        aAlarms.forEach(function removeAlarm(aAlarm) {
+          this.remove(aAlarm.id, aUrl);
+        }, this);
+      }.bind(this),
+      function getAllErrorCb(aErrorMsg) {
+        throw Components.Exception("", Cr.NS_ERROR_NOT_IMPLEMENTED);
+      }
+    );
+  },
+
+  /*
    * Remove the alarm associated with an ID.
    *
    * @param number aAlarmId
@@ -625,39 +648,6 @@ this.AlarmService = {
       case "profile-change-teardown":
         this.uninit();
         break;
-
-      case "webapps-clear-data":
-        let params = aSubject.QueryInterface(
-          Ci.mozIApplicationClearPrivateDataParams
-        );
-        if (!params) {
-          debug("Error! Fail to remove alarms for an uninstalled app.");
-          return;
-        }
-
-        // Only remove alarms for apps.
-        if (params.browserOnly) {
-          return;
-        }
-
-        let url = appsService.getManifestURLByLocalId(params.appId);
-        if (!url) {
-          debug("Error! Fail to remove alarms for an uninstalled app.");
-          return;
-        }
-
-        this._db.getAll(
-          url,
-          function getAllSuccessCb(aAlarms) {
-            aAlarms.forEach(function removeAlarm(aAlarm) {
-              this.remove(aAlarm.id, url);
-            }, this);
-          }.bind(this),
-          function getAllErrorCb(aErrorMsg) {
-            throw Components.Exception("", Cr.NS_ERROR_NOT_IMPLEMENTED);
-          }
-        );
-        break;
     }
   },
 
@@ -665,7 +655,6 @@ this.AlarmService = {
     debug("uninit()");
 
     Services.obs.removeObserver(this, "profile-change-teardown");
-    Services.obs.removeObserver(this, "webapps-clear-data");
 
     this._messages.forEach(
       function(aMsgName) {
