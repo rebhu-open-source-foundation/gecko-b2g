@@ -12,6 +12,7 @@
 #include "base/platform_thread.h"
 #include "mozilla/Attributes.h"
 #include "mozilla/UniquePtr.h"
+#include "mozilla/UniquePtrExtensions.h"
 #include "nsDataHashtable.h"
 #include "nsHashKeys.h"
 #include "nsString.h"
@@ -142,7 +143,7 @@ class SandboxBroker final : private SandboxBrokerCommon,
   typedef nsDataHashtable<nsCStringHashKey, nsCString> PathMap;
   PathMap mSymlinkMap;
 
-  SandboxBroker(UniquePtr<const Policy> aPolicy, int aChildPid, int& aClientFd);
+  SandboxBroker(UniquePtr<const Policy> aPolicy, int aChildPid, UniqueFileHandle& aClientFd);
   void ThreadMain(void) override;
   void AuditPermissive(int aOp, int aFlags, int aPerms, const char* aPath);
   void AuditDenial(int aOp, int aFlags, int aPerms, const char* aPath);
