@@ -84,8 +84,9 @@ AppsServiceDelegate.prototype = {
     ServiceWorkerAssistant.waitForRegistrations();
   },
 
-  onClear(aManifestUrl, aType) {
+  onClear(aManifestUrl, aType, aFeatures) {
     log(`onClear: ${aManifestUrl}: clear type: ${aType}`);
+    log(aFeatures);
     switch (aType) {
       case "Browser":
         AppsUtils.clearBrowserData(aManifestUrl);
