@@ -26,3 +26,4 @@ mk_add_options AUTOCLOBBER=1
 SIMULATOR=1
 HAS_KOOST_MODULES=1
 GAIADIR="${B2G_DIR}/gaia"
+ac_add_options --with-api-daemon-port=8081

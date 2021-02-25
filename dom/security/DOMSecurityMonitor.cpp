@@ -89,7 +89,7 @@ void DOMSecurityMonitor::AuditParsingOfHTMLXMLFragments(
       //-------------------------------------------------------------------
       "chrome://b2g/content/"_ns,
       "chrome://system/content/"_ns,
-      "http://shared.localhost/"_ns,
+      nsLiteralCString("http://shared.localhost:" MOZ_STRINGIFY(API_DAEMON_PORT) "/"),
   };
 
   for (const nsLiteralCString& allowlistEntry : htmlFragmentAllowlist) {

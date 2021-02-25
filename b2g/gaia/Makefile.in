@@ -23,6 +23,6 @@ endif
 
 libs::
 	+$(MAKE) -j1 -C $(GAIADIR) clean
-	+$(MAKE) -j1 -C $(GAIADIR) -e DESKTOP=1
+	+$(MAKE) -j1 -C $(GAIADIR) -e DESKTOP=1 -e API_DAEMON_HOST=127.0.0.1:$(API_DAEMON_PORT) -e GAIA_DOMAIN=localhost:$(API_DAEMON_PORT)
 	cp $(GAIA_ICONS_PATH) $(GAIA_ICONS_TARGET_PATH)
 	(cd $(B2G_DIR)/$(GAIA_PATH) && tar $(TAR_CREATE_FLAGS) - .) | (cd $(ABS_DIST)/bin/$(GAIA_PATH) && tar -xf -)
