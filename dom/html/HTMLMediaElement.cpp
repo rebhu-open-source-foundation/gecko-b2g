@@ -4578,7 +4578,11 @@ void HTMLMediaElement::UpdateWakeLock() {
   if (playing && isAudible) {
     CreateAudioWakeLockIfNeeded();
   } else {
+#ifdef MOZ_B2G
+    ReleaseAudioWakeLockWithDelay();
+#else
     ReleaseAudioWakeLockIfExists();
+#endif
   }
 }
 
@@ -4592,6 +4596,12 @@ void HTMLMediaElement::CreateAudioWakeLockIfNeeded() {
     mWakeLock = pmService->NewWakeLock(u"audio-playing"_ns,
                                        OwnerDoc()->GetInnerWindow(), rv);
   }
+#ifdef MOZ_B2G
+  if (mWakeLockTimer) {
+    mWakeLockTimer->Cancel();
+    mWakeLockTimer = nullptr;
+  }
+#endif
 }
 
 void HTMLMediaElement::ReleaseAudioWakeLockIfExists() {
@@ -4601,7 +4611,33 @@ void HTMLMediaElement::ReleaseAudioWakeLockIfExists() {
     rv.SuppressException();
     mWakeLock = nullptr;
   }
+#ifdef MOZ_B2G
+  if (mWakeLockTimer) {
+    mWakeLockTimer->Cancel();
+    mWakeLockTimer = nullptr;
+  }
+#endif
 }
+
+#ifdef MOZ_B2G
+void HTMLMediaElement::ReleaseAudioWakeLockWithDelay() {
+  if (mWakeLock && !mWakeLockTimer) {
+    uint32_t timeout = StaticPrefs::media_wakelock_timeout();
+    NS_NewTimerWithFuncCallback(
+        getter_AddRefs(mWakeLockTimer), AudioWakeLockTimerCallback, this,
+        timeout, nsITimer::TYPE_ONE_SHOT,
+        "HTMLMediaElement::AudioWakeLockTimerCallback", mMainThreadEventTarget);
+  }
+}
+
+/* static */
+void HTMLMediaElement::AudioWakeLockTimerCallback(nsITimer* aTimer,
+                                                  void* aClosure) {
+  auto element = static_cast<HTMLMediaElement*>(aClosure);
+  element->mWakeLockTimer = nullptr;
+  element->ReleaseAudioWakeLockIfExists();
+}
+#endif
 
 void HTMLMediaElement::WakeLockRelease() { ReleaseAudioWakeLockIfExists(); }
 

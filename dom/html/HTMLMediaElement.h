@@ -891,6 +891,12 @@ class HTMLMediaElement : public nsGenericHTMLElement,
   void ReleaseAudioWakeLockIfExists();
   RefPtr<WakeLock> mWakeLock;
 
+#ifdef MOZ_B2G
+  void ReleaseAudioWakeLockWithDelay();
+  static void AudioWakeLockTimerCallback(nsITimer* aTimer, void* aClosure);
+  nsCOMPtr<nsITimer> mWakeLockTimer;
+#endif
+
   /**
    * Logs a warning message to the web console to report various failures.
    * aMsg is the localized message identifier, aParams is the parameters to

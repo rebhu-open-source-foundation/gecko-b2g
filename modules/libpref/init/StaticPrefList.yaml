@@ -8336,30 +8336,38 @@
   mirror: always
 #endif
 
+#if defined(MOZ_B2G)
+  # Timeout for wakelock release (in milliseconds).
+-   name: media.wakelock_timeout
+    type: uint32_t
+    value: 2000
+    mirror: always
+#endif
+
 #if defined(MOZ_WIDGET_GONK)
-- name: media.offloadplayer.audio.enabled
-  type: bool
-  value: true
-  mirror: always
+-   name: media.offloadplayer.audio.enabled
+    type: bool
+    value: true
+    mirror: always
 
-- name: media.offloadplayer.video.enabled
-  type: bool
-  value: false
-  mirror: always
+-   name: media.offloadplayer.video.enabled
+    type: bool
+    value: false
+    mirror: always
 
-- name: media.offloadplayer.http.enabled
-  type: bool
-  value: false
-  mirror: always
+-   name: media.offloadplayer.http.enabled
+    type: bool
+    value: false
+    mirror: always
 
-# If the value is a non-empty string, only the MIME types in the string are
-# allowed to use the offload player. Multiple MIME types are supported by using
-# ',' as delimiter (without whitespaces). Wildcard is also allowed as MIME
-# subtype. For example, the string can be "video/*,audio/mpeg,audio/aac".
-- name: media.offloadplayer.mime.allowlist
-  type: String
-  value: "audio/mpeg"
-  mirror: never
+  # If the value is a non-empty string, only the MIME types in the string are
+  # allowed to use the offload player. Multiple MIME types are supported by
+  # using ',' as delimiter (without whitespaces). Wildcard is also allowed as
+  # MIME subtype. For example, the string can be "video/*,audio/mpeg,audio/aac".
+-   name: media.offloadplayer.mime.allowlist
+    type: String
+    value: "audio/mpeg"
+    mirror: never
 #endif
 
 #---------------------------------------------------------------------------
