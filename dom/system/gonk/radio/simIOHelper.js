@@ -4581,7 +4581,7 @@ SimRecordHelperObject.prototype = {
         // No one knew how to handle this particular file, so to be safe just
         // fetch all records.
         if (DEBUG) this.context.debug("SIM Refresh for all.");
-        fetchSimRecords();
+        this.fetchSimRecords();
         break;
     }
   },
@@ -6142,7 +6142,7 @@ ISimRecordHelperObject.prototype = {
         // No one knew how to handle this particular file, so to be safe just
         // fetch all records.
         if (DEBUG) this.context.debug("ISIM Refresh for all.");
-        fetchISimRecords();
+        this.fetchISimRecords();
         break;
     }
   },
