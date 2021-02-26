@@ -1819,12 +1819,28 @@ this.VideoControlsImplWidget = class {
       },
 
       keyboardVolumeDecrease() {
+        const controlOverride = this.prefs[
+          "media.videocontrols.volume-control-override"
+        ];
+        if (controlOverride) {
+          return;
+        }
+        // otherwise fallback to default control.
+
         const oldval = this.video.volume;
         this.video.volume = oldval < 0.1 ? 0 : oldval - 0.1;
         this.video.muted = false;
       },
 
       keyboardVolumeIncrease() {
+        const controlOverride = this.prefs[
+          "media.videocontrols.volume-control-override"
+        ];
+        if (controlOverride) {
+          return;
+        }
+        // otherwise fallback to default control.
+
         const oldval = this.video.volume;
         this.video.volume = oldval > 0.9 ? 1 : oldval + 0.1;
         this.video.muted = false;
@@ -1901,7 +1917,15 @@ this.VideoControlsImplWidget = class {
           const allTabbable = this.prefs[
             "media.videocontrols.keyboard-tab-to-all-controls"
           ];
+          const enterToTogglePause = this.prefs[
+            "media.videocontrols.keyboard-enter-to-toggle-pause"
+          ];
           switch (keystroke) {
+            case "Enter":
+              if (!enterToTogglePause) {
+                break;
+              }
+            // fallthrough
             case "Space" /* Play */:
               if (target.localName === "button" && !target.disabled) {
                 break;

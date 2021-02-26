@@ -333,6 +333,11 @@ pref("media.eme.apiVisible", true);
 // MediaDecoderReader's mVideoQueue.
 pref("media.video-queue.default-size", 3);
 
+// videocontrols related settings.
+pref("media.videocontrols.keyboard-tab-to-all-controls", false);
+pref("media.videocontrols.keyboard-enter-to-toggle-pause", true);
+pref("media.videocontrols.volume-control-override", true);
+
 // Optimize images' memory usage
 pref("image.downscale-during-decode.enabled", true);
 pref("image.mem.allow_locking_in_content_processes", true);
