@@ -109,7 +109,7 @@ nsresult GonkCameraParameters::Unflatten(const String8& aFlatParameters) {
       data = nullptr;
     }
 
-    mParams.Put(key, MakeUnique<nsCString>(*value));
+    mParams.InsertOrUpdate(key, MakeUnique<nsCString>(*value));
   }
 
   if (mInitialized) {
@@ -363,7 +363,7 @@ nsresult GonkCameraParameters::Initialize() {
       continue;
     }
     *mIsoModes.AppendElement() = s;
-    mIsoModeMap.Put(s, MakeUnique<nsCString>(isoModes[i]));
+    mIsoModeMap.InsertOrUpdate(s, MakeUnique<nsCString>(isoModes[i]));
   }
 
   GetListAsArray(CAMERA_PARAM_SUPPORTED_SCENEMODES, mSceneModes);
@@ -385,7 +385,7 @@ nsresult GonkCameraParameters::Initialize() {
   while (i > 0) {
     --i;
     if (!uniqueModes.Get(mMeteringModes[i])) {
-      uniqueModes.Put(mMeteringModes[i], true);
+      uniqueModes.InsertOrUpdate(mMeteringModes[i], true);
     } else {
       DOM_CAMERA_LOGW("Dropped duplicate metering mode '%s' (index=%u)\n",
                       NS_ConvertUTF16toUTF8(mMeteringModes[i]).get(), i);

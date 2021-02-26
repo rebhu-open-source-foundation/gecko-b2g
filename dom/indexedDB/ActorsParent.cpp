@@ -6208,7 +6208,7 @@ uint32_t TelemetryIdForFile(nsIFile* aFile) {
     // We're locked, no need for atomics.
     id = sNextId++;
 
-    gTelemetryIdHashtable->Put(hashValue, id);
+    gTelemetryIdHashtable->InsertOrUpdate(hashValue, id);
   }
 
   return id;
@@ -7642,16 +7642,10 @@ nsresult DatabaseConnection::UpdateRefcountFunction::ProcessValue(
     MOZ_ASSERT(id > 0);
 
     const auto entry =
-        WrapNotNull(mFileInfoEntries
-                        .GetOrInsertWith(id,
-                                         [&file] {
-                                           return MakeUnique<FileInfoEntry>(
-                                               file.FileInfoPtr());
-                                         })
-                        .get());
+        WrapNotNull(mFileInfoEntries.GetOrInsertNew(id, file.FileInfoPtr()));
 
     if (mInSavepoint) {
-      mSavepointEntriesIndex.Put(id, entry);
+      mSavepointEntriesIndex.InsertOrUpdate(id, entry);
     }
 
     switch (aUpdateType) {
@@ -7909,13 +7903,14 @@ uint64_t ConnectionPool::Start(
   if (databaseInfoIsNew) {
     MutexAutoLock lock(mDatabasesMutex);
 
-    dbInfo =
-        mDatabases.Put(aDatabaseId, MakeUnique<DatabaseInfo>(this, aDatabaseId))
-            .get();
+    dbInfo = mDatabases
+                 .InsertOrUpdate(aDatabaseId,
+                                 MakeUnique<DatabaseInfo>(this, aDatabaseId))
+                 .get();
   }
 
   MOZ_ASSERT(!mTransactions.Contains(transactionId));
-  auto& transactionInfo = *mTransactions.Put(
+  auto& transactionInfo = *mTransactions.InsertOrUpdate(
       transactionId, MakeUnique<TransactionInfo>(
                          *dbInfo, aBackgroundChildLoggingId, aDatabaseId,
                          transactionId, aLoggingSerialNumber, aObjectStoreNames,
@@ -9111,7 +9106,7 @@ SafeRefPtr<FullDatabaseMetadata> FullDatabaseMetadata::Duplicate() const {
 
       newIndexMetadata->mCommonMetadata = value->mCommonMetadata;
 
-      if (NS_WARN_IF(!newOSMetadata->mIndexes.Put(
+      if (NS_WARN_IF(!newOSMetadata->mIndexes.InsertOrUpdate(
               indexEntry.GetKey(), std::move(newIndexMetadata), fallible))) {
         return nullptr;
       }
@@ -9120,7 +9115,7 @@ SafeRefPtr<FullDatabaseMetadata> FullDatabaseMetadata::Duplicate() const {
     MOZ_ASSERT(objectStoreValue->mIndexes.Count() ==
                newOSMetadata->mIndexes.Count());
 
-    if (NS_WARN_IF(!newMetadata->mObjectStores.Put(
+    if (NS_WARN_IF(!newMetadata->mObjectStores.InsertOrUpdate(
             objectStoreEntry.GetKey(), std::move(newOSMetadata), fallible))) {
       return nullptr;
     }
@@ -9191,8 +9186,8 @@ SafeRefPtr<Factory> Factory::Create(const LoggingInfo& aLoggingInfo) {
 #endif  // !DISABLE_ASSERTS_FOR_FUZZING
   } else {
     loggingInfo = new DatabaseLoggingInfo(aLoggingInfo);
-    gLoggingInfoHashtable->Put(aLoggingInfo.backgroundChildLoggingId(),
-                               loggingInfo);
+    gLoggingInfoHashtable->InsertOrUpdate(
+        aLoggingInfo.backgroundChildLoggingId(), loggingInfo);
   }
 
   return MakeSafeRefPtr<Factory>(std::move(loggingInfo));
@@ -9634,7 +9629,7 @@ void Database::MapBlob(const IPCBlob& aIPCBlob,
           stream.get_PRemoteLazyInputStreamParent());
 
   MOZ_ASSERT(!mMappedBlobs.GetWeak(actor->ID()));
-  mMappedBlobs.Put(actor->ID(), AsRefPtr(std::move(aFileInfo)));
+  mMappedBlobs.InsertOrUpdate(actor->ID(), AsRefPtr(std::move(aFileInfo)));
 
   RefPtr<UnmapBlobCallback> callback =
       new UnmapBlobCallback(SafeRefPtrFromThis());
@@ -11399,7 +11394,7 @@ mozilla::ipc::IPCResult VersionChangeTransaction::RecvCreateObjectStore(
   newMetadata->mNextAutoIncrementId = aMetadata.autoIncrement() ? 1 : 0;
   newMetadata->mCommittedAutoIncrementId = newMetadata->mNextAutoIncrementId;
 
-  if (NS_WARN_IF(!dbMetadata->mObjectStores.Put(
+  if (NS_WARN_IF(!dbMetadata->mObjectStores.InsertOrUpdate(
           aMetadata.id(), std::move(newMetadata), fallible))) {
     return IPC_FAIL_NO_REASON(this);
   }
@@ -11571,7 +11566,7 @@ mozilla::ipc::IPCResult VersionChangeTransaction::RecvCreateIndex(
   RefPtr<FullIndexMetadata> newMetadata = new FullIndexMetadata();
   newMetadata->mCommonMetadata = aMetadata;
 
-  if (NS_WARN_IF(!foundObjectStoreMetadata->mIndexes.Put(
+  if (NS_WARN_IF(!foundObjectStoreMetadata->mIndexes.InsertOrUpdate(
           aMetadata.id(), std::move(newMetadata), fallible))) {
     return IPC_FAIL_NO_REASON(this);
   }
@@ -12214,7 +12209,7 @@ nsresult FileManager::Init(nsIFile* aDirectory,
         // be 0, but the dbRefCnt is non-zero, which will keep the FileInfo
         // object alive.
         MOZ_ASSERT(dbRefCnt > 0);
-        mFileInfos.Put(
+        mFileInfos.InsertOrUpdate(
             id, MakeNotNull<FileInfo*>(FileManagerGuard{}, SafeRefPtrFromThis(),
                                        id, static_cast<nsrefcnt>(dbRefCnt)));
 
@@ -13341,8 +13336,8 @@ void Maintenance::RegisterDatabaseMaintenance(
   MOZ_ASSERT(mState == State::BeginDatabaseMaintenance);
   MOZ_ASSERT(!mDatabaseMaintenances.Get(aDatabaseMaintenance->DatabasePath()));
 
-  mDatabaseMaintenances.Put(aDatabaseMaintenance->DatabasePath(),
-                            aDatabaseMaintenance);
+  mDatabaseMaintenances.InsertOrUpdate(aDatabaseMaintenance->DatabasePath(),
+                                       aDatabaseMaintenance);
 }
 
 void Maintenance::UnregisterDatabaseMaintenance(
@@ -15332,7 +15327,8 @@ nsresult FactoryOp::Open() {
       // XXX Propagate the error to the caller rather than asserting.
       MOZ_RELEASE_ASSERT(keyOrErr.isOk());
 
-      lockedPrivateBrowsingInfoHashtable->Put(mDatabaseId, keyOrErr.unwrap());
+      lockedPrivateBrowsingInfoHashtable->InsertOrUpdate(mDatabaseId,
+                                                         keyOrErr.unwrap());
     }
   }
 
@@ -16269,8 +16265,8 @@ nsresult OpenDatabaseOp::LoadDatabaseInformation(
               metadata->mNextAutoIncrementId = nextAutoIncrementId;
               metadata->mCommittedAutoIncrementId = nextAutoIncrementId;
 
-              IDB_TRY(OkIf(objectStores.Put(objectStoreId, std::move(metadata),
-                                            fallible)),
+              IDB_TRY(OkIf(objectStores.InsertOrUpdate(
+                          objectStoreId, std::move(metadata), fallible)),
                       Err(NS_ERROR_OUT_OF_MEMORY));
 
               lastObjectStoreId = std::max(lastObjectStoreId, objectStoreId);
@@ -16399,7 +16395,7 @@ nsresult OpenDatabaseOp::LoadDatabaseInformation(
                 }
               }
 
-              IDB_TRY(OkIf(objectStoreMetadata->mIndexes.Put(
+              IDB_TRY(OkIf(objectStoreMetadata->mIndexes.InsertOrUpdate(
                           indexId, std::move(indexMetadata), fallible)),
                       Err(NS_ERROR_OUT_OF_MEMORY));
 
@@ -16808,12 +16804,13 @@ void OpenDatabaseOp::EnsureDatabaseActor() {
     info->mLiveDatabases.AppendElement(
         WrapNotNullUnchecked(mDatabase.unsafeGetRawPtr()));
   } else {
-    // XXX Maybe use GetOrInsertWith above, to avoid a second lookup here?
+    // XXX Maybe use LookupOrInsertWith above, to avoid a second lookup here?
     info = gLiveDatabaseHashtable
-               ->Put(mDatabaseId,
-                     MakeUnique<DatabaseActorInfo>(
-                         mMetadata.clonePtr(),
-                         WrapNotNullUnchecked(mDatabase.unsafeGetRawPtr())))
+               ->InsertOrUpdate(
+                   mDatabaseId,
+                   MakeUnique<DatabaseActorInfo>(
+                       mMetadata.clonePtr(),
+                       WrapNotNullUnchecked(mDatabase.unsafeGetRawPtr())))
                .get();
   }
 
@@ -18584,9 +18581,9 @@ bool CreateIndexOp::Init(TransactionBase& aTransaction) {
     const FullIndexMetadata* const value = indexEntry.GetData();
     MOZ_ASSERT(!uniqueIndexTable.Get(value->mCommonMetadata.id()));
 
-    if (NS_WARN_IF(!uniqueIndexTable.Put(value->mCommonMetadata.id(),
-                                         value->mCommonMetadata.unique(),
-                                         fallible))) {
+    if (NS_WARN_IF(!uniqueIndexTable.InsertOrUpdate(
+            value->mCommonMetadata.id(), value->mCommonMetadata.unique(),
+            fallible))) {
       IDB_REPORT_INTERNAL_ERR();
       NS_WARNING("out of memory");
       return false;
@@ -19474,7 +19471,8 @@ bool ObjectStoreAddOrPutRequestOp::Init(TransactionBase& aTransaction) {
       MOZ_ASSERT_IF(!indexMetadata->mCommonMetadata.multiEntry(),
                     !mUniqueIndexTable.ref().Get(indexId));
 
-      if (NS_WARN_IF(!mUniqueIndexTable.ref().Put(indexId, unique, fallible))) {
+      if (NS_WARN_IF(!mUniqueIndexTable.ref().InsertOrUpdate(indexId, unique,
+                                                             fallible))) {
         return false;
       }
     }

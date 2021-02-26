@@ -767,7 +767,9 @@ class TextureHost : public AtomicRefCountedWithFinalize<TextureHost> {
     return nullptr;
   }
 
-  virtual bool SupportsExternalCompositing() { return false; }
+  virtual bool SupportsExternalCompositing(WebRenderBackend aBackend) {
+    return false;
+  }
 
  protected:
   virtual void ReadUnlock();

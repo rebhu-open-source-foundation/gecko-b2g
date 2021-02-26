@@ -1374,7 +1374,7 @@ nsGlobalWindowOuter::nsGlobalWindowOuter(uint64_t aWindowID)
   // We seem to see crashes in release builds because of null
   // |sOuterWindowsById|.
   if (sOuterWindowsById) {
-    sOuterWindowsById->Put(mWindowID, this);
+    sOuterWindowsById->InsertOrUpdate(mWindowID, this);
   }
 }
 

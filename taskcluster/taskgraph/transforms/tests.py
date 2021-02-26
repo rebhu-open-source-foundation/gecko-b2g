@@ -155,7 +155,7 @@ WINDOWS_WORKER_TYPES = {
 MACOSX_WORKER_TYPES = {
     "macosx1014-64": "t-osx-1014",
     "macosx1014-64-power": "t-osx-1014-power",
-    "macosx1015-64": "t-osx-1015-r8-qa",
+    "macosx1015-64": "t-osx-1015-r8",
 }
 
 
@@ -307,7 +307,7 @@ TEST_VARIANTS = {
         },
     },
     "webgl-ipc": {
-        # TODO: After 2021-02-01, verify this variant is still needed.
+        # TODO: After 2021-05-01, verify this variant is still needed.
         "description": "{description} with WebGL IPC process enabled",
         "suffix": "gli",
         "replace": {
@@ -329,7 +329,7 @@ TEST_VARIANTS = {
         },
     },
     "webgl-ipc-profiling": {
-        # TODO: After 2021-02-01, verify this variant is still needed.
+        # TODO: After 2021-05-01, verify this variant is still needed.
         "description": "{description} with WebGL IPC process enabled",
         "suffix": "gli",
         "merge": {

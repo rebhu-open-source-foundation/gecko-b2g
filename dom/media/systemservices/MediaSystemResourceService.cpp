@@ -48,10 +48,10 @@ MediaSystemResourceService::MediaSystemResourceService() : mDestroyed(false) {
   // XXX need to hange to a dynamic way.
   enum { VIDEO_DECODER_COUNT = 4, VIDEO_ENCODER_COUNT = 1 };
 
-  mResources.Put(static_cast<uint32_t>(MediaSystemResourceType::VIDEO_DECODER),
+  mResources.InsertOrUpdate(static_cast<uint32_t>(MediaSystemResourceType::VIDEO_DECODER),
                  MakeUnique<MediaSystemResource>(VIDEO_DECODER_COUNT));
 
-  mResources.Put(static_cast<uint32_t>(MediaSystemResourceType::VIDEO_ENCODER),
+  mResources.InsertOrUpdate(static_cast<uint32_t>(MediaSystemResourceType::VIDEO_ENCODER),
                  MakeUnique<MediaSystemResource>(VIDEO_ENCODER_COUNT));
 #endif
 }

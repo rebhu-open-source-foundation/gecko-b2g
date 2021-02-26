@@ -46,7 +46,7 @@ class SpeakerManagerService : public nsIObserver {
     if (mRegisteredSpeakerManagers.Contains(aSpeakerManager->WindowID())) {
       return NS_ERROR_FAILURE;
     }
-    mRegisteredSpeakerManagers.Put(aSpeakerManager->WindowID(),
+    mRegisteredSpeakerManagers.InsertOrUpdate(aSpeakerManager->WindowID(),
                                    aSpeakerManager);
     return NS_OK;
   }

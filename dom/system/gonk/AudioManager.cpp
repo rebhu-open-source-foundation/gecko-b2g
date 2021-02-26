@@ -194,7 +194,7 @@ class VolumeCurves {
     for (uint32_t i = 0; i <= MaxIndex(); i++) {
       curve.AppendElement(ComputeVolume(i, aDevice));
     }
-    mCurves.Put(aDevice, std::move(curve));
+    mCurves.InsertOrUpdate(aDevice, std::move(curve));
   }
 
   float GetVolume(uint32_t aIndex, uint32_t aDevice) {
@@ -608,7 +608,7 @@ void AudioManager::UpdateDeviceConnectionState(
   }
 
   if (aIsConnected) {
-    mConnectedDevices.Put(aDevice, aDeviceAddress);
+    mConnectedDevices.InsertOrUpdate(aDevice, aDeviceAddress);
   } else {
     mConnectedDevices.Remove(aDevice);
   }
@@ -1699,7 +1699,7 @@ nsresult AudioManager::VolumeStreamState::SetVolumeIndex(uint32_t aIndex,
                                                          bool aUpdateCache) {
   android::status_t rv;
   if (aUpdateCache) {
-    mVolumeIndexes.Put(aDevice, aIndex);
+    mVolumeIndexes.InsertOrUpdate(aDevice, aIndex);
     mDevicesWithVolumeChange |= aDevice;
   }
 

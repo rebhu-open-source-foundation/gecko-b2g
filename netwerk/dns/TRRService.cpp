@@ -145,6 +145,12 @@ static void RemoveTRRBlocklistFile() {
   Preferences::SetBool("network.trr.blocklist_cleanup_done", true);
 }
 
+static void EventTelemetryPrefChanged(const char* aPref, void* aData) {
+  Telemetry::SetEventRecordingEnabled(
+      "network.dns"_ns,
+      StaticPrefs::network_trr_confirmation_telemetry_enabled());
+}
+
 nsresult TRRService::Init() {
   MOZ_ASSERT(NS_IsMainThread(), "wrong thread");
   if (mInitialized) {
@@ -204,7 +210,9 @@ nsresult TRRService::Init() {
     return NS_ERROR_FAILURE;
   }
 
-  Telemetry::SetEventRecordingEnabled("network.dns"_ns, true);
+  Preferences::RegisterCallbackAndCall(
+      EventTelemetryPrefChanged,
+      "network.trr.confirmation_telemetry_enabled"_ns);
 
   LOG(("Initialized TRRService\n"));
   return NS_OK;
@@ -896,7 +904,7 @@ void TRRService::AddToBlocklist(const nsACString& aHost,
   // this overwrites any existing entry
   {
     auto bl = mTRRBLStorage.Lock();
-    bl->Put(hashkey, NowInSeconds());
+    bl->InsertOrUpdate(hashkey, NowInSeconds());
   }
 
   if (aParentsToo) {
@@ -1071,7 +1079,7 @@ void TRRService::ConfirmationContext::RequestCompleted(
 
 AHostResolver::LookupStatus TRRService::CompleteLookup(
     nsHostRecord* rec, nsresult status, AddrInfo* aNewRRSet, bool pb,
-    const nsACString& aOriginSuffix, nsHostRecord::TRRSkippedReason aReason,
+    const nsACString& aOriginSuffix, TRRSkippedReason aReason,
     TRR* aTRRRequest) {
   // this is an NS check for the TRR blocklist or confirmationNS check
 

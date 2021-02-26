@@ -295,6 +295,7 @@ class nsBaseWidget : public nsIWidget, public nsSupportsWeakReference {
     return NS_ERROR_NOT_IMPLEMENTED;
   }
   bool ComputeShouldAccelerate();
+  virtual bool WidgetTypePrefersSoftwareWebRender() const;
   virtual bool WidgetTypeSupportsAcceleration() { return true; }
   [[nodiscard]] virtual nsresult OnDefaultButtonLoaded(
       const LayoutDeviceIntRect& aButtonRect) override {
@@ -453,7 +454,7 @@ class nsBaseWidget : public nsIWidget, public nsSupportsWeakReference {
   }
   virtual already_AddRefed<DrawTarget> StartRemoteDrawing();
   virtual already_AddRefed<DrawTarget> StartRemoteDrawingInRegion(
-      LayoutDeviceIntRegion& aInvalidRegion, BufferMode* aBufferMode) {
+      const LayoutDeviceIntRegion& aInvalidRegion, BufferMode* aBufferMode) {
     return StartRemoteDrawing();
   }
   virtual void EndRemoteDrawing() {}

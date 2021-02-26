@@ -2367,7 +2367,7 @@ NS_IMETHODIMP
 PresShell::PageMove(bool aForward, bool aExtend) {
   nsIFrame* frame = nullptr;
   if (!aExtend) {
-    frame = do_QueryFrame(GetScrollableFrameToScroll(VerticalScollDirection));
+    frame = do_QueryFrame(GetScrollableFrameToScroll(VerticalScrollDirection));
     // If there is no scrollable frame, get the frame to move caret instead.
   }
   if (!frame || frame->PresContext() != mPresContext) {
@@ -2387,7 +2387,7 @@ PresShell::PageMove(bool aForward, bool aExtend) {
 NS_IMETHODIMP
 PresShell::ScrollPage(bool aForward) {
   nsIScrollableFrame* scrollFrame =
-      GetScrollableFrameToScroll(VerticalScollDirection);
+      GetScrollableFrameToScroll(VerticalScrollDirection);
   if (scrollFrame) {
     mozilla::Telemetry::Accumulate(
         mozilla::Telemetry::SCROLL_INPUT_METHODS,
@@ -2403,7 +2403,7 @@ PresShell::ScrollPage(bool aForward) {
 NS_IMETHODIMP
 PresShell::ScrollLine(bool aForward) {
   nsIScrollableFrame* scrollFrame =
-      GetScrollableFrameToScroll(VerticalScollDirection);
+      GetScrollableFrameToScroll(VerticalScrollDirection);
   if (scrollFrame) {
     mozilla::Telemetry::Accumulate(
         mozilla::Telemetry::SCROLL_INPUT_METHODS,
@@ -2441,7 +2441,7 @@ PresShell::ScrollCharacter(bool aRight) {
 NS_IMETHODIMP
 PresShell::CompleteScroll(bool aForward) {
   nsIScrollableFrame* scrollFrame =
-      GetScrollableFrameToScroll(VerticalScollDirection);
+      GetScrollableFrameToScroll(VerticalScrollDirection);
   if (scrollFrame) {
     mozilla::Telemetry::Accumulate(
         mozilla::Telemetry::SCROLL_INPUT_METHODS,
@@ -10602,11 +10602,7 @@ void ReflowCountMgr::Add(const char* aName, nsIFrame* aFrame) {
   NS_ASSERTION(aName != nullptr, "Name shouldn't be null!");
 
   if (mDumpFrameCounts) {
-    auto* const counter =
-        mCounts
-            .GetOrInsertWith(aName,
-                             [this] { return MakeUnique<ReflowCounter>(this); })
-            .get();
+    auto* const counter = mCounts.GetOrInsertNew(aName, this);
     counter->Add();
   }
 
@@ -10616,14 +10612,14 @@ void ReflowCountMgr::Add(const char* aName, nsIFrame* aFrame) {
     SprintfLiteral(key, "%p", (void*)aFrame);
     auto* const counter =
         mIndiFrameCounts
-            .GetOrInsertWith(key,
-                             [&aName, &aFrame, this]() {
-                               auto counter =
-                                   MakeUnique<IndiReflowCounter>(this);
-                               counter->mFrame = aFrame;
-                               counter->mName.AssignASCII(aName);
-                               return counter;
-                             })
+            .LookupOrInsertWith(key,
+                                [&aName, &aFrame, this]() {
+                                  auto counter =
+                                      MakeUnique<IndiReflowCounter>(this);
+                                  counter->mFrame = aFrame;
+                                  counter->mName.AssignASCII(aName);
+                                  return counter;
+                                })
             .get();
     // this eliminates extra counts from super classes
     if (counter && counter->mName.EqualsASCII(aName)) {

@@ -1198,6 +1198,21 @@ UrlbarUtils.RESULT_PAYLOAD_SCHEMA = {
       sendAttributionRequest: {
         type: "boolean",
       },
+      sponsoredAdvertiser: {
+        type: "string",
+      },
+      sponsoredBlockId: {
+        type: "number",
+      },
+      sponsoredClickUrl: {
+        type: "string",
+      },
+      sponsoredImpressionUrl: {
+        type: "string",
+      },
+      sponsoredTileId: {
+        type: "number",
+      },
       tags: {
         type: "array",
         items: {

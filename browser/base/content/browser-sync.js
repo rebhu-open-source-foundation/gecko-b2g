@@ -404,36 +404,7 @@ var gSync = {
     return targets.sort((a, b) => a.name.localeCompare(b.name));
   },
 
-  _generateNodeGetters() {
-    for (let k of ["Status", "Avatar", "Label"]) {
-      let prop = "appMenu" + k;
-      let suffix = k.toLowerCase();
-      delete this[prop];
-      this.__defineGetter__(prop, function() {
-        delete this[prop];
-        return (this[prop] = document.getElementById("appMenu-fxa-" + suffix));
-      });
-    }
-  },
-
   _definePrefGetters() {
-    XPCOMUtils.defineLazyPreferenceGetter(
-      this,
-      "UNSENDABLE_URL_REGEXP",
-      "services.sync.engine.tabs.filteredUrls",
-      null,
-      null,
-      rx => {
-        try {
-          return new RegExp(rx, "i");
-        } catch (e) {
-          Cu.reportError(
-            `Failed to build url filter regexp for send tab: ${e}`
-          );
-          return null;
-        }
-      }
-    );
     XPCOMUtils.defineLazyPreferenceGetter(
       this,
       "FXA_ENABLED",
@@ -466,8 +437,6 @@ var gSync = {
     }
 
     MozXULElement.insertFTLIfNeeded("browser/sync.ftl");
-
-    this._generateNodeGetters();
 
     // Label for the sync buttons.
     const appMenuLabel = PanelMultiView.getViewNode(
@@ -773,10 +742,12 @@ var gSync = {
       return;
     }
 
-    if (
-      PanelUI.protonAppMenuEnabled &&
-      UIState.get().status === UIState.STATUS_NOT_CONFIGURED
-    ) {
+    // We read the state that's been set on the root node, since that makes
+    // it easier to test the various front-end states without having to actually
+    // have UIState know about it.
+    let fxaStatus = document.documentElement.getAttribute("fxastatus");
+
+    if (PanelUI.protonAppMenuEnabled && fxaStatus == "not_configured") {
       this.openFxAEmailFirstPageFromFxaMenu(
         PanelMultiView.getViewNode(document, "PanelUI-fxa")
       );
@@ -796,7 +767,7 @@ var gSync = {
       "PanelUI-sign-out-separator"
     );
     fxaSignOutButtonEl.hidden = fxaSignOutSeparator.hidden =
-      UIState.get().status != UIState.STATUS_SIGNED_IN;
+      fxaStatus != "signedin";
 
     this.enableSendTabIfValidTab();
 
@@ -915,11 +886,7 @@ var gSync = {
       );
     } else if (state.status === UIState.STATUS_SIGNED_IN) {
       stateValue = "signedin";
-      if (
-        state.avatarURL &&
-        !state.avatarIsDefault &&
-        !PanelUI.protonAppMenuEnabled
-      ) {
+      if (state.avatarURL && !state.avatarIsDefault) {
         // The user has specified a custom avatar, attempt to load the image on all the menu buttons.
         const bgImage = `url("${state.avatarURL}")`;
         let img = new Image();
@@ -976,7 +943,7 @@ var gSync = {
     // All tabs selected must be sendable for the Send Tab button to be enabled
     // on the FxA menu.
     let canSendAllURIs = gBrowser.selectedTabs.every(t =>
-      this.isSendableURI(t.linkedBrowser.currentURI.spec)
+      BrowserUtils.isShareableURL(t.linkedBrowser.currentURI)
     );
 
     PanelMultiView.getViewNode(
@@ -1564,24 +1531,6 @@ var gSync = {
     }
   },
 
-  isSendableURI(aURISpec) {
-    if (!aURISpec) {
-      return false;
-    }
-    // Disallow sending tabs with more than 65535 characters.
-    if (aURISpec.length > 65535) {
-      return false;
-    }
-    if (this.UNSENDABLE_URL_REGEXP) {
-      return !this.UNSENDABLE_URL_REGEXP.test(aURISpec);
-    }
-    // The preference has been removed, or is an invalid regexp, so we treat it
-    // as a valid URI. We've already logged an error when trying to construct
-    // the regexp, and the more problematic case is the length, which we've
-    // already addressed.
-    return true;
-  },
-
   // "Send Tab to Device" menu item
   updateTabContextMenu(aPopupMenu, aTargetTab) {
     // We may get here before initialisation. This situation
@@ -1596,7 +1545,7 @@ var gSync = {
     for (let tab of aTargetTab.multiselected
       ? gBrowser.selectedTabs
       : [aTargetTab]) {
-      if (this.isSendableURI(tab.linkedBrowser.currentURI.spec)) {
+      if (BrowserUtils.isShareableURL(tab.linkedBrowser.currentURI)) {
         hasASendableURI = true;
         break;
       }
@@ -1658,10 +1607,11 @@ var gSync = {
     }
 
     const targetURI = showSendLink
-      ? contextMenu.linkURL
-      : contextMenu.browser.currentURI.spec;
+      ? contextMenu.getLinkURI()
+      : contextMenu.browser.currentURI;
     const enabled =
-      !this.sendTabConfiguredAndLoading && this.isSendableURI(targetURI);
+      !this.sendTabConfiguredAndLoading &&
+      BrowserUtils.isShareableURL(targetURI);
     contextMenu.setItemAttr(
       showSendPage ? "context-sendpagetodevice" : "context-sendlinktodevice",
       "disabled",

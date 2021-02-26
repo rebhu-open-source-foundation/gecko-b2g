@@ -1875,7 +1875,7 @@ void BluetoothGattManager::ConnectPeripheral(
     return;
   }
 
-  server->mConnectionMap.Put(aAddress, 0);
+  server->mConnectionMap.InsertOrUpdate(aAddress, 0);
   server->mConnectPeripheralRunnable = aRunnable;
 
   if (server->mServerIf > 0) {
@@ -3042,7 +3042,7 @@ void BluetoothGattManager::ConnectionNotification(
 
   // Update the connection map based on the connection status
   if (aConnected) {
-    server->mConnectionMap.Put(aBdAddr, aConnId);
+    server->mConnectionMap.InsertOrUpdate(aBdAddr, aConnId);
   } else {
     server->mConnectionMap.Remove(aBdAddr);
   }

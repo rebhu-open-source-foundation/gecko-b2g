@@ -193,6 +193,7 @@ let JSWINDOWACTORS = {
         AboutLoginsImportFromBrowser: { wantUntrusted: true },
         AboutLoginsImportFromFile: { wantUntrusted: true },
         AboutLoginsImportReportInit: { wantUntrusted: true },
+        AboutLoginsImportReportReady: { wantUntrusted: true },
         AboutLoginsInit: { wantUntrusted: true },
         AboutLoginsGetHelp: { wantUntrusted: true },
         AboutLoginsOpenPreferences: { wantUntrusted: true },
@@ -2329,6 +2330,47 @@ BrowserGlue.prototype = {
       {
         task: () => {
           this._addBreachAlertsPrefObserver();
+        },
+      },
+
+      // Report pinning status and the type of shortcut used to launch
+      {
+        condition: AppConstants.platform == "win",
+        task: async () => {
+          let shellService = Cc[
+            "@mozilla.org/browser/shell-service;1"
+          ].getService(Ci.nsIWindowsShellService);
+
+          try {
+            Services.telemetry.scalarSet(
+              "os.environment.is_taskbar_pinned",
+              await shellService.isCurrentAppPinnedToTaskbarAsync()
+            );
+          } catch (ex) {
+            Cu.reportError(ex);
+          }
+
+          let classification;
+          let shortcut;
+          try {
+            shortcut = Services.appinfo.processStartupShortcut;
+            classification = shellService.classifyShortcut(shortcut);
+          } catch (ex) {
+            Cu.reportError(ex);
+          }
+
+          if (!classification) {
+            if (shortcut) {
+              classification = "OtherShortcut";
+            } else {
+              classification = "Other";
+            }
+          }
+
+          Services.telemetry.scalarSet(
+            "os.environment.launch_method",
+            classification
+          );
         },
       },
 

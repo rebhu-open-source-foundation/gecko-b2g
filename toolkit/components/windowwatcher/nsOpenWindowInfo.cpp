@@ -73,14 +73,15 @@ nsBrowsingContextReadyCallback::~nsBrowsingContextReadyCallback() {
 
 NS_IMETHODIMP nsBrowsingContextReadyCallback::BrowsingContextReady(
     BrowsingContext* aBC) {
-  if (mPromise) {
-    if (aBC) {
-      mPromise->Resolve(aBC, __func__);
-    } else {
-      mPromise->Reject(NS_ERROR_FAILURE, __func__);
-    }
-
-    mPromise = nullptr;
+  MOZ_DIAGNOSTIC_ASSERT(mPromise,
+                        "The 'browsing context ready' callback is null");
+  if (!mPromise) {
+    return NS_OK;
+  }
+  if (aBC) {
+    mPromise->Resolve(aBC, __func__);
+  } else {
+    mPromise->Reject(NS_ERROR_FAILURE, __func__);
   }
   return NS_OK;
 }

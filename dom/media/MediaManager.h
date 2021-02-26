@@ -15,6 +15,7 @@
 #include "nsHashKeys.h"
 #include "nsClassHashtable.h"
 #include "nsRefPtrHashtable.h"
+#include "nsIMemoryReporter.h"
 #include "nsIObserver.h"
 
 #include "nsIDOMNavigatorUserMedia.h"
@@ -138,7 +139,9 @@ typedef nsRefPtrHashtable<nsUint64HashKey, GetUserMediaWindowListener>
     WindowTable;
 typedef MozPromise<RefPtr<AudioDeviceInfo>, nsresult, true> SinkInfoPromise;
 
-class MediaManager final : public nsIMediaManagerService, public nsIObserver {
+class MediaManager final : public nsIMediaManagerService,
+                           public nsIMemoryReporter,
+                           public nsIObserver {
   friend SourceListener;
 
  public:
@@ -173,6 +176,7 @@ class MediaManager final : public nsIMediaManagerService, public nsIObserver {
 
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIOBSERVER
+  NS_DECL_NSIMEMORYREPORTER
   NS_DECL_NSIMEDIAMANAGERSERVICE
 
   media::Parent<media::NonE10s>* GetNonE10sParent();
@@ -362,24 +366,7 @@ class MediaManager final : public nsIMediaManagerService, public nsIObserver {
   nsresult CollectRecordingStatus(nsPIDOMWindowInner* aWindow);
 #endif
 
-  // ONLY access from MainThread so we don't need to lock
-  WindowTable mActiveWindows;
-  nsRefPtrHashtable<nsStringHashKey, GetUserMediaTask> mActiveCallbacks;
-  nsClassHashtable<nsUint64HashKey, nsTArray<nsString>> mCallIds;
-  nsTArray<RefPtr<dom::GetUserMediaRequest>> mPendingGUMRequest;
-  RefPtr<MediaTimer> mDeviceChangeTimer;
-  bool mCamerasMuted = false;
-  bool mMicrophonesMuted = false;
-
-  // Always exists
-  const RefPtr<TaskQueue> mMediaThread;
-  nsCOMPtr<nsIAsyncShutdownBlocker> mShutdownBlocker;
-
-  // ONLY accessed from MediaManagerThread
-  RefPtr<MediaEngine> mBackend;
-
-  static StaticRefPtr<MediaManager> sSingleton;
-  static StaticMutex sSingletonMutex;
+  MOZ_DEFINE_MALLOC_SIZE_OF(MallocSizeOf);
 
   struct nsStringHasher {
     using Key = nsString;
@@ -394,8 +381,26 @@ class MediaManager final : public nsIMediaManagerService, public nsIObserver {
     }
   };
 
+  // ONLY access from MainThread so we don't need to lock
+  WindowTable mActiveWindows;
+  nsRefPtrHashtable<nsStringHashKey, GetUserMediaTask> mActiveCallbacks;
+  nsClassHashtable<nsUint64HashKey, nsTArray<nsString>> mCallIds;
+  nsTArray<RefPtr<dom::GetUserMediaRequest>> mPendingGUMRequest;
   using DeviceIdSet = HashSet<nsString, nsStringHasher, InfallibleAllocPolicy>;
   DeviceIdSet mDeviceIDs;
+  RefPtr<MediaTimer> mDeviceChangeTimer;
+  bool mCamerasMuted = false;
+  bool mMicrophonesMuted = false;
+
+  // Always exists
+  const RefPtr<TaskQueue> mMediaThread;
+  nsCOMPtr<nsIAsyncShutdownBlocker> mShutdownBlocker;
+
+  // ONLY accessed from MediaManagerThread
+  RefPtr<MediaEngine> mBackend;
+
+  static StaticRefPtr<MediaManager> sSingleton;
+  static StaticMutex sSingletonMutex;
 
   // Connect/Disconnect on media thread only
   MediaEventListener mDeviceListChangeListener;

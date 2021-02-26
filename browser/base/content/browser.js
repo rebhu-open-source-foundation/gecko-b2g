@@ -988,10 +988,6 @@ const gStoragePressureObserver = {
       [msg] = await document.l10n.formatValues([
         { id: "space-alert-under-5gb-message" },
       ]);
-      buttons.push({
-        "l10n-id": "space-alert-under-5gb-ok-button",
-        callback() {},
-      });
     } else {
       // The firefox-used space >= 5GB, then guide users to about:preferences
       // to clear some data stored on firefox by websites.
@@ -1415,18 +1411,6 @@ var gKeywordURIFixup = {
               openTrustedLinkIn(fixedURI.spec, "current");
             },
           },
-          {
-            label: gNavigatorBundle.getString("keywordURIFixup.dismiss"),
-            accessKey: gNavigatorBundle.getString(
-              "keywordURIFixup.dismiss.accesskey"
-            ),
-            callback() {
-              let notification = notificationBox.getNotificationWithValue(
-                "keyword-uri-fixup"
-              );
-              notificationBox.removeNotification(notification, true);
-            },
-          },
         ];
         let notification = notificationBox.appendNotification(
           message,
@@ -1761,9 +1745,11 @@ var gBrowserInit = {
       }
     });
 
-    this._setInitialFocus();
-
     updateFxaToolbarMenu(gFxaToolbarEnabled, true);
+
+    // Setting the focus will cause a style flush, it's preferable to call anything
+    // that will modify the DOM from within this function before this call.
+    this._setInitialFocus();
 
     this.domContentLoaded = true;
   },
@@ -1870,6 +1856,11 @@ var gBrowserInit = {
     if (BrowserUIUtils.quitShortcutDisabled) {
       document.getElementById("key_quitApplication").remove();
       document.getElementById("menu_FileQuitItem").removeAttribute("key");
+
+      PanelMultiView.getViewNode(
+        document,
+        "appMenu-quit-button2"
+      )?.removeAttribute("key");
       PanelMultiView.getViewNode(
         document,
         "appMenu-quit-button"

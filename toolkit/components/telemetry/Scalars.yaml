@@ -1774,6 +1774,45 @@ os.environment:
     operating_systems:
       - "windows"
 
+  launch_method:
+    bug_numbers:
+      - 1685213
+    description: >
+      Records how Firefox was started on Windows.
+      Currently will be one of "Desktop", "StartMenu" (including pins),
+      "Taskbar", "OtherShortcut", or "Other"
+    expires: "94"
+    kind: string
+    notification_emails:
+      - application-update-telemetry-alerts@mozilla.com
+      - agashlin@mozilla.com
+      - shong@mozilla.com
+    release_channel_collection: opt-out
+    products:
+      - firefox
+    record_in_processes:
+      - main
+    operating_systems:
+      - windows
+
+  is_taskbar_pinned:
+    bug_numbers:
+      - 1685213
+    description: Whether this app was pinned to taskbar on startup
+    expires: "94"
+    kind: boolean
+    notification_emails:
+      - application-update-telemetry-alerts@mozilla.com
+      - agashlin@mozilla.com
+      - shong@mozilla.com
+    release_channel_collection: opt-out
+    products:
+      - firefox
+    record_in_processes:
+      - main
+    operating_systems:
+      - windows
+
 pictureinpicture:
   opened_method:
     bug_numbers:
@@ -6707,6 +6746,60 @@ contextual.services.topsites:
       A keyed uint recording how many times the user has clicked on the sponsored TopSites
       on the newtab page. The key is a combination of the source and the placement of
       the TopSites tile (1-based). such as 'urlbar_1', 'newtab_2'.
+    expires: never
+    kind: uint
+    keyed: true
+    notification_emails:
+      - najiang@mozilla.com
+    release_channel_collection: opt-out
+    products:
+      - 'firefox'
+    record_in_processes:
+      - main
+
+
+contextual.services.quicksuggest:
+  impression:
+    bug_numbers:
+      - 1693927
+    description: >
+      A keyed uint recording how many times the user has viewed Firefox Suggests
+      (a.k.a. Quick Suggest) results in the urlbar. The key is the 1-based index
+      of each result.
+    expires: never
+    kind: uint
+    keyed: true
+    notification_emails:
+      - najiang@mozilla.com
+    release_channel_collection: opt-out
+    products:
+      - 'firefox'
+    record_in_processes:
+      - main
+  click:
+    bug_numbers:
+      - 1693927
+    description: >
+      A keyed uint recording how many times the user has clicked on Firefox
+      Suggests (a.k.a. Quick Suggest) results in the urlbar (not including the
+      help button). The key is the 1-based index of each result.
+    expires: never
+    kind: uint
+    keyed: true
+    notification_emails:
+      - najiang@mozilla.com
+    release_channel_collection: opt-out
+    products:
+      - 'firefox'
+    record_in_processes:
+      - main
+  help:
+    bug_numbers:
+      - 1693927
+    description: >
+      A keyed uint recording how many times the user has clicked on the help
+      button in Firefox Suggests (a.k.a. Quick Suggest) results in the urlbar.
+      The key is the 1-based index of each result.
     expires: never
     kind: uint
     keyed: true

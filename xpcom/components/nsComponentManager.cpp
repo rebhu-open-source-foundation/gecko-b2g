@@ -674,7 +674,7 @@ void nsComponentManagerImpl::RegisterContractIDLocked(
     return;
   }
 
-  mContractIDs.Put(AsLiteralCString(aEntry->contractid), f);
+  mContractIDs.InsertOrUpdate(AsLiteralCString(aEntry->contractid), f);
 }
 
 static void CutExtension(nsCString& aPath) {
@@ -744,10 +744,7 @@ void nsComponentManagerImpl::ManifestComponent(ManifestProcessingContext& aCx,
     return;
   }
 
-  KnownModule* const km =
-      mKnownModules
-          .GetOrInsertWith(hash, [&] { return MakeUnique<KnownModule>(fl); })
-          .get();
+  KnownModule* const km = mKnownModules.GetOrInsertNew(hash, fl);
 
   void* place = mArena.Allocate(sizeof(nsCID));
   nsID* permanentCID = static_cast<nsID*>(place);
@@ -757,7 +754,7 @@ void nsComponentManagerImpl::ManifestComponent(ManifestProcessingContext& aCx,
   auto* e = new (KnownNotNull, place) mozilla::Module::CIDEntry();
   e->cid = permanentCID;
 
-  mFactories.Put(permanentCID, new nsFactoryEntry(e, km));
+  mFactories.InsertOrUpdate(permanentCID, new nsFactoryEntry(e, km));
 }
 
 void nsComponentManagerImpl::ManifestContract(ManifestProcessingContext& aCx,
@@ -786,7 +783,7 @@ void nsComponentManagerImpl::ManifestContract(ManifestProcessingContext& aCx,
 
   nsDependentCString contractString(contract);
   StaticComponents::InvalidateContractID(nsDependentCString(contractString));
-  mContractIDs.Put(contractString, f);
+  mContractIDs.InsertOrUpdate(contractString, f);
 }
 
 void nsComponentManagerImpl::ManifestCategory(ManifestProcessingContext& aCx,
@@ -1506,7 +1503,7 @@ nsComponentManagerImpl::RegisterFactory(const nsCID& aClass, const char* aName,
     nsFactoryEntry* oldf = mFactories.Get(&aClass);
     if (oldf) {
       StaticComponents::InvalidateContractID(contractID);
-      mContractIDs.Put(contractID, oldf);
+      mContractIDs.InsertOrUpdate(contractID, oldf);
       return NS_OK;
     }
 
@@ -1534,7 +1531,7 @@ nsComponentManagerImpl::RegisterFactory(const nsCID& aClass, const char* aName,
     }
     if (aContractID) {
       nsDependentCString contractID(aContractID);
-      mContractIDs.Put(contractID, f.get());
+      mContractIDs.InsertOrUpdate(contractID, f.get());
       // We allow dynamically-registered contract IDs to override static
       // entries, so invalidate any static entry for this contract ID.
       StaticComponents::InvalidateContractID(contractID);

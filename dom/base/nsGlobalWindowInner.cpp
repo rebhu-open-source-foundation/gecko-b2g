@@ -1012,7 +1012,7 @@ nsGlobalWindowInner::nsGlobalWindowInner(nsGlobalWindowOuter* aOuterWindow,
   // We seem to see crashes in release builds because of null
   // |sInnerWindowsById|.
   if (sInnerWindowsById) {
-    sInnerWindowsById->Put(mWindowID, this);
+    sInnerWindowsById->InsertOrUpdate(mWindowID, this);
   }
 }
 
@@ -6605,7 +6605,7 @@ void nsGlobalWindowInner::AddGamepad(GamepadHandle aHandle, Gamepad* aGamepad) {
   }
   mGamepadIndexSet.Put(index);
   aGamepad->SetIndex(index);
-  mGamepads.Put(aHandle, RefPtr{aGamepad});
+  mGamepads.InsertOrUpdate(aHandle, RefPtr{aGamepad});
 }
 
 void nsGlobalWindowInner::RemoveGamepad(GamepadHandle aHandle) {
@@ -7169,7 +7169,7 @@ ChromeMessageBroadcaster* nsGlobalWindowInner::GetGroupMessageManager(
   MOZ_ASSERT(IsChromeWindow());
 
   return mChromeFields.mGroupMessageManagers
-      .GetOrInsertWith(
+      .LookupOrInsertWith(
           aGroup,
           [&] {
             return MakeAndAddRef<ChromeMessageBroadcaster>(MessageManager());
