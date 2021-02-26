@@ -38,6 +38,7 @@
 #include <private/android_filesystem_config.h>  // AID_SYSTEM
 #include <android/net/INetd.h>
 #include <android/net/InterfaceConfigurationParcel.h>
+#include <android/net/TetherStatsParcel.h>
 #include <binder/IServiceManager.h>
 #include <utils/String16.h>
 #include <binder/IBinder.h>
@@ -62,6 +63,7 @@ using namespace mozilla::dom;
 using namespace mozilla::ipc;
 using android::net::IDnsResolver;
 using android::net::ResolverParamsParcel;
+using android::net::TetherStatsParcel;
 using mozilla::system::Property;
 
 static bool ENABLE_NU_DEBUG = false;
@@ -1542,6 +1544,7 @@ void NetworkUtils::ExecuteCommand(NetworkParams aOptions) {
       BUILD_ENTRY(removeTetheringAlarm),
       BUILD_ENTRY(setDhcpServer),
       BUILD_ENTRY(getTetheringStatus),
+      BUILD_ENTRY(getTetherStats),
       BUILD_ENTRY(updateUpStream),
       BUILD_ENTRY(removeUpStream),
       BUILD_ENTRY(setUSBTethering),
@@ -2342,6 +2345,37 @@ CommandResult NetworkUtils::getTetheringStatus(NetworkParams& aOptions) {
   gNetd->tetherIsEnabled(&tetherEnabled);
   result.mResult = tetherEnabled;
 
+  return CommandResult(result);
+}
+
+CommandResult NetworkUtils::getTetherStats(NetworkParams& aOptions) {
+  NetworkResultOptions result;
+  Status status;
+  result.mResult = false;
+
+  std::vector<TetherStatsParcel> tetherStatsParcelVec;
+  status = gNetd->tetherGetStats(&tetherStatsParcelVec);
+  NU_DBG("getTetherStats %s", status.isOk() ? "success" : "failed");
+  result.mResult = status.isOk();
+  result.mTetherStats.Construct();
+
+  if (tetherStatsParcelVec.size()) {
+    for (auto statsParcel : tetherStatsParcelVec) {
+      if (!strcmp(statsParcel.iface.c_str(), "rmnet0")) {
+        // Just ignore the dummy upstream interface.
+        continue;
+      }
+      TetherStats tetherStats;
+      tetherStats.mIfname =
+          nsString(NS_ConvertUTF8toUTF16(statsParcel.iface.c_str()));
+      tetherStats.mRxBytes = statsParcel.rxBytes;
+      tetherStats.mRxPackets = statsParcel.rxPackets;
+      tetherStats.mTxBytes = statsParcel.txBytes;
+      tetherStats.mTxPackets = statsParcel.txPackets;
+      result.mTetherStats.Value().AppendElement(std::move(tetherStats),
+                                                mozilla::fallible);
+    }
+  }
   return CommandResult(result);
 }
 

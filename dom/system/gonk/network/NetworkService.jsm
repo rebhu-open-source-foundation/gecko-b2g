@@ -989,6 +989,17 @@ NetworkService.prototype = {
       aCallback.nativeCommandResult(aResult.result);
     });
   },
+
+  getTetherStats(aCallback) {
+    let params = {
+      cmd: "getTetherStats",
+    };
+
+    this.controlMessage(params, aResult => {
+      debug("getTetherStats result: " + JSON.stringify(aResult.tetherStats));
+      aCallback.getTetherStatsResult(aResult.result, aResult.tetherStats);
+    });
+  },
 };
 
 var EXPORTED_SYMBOLS = ["NetworkService"];

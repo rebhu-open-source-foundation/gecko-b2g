@@ -307,6 +307,7 @@ class NetworkUtils final {
   CommandResult removeTetheringAlarm(NetworkParams& aOptions);
   CommandResult setDhcpServer(NetworkParams& aOptions);
   CommandResult getTetheringStatus(NetworkParams& aOptions);
+  CommandResult getTetherStats(NetworkParams& aOptions);
   CommandResult setUSBTethering(NetworkParams& aOptions);
   CommandResult setWifiTethering(NetworkParams& aOptions);
   CommandResult updateUpStream(NetworkParams& aOptions);

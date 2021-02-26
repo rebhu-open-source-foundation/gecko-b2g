@@ -196,6 +196,20 @@ interface nsIStartClatdCallback : nsISupports
   void startClatdResult(in boolean success, in AString clatdAddress);
 };
 
+[scriptable, function, uuid(e381a45b-34b6-4512-bd1b-170dbb52a433)]
+interface nsIGetTetherStatsCallback : nsISupports
+{
+  /**
+   * Callback function used to return the list of tethering statistics.
+   *
+   * @param success
+   *        Boolean to indicate the operation is successful or not.
+   * @param tetherStats
+   *        An array of tethering statistics structure.
+   */
+  void getTetherStatsResult(in boolean success, in jsval tetherStats);
+};
+
 /**
  * Provide network services.
  */
@@ -676,4 +690,11 @@ interface nsINetworkService : nsISupports
   void setTcpBufferSize(in AString tcpBufferSizes,
               in nsINativeCommandCallback callback);
 
+  /*
+   * Obtain tethering througput statistics.
+   *
+   * @param callback
+   *        Callback function to return the result.
+   */
+  void getTetherStats(in nsIGetTetherStatsCallback callback);
 };
