@@ -457,10 +457,6 @@ browser.Context = class {
       }
     }
 
-    // TODO(ato): Currently tied to curBrowser, but should be moved to
-    // WebElement when introduced by https://bugzil.la/1400256.
-    this.eventObserver = new WebElementEventTarget(this.messageManager);
-
     return this.tab;
   }
 
