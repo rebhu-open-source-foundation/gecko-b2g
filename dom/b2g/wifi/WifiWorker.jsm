@@ -1840,8 +1840,8 @@ var WifiManager = (function() {
     // Note these following calls ignore errors. If we fail to kill the
     // supplicant gracefully, then we need to continue telling it to die
     // until it does.
-    let doDisableWifi = function() {
-      manager.state = "UNINITIALIZED";
+    manager.state = "UNINITIALIZED";
+    manager.disconnect(function() {
       gNetworkService.setInterfaceConfig(
         { ifname: manager.ifname, link: "down" },
         function(ok) {
@@ -1854,17 +1854,16 @@ var WifiManager = (function() {
           });
         }
       );
+    });
 
-      // We are going to terminate the connection between wpa_supplicant.
-      // Stop the polling timer immediately to prevent connection info update
-      // command blocking in control thread until socket timeout.
-      notify("stopconnectioninfotimer");
+    // We are going to terminate the connection between wpa_supplicant.
+    // Stop the polling timer immediately to prevent connection info update
+    // command blocking in control thread until socket timeout.
+    notify("stopconnectioninfotimer");
 
-      postDhcpSetup(function() {
-        manager.connectionDropped(function() {});
-      });
-    };
-    doDisableWifi();
+    postDhcpSetup(function() {
+      manager.connectionDropped(function() {});
+    });
   };
 
   // Get wifi interface and load wifi driver when enable Ap mode.
