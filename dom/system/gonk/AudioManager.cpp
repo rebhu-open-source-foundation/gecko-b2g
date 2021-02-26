@@ -858,16 +858,8 @@ AudioManager::AudioManager()
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(!sAudioManager);
 
-  AudioSystem::setErrorCallback(BinderDeadCallback);
-  AudioSystem::addAudioPortCallback(mAudioPortCallbackHolder->Callback());
-
 #ifdef PRODUCT_MANUFACTURER_QUALCOMM
-  // Build FM volume curves from music stream. Make sure this is done before
-  // calling any volume setting functions.
   mFmVolumeCurves = MakeUnique<VolumeCurves>(AUDIO_STREAM_MUSIC);
-  mFmVolumeCurves->Build(AUDIO_DEVICE_OUT_SPEAKER);
-  mFmVolumeCurves->Build(AUDIO_DEVICE_OUT_WIRED_HEADSET);
-  mFmVolumeCurves->Build(AUDIO_DEVICE_OUT_WIRED_HEADPHONE);
 #endif
 
   // Create VolumeStreamStates
@@ -875,6 +867,43 @@ AudioManager::AudioManager()
     auto streamState = MakeUnique<VolumeStreamState>(*this, streamType);
     mStreamStates.AppendElement(std::move(streamState));
   }
+
+  Init();
+}
+
+void AudioManager::Init() {
+  // Register AudioSystem callbacks.
+  AudioSystem::setErrorCallback(BinderDeadCallback);
+  AudioSystem::addAudioPortCallback(mAudioPortCallbackHolder->Callback());
+
+  // Gecko only control stream volume not master so set to default value
+  // directly.
+  AudioSystem::setMasterVolume(1.0);
+
+  // Android 10 introduces new rules for sharing audio input. This call can
+  // prevent AudioPolicyService from treating us as assistant app and
+  // incorrectly muting our audio input because we don't meet some criteria of
+  // assistant app.
+  AudioSystem::setAssistantUid(AUDIO_UID_INVALID);
+
+  // If this is not set, AUDIO_STREAM_ENFORCED_AUDIBLE will be mapped to
+  // AUDIO_STREAM_MUSIC inside AudioPolicyManager.
+  AudioSystem::setForceUse(AUDIO_POLICY_FORCE_FOR_SYSTEM,
+                           AUDIO_POLICY_FORCE_SYSTEM_ENFORCED);
+
+  // Initialize mStreamStates, which calls AudioSystem::initStreamVolume().
+  for (auto& streamState : mStreamStates) {
+    streamState->InitStreamVolume();
+  }
+
+#ifdef PRODUCT_MANUFACTURER_QUALCOMM
+  // Build FM volume curves from music stream. The curves can only be computed
+  // after AudioSystem::initStreamVolume() is called.
+  mFmVolumeCurves->Build(AUDIO_DEVICE_OUT_SPEAKER);
+  mFmVolumeCurves->Build(AUDIO_DEVICE_OUT_WIRED_HEADSET);
+  mFmVolumeCurves->Build(AUDIO_DEVICE_OUT_WIRED_HEADPHONE);
+#endif
+
   // Initialize stream volumes with default values
   for (int32_t streamType = 0; streamType < AUDIO_STREAM_CNT; streamType++) {
     uint32_t volIndex = sDefaultStreamVolumeTbl[streamType];
@@ -895,10 +924,7 @@ AudioManager::AudioManager()
   // Get the initial volume index from settings DB during boot up.
   InitVolumeFromDatabase();
 
-  // Gecko only control stream volume not master so set to default value
-  // directly.
-  AudioSystem::setMasterVolume(1.0);
-
+  // Register to observer service.
   nsCOMPtr<nsIObserverService> obs = services::GetObserverService();
   NS_ENSURE_TRUE_VOID(obs);
   if (NS_FAILED(
@@ -921,6 +947,11 @@ AudioManager::AudioManager()
           obs->AddObserver(this, BLUETOOTH_HFP_WBS_STATUS_CHANGED_ID, false))) {
     NS_WARNING("Failed to add bluetooth hfp WBS status changed observer!");
   }
+#ifdef PRODUCT_MANUFACTURER_MTK
+  if (NS_FAILED(obs->AddObserver(this, SCREEN_STATE_CHANGED, false))) {
+    NS_WARNING("Failed to add screen-state-changed observer!");
+  }
+#endif
 
   // Add volume change observer.
   nsCOMPtr<nsISettingsManager> settingsManager =
@@ -941,12 +972,6 @@ AudioManager::AudioManager()
     LOGE("Failed to Get SETTINGS MANAGER to AddObserver!");
   }
 
-#ifdef PRODUCT_MANUFACTURER_MTK
-  if (NS_FAILED(obs->AddObserver(this, SCREEN_STATE_CHANGED, false))) {
-    NS_WARNING("Failed to add screen-state-changed observer!");
-  }
-#endif
-
 #ifdef MOZ_B2G_RIL
   char value[PROPERTY_VALUE_MAX];
   property_get("ro.moz.mute.call.to_ril", value, "false");
@@ -954,17 +979,6 @@ AudioManager::AudioManager()
     mMuteCallToRIL = true;
   }
 #endif
-
-  // Android 10 introduces new rules for sharing audio input. This call can
-  // prevent AudioPolicyService from treating us as assistant app and
-  // incorrectly muting our audio input because we don't meet some criteria of
-  // assistant app.
-  AudioSystem::setAssistantUid(AUDIO_UID_INVALID);
-
-  // If this is not set, AUDIO_STREAM_ENFORCED_AUDIBLE will be mapped to
-  // AUDIO_STREAM_MUSIC inside AudioPolicyManager.
-  AudioSystem::setForceUse(AUDIO_POLICY_FORCE_FOR_SYSTEM,
-                           AUDIO_POLICY_FORCE_SYSTEM_ENFORCED);
 }
 
 AudioManager::~AudioManager() {
@@ -1556,8 +1570,6 @@ AudioManager::VolumeStreamState::VolumeStreamState(AudioManager& aManager,
     default:
       break;
   }
-
-  InitStreamVolume();
 }
 
 bool AudioManager::VolumeStreamState::IsDevicesChanged() {

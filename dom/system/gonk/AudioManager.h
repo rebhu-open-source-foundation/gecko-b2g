@@ -178,6 +178,7 @@ class AudioManager final : public nsIAudioManager, public nsIObserver {
 
   AudioManager();
   ~AudioManager();
+  void Init();
 
   RefPtr<VolumeInitCallback> mVolumeInitCallback;
   RefPtr<VolumeSetCallback> mVolumeSetCallback;
