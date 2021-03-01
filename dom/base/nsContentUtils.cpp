@@ -965,7 +965,7 @@ bool nsContentUtils::InitializeEventTable() {
 
   // Subtract one from the length because of the trailing null
   for (uint32_t i = 0; i < ArrayLength(eventArray) - 1; ++i) {
-    MOZ_ASSERT(!sAtomEventTable->Lookup(eventArray[i].mAtom),
+    MOZ_ASSERT(!sAtomEventTable->Contains(eventArray[i].mAtom),
                "Double-defining event name; fix your EventNameList.h");
     sAtomEventTable->InsertOrUpdate(eventArray[i].mAtom, eventArray[i]);
     if (ShouldAddEventToStringEventTable(eventArray[i])) {
@@ -10109,6 +10109,7 @@ bool nsContentUtils::IsMessageInputEvent(const IPC::Message& aMsg) {
     switch (aMsg.type()) {
       case mozilla::dom::PBrowser::Msg_RealMouseMoveEvent__ID:
       case mozilla::dom::PBrowser::Msg_RealMouseButtonEvent__ID:
+      case mozilla::dom::PBrowser::Msg_RealMouseEnterExitWidgetEvent__ID:
       case mozilla::dom::PBrowser::Msg_RealKeyEvent__ID:
       case mozilla::dom::PBrowser::Msg_MouseWheelEvent__ID:
       case mozilla::dom::PBrowser::Msg_RealTouchEvent__ID:
@@ -10129,6 +10130,7 @@ bool nsContentUtils::IsMessageCriticalInputEvent(const IPC::Message& aMsg) {
     switch (aMsg.type()) {
       case mozilla::dom::PBrowser::Msg_RealMouseButtonEvent__ID:
       case mozilla::dom::PBrowser::Msg_RealKeyEvent__ID:
+      case mozilla::dom::PBrowser::Msg_MouseWheelEvent__ID:
       case mozilla::dom::PBrowser::Msg_RealTouchEvent__ID:
       case mozilla::dom::PBrowser::Msg_RealDragEvent__ID:
         return true;

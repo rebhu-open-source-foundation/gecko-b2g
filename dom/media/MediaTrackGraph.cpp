@@ -698,8 +698,7 @@ void MediaTrackGraphImpl::CloseAudioInputImpl(
     MOZ_ASSERT(aID.isSome(), "Closing an audio input that was not opened.");
   }
 
-  nsTArray<RefPtr<AudioDataListener>>* listeners =
-      mInputDeviceUsers.GetValue(aID.value());
+  auto listeners = mInputDeviceUsers.Lookup(aID.value());
 
   MOZ_ASSERT(listeners);
   bool wasPresent = listeners->RemoveElement(aListener);
@@ -807,7 +806,7 @@ void MediaTrackGraphImpl::NotifyOutputData(AudioDataValue* aBuffer,
   // device.
   // The absence of an input consumer is enough to know we need to bail out
   // here.
-  if (!mInputDeviceUsers.GetValue(mInputDeviceID)) {
+  if (!mInputDeviceUsers.Contains(mInputDeviceID)) {
     return;
   }
 #else
@@ -817,17 +816,14 @@ void MediaTrackGraphImpl::NotifyOutputData(AudioDataValue* aBuffer,
 #endif
   // When/if we decide to support multiple input devices per graph, this needs
   // to loop over them.
-  nsTArray<RefPtr<AudioDataListener>>* listeners =
-      mInputDeviceUsers.GetValue(mInputDeviceID);
-  MOZ_ASSERT(listeners);
-  for (auto& listener : *listeners) {
+  for (auto& listener : *mInputDeviceUsers.Lookup(mInputDeviceID)) {
     listener->NotifyOutputData(this, aBuffer, aFrames, aRate, aChannels);
   }
 }
 
 void MediaTrackGraphImpl::NotifyInputStopped() {
 #ifdef ANDROID
-  if (!mInputDeviceUsers.GetValue(mInputDeviceID)) {
+  if (!mInputDeviceUsers.Contains(mInputDeviceID)) {
     return;
   }
 #else
@@ -835,10 +831,7 @@ void MediaTrackGraphImpl::NotifyInputStopped() {
     return;
   }
 #endif
-  nsTArray<RefPtr<AudioDataListener>>* listeners =
-      mInputDeviceUsers.GetValue(mInputDeviceID);
-  MOZ_ASSERT(listeners);
-  for (auto& listener : *listeners) {
+  for (auto& listener : *mInputDeviceUsers.Lookup(mInputDeviceID)) {
     listener->NotifyInputStopped(this);
   }
 }
@@ -848,7 +841,7 @@ void MediaTrackGraphImpl::NotifyInputData(const AudioDataValue* aBuffer,
                                           uint32_t aChannels,
                                           uint32_t aAlreadyBuffered) {
 #ifdef ANDROID
-  if (!mInputDeviceUsers.GetValue(mInputDeviceID)) {
+  if (!mInputDeviceUsers.Contains(mInputDeviceID)) {
     return;
   }
 #else
@@ -860,10 +853,7 @@ void MediaTrackGraphImpl::NotifyInputData(const AudioDataValue* aBuffer,
     return;
   }
 #endif
-  nsTArray<RefPtr<AudioDataListener>>* listeners =
-      mInputDeviceUsers.GetValue(mInputDeviceID);
-  MOZ_ASSERT(listeners);
-  for (auto& listener : *listeners) {
+  for (auto& listener : *mInputDeviceUsers.Lookup(mInputDeviceID)) {
     listener->NotifyInputData(this, aBuffer, aFrames, aRate, aChannels,
                               aAlreadyBuffered);
   }
@@ -873,7 +863,7 @@ void MediaTrackGraphImpl::DeviceChangedImpl() {
   MOZ_ASSERT(OnGraphThread());
 
 #ifdef ANDROID
-  if (!mInputDeviceUsers.GetValue(mInputDeviceID)) {
+  if (!mInputDeviceUsers.Contains(mInputDeviceID)) {
     return;
   }
 #else
@@ -882,9 +872,7 @@ void MediaTrackGraphImpl::DeviceChangedImpl() {
   }
 #endif
 
-  nsTArray<RefPtr<AudioDataListener>>* listeners =
-      mInputDeviceUsers.GetValue(mInputDeviceID);
-  for (auto& listener : *listeners) {
+  for (auto& listener : *mInputDeviceUsers.Lookup(mInputDeviceID)) {
     listener->DeviceChanged(this);
   }
 }

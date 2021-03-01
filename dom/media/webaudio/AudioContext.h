@@ -348,7 +348,7 @@ class AudioContext final : public DOMEventTargetHelper,
                                  AudioParamDescriptorMap* aParamMap);
   const AudioParamDescriptorMap* GetParamMapForWorkletName(
       const nsAString& aName) {
-    return mWorkletParamDescriptors.GetValue(aName);
+    return mWorkletParamDescriptors.Lookup(aName).DataPtrOrNull();
   }
 
   IMPL_EVENT_HANDLER(mozinterruptbegin)

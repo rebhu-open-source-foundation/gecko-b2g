@@ -2562,7 +2562,7 @@ pref("browser.tabs.remote.autostart", false);
 
 // Whether certain properties from origin attributes should be included as part
 // of remote types. Only in effect when fission is enabled.
-pref("browser.tabs.remote.useOriginAttributesInRemoteType", false);
+pref("browser.tabs.remote.useOriginAttributesInRemoteType", true);
 
 // Pref to control whether we use separate content processes for top-level load
 // of file:// URIs.
@@ -4405,7 +4405,11 @@ pref("toolkit.aboutProcesses.showThreads", false);
   pref("toolkit.crashreporter.include_context_heap", true);
 #endif
 
-pref("layers.omtp.enabled", false);
+#if defined(XP_WIN) || defined(XP_MACOSX) || defined(MOZ_WIDGET_GTK)
+  pref("layers.omtp.enabled", true);
+#else
+  pref("layers.omtp.enabled", false);
+#endif
 
 // Support for legacy customizations that rely on checking the
 // user profile directory for these stylesheets:
