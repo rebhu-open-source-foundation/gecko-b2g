@@ -549,8 +549,7 @@ class MediaTrackGraphImpl : public MediaTrackGraph,
     *aEnableAgc = false;
     *aEnableNs = false;
 
-    nsTArray<RefPtr<AudioDataListener>>* listeners =
-        mInputDeviceUsers.GetValue(mInputDeviceID);
+    auto listeners = mInputDeviceUsers.Lookup(mInputDeviceID);
     if (!listeners) {
       return;
     }

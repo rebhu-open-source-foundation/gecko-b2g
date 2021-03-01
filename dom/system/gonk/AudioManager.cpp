@@ -202,8 +202,7 @@ class VolumeCurves {
       aIndex = MaxIndex();
     }
 
-    nsTArray<float>* curve;
-    if (curve = mCurves.GetValue(aDevice)) {
+    if (auto curve = mCurves.Lookup(aDevice)) {
       MOZ_ASSERT(curve->Length() == MaxIndex() + 1);
       return curve->ElementAt(aIndex);
     }
