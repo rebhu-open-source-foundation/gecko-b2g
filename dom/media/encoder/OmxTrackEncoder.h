@@ -6,13 +6,12 @@
 #ifndef OmxTrackEncoder_h_
 #define OmxTrackEncoder_h_
 
-#include "nsAutoPtr.h"
 #include "TrackEncoder.h"
 
 namespace android {
 class OMXVideoEncoder;
 class OMXAudioEncoder;
-}
+}  // namespace android
 
 /**
  * There are two major classes defined in file OmxTrackEncoder;
@@ -24,87 +23,44 @@ class OMXAudioEncoder;
 
 namespace mozilla {
 
-class OmxVideoTrackEncoder: public VideoTrackEncoder
-{
-public:
-  explicit OmxVideoTrackEncoder(TrackRate aTrackRate);
-  ~OmxVideoTrackEncoder();
-
-  already_AddRefed<TrackMetadataBase> GetMetadata() override;
-
-  nsresult GetEncodedTrack(EncodedFrameContainer& aData) override;
-
-protected:
-  nsresult Init(int aWidth, int aHeight,
-                int aDisplayWidth, int aDisplayHeight) override;
-
-private:
-  nsAutoPtr<android::OMXVideoEncoder> mEncoder;
-};
-
-class OmxAudioTrackEncoder : public AudioTrackEncoder
-{
-public:
-  OmxAudioTrackEncoder();
+class OmxAudioTrackEncoder : public AudioTrackEncoder {
+ public:
+  OmxAudioTrackEncoder(TrackRate aRate,
+                       MediaQueue<EncodedFrame>& aEncodedDataQueue);
   ~OmxAudioTrackEncoder();
 
   already_AddRefed<TrackMetadataBase> GetMetadata() = 0;
 
-  nsresult GetEncodedTrack(EncodedFrameContainer& aData) override;
+  nsresult Encode(AudioSegment* aSegment) override;
 
-protected:
-  nsresult Init(int aChannels, int aSamplingRate) = 0;
+ protected:
+  nsresult Init(int aChannels) = 0;
 
   // Append encoded frames to aContainer.
-  nsresult AppendEncodedFrames(EncodedFrameContainer& aContainer);
+  nsresult AppendEncodedFrames();
 
-  nsAutoPtr<android::OMXAudioEncoder> mEncoder;
+  android::OMXAudioEncoder* mEncoder;
+  TrackRate mSamplingRate;
 };
 
-class OmxAACAudioTrackEncoder final : public OmxAudioTrackEncoder
-{
-public:
-  OmxAACAudioTrackEncoder()
-    : OmxAudioTrackEncoder()
-  {}
-
-  already_AddRefed<TrackMetadataBase> GetMetadata() override;
-
-protected:
-  nsresult Init(int aChannels, int aSamplingRate) override;
-};
-
-class OmxAMRAudioTrackEncoder final : public OmxAudioTrackEncoder
-{
-public:
-  OmxAMRAudioTrackEncoder()
-    : OmxAudioTrackEncoder()
-  {}
+class OmxAMRAudioTrackEncoder final : public OmxAudioTrackEncoder {
+ public:
+  OmxAMRAudioTrackEncoder(TrackRate aTrackRate,
+                          MediaQueue<EncodedFrame>& aEncodedDataQueue)
+      : OmxAudioTrackEncoder(aTrackRate, aEncodedDataQueue),
+        // force mWB to be true by default
+        mWB(true) {}
 
   enum {
     AMR_NB_SAMPLERATE = 8000,
+    AMR_WB_SAMPLERATE = 16000,
   };
   already_AddRefed<TrackMetadataBase> GetMetadata() override;
 
-protected:
-  nsresult Init(int aChannels, int aSamplingRate) override;
+ protected:
+  nsresult Init(int aChannels) override;
+  bool mWB;
 };
 
-class OmxEVRCAudioTrackEncoder final : public OmxAudioTrackEncoder
-{
-public:
-  OmxEVRCAudioTrackEncoder()
-    : OmxAudioTrackEncoder()
-  {}
-
-  enum {
-    EVRC_SAMPLERATE = 8000,
-  };
-  already_AddRefed<TrackMetadataBase> GetMetadata() override;
-
-protected:
-  nsresult Init(int aChannels, int aSamplingRate) override;
-};
-
-}
+}  // namespace mozilla
 #endif

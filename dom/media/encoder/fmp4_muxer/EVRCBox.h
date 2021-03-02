@@ -16,7 +16,7 @@ class ISOControl;
 // 3GPP TS 26.244 6.7 'EVRCSpecificBox field for EVRCSampleEntry box'
 // Box type: 'devc'
 class EVRCSpecificBox : public Box {
-public:
+ public:
   // 3GPP members
   nsTArray<uint8_t> evrcDecSpecInfo;
 
@@ -32,7 +32,7 @@ public:
 // 3GPP TS 26.244 6.5 'EVRCSampleEntry box'
 // Box type: 'sevc'
 class EVRCSampleEntry : public AudioSampleEntry {
-public:
+ public:
   // 3GPP members
   RefPtr<EVRCSpecificBox> evrc_special_box;
 
@@ -45,6 +45,6 @@ public:
   ~EVRCSampleEntry();
 };
 
-}
+}  // namespace mozilla
 
-#endif // EVRCBOX_h_
+#endif  // EVRCBOX_h_

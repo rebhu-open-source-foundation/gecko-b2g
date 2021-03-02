@@ -7,7 +7,7 @@
 #include "nsTArray.h"
 
 #ifndef MuxerOperation_h_
-#define MuxerOperation_h_
+#  define MuxerOperation_h_
 
 namespace mozilla {
 
@@ -21,11 +21,10 @@ namespace mozilla {
  * and update the data which can't be known at Generate() (for example, the
  * offset of the video data in mp4 file).
  *
- * ISO base media format is composed of several container boxes and the contained
- * boxes. The container boxes hold a list of MuxerOperation which is implemented
- * by contained boxes. The contained boxes will be called via the list.
- * For example:
- *   MovieBox (container) ---> boxes (array of MuxerOperation)
+ * ISO base media format is composed of several container boxes and the
+ * contained boxes. The container boxes hold a list of MuxerOperation which is
+ * implemented by contained boxes. The contained boxes will be called via the
+ * list. For example: MovieBox (container) ---> boxes (array of MuxerOperation)
  *                              |---> MovieHeaderBox (full box)
  *                              |---> TrakBox (container)
  *                              |---> MovieExtendsBox (container)
@@ -33,7 +32,7 @@ namespace mozilla {
  * The complete box structure can be found at 14496-12 E.2 "The‘isom’brand".
  */
 class MuxerOperation {
-public:
+ public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(MuxerOperation)
 
   // Generate data of this box and its contained box, and calculate box size.
@@ -49,9 +48,9 @@ public:
   virtual nsresult Find(const nsACString& aType,
                         nsTArray<RefPtr<MuxerOperation>>& aOperations) = 0;
 
-protected:
+ protected:
   virtual ~MuxerOperation() {}
 };
 
-}
+}  // namespace mozilla
 #endif

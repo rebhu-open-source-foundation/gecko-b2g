@@ -10,9 +10,7 @@
 
 namespace mozilla {
 
-nsresult
-EVRCSampleEntry::Generate(uint32_t* aBoxSize)
-{
+nsresult EVRCSampleEntry::Generate(uint32_t* aBoxSize) {
   uint32_t box_size;
   nsresult rv = evrc_special_box->Generate(&box_size);
   NS_ENSURE_SUCCESS(rv, rv);
@@ -22,9 +20,7 @@ EVRCSampleEntry::Generate(uint32_t* aBoxSize)
   return NS_OK;
 }
 
-nsresult
-EVRCSampleEntry::Write()
-{
+nsresult EVRCSampleEntry::Write() {
   BoxSizeChecker checker(mControl, size);
   nsresult rv;
   rv = AudioSampleEntry::Write();
@@ -36,20 +32,14 @@ EVRCSampleEntry::Write()
 }
 
 EVRCSampleEntry::EVRCSampleEntry(ISOControl* aControl)
-  : AudioSampleEntry(NS_LITERAL_CSTRING("sevc"), aControl)
-{
+    : AudioSampleEntry("sevc"_ns, aControl) {
   evrc_special_box = new EVRCSpecificBox(aControl);
   MOZ_COUNT_CTOR(EVRCSampleEntry);
 }
 
-EVRCSampleEntry::~EVRCSampleEntry()
-{
-  MOZ_COUNT_DTOR(EVRCSampleEntry);
-}
+EVRCSampleEntry::~EVRCSampleEntry() { MOZ_COUNT_DTOR(EVRCSampleEntry); }
 
-nsresult
-EVRCSpecificBox::Generate(uint32_t* aBoxSize)
-{
+nsresult EVRCSpecificBox::Generate(uint32_t* aBoxSize) {
   nsresult rv;
   FragmentBuffer* frag = mControl->GetFragment(Audio_Track);
   rv = frag->GetCSD(evrcDecSpecInfo);
@@ -61,9 +51,7 @@ EVRCSpecificBox::Generate(uint32_t* aBoxSize)
   return NS_OK;
 }
 
-nsresult
-EVRCSpecificBox::Write()
-{
+nsresult EVRCSpecificBox::Write() {
   BoxSizeChecker checker(mControl, size);
   Box::Write();
   mControl->Write(evrcDecSpecInfo.Elements(), evrcDecSpecInfo.Length());
@@ -71,14 +59,10 @@ EVRCSpecificBox::Write()
 }
 
 EVRCSpecificBox::EVRCSpecificBox(ISOControl* aControl)
-  : Box(NS_LITERAL_CSTRING("devc"), aControl)
-{
+    : Box("devc"_ns, aControl) {
   MOZ_COUNT_CTOR(EVRCSpecificBox);
 }
 
-EVRCSpecificBox::~EVRCSpecificBox()
-{
-  MOZ_COUNT_DTOR(EVRCSpecificBox);
-}
+EVRCSpecificBox::~EVRCSpecificBox() { MOZ_COUNT_DTOR(EVRCSpecificBox); }
 
-}
+}  // namespace mozilla

@@ -9,7 +9,8 @@
 #include "mozilla/EndianUtils.h"
 #include "nsTArray.h"
 #include "ISOTrackMetadata.h"
-#include "EncodedFrameContainer.h"
+#include "EncodedFrame.h"
+#include "TimeUnits.h"
 
 namespace mozilla {
 
@@ -25,7 +26,7 @@ class ISOControl;
  * be called to reset it.
  */
 class FragmentBuffer {
-public:
+ public:
   // aTrackType: it could be Audio_Track or Video_Track.
   // aFragDuration: it is the fragment duration. (microsecond per unit)
   //                Audio and video have the same fragment duration.
@@ -58,7 +59,7 @@ public:
   // in ISOMediaWriter to last phrase.
   nsresult SetEndOfStream() {
     mEOS = true;
-    return  NS_OK;
+    return NS_OK;
   }
   bool EOS() { return mEOS; }
 
@@ -79,18 +80,19 @@ public:
     return mLastFrameTimeOfLastFragment;
   }
 
-private:
+ private:
   uint32_t mTrackType;
 
   // Fragment duration, microsecond per unit.
   uint32_t mFragDuration;
 
   // Media start time, microsecond per unit.
-  // Together with mFragDuration, mFragmentNumber and EncodedFrame->GetTimeStamp(),
-  // when the difference between current frame time and mMediaStartTime is
-  // exceeded current fragment ceiling timeframe, that means current fragment has
-  // enough data and a new element in mFragArray will be added.
-  uint64_t mMediaStartTime;
+  // Together with mFragDuration, mFragmentNumber and
+  // EncodedFrame->GetTimeStamp(), when the difference between current frame
+  // time and mMediaStartTime is exceeded current fragment ceiling timeframe,
+  // that means current fragment has enough data and a new element in mFragArray
+  // will be added.
+  media::TimeUnit mMediaStartTime;
 
   // Current fragment number. It will be increase when a new element of
   // mFragArray is created.
@@ -131,10 +133,9 @@ private:
  *    WriteBits...etc.
  */
 class ISOControl {
+  friend class Box;
 
-friend class Box;
-
-public:
+ public:
   ISOControl(uint32_t aMuxingType);
   ~ISOControl();
 
@@ -159,7 +160,7 @@ public:
   }
 
   template <typename T>
-  uint32_t WriteArray(const T &aArray, uint32_t aSize) {
+  uint32_t WriteArray(const T& aArray, uint32_t aSize) {
     MOZ_ASSERT(!mBitCount);
 
     uint32_t size = 0;
@@ -175,7 +176,8 @@ public:
   // others non-bit writing function.
   uint32_t WriteBits(uint64_t aBits, size_t aNumBits);
 
-  // This is called by GetContainerData and swap all the buffers to aOutputBuffers.
+  // This is called by GetContainerData and swap all the buffers to
+  // aOutputBuffers.
   nsresult GetBufs(nsTArray<nsTArray<uint8_t>>* aOutputBufs);
 
   // Presentation time in seconds since midnight, Jan. 1, 1904, in UTC time.
@@ -202,7 +204,7 @@ public:
   bool HasAudioTrack();
   bool HasVideoTrack();
 
-private:
+ private:
   uint32_t GetBufPos();
   nsresult FlushBuf();
 
@@ -240,11 +242,12 @@ private:
   uint64_t mOutputSize;
 
   // Bit writing operation. Note: the mBitCount should be 0 before any
-  // byte-boundary writing method be called (Write(uint32_t), Write(uint16_t)...etc);
-  // otherwise, there will be assertion on these functions.
+  // byte-boundary writing method be called (Write(uint32_t),
+  // Write(uint16_t)...etc); otherwise, there will be assertion on these
+  // functions.
   uint8_t mBitCount;
   uint8_t mBit;
 };
 
-}
+}  // namespace mozilla
 #endif

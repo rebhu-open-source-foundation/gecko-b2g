@@ -10,9 +10,7 @@
 
 namespace mozilla {
 
-nsresult
-AMRSampleEntry::Generate(uint32_t* aBoxSize)
-{
+nsresult AMRSampleEntry::Generate(uint32_t* aBoxSize) {
   uint32_t box_size;
   nsresult rv = amr_special_box->Generate(&box_size);
   NS_ENSURE_SUCCESS(rv, rv);
@@ -22,9 +20,7 @@ AMRSampleEntry::Generate(uint32_t* aBoxSize)
   return NS_OK;
 }
 
-nsresult
-AMRSampleEntry::Write()
-{
+nsresult AMRSampleEntry::Write() {
   BoxSizeChecker checker(mControl, size);
   nsresult rv;
   rv = AudioSampleEntry::Write();
@@ -35,21 +31,15 @@ AMRSampleEntry::Write()
   return NS_OK;
 }
 
-AMRSampleEntry::AMRSampleEntry(ISOControl* aControl)
-  : AudioSampleEntry(NS_LITERAL_CSTRING("samr"), aControl)
-{
+AMRSampleEntry::AMRSampleEntry(ISOControl* aControl, bool aWB)
+    : AudioSampleEntry(aWB ? "sawb"_ns : "samr"_ns, aControl) {
   amr_special_box = new AMRSpecificBox(aControl);
   MOZ_COUNT_CTOR(AMRSampleEntry);
 }
 
-AMRSampleEntry::~AMRSampleEntry()
-{
-  MOZ_COUNT_DTOR(AMRSampleEntry);
-}
+AMRSampleEntry::~AMRSampleEntry() { MOZ_COUNT_DTOR(AMRSampleEntry); }
 
-nsresult
-AMRSpecificBox::Generate(uint32_t* aBoxSize)
-{
+nsresult AMRSpecificBox::Generate(uint32_t* aBoxSize) {
   nsresult rv;
   FragmentBuffer* frag = mControl->GetFragment(Audio_Track);
   rv = frag->GetCSD(amrDecSpecInfo);
@@ -61,9 +51,7 @@ AMRSpecificBox::Generate(uint32_t* aBoxSize)
   return NS_OK;
 }
 
-nsresult
-AMRSpecificBox::Write()
-{
+nsresult AMRSpecificBox::Write() {
   BoxSizeChecker checker(mControl, size);
   Box::Write();
   mControl->Write(amrDecSpecInfo.Elements(), amrDecSpecInfo.Length());
@@ -71,14 +59,10 @@ AMRSpecificBox::Write()
 }
 
 AMRSpecificBox::AMRSpecificBox(ISOControl* aControl)
-  : Box(NS_LITERAL_CSTRING("damr"), aControl)
-{
+    : Box("damr"_ns, aControl) {
   MOZ_COUNT_CTOR(AMRSpecificBox);
 }
 
-AMRSpecificBox::~AMRSpecificBox()
-{
-  MOZ_COUNT_DTOR(AMRSpecificBox);
-}
+AMRSpecificBox::~AMRSpecificBox() { MOZ_COUNT_DTOR(AMRSpecificBox); }
 
-}
+}  // namespace mozilla

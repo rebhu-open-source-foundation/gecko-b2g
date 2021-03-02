@@ -269,6 +269,11 @@ TypeSupport CanRecordAudioTrackWith(const Maybe<MediaContainerType>& aMimeType,
     return TypeSupport::MediaTypeInvalid;
   }
 
+  if (aMimeType->Type() == MEDIAMIMETYPE(AUDIO_3GPP) &&
+      MediaEncoder::IsOMXEncoderEnabled()) {
+    return TypeSupport::Supported;
+  }
+
   if (aMimeType->Type() != MEDIAMIMETYPE(VIDEO_WEBM) &&
       aMimeType->Type() != MEDIAMIMETYPE(AUDIO_WEBM) &&
       aMimeType->Type() != MEDIAMIMETYPE(AUDIO_OGG)) {
@@ -486,7 +491,11 @@ nsString SelectMimeType(bool aHasVideo, bool aHasAudio,
       } else if (aHasVideo) {
         codecs = "vp8"_ns;
       } else {
-        codecs = "opus"_ns;
+        if (majorType.EqualsLiteral(AUDIO_3GPP) && MediaEncoder::IsOMXEncoderEnabled()) {
+          codecs = "amr"_ns;
+        } else {
+          codecs = "opus"_ns;
+        }
       }
     }
     result = NS_ConvertUTF8toUTF16(

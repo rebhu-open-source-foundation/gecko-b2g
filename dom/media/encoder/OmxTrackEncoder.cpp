@@ -10,375 +10,123 @@
 #include "GeckoProfiler.h"
 
 #ifdef MOZ_WIDGET_GONK
-#include <android/log.h>
-#define OMX_LOG(args...)                                                       \
-  do {                                                                         \
-    __android_log_print(ANDROID_LOG_INFO, "OmxTrackEncoder", ##args);          \
-  } while (0)
+#  include <android/log.h>
+#  define OMX_LOG(args...)                                              \
+    do {                                                                \
+      __android_log_print(ANDROID_LOG_INFO, "OmxTrackEncoder", ##args); \
+    } while (0)
 #else
-#define OMX_LOG(args, ...)
+#  define OMX_LOG(args, ...)
 #endif
 
 using namespace android;
 
 namespace mozilla {
 
-#define ENCODER_CONFIG_FRAME_RATE 30 // fps
-#define GET_ENCODED_VIDEO_FRAME_TIMEOUT 100000 // microseconds
+#define ENCODER_CONFIG_FRAME_RATE 30            // fps
+#define GET_ENCODED_VIDEO_FRAME_TIMEOUT 100000  // microseconds
 
-OmxVideoTrackEncoder::OmxVideoTrackEncoder(TrackRate aTrackRate)
-  : VideoTrackEncoder(aTrackRate)
-{}
+OmxAudioTrackEncoder::OmxAudioTrackEncoder(
+    TrackRate aTrackRate, MediaQueue<EncodedFrame>& aEncodedDataQueue)
+    : AudioTrackEncoder(aTrackRate, aEncodedDataQueue),
+      mSamplingRate(aTrackRate) {}
 
-OmxVideoTrackEncoder::~OmxVideoTrackEncoder()
-{}
-
-nsresult
-OmxVideoTrackEncoder::Init(int aWidth, int aHeight, int aDisplayWidth,
-                           int aDisplayHeight)
-{
-  mFrameWidth = aWidth;
-  mFrameHeight = aHeight;
-  mDisplayWidth = aDisplayWidth;
-  mDisplayHeight = aDisplayHeight;
-
-  mEncoder = OMXCodecWrapper::CreateAVCEncoder();
-  NS_ENSURE_TRUE(mEncoder, NS_ERROR_FAILURE);
-
-  nsresult rv = mEncoder->Configure(mFrameWidth, mFrameHeight,
-                                    ENCODER_CONFIG_FRAME_RATE);
-
-  ReentrantMonitorAutoEnter mon(mReentrantMonitor);
-  mInitialized = (rv == NS_OK);
-
-  mReentrantMonitor.NotifyAll();
-
-  return rv;
+OmxAudioTrackEncoder::~OmxAudioTrackEncoder() {
+  if (mEncoder) {
+    delete mEncoder;
+  }
 }
 
-already_AddRefed<TrackMetadataBase>
-OmxVideoTrackEncoder::GetMetadata()
-{
-  PROFILER_LABEL("OmxVideoTrackEncoder", "GetMetadata",
-    js::ProfileEntry::Category::OTHER);
-  {
-    // Wait if mEncoder is not initialized nor is being canceled.
-    ReentrantMonitorAutoEnter mon(mReentrantMonitor);
-    while (!mCanceled && !mInitialized) {
-      mReentrantMonitor.Wait();
-    }
-  }
-
-  if (mCanceled || mEncodingComplete) {
-    return nullptr;
-  }
-
-  RefPtr<AVCTrackMetadata> meta = new AVCTrackMetadata();
-  meta->mWidth = mFrameWidth;
-  meta->mHeight = mFrameHeight;
-  meta->mDisplayWidth = mDisplayWidth;
-  meta->mDisplayHeight = mDisplayHeight;
-  meta->mFrameRate = ENCODER_CONFIG_FRAME_RATE;
-  return meta.forget();
-}
-
-nsresult
-OmxVideoTrackEncoder::GetEncodedTrack(EncodedFrameContainer& aData)
-{
-  PROFILER_LABEL("OmxVideoTrackEncoder", "GetEncodedTrack",
-    js::ProfileEntry::Category::OTHER);
-  VideoSegment segment;
-  {
-    // Move all the samples from mRawSegment to segment. We only hold the
-    // monitor in this block.
-    ReentrantMonitorAutoEnter mon(mReentrantMonitor);
-
-    // Wait if mEncoder is not initialized nor is being canceled.
-    while (!mCanceled && (!mInitialized ||
-          (mRawSegment.GetDuration() == 0 && !mEndOfStream))) {
-      mReentrantMonitor.Wait();
-    }
-
-    if (mCanceled || mEncodingComplete) {
-      return NS_ERROR_FAILURE;
-    }
-
-    segment.AppendFrom(&mRawSegment);
-  }
-
-  nsresult rv;
-  // Start queuing raw frames to the input buffers of OMXCodecWrapper.
-  VideoSegment::ChunkIterator iter(segment);
-  while (!iter.IsEnded()) {
-    VideoChunk chunk = *iter;
-
-    uint64_t totalDurationUs = mTotalFrameDuration * USECS_PER_S / mTrackRate;
-    layers::Image* img = (chunk.IsNull() || chunk.mFrame.GetForceBlack()) ?
-                         nullptr : chunk.mFrame.GetImage();
-    rv = mEncoder->Encode(img, mFrameWidth, mFrameHeight, totalDurationUs);
-    NS_ENSURE_SUCCESS(rv, rv);
-
-    mTotalFrameDuration += chunk.GetDuration();
-
-    iter.Next();
-  }
-
-  // Send the EOS signal to OMXCodecWrapper.
-  if (mEndOfStream && iter.IsEnded() && !mEosSetInEncoder) {
-    uint64_t totalDurationUs = mTotalFrameDuration * USECS_PER_S / mTrackRate;
-    layers::Image* img = (!mLastFrame.GetImage() || mLastFrame.GetForceBlack())
-                         ? nullptr : mLastFrame.GetImage();
-    rv = mEncoder->Encode(img, mFrameWidth, mFrameHeight, totalDurationUs,
-                          OMXCodecWrapper::BUFFER_EOS, &mEosSetInEncoder);
-    NS_ENSURE_SUCCESS(rv, rv);
-  }
-
-  // Dequeue an encoded frame from the output buffers of OMXCodecWrapper.
-  nsTArray<uint8_t> buffer;
-  int outFlags = 0;
-  int64_t outTimeStampUs = 0;
-  rv = mEncoder->GetNextEncodedFrame(&buffer, &outTimeStampUs, &outFlags,
-                                     GET_ENCODED_VIDEO_FRAME_TIMEOUT);
-  NS_ENSURE_SUCCESS(rv, rv);
-  if (!buffer.IsEmpty()) {
-    RefPtr<EncodedFrame> videoData = new EncodedFrame();
-    if (outFlags & OMXCodecWrapper::BUFFER_CODEC_CONFIG) {
-      videoData->SetFrameType(EncodedFrame::AVC_CSD);
-    } else {
-      videoData->SetFrameType((outFlags & OMXCodecWrapper::BUFFER_SYNC_FRAME) ?
-                              EncodedFrame::AVC_I_FRAME : EncodedFrame::AVC_P_FRAME);
-    }
-    videoData->SwapInFrameData(buffer);
-    videoData->SetTimeStamp(outTimeStampUs);
-    aData.AppendEncodedFrame(videoData);
-  }
-
-  if (outFlags & OMXCodecWrapper::BUFFER_EOS) {
-    mEncodingComplete = true;
-    OMX_LOG("Done encoding video.");
-  }
-
-  return NS_OK;
-}
-
-OmxAudioTrackEncoder::OmxAudioTrackEncoder()
-  : AudioTrackEncoder()
-{}
-
-OmxAudioTrackEncoder::~OmxAudioTrackEncoder()
-{}
-
-nsresult
-OmxAudioTrackEncoder::AppendEncodedFrames(EncodedFrameContainer& aContainer)
-{
+nsresult OmxAudioTrackEncoder::AppendEncodedFrames() {
   nsTArray<uint8_t> frameData;
   int outFlags = 0;
   int64_t outTimeUs = -1;
 
   nsresult rv = mEncoder->GetNextEncodedFrame(&frameData, &outTimeUs, &outFlags,
-                                              3000); // wait up to 3ms
+                                              3000);  // wait up to 3ms
   NS_ENSURE_SUCCESS(rv, rv);
 
-  if (!frameData.IsEmpty() || outFlags & OMXCodecWrapper::BUFFER_EOS) { // Some hw codec may send out EOS with an empty frame
+  if (!frameData.IsEmpty() ||
+      outFlags & OMXCodecWrapper::BUFFER_EOS) {  // Some hw codec may send out
+                                                 // EOS with an empty frame
     bool isCSD = false;
-    if (outFlags & OMXCodecWrapper::BUFFER_CODEC_CONFIG) { // codec specific data
+    if (outFlags &
+        OMXCodecWrapper::BUFFER_CODEC_CONFIG) {  // codec specific data
       isCSD = true;
-    } else if (outFlags & OMXCodecWrapper::BUFFER_EOS) { // last frame
-      mEncodingComplete = true;
     }
+    auto audioData = MakeRefPtr<EncodedFrame::FrameData>();
+    audioData->SwapElements(frameData);
 
-    RefPtr<EncodedFrame> audiodata = new EncodedFrame();
-    if (mEncoder->GetCodecType() == OMXCodecWrapper::AAC_ENC) {
-      audiodata->SetFrameType(isCSD ?
-        EncodedFrame::AAC_CSD : EncodedFrame::AAC_AUDIO_FRAME);
-    } else if (mEncoder->GetCodecType() == OMXCodecWrapper::AMR_NB_ENC){
-      audiodata->SetFrameType(isCSD ?
-        EncodedFrame::AMR_AUDIO_CSD : EncodedFrame::AMR_AUDIO_FRAME);
-    } else if (mEncoder->GetCodecType() == OMXCodecWrapper::EVRC_ENC){
-      audiodata->SetFrameType(isCSD ?
-        EncodedFrame::EVRC_AUDIO_CSD : EncodedFrame::EVRC_AUDIO_FRAME);
-    } else {
-      MOZ_ASSERT(false, "audio codec not supported");
+    mEncodedDataQueue.Push(MakeAndAddRef<EncodedFrame>(
+        media::TimeUnit::FromMicroseconds(outTimeUs),
+        0,  // TODO what's the correct value?
+        16000,
+        isCSD ? EncodedFrame::AMR_AUDIO_CSD : EncodedFrame::AMR_AUDIO_FRAME,
+        std::move(audioData)));
+
+    // Tell MediaQueue that we've done ecoding
+    if (outFlags & OMXCodecWrapper::BUFFER_EOS) {  // last frame
+      mEncodedDataQueue.Finish();
     }
-    audiodata->SetTimeStamp(outTimeUs);
-    audiodata->SwapInFrameData(frameData);
-    aContainer.AppendEncodedFrame(audiodata);
   }
 
   return NS_OK;
 }
 
-nsresult
-OmxAudioTrackEncoder::GetEncodedTrack(EncodedFrameContainer& aData)
-{
-  PROFILER_LABEL("OmxAACAudioTrackEncoder", "GetEncodedTrack",
-    js::ProfileEntry::Category::OTHER);
-  AudioSegment segment;
-  bool EOS;
-  // Move all the samples from mRawSegment to segment. We only hold
-  // the monitor in this block.
-  {
-    ReentrantMonitorAutoEnter mon(mReentrantMonitor);
-
-    // Wait if mEncoder is not initialized nor canceled.
-    while (!mInitialized && !mCanceled) {
-      mReentrantMonitor.Wait();
-    }
-
-    if (mCanceled || mEncodingComplete) {
-      return NS_ERROR_FAILURE;
-    }
-
-    segment.AppendFrom(&mRawSegment);
-    EOS = mEndOfStream;
+nsresult OmxAudioTrackEncoder::Encode(AudioSegment* aSegment) {
+  MOZ_ASSERT(aSegment);
+  MOZ_ASSERT(mInitialized || mCanceled);
+  if (mCanceled || !mInitialized || IsEncodingComplete()) {
+    return NS_ERROR_FAILURE;
   }
 
   nsresult rv;
-  if (segment.GetDuration() == 0) {
+
+  if (aSegment->GetDuration() == 0) {
     // Notify EOS at least once, even if segment is empty.
-    if (EOS && !mEosSetInEncoder) {
-      rv = mEncoder->Encode(segment, OMXCodecWrapper::BUFFER_EOS,
-                            &mEosSetInEncoder);
+    if (mEndOfStream) {
+      bool EosSetInEncoder = false;
+      rv = mEncoder->Encode(*aSegment, OMXCodecWrapper::BUFFER_EOS,
+                            &EosSetInEncoder);
       NS_ENSURE_SUCCESS(rv, rv);
     }
     // Nothing to encode but encoder could still have encoded data for earlier
     // input.
-    return AppendEncodedFrames(aData);
+    return AppendEncodedFrames();
   }
 
-  // OMX encoder has limited input buffers only so we have to feed input and get
-  // output more than once if there are too many samples pending in segment.
-  while (segment.GetDuration() > 0) {
-    rv = mEncoder->Encode(segment, 0);
+  while (aSegment->GetDuration() > 0) {
+    rv = mEncoder->Encode(*aSegment, 0);
     NS_ENSURE_SUCCESS(rv, rv);
 
-    rv = AppendEncodedFrames(aData);
+    rv = AppendEncodedFrames();
     NS_ENSURE_SUCCESS(rv, rv);
   }
 
   return NS_OK;
 }
 
-nsresult
-OmxAACAudioTrackEncoder::Init(int aChannels, int aSamplingRate)
-{
-  mChannels = aChannels;
-  mSamplingRate = aSamplingRate;
+already_AddRefed<TrackMetadataBase> OmxAMRAudioTrackEncoder::GetMetadata() {
+  if (!mInitialized) {
+    return nullptr;
+  }
 
-  mEncoder = OMXCodecWrapper::CreateAACEncoder();
+  RefPtr<AMRTrackMetadata> meta = new AMRTrackMetadata(mWB);
+  return meta.forget();
+}
+
+nsresult OmxAMRAudioTrackEncoder::Init(int aChannels) {
+  mChannels = aChannels;
+
+  mEncoder = mWB ? OMXCodecWrapper::CreateAMRWBEncoder()
+                 : OMXCodecWrapper::CreateAMRNBEncoder();
   NS_ENSURE_TRUE(mEncoder, NS_ERROR_FAILURE);
 
-  nsresult rv = mEncoder->Configure(mChannels, mSamplingRate, mSamplingRate);
-
-  ReentrantMonitorAutoEnter mon(mReentrantMonitor);
-  mInitialized = (rv == NS_OK);
-
-  mReentrantMonitor.NotifyAll();
+  nsresult rv =
+      mEncoder->Configure(mChannels, mSamplingRate, AMR_WB_SAMPLERATE);
+  SetInitialized();
 
   return NS_OK;
 }
 
-already_AddRefed<TrackMetadataBase>
-OmxAACAudioTrackEncoder::GetMetadata()
-{
-  PROFILER_LABEL("OmxAACAudioTrackEncoder", "GetMetadata",
-    js::ProfileEntry::Category::OTHER);
-  {
-    // Wait if mEncoder is not initialized nor is being canceled.
-    ReentrantMonitorAutoEnter mon(mReentrantMonitor);
-    while (!mCanceled && !mInitialized) {
-      mReentrantMonitor.Wait();
-    }
-  }
-
-  if (mCanceled || mEncodingComplete) {
-    return nullptr;
-  }
-  RefPtr<AACTrackMetadata> meta = new AACTrackMetadata();
-  meta->mChannels = mChannels;
-  meta->mSampleRate = mSamplingRate;
-  meta->mFrameSize = OMXCodecWrapper::kAACFrameSize;
-  meta->mFrameDuration = OMXCodecWrapper::kAACFrameDuration;
-  return meta.forget();
-}
-
-nsresult
-OmxAMRAudioTrackEncoder::Init(int aChannels, int aSamplingRate)
-{
-  mChannels = aChannels;
-  mSamplingRate = aSamplingRate;
-
-  mEncoder = OMXCodecWrapper::CreateAMRNBEncoder();
-  NS_ENSURE_TRUE(mEncoder, NS_ERROR_FAILURE);
-
-  nsresult rv = mEncoder->Configure(mChannels, mSamplingRate, AMR_NB_SAMPLERATE);
-  ReentrantMonitorAutoEnter mon(mReentrantMonitor);
-  mInitialized = (rv == NS_OK);
-
-  mReentrantMonitor.NotifyAll();
-
-  return NS_OK;
-}
-
-already_AddRefed<TrackMetadataBase>
-OmxAMRAudioTrackEncoder::GetMetadata()
-{
-  PROFILER_LABEL("OmxAMRAudioTrackEncoder", "GetMetadata",
-    js::ProfileEntry::Category::OTHER);
-  {
-    // Wait if mEncoder is not initialized nor is being canceled.
-    ReentrantMonitorAutoEnter mon(mReentrantMonitor);
-    while (!mCanceled && !mInitialized) {
-      mReentrantMonitor.Wait();
-    }
-  }
-
-  if (mCanceled || mEncodingComplete) {
-    return nullptr;
-  }
-
-  RefPtr<AMRTrackMetadata> meta = new AMRTrackMetadata();
-  return meta.forget();
-}
-
-nsresult
-OmxEVRCAudioTrackEncoder::Init(int aChannels, int aSamplingRate)
-{
-  mChannels = aChannels;
-  mSamplingRate = aSamplingRate;
-
-  mEncoder = OMXCodecWrapper::CreateEVRCEncoder();
-  NS_ENSURE_TRUE(mEncoder, NS_ERROR_FAILURE);
-
-  nsresult rv = mEncoder->Configure(mChannels, mSamplingRate, EVRC_SAMPLERATE);
-  ReentrantMonitorAutoEnter mon(mReentrantMonitor);
-  mInitialized = (rv == NS_OK);
-
-  mReentrantMonitor.NotifyAll();
-
-  return NS_OK;
-}
-
-already_AddRefed<TrackMetadataBase>
-OmxEVRCAudioTrackEncoder::GetMetadata()
-{
-  PROFILER_LABEL("OmxEVRCAudioTrackEncoder", "GetMetadata",
-    js::ProfileEntry::Category::OTHER);
-  {
-    // Wait if mEncoder is not initialized nor is being canceled.
-    ReentrantMonitorAutoEnter mon(mReentrantMonitor);
-    while (!mCanceled && !mInitialized) {
-      mReentrantMonitor.Wait();
-    }
-  }
-
-  if (mCanceled || mEncodingComplete) {
-    return nullptr;
-  }
-
-  RefPtr<EVRCTrackMetadata> meta = new EVRCTrackMetadata();
-  meta->mChannels = mChannels;
-  return meta.forget();
-}
-
-}
+}  // namespace mozilla

@@ -20,7 +20,7 @@ class ISOControl;
 // 14496-15 5.3.4.1 'Sample description name and format'
 // Box type: 'avcC'
 class AVCConfigurationBox : public Box {
-public:
+ public:
   // ISO BMFF members
 
   // avcConfig is CodecSpecificData from 14496-15 '5.3.4.1 Sample description
@@ -41,7 +41,7 @@ public:
 // 14496-15 5.3.4.1 'Sample description name and format'
 // Box type: 'avc1'
 class AVCSampleEntry : public VisualSampleEntry {
-public:
+ public:
   // ISO BMFF members
   RefPtr<AVCConfigurationBox> avcConfigBox;
 
@@ -54,6 +54,6 @@ public:
   ~AVCSampleEntry();
 };
 
-}
+}  // namespace mozilla
 
-#endif // AVCBox_h_
+#endif  // AVCBox_h_

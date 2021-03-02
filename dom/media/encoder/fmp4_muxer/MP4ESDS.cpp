@@ -10,9 +10,7 @@
 
 namespace mozilla {
 
-nsresult
-MP4AudioSampleEntry::Generate(uint32_t* aBoxSize)
-{
+nsresult MP4AudioSampleEntry::Generate(uint32_t* aBoxSize) {
   uint32_t box_size;
   nsresult rv = es->Generate(&box_size);
   NS_ENSURE_SUCCESS(rv, rv);
@@ -22,9 +20,7 @@ MP4AudioSampleEntry::Generate(uint32_t* aBoxSize)
   return NS_OK;
 }
 
-nsresult
-MP4AudioSampleEntry::Write()
-{
+nsresult MP4AudioSampleEntry::Write() {
   BoxSizeChecker checker(mControl, size);
   nsresult rv;
   rv = AudioSampleEntry::Write();
@@ -36,20 +32,16 @@ MP4AudioSampleEntry::Write()
 }
 
 MP4AudioSampleEntry::MP4AudioSampleEntry(ISOControl* aControl)
-  : AudioSampleEntry(NS_LITERAL_CSTRING("mp4a"), aControl)
-{
+    : AudioSampleEntry("mp4a"_ns, aControl) {
   es = new ESDBox(aControl);
   MOZ_COUNT_CTOR(MP4AudioSampleEntry);
 }
 
-MP4AudioSampleEntry::~MP4AudioSampleEntry()
-{
+MP4AudioSampleEntry::~MP4AudioSampleEntry() {
   MOZ_COUNT_DTOR(MP4AudioSampleEntry);
 }
 
-nsresult
-ESDBox::Generate(uint32_t* aBoxSize)
-{
+nsresult ESDBox::Generate(uint32_t* aBoxSize) {
   uint32_t box_size;
   es_descriptor->Generate(&box_size);
   size += box_size;
@@ -57,41 +49,31 @@ ESDBox::Generate(uint32_t* aBoxSize)
   return NS_OK;
 }
 
-nsresult
-ESDBox::Write()
-{
+nsresult ESDBox::Write() {
   WRITE_FULLBOX(mControl, size)
   es_descriptor->Write();
   return NS_OK;
 }
 
-ESDBox::ESDBox(ISOControl* aControl)
-  : FullBox(NS_LITERAL_CSTRING("esds"), 0, 0, aControl)
-{
+ESDBox::ESDBox(ISOControl* aControl) : FullBox("esds"_ns, 0, 0, aControl) {
   es_descriptor = new ES_Descriptor(aControl);
   MOZ_COUNT_CTOR(ESDBox);
 }
 
-ESDBox::~ESDBox()
-{
-  MOZ_COUNT_DTOR(ESDBox);
-}
+ESDBox::~ESDBox() { MOZ_COUNT_DTOR(ESDBox); }
 
-nsresult
-ES_Descriptor::Find(const nsACString& aType,
-                    nsTArray<RefPtr<MuxerOperation>>& aOperations)
-{
+nsresult ES_Descriptor::Find(const nsACString& aType,
+                             nsTArray<RefPtr<MuxerOperation>>& aOperations) {
   // ES_Descriptor is not a real ISOMediaBox, so we return nothing here.
   return NS_OK;
 }
 
-nsresult
-ES_Descriptor::Write()
-{
+nsresult ES_Descriptor::Write() {
   mControl->Write(tag);
   mControl->Write(length);
   mControl->Write(ES_ID);
-  mControl->WriteBits(streamDependenceFlag.to_ulong(), streamDependenceFlag.size());
+  mControl->WriteBits(streamDependenceFlag.to_ulong(),
+                      streamDependenceFlag.size());
   mControl->WriteBits(URL_Flag.to_ulong(), URL_Flag.size());
   mControl->WriteBits(reserved.to_ulong(), reserved.size());
   mControl->WriteBits(streamPriority.to_ulong(), streamPriority.size());
@@ -100,9 +82,7 @@ ES_Descriptor::Write()
   return NS_OK;
 }
 
-nsresult
-ES_Descriptor::Generate(uint32_t* aBoxSize)
-{
+nsresult ES_Descriptor::Generate(uint32_t* aBoxSize) {
   nsresult rv;
   //   14496-1 '8.3.4 DecoderConfigDescriptor'
   //   14496-1 '10.2.3 SL Packet Header Configuration'
@@ -118,21 +98,17 @@ ES_Descriptor::Generate(uint32_t* aBoxSize)
 }
 
 ES_Descriptor::ES_Descriptor(ISOControl* aControl)
-  : tag(ESDescrTag)
-  , length(0)
-  , ES_ID(0)
-  , streamDependenceFlag(0)
-  , URL_Flag(0)
-  , reserved(0)
-  , streamPriority(0)
-  , mControl(aControl)
-{
+    : tag(ESDescrTag),
+      length(0),
+      ES_ID(0),
+      streamDependenceFlag(0),
+      URL_Flag(0),
+      reserved(0),
+      streamPriority(0),
+      mControl(aControl) {
   MOZ_COUNT_CTOR(ES_Descriptor);
 }
 
-ES_Descriptor::~ES_Descriptor()
-{
-  MOZ_COUNT_DTOR(ES_Descriptor);
-}
+ES_Descriptor::~ES_Descriptor() { MOZ_COUNT_DTOR(ES_Descriptor); }
 
-}
+}  // namespace mozilla

@@ -16,7 +16,7 @@ class ISOControl;
 // 3GPP TS 26.244 6.7 'AMRSpecificBox field for AMRSampleEntry box'
 // Box type: 'damr'
 class AMRSpecificBox : public Box {
-public:
+ public:
   // 3GPP members
   nsTArray<uint8_t> amrDecSpecInfo;
 
@@ -32,7 +32,7 @@ public:
 // 3GPP TS 26.244 6.5 'AMRSampleEntry box'
 // Box type: 'sawb'
 class AMRSampleEntry : public AudioSampleEntry {
-public:
+ public:
   // 3GPP members
   RefPtr<AMRSpecificBox> amr_special_box;
 
@@ -41,10 +41,10 @@ public:
   nsresult Write() override;
 
   // AMRSampleEntry methods
-  AMRSampleEntry(ISOControl* aControl);
+  AMRSampleEntry(ISOControl* aControl, bool aWB = false);
   ~AMRSampleEntry();
 };
 
-}
+}  // namespace mozilla
 
-#endif // AMRBOX_h_
+#endif  // AMRBOX_h_

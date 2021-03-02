@@ -9,15 +9,14 @@
 #include <bitset>
 #include "nsString.h"
 #include "nsTArray.h"
-#include "nsAutoPtr.h"
 #include "MuxerOperation.h"
 #include "mozilla/UniquePtr.h"
 
-#define WRITE_FULLBOX(_compositor, _size)       \
-  BoxSizeChecker checker(_compositor, _size);   \
+#define WRITE_FULLBOX(_compositor, _size)     \
+  BoxSizeChecker checker(_compositor, _size); \
   FullBox::Write();
 
-#define FOURCC(a, b, c, d) ( ((a) << 24) | ((b) << 16) | ((c) << 8) | (d) )
+#define FOURCC(a, b, c, d) (((a) << 24) | ((b) << 16) | ((c) << 8) | (d))
 
 namespace mozilla {
 
@@ -41,13 +40,13 @@ class ISOControl;
  * This class is for inherited only, it shouldn't be instanced directly.
  */
 class Box : public MuxerOperation {
-protected:
+ protected:
   // ISO BMFF members
-  uint32_t size;     // 14496-12 4-2 'Object Structure'. Size of this box.
-  nsCString boxType; // four CC name, all table names are listed in
-                     // 14496-12 table 1.
+  uint32_t size;      // 14496-12 4-2 'Object Structure'. Size of this box.
+  nsCString boxType;  // four CC name, all table names are listed in
+                      // 14496-12 table 1.
 
-public:
+ public:
   // MuxerOperation methods
   nsresult Write() override;
   nsresult Find(const nsACString& aType,
@@ -56,7 +55,7 @@ public:
   // This helper class will compare the written size in Write() and the size in
   // Generate(). If their are not equal, it will assert.
   class BoxSizeChecker {
-  public:
+   public:
     BoxSizeChecker(ISOControl* aControl, uint32_t aSize);
     ~BoxSizeChecker();
 
@@ -65,7 +64,7 @@ public:
     ISOControl* mControl;
   };
 
-protected:
+ protected:
   Box() = delete;
   Box(const nsACString& aType, ISOControl* aControl);
 
@@ -82,15 +81,15 @@ protected:
  * This class is for inherited only, it shouldn't be instanced directly.
  */
 class FullBox : public Box {
-public:
+ public:
   // ISO BMFF members
-  uint8_t version;       // 14496-12 4.2 'Object Structure'
-  std::bitset<24> flags; //
+  uint8_t version;        // 14496-12 4.2 'Object Structure'
+  std::bitset<24> flags;  //
 
   // MuxerOperation methods
   nsresult Write() override;
 
-protected:
+ protected:
   // FullBox methods
   FullBox(const nsACString& aType, uint8_t aVersion, uint32_t aFlags,
           ISOControl* aControl);
@@ -108,14 +107,14 @@ protected:
  * This class is for inherited only, it shouldn't be instanced directly.
  */
 class DefaultContainerImpl : public Box {
-public:
+ public:
   // MuxerOperation methods
   nsresult Generate(uint32_t* aBoxSize) override;
   nsresult Write() override;
   nsresult Find(const nsACString& aType,
                 nsTArray<RefPtr<MuxerOperation>>& aOperations) override;
 
-protected:
+ protected:
   // DefaultContainerImpl methods
   DefaultContainerImpl(const nsACString& aType, ISOControl* aControl);
   DefaultContainerImpl() = delete;
@@ -126,9 +125,9 @@ protected:
 // 14496-12 4.3 'File Type Box'
 // Box type: 'ftyp'
 class FileTypeBox : public Box {
-public:
+ public:
   // ISO BMFF members
-  nsCString major_brand; // four chars
+  nsCString major_brand;  // four chars
   uint32_t minor_version;
   nsTArray<nsCString> compatible_brands;
 
@@ -145,7 +144,7 @@ public:
 // Box type: 'moov'
 // MovieBox contains MovieHeaderBox, TrackBox and MovieExtendsBox.
 class MovieBox : public DefaultContainerImpl {
-public:
+ public:
   MovieBox(ISOControl* aControl);
   ~MovieBox();
 };
@@ -153,7 +152,7 @@ public:
 // 14496-12 8.2.2 'Movie Header Box'
 // Box type: 'mvhd'
 class MovieHeaderBox : public FullBox {
-public:
+ public:
   // ISO BMFF members
   uint32_t creation_time;
   uint32_t modification_time;
@@ -180,7 +179,7 @@ public:
 // 14496-12 8.4.2 'Media Header Box'
 // Box type: 'mdhd'
 class MediaHeaderBox : public FullBox {
-public:
+ public:
   // ISO BMFF members
   uint32_t creation_time;
   uint32_t modification_time;
@@ -201,7 +200,7 @@ public:
   ~MediaHeaderBox();
   uint32_t GetTimeScale();
 
-protected:
+ protected:
   uint32_t mTrackType;
 };
 
@@ -209,7 +208,7 @@ protected:
 // Box type: 'trak'
 // TrackBox contains TrackHeaderBox and MediaBox.
 class TrackBox : public DefaultContainerImpl {
-public:
+ public:
   TrackBox(uint32_t aTrackType, ISOControl* aControl);
   ~TrackBox();
 };
@@ -217,7 +216,7 @@ public:
 // 14496-12 8.1.1 'Media Data Box'
 // Box type: 'mdat'
 class MediaDataBox : public Box {
-public:
+ public:
   // MuxerOperation methods
   nsresult Generate(uint32_t* aBoxSize) override;
   nsresult Write() override;
@@ -228,7 +227,7 @@ public:
   MediaDataBox(uint32_t aTrackType, ISOControl* aControl);
   ~MediaDataBox();
 
-protected:
+ protected:
   uint32_t mAllSampleSize;      // All audio and video sample size in this box.
   uint32_t mFirstSampleOffset;  // The offset of first sample in this box from
                                 // the beginning of this mp4 file.
@@ -236,21 +235,21 @@ protected:
 };
 
 // flags for TrackRunBox::flags, 14496-12 8.8.8.1.
-#define flags_data_offset_present                     0x000001
-#define flags_first_sample_flags_present              0x000002
-#define flags_sample_duration_present                 0x000100
-#define flags_sample_size_present                     0x000200
-#define flags_sample_flags_present                    0x000400
+#define flags_data_offset_present 0x000001
+#define flags_first_sample_flags_present 0x000002
+#define flags_sample_duration_present 0x000100
+#define flags_sample_size_present 0x000200
+#define flags_sample_flags_present 0x000400
 #define flags_sample_composition_time_offsets_present 0x000800
 
-// flag for TrackRunBox::tbl::sample_flags and TrackExtendsBox::default_sample_flags
-// which is defined in 14496-12 8.8.3.1.
+// flag for TrackRunBox::tbl::sample_flags and
+// TrackExtendsBox::default_sample_flags which is defined in 14496-12 8.8.3.1.
 uint32_t set_sample_flags(bool aSync);
 
 // 14496-12 8.8.8 'Track Fragment Run Box'
 // Box type: 'trun'
 class TrackRunBox : public FullBox {
-public:
+ public:
   // ISO BMFF members
   typedef struct {
     uint32_t sample_duration;
@@ -261,7 +260,8 @@ public:
 
   uint32_t sample_count;
   // the following are optional fields
-  uint32_t data_offset; // data offset exists when audio/video are present in file.
+  uint32_t
+      data_offset;  // data offset exists when audio/video are present in file.
   uint32_t first_sample_flags;
   UniquePtr<tbl[]> sample_info_table;
 
@@ -276,7 +276,7 @@ public:
   TrackRunBox(uint32_t aType, uint32_t aFlags, ISOControl* aControl);
   ~TrackRunBox();
 
-protected:
+ protected:
   uint32_t fillSampleTable();
 
   uint32_t mAllSampleSize;
@@ -284,18 +284,18 @@ protected:
 };
 
 // tf_flags in TrackFragmentHeaderBox, 14496-12 8.8.7.1.
-#define base_data_offset_present         0x000001
+#define base_data_offset_present 0x000001
 #define sample_description_index_present 0x000002
-#define default_sample_duration_present  0x000008
-#define default_sample_size_present      0x000010
-#define default_sample_flags_present     0x000020
-#define duration_is_empty                0x010000
-#define default_base_is_moof             0x020000
+#define default_sample_duration_present 0x000008
+#define default_sample_size_present 0x000010
+#define default_sample_flags_present 0x000020
+#define duration_is_empty 0x010000
+#define default_base_is_moof 0x020000
 
 // 14496-12 8.8.7 'Track Fragment Header Box'
 // Box type: 'tfhd'
 class TrackFragmentHeaderBox : public FullBox {
-public:
+ public:
   // ISO BMFF members
   uint32_t track_ID;
   uint64_t base_data_offset;
@@ -306,13 +306,13 @@ public:
   nsresult Write() override;
 
   // TrackFragmentHeaderBox methods
-  nsresult UpdateBaseDataOffset(uint64_t aOffset); // The offset of the first
-                                                   // sample in file.
+  nsresult UpdateBaseDataOffset(uint64_t aOffset);  // The offset of the first
+                                                    // sample in file.
 
   TrackFragmentHeaderBox(uint32_t aType, uint32_t aFlags, ISOControl* aControl);
   ~TrackFragmentHeaderBox();
 
-protected:
+ protected:
   uint32_t mTrackType;
 };
 
@@ -320,18 +320,18 @@ protected:
 // Box type: 'traf'
 // TrackFragmentBox cotains TrackFragmentHeaderBox and TrackRunBox.
 class TrackFragmentBox : public DefaultContainerImpl {
-public:
+ public:
   TrackFragmentBox(uint32_t aType, ISOControl* aControl);
   ~TrackFragmentBox();
 
-protected:
+ protected:
   uint32_t mTrackType;
 };
 
 // 14496-12 8.8.5 'Movie Fragment Header Box'
 // Box type: 'mfhd'
 class MovieFragmentHeaderBox : public FullBox {
-public:
+ public:
   // ISO BMFF members
   uint32_t sequence_number;
 
@@ -343,7 +343,7 @@ public:
   MovieFragmentHeaderBox(uint32_t aType, ISOControl* aControl);
   ~MovieFragmentHeaderBox();
 
-protected:
+ protected:
   uint32_t mTrackType;
 };
 
@@ -351,7 +351,7 @@ protected:
 // Box type: 'moof'
 // MovieFragmentBox contains MovieFragmentHeaderBox and TrackFragmentBox.
 class MovieFragmentBox : public DefaultContainerImpl {
-public:
+ public:
   // MuxerOperation methods
   nsresult Generate(uint32_t* aBoxSize) override;
 
@@ -359,14 +359,14 @@ public:
   MovieFragmentBox(uint32_t aType, ISOControl* aControl);
   ~MovieFragmentBox();
 
-protected:
+ protected:
   uint32_t mTrackType;
 };
 
 // 14496-12 8.8.3 'Track Extends Box'
 // Box type: 'trex'
 class TrackExtendsBox : public FullBox {
-public:
+ public:
   // ISO BMFF members
   uint32_t track_ID;
   uint32_t default_sample_description_index;
@@ -382,7 +382,7 @@ public:
   TrackExtendsBox(uint32_t aType, ISOControl* aControl);
   ~TrackExtendsBox();
 
-protected:
+ protected:
   uint32_t mTrackType;
 };
 
@@ -390,7 +390,7 @@ protected:
 // Box type: 'mvex'
 // MovieExtendsBox contains TrackExtendsBox.
 class MovieExtendsBox : public DefaultContainerImpl {
-public:
+ public:
   MovieExtendsBox(ISOControl* aControl);
   ~MovieExtendsBox();
 };
@@ -398,7 +398,7 @@ public:
 // 14496-12 8.7.5 'Chunk Offset Box'
 // Box type: 'stco'
 class ChunkOffsetBox : public FullBox {
-public:
+ public:
   // ISO BMFF members
   typedef struct {
     uint32_t chunk_offset;
@@ -415,14 +415,14 @@ public:
   ChunkOffsetBox(uint32_t aType, ISOControl* aControl);
   ~ChunkOffsetBox();
 
-protected:
+ protected:
   uint32_t mTrackType;
 };
 
 // 14496-12 8.7.4 'Sample To Chunk Box'
 // Box type: 'stsc'
 class SampleToChunkBox : public FullBox {
-public:
+ public:
   // ISO BMFF members
   typedef struct {
     uint32_t first_chunk;
@@ -441,14 +441,14 @@ public:
   SampleToChunkBox(uint32_t aType, ISOControl* aControl);
   ~SampleToChunkBox();
 
-protected:
+ protected:
   uint32_t mTrackType;
 };
 
 // 14496-12 8.6.1.2 'Decoding Time to Sample Box'
 // Box type: 'stts'
 class TimeToSampleBox : public FullBox {
-public:
+ public:
   // ISO BMFF members
   typedef struct {
     uint32_t sample_count;
@@ -466,7 +466,7 @@ public:
   TimeToSampleBox(uint32_t aType, ISOControl* aControl);
   ~TimeToSampleBox();
 
-protected:
+ protected:
   uint32_t mTrackType;
 };
 
@@ -490,7 +490,7 @@ protected:
  *
  */
 class SampleEntryBox : public Box {
-public:
+ public:
   // ISO BMFF members
   uint8_t reserved[6];
   uint16_t data_reference_index;
@@ -501,14 +501,14 @@ public:
   // MuxerOperation methods
   nsresult Write() override;
 
-protected:
+ protected:
   SampleEntryBox() = delete;
 };
 
 // 14496-12 8.5.2 'Sample Description Box'
 // Box type: 'stsd'
 class SampleDescriptionBox : public FullBox {
-public:
+ public:
   // ISO BMFF members
   uint32_t entry_count;
   RefPtr<SampleEntryBox> sample_entry_box;
@@ -521,7 +521,7 @@ public:
   SampleDescriptionBox(uint32_t aType, ISOControl* aControl);
   ~SampleDescriptionBox();
 
-protected:
+ protected:
   nsresult CreateAudioSampleEntry(RefPtr<SampleEntryBox>& aSampleEntry);
   nsresult CreateVideoSampleEntry(RefPtr<SampleEntryBox>& aSampleEntry);
 
@@ -532,7 +532,7 @@ protected:
 // The base class for audio codec box.
 // This class is for inherited only, it shouldn't be instanced directly.
 class AudioSampleEntry : public SampleEntryBox {
-public:
+ public:
   // ISO BMFF members
   uint16_t sound_version;
   uint8_t reserved2[6];
@@ -547,7 +547,7 @@ public:
 
   ~AudioSampleEntry();
 
-protected:
+ protected:
   AudioSampleEntry(const nsACString& aFormat, ISOControl* aControl);
 };
 
@@ -555,20 +555,20 @@ protected:
 // The base class for video codec box.
 // This class is for inherited only, it shouldn't be instanced directly.
 class VisualSampleEntry : public SampleEntryBox {
-public:
+ public:
   // ISO BMFF members
   uint8_t reserved[16];
   uint16_t width;
   uint16_t height;
 
-  uint32_t horizresolution; // 72 dpi
-  uint32_t vertresolution;  // 72 dpi
+  uint32_t horizresolution;  // 72 dpi
+  uint32_t vertresolution;   // 72 dpi
   uint32_t reserved2;
-  uint16_t frame_count;     // 1, defined in 14496-12 8.5.2.2
+  uint16_t frame_count;  // 1, defined in 14496-12 8.5.2.2
 
   uint8_t compressorName[32];
-  uint16_t depth;       // 0x0018, defined in 14496-12 8.5.2.2;
-  uint16_t pre_defined; // -1, defined in 14496-12 8.5.2.2;
+  uint16_t depth;        // 0x0018, defined in 14496-12 8.5.2.2;
+  uint16_t pre_defined;  // -1, defined in 14496-12 8.5.2.2;
 
   // MuxerOperation methods
   nsresult Write() override;
@@ -576,14 +576,14 @@ public:
   // VisualSampleEntry methods
   ~VisualSampleEntry();
 
-protected:
+ protected:
   VisualSampleEntry(const nsACString& aFormat, ISOControl* aControl);
 };
 
 // 14496-12 8.7.3.2 'Sample Size Box'
 // Box type: 'stsz'
 class SampleSizeBox : public FullBox {
-public:
+ public:
   // ISO BMFF members
   uint32_t sample_size;
   uint32_t sample_count;
@@ -606,7 +606,7 @@ public:
 //                         SampleSizeBox and
 //                         ChunkOffsetBox.
 class SampleTableBox : public DefaultContainerImpl {
-public:
+ public:
   SampleTableBox(uint32_t aType, ISOControl* aControl);
   ~SampleTableBox();
 };
@@ -614,7 +614,7 @@ public:
 // 14496-12 8.7.2 'Data Reference Box'
 // Box type: 'url '
 class DataEntryUrlBox : public FullBox {
-public:
+ public:
   // ISO BMFF members
   // flags in DataEntryUrlBox::flags
   const static uint16_t flags_media_at_the_same_file = 0x0001;
@@ -635,10 +635,10 @@ public:
 // 14496-12 8.7.2 'Data Reference Box'
 // Box type: 'dref'
 class DataReferenceBox : public FullBox {
-public:
+ public:
   // ISO BMFF members
   uint32_t entry_count;
-  nsTArray<nsAutoPtr<DataEntryUrlBox>> urls;
+  nsTArray<UniquePtr<DataEntryUrlBox>> urls;
 
   // MuxerOperation methods
   nsresult Generate(uint32_t* aBoxSize) override;
@@ -653,7 +653,7 @@ public:
 // Box type: 'dinf'
 // DataInformationBox contains DataReferenceBox.
 class DataInformationBox : public DefaultContainerImpl {
-public:
+ public:
   DataInformationBox(ISOControl* aControl);
   ~DataInformationBox();
 };
@@ -661,7 +661,7 @@ public:
 // 14496-12 8.4.5.2 'Video Media Header Box'
 // Box type: 'vmhd'
 class VideoMediaHeaderBox : public FullBox {
-public:
+ public:
   // ISO BMFF members
   uint16_t graphicsmode;
   uint16_t opcolor[3];
@@ -678,7 +678,7 @@ public:
 // 14496-12 8.4.5.3 'Sound Media Header Box'
 // Box type: 'smhd'
 class SoundMediaHeaderBox : public FullBox {
-public:
+ public:
   // ISO BMFF members
   uint16_t balance;
   uint16_t reserved;
@@ -697,23 +697,23 @@ public:
 // MediaInformationBox contains SoundMediaHeaderBox, DataInformationBox and
 // SampleTableBox.
 class MediaInformationBox : public DefaultContainerImpl {
-public:
+ public:
   MediaInformationBox(uint32_t aType, ISOControl* aControl);
   ~MediaInformationBox();
 
-protected:
+ protected:
   uint32_t mTrackType;
 };
 
 // flags for TrackHeaderBox::flags.
-#define flags_track_enabled    0x000001
-#define flags_track_in_movie   0x000002
+#define flags_track_enabled 0x000001
+#define flags_track_in_movie 0x000002
 #define flags_track_in_preview 0x000004
 
 // 14496-12 8.3.2 'Track Header Box'
 // Box type: 'tkhd'
 class TrackHeaderBox : public FullBox {
-public:
+ public:
   // ISO BMFF members
   // version = 0
   uint32_t creation_time;
@@ -739,14 +739,14 @@ public:
   TrackHeaderBox(uint32_t aType, ISOControl* aControl);
   ~TrackHeaderBox();
 
-protected:
+ protected:
   uint32_t mTrackType;
 };
 
 // 14496-12 8.4.3 'Handler Reference Box'
 // Box type: 'hdlr'
 class HandlerBox : public FullBox {
-public:
+ public:
   // ISO BMFF members
   uint32_t pre_defined;
   uint32_t handler_type;
@@ -761,7 +761,7 @@ public:
   HandlerBox(uint32_t aType, ISOControl* aControl);
   ~HandlerBox();
 
-protected:
+ protected:
   uint32_t mTrackType;
 };
 
@@ -769,13 +769,13 @@ protected:
 // Box type: 'mdia'
 // MediaBox contains MediaHeaderBox, HandlerBox, and MediaInformationBox.
 class MediaBox : public DefaultContainerImpl {
-public:
+ public:
   MediaBox(uint32_t aType, ISOControl* aControl);
   ~MediaBox();
 
-protected:
+ protected:
   uint32_t mTrackType;
 };
 
-}
-#endif // ISOMediaBoxes_h_
+}  // namespace mozilla
+#endif  // ISOMediaBoxes_h_

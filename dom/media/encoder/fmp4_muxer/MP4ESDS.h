@@ -16,7 +16,7 @@ class ISOControl;
 /**
  * ESDS tag
  */
-#define ESDescrTag        0x03
+#define ESDescrTag 0x03
 
 /**
  * 14496-1 '8.3.3 ES_Descriptor'.
@@ -24,9 +24,9 @@ class ISOControl;
  * AAC CSD data.
  */
 class ES_Descriptor : public MuxerOperation {
-public:
+ public:
   // ISO BMFF members
-  uint8_t tag;      // ESDescrTag
+  uint8_t tag;  // ESDescrTag
   uint8_t length;
   uint16_t ES_ID;
   std::bitset<1> streamDependenceFlag;
@@ -46,14 +46,14 @@ public:
   ES_Descriptor(ISOControl* aControl);
   ~ES_Descriptor();
 
-protected:
+ protected:
   ISOControl* mControl;
 };
 
 // 14496-14 5.6 'Sample Description Boxes'
 // Box type: 'esds'
 class ESDBox : public FullBox {
-public:
+ public:
   // ISO BMFF members
   RefPtr<ES_Descriptor> es_descriptor;
 
@@ -69,7 +69,7 @@ public:
 // 14496-14 5.6 'Sample Description Boxes'
 // Box type: 'mp4a'
 class MP4AudioSampleEntry : public AudioSampleEntry {
-public:
+ public:
   // ISO BMFF members
   RefPtr<ESDBox> es;
 
@@ -82,6 +82,6 @@ public:
   ~MP4AudioSampleEntry();
 };
 
-}
+}  // namespace mozilla
 
-#endif // MP4ESDS_h_
+#endif  // MP4ESDS_h_

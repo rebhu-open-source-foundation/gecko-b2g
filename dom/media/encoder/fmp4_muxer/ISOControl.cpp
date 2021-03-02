@@ -4,10 +4,9 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include <time.h>
-#include "nsAutoPtr.h"
 #include "ISOControl.h"
 #include "ISOMediaBoxes.h"
-#include "EncodedFrameContainer.h"
+#include "EncodedFrame.h"
 
 namespace mozilla {
 
@@ -16,63 +15,52 @@ namespace mozilla {
 #define iso_time_offset 2082844800
 
 FragmentBuffer::FragmentBuffer(uint32_t aTrackType, uint32_t aFragDuration)
-  : mTrackType(aTrackType)
-  , mFragDuration(aFragDuration)
-  , mMediaStartTime(0)
-  , mFragmentNumber(0)
-  , mLastFrameTimeOfLastFragment(0)
-  , mEOS(false)
-{
+    : mTrackType(aTrackType),
+      mFragDuration(aFragDuration),
+      mFragmentNumber(0),
+      mLastFrameTimeOfLastFragment(0),
+      mEOS(false) {
   mFragArray.AppendElement();
   MOZ_COUNT_CTOR(FragmentBuffer);
 }
 
-FragmentBuffer::~FragmentBuffer()
-{
-  MOZ_COUNT_DTOR(FragmentBuffer);
-}
+FragmentBuffer::~FragmentBuffer() { MOZ_COUNT_DTOR(FragmentBuffer); }
 
-bool
-FragmentBuffer::HasEnoughData()
-{
+bool FragmentBuffer::HasEnoughData() {
   // Audio or video frame is enough to form a moof.
   return (mFragArray.Length() > 1);
 }
 
-nsresult
-FragmentBuffer::GetCSD(nsTArray<uint8_t>& aCSD)
-{
+nsresult FragmentBuffer::GetCSD(nsTArray<uint8_t>& aCSD) {
   if (!mCSDFrame) {
     return NS_ERROR_FAILURE;
   }
-  aCSD.AppendElements(mCSDFrame->GetFrameData().Elements(),
-                      mCSDFrame->GetFrameData().Length());
+  aCSD.AppendElements(*mCSDFrame->mFrameData);
 
   return NS_OK;
 }
 
-nsresult
-FragmentBuffer::AddFrame(EncodedFrame* aFrame)
-{
+nsresult FragmentBuffer::AddFrame(EncodedFrame* aFrame) {
   // already EOS, it rejects all new data.
   if (mEOS) {
     MOZ_ASSERT(0);
     return NS_OK;
   }
 
-  EncodedFrame::FrameType type = aFrame->GetFrameType();
+  EncodedFrame::FrameType type = aFrame->mFrameType;
   if (type == EncodedFrame::AAC_CSD || type == EncodedFrame::AVC_CSD ||
-      type == EncodedFrame::AMR_AUDIO_CSD || type == EncodedFrame::EVRC_AUDIO_CSD) {
+      type == EncodedFrame::AMR_AUDIO_CSD ||
+      type == EncodedFrame::EVRC_AUDIO_CSD) {
     mCSDFrame = aFrame;
-    // Use CSD's timestamp as the start time. Encoder should send CSD frame first
-    // and then data frames.
-    mMediaStartTime = aFrame->GetTimeStamp();
+    // Use CSD's timestamp as the start time. Encoder should send CSD frame
+    // first and then data frames.
+    mMediaStartTime = aFrame->mTime;
     mFragmentNumber = 1;
     return NS_OK;
   }
 
   // if the timestamp is incorrect, abort it.
-  if (aFrame->GetTimeStamp() < mMediaStartTime) {
+  if (aFrame->mTime < mMediaStartTime) {
     MOZ_ASSERT(false);
     return NS_ERROR_FAILURE;
   }
@@ -80,7 +68,8 @@ FragmentBuffer::AddFrame(EncodedFrame* aFrame)
   mFragArray.LastElement().AppendElement(aFrame);
 
   // check if current fragment is reach the fragment duration.
-  if ((aFrame->GetTimeStamp() - mMediaStartTime) >= (mFragDuration * mFragmentNumber)) {
+  if ((aFrame->mTime - mMediaStartTime).ToMicroseconds() >=
+      (mFragDuration * mFragmentNumber)) {
     mFragArray.AppendElement();
     mFragmentNumber++;
   }
@@ -88,10 +77,8 @@ FragmentBuffer::AddFrame(EncodedFrame* aFrame)
   return NS_OK;
 }
 
-nsresult
-FragmentBuffer::GetFirstFragment(nsTArray<RefPtr<EncodedFrame>>& aFragment,
-                                 bool aFlush)
-{
+nsresult FragmentBuffer::GetFirstFragment(
+    nsTArray<RefPtr<EncodedFrame>>& aFragment, bool aFlush) {
   // It should be called only if there is a complete fragment in mFragArray.
   if (mFragArray.Length() <= 1 && !mEOS) {
     MOZ_ASSERT(false);
@@ -107,51 +94,37 @@ FragmentBuffer::GetFirstFragment(nsTArray<RefPtr<EncodedFrame>>& aFragment,
   return NS_OK;
 }
 
-uint32_t
-FragmentBuffer::GetFirstFragmentSampleNumber()
-{
+uint32_t FragmentBuffer::GetFirstFragmentSampleNumber() {
   return mFragArray.ElementAt(0).Length();
 }
 
-uint32_t
-FragmentBuffer::GetFirstFragmentSampleSize()
-{
+uint32_t FragmentBuffer::GetFirstFragmentSampleSize() {
   uint32_t size = 0;
   uint32_t len = mFragArray.ElementAt(0).Length();
   for (uint32_t i = 0; i < len; i++) {
-    size += mFragArray.ElementAt(0).ElementAt(i)->GetFrameData().Length();
+    size += mFragArray.ElementAt(0).ElementAt(i)->mFrameData->Length();
   }
   return size;
 }
 
 ISOControl::ISOControl(uint32_t aMuxingType)
-  : mMuxingType(aMuxingType)
-  , mAudioFragmentBuffer(nullptr)
-  , mVideoFragmentBuffer(nullptr)
-  , mFragNum(0)
-  , mOutputSize(0)
-  , mBitCount(0)
-  , mBit(0)
-{
+    : mMuxingType(aMuxingType),
+      mAudioFragmentBuffer(nullptr),
+      mVideoFragmentBuffer(nullptr),
+      mFragNum(0),
+      mOutputSize(0),
+      mBitCount(0),
+      mBit(0) {
   // Create a data array for first mp4 Box, ftyp.
   mOutBuffers.SetLength(1);
   MOZ_COUNT_CTOR(ISOControl);
 }
 
-ISOControl::~ISOControl()
-{
-  MOZ_COUNT_DTOR(ISOControl);
-}
+ISOControl::~ISOControl() { MOZ_COUNT_DTOR(ISOControl); }
 
-uint32_t
-ISOControl::GetNextTrackID()
-{
-  return (mMetaArray.Length() + 1);
-}
+uint32_t ISOControl::GetNextTrackID() { return (mMetaArray.Length() + 1); }
 
-uint32_t
-ISOControl::GetTrackID(TrackMetadataBase::MetadataKind aKind)
-{
+uint32_t ISOControl::GetTrackID(TrackMetadataBase::MetadataKind aKind) {
   for (uint32_t i = 0; i < mMetaArray.Length(); i++) {
     if (mMetaArray[i]->GetKind() == aKind) {
       return (i + 1);
@@ -163,11 +136,10 @@ ISOControl::GetTrackID(TrackMetadataBase::MetadataKind aKind)
   return 0;
 }
 
-nsresult
-ISOControl::SetMetadata(TrackMetadataBase* aTrackMeta)
-{
+nsresult ISOControl::SetMetadata(TrackMetadataBase* aTrackMeta) {
   if (aTrackMeta->GetKind() == TrackMetadataBase::METADATA_AAC ||
       aTrackMeta->GetKind() == TrackMetadataBase::METADATA_AMR ||
+      aTrackMeta->GetKind() == TrackMetadataBase::METADATA_AMR_WB ||
       aTrackMeta->GetKind() == TrackMetadataBase::METADATA_AVC ||
       aTrackMeta->GetKind() == TrackMetadataBase::METADATA_EVRC) {
     mMetaArray.AppendElement(aTrackMeta);
@@ -176,12 +148,11 @@ ISOControl::SetMetadata(TrackMetadataBase* aTrackMeta)
   return NS_ERROR_FAILURE;
 }
 
-nsresult
-ISOControl::GetAudioMetadata(RefPtr<AudioTrackMetadata>& aAudMeta)
-{
-  for (uint32_t i = 0; i < mMetaArray.Length() ; i++) {
+nsresult ISOControl::GetAudioMetadata(RefPtr<AudioTrackMetadata>& aAudMeta) {
+  for (uint32_t i = 0; i < mMetaArray.Length(); i++) {
     if (mMetaArray[i]->GetKind() == TrackMetadataBase::METADATA_AAC ||
         mMetaArray[i]->GetKind() == TrackMetadataBase::METADATA_AMR ||
+        mMetaArray[i]->GetKind() == TrackMetadataBase::METADATA_AMR_WB ||
         mMetaArray[i]->GetKind() == TrackMetadataBase::METADATA_EVRC) {
       aAudMeta = static_cast<AudioTrackMetadata*>(mMetaArray[i].get());
       return NS_OK;
@@ -190,10 +161,8 @@ ISOControl::GetAudioMetadata(RefPtr<AudioTrackMetadata>& aAudMeta)
   return NS_ERROR_FAILURE;
 }
 
-nsresult
-ISOControl::GetVideoMetadata(RefPtr<VideoTrackMetadata>& aVidMeta)
-{
-  for (uint32_t i = 0; i < mMetaArray.Length() ; i++) {
+nsresult ISOControl::GetVideoMetadata(RefPtr<VideoTrackMetadata>& aVidMeta) {
+  for (uint32_t i = 0; i < mMetaArray.Length(); i++) {
     if (mMetaArray[i]->GetKind() == TrackMetadataBase::METADATA_AVC) {
       aVidMeta = static_cast<VideoTrackMetadata*>(mMetaArray[i].get());
       return NS_OK;
@@ -202,25 +171,19 @@ ISOControl::GetVideoMetadata(RefPtr<VideoTrackMetadata>& aVidMeta)
   return NS_ERROR_FAILURE;
 }
 
-bool
-ISOControl::HasAudioTrack()
-{
+bool ISOControl::HasAudioTrack() {
   RefPtr<AudioTrackMetadata> audMeta;
   GetAudioMetadata(audMeta);
   return audMeta;
 }
 
-bool
-ISOControl::HasVideoTrack()
-{
+bool ISOControl::HasVideoTrack() {
   RefPtr<VideoTrackMetadata> vidMeta;
   GetVideoMetadata(vidMeta);
   return vidMeta;
 }
 
-nsresult
-ISOControl::SetFragment(FragmentBuffer* aFragment)
-{
+nsresult ISOControl::SetFragment(FragmentBuffer* aFragment) {
   if (aFragment->GetType() == Audio_Track) {
     mAudioFragmentBuffer = aFragment;
   } else {
@@ -229,21 +192,17 @@ ISOControl::SetFragment(FragmentBuffer* aFragment)
   return NS_OK;
 }
 
-FragmentBuffer*
-ISOControl::GetFragment(uint32_t aType)
-{
+FragmentBuffer* ISOControl::GetFragment(uint32_t aType) {
   if (aType == Audio_Track) {
     return mAudioFragmentBuffer;
-  } else if (aType == Video_Track){
+  } else if (aType == Video_Track) {
     return mVideoFragmentBuffer;
   }
   MOZ_ASSERT(0);
   return nullptr;
 }
 
-nsresult
-ISOControl::GetBufs(nsTArray<nsTArray<uint8_t>>* aOutputBufs)
-{
+nsresult ISOControl::GetBufs(nsTArray<nsTArray<uint8_t>>* aOutputBufs) {
   uint32_t len = mOutBuffers.Length();
   for (uint32_t i = 0; i < len; i++) {
     mOutBuffers[i].SwapElements(*aOutputBufs->AppendElement());
@@ -251,16 +210,12 @@ ISOControl::GetBufs(nsTArray<nsTArray<uint8_t>>* aOutputBufs)
   return FlushBuf();
 }
 
-nsresult
-ISOControl::FlushBuf()
-{
+nsresult ISOControl::FlushBuf() {
   mOutBuffers.SetLength(1);
   return NS_OK;
 }
 
-uint32_t
-ISOControl::WriteAVData(nsTArray<uint8_t>& aArray)
-{
+uint32_t ISOControl::WriteAVData(nsTArray<uint8_t>& aArray) {
   MOZ_ASSERT(!mBitCount);
 
   uint32_t len = aArray.Length();
@@ -283,9 +238,7 @@ ISOControl::WriteAVData(nsTArray<uint8_t>& aArray)
   return len;
 }
 
-uint32_t
-ISOControl::WriteBits(uint64_t aBits, size_t aNumBits)
-{
+uint32_t ISOControl::WriteBits(uint64_t aBits, size_t aNumBits) {
   uint8_t output_byte = 0;
 
   MOZ_ASSERT(aNumBits <= 64);
@@ -302,25 +255,19 @@ ISOControl::WriteBits(uint64_t aBits, size_t aNumBits)
   return output_byte;
 }
 
-uint32_t
-ISOControl::Write(uint8_t* aBuf, uint32_t aSize)
-{
+uint32_t ISOControl::Write(uint8_t* aBuf, uint32_t aSize) {
   mOutBuffers.LastElement().AppendElements(aBuf, aSize);
   mOutputSize += aSize;
   return aSize;
 }
 
-uint32_t
-ISOControl::Write(uint8_t aData)
-{
+uint32_t ISOControl::Write(uint8_t aData) {
   MOZ_ASSERT(!mBitCount);
   Write((uint8_t*)&aData, sizeof(uint8_t));
   return sizeof(uint8_t);
 }
 
-uint32_t
-ISOControl::GetBufPos()
-{
+uint32_t ISOControl::GetBufPos() {
   uint32_t len = mOutBuffers.Length();
   uint32_t pos = 0;
   for (uint32_t i = 0; i < len; i++) {
@@ -329,9 +276,7 @@ ISOControl::GetBufPos()
   return pos;
 }
 
-uint32_t
-ISOControl::WriteFourCC(const char* aType)
-{
+uint32_t ISOControl::WriteFourCC(const char* aType) {
   // Bit operation should be aligned to byte before writing any byte data.
   MOZ_ASSERT(!mBitCount);
 
@@ -343,12 +288,10 @@ ISOControl::WriteFourCC(const char* aType)
   return 0;
 }
 
-nsresult
-ISOControl::GenerateFtyp()
-{
+nsresult ISOControl::GenerateFtyp() {
   nsresult rv;
   uint32_t size;
-  nsAutoPtr<FileTypeBox> type_box(new FileTypeBox(this));
+  UniquePtr<FileTypeBox> type_box(new FileTypeBox(this));
   rv = type_box->Generate(&size);
   NS_ENSURE_SUCCESS(rv, rv);
   rv = type_box->Write();
@@ -356,12 +299,10 @@ ISOControl::GenerateFtyp()
   return NS_OK;
 }
 
-nsresult
-ISOControl::GenerateMoov()
-{
+nsresult ISOControl::GenerateMoov() {
   nsresult rv;
   uint32_t size;
-  nsAutoPtr<MovieBox> moov_box(new MovieBox(this));
+  UniquePtr<MovieBox> moov_box(new MovieBox(this));
   rv = moov_box->Generate(&size);
   NS_ENSURE_SUCCESS(rv, rv);
   rv = moov_box->Write();
@@ -369,16 +310,14 @@ ISOControl::GenerateMoov()
   return NS_OK;
 }
 
-nsresult
-ISOControl::GenerateMoof(uint32_t aTrackType)
-{
+nsresult ISOControl::GenerateMoof(uint32_t aTrackType) {
   mFragNum++;
 
   nsresult rv;
   uint32_t size;
   uint64_t first_sample_offset = mOutputSize;
-  nsAutoPtr<MovieFragmentBox> moof_box(new MovieFragmentBox(aTrackType, this));
-  nsAutoPtr<MediaDataBox> mdat_box(new MediaDataBox(aTrackType, this));
+  UniquePtr<MovieFragmentBox> moof_box(new MovieFragmentBox(aTrackType, this));
+  UniquePtr<MediaDataBox> mdat_box(new MediaDataBox(aTrackType, this));
 
   rv = moof_box->Generate(&size);
   NS_ENSURE_SUCCESS(rv, rv);
@@ -389,11 +328,12 @@ ISOControl::GenerateMoof(uint32_t aTrackType)
 
   // correct offset info
   nsTArray<RefPtr<MuxerOperation>> tfhds;
-  rv = moof_box->Find(NS_LITERAL_CSTRING("tfhd"), tfhds);
+  rv = moof_box->Find("tfhd"_ns, tfhds);
   NS_ENSURE_SUCCESS(rv, rv);
   uint32_t len = tfhds.Length();
   for (uint32_t i = 0; i < len; i++) {
-    TrackFragmentHeaderBox* tfhd = (TrackFragmentHeaderBox*) tfhds.ElementAt(i).get();
+    TrackFragmentHeaderBox* tfhd =
+        (TrackFragmentHeaderBox*)tfhds.ElementAt(i).get();
     rv = tfhd->UpdateBaseDataOffset(first_sample_offset);
     NS_ENSURE_SUCCESS(rv, rv);
   }
@@ -406,10 +346,8 @@ ISOControl::GenerateMoof(uint32_t aTrackType)
   return NS_OK;
 }
 
-uint32_t
-ISOControl::GetTime()
-{
+uint32_t ISOControl::GetTime() {
   return (uint64_t)time(nullptr) + iso_time_offset;
 }
 
-}
+}  // namespace mozilla

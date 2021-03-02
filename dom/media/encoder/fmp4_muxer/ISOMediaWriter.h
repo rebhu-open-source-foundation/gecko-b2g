@@ -7,7 +7,6 @@
 #define ISOMediaWriter_h_
 
 #include "ContainerWriter.h"
-#include "nsAutoPtr.h"
 #include "nsIRunnable.h"
 
 namespace mozilla {
@@ -15,9 +14,8 @@ namespace mozilla {
 class ISOControl;
 class FragmentBuffer;
 
-class ISOMediaWriter : public ContainerWriter
-{
-public:
+class ISOMediaWriter : public ContainerWriter {
+ public:
   // Generate an fragmented MP4 stream, ISO/IEC 14496-12.
   // Brand names in 'ftyp' box are 'isom' and 'mp42'.
   const static uint32_t TYPE_FRAG_MP4 = 1 << 0;
@@ -41,15 +39,16 @@ public:
   ~ISOMediaWriter();
 
   // ContainerWriter methods
-  nsresult WriteEncodedTrack(const EncodedFrameContainer &aData,
+  nsresult WriteEncodedTrack(const nsTArray<RefPtr<EncodedFrame>>& aData,
                              uint32_t aFlags = 0) override;
 
   nsresult GetContainerData(nsTArray<nsTArray<uint8_t>>* aOutputBufs,
                             uint32_t aFlags = 0) override;
 
-  nsresult SetMetadata(TrackMetadataBase* aMetadata) override;
+  nsresult SetMetadata(
+      const nsTArray<RefPtr<TrackMetadataBase>>& aMetadata) override;
 
-protected:
+ protected:
   /**
    * The state of each state will generate one or more blob.
    * Each blob will be a moov, moof, moof... until receiving EOS.
@@ -64,7 +63,8 @@ protected:
    *
    *   MUXING_FRAG:
    *     It collects enough audio/video data to generate a fragment blob. This
-   *     will be repeated until END_OF_STREAM and then transiting to MUXING_DONE.
+   *     will be repeated until END_OF_STREAM and then transiting to
+   * MUXING_DONE.
    *
    *   MUXING_DONE:
    *     End of ISOMediaWriter life cycle.
@@ -75,7 +75,7 @@ protected:
     MUXING_DONE,
   };
 
-private:
+ private:
   nsresult RunState();
 
   // True if one of following conditions hold:
@@ -86,13 +86,13 @@ private:
 
   // The main class to generate and iso box. Its life time is same as
   // ISOMediaWriter and deleted only if ISOMediaWriter is destroyed.
-  nsAutoPtr<ISOControl> mControl;
+  UniquePtr<ISOControl> mControl;
 
   // Buffers to keep audio/video data frames, they are created when metadata is
   // received. Only one instance for each media type is allowed and they will be
   // deleted only if ISOMediaWriter is destroyed.
-  nsAutoPtr<FragmentBuffer> mAudioFragmentBuffer;
-  nsAutoPtr<FragmentBuffer> mVideoFragmentBuffer;
+  UniquePtr<FragmentBuffer> mAudioFragmentBuffer;
+  UniquePtr<FragmentBuffer> mVideoFragmentBuffer;
 
   MuxState mState;
 
@@ -103,6 +103,6 @@ private:
   uint32_t mType;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // ISOMediaWriter_h_
+#endif  // ISOMediaWriter_h_

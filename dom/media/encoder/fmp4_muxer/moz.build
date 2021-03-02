@@ -5,18 +5,18 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 EXPORTS += [
-    'ISOMediaWriter.h',
-    'ISOTrackMetadata.h',
+    "ISOMediaWriter.h",
+    "ISOTrackMetadata.h",
 ]
 
 UNIFIED_SOURCES += [
-    'AMRBox.cpp',
-    'AVCBox.cpp',
-    'EVRCBox.cpp',
-    'ISOControl.cpp',
-    'ISOMediaBoxes.cpp',
-    'ISOMediaWriter.cpp',
-    'MP4ESDS.cpp',
+    "AMRBox.cpp",
+    "AVCBox.cpp",
+    "EVRCBox.cpp",
+    "ISOControl.cpp",
+    "ISOMediaBoxes.cpp",
+    "ISOMediaWriter.cpp",
+    "MP4ESDS.cpp",
 ]
 
-FINAL_LIBRARY = 'xul'
+FINAL_LIBRARY = "xul"

@@ -10,9 +10,7 @@
 
 namespace mozilla {
 
-nsresult
-AVCSampleEntry::Generate(uint32_t* aBoxSize)
-{
+nsresult AVCSampleEntry::Generate(uint32_t* aBoxSize) {
   uint32_t avc_box_size = 0;
   nsresult rv;
   rv = avcConfigBox->Generate(&avc_box_size);
@@ -25,9 +23,7 @@ AVCSampleEntry::Generate(uint32_t* aBoxSize)
   return NS_OK;
 }
 
-nsresult
-AVCSampleEntry::Write()
-{
+nsresult AVCSampleEntry::Write() {
   BoxSizeChecker checker(mControl, size);
   nsresult rv;
   rv = VisualSampleEntry::Write();
@@ -39,31 +35,23 @@ AVCSampleEntry::Write()
 }
 
 AVCSampleEntry::AVCSampleEntry(ISOControl* aControl)
-  : VisualSampleEntry(NS_LITERAL_CSTRING("avc1"), aControl)
-{
+    : VisualSampleEntry("avc1"_ns, aControl) {
   avcConfigBox = new AVCConfigurationBox(aControl);
   MOZ_COUNT_CTOR(AVCSampleEntry);
 }
 
-AVCSampleEntry::~AVCSampleEntry()
-{
-  MOZ_COUNT_DTOR(AVCSampleEntry);
-}
+AVCSampleEntry::~AVCSampleEntry() { MOZ_COUNT_DTOR(AVCSampleEntry); }
 
 AVCConfigurationBox::AVCConfigurationBox(ISOControl* aControl)
-  : Box(NS_LITERAL_CSTRING("avcC"), aControl)
-{
+    : Box("avcC"_ns, aControl) {
   MOZ_COUNT_CTOR(AVCConfigurationBox);
 }
 
-AVCConfigurationBox::~AVCConfigurationBox()
-{
+AVCConfigurationBox::~AVCConfigurationBox() {
   MOZ_COUNT_DTOR(AVCConfigurationBox);
 }
 
-nsresult
-AVCConfigurationBox::Generate(uint32_t* aBoxSize)
-{
+nsresult AVCConfigurationBox::Generate(uint32_t* aBoxSize) {
   nsresult rv;
   FragmentBuffer* frag = mControl->GetFragment(Video_Track);
   rv = frag->GetCSD(avcConfig);
@@ -73,9 +61,7 @@ AVCConfigurationBox::Generate(uint32_t* aBoxSize)
   return NS_OK;
 }
 
-nsresult
-AVCConfigurationBox::Write()
-{
+nsresult AVCConfigurationBox::Write() {
   BoxSizeChecker checker(mControl, size);
   Box::Write();
 
@@ -84,4 +70,4 @@ AVCConfigurationBox::Write()
   return NS_OK;
 }
 
-}
+}  // namespace mozilla
