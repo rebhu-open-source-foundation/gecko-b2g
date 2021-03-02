@@ -3085,6 +3085,10 @@ function WifiWorker() {
             network.hasInternet = known.hasInternet;
           }
 
+          if ("captivePortalDetected" in known) {
+            network.captivePortalDetected = known.captivePortalDetected;
+          }
+
           if (
             network.netId == wifiInfo.networkId &&
             self._ipAddress &&
@@ -5092,6 +5096,12 @@ WifiWorker.prototype = {
             uneval(lastNetwork)
         );
         lastNetwork.everCaptivePortalDetected = true;
+        WifiConfigManager.updateNetworkInternetAccess(
+          lastNetwork.netId,
+          lastNetwork.everValidated,
+          lastNetwork.everCaptivePortalDetected,
+          function() {}
+        );
         this._fireEvent("captiveportallogin", {
           loginSuccess: false,
           network: netToDOM(lastNetwork),
