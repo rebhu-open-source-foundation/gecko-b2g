@@ -65,6 +65,17 @@ class ProviderQuickSuggest extends UrlbarProvider {
   }
 
   /**
+   * @returns {string} The help URL for the Quick Suggest feature.
+   */
+  get helpUrl() {
+    return (
+      this._helpUrl ||
+      Services.urlFormatter.formatURLPref("app.support.baseURL") +
+        "sponsored-search"
+    );
+  }
+
+  /**
    * Whether this provider should be invoked for the given context.
    * If this method returns false, the providers manager won't start a query
    * with this provider, to save on resources.
@@ -113,6 +124,7 @@ class ProviderQuickSuggest extends UrlbarProvider {
     }
 
     let payload = {
+      qsSuggestion: [suggestion.fullKeyword, UrlbarUtils.HIGHLIGHT.SUGGESTED],
       title: suggestion.title,
       url: suggestion.url,
       icon: suggestion.icon,
@@ -129,14 +141,14 @@ class ProviderQuickSuggest extends UrlbarProvider {
 
     // Show the help button if we haven't reached the max onboarding count yet.
     if (this._onboardingCount < this._onboardingMaxCount) {
-      payload.helpUrl = UrlbarPrefs.get("quicksuggest.helpURL");
+      payload.helpUrl = this.helpUrl;
       payload.helpTitle = ONBOARDING_TEXT;
     }
 
     let result = new UrlbarResult(
       UrlbarUtils.RESULT_TYPE.URL,
       UrlbarUtils.RESULT_SOURCE.SEARCH,
-      payload
+      ...UrlbarResult.payloadAndSimpleHighlights(queryContext.tokens, payload)
     );
     result.suggestedIndex = UrlbarPrefs.get("quicksuggest.suggestedIndex");
     if (result.suggestedIndex == -1) {
@@ -275,17 +287,27 @@ class ProviderQuickSuggest extends UrlbarProvider {
 
   /**
    * Updates state based on the `browser.urlbar.quicksuggest.enabled` pref.
-   * Right now we only need to enable/disable event telemetry.
+   * Enable/disable event telemetry and ensure QuickSuggest module is loaded
+   * when enabled.
    */
   _updateExperimentState() {
     Services.telemetry.setEventRecordingEnabled(
       TELEMETRY_EVENT_CATEGORY,
       UrlbarPrefs.get(EXPERIMENT_PREF)
     );
+    // QuickSuggest is only loaded by the UrlBar on it's first query, however
+    // there is work it can preload when idle instead of starting it on user
+    // input. Referencing it here will trigger its import and init.
+    if (UrlbarPrefs.get(EXPERIMENT_PREF)) {
+      UrlbarQuickSuggest; // eslint-disable-line no-unused-expressions
+    }
   }
 
   // Whether we added a result during the most recent query.
   _addedResultInLastQuery = false;
+
+  // This is intended for tests and allows them to set a different help URL.
+  _helpUrl = undefined;
 
   get _onboardingCount() {
     return UrlbarPrefs.get(ONBOARDING_COUNT_PREF);

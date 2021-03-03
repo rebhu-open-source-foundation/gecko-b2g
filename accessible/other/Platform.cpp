@@ -13,7 +13,7 @@ void a11y::PlatformInit() {}
 
 void a11y::PlatformShutdown() {}
 
-void a11y::ProxyCreated(RemoteAccessible*, uint32_t) {}
+void a11y::ProxyCreated(RemoteAccessible*) {}
 
 void a11y::ProxyDestroyed(RemoteAccessible*) {}
 

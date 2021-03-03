@@ -3521,12 +3521,6 @@
   value: @IS_NIGHTLY_BUILD@
   mirror: always
 
-# Is support for Navigator.webdriver enabled?
-- name: dom.webdriver.enabled
-  type: bool
-  value: true
-  mirror: always
-
 # In case Touch API is enabled, this pref controls whether to support
 # ontouch* event handlers, document.createTouch, document.createTouchList and
 # document.createEvent("TouchEvent").
@@ -3953,6 +3947,13 @@
   type: bool
   value: false
   mirror: once
+  do_not_use_directly: true
+
+# If session history is stored in the parent process, enable bfcache for it.
+- name: fission.bfcacheInParent
+  type: bool
+  value: false
+  mirror: always
   do_not_use_directly: true
 
 # Allow renaming of process names to the origin on nightly
@@ -4707,11 +4708,19 @@
   value: false
   mirror: always
 
-# Prefer EGL over GLX if available.
-- name: gfx.prefer-x11-egl
+#ifdef MOZ_X11
+# Whether to force using GLX over EGL.
+- name: gfx.x11-egl.force-disabled
   type: bool
   value: false
   mirror: once
+
+# Whether to force using EGL over GLX.
+- name: gfx.x11-egl.force-enabled
+  type: bool
+  value: false
+  mirror: once
+#endif
 
 - name: gfx.testing.device-fail
   type: RelaxedAtomicBool
@@ -5093,7 +5102,7 @@
 
 - name: gfx.webrender.software.d3d11.upload-mode
   type: RelaxedAtomicInt32
-  value: 4 
+  value: 4
   mirror: always
 
 # Whether to allow widgets that don't support acceleration to use WebRender
@@ -9280,6 +9289,12 @@
 - name: network.cors_preflight.allow_client_cert
   type: RelaxedAtomicBool
   value: false
+  mirror: always
+
+# Whether to record the telemetry event when a JAR channel is failed to load.
+- name: network.jar.record_failure_reason
+  type: RelaxedAtomicBool
+  value: @IS_NIGHTLY_OR_DEV_EDITION@
   mirror: always
 
 #---------------------------------------------------------------------------

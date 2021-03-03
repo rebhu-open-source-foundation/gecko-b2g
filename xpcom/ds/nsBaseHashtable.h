@@ -7,15 +7,80 @@
 #ifndef nsBaseHashtable_h__
 #define nsBaseHashtable_h__
 
+#include <functional>
 #include <utility>
 
 #include "mozilla/Maybe.h"
 #include "mozilla/MemoryReporting.h"
+#include "mozilla/RefPtr.h"
+#include "mozilla/Result.h"
+#include "mozilla/UniquePtr.h"
+#include "nsCOMPtr.h"
 #include "nsDebug.h"
 #include "nsTHashtable.h"
 
 template <class KeyClass, class DataType, class UserDataType, class Converter>
 class nsBaseHashtable;  // forward declaration
+
+namespace mozilla::detail {
+
+template <typename SmartPtr>
+struct SmartPtrTraits {
+  static constexpr bool IsSmartPointer = false;
+  static constexpr bool IsRefCounted = false;
+};
+
+template <typename Pointee>
+struct SmartPtrTraits<UniquePtr<Pointee>> {
+  static constexpr bool IsSmartPointer = true;
+  static constexpr bool IsRefCounted = false;
+  using SmartPointerType = UniquePtr<Pointee>;
+  using PointeeType = Pointee;
+  using RawPointerType = Pointee*;
+  template <typename U>
+  using OtherSmartPtrType = UniquePtr<U>;
+
+  template <typename U, typename... Args>
+  static SmartPointerType NewObject(Args&&... aConstructionArgs) {
+    return mozilla::MakeUnique<U>(std::forward<Args>(aConstructionArgs)...);
+  }
+};
+
+template <typename Pointee>
+struct SmartPtrTraits<RefPtr<Pointee>> {
+  static constexpr bool IsSmartPointer = true;
+  static constexpr bool IsRefCounted = true;
+  using SmartPointerType = RefPtr<Pointee>;
+  using PointeeType = Pointee;
+  using RawPointerType = Pointee*;
+  template <typename U>
+  using OtherSmartPtrType = RefPtr<U>;
+
+  template <typename U, typename... Args>
+  static SmartPointerType NewObject(Args&&... aConstructionArgs) {
+    return MakeRefPtr<U>(std::forward<Args>(aConstructionArgs)...);
+  }
+};
+
+template <typename Pointee>
+struct SmartPtrTraits<nsCOMPtr<Pointee>> {
+  static constexpr bool IsSmartPointer = true;
+  static constexpr bool IsRefCounted = true;
+  using SmartPointerType = nsCOMPtr<Pointee>;
+  using PointeeType = Pointee;
+  using RawPointerType = Pointee*;
+  template <typename U>
+  using OtherSmartPtrType = nsCOMPtr<U>;
+
+  template <typename U, typename... Args>
+  static SmartPointerType NewObject(Args&&... aConstructionArgs) {
+    return MakeRefPtr<U>(std::forward<Args>(aConstructionArgs)...);
+  }
+};
+
+// XXX Add SafeRefPtr specialization
+
+}  // namespace mozilla::detail
 
 /**
  * Data type conversion helper that is used to wrap and unwrap the specified
@@ -205,6 +270,29 @@ class nsBaseHashtable
     return mozilla::Some(Converter::Unwrap(ent->mData));
   }
 
+  using SmartPtrTraits = mozilla::detail::SmartPtrTraits<DataType>;
+
+  /**
+   * Looks up aKey in the hash table. If it doesn't exist a new object of
+   * SmartPtrTraits::PointeeType will be created (using the arguments provided)
+   * and then returned.
+   *
+   * \note This can only be instantiated if DataType is a smart pointer.
+   */
+  template <typename... Args>
+  auto GetOrInsertNew(KeyType aKey, Args&&... aConstructionArgs) {
+    static_assert(
+        SmartPtrTraits::IsSmartPointer,
+        "GetOrInsertNew can only be used with smart pointer data types");
+    return LookupOrInsertWith(std::move(aKey),
+                              [&] {
+                                return SmartPtrTraits::template NewObject<
+                                    typename SmartPtrTraits::PointeeType>(
+                                    std::forward<Args>(aConstructionArgs)...);
+                              })
+        .get();
+  }
+
   /**
    * Add aKey to the table if not already present, and return a reference to its
    * value.  If aKey is not already in the table then the a default-constructed
@@ -230,6 +318,31 @@ class nsBaseHashtable
     return WithEntryHandle(aKey, [&aFunc](auto entryHandle) -> DataType& {
       return entryHandle.OrInsertWith(std::forward<F>(aFunc));
     });
+  }
+
+  /**
+   * Add aKey to the table if not already present, and return a reference to its
+   * value.  If aKey is not already in the table then the value is
+   * constructed using the given factory.
+   */
+  template <typename F>
+  [[nodiscard]] auto TryLookupOrInsertWith(const KeyType& aKey, F&& aFunc) {
+    return WithEntryHandle(
+        aKey,
+        [&aFunc](auto entryHandle)
+            -> mozilla::Result<std::reference_wrapper<DataType>,
+                               typename std::invoke_result_t<F>::err_type> {
+          if (entryHandle) {
+            return std::ref(entryHandle.Data());
+          }
+
+          // XXX Use MOZ_TRY after generalizing QM_TRY to mfbt.
+          auto res = std::forward<F>(aFunc)();
+          if (res.isErr()) {
+            return res.propagateErr();
+          }
+          return std::ref(entryHandle.Insert(res.unwrap()));
+        });
   }
 
   /**
