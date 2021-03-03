@@ -263,7 +263,7 @@ NetworkTimeService.prototype = {
         if (this._timezoneAutoUpdateEnabled) {
           // Apply the latest cached NITZ for timezone if it's available.
           if (this._timezoneAutoUpdateEnabled && this._lastNitzData[0]) {
-            this.setTimezoneByNitz(this._lastNitzData[0]);
+            this.setTimezoneByNitz(this._lastNitzData[0], true);
           }
         }
         break;
@@ -457,7 +457,7 @@ NetworkTimeService.prototype = {
   /**
    * Set the system time zone by NITZ.
    */
-  setTimezoneByNitz(aNitzData) {
+  setTimezoneByNitz(aNitzData, aForceUpdate = false) {
     // To set the sytem timezone. Note that we need to convert the time zone
     // value to a UTC repesentation string in the format of "UTC(+/-)hh:mm".
     // Ex, time zone -480 is "UTC+08:00"; time zone 630 is "UTC-10:30".
@@ -467,7 +467,7 @@ NetworkTimeService.prototype = {
     // the correct time zone offset by using "time.timezone.dst" value.
     this._updateSetting("time.timezone.dst", aNitzData.dst);
 
-    if (aNitzData.timeZone != new Date().getTimezoneOffset()) {
+    if (aForceUpdate || aNitzData.timeZone != new Date().getTimezoneOffset()) {
       let absTimeZoneInMinutes = Math.abs(aNitzData.timeZone);
       let timeZoneStr = "UTC";
       timeZoneStr += aNitzData.timeZone > 0 ? "-" : "+";
