@@ -6909,10 +6909,10 @@ RadioInterface.prototype = {
             "RILJ: [" +
               message.rilMessageToken +
               "] > RIL_REQUEST_ALLOW_DATA allowed = " +
-              message.allowed
+              message.attach
           );
         }
-        this.rilworker.setDataAllowed(message.rilMessageToken, message.allowed);
+        this.rilworker.setDataAllowed(message.rilMessageToken, message.attach);
         break;
       case "getIccAuthentication":
         this.processGetIccAuthentication(message);

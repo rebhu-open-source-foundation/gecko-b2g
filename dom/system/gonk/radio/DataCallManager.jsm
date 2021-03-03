@@ -270,6 +270,8 @@ DataCallManager.prototype = {
       this._currentDataClientId = this._dataDefaultClientId;
       let connHandler = this._connectionHandlers[this._currentDataClientId];
       let dcInterface = connHandler.dataCallInterface;
+
+      connHandler.dataCallSettings.defaultDataSlot = true;
       if (
         RILQUIRKS_DATA_REGISTRATION_ON_DEMAND ||
         RILQUIRKS_SUBSCRIPTION_CONTROL
@@ -1733,6 +1735,13 @@ DataCallHandler.prototype = {
 
   /* eslint-disable consistent-return */
   notifyRadioStateChanged() {
+    if (
+      !RILQUIRKS_DATA_REGISTRATION_ON_DEMAND &&
+      !RILQUIRKS_SUBSCRIPTION_CONTROL
+    ) {
+      return;
+    }
+
     let connection = gMobileConnectionService.getItemByServiceId(this.clientId);
     let radioOn =
       connection.radioState ===

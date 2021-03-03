@@ -203,6 +203,19 @@ XPCOMUtils.defineLazyServiceGetter(
 );
 
 var DEBUG = RIL_DEBUG.DEBUG_RIL;
+function updateDebugFlag() {
+  // Read debug setting from pref
+  let debugPref;
+  try {
+    debugPref =
+      debugPref || Services.prefs.getBoolPref(RIL_DEBUG.PREF_RIL_DEBUG_ENABLED);
+  } catch (e) {
+    debugPref = false;
+  }
+  DEBUG = debugPref || RIL_DEBUG.DEBUG_RIL;
+}
+updateDebugFlag();
+
 function debug(s) {
   dump("MobileConnectionService: " + s + "\n");
 }
