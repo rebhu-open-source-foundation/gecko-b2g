@@ -668,9 +668,7 @@ nsresult SetDefaultPragmas(mozIStorageConnection& aConnection) {
     // currently too full.
     IDB_TRY(
         ToResult(aConnection.SetGrowthIncrement(kSQLiteGrowthIncrement, ""_ns))
-            .mapErr([](const nsresult rv) {
-              return rv == NS_ERROR_FILE_TOO_BIG ? NS_OK : rv;
-            }));
+            .orElse(ErrToDefaultOkOrErr<NS_ERROR_FILE_TOO_BIG, Ok>));
   }
 #endif  // IDB_MOBILE
 
@@ -944,6 +942,8 @@ CreateStorageConnection(nsIFile& aDBFile, nsIFile& aFMDirectory,
 
     mozStorageTransaction transaction(
         connection.get(), false, mozIStorageConnection::TRANSACTION_IMMEDIATE);
+
+    IDB_TRY(transaction.Start());
 
     if (newDatabase) {
       IDB_TRY(CreateTables(*connection));
@@ -12361,6 +12361,8 @@ nsresult FileManager::InitDirectory(nsIFile& aDirectory, nsIFile& aDatabaseFile,
 
       mozStorageTransaction transaction(connection.get(), false);
 
+      IDB_TRY(transaction.Start())
+
       IDB_TRY(connection->ExecuteSimpleSQL(
           "CREATE VIRTUAL TABLE fs USING filesystem;"_ns));
 
@@ -14126,6 +14128,8 @@ nsresult DatabaseMaintenance::DetermineMaintenanceAction(
   // sure everything gets rolled back when we leave.
   mozStorageTransaction transaction(&aConnection,
                                     /* aCommitOnComplete */ false);
+
+  IDB_TRY(transaction.Start())
 
   // Check to see when we last vacuumed this database.
   IDB_TRY_INSPECT(const auto& stmt,
