@@ -18,7 +18,7 @@ ChromeUtils.defineModuleGetter(
 this.EXPORTED_SYMBOLS = [];
 
 function debug(aMsg) {
-  dump(`ActivitiesService: ${aMsg}\n`);
+  //dump(`ActivitiesService: ${aMsg}\n`);
 }
 
 const DB_NAME = "activities";
@@ -281,15 +281,13 @@ var Activities = {
             );
             messages.push(key);
 
-            let detail = {
+            this.notifyWebEmbedder("activity-aborted", {
               reason: "service-worker-shutdown",
+              id: key,
+              name: value.name,
               caller: value.origin,
               handler: value.handlerOrigin,
-            };
-            Services.obs.notifyObservers(
-              { wrappedJSObject: detail },
-              "activity-aborted"
-            );
+            });
           } else if (value.origin == origin) {
             debug(
               "Remove caller due to service worker shutdown, caller=" +
@@ -409,10 +407,7 @@ var Activities = {
         getActivityChoice(result.value !== undefined ? result.value : -1);
       }, "activity-choice-result");
 
-      Services.obs.notifyObservers(
-        { wrappedJSObject: detail },
-        "activity-choice"
-      );
+      self.notifyWebEmbedder("activity-choice", detail);
     };
 
     let errorCb = function errorCb(aError) {
@@ -443,6 +438,10 @@ var Activities = {
     }
   },
 
+  notifyWebEmbedder: function activities_notifyWebEmbedder(aTopic, aDetail) {
+    Services.obs.notifyObservers({ wrappedJSObject: aDetail }, aTopic);
+  },
+
   receiveMessage: function activities_receiveMessage(aMessage) {
     let mm = aMessage.target;
     let msg = aMessage.json;
@@ -464,27 +463,27 @@ var Activities = {
 
     switch (aMessage.name) {
       case "Activity:Start":
-        // TODO: For ProcessPriorityManager to manage. (Bug 80942)
-        // Not in used for now.
-        Services.obs.notifyObservers(null, "activity-opened", msg.childID);
         this.callers[msg.id] = {
           mm,
-          childID: msg.childID,
+          name: msg.options.name,
           origin: msg.origin,
         };
+        this.notifyWebEmbedder("activity-opened", {
+          id: msg.id,
+          name: msg.options.name,
+          origin: msg.origin,
+        });
         this.startActivity(msg);
         break;
 
       case "Activity:Cancel":
-        let detail = {
+        this.notifyWebEmbedder("activity-aborted", {
           reason: "caller-canceled",
+          id: msg.id,
+          name: this.callers[msg.id].name,
           caller: this.callers[msg.id].origin,
           handler: this.callers[msg.id].handlerOrigin,
-        };
-        Services.obs.notifyObservers(
-          { wrappedJSObject: detail },
-          "activity-aborted"
-        );
+        });
         this.trySendAndCleanup(msg.id, "Activity:FireCancel", msg);
         break;
 
@@ -539,15 +538,13 @@ var Activities = {
                 this.callers[id].handlerPID
             );
 
-            let detail = {
+            this.notifyWebEmbedder("activity-aborted", {
               reason: "process-shutdown",
+              id,
+              name: this.callers[id].name,
               caller: this.callers[id].origin,
               handler: this.callers[id].handlerOrigin,
-            };
-            Services.obs.notifyObservers(
-              { wrappedJSObject: detail },
-              "activity-aborted"
-            );
+            });
 
             this.trySendAndCleanup(id, "Activity:FireError", {
               id,
@@ -597,13 +594,12 @@ var Activities = {
   },
 
   removeCaller: function activities_removeCaller(id) {
-    // TODO: For ProcessPriorityManager to manage. (Bug 80942)
-    // Not in used for now.
-    Services.obs.notifyObservers(
-      null,
-      "activity-closed",
-      this.callers[id].childID
-    );
+    this.notifyWebEmbedder("activity-closed", {
+      id,
+      name: this.callers[id].name,
+      caller: this.callers[id].origin,
+      handler: this.callers[id].handlerOrigin,
+    });
     delete this.callers[id];
   },
 };
