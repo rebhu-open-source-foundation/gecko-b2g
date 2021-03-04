@@ -47,11 +47,16 @@ already_AddRefed<VirtualCursorProxy> VirtualCursorService::GetOrCreateCursor(
               RefPtr<dom::BrowserChild> browser =
                   BrowserChild::GetFrom(aWindow);
               LayoutDeviceIntPoint offset(browser->GetChromeOffset());
+              VirtualCursorProxy* proxy;
               if (XRE_GetProcessType() == GeckoProcessType_Content) {
-                return new VirtualCursorProxy(
+                proxy = new VirtualCursorProxy(
                     aWindow, new CursorRemote(aWindow), offset);
+              } else {
+                proxy = new VirtualCursorProxy(aWindow, service, offset);
               }
-              return new VirtualCursorProxy(aWindow, service, offset);
+              ScreenIntSize size = browser->GetInnerSize();
+              proxy->UpdateScreenSize(size.width, size.height);
+              return proxy;
             });
           })
       .forget();

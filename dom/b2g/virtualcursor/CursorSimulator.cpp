@@ -98,9 +98,10 @@ void CursorSimulator::UpdatePos() {
   CSSToDevPixel(cssSize, windowDevSize);
 
   MOZ_LOG(gVirtualCursorLog, LogLevel::Debug,
-          ("CursorSimulator UpdatePos Pos= %d %d window size %d %d active %d",
+          ("CursorSimulator UpdatePos Pos= %d %d window size %d %d screen size "
+           "%d %d active %d",
            mDevCursorPos.x, mDevCursorPos.y, windowDevSize.x, windowDevSize.y,
-           IsActive()));
+           mScreenWidth, mScreenHeight, IsActive()));
   LayoutDeviceIntPoint point = mDevCursorPos + mChromeOffset;
   if (!IsActive() || !mEnabled || point.x < 0 || point.y < 0) {
     return;
@@ -142,6 +143,13 @@ void CursorSimulator::Disable() {
   mTimer->Cancel();
   CursorOut();
 };
+
+void CursorSimulator::UpdateScreenSize(int32_t aWidth, int32_t aHeight) {
+  MOZ_LOG(gVirtualCursorLog, LogLevel::Debug,
+          ("CursorSimulator UpdateScreenSize %d %d", aWidth, aHeight));
+  mScreenWidth = aWidth;
+  mScreenHeight = aHeight;
+}
 
 void CursorSimulator::UpdateChromeOffset(
     const LayoutDeviceIntPoint& aChromeOffset) {
@@ -742,7 +750,8 @@ void CursorSimulator::AdjustMoveOffset(CSSIntSize& aWindowSize,
 
   CSSPoint cssSize(aWindowSize.width, aWindowSize.height);
   CSSToDevPixel(cssSize, devSize);
-  LayoutDeviceIntPoint boundaryDevSize(devSize.x - 1, devSize.y - 1);
+  LayoutDeviceIntPoint boundaryDevSize(std::min(devSize.x, mScreenWidth) - 1,
+                                       std::min(devSize.y, mScreenHeight) - 1);
   CSSPoint boundaryCSSSize;
   DevToCSSPixel(boundaryDevSize, boundaryCSSSize);
   CSSPoint cursorPos;

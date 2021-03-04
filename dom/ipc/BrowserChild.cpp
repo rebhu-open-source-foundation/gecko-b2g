@@ -1321,6 +1321,7 @@ mozilla::ipc::IPCResult BrowserChild::RecvUpdateDimensions(
   nsCOMPtr<nsPIDOMWindowOuter> window = do_GetInterface(WebNavigation());
   RefPtr<VirtualCursorProxy> cursor = VirtualCursorService::GetCursor(window);
   if (cursor) {
+    cursor->UpdateScreenSize(screenSize.width, screenSize.height);
     cursor->UpdateChromeOffset(GetChromeOffset());
   }
   return IPC_OK();
