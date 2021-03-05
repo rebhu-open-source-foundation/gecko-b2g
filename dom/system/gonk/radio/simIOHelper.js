@@ -3214,7 +3214,7 @@ GsmPDUHelperObject.prototype = {
       let thirdByte = this.readHexOctet();
       wacLat = wacLat | (thirdByte >> 2);
       let wacLng =
-        ((thirdByte & 0xc0) << 20) |
+        ((thirdByte & 0x03) << 20) |
         (this.readHexOctet() << 12) |
         (this.readHexOctet() << 4) |
         this.readHexNibble();
