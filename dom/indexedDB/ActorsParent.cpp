@@ -13608,7 +13608,7 @@ nsresult Maintenance::DirectoryWork() {
                   const auto& metadata,
                   quotaManager
                       ->GetDirectoryMetadataWithOriginMetadata2WithRestore(
-                          originDir, persistent),
+                          originDir),
                   // Not much we can do here...
                   Ok{});
 
@@ -15606,7 +15606,7 @@ FactoryOp::CheckPermission(ContentParent* aContentParent) {
     }
 
     if (State::Initial == mState) {
-      mOriginMetadata = QuotaManager::GetInfoForChrome();
+      mOriginMetadata = {QuotaManager::GetInfoForChrome(), persistenceType};
 
       MOZ_ASSERT(QuotaManager::IsOriginInternal(mOriginMetadata.mOrigin));
 
@@ -15621,12 +15621,12 @@ FactoryOp::CheckPermission(ContentParent* aContentParent) {
   IDB_TRY_INSPECT(const auto& principal,
                   PrincipalInfoToPrincipal(principalInfo));
 
-  IDB_TRY_UNWRAP(auto originMetadata,
+  IDB_TRY_UNWRAP(auto principalMetadata,
                  QuotaManager::GetInfoFromPrincipal(principal));
 
   IDB_TRY_INSPECT(
       const auto& permission,
-      ([persistenceType, &origin = originMetadata.mOrigin,
+      ([persistenceType, &origin = principalMetadata.mOrigin,
         &principal = *principal]()
            -> mozilla::Result<PermissionRequestBase::PermissionValue,
                               nsresult> {
@@ -15645,7 +15645,7 @@ FactoryOp::CheckPermission(ContentParent* aContentParent) {
 
   if (permission != PermissionRequestBase::kPermissionDenied &&
       State::Initial == mState) {
-    mOriginMetadata = std::move(originMetadata);
+    mOriginMetadata = {std::move(principalMetadata), persistenceType};
 
     mEnforcingQuota = persistenceType != PERSISTENCE_TYPE_PERSISTENT;
   }

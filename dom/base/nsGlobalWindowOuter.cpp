@@ -211,6 +211,8 @@
 #include "nsRefreshDriver.h"
 #include "Layers.h"
 
+#include "mozilla/extensions/WebExtensionPolicy.h"
+
 #include "mozilla/BasePrincipal.h"
 #include "mozilla/Services.h"
 #include "mozilla/Telemetry.h"
@@ -4785,12 +4787,19 @@ void nsGlobalWindowOuter::MakeScriptDialogTitle(
         nsContentUtils::eCOMMON_DIALOG_PROPERTIES,
         "ScriptDlgNullPrincipalHeading", aOutTitle);
   } else {
-    nsresult rv = aSubjectPrincipal->GetExposablePrePath(prepath);
-    if (NS_SUCCEEDED(rv) && !prepath.IsEmpty()) {
-      NS_ConvertUTF8toUTF16 ucsPrePath(prepath);
+    auto* addonPolicy = BasePrincipal::Cast(aSubjectPrincipal)->AddonPolicy();
+    if (addonPolicy) {
       nsContentUtils::FormatLocalizedString(
           aOutTitle, nsContentUtils::eCOMMON_DIALOG_PROPERTIES,
-          "ScriptDlgHeading", ucsPrePath);
+          "ScriptDlgHeading", addonPolicy->Name());
+    } else {
+      nsresult rv = aSubjectPrincipal->GetExposablePrePath(prepath);
+      if (NS_SUCCEEDED(rv) && !prepath.IsEmpty()) {
+        NS_ConvertUTF8toUTF16 ucsPrePath(prepath);
+        nsContentUtils::FormatLocalizedString(
+            aOutTitle, nsContentUtils::eCOMMON_DIALOG_PROPERTIES,
+            "ScriptDlgHeading", ucsPrePath);
+      }
     }
   }
 
