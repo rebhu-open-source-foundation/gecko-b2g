@@ -3462,6 +3462,14 @@ bool MediaDecoderStateMachine::HasLowBufferedData(const TimeUnit& aThreshold) {
     return false;
   }
 
+  if ((Duration() - endOfDecodedData) <= aThreshold) {
+    LOGV("HasLowBufferedData, Rest media time: %" PRId64 " <= Threshold: %" PRId64 "",
+         (Duration() - endOfDecodedData).ToMicroseconds(), aThreshold.ToMicroseconds());
+    // Our rest time is less than aThreshold. So we need to let it go or it never
+    // gets enough data to start playing. No point buffering.
+    return false;
+  }
+
   auto start = endOfDecodedData;
   auto end = std::min(GetMediaTime() + aThreshold, Duration());
   if (start >= end) {
