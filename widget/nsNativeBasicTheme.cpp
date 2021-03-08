@@ -1087,7 +1087,8 @@ void nsNativeBasicTheme::PaintRange(nsIFrame* aFrame,
     rect.x = aRect.x + (aRect.width - rect.width) / 2;
     thumbRect.x = aRect.x + (aRect.width - thumbRect.width) / 2;
 
-    thumbRect.y = aRect.y + (aRect.height - thumbRect.height) * progress;
+    thumbRect.y =
+        aRect.y + (aRect.height - thumbRect.height) * (1.0 - progress);
     float midPoint = thumbRect.Center().Y();
     trackClipRect.SetBoxY(aRect.Y(), midPoint);
     progressClipRect.SetBoxY(midPoint, aRect.YMost());
@@ -1629,7 +1630,7 @@ void nsNativeBasicTheme::PaintAutoStyleOutline(nsIFrame* aFrame,
 
   nscoord cssRadii[8];
   if (!aFrame->GetBorderRadii(cssRadii)) {
-    return PaintRoundedRectWithRadius(aPaintData, aRect, sRGBColor::White(0.0f),
+    return PaintRoundedRectWithRadius(aPaintData, rect, sRGBColor::White(0.0f),
                                       innerColor, kInnerFocusOutlineWidth,
                                       /* aRadius = */ 0.0f, aDpiRatio);
   }

@@ -247,7 +247,6 @@ class StubField {
     RawInt32,
     RawPointer,
     Shape,
-    ObjectGroup,
     JSObject,
     Symbol,
     String,
@@ -531,7 +530,9 @@ bool CallAnyNative(JSContext* cx, unsigned argc, Value* vp);
 
 // Class to record CacheIR + some additional metadata for code generation.
 class MOZ_RAII CacheIRWriter : public JS::CustomAutoRooter {
+#ifdef DEBUG
   JSContext* cx_;
+#endif
   CompactBufferWriter buffer_;
 
   uint32_t nextOperandId_;
@@ -566,7 +567,13 @@ class MOZ_RAII CacheIRWriter : public JS::CustomAutoRooter {
   size_t currentOpArgsStart_ = 0;
 #endif
 
-  void assertSameCompartment(JSObject*);
+#ifdef DEBUG
+  void assertSameCompartment(JSObject* obj);
+  void assertSameZone(Shape* shape);
+#else
+  void assertSameCompartment(JSObject* obj) {}
+  void assertSameZone(Shape* shape) {}
+#endif
 
   void writeOp(CacheOp op) {
     buffer_.writeUnsigned15Bit(uint32_t(op));
@@ -626,11 +633,8 @@ class MOZ_RAII CacheIRWriter : public JS::CustomAutoRooter {
 
   void writeShapeField(Shape* shape) {
     MOZ_ASSERT(shape);
+    assertSameZone(shape);
     addStubField(uintptr_t(shape), StubField::Type::Shape);
-  }
-  void writeGroupField(ObjectGroup* group) {
-    MOZ_ASSERT(group);
-    addStubField(uintptr_t(group), StubField::Type::ObjectGroup);
   }
   void writeObjectField(JSObject* obj) {
     MOZ_ASSERT(obj);
@@ -722,14 +726,17 @@ class MOZ_RAII CacheIRWriter : public JS::CustomAutoRooter {
  public:
   explicit CacheIRWriter(JSContext* cx)
       : CustomAutoRooter(cx),
+#ifdef DEBUG
         cx_(cx),
+#endif
         nextOperandId_(0),
         nextInstructionId_(0),
         numInputOperands_(0),
         stubDataSize_(0),
         tooLarge_(false),
         lastOffset_(0),
-        lastIndex_(0) {}
+        lastIndex_(0) {
+  }
 
   bool failed() const { return buffer_.oom() || tooLarge_; }
 
@@ -839,12 +846,6 @@ class MOZ_RAII CacheIRWriter : public JS::CustomAutoRooter {
   }
 
  public:
-  // Instead of calling guardGroup manually, use (or create) a specialization
-  // below to clarify what constraint the group guard is implying.
-  void guardGroupForProto(ObjOperandId obj, ObjectGroup* group) {
-    guardGroup(obj, group);
-  }
-
   static uint32_t encodeNargsAndFlags(JSFunction* fun) {
     static_assert(JSFunction::NArgsBits == 16);
     static_assert(sizeof(decltype(fun->flags().toRaw())) == sizeof(uint16_t));
@@ -1113,7 +1114,6 @@ class MOZ_RAII CacheIRReader {
 
   uint32_t stubOffset() { return buffer_.readByte() * sizeof(uintptr_t); }
   GuardClassKind guardClassKind() { return GuardClassKind(buffer_.readByte()); }
-  JSValueType jsValueType() { return JSValueType(buffer_.readByte()); }
   ValueType valueType() { return ValueType(buffer_.readByte()); }
   wasm::ValType::Kind wasmValType() {
     return wasm::ValType::Kind(buffer_.readByte());
@@ -1126,11 +1126,6 @@ class MOZ_RAII CacheIRReader {
   int32_t int32Immediate() { return int32_t(buffer_.readFixedUint32_t()); }
   uint32_t uint32Immediate() { return buffer_.readFixedUint32_t(); }
   void* pointer() { return buffer_.readRawPointer(); }
-
-  template <typename MetaKind>
-  MetaKind metaKind() {
-    return MetaKind(buffer_.readByte());
-  }
 
   UnaryMathFunction unaryMathFunction() {
     return UnaryMathFunction(buffer_.readByte());
@@ -1169,33 +1164,6 @@ class MOZ_RAII CacheIRReader {
     return bool(b);
   }
 
-  bool matchOp(CacheOp op) {
-    const uint8_t* pos = buffer_.currentPosition();
-    if (readOp() == op) {
-      return true;
-    }
-    buffer_.seek(pos, 0);
-    return false;
-  }
-
-  bool matchOp(CacheOp op, OperandId id) {
-    const uint8_t* pos = buffer_.currentPosition();
-    if (readOp() == op && buffer_.readByte() == id.id()) {
-      return true;
-    }
-    buffer_.seek(pos, 0);
-    return false;
-  }
-
-  bool matchOpEither(CacheOp op1, CacheOp op2) {
-    const uint8_t* pos = buffer_.currentPosition();
-    CacheOp op = readOp();
-    if (op == op1 || op == op2) {
-      return true;
-    }
-    buffer_.seek(pos, 0);
-    return false;
-  }
   const uint8_t* currentPosition() const { return buffer_.currentPosition(); }
 };
 
@@ -1215,7 +1183,6 @@ class MOZ_RAII CacheIRCloner {
   int64_t readStubInt64(uint32_t offset);
 
   Shape* getShapeField(uint32_t stubOffset);
-  ObjectGroup* getGroupField(uint32_t stubOffset);
   JSObject* getObjectField(uint32_t stubOffset);
   JSString* getStringField(uint32_t stubOffset);
   JSAtom* getAtomField(uint32_t stubOffset);
@@ -1920,9 +1887,6 @@ class MOZ_RAII NewObjectIRGenerator : public IRGenerator {
 
   AttachDecision tryAttachStub();
 };
-
-// Returns whether obj is a WindowProxy wrapping the script's global.
-extern bool IsWindowProxyForScriptGlobal(JSScript* script, JSObject* obj);
 
 // Retrieve Xray JIT info set by the embedder.
 extern JS::XrayJitInfo* GetXrayJitInfo();
