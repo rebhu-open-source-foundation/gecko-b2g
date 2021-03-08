@@ -1036,7 +1036,7 @@ DataCallHandler.prototype = {
       maxConnsTime: aApnSetting.maxConnsTime || 0,
       maxConns: aApnSetting.maxConns || 0,
       waitTime: aApnSetting.waitTime || 0,
-      enabled: aApnSetting.enabled || true,
+      enabled: aApnSetting.carrier_enabled || true,
       supportedApnTypesBitmap: aApnSetting.supportedApnTypesBitmap || 0,
       roamingProtocol: roamPdpType,
       bearerBitmap: aApnSetting.bearer || 0,

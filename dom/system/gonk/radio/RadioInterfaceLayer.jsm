@@ -484,6 +484,10 @@ DataCall.prototype = {
 
 function DataProfile(aAttributes) {
   for (let key in aAttributes) {
+    if (key === "carrier_enabled") {
+      this.enabled = aAttributes[key];
+      break;
+    }
     this[key] = aAttributes[key];
   }
 }
