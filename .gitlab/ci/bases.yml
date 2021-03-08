@@ -43,7 +43,7 @@ variables:
     - ./check-format.sh ${check_format_opt}
 
 .build_desktop:
-  image: ${CI_REGISTRY}/re/kaios-build/next/desktop:1.49.0_1
+  image: ${CI_REGISTRY}/re/kaios-build/next/desktop:1.49.0_5_0
   tags:
     - gecko-dev
   variables:
