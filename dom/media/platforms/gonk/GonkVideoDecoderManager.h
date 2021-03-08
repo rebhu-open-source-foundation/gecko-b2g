@@ -79,9 +79,6 @@ class GonkVideoDecoderManager : public GonkDecoderManager {
     int32_t mCropBottom = 0;
   };
 
-  void onMessageReceived(
-      const android::sp<android::AMessage>& aMessage) override;
-
   bool SetVideoFormat();
 
   nsresult CreateVideoData(android::MediaBuffer* aBuffer, int64_t aStreamOffset,
@@ -119,10 +116,6 @@ class GonkVideoDecoderManager : public GonkDecoderManager {
 
   android::sp<android::IGraphicBufferProducer> mGraphicBufferProducer;
 
-  enum {
-    kNotifyPostReleaseBuffer = 'nprb',
-  };
-
   struct ReleaseItem {
     ReleaseItem(android::MediaBuffer* aBuffer, layers::FenceHandle& aFence)
         : mBuffer(aBuffer), mReleaseFence(aFence) {}
@@ -134,19 +127,17 @@ class GonkVideoDecoderManager : public GonkDecoderManager {
   // The lock protects mPendingReleaseItems.
   Mutex mPendingReleaseItemsLock;
 
-  RefPtr<TaskQueue> mReaderTaskQueue;
-
   // Bug 1199809: do we need to make a copy of output buffer? Used only when
   // the decoder outputs graphic buffers.
   bool mNeedsCopyBuffer;
 
   // MediaCodec can not handle double EOS flag before flushing it.
-  // But MediaFormatReader will send Drain() again command when it is in 
+  // But MediaFormatReader will send Drain() again command when it is in
   // PartialDrainPending state.
   // In that case, GonkVideoDecoderManager returns EOS directly instead of sends
   // EOS flag to MediaCodec.
-  // The mEOSSent flag will be reset when GonkVideoDecoderManager::ProcessFlush()
-  // is called.
+  // The mEOSSent flag will be reset when
+  // GonkVideoDecoderManager::ProcessFlush() is called.
   bool mEOSSent;
 };
 

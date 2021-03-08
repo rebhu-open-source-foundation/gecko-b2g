@@ -150,14 +150,11 @@ RefPtr<MediaDataDecoder::InitPromise> GonkVideoDecoderManager::Init() {
     return InitPromise::CreateAndReject(NS_ERROR_DOM_MEDIA_FATAL_ERR, __func__);
   }
 
-  mReaderTaskQueue = static_cast<TaskQueue*>(AbstractThread::GetCurrent());
-  MOZ_ASSERT(mReaderTaskQueue);
-
   if (mDecodeLooper.get() != nullptr) {
     return InitPromise::CreateAndReject(NS_ERROR_DOM_MEDIA_FATAL_ERR, __func__);
   }
 
-  if (!InitLoopers(MediaData::Type::VIDEO_DATA)) {
+  if (!InitThreads(MediaData::Type::VIDEO_DATA)) {
     return InitPromise::CreateAndReject(NS_ERROR_DOM_MEDIA_FATAL_ERR, __func__);
   }
 
@@ -175,7 +172,7 @@ RefPtr<MediaDataDecoder::InitPromise> GonkVideoDecoderManager::Init() {
   }
   mDecoder->AsyncAllocateVideoMediaCodec()
       ->Then(
-          mReaderTaskQueue, __func__,
+          mTaskQueue, __func__,
           [self](bool) -> void {
             self->mVideoCodecRequest.Complete();
             self->CodecReserved();
@@ -728,21 +725,6 @@ void GonkVideoDecoderManager::CodecCanceled() {
   mInitPromise.RejectIfExists(NS_ERROR_DOM_MEDIA_CANCELED, __func__);
 }
 
-// Called on GonkDecoderManager::mTaskLooper thread.
-void GonkVideoDecoderManager::onMessageReceived(const sp<AMessage>& aMessage) {
-  switch (aMessage->what()) {
-    case kNotifyPostReleaseBuffer: {
-      ReleaseAllPendingVideoBuffers();
-      break;
-    }
-
-    default: {
-      GonkDecoderManager::onMessageReceived(aMessage);
-      break;
-    }
-  }
-}
-
 uint8_t* GonkVideoDecoderManager::GetColorConverterBuffer(int32_t aWidth,
                                                           int32_t aHeight) {
   // Allocate a temporary YUV420Planer buffer.
@@ -779,8 +761,10 @@ void GonkVideoDecoderManager::PostReleaseVideoBuffer(
     }
   }
 
-  sp<AMessage> notify = new AMessage(kNotifyPostReleaseBuffer, this);
-  notify->post();
+  sp<GonkDecoderManager> self = this;
+  mTaskQueue->Dispatch(NS_NewRunnableFunction(
+      "GonkVideoDecoderManager::ReleaseAllPendingVideoBuffers",
+      [self, this]() { ReleaseAllPendingVideoBuffers(); }));
 }
 
 void GonkVideoDecoderManager::ReleaseAllPendingVideoBuffers() {

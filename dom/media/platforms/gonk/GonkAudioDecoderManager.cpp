@@ -64,7 +64,7 @@ RefPtr<MediaDataDecoder::InitPromise> GonkAudioDecoderManager::Init() {
 
 bool GonkAudioDecoderManager::InitMediaCodecProxy() {
   status_t rv = OK;
-  if (!InitLoopers(MediaData::Type::AUDIO_DATA)) {
+  if (!InitThreads(MediaData::Type::AUDIO_DATA)) {
     return false;
   }
 

@@ -25,8 +25,6 @@ class GonkDecoderManagerCallback {
   // Called by GonkDecoderManager when samples have been decoded.
   virtual void Output(MediaDataDecoder::DecodedData&& aDecodedData) = 0;
 
-  virtual void FlushOutput() = 0;
-
   // Denotes that the last input sample has been inserted into the decoder,
   // and no more output can be produced unless more input is sent.
   virtual void InputExhausted() = 0;
@@ -72,14 +70,9 @@ class GonkDecoderManager : public android::AHandler {
   }
 
  protected:
-  GonkDecoderManager()
-      : mMutex("GonkDecoderManager"),
-        mLastTime(INT64_MIN),
-        mFlushMonitor("GonkDecoderManager::Flush"),
-        mIsFlushing(false),
-        mCallback(nullptr) {}
+  GonkDecoderManager() : mLastTime(INT64_MIN), mCallback(nullptr) {}
 
-  bool InitLoopers(MediaData::Type aType);
+  bool InitThreads(MediaData::Type aType);
 
   void onMessageReceived(
       const android::sp<android::AMessage>& aMessage) override;
@@ -99,6 +92,8 @@ class GonkDecoderManager : public android::AHandler {
   virtual void ProcessFlush();
   void ProcessToDo(bool aEndOfStream);
 
+  void AssertOnTaskQueue() { MOZ_ASSERT(mTaskQueue->IsCurrentThreadIn()); }
+
   RefPtr<MediaByteBuffer> mCodecSpecificData;
 
   nsAutoCString mMimeType;
@@ -115,18 +110,12 @@ class GonkDecoderManager : public android::AHandler {
     // Decoder will send this to indicate internal state change such as input or
     // output buffers availability. Used to run pending input & output tasks.
     kNotifyDecoderActivity = 'nda ',
-    // Signal the decoder to flush.
-    kNotifyProcessFlush = 'npf ',
-    // Used to process queued samples when there is new input.
-    kNotifyProcessInput = 'npi ',
-#  ifdef DEBUG
-    kNotifyFindLooperId = 'nfli',
-#  endif
   };
+
+  RefPtr<TaskQueue> mTaskQueue;
 
   MozPromiseHolder<InitPromise> mInitPromise;
 
-  Mutex mMutex;  // Protects mQueuedSamples.
   // A queue that stores the samples waiting to be sent to mDecoder.
   // Empty element means EOS and there shouldn't be any sample be queued after
   // it. Samples are queued in caller's thread and dequeued in mTaskLooper.
@@ -134,9 +123,6 @@ class GonkDecoderManager : public android::AHandler {
 
   // The last decoded frame presentation time. Only accessed on mTaskLooper.
   int64_t mLastTime;
-
-  Monitor mFlushMonitor;  // Waits for flushing to complete.
-  bool mIsFlushing;       // Protected by mFlushMonitor.
 
   // Remembers the notification that is currently waiting for the decoder event
   // to avoid requesting more than one notification at the time, which is
@@ -158,13 +144,6 @@ class GonkDecoderManager : public android::AHandler {
 
  private:
   void UpdateWaitingList(int64_t aForgetUpTo);
-
-#  ifdef DEBUG
-  typedef void* LooperId;
-
-  bool OnTaskLooper();
-  LooperId mTaskLooperId;
-#  endif
 };
 
 class AutoReleaseMediaBuffer {
@@ -207,7 +186,6 @@ class GonkMediaDataDecoder : public MediaDataDecoder,
 
   // For GonkDecoderManagerCallback interfaces:
   void Output(DecodedData&& aDecodedData) override;
-  void FlushOutput() override;
   void InputExhausted() override;
   void DrainComplete() override;
   void NotifyError(const char* aLine, const MediaResult& aError);
@@ -215,6 +193,7 @@ class GonkMediaDataDecoder : public MediaDataDecoder,
  private:
   void ResolveDecodePromise();
   void ResolveDrainPromise();
+  void AssertOnTaskQueue() { MOZ_ASSERT(mTaskQueue->IsCurrentThreadIn()); }
 
   android::sp<GonkDecoderManager> mManager;
 
