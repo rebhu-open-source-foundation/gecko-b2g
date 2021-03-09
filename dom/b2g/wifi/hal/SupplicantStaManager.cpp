@@ -795,7 +795,7 @@ Result_t SupplicantStaManager::RoamToNetwork(ConfigurationOptions* aConfig) {
   android::sp<SupplicantStaNetwork> network =
       mCurrentNetwork.at(mInterfaceName);
 
-  Result_t result = network->SetConfiguration(config);
+  Result_t result = network->SetRoamingBssid(config.mBssid);
 
   WIFI_LOGD(LOG_TAG, "Trying to roam to network %s[%s]", config.mSsid.c_str(),
             config.mBssid.c_str());
