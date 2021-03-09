@@ -56,14 +56,13 @@ class GonkVideoDecoderManager : public GonkDecoderManager {
   static void RecycleCallback(TextureClient* aClient, void* aClosure);
 
  protected:
-  void ProcessFlush() override {
+  void FlushInternal() override {
     mEOSSent = false;
     // Bug 1199809: workaround to avoid sending the graphic buffer by making a
     // copy of output buffer after calling flush(). Bug 1203859 was created to
     // reimplementing Gonk PDM on top of OpenMax IL directly. Its buffer
     // management will work better with Gecko and solve problems like this.
     mNeedsCopyBuffer = true;
-    GonkDecoderManager::ProcessFlush();
   }
 
  private:

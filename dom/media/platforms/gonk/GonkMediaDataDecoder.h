@@ -84,12 +84,14 @@ class GonkDecoderManager : public android::AHandler {
   virtual nsresult GetOutput(int64_t aStreamOffset,
                              MediaDataDecoder::DecodedData& aOutput) = 0;
 
+  // Flush derived class.
+  virtual void FlushInternal() = 0;
+
   // Send queued samples to OMX. It returns how many samples are still in
   // queue after processing, or negative error code if failed.
   int32_t ProcessQueuedSamples();
 
   void ProcessInput(bool aEndOfStream);
-  virtual void ProcessFlush();
   void ProcessToDo(bool aEndOfStream);
 
   void AssertOnTaskQueue() { MOZ_ASSERT(mTaskQueue->IsCurrentThreadIn()); }
@@ -202,7 +204,6 @@ class GonkMediaDataDecoder : public MediaDataDecoder,
   MozPromiseHolder<InitPromise> mInitPromise;
   MozPromiseHolder<DecodePromise> mDecodePromise;
   MozPromiseHolder<DecodePromise> mDrainPromise;
-  MozPromiseHolder<FlushPromise> mFlushPromise;
   MozPromiseHolder<ShutdownPromise> mShutdownPromise;
   // Where decoded samples will be stored until the decode promise is resolved.
   DecodedData mDecodedData;

@@ -117,7 +117,7 @@ int32_t GonkDecoderManager::ProcessQueuedSamples() {
 nsresult GonkDecoderManager::Flush() {
   AssertOnTaskQueue();
 
-  if (mDecoder == nullptr) {
+  if (!mDecoder) {
     GDM_LOGE("Decoder is not initialized");
     return NS_ERROR_UNEXPECTED;
   }
@@ -126,8 +126,17 @@ nsresult GonkDecoderManager::Flush() {
     return NS_OK;
   }
 
+  FlushInternal();
+  mLastTime = INT64_MIN;
+  mWaitOutput.Clear();
   mQueuedSamples.Clear();
-  ProcessFlush();
+
+  if (mDecoder->flush() != OK) {
+    GDM_LOGE("flush error");
+    nsresult rv = NS_ERROR_DOM_MEDIA_DECODE_ERR;
+    mCallback->NotifyError(__func__, MediaResult(rv, __func__));
+    return rv;
+  }
   return NS_OK;
 }
 
@@ -170,18 +179,6 @@ void GonkDecoderManager::ProcessInput(bool aEndOfStream) {
     }
   } else {
     GDM_LOGE("input processed: error#%d", rv);
-    mCallback->NotifyError(
-        __func__, MediaResult(NS_ERROR_DOM_MEDIA_DECODE_ERR, __func__));
-  }
-}
-
-void GonkDecoderManager::ProcessFlush() {
-  AssertOnTaskQueue();
-
-  mLastTime = INT64_MIN;
-  mWaitOutput.Clear();
-  if (mDecoder->flush() != OK) {
-    GDM_LOGE("flush error");
     mCallback->NotifyError(
         __func__, MediaResult(NS_ERROR_DOM_MEDIA_DECODE_ERR, __func__));
   }
@@ -350,16 +347,13 @@ RefPtr<MediaDataDecoder::DecodePromise> GonkMediaDataDecoder::Decode(
 RefPtr<MediaDataDecoder::FlushPromise> GonkMediaDataDecoder::Flush() {
   RefPtr<MediaDataDecoder> self = this;
   return InvokeAsync(mTaskQueue, __func__, [self, this]() {
-    RefPtr<FlushPromise> p = mFlushPromise.Ensure(__func__);
-
-    if (mManager->Flush() == NS_OK) {
-      // Flush our decoded data.
-      mDecodedData = DecodedData();
-      mFlushPromise.ResolveIfExists(true, __func__);
-    } else {
-      mFlushPromise.RejectIfExists(NS_ERROR_DOM_MEDIA_FATAL_ERR, __func__);
+    // After mManager is flushed, make sure our decoded data is also cleared..
+    nsresult rv = mManager->Flush();
+    mDecodedData = DecodedData();
+    if (NS_FAILED(rv)) {
+      return FlushPromise::CreateAndReject(rv, __func__);
     }
-    return p;
+    return FlushPromise::CreateAndResolve(true, __func__);
   });
 }
 
@@ -397,7 +391,6 @@ void GonkMediaDataDecoder::NotifyError(const char* aLine,
   mDecodedData = DecodedData();
   mDecodePromise.RejectIfExists(aError, __func__);
   mDrainPromise.RejectIfExists(aError, __func__);
-  mFlushPromise.RejectIfExists(aError, __func__);
 }
 
 void GonkMediaDataDecoder::ResolveDecodePromise() {

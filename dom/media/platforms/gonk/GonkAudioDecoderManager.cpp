@@ -247,11 +247,10 @@ nsresult GonkAudioDecoderManager::GetOutput(
   return NS_ERROR_NOT_AVAILABLE;
 }
 
-void GonkAudioDecoderManager::ProcessFlush() {
+void GonkAudioDecoderManager::FlushInternal() {
   LOG("FLUSH<<<");
   mAudioQueue.Reset();
   LOG(">>>FLUSH");
-  GonkDecoderManager::ProcessFlush();
 }
 
 }  // namespace mozilla
