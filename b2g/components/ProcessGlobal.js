@@ -235,6 +235,21 @@ ProcessGlobal.prototype = {
     );
 
     let JSWINDOWACTORS = {
+      AudioVolumeControlOverride: {
+        parent: {
+          moduleURI:
+            "resource://gre/actors/AudioVolumeControlOverrideParent.jsm",
+        },
+        child: {
+          moduleURI:
+            "resource://gre/actors/AudioVolumeControlOverrideChild.jsm",
+          events: {
+            fullscreenchange: {},
+          },
+        },
+        allFrames: true,
+      },
+
       SelectionAction: {
         parent: {
           moduleURI: "resource://gre/actors/SelectionActionParent.jsm",

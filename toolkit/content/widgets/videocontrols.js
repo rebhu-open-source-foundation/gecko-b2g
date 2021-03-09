@@ -1823,6 +1823,11 @@ this.VideoControlsImplWidget = class {
           "media.videocontrols.volume-control-override"
         ];
         if (controlOverride) {
+          this.window.dispatchEvent(
+            new this.window.CustomEvent("audiovolumecontroloverride", {
+              detail: "AudioVolumeDown",
+            })
+          );
           return;
         }
         // otherwise fallback to default control.
@@ -1837,6 +1842,11 @@ this.VideoControlsImplWidget = class {
           "media.videocontrols.volume-control-override"
         ];
         if (controlOverride) {
+          this.window.dispatchEvent(
+            new this.window.CustomEvent("audiovolumecontroloverride", {
+              detail: "AudioVolumeUp",
+            })
+          );
           return;
         }
         // otherwise fallback to default control.
