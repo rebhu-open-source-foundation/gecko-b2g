@@ -22,10 +22,8 @@ class MediaRawData;
 // Callback to communicate with GonkDecoderManager.
 class GonkDecoderManagerCallback {
  public:
-  NS_INLINE_DECL_THREADSAFE_REFCOUNTING(GonkDecoderManagerCallback);
-
   // Called by GonkDecoderManager when samples have been decoded.
-  virtual void Output(MediaDataDecoder::DecodedData& aDataArray) = 0;
+  virtual void Output(MediaDataDecoder::DecodedData&& aDecodedData) = 0;
 
   virtual void FlushOutput() = 0;
 
@@ -34,8 +32,6 @@ class GonkDecoderManagerCallback {
   virtual void InputExhausted() = 0;
 
   virtual void DrainComplete() = 0;
-
-  virtual void ReleaseMediaResources(){};
 
   virtual void NotifyError(const char* aLine, const MediaResult& aError) = 0;
 
@@ -72,7 +68,7 @@ class GonkDecoderManager : public android::AHandler {
   // Set callback for decoder events, such as requesting more input,
   // returning output, or reporting error.
   void SetDecodeCallback(GonkDecoderManagerCallback* aCallback) {
-    mToGonkMediaDataDecoderCallback = aCallback;
+    mCallback = aCallback;
   }
 
  protected:
@@ -81,7 +77,7 @@ class GonkDecoderManager : public android::AHandler {
         mLastTime(INT64_MIN),
         mFlushMonitor("GonkDecoderManager::Flush"),
         mIsFlushing(false),
-        mToGonkMediaDataDecoderCallback(nullptr) {}
+        mCallback(nullptr) {}
 
   bool InitLoopers(MediaData::Type aType);
 
@@ -158,8 +154,7 @@ class GonkDecoderManager : public android::AHandler {
 
   nsTArray<WaitOutputInfo> mWaitOutput;
 
-  GonkDecoderManagerCallback*
-      mToGonkMediaDataDecoderCallback;  // Reports decoder output or error.
+  GonkDecoderManagerCallback* mCallback;  // Reports decoder output or error.
 
  private:
   void UpdateWaitingList(int64_t aForgetUpTo);
@@ -191,7 +186,8 @@ class DecoderManagerCallback;
 // the higher-level logic that drives mapping the Gonk to the async
 // MediaDataDecoder interface. The specifics of decoding the exact stream
 // type are handled by GonkDecoderManager and the GonkDecoder it creates.
-class GonkMediaDataDecoder : public MediaDataDecoder {
+class GonkMediaDataDecoder : public MediaDataDecoder,
+                             public GonkDecoderManagerCallback {
  public:
   GonkMediaDataDecoder(GonkDecoderManager* aDecoderManager);
 
@@ -209,21 +205,12 @@ class GonkMediaDataDecoder : public MediaDataDecoder {
     return ConversionRequired::kNeedAnnexB;
   }
 
-  void NotifyError(const char* aLine, const MediaResult& aError = MediaResult(
-                                          NS_ERROR_DOM_MEDIA_FATAL_ERR));
-
   // For GonkDecoderManagerCallback interfaces:
-  //  Called by GonkDecoderManager when a sample has been decoded.
-  virtual void Output(DecodedData& aDataArray);
-  //  Flush decoded data queued in our buffer. It should be called after
-  //  GonkDecoderManager's internal decoder has been flushed and before the
-  //  whole flush process finishes.
-  virtual void FlushOutput();
-  //  Denotes that the last input sample has been inserted into the decoder,
-  //  and no more output can be produced unless more input is sent.
-  virtual void InputExhausted();
-  virtual void DrainComplete();
-  virtual void ReleaseMediaResources();
+  void Output(DecodedData&& aDecodedData) override;
+  void FlushOutput() override;
+  void InputExhausted() override;
+  void DrainComplete() override;
+  void NotifyError(const char* aLine, const MediaResult& aError);
 
  private:
   void ResolveDecodePromise();
@@ -240,30 +227,6 @@ class GonkMediaDataDecoder : public MediaDataDecoder {
   MozPromiseHolder<ShutdownPromise> mShutdownPromise;
   // Where decoded samples will be stored until the decode promise is resolved.
   DecodedData mDecodedData;
-
-  // Callback that receives output and error notifications from the decoder.
-  RefPtr<DecoderManagerCallback> mCallback;
-};
-
-class DecoderManagerCallback : public GonkDecoderManagerCallback {
- public:
-  DecoderManagerCallback(GonkMediaDataDecoder* aReader)
-      : mMediaDataDecoder(aReader) {}
-  void Output(MediaDataDecoder::DecodedData& aDataArray) override {
-    mMediaDataDecoder->Output(aDataArray);
-  }
-  void FlushOutput() override { mMediaDataDecoder->FlushOutput(); }
-  void InputExhausted() override { mMediaDataDecoder->InputExhausted(); }
-  void DrainComplete() override { mMediaDataDecoder->DrainComplete(); }
-  void ReleaseMediaResources() override {
-    mMediaDataDecoder->ReleaseMediaResources();
-  }
-  void NotifyError(const char* aLine, const MediaResult& aError) override {
-    mMediaDataDecoder->NotifyError(aLine, aError);
-  }
-
- private:
-  GonkMediaDataDecoder* mMediaDataDecoder;
 };
 
 }  // namespace mozilla

@@ -167,7 +167,7 @@ void GonkDecoderManager::ProcessInput(bool aEndOfStream) {
   status_t rv = ProcessQueuedSamples();
   if (rv >= 0) {
     if (!aEndOfStream && rv <= MIN_QUEUED_SAMPLES) {
-      mToGonkMediaDataDecoderCallback->InputExhausted();
+      mCallback->InputExhausted();
     }
 
     if (mToDo.get() == nullptr) {
@@ -181,7 +181,7 @@ void GonkDecoderManager::ProcessInput(bool aEndOfStream) {
     }
   } else {
     GDM_LOGE("input processed: error#%d", rv);
-    mToGonkMediaDataDecoderCallback->NotifyError(
+    mCallback->NotifyError(
         __func__, MediaResult(NS_ERROR_DOM_MEDIA_DECODE_ERR, __func__));
   }
 }
@@ -194,10 +194,10 @@ void GonkDecoderManager::ProcessFlush() {
   mWaitOutput.Clear();
   if (mDecoder->flush() != OK) {
     GDM_LOGE("flush error");
-    mToGonkMediaDataDecoderCallback->NotifyError(
+    mCallback->NotifyError(
         __func__, MediaResult(NS_ERROR_DOM_MEDIA_DECODE_ERR, __func__));
   }
-  mToGonkMediaDataDecoderCallback->FlushOutput();
+  mCallback->FlushOutput();
   mIsFlushing = false;
   lock.NotifyAll();
 }
@@ -228,7 +228,7 @@ void GonkDecoderManager::ProcessToDo(bool aEndOfStream) {
   mToDo.clear();
 
   if (NumQueuedSamples() > 0 && ProcessQueuedSamples() < 0) {
-    mToGonkMediaDataDecoderCallback->NotifyError(
+    mCallback->NotifyError(
         __func__, MediaResult(NS_ERROR_DOM_MEDIA_DECODE_ERR, __func__));
     return;
   }
@@ -239,29 +239,29 @@ void GonkDecoderManager::ProcessToDo(bool aEndOfStream) {
     nsresult rv = GetOutput(wait.mOffset, output);
     if (rv == NS_OK) {
       UpdateWaitingList(output[output.Length() - 1]->mTime.ToMicroseconds());
-      mToGonkMediaDataDecoderCallback->Output(output);
+      mCallback->Output(std::move(output));
     } else if (rv == NS_ERROR_ABORT) {
       // EOS
       MOZ_ASSERT(mQueuedSamples.IsEmpty());
       if (output.Length() > 0) {
         UpdateWaitingList(output[output.Length() - 1]->mTime.ToMicroseconds());
-        mToGonkMediaDataDecoderCallback->Output(output);
+        mCallback->Output(std::move(output));
       }
       MOZ_ASSERT(mWaitOutput.Length() == 1);
       mWaitOutput.RemoveElementAt(0);
-      mToGonkMediaDataDecoderCallback->DrainComplete();
+      mCallback->DrainComplete();
       return;
     } else if (rv == NS_ERROR_NOT_AVAILABLE) {
       break;
     } else {
-      mToGonkMediaDataDecoderCallback->NotifyError(
+      mCallback->NotifyError(
           __func__, MediaResult(NS_ERROR_DOM_MEDIA_DECODE_ERR, __func__));
       return;
     }
   }
 
   if (!aEndOfStream && NumQueuedSamples() <= MIN_QUEUED_SAMPLES) {
-    mToGonkMediaDataDecoderCallback->InputExhausted();
+    mCallback->InputExhausted();
     // No need to shedule todo task this time because InputExhausted() will
     // cause Input() to be invoked and do it for us.
     return;
@@ -330,10 +330,11 @@ android::MediaBuffer* AutoReleaseMediaBuffer::forget() {
 }
 
 GonkMediaDataDecoder::GonkMediaDataDecoder(GonkDecoderManager* aManager)
-    : mManager(aManager), mTaskQueue(CreateMediaDecodeTaskQueue("GonkMediaDataDecoder::mTaskQueue")) {
+    : mManager(aManager),
+      mTaskQueue(
+          CreateMediaDecodeTaskQueue("GonkMediaDataDecoder::mTaskQueue")) {
   MOZ_COUNT_CTOR(GonkMediaDataDecoder);
-  mCallback = new DecoderManagerCallback(this);
-  mManager->SetDecodeCallback(mCallback);
+  mManager->SetDecodeCallback(this);
 }
 
 GonkMediaDataDecoder::~GonkMediaDataDecoder() {
@@ -393,10 +394,8 @@ RefPtr<MediaDataDecoder::DecodePromise> GonkMediaDataDecoder::Drain() {
   return p;
 }
 
-void GonkMediaDataDecoder::Output(DecodedData& aDataArray) {
-  for (RefPtr<MediaData> data : aDataArray) {
-    mDecodedData.AppendElement(std::move(data));
-  }
+void GonkMediaDataDecoder::Output(DecodedData&& aDecodedData) {
+  mDecodedData.AppendElements(std::move(aDecodedData));
   ResolveDecodePromise();
 }
 
@@ -408,8 +407,6 @@ void GonkMediaDataDecoder::DrainComplete() {
   ResolveDecodePromise();
   ResolveDrainPromise();
 }
-
-void GonkMediaDataDecoder::ReleaseMediaResources() {}
 
 void GonkMediaDataDecoder::NotifyError(const char* aLine,
                                        const MediaResult& aError) {
