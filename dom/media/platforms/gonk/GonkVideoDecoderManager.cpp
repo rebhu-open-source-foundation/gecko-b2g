@@ -609,7 +609,7 @@ nsresult GonkVideoDecoderManager::GetOutput(
     int64_t aStreamOffset, MediaDataDecoder::DecodedData& aOutData) {
   aOutData.Clear();
   if (mEOSSent) {
-    return NS_ERROR_ABORT;
+    return NS_ERROR_DOM_MEDIA_END_OF_STREAM;
   }
   status_t err;
   if (mDecoder == nullptr) {
@@ -660,14 +660,14 @@ nsresult GonkVideoDecoderManager::GetOutput(
           CreateVideoData(outputBuffer, aStreamOffset, getter_AddRefs(data));
       if (rv == NS_ERROR_NOT_AVAILABLE) {
         // For EOS, no need to do any thing.
-        return NS_ERROR_ABORT;
+        return NS_ERROR_DOM_MEDIA_END_OF_STREAM;
       }
       if (rv != NS_OK || data == nullptr) {
         LOGE("Failed to create video data");
         return NS_ERROR_UNEXPECTED;
       }
       aOutData.AppendElement(data);
-      return NS_ERROR_ABORT;
+      return NS_ERROR_DOM_MEDIA_END_OF_STREAM;
     }
     case -ETIMEDOUT: {
       LOGE("Timeout. can try again next time");

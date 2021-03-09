@@ -74,18 +74,22 @@ bool GonkDecoderManager::InitThreads(MediaData::Type aType) {
 nsresult GonkDecoderManager::Input(MediaRawData* aSample) {
   AssertOnTaskQueue();
 
-  RefPtr<MediaRawData> sample;
-
-  if (aSample) {
-    sample = aSample;
-  } else {
-    // It means EOS with empty sample.
-    sample = new MediaRawData();
+  // Multiple drain commands are possible. If we received EOS before, just don't
+  // append the new sample, and treat non-null sample as an error.
+  if (mInputEOS) {
+    ProcessInput();
+    return aSample ? NS_ERROR_DOM_MEDIA_END_OF_STREAM : NS_OK;
   }
-  mQueuedSamples.AppendElement(sample);
 
-  bool eos = !aSample;
-  ProcessInput(eos);
+  RefPtr<MediaRawData> sample(aSample);
+  if (!aSample) {
+    // Append empty sample for EOS case.
+    sample = new MediaRawData();
+    mInputEOS = true;
+  }
+
+  mQueuedSamples.AppendElement(sample);
+  ProcessInput();
   return NS_OK;
 }
 
@@ -127,6 +131,7 @@ nsresult GonkDecoderManager::Flush() {
   }
 
   FlushInternal();
+  mInputEOS = false;
   mLastTime = INT64_MIN;
   mWaitOutput.Clear();
   mQueuedSamples.Clear();
@@ -171,23 +176,18 @@ size_t GonkDecoderManager::NumQueuedSamples() {
   return mQueuedSamples.Length();
 }
 
-void GonkDecoderManager::ProcessInput(bool aEndOfStream) {
+void GonkDecoderManager::ProcessInput() {
   AssertOnTaskQueue();
 
   status_t rv = ProcessQueuedSamples();
   if (rv >= 0) {
-    if (!aEndOfStream && rv <= MIN_QUEUED_SAMPLES) {
+    if (!mInputEOS && rv <= MIN_QUEUED_SAMPLES) {
       mCallback->InputExhausted();
     }
 
-    if (mToDo.get() == nullptr) {
+    if (!mToDo) {
       mToDo = new AMessage(kNotifyDecoderActivity, this);
-      if (aEndOfStream) {
-        mToDo->setInt32("input-eos", 1);
-      }
       mDecoder->requestActivityNotification(mToDo);
-    } else if (aEndOfStream) {
-      mToDo->setInt32("input-eos", 1);
     }
   } else {
     GDM_LOGE("input processed: error#%d", rv);
@@ -215,11 +215,11 @@ void GonkDecoderManager::UpdateWaitingList(int64_t aForgetUpTo) {
   }
 }
 
-void GonkDecoderManager::ProcessToDo(bool aEndOfStream) {
+void GonkDecoderManager::ProcessToDo() {
   AssertOnTaskQueue();
 
-  MOZ_ASSERT(mToDo.get() != nullptr);
-  mToDo.clear();
+  MOZ_ASSERT(mToDo);
+  mToDo = nullptr;
 
   if (NumQueuedSamples() > 0 && ProcessQueuedSamples() < 0) {
     mCallback->NotifyError(
@@ -234,7 +234,7 @@ void GonkDecoderManager::ProcessToDo(bool aEndOfStream) {
     if (rv == NS_OK) {
       UpdateWaitingList(output[output.Length() - 1]->mTime.ToMicroseconds());
       mCallback->Output(std::move(output));
-    } else if (rv == NS_ERROR_ABORT) {
+    } else if (rv == NS_ERROR_DOM_MEDIA_END_OF_STREAM) {
       // EOS
       MOZ_ASSERT(mQueuedSamples.IsEmpty());
       if (output.Length() > 0) {
@@ -254,7 +254,7 @@ void GonkDecoderManager::ProcessToDo(bool aEndOfStream) {
     }
   }
 
-  if (!aEndOfStream && NumQueuedSamples() <= MIN_QUEUED_SAMPLES) {
+  if (!mInputEOS && NumQueuedSamples() <= MIN_QUEUED_SAMPLES) {
     mCallback->InputExhausted();
     // No need to shedule todo task this time because InputExhausted() will
     // cause Input() to be invoked and do it for us.
@@ -263,9 +263,6 @@ void GonkDecoderManager::ProcessToDo(bool aEndOfStream) {
 
   if (NumQueuedSamples() || mWaitOutput.Length() > 0) {
     mToDo = new AMessage(kNotifyDecoderActivity, this);
-    if (aEndOfStream) {
-      mToDo->setInt32("input-eos", 1);
-    }
     mDecoder->requestActivityNotification(mToDo);
   }
 }
@@ -273,16 +270,13 @@ void GonkDecoderManager::ProcessToDo(bool aEndOfStream) {
 void GonkDecoderManager::onMessageReceived(const sp<AMessage>& aMessage) {
   switch (aMessage->what()) {
     case kNotifyDecoderActivity: {
-      int32_t eos = 0;
-      aMessage->findInt32("input-eos", &eos);
-
       sp<GonkDecoderManager> self = this;
       mTaskQueue->Dispatch(NS_NewRunnableFunction(
-          "GonkDecoderManager::ProcessToDo", [self, this, eos]() {
+          "GonkDecoderManager::ProcessToDo", [self, this]() {
             // This task may be run after Shutdown() is called. Don't do
             // anything in this case.
             if (!mIsShutdown) {
-              ProcessToDo(eos);
+              ProcessToDo();
             }
           }));
       break;

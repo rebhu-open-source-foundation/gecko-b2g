@@ -94,8 +94,8 @@ class GonkDecoderManager : public android::AHandler {
   // queue after processing, or negative error code if failed.
   int32_t ProcessQueuedSamples();
 
-  void ProcessInput(bool aEndOfStream);
-  void ProcessToDo(bool aEndOfStream);
+  void ProcessInput();
+  void ProcessToDo();
 
   void AssertOnTaskQueue() { MOZ_ASSERT(mTaskQueue->IsCurrentThreadIn()); }
 
@@ -127,6 +127,8 @@ class GonkDecoderManager : public android::AHandler {
   // Empty element means EOS and there shouldn't be any sample be queued after
   // it. Samples are queued in caller's thread and dequeued in mTaskLooper.
   nsTArray<RefPtr<MediaRawData>> mQueuedSamples;
+
+  bool mInputEOS = false;
 
   // The last decoded frame presentation time. Only accessed on mTaskLooper.
   int64_t mLastTime;

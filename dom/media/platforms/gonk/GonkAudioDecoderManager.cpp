@@ -160,13 +160,14 @@ nsresult GonkAudioDecoderManager::GetOutput(
     int64_t aStreamOffset, MediaDataDecoder::DecodedData& aOutData) {
   aOutData.Clear();
   if (mAudioQueue.AtEndOfStream()) {
-    return NS_ERROR_ABORT;
+    return NS_ERROR_DOM_MEDIA_END_OF_STREAM;
   }
   if (mAudioQueue.GetSize() > 0) {
     while (mAudioQueue.GetSize() > 0) {
       aOutData.AppendElement(mAudioQueue.PopFront());
     }
-    return mAudioQueue.AtEndOfStream() ? NS_ERROR_ABORT : NS_OK;
+    return mAudioQueue.AtEndOfStream() ? NS_ERROR_DOM_MEDIA_END_OF_STREAM
+                                       : NS_OK;
   }
 
   MediaBuffer* audioBuffer = nullptr;
@@ -220,7 +221,7 @@ nsresult GonkAudioDecoderManager::GetOutput(
       // some decoders may return EOS with empty buffers that we just want to
       // ignore quoted from Android's AwesomePlayer.cpp
       if (rv != NS_ERROR_NOT_AVAILABLE) {
-        NS_ENSURE_SUCCESS(rv, NS_ERROR_ABORT);
+        NS_ENSURE_SUCCESS(rv, NS_ERROR_DOM_MEDIA_END_OF_STREAM);
         MOZ_ASSERT(mAudioQueue.GetSize() > 0);
       }
       mAudioQueue.Finish();
@@ -240,8 +241,9 @@ nsresult GonkAudioDecoderManager::GetOutput(
     while (mAudioQueue.GetSize() > 0) {
       aOutData.AppendElement(mAudioQueue.PopFront());
     }
-    // Return NS_ERROR_ABORT at the last sample.
-    return mAudioQueue.AtEndOfStream() ? NS_ERROR_ABORT : NS_OK;
+    // Return NS_ERROR_DOM_MEDIA_END_OF_STREAM at the last sample.
+    return mAudioQueue.AtEndOfStream() ? NS_ERROR_DOM_MEDIA_END_OF_STREAM
+                                       : NS_OK;
   }
 
   return NS_ERROR_NOT_AVAILABLE;
