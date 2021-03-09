@@ -143,14 +143,26 @@ nsresult GonkDecoderManager::Flush() {
 nsresult GonkDecoderManager::Shutdown() {
   AssertOnTaskQueue();
 
-  if (mDecoder.get()) {
+  mIsShutdown = true;
+
+  if (mDecoder) {
     mDecoder->stop();
     mDecoder->ReleaseMediaResources();
     mDecoder = nullptr;
   }
+  mDecodeLooper->stop();
+  mDecodeLooper = nullptr;
 
+  // To avoid race condition, mTaskLooper should be stopped first, so looper
+  // thread won't try to access null mTaskQueue.
+  mTaskLooper->unregisterHandler(id());
+  mTaskLooper->stop();
+  mTaskLooper = nullptr;
+
+  mCallback = nullptr;
+  mTaskQueue = nullptr;
+  ShutdownInternal();
   mInitPromise.RejectIfExists(NS_ERROR_DOM_MEDIA_CANCELED, __func__);
-
   return NS_OK;
 }
 
@@ -265,9 +277,14 @@ void GonkDecoderManager::onMessageReceived(const sp<AMessage>& aMessage) {
       aMessage->findInt32("input-eos", &eos);
 
       sp<GonkDecoderManager> self = this;
-      mTaskQueue->Dispatch(
-          NS_NewRunnableFunction("GonkDecoderManager::ProcessToDo",
-                                 [self, this, eos]() { ProcessToDo(eos); }));
+      mTaskQueue->Dispatch(NS_NewRunnableFunction(
+          "GonkDecoderManager::ProcessToDo", [self, this, eos]() {
+            // This task may be run after Shutdown() is called. Don't do
+            // anything in this case.
+            if (!mIsShutdown) {
+              ProcessToDo(eos);
+            }
+          }));
       break;
     }
     default: {
@@ -315,20 +332,11 @@ RefPtr<MediaDataDecoder::InitPromise> GonkMediaDataDecoder::Init() {
 RefPtr<ShutdownPromise> GonkMediaDataDecoder::Shutdown() {
   RefPtr<MediaDataDecoder> self = this;
   return InvokeAsync(mTaskQueue, __func__, [self, this]() {
-    RefPtr<ShutdownPromise> p = mShutdownPromise.Ensure(__func__);
-
-    mInitPromise.RejectIfExists(NS_ERROR_DOM_MEDIA_CANCELED, __func__);
-    nsresult rv = mManager->Shutdown();
-    // Because codec allocated runnable and init promise is at reader TaskQueue,
-    // so manager needs to be destroyed at reader TaskQueue to prevent racing.
+    mManager->Shutdown();
+    // Because codec allocated runnable and init promise is at our TaskQueue, so
+    // manager needs to be destroyed at our TaskQueue to prevent racing.
     mManager = nullptr;
-
-    if (rv == NS_OK) {
-      mShutdownPromise.ResolveIfExists(true, __func__);
-    } else {
-      mShutdownPromise.RejectIfExists(false, __func__);
-    }
-    return p;
+    return mTaskQueue->BeginShutdown();
   });
 }
 

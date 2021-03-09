@@ -58,7 +58,7 @@ class GonkDecoderManager : public android::AHandler {
   nsresult Flush();
 
   // Shutdown decoder and rejects the init promise.
-  virtual nsresult Shutdown();
+  nsresult Shutdown();
 
   // How many samples are waiting for processing.
   size_t NumQueuedSamples();
@@ -86,6 +86,9 @@ class GonkDecoderManager : public android::AHandler {
 
   // Flush derived class.
   virtual void FlushInternal() = 0;
+
+  // Shutdown derived class.
+  virtual void ShutdownInternal() {}
 
   // Send queued samples to OMX. It returns how many samples are still in
   // queue after processing, or negative error code if failed.
@@ -117,6 +120,8 @@ class GonkDecoderManager : public android::AHandler {
   RefPtr<TaskQueue> mTaskQueue;
 
   MozPromiseHolder<InitPromise> mInitPromise;
+
+  bool mIsShutdown = false;
 
   // A queue that stores the samples waiting to be sent to mDecoder.
   // Empty element means EOS and there shouldn't be any sample be queued after
@@ -201,10 +206,8 @@ class GonkMediaDataDecoder : public MediaDataDecoder,
 
   RefPtr<TaskQueue> mTaskQueue;
 
-  MozPromiseHolder<InitPromise> mInitPromise;
   MozPromiseHolder<DecodePromise> mDecodePromise;
   MozPromiseHolder<DecodePromise> mDrainPromise;
-  MozPromiseHolder<ShutdownPromise> mShutdownPromise;
   // Where decoded samples will be stored until the decode promise is resolved.
   DecodedData mDecodedData;
 };

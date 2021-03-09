@@ -122,9 +122,8 @@ GonkVideoDecoderManager::~GonkVideoDecoderManager() {
   MOZ_COUNT_DTOR(GonkVideoDecoderManager);
 }
 
-nsresult GonkVideoDecoderManager::Shutdown() {
+void GonkVideoDecoderManager::ShutdownInternal() {
   mVideoCodecRequest.DisconnectIfExists();
-  return GonkDecoderManager::Shutdown();
 }
 
 RefPtr<MediaDataDecoder::InitPromise> GonkVideoDecoderManager::Init() {

@@ -43,8 +43,6 @@ class GonkVideoDecoderManager : public GonkDecoderManager {
   nsresult GetOutput(int64_t aStreamOffset,
                      MediaDataDecoder::DecodedData& aOutData) override;
 
-  nsresult Shutdown() override;
-
   const char* GetDescriptionName() const override {
     return "gonk video decoder";
   }
@@ -55,7 +53,7 @@ class GonkVideoDecoderManager : public GonkDecoderManager {
 
   static void RecycleCallback(TextureClient* aClient, void* aClosure);
 
- protected:
+ private:
   void FlushInternal() override {
     mEOSSent = false;
     // Bug 1199809: workaround to avoid sending the graphic buffer by making a
@@ -65,7 +63,8 @@ class GonkVideoDecoderManager : public GonkDecoderManager {
     mNeedsCopyBuffer = true;
   }
 
- private:
+  void ShutdownInternal() override;
+
   struct FrameInfo {
     int32_t mWidth = 0;
     int32_t mHeight = 0;
