@@ -522,27 +522,26 @@ MobileConnectionListener.prototype = {
   QueryInterface: ChromeUtils.generateQI([Ci.nsIMobileConnectionListener]),
 
   // nsIMobileConnectionListener
-
   notifyVoiceChanged() {},
   notifyDataChanged() {},
-  /*eslint no-unused-vars: ["error", { "varsIgnorePattern": "message" }]*/
-  notifyDataError(message) {},
-  /*eslint no-unused-vars: ["error", { "varsIgnorePattern": "action|reason|number|number|timeSecones|serviceClass" }]*/
-  notifyCFStateChanged(action, reason, number, timeSeconds, serviceClass) {},
-  /*eslint no-unused-vars: ["error", { "varsIgnorePattern": "active|timeoutMs" }]*/
-  notifyEmergencyCbModeChanged(active, timeoutMs) {},
-  /*eslint no-unused-vars: ["error", { "varsIgnorePattern": "status" }]*/
-  notifyOtaStatusChanged(status) {},
+  notifyDataError(_message) {},
+  notifyCFStateChanged(
+    _action,
+    _reason,
+    _number,
+    _timeSeconds,
+    _serviceClass
+  ) {},
+  notifyEmergencyCbModeChanged(_active, _timeoutMs) {},
+  notifyOtaStatusChanged(_status) {},
   notifyRadioStateChanged() {},
-  /*eslint no-unused-vars: ["error", { "varsIgnorePattern": "mode" }]*/
-  notifyClirModeChanged(mode) {},
+  notifyClirModeChanged(_mode) {},
   notifyLastKnownNetworkChanged() {},
   notifyLastKnownHomeNetworkChanged() {},
   notifyNetworkSelectionModeChanged() {},
   notifyDeviceIdentitiesChanged() {},
   notifySignalStrengthChanged() {},
-  /*eslint no-unused-vars: ["error", { "varsIgnorePattern": "reason" }]*/
-  notifyModemRestart(reason) {},
+  notifyModemRestart(_reason) {},
 };
 
 function VideoCallProvider(aClientId, aCallIndex) {
@@ -594,6 +593,7 @@ function TelephonyService() {
   this._audioStates = [];
   this._ussdSessions = [];
   this._twoDigitShortCodes = [];
+  this._mobileConnListeners = [];
 
   this._initConstByPrefs();
   this._initImsPhones();
@@ -621,6 +621,26 @@ function TelephonyService() {
   }
 
   this._updateTwoDigitShortCodes();
+
+  // access mobile connection in next tick.
+  Services.tm.currentThread.dispatch(() => {
+    for (let i = 0; i < this._numClients; ++i) {
+      let connection = gGonkMobileConnectionService.getItemByServiceId(i);
+      let listener = new MobileConnectionListener();
+      listener.notifyRadioStateChanged = () => {
+        if (
+          connection.radioState ===
+            Ci.nsIMobileConnection.MOBILE_RADIO_STATE_UNKNOWN ||
+          connection.radioState ===
+            Ci.nsIMobileConnection.MOBILE_RADIO_STATE_ENABLED
+        ) {
+          this._sendToRilWorker(i, "getCurrentCalls", null, null);
+        }
+      };
+      connection.registerListener(listener);
+      this._mobileConnListeners[i] = listener;
+    }
+  }, Ci.nsIThread.DISPATCH_NORMAL);
 }
 TelephonyService.prototype = {
   classID: GONK_TELEPHONYSERVICE_CID,
@@ -649,6 +669,8 @@ TelephonyService.prototype = {
   _imsPhones: null,
 
   _twoDigitShortCodes: null,
+
+  _mobileConnListeners: null,
 
   _acquireCallRingWakeLock() {
     if (!this._callRingWakeLock) {
@@ -3557,6 +3579,12 @@ TelephonyService.prototype = {
         Services.prefs.removeObserver(RIL_DEBUG.PREF_RIL_DEBUG_ENABLED, this);
         Services.prefs.removeObserver(kPrefDefaultServiceId, this);
         Services.prefs.removeObserver(kPrefTwoDigitShortCodes, this);
+
+        for (let i = 0; i < this._mobileConnListeners.length; i++) {
+          let connection = gGonkMobileConnectionService.getItemByServiceId(i);
+          connection.unregisterListener(this._mobileConnListeners[i]);
+        }
+        this._mobileConnListeners = [];
         break;
     }
   },
@@ -3767,17 +3795,12 @@ TelephonyService.prototype = {
   },
 
   _updateTwoDigitShortCodes() {
-    try {
-      let twoDigitShortCode = Services.prefs.getCharPref(
-        kPrefTwoDigitShortCodes
-      );
-      if (twoDigitShortCode) {
-        this._twoDigitShortCodes = twoDigitShortCode.split(",");
-      }
-    } catch (e) {
-      if (DEBUG) {
-        debug("Get kPrefTwoDigitShortCodes failed" + e);
-      }
+    let twoDigitShortCode = Services.prefs.getCharPref(
+      kPrefTwoDigitShortCodes,
+      ""
+    );
+    if (twoDigitShortCode) {
+      this._twoDigitShortCodes = twoDigitShortCode.split(",");
     }
   },
 

@@ -1145,7 +1145,7 @@ already_AddRefed<nsITelephonyService> NS_CreateTelephonyService() {
     service = new mozilla::dom::telephony::TelephonyIPCService();
   } else {
 #if defined(MOZ_WIDGET_GONK) && defined(MOZ_B2G_RIL)
-    service = do_CreateInstance(GONK_TELEPHONY_SERVICE_CONTRACTID);
+    service = do_GetService(GONK_TELEPHONY_SERVICE_CONTRACTID);
 #endif
   }
 
