@@ -3598,7 +3598,7 @@ void ContentChild::CreateGetFilesRequest(const nsAString& aDirectoryPath,
                                          bool aRecursiveFlag, nsID& aUUID,
                                          GetFilesHelperChild* aChild) {
   MOZ_ASSERT(aChild);
-  MOZ_ASSERT(!mGetFilesPendingRequests.GetWeak(aUUID));
+  MOZ_ASSERT(!mGetFilesPendingRequests.Contains(aUUID));
 
   Unused << SendGetFilesRequest(aUUID, nsString(aDirectoryPath),
                                 aRecursiveFlag);
@@ -3608,7 +3608,7 @@ void ContentChild::CreateGetFilesRequest(const nsAString& aDirectoryPath,
 void ContentChild::DeleteGetFilesRequest(nsID& aUUID,
                                          GetFilesHelperChild* aChild) {
   MOZ_ASSERT(aChild);
-  MOZ_ASSERT(mGetFilesPendingRequests.GetWeak(aUUID));
+  MOZ_ASSERT(mGetFilesPendingRequests.Contains(aUUID));
 
   Unused << SendDeleteGetFilesRequest(aUUID);
   mGetFilesPendingRequests.Remove(aUUID);

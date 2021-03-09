@@ -97,6 +97,13 @@ XPCOMUtils.defineLazyGetter(this, "gBrowserBundle", function() {
   );
 });
 
+XPCOMUtils.defineLazyPreferenceGetter(
+  this,
+  "protonDoorhangersEnabled",
+  "browser.proton.doorhangers.enabled",
+  false
+);
+
 var PermissionUI = {};
 
 /**
@@ -589,6 +596,13 @@ var PermissionPromptPrototype = {
       options.hideClose = true;
     }
 
+    if (
+      protonDoorhangersEnabled &&
+      !mainAction.hasOwnProperty("disableHighlight")
+    ) {
+      mainAction.disableHighlight = true;
+    }
+
     options.eventCallback = (topic, nextRemovalReason, isCancel) => {
       // When the docshell of the browser is aboout to be swapped to another one,
       // the "swapping" event is called. Returning true causes the notification
@@ -877,22 +891,22 @@ XRPermissionPrompt.prototype = {
 
   get message() {
     if (this.principal.schemeIs("file")) {
-      return gBrowserBundle.GetStringFromName("xr.shareWithFile3");
+      return gBrowserBundle.GetStringFromName("xr.shareWithFile4");
     }
 
-    return gBrowserBundle.formatStringFromName("xr.shareWithSite3", ["<>"]);
+    return gBrowserBundle.formatStringFromName("xr.shareWithSite4", ["<>"]);
   },
 
   get promptActions() {
     return [
       {
-        label: gBrowserBundle.GetStringFromName("xr.allow"),
-        accessKey: gBrowserBundle.GetStringFromName("xr.allow.accesskey"),
+        label: gBrowserBundle.GetStringFromName("xr.allow2"),
+        accessKey: gBrowserBundle.GetStringFromName("xr.allow2.accesskey"),
         action: SitePermissions.ALLOW,
       },
       {
-        label: gBrowserBundle.GetStringFromName("xr.dontAllow"),
-        accessKey: gBrowserBundle.GetStringFromName("xr.dontAllow.accesskey"),
+        label: gBrowserBundle.GetStringFromName("xr.block"),
+        accessKey: gBrowserBundle.GetStringFromName("xr.block.accesskey"),
         action: SitePermissions.BLOCK,
       },
     ];
