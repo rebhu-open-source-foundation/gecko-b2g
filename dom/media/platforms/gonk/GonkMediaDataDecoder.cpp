@@ -139,7 +139,7 @@ nsresult GonkDecoderManager::Flush() {
   if (mDecoder->flush() != OK) {
     GDM_LOGE("flush error");
     nsresult rv = NS_ERROR_DOM_MEDIA_DECODE_ERR;
-    mCallback->NotifyError(__func__, MediaResult(rv, __func__));
+    mCallback->NotifyError(__func__, rv);
     return rv;
   }
   return NS_OK;
@@ -191,8 +191,7 @@ void GonkDecoderManager::ProcessInput() {
     }
   } else {
     GDM_LOGE("input processed: error#%d", rv);
-    mCallback->NotifyError(
-        __func__, MediaResult(NS_ERROR_DOM_MEDIA_DECODE_ERR, __func__));
+    mCallback->NotifyError(__func__, NS_ERROR_DOM_MEDIA_DECODE_ERR);
   }
 }
 
@@ -222,8 +221,7 @@ void GonkDecoderManager::ProcessToDo() {
   mToDo = nullptr;
 
   if (NumQueuedSamples() > 0 && ProcessQueuedSamples() < 0) {
-    mCallback->NotifyError(
-        __func__, MediaResult(NS_ERROR_DOM_MEDIA_DECODE_ERR, __func__));
+    mCallback->NotifyError(__func__, NS_ERROR_DOM_MEDIA_DECODE_ERR);
     return;
   }
 
@@ -248,8 +246,7 @@ void GonkDecoderManager::ProcessToDo() {
     } else if (rv == NS_ERROR_NOT_AVAILABLE) {
       break;
     } else {
-      mCallback->NotifyError(
-          __func__, MediaResult(NS_ERROR_DOM_MEDIA_DECODE_ERR, __func__));
+      mCallback->NotifyError(__func__, NS_ERROR_DOM_MEDIA_DECODE_ERR);
       return;
     }
   }
@@ -386,13 +383,14 @@ void GonkMediaDataDecoder::DrainComplete() {
   ResolveDrainPromise();
 }
 
-void GonkMediaDataDecoder::NotifyError(const char* aLine,
-                                       const MediaResult& aError) {
+void GonkMediaDataDecoder::NotifyError(const char* aCallSite,
+                                       nsresult aResult) {
   AssertOnTaskQueue();
-  GMDD_LOGE("NotifyError (%s) at %s", aError.ErrorName().get(), aLine);
+  MediaResult result(aResult, aCallSite);
+  GMDD_LOGE("NotifyError (%s) at %s", result.ErrorName().get(), aCallSite);
   mDecodedData = DecodedData();
-  mDecodePromise.RejectIfExists(aError, __func__);
-  mDrainPromise.RejectIfExists(aError, __func__);
+  mDecodePromise.RejectIfExists(MediaResult(result), __func__);
+  mDrainPromise.RejectIfExists(MediaResult(result), __func__);
 }
 
 void GonkMediaDataDecoder::ResolveDecodePromise() {

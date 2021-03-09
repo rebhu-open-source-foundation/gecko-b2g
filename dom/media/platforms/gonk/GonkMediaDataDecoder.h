@@ -31,7 +31,7 @@ class GonkDecoderManagerCallback {
 
   virtual void DrainComplete() = 0;
 
-  virtual void NotifyError(const char* aLine, const MediaResult& aError) = 0;
+  virtual void NotifyError(const char* aCallSite, nsresult aResult) = 0;
 
  protected:
   virtual ~GonkDecoderManagerCallback() {}
@@ -197,7 +197,7 @@ class GonkMediaDataDecoder : public MediaDataDecoder,
   void Output(DecodedData&& aDecodedData) override;
   void InputExhausted() override;
   void DrainComplete() override;
-  void NotifyError(const char* aLine, const MediaResult& aError);
+  void NotifyError(const char* aCallSite, nsresult aResult);
 
  private:
   void ResolveDecodePromise();
