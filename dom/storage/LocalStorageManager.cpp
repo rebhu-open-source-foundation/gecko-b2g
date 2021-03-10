@@ -397,11 +397,19 @@ nsresult LocalStorageManager::Observe(const char* aTopic,
 
   if (!strcmp(aTopic, "low-disk-space")) {
     mLowDiskSpace = true;
+    nsCOMPtr<nsIObserverService> obs = mozilla::services::GetObserverService();
+    if (obs) {
+      obs->NotifyObservers(nullptr, "b2g-disk-storage-state", u"full");
+    }
     return NS_OK;
   }
 
   if (!strcmp(aTopic, "no-low-disk-space")) {
     mLowDiskSpace = false;
+    nsCOMPtr<nsIObserverService> obs = mozilla::services::GetObserverService();
+    if (obs) {
+      obs->NotifyObservers(nullptr, "b2g-disk-storage-state", u"free");
+    }
     return NS_OK;
   }
 

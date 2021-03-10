@@ -11,6 +11,7 @@
 #include "nsGlobalWindow.h"
 #include "nsPIDOMWindow.h"
 #include "nsWrapperCache.h"
+#include "mozilla/DOMEventTargetHelper.h"
 #include "mozilla/dom/AlarmManager.h"
 #include "mozilla/dom/DOMVirtualCursor.h"
 #include "mozilla/dom/ExternalAPI.h"
@@ -63,6 +64,7 @@
 #include "mozilla/dom/power/PowerManagerService.h"
 #include "mozilla/dom/powersupply/PowerSupplyManager.h"
 #include "nsIDOMWakeLockListener.h"
+#include "nsIObserver.h"
 
 class nsDOMDeviceStorage;
 
@@ -71,13 +73,16 @@ namespace dom {
 
 class DeviceStorageAreaListener;
 
-class B2G final : public nsIDOMMozWakeLockListener, public nsWrapperCache {
+class B2G final : public DOMEventTargetHelper,
+                  public nsIDOMMozWakeLockListener,
+                  public nsIObserver {
   nsCOMPtr<nsIGlobalObject> mOwner;
 
  public:
-  NS_DECL_CYCLE_COLLECTING_ISUPPORTS
-  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(B2G)
+  NS_DECL_ISUPPORTS_INHERITED
+  NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(B2G, DOMEventTargetHelper)
   NS_DECL_NSIDOMMOZWAKELOCKLISTENER
+  NS_DECL_NSIOBSERVER
 
   explicit B2G(nsIGlobalObject* aGlobal);
 
@@ -194,6 +199,9 @@ class B2G final : public nsIDOMMozWakeLockListener, public nsWrapperCache {
       const nsAString& aName, const nsAString& aType, ErrorResult& aRv);
 
   void SetDispatchKeyToContentFirst(bool aEnable);
+
+  IMPL_EVENT_HANDLER(storagefull);
+  IMPL_EVENT_HANDLER(storagefree);
 
   // Shutting down, main thread only
   void Shutdown();

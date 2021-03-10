@@ -7,9 +7,15 @@
 interface MozWakeLockListener;
 
 [Exposed=(Window,Worker)]
-interface B2G {
+interface B2G : EventTarget {
   // objects implementing this interface also implement the interfaces given
   // below
+};
+
+[Exposed=Window]
+partial interface B2G {
+  attribute EventHandler onstoragefree;
+  attribute EventHandler onstoragefull;
 };
 
 partial interface B2G {

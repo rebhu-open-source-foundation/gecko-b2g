@@ -15,28 +15,32 @@
 namespace mozilla {
 namespace dom {
 
-B2G::B2G(nsIGlobalObject* aGlobal) : mOwner(aGlobal) {
+B2G::B2G(nsIGlobalObject* aGlobal)
+    : DOMEventTargetHelper(aGlobal), mOwner(aGlobal) {
   MOZ_ASSERT(aGlobal);
 }
 
-B2G::~B2G() {}
+B2G::~B2G() {
+  nsCOMPtr<nsIObserverService> obs = services::GetObserverService();
+  if (obs) {
+    obs->RemoveObserver(this, "b2g-disk-storage-state");
+  }
+}
 
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(B2G)
-  NS_WRAPPERCACHE_INTERFACE_MAP_ENTRY
-  NS_INTERFACE_MAP_ENTRY(nsISupports)
   NS_INTERFACE_MAP_ENTRY(nsIDOMMozWakeLockListener)
-NS_INTERFACE_MAP_END
+  NS_INTERFACE_MAP_ENTRY(nsIObserver)
+NS_INTERFACE_MAP_END_INHERITING(DOMEventTargetHelper)
 
-NS_IMPL_CYCLE_COLLECTING_ADDREF(B2G)
-NS_IMPL_CYCLE_COLLECTING_RELEASE(B2G)
+NS_IMPL_ADDREF_INHERITED(B2G, DOMEventTargetHelper)
+NS_IMPL_RELEASE_INHERITED(B2G, DOMEventTargetHelper)
 
 NS_IMPL_CYCLE_COLLECTION_CLASS(B2G)
 
-NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(B2G)
-  NS_IMPL_CYCLE_COLLECTION_UNLINK_PRESERVED_WRAPPER
+NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(B2G, DOMEventTargetHelper)
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
-NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(B2G)
+NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(B2G, DOMEventTargetHelper)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mOwner)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mAlarmManager)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mDeviceStorageAreaListener)
@@ -82,8 +86,6 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(B2G)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mUsbManager)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mPowerSupplyManager)
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
-
-NS_IMPL_CYCLE_COLLECTION_TRACE_WRAPPERCACHE(B2G)
 
 void B2G::Shutdown() {
   MOZ_RELEASE_ASSERT(NS_IsMainThread());
@@ -1030,6 +1032,19 @@ void B2G::SetDispatchKeyToContentFirst(bool aEnable) {
   EventStateManager::SetDispatchKeyToContentFirst(aEnable);
 }
 
+NS_IMETHODIMP B2G::Observe(nsISupports* aSubject, const char* aTopic,
+                           const char16_t* aData) {
+  if (!strcmp(aTopic, "b2g-disk-storage-state")) {
+    if (u"full"_ns.Equals(aData)) {
+      return DispatchTrustedEvent(u"storagefull"_ns);
+    } else if (u"free"_ns.Equals(aData)) {
+      return DispatchTrustedEvent(u"storagefree"_ns);
+    }
+  }
+
+  return NS_OK;
+}
+
 nsresult B2G::Init() {
   MOZ_RELEASE_ASSERT(NS_IsMainThread());
 
@@ -1041,6 +1056,12 @@ nsresult B2G::Init() {
   }
 
   pmService->AddWakeLockListener(this);
+
+  nsCOMPtr<nsIObserverService> obs = services::GetObserverService();
+  if (!obs) {
+    return NS_ERROR_FAILURE;
+  }
+  obs->AddObserver(this, "b2g-disk-storage-state", false);
 
   return NS_OK;
 }
