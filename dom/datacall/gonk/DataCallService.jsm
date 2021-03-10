@@ -390,13 +390,13 @@ DataCallService.prototype = {
       // This indicates there is no network interface for this mobile type.
       if (ril.getDataCallStateByType(type) == NETWORK_STATE_UNKNOWN) {
         aTargetCallback({
-          errorMsg: "Network interface not available for type.",
+          errorMsg: "Network interface not available for type:" + type,
         });
         return;
       }
     } catch (e) {
       // Throws when type is not a mobile network type.
-      aTargetCallback({ errorMsg: "Error setting up data call: " + e });
+      aTargetCallback({ errorMsg: "Error when setup data call: " + e });
       return;
     }
 
@@ -405,7 +405,7 @@ DataCallService.prototype = {
       ril.setupDataCallByType(type);
     } catch (e) {
       // Throws radio fail
-      aTargetCallback({ errorMsg: "Error setting up data call: " + e });
+      aTargetCallback({ errorMsg: "Error when setup data call: " + e });
       return;
     }
 
@@ -542,7 +542,7 @@ DataCallService.prototype = {
     } catch (e) {
       // Throws when type is not a mobile network type.
       if (aTargetCallback) {
-        aTargetCallback({ errorMsg: "Error deactivating data call: " + e });
+        aTargetCallback({ errorMsg: "Error when deactivate data call: " + e });
       }
       return;
     }

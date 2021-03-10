@@ -1357,8 +1357,11 @@ void GonkGPSGeolocationProvider::RequestDataConnection() {
 
   if (GetDataConnectionState() != nsINetworkInfo::NETWORK_STATE_CONNECTED) {
     LOG("nsIRadioInterface->SetupDataCallByType()");
-    mRadioInterface->SetupDataCallByType(
+    nsresult rv = mRadioInterface->SetupDataCallByType(
         nsINetworkInfo::NETWORK_TYPE_MOBILE_SUPL);
+    if (NS_FAILED(rv)) {
+      ERR("Failed to setup SUPL data call.");
+    }
   } else {
     LOG("SUPL has already connected");
     // Ideally, HAL should not request a connection when it's already connected.
@@ -1376,8 +1379,11 @@ void GonkGPSGeolocationProvider::ReleaseDataConnection() {
   }
 
   LOG("nsIRadioInterface->DeactivateDataCallByType()");
-  mRadioInterface->DeactivateDataCallByType(
+  nsresult rv = mRadioInterface->DeactivateDataCallByType(
       nsINetworkInfo::NETWORK_TYPE_MOBILE_SUPL);
+  if (NS_FAILED(rv)) {
+    ERR("Failed to deactivate SUPL data call.");
+  }
 }
 
 NS_IMETHODIMP GonkGPSGeolocationProvider::CallStateChanged(

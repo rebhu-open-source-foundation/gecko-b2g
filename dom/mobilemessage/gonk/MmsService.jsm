@@ -391,9 +391,13 @@ MmsConnection.prototype = {
       this.hostsToRoute = [];
       this.networkInfo = null;
 
-      this.radioInterface.deactivateDataCallByType(
-        Ci.nsINetworkInfo.NETWORK_TYPE_MOBILE_MMS
-      );
+      try {
+        this.radioInterface.deactivateDataCallByType(
+          Ci.nsINetworkInfo.NETWORK_TYPE_MOBILE_MMS
+        );
+      } catch (e) {
+        debug("deactivateDataCallByType: error: " + e);
+      }
     };
 
     let promises = this.hostsToRoute.map(aHost => {

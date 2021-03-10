@@ -1400,7 +1400,10 @@ DataCallHandler.prototype = {
       if (DEBUG) {
         this.debug(aNetworkType + " is not a mobile network type!");
       }
-      return;
+      throw Components.Exception(
+        "Not a mobile network type.",
+        Cr.NS_ERROR_NOT_AVAILABLE
+      );
     }
 
     let networkInterface = this.dataNetworkInterfaces.get(aNetworkType);
@@ -1411,7 +1414,10 @@ DataCallHandler.prototype = {
             convertToDataCallType(aNetworkType)
         );
       }
-      return;
+      throw Components.Exception(
+        "No network interface.",
+        Cr.NS_ERROR_NOT_AVAILABLE
+      );
     }
 
     networkInterface.enable();
@@ -1429,7 +1435,10 @@ DataCallHandler.prototype = {
       if (DEBUG) {
         this.debug(aNetworkType + " is not a mobile network type!");
       }
-      return;
+      throw Components.Exception(
+        "Not a mobile network type.",
+        Cr.NS_ERROR_NOT_AVAILABLE
+      );
     }
 
     let networkInterface = this.dataNetworkInterfaces.get(aNetworkType);
@@ -1440,17 +1449,23 @@ DataCallHandler.prototype = {
             convertToDataCallType(aNetworkType)
         );
       }
-      return;
+      throw Components.Exception(
+        "No network interface.",
+        Cr.NS_ERROR_NOT_AVAILABLE
+      );
     }
 
     // Not allow AP control the default RILNetworkInterface
     if (networkInterface.info.type == NETWORK_TYPE_MOBILE) {
       if (DEBUG) {
         this.debug(
-          "Not allow upper layer control the default RILNetworkInterface "
+          "Not allow upper layer control the default RILNetworkInterface."
         );
       }
-      return;
+      throw Components.Exception(
+        "Not allow upper layer control the default.",
+        Cr.NS_ERROR_NOT_AVAILABLE
+      );
     }
     networkInterface.disable();
   },
