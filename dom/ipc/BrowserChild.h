@@ -795,6 +795,8 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
     mUnscaledInnerSize = aSize;
   }
 
+  bool UpdateOrientation(const hal::ScreenOrientation& aOrientation);
+
   bool SkipRepeatedKeyEvent(const WidgetKeyboardEvent& aEvent);
 
   void UpdateRepeatedKeyEventEndTime(const WidgetKeyboardEvent& aEvent);

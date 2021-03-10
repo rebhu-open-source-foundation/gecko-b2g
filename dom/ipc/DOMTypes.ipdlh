@@ -133,6 +133,8 @@ struct ScreenDetails {
   int32_t colorDepth;
   DesktopToLayoutDeviceScale contentsScaleFactor;
   CSSToLayoutDeviceScale defaultCSSScaleFactor;
+  uint32_t screenRotation;
+  LayoutDeviceIntRect naturalBounds;
   float dpi;
 };
 

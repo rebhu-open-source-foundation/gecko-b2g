@@ -214,7 +214,29 @@ ScreenManager::GetPrimaryScreen(nsIScreen** aPrimaryScreen) {
     return NS_OK;
   }
 
-  RefPtr<Screen> ret = mScreenList[0];
+  if (mScreenList.Length() == 1) {
+    RefPtr<Screen> ret = mScreenList[0];
+    ret.forget(aPrimaryScreen);
+    return NS_OK;
+  }
+
+  Screen* which = mScreenList[0].get();
+
+  // Find the surface has the most area.
+  uint32_t area = 0;
+  for (auto& screen : mScreenList) {
+    int32_t x, y, width, height;
+    x = y = width = height = 0;
+    screen->GetRectDisplayPix(&x, &y, &width, &height);
+    DesktopIntRect screenRect(x, y, width, height);
+    uint32_t tempArea = screenRect.Area();
+    if (tempArea > area) {
+      which = screen.get();
+      area = tempArea;
+    }
+  }
+
+  RefPtr<Screen> ret = which;
   ret.forget(aPrimaryScreen);
   return NS_OK;
 }
