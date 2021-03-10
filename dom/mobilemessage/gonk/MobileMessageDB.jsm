@@ -766,7 +766,9 @@ MobileMessageDB.prototype = {
   init(aDbName, aDbVersion, aCallback) {
     this.dbName = aDbName;
     this.dbVersion = aDbVersion || DB_VERSION;
-
+    if (DEBUG) {
+      debug("MobileMessageDB init");
+    }
     let self = this;
     this.newTxn(READ_ONLY, function(error, txn, messageStore) {
       if (error) {
@@ -865,6 +867,14 @@ MobileMessageDB.prototype = {
         let messageRecord = messageCursor.value;
 
         // Set delivery to error.
+        if (DEBUG) {
+          debug(
+            "updatePendingTransactionToError: update message " +
+              messageRecord.id +
+              " to " +
+              DELIVERY_ERROR
+          );
+        }
         messageRecord.delivery = DELIVERY_ERROR;
         messageRecord.deliveryIndex = [DELIVERY_ERROR, messageRecord.timestamp];
 
@@ -873,6 +883,16 @@ MobileMessageDB.prototype = {
         } else {
           // Set delivery status to error.
           for (let i = 0; i < messageRecord.deliveryInfo.length; i++) {
+            if (DEBUG) {
+              debug(
+                "updatePendingTransactionToError: update message " +
+                  messageRecord.id +
+                  " deliveryStatus from " +
+                  messageRecord.deliveryInfo[i].deliveryStatus +
+                  " to " +
+                  DELIVERY_STATUS_ERROR
+              );
+            }
             messageRecord.deliveryInfo[
               i
             ].deliveryStatus = DELIVERY_STATUS_ERROR;
