@@ -129,6 +129,7 @@ class GonkDecoderManager : public android::AHandler {
   nsTArray<RefPtr<MediaRawData>> mQueuedSamples;
 
   bool mInputEOS = false;
+  bool mOutputEOS = false;
 
   // The last decoded frame presentation time. Only accessed on mTaskLooper.
   int64_t mLastTime;

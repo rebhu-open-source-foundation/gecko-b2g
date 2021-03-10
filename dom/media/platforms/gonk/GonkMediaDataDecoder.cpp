@@ -75,9 +75,15 @@ nsresult GonkDecoderManager::Input(MediaRawData* aSample) {
   AssertOnTaskQueue();
 
   // Multiple drain commands are possible. If we received EOS before, just don't
-  // append the new sample, and treat non-null sample as an error.
+  // append the new sample, and treat non-null sample as an error. If mOutputEOS
+  // is true, ProcessToDo() won't resolve drain promise again, so we need to do
+  // it here.
   if (mInputEOS) {
-    ProcessInput();
+    if (mOutputEOS) {
+      mCallback->DrainComplete();
+    } else {
+      ProcessInput();
+    }
     return aSample ? NS_ERROR_DOM_MEDIA_END_OF_STREAM : NS_OK;
   }
 
@@ -132,6 +138,7 @@ nsresult GonkDecoderManager::Flush() {
 
   FlushInternal();
   mInputEOS = false;
+  mOutputEOS = false;
   mLastTime = INT64_MIN;
   mWaitOutput.Clear();
   mQueuedSamples.Clear();
@@ -242,6 +249,7 @@ void GonkDecoderManager::ProcessToDo() {
       MOZ_ASSERT(mWaitOutput.Length() == 1);
       mWaitOutput.RemoveElementAt(0);
       mCallback->DrainComplete();
+      mOutputEOS = true;
       return;
     } else if (rv == NS_ERROR_NOT_AVAILABLE) {
       break;
