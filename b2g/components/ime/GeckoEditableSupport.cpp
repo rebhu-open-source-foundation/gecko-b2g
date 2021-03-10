@@ -624,11 +624,6 @@ GeckoEditableSupport::HandleEvent(Event* aEvent) {
       return NS_OK;
     }
     HandleBlur();
-    RefPtr<TextEventDispatcher> dispatcher = getTextEventDispatcherFromFocus();
-    if (dispatcher) {
-      dispatcher->EndInputTransaction(this);
-      OnRemovedFrom(dispatcher);
-    }
   }
   return NS_OK;
 }
@@ -667,7 +662,9 @@ void GeckoEditableSupport::HandleFocus() {
 }
 
 void GeckoEditableSupport::HandleBlur() {
-  MOZ_ASSERT(mIsFocused);
+  if (!mIsFocused) {
+    return;
+  }
   mIsFocused = false;
 
   if (XRE_IsParentProcess()) {
@@ -681,6 +678,11 @@ void GeckoEditableSupport::HandleBlur() {
     mServiceChild->SendRequest(request);
     Unused << mServiceChild->Send__delete__(mServiceChild);
     mServiceChild = nullptr;
+  }
+  RefPtr<TextEventDispatcher> dispatcher = getTextEventDispatcherFromFocus();
+  if (dispatcher) {
+    dispatcher->EndInputTransaction(this);
+    OnRemovedFrom(dispatcher);
   }
 }
 
@@ -753,6 +755,9 @@ GeckoEditableSupport::NotifyIME(TextEventDispatcher* aTextEventDispatcher,
     }
     case NOTIFY_IME_OF_FOCUS:
     case NOTIFY_IME_OF_BLUR: {
+      if (aNotification.mMessage == NOTIFY_IME_OF_BLUR) {
+        HandleBlur();
+      }
       if (!mIsVoiceInputEnabled) {
         break;
       }
