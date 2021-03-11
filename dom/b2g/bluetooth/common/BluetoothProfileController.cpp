@@ -26,7 +26,7 @@ USING_BLUETOOTH_NAMESPACE
     BT_LOGR("[%s] " msg, name.get(), ##__VA_ARGS__); \
   } while (0)
 
-#define CONNECTION_TIMEOUT_MS 15000
+#define CONNECTION_TIMEOUT_MS 8000
 
 class CheckProfileStatusCallback : public nsITimerCallback {
  public:
@@ -236,11 +236,6 @@ void BluetoothProfileController::StartSession() {
     return;
   }
 
-  if (mTimer) {
-    mTimer->InitWithCallback(new CheckProfileStatusCallback(this),
-                             CONNECTION_TIMEOUT_MS, nsITimer::TYPE_ONE_SHOT);
-  }
-
   BT_LOGR("%s", mConnect ? "connecting" : "disconnecting");
 
   Next();
@@ -285,6 +280,11 @@ void BluetoothProfileController::Next() {
   if (++mProfilesIndex >= (int)mProfiles.Length()) {
     EndSession();
     return;
+  }
+
+  if (mTimer) {
+    mTimer->InitWithCallback(new CheckProfileStatusCallback(this),
+                             CONNECTION_TIMEOUT_MS, nsITimer::TYPE_ONE_SHOT);
   }
 
   BT_LOGR_PROFILE(mProfiles[mProfilesIndex], "");
