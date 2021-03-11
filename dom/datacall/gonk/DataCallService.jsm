@@ -37,7 +37,6 @@ const DATACALL_TYPES = [
   Ci.nsINetworkInfo.NETWORK_TYPE_MOBILE_ECC,
 ];
 
-const NETWORK_STATE_UNKNOWN = Ci.nsINetworkInfo.NETWORK_STATE_UNKNOWN;
 const NETWORK_STATE_CONNECTED = Ci.nsINetworkInfo.NETWORK_STATE_CONNECTED;
 
 const TOPIC_XPCOM_SHUTDOWN = "xpcom-shutdown";
@@ -387,24 +386,10 @@ DataCallService.prototype = {
     }
 
     try {
-      // This indicates there is no network interface for this mobile type.
-      if (ril.getDataCallStateByType(type) == NETWORK_STATE_UNKNOWN) {
-        aTargetCallback({
-          errorMsg: "Network interface not available for type:" + type,
-        });
-        return;
-      }
-    } catch (e) {
-      // Throws when type is not a mobile network type.
-      aTargetCallback({ errorMsg: "Error when setup data call: " + e });
-      return;
-    }
-
-    try {
       // Call this no matter what for ref counting in RadioInterfaceLayer.
       ril.setupDataCallByType(type);
     } catch (e) {
-      // Throws radio fail
+      // Throws when setup request fail.
       aTargetCallback({ errorMsg: "Error when setup data call: " + e });
       return;
     }

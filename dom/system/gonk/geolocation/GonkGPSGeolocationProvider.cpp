@@ -1294,8 +1294,13 @@ int32_t GonkGPSGeolocationProvider::GetDataConnectionState() {
   }
 
   int32_t state;
-  mRadioInterface->GetDataCallStateByType(
+  nsresult rv = mRadioInterface->GetDataCallStateByType(
       nsINetworkInfo::NETWORK_TYPE_MOBILE_SUPL, &state);
+
+  if (NS_FAILED(rv)) {
+    ERR("Failed to get SUPL data call state.");
+    return nsINetworkInfo::NETWORK_STATE_UNKNOWN;
+  }
   return state;
 }
 

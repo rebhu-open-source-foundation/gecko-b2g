@@ -1381,12 +1381,18 @@ DataCallHandler.prototype = {
       if (DEBUG) {
         this.debug(aNetworkType + " is not a mobile network type!");
       }
-      return NETWORK_STATE_UNKNOWN;
+      throw Components.Exception(
+        "Not a mobile network type.",
+        Cr.NS_ERROR_NOT_AVAILABLE
+      );
     }
 
     let networkInterface = this.dataNetworkInterfaces.get(aNetworkType);
     if (!networkInterface) {
-      return NETWORK_STATE_UNKNOWN;
+      throw Components.Exception(
+        "No network interface.",
+        Cr.NS_ERROR_NOT_AVAILABLE
+      );
     }
     return networkInterface.info.state;
   },
