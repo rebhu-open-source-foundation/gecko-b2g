@@ -213,8 +213,8 @@ NetworkService.prototype = {
 
   // nsINetworkService
 
-  getNetworkInterfaceStats(aInterfaceName, aCallback) {
-    debug("getNetworkInterfaceStats for " + aInterfaceName);
+  getNetworkInterfaceStats(aInterfaces, aCallback) {
+    debug("getNetworkInterfaceStats for " + JSON.stringify(aInterfaces));
 
     let file = new FileUtils.File("/proc/net/dev");
     if (!file) {
@@ -241,10 +241,9 @@ NetworkService.prototype = {
           ).split("\n");
           for (let i = 2; i < data.length; i++) {
             let parseResult = statExpr.exec(data[i]);
-            if (parseResult && parseResult[1] === aInterfaceName) {
-              rxBytes = parseInt(parseResult[2], 10);
-              txBytes = parseInt(parseResult[3], 10);
-              break;
+            if (parseResult && aInterfaces.includes(parseResult[1])) {
+              rxBytes += parseInt(parseResult[2], 10);
+              txBytes += parseInt(parseResult[3], 10);
             }
           }
         }
