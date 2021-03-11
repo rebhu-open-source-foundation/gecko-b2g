@@ -291,6 +291,7 @@ Sntp.prototype = {
       ["udp"],
       this._pools[Math.floor(this._pools.length * Math.random())],
       this._port,
+      null,
       null
     );
 
