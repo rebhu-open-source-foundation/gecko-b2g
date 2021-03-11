@@ -284,12 +284,10 @@ GeckoDriver.prototype.handleModalDialog = function(action, dialog, win) {
 
 /**
  * Get the current visible URL.
- *
- * Can be removed once WindowGlobal supports visibleURL (bug 1664881).
  */
-GeckoDriver.prototype._getCurrentURL = async function() {
-  let url = await this.getActor({ top: true }).getCurrentUrl();
-  return new URL(url);
+GeckoDriver.prototype._getCurrentURL = function() {
+  const browsingContext = this.getBrowsingContext({ top: true });
+  return new URL(browsingContext.currentURI.spec);
 };
 
 /**
@@ -999,7 +997,7 @@ GeckoDriver.prototype.navigateTo = async function(cmd) {
   this.contentBrowsingContext = browsingContext;
 
   const loadEventExpected = navigate.isLoadEventExpected(
-    await this._getCurrentURL(),
+    this._getCurrentURL(),
     {
       future: validURL,
     }
@@ -1035,8 +1033,7 @@ GeckoDriver.prototype.getCurrentUrl = async function() {
   assert.open(this.getBrowsingContext({ top: true }));
   await this._handleUserPrompts();
 
-  const url = await this._getCurrentURL();
-  return url.href;
+  return this._getCurrentURL().href;
 };
 
 /**
@@ -1823,7 +1820,7 @@ GeckoDriver.prototype.clickElement = async function(cmd) {
   const actor = this.getActor();
 
   const loadEventExpected = navigate.isLoadEventExpected(
-    await this._getCurrentURL(),
+    this._getCurrentURL(),
     {
       browsingContext,
       target: await actor.getElementAttribute(webEl, "target"),
@@ -2170,7 +2167,7 @@ GeckoDriver.prototype.addCookie = async function(cmd) {
   assert.open(this.getBrowsingContext());
   await this._handleUserPrompts();
 
-  let { protocol, hostname } = await this._getCurrentURL();
+  let { protocol, hostname } = this._getCurrentURL();
 
   const networkSchemes = ["ftp:", "http:", "https:"];
   if (!networkSchemes.includes(protocol)) {
@@ -2200,7 +2197,7 @@ GeckoDriver.prototype.getCookies = async function() {
   assert.open(this.getBrowsingContext());
   await this._handleUserPrompts();
 
-  let { hostname, pathname } = await this._getCurrentURL();
+  let { hostname, pathname } = this._getCurrentURL();
   return [...cookie.iter(hostname, pathname)];
 };
 
@@ -2219,7 +2216,7 @@ GeckoDriver.prototype.deleteAllCookies = async function() {
   assert.open(this.getBrowsingContext());
   await this._handleUserPrompts();
 
-  let { hostname, pathname } = await this._getCurrentURL();
+  let { hostname, pathname } = this._getCurrentURL();
   for (let toDelete of cookie.iter(hostname, pathname)) {
     cookie.remove(toDelete);
   }
@@ -2240,7 +2237,7 @@ GeckoDriver.prototype.deleteCookie = async function(cmd) {
   assert.open(this.getBrowsingContext());
   await this._handleUserPrompts();
 
-  let { hostname, pathname } = await this._getCurrentURL();
+  let { hostname, pathname } = this._getCurrentURL();
   let name = assert.string(cmd.parameters.name);
   for (let c of cookie.iter(hostname, pathname)) {
     if (c.name === name) {

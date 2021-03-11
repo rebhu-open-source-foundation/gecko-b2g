@@ -216,7 +216,7 @@ struct ExpandoAndGeneration;
 namespace js {
 
 class TypedArrayObject;
-class TypeDescr;
+class RttValue;
 
 namespace wasm {
 class CalleeDesc;
@@ -1504,6 +1504,10 @@ class MacroAssembler : public MacroAssemblerSpecific {
                                                      Register scratch,
                                                      Label* label);
 
+  inline void branchTestObjClass(Condition cond, Register obj, Register clasp,
+                                 Register scratch, Register spectreRegToZero,
+                                 Label* label);
+
   inline void branchTestObjShape(Condition cond, Register obj,
                                  const Shape* shape, Register scratch,
                                  Register spectreRegToZero, Label* label);
@@ -1524,12 +1528,12 @@ class MacroAssembler : public MacroAssemblerSpecific {
   inline void branchTestObjShapeUnsafe(Condition cond, Register obj,
                                        Register shape, Label* label);
 
-  void branchTestObjTypeDescr(Condition cond, Register obj, Register descr,
-                              Register scratch, Register spectreRegToZero,
-                              Label* label);
-  void branchTestObjTypeDescr(Condition cond, Register obj, TypeDescr* descr,
-                              Register scratch, Register spectreRegToZero,
-                              Label* label);
+  void branchTestObjRttValue(Condition cond, Register obj, Register rttValue,
+                             Register scratch, Register spectreRegToZero,
+                             Label* label);
+  void branchTestObjRttValue(Condition cond, Register obj, RttValue* rttValue,
+                             Register scratch, Register spectreRegToZero,
+                             Label* label);
 
   void branchTestObjCompartment(Condition cond, Register obj,
                                 const Address& compartment, Register scratch,
@@ -2661,7 +2665,7 @@ class MacroAssembler : public MacroAssemblerSpecific {
       DEFINED_ON(x86_shared, arm64);
 
   inline void loadUnalignedSimd128(const BaseIndex& src, FloatRegister dest)
-      DEFINED_ON(x86_shared);
+      DEFINED_ON(x86_shared, arm64);
 
   // Store
 
@@ -2669,7 +2673,7 @@ class MacroAssembler : public MacroAssemblerSpecific {
       DEFINED_ON(x86_shared, arm64);
 
   inline void storeUnalignedSimd128(FloatRegister src, const BaseIndex& dest)
-      DEFINED_ON(x86_shared);
+      DEFINED_ON(x86_shared, arm64);
 
   // Floating point negation
 
