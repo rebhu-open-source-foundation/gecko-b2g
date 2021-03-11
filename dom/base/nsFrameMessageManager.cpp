@@ -69,7 +69,7 @@
 #include "nsContentUtils.h"
 #include "nsCycleCollectionNoteChild.h"
 #include "nsCycleCollectionParticipant.h"
-#include "nsDataHashtable.h"
+#include "nsTHashMap.h"
 #include "nsDebug.h"
 #include "nsError.h"
 #include "nsFrameMessageManager.h"
@@ -987,7 +987,7 @@ struct MessageManagerReferentCount {
   size_t mWeakAlive;
   size_t mWeakDead;
   nsTArray<nsString> mSuspectMessages;
-  nsDataHashtable<nsStringHashKey, uint32_t> mMessageCounter;
+  nsTHashMap<nsStringHashKey, uint32_t> mMessageCounter;
 };
 
 }  // namespace
@@ -1145,7 +1145,7 @@ nsresult NS_NewGlobalMessageManager(nsISupports** aResult) {
   return NS_OK;
 }
 
-nsDataHashtable<nsStringHashKey, nsMessageManagerScriptHolder*>*
+nsTHashMap<nsStringHashKey, nsMessageManagerScriptHolder*>*
     nsMessageManagerScriptExecutor::sCachedScripts = nullptr;
 StaticRefPtr<nsScriptCacheCleaner>
     nsMessageManagerScriptExecutor::sScriptCacheCleaner;
@@ -1153,7 +1153,7 @@ StaticRefPtr<nsScriptCacheCleaner>
 void nsMessageManagerScriptExecutor::DidCreateScriptLoader() {
   if (!sCachedScripts) {
     sCachedScripts =
-        new nsDataHashtable<nsStringHashKey, nsMessageManagerScriptHolder*>;
+        new nsTHashMap<nsStringHashKey, nsMessageManagerScriptHolder*>;
     sScriptCacheCleaner = new nsScriptCacheCleaner();
   }
 }

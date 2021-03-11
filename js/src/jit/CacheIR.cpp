@@ -643,9 +643,9 @@ static void TestMatchingProxyReceiver(CacheIRWriter& writer, ProxyObject* obj,
 }
 
 static bool ProtoChainSupportsTeleporting(JSObject* obj, JSObject* holder) {
-  // Any non-delegate should already have been handled since its checks are
-  // always required.
-  MOZ_ASSERT(obj->isDelegate());
+  // The receiver should already have been handled since its checks are always
+  // required.
+  MOZ_ASSERT(obj->isUsedAsPrototype());
 
   // Prototype chain must have cacheable prototypes to ensure the cached
   // holder is the current holder.
@@ -711,13 +711,10 @@ static void GeneratePrototypeGuards(CacheIRWriter& writer, JSObject* obj,
   MOZ_ASSERT(holder);
   MOZ_ASSERT(obj != holder);
 
-  // Only Delegate objects participate in teleporting so peel off the first
-  // object in the chain if needed and handle it directly.
-  JSObject* pobj = obj;
-  if (!obj->isDelegate()) {
-    pobj = obj->staticPrototype();
-  }
-  MOZ_ASSERT(pobj->isDelegate());
+  // Receiver guards (see TestMatchingReceiver) ensure the receiver's proto is
+  // unchanged so peel off the receiver.
+  JSObject* pobj = obj->staticPrototype();
+  MOZ_ASSERT(pobj->isUsedAsPrototype());
 
   // If teleporting is supported for this prototype chain, we are done.
   if (ProtoChainSupportsTeleporting(pobj, holder)) {
@@ -730,8 +727,8 @@ static void GeneratePrototypeGuards(CacheIRWriter& writer, JSObject* obj,
   }
 
   // Synchronize pobj and protoId.
-  MOZ_ASSERT(pobj == obj || pobj == obj->staticPrototype());
-  ObjOperandId protoId = (pobj == obj) ? objId : writer.loadProto(objId);
+  MOZ_ASSERT(pobj == obj->staticPrototype());
+  ObjOperandId protoId = writer.loadProto(objId);
 
   // Guard prototype links from |pobj| to |holder|.
   while (pobj != holder) {
@@ -779,19 +776,6 @@ static void TestMatchingHolder(CacheIRWriter& writer, JSObject* obj,
 
   writer.guardShapeForOwnProperties(objId,
                                     obj->as<NativeObject>().lastProperty());
-}
-
-static bool UncacheableProtoOnChain(JSObject* obj) {
-  while (true) {
-    if (obj->hasUncacheableProto()) {
-      return true;
-    }
-
-    obj = obj->staticPrototype();
-    if (!obj) {
-      return false;
-    }
-  }
 }
 
 // Emit a shape guard for all objects on the proto chain. This does NOT include
@@ -1228,8 +1212,8 @@ AttachDecision GetPropIRGenerator::tryAttachCrossCompartmentWrapper(
   RootedShape shape(cx_);
   RootedNativeObject holder(cx_);
 
-  // Enter realm of target since some checks have side-effects
-  // such as de-lazifying type info.
+  // Enter realm of target to prevent failing compartment assertions when doing
+  // the lookup.
   {
     AutoRealm ar(cx_, unwrapped);
 
@@ -1237,15 +1221,6 @@ AttachDecision GetPropIRGenerator::tryAttachCrossCompartmentWrapper(
         CanAttachNativeGetProp(cx_, unwrapped, id, &holder, &shape, pc_);
     if (canCache != CanAttachReadSlot) {
       return AttachDecision::NoAction;
-    }
-
-    if (!holder) {
-      // ObjectFlag::UncacheableProto may result in guards against specific
-      // (cross-compartment) prototype objects, so don't try to attach IC if we
-      // see the flag at all.
-      if (UncacheableProtoOnChain(unwrapped)) {
-        return AttachDecision::NoAction;
-      }
     }
   }
 

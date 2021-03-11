@@ -4025,13 +4025,11 @@ bool nsDisplayBackgroundImage::ComputeVisibility(nsDisplayListBuilder* aBuilder,
   return mBackgroundStyle;
 }
 
-/* static */
-nsRegion nsDisplayBackgroundImage::GetInsideClipRegion(
-    const nsDisplayItem* aItem, StyleGeometryBox aClip, const nsRect& aRect,
-    const nsRect& aBackgroundRect) {
-  nsRegion result;
+static nsRect GetInsideClipRect(const nsDisplayItem* aItem,
+                                StyleGeometryBox aClip, const nsRect& aRect,
+                                const nsRect& aBackgroundRect) {
   if (aRect.IsEmpty()) {
-    return result;
+    return {};
   }
 
   nsIFrame* frame = aItem->Frame();
@@ -4078,7 +4076,7 @@ nsRegion nsDisplayBackgroundImage::GetOpaqueRegion(
         layer.mRepeat.mXRepeat != StyleImageLayerRepeat::Space &&
         layer.mRepeat.mYRepeat != StyleImageLayerRepeat::Space &&
         layer.mClip != StyleGeometryBox::Text) {
-      result = GetInsideClipRegion(this, layer.mClip, mBounds, mBackgroundRect);
+      result = GetInsideClipRect(this, layer.mClip, mBounds, mBackgroundRect);
     }
   }
 
@@ -4739,8 +4737,8 @@ nsRegion nsDisplayBackgroundColor::GetOpaqueRegion(
   }
 
   *aSnap = true;
-  return nsDisplayBackgroundImage::GetInsideClipRegion(
-      this, mBottomLayerClip, mBackgroundRect, mBackgroundRect);
+  return GetInsideClipRect(this, mBottomLayerClip, mBackgroundRect,
+                           mBackgroundRect);
 }
 
 Maybe<nscolor> nsDisplayBackgroundColor::IsUniform(
@@ -9180,13 +9178,16 @@ nsDisplayMasksAndClipPaths::nsDisplayMasksAndClipPaths(
       aBuilder->GetBackgroundPaintFlags() | nsCSSRendering::PAINTBG_MASK_IMAGE;
   const nsStyleSVGReset* svgReset = aFrame->StyleSVGReset();
   NS_FOR_VISIBLE_IMAGE_LAYERS_BACK_TO_FRONT(i, svgReset->mMask) {
-    if (!svgReset->mMask.mLayers[i].mImage.IsResolved()) {
+    const auto& layer = svgReset->mMask.mLayers[i];
+    if (!layer.mImage.IsResolved()) {
       continue;
     }
-    bool isTransformedFixed;
+    const nsRect& borderArea = mFrame->GetRectRelativeToSelf();
+    // NOTE(emilio): We only care about the dest rect so we don't bother
+    // computing a clip.
+    bool isTransformedFixed = false;
     nsBackgroundLayerState state = nsCSSRendering::PrepareImageLayer(
-        presContext, aFrame, flags, mFrame->GetRectRelativeToSelf(),
-        mFrame->GetRectRelativeToSelf(), svgReset->mMask.mLayers[i],
+        presContext, aFrame, flags, borderArea, borderArea, layer,
         &isTransformedFixed);
     mDestRects.AppendElement(state.mDestArea);
   }

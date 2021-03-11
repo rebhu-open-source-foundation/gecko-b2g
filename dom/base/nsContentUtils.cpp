@@ -236,7 +236,7 @@
 #include "nsCycleCollectionNoteChild.h"
 #include "nsDOMMutationObserver.h"
 #include "nsDOMString.h"
-#include "nsDataHashtable.h"
+#include "nsTHashMap.h"
 #include "nsDebug.h"
 #include "nsDocShell.h"
 #include "nsDocShellCID.h"
@@ -423,9 +423,9 @@ nsNameSpaceManager* nsContentUtils::sNameSpaceManager;
 nsIIOService* nsContentUtils::sIOService;
 nsIUUIDGenerator* nsContentUtils::sUUIDGenerator;
 nsIConsoleService* nsContentUtils::sConsoleService;
-nsDataHashtable<nsRefPtrHashKey<nsAtom>, EventNameMapping>*
+nsTHashMap<nsRefPtrHashKey<nsAtom>, EventNameMapping>*
     nsContentUtils::sAtomEventTable = nullptr;
-nsDataHashtable<nsStringHashKey, EventNameMapping>*
+nsTHashMap<nsStringHashKey, EventNameMapping>*
     nsContentUtils::sStringEventTable = nullptr;
 nsTArray<RefPtr<nsAtom>>* nsContentUtils::sUserDefinedEvents = nullptr;
 nsIStringBundleService* nsContentUtils::sStringBundleService;
@@ -957,10 +957,9 @@ bool nsContentUtils::InitializeEventTable() {
 #undef EVENT
       {nullptr}};
 
-  sAtomEventTable =
-      new nsDataHashtable<nsRefPtrHashKey<nsAtom>, EventNameMapping>(
-          ArrayLength(eventArray));
-  sStringEventTable = new nsDataHashtable<nsStringHashKey, EventNameMapping>(
+  sAtomEventTable = new nsTHashMap<nsRefPtrHashKey<nsAtom>, EventNameMapping>(
+      ArrayLength(eventArray));
+  sStringEventTable = new nsTHashMap<nsStringHashKey, EventNameMapping>(
       ArrayLength(eventArray));
   sUserDefinedEvents = new nsTArray<RefPtr<nsAtom>>(64);
 
@@ -10054,6 +10053,12 @@ uint64_t nsContentUtils::GenerateProcessSpecificId(uint64_t aId) {
   uint64_t bits = id & ((uint64_t(1) << kIdBits) - 1);
 
   return (processBits << kIdBits) | bits;
+}
+
+/* static */
+std::tuple<uint64_t, uint64_t> nsContentUtils::SplitProcessSpecificId(
+    uint64_t aId) {
+  return {aId >> kIdBits, aId & ((uint64_t(1) << kIdBits) - 1)};
 }
 
 // Next process-local Tab ID.

@@ -21,7 +21,7 @@
 // TODO: to support IsLowMemoryPlatform, need to solve base namespace amibiguous
 // issue
 //#include "mozilla/Hal.h"
-#include "nsDataHashtable.h"
+#include "nsTHashMap.h"
 #include "nsPrintfCString.h"
 
 using namespace mozilla;
@@ -379,7 +379,7 @@ nsresult GonkCameraParameters::Initialize() {
 
   // Some platforms have strange duplicate metering mode values.
   // We filter any out here.
-  nsDataHashtable<nsStringHashKey, bool> uniqueModes;
+  nsTHashMap<nsStringHashKey, bool> uniqueModes;
   GetListAsArray(CAMERA_PARAM_SUPPORTED_METERINGMODES, mMeteringModes);
   nsTArray<nsCString>::index_type i = mMeteringModes.Length();
   while (i > 0) {

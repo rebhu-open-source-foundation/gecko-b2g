@@ -395,17 +395,25 @@ XPCOMUtils.defineLazyGetter(this, "gHighPriorityNotificationBox", () => {
   return new MozElements.NotificationBox(element => {
     element.classList.add("global-notificationbox");
     element.setAttribute("notificationside", "top");
-    document.getElementById("appcontent").prepend(element);
+    if (Services.prefs.getBoolPref("browser.proton.infobars.enabled", false)) {
+      // With Proton enabled all notification boxes are at the top, built into the browser chrome.
+      let tabNotifications = document.getElementById("tab-notification-deck");
+      gNavToolbox.insertBefore(element, tabNotifications);
+    } else {
+      document.getElementById("appcontent").prepend(element);
+    }
   });
 });
 
 // Regular notification bars shown at the bottom of the window.
 XPCOMUtils.defineLazyGetter(this, "gNotificationBox", () => {
-  return new MozElements.NotificationBox(element => {
-    element.classList.add("global-notificationbox");
-    element.setAttribute("notificationside", "bottom");
-    document.getElementById("browser-bottombox").appendChild(element);
-  });
+  return Services.prefs.getBoolPref("browser.proton.infobars.enabled", false)
+    ? gHighPriorityNotificationBox
+    : new MozElements.NotificationBox(element => {
+        element.classList.add("global-notificationbox");
+        element.setAttribute("notificationside", "bottom");
+        document.getElementById("browser-bottombox").appendChild(element);
+      });
 });
 
 XPCOMUtils.defineLazyGetter(this, "InlineSpellCheckerUI", () => {
@@ -5201,85 +5209,93 @@ var XULBrowserWindow = {
   onLocationChange(aWebProgress, aRequest, aLocationURI, aFlags, aIsSimulated) {
     var location = aLocationURI ? aLocationURI.spec : "";
 
+    UpdateBackForwardCommands(gBrowser.webNavigation);
+
+    Services.obs.notifyObservers(
+      aWebProgress,
+      "touchbar-location-change",
+      location
+    );
+
+    // For most changes we only need to update the browser UI if the primary
+    // content area was navigated or the selected tab was changed. We don't need
+    // to do anything else if there was a subframe navigation.
+
+    if (!aWebProgress.isTopLevel) {
+      return;
+    }
+
     this.hideOverLinkImmediately = true;
     this.setOverLink("");
     this.hideOverLinkImmediately = false;
 
-    // We should probably not do this if the value has changed since the user
-    // searched
-    // Update urlbar only if a new page was loaded on the primary content area
-    // Do not update urlbar if there was a subframe navigation
-
-    if (aWebProgress.isTopLevel) {
-      let isSameDocument =
-        aFlags & Ci.nsIWebProgressListener.LOCATION_CHANGE_SAME_DOCUMENT;
-      if (
-        (location == "about:blank" &&
-          BrowserUIUtils.checkEmptyPageOrigin(gBrowser.selectedBrowser)) ||
-        location == ""
-      ) {
-        // Second condition is for new tabs, otherwise
-        // reload function is enabled until tab is refreshed.
-        this.reloadCommand.setAttribute("disabled", "true");
-      } else {
-        this.reloadCommand.removeAttribute("disabled");
-      }
-
-      // We want to update the popup visibility if we received this notification
-      // via simulated locationchange events such as switching between tabs, however
-      // if this is a document navigation then PopupNotifications will be updated
-      // via TabsProgressListener.onLocationChange and we do not want it called twice
-      gURLBar.setURI(aLocationURI, aIsSimulated);
-
-      BookmarkingUI.onLocationChange();
-      // If we've actually changed document, update the toolbar visibility.
-      if (gBookmarksToolbar2h2020 && !isSameDocument) {
-        let bookmarksToolbar = gNavToolbox.querySelector("#PersonalToolbar");
-        setToolbarVisibility(
-          bookmarksToolbar,
-          gBookmarksToolbarVisibility,
-          false,
-          false
-        );
-      }
-
-      gPermissionPanel.onLocationChange();
-
-      gProtectionsHandler.onLocationChange();
-
-      BrowserPageActions.onLocationChange();
-
-      SafeBrowsingNotificationBox.onLocationChange(aLocationURI);
-
-      UrlbarProviderSearchTips.onLocationChange(
-        window,
-        aLocationURI,
-        aWebProgress,
-        aFlags
-      );
-
-      gTabletModePageCounter.inc();
-
-      this._updateElementsForContentType();
-
-      // Try not to instantiate gCustomizeMode as much as possible,
-      // so don't use CustomizeMode.jsm to check for URI or customizing.
-      if (
-        location == "about:blank" &&
-        gBrowser.selectedTab.hasAttribute("customizemode")
-      ) {
-        gCustomizeMode.enter();
-      } else if (
-        CustomizationHandler.isEnteringCustomizeMode ||
-        CustomizationHandler.isCustomizing()
-      ) {
-        gCustomizeMode.exit();
-      }
-
-      CFRPageActions.updatePageActions(gBrowser.selectedBrowser);
+    let isSameDocument =
+      aFlags & Ci.nsIWebProgressListener.LOCATION_CHANGE_SAME_DOCUMENT;
+    if (
+      (location == "about:blank" &&
+        BrowserUIUtils.checkEmptyPageOrigin(gBrowser.selectedBrowser)) ||
+      location == ""
+    ) {
+      // Second condition is for new tabs, otherwise
+      // reload function is enabled until tab is refreshed.
+      this.reloadCommand.setAttribute("disabled", "true");
+    } else {
+      this.reloadCommand.removeAttribute("disabled");
     }
-    Services.obs.notifyObservers(null, "touchbar-location-change", location);
-    UpdateBackForwardCommands(gBrowser.webNavigation);
+
+    // We want to update the popup visibility if we received this notification
+    // via simulated locationchange events such as switching between tabs, however
+    // if this is a document navigation then PopupNotifications will be updated
+    // via TabsProgressListener.onLocationChange and we do not want it called twice
+    gURLBar.setURI(aLocationURI, aIsSimulated);
+
+    BookmarkingUI.onLocationChange();
+    // If we've actually changed document, update the toolbar visibility.
+    if (gBookmarksToolbar2h2020 && !isSameDocument) {
+      let bookmarksToolbar = gNavToolbox.querySelector("#PersonalToolbar");
+      setToolbarVisibility(
+        bookmarksToolbar,
+        gBookmarksToolbarVisibility,
+        false,
+        false
+      );
+    }
+
+    gPermissionPanel.onLocationChange();
+
+    gProtectionsHandler.onLocationChange();
+
+    BrowserPageActions.onLocationChange();
+
+    SafeBrowsingNotificationBox.onLocationChange(aLocationURI);
+
+    UrlbarProviderSearchTips.onLocationChange(
+      window,
+      aLocationURI,
+      aWebProgress,
+      aFlags
+    );
+
+    gTabletModePageCounter.inc();
+
+    this._updateElementsForContentType();
+
+    // Try not to instantiate gCustomizeMode as much as possible,
+    // so don't use CustomizeMode.jsm to check for URI or customizing.
+    if (
+      location == "about:blank" &&
+      gBrowser.selectedTab.hasAttribute("customizemode")
+    ) {
+      gCustomizeMode.enter();
+    } else if (
+      CustomizationHandler.isEnteringCustomizeMode ||
+      CustomizationHandler.isCustomizing()
+    ) {
+      gCustomizeMode.exit();
+    }
+
+    CFRPageActions.updatePageActions(gBrowser.selectedBrowser);
+
     AboutReaderParent.updateReaderButton(gBrowser.selectedBrowser);
 
     if (!gMultiProcessBrowser) {
@@ -7624,7 +7640,7 @@ var CanvasPermissionPromptHelper = {
     }
 
     let message = gNavigatorBundle.getFormattedString(
-      "canvas.siteprompt",
+      "canvas.siteprompt2",
       ["<>"],
       1
     );
@@ -7645,8 +7661,8 @@ var CanvasPermissionPromptHelper = {
     }
 
     let mainAction = {
-      label: gNavigatorBundle.getString("canvas.allow"),
-      accessKey: gNavigatorBundle.getString("canvas.allow.accesskey"),
+      label: gNavigatorBundle.getString("canvas.allow2"),
+      accessKey: gNavigatorBundle.getString("canvas.allow2.accesskey"),
       callback(state) {
         setCanvasPermission(
           Ci.nsIPermissionManager.ALLOW_ACTION,
@@ -7658,8 +7674,8 @@ var CanvasPermissionPromptHelper = {
 
     let secondaryActions = [
       {
-        label: gNavigatorBundle.getString("canvas.notAllow"),
-        accessKey: gNavigatorBundle.getString("canvas.notAllow.accesskey"),
+        label: gNavigatorBundle.getString("canvas.block"),
+        accessKey: gNavigatorBundle.getString("canvas.block.accesskey"),
         callback(state) {
           setCanvasPermission(
             Ci.nsIPermissionManager.DENY_ACTION,
@@ -7675,7 +7691,7 @@ var CanvasPermissionPromptHelper = {
     };
     if (checkbox.show) {
       checkbox.checked = true;
-      checkbox.label = gBrowserBundle.GetStringFromName("canvas.remember");
+      checkbox.label = gBrowserBundle.GetStringFromName("canvas.remember2");
     }
 
     let options = {
@@ -7685,6 +7701,15 @@ var CanvasPermissionPromptHelper = {
         Services.urlFormatter.formatURLPref("app.support.baseURL") +
         "fingerprint-permission",
       dismissed: aTopic == this._permissionsPromptHideDoorHanger,
+      eventCallback(e) {
+        if (e == "showing") {
+          this.browser.ownerDocument.getElementById(
+            "canvas-permissions-prompt-warning"
+          ).textContent = gBrowserBundle.GetStringFromName(
+            "canvas.siteprompt2.warning"
+          );
+        }
+      },
     };
     PopupNotifications.show(
       browser,
