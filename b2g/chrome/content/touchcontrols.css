@@ -84,6 +84,10 @@
   display: none;
 }
 
+.duration[hidden] {
+  display: block;
+}
+
 /* We hide the controlBar visually so it doesn't obscure the video. However,
    * we still want to expose it to a11y so users who don't use a mouse can access
    * it.
