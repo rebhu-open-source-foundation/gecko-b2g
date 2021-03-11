@@ -219,7 +219,7 @@ class VolumeCurves {
     return exp(decibel * 0.115129f);
   }
 
-  nsDataHashtable<nsUint32HashKey, nsTArray<float>> mCurves;
+  nsTHashMap<nsUint32HashKey, nsTArray<float>> mCurves;
   const int32_t mStreamType;
 };
 

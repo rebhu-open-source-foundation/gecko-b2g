@@ -21,7 +21,7 @@
 #include "mozilla/Observer.h"
 #include "mozilla/UniquePtr.h"
 #include "mozilla/dom/WakeLock.h"
-#include "nsDataHashtable.h"
+#include "nsTHashMap.h"
 #include "nsIAudioManager.h"
 #include "nsIObserver.h"
 
@@ -96,7 +96,7 @@ class AudioManager final : public nsIAudioManager, public nsIObserver {
     uint32_t mDevicesWithVolumeChange = 0;
     bool mIsDevicesChanged = true;
     bool mIsDeviceSpecificVolume = true;
-    nsDataHashtable<nsUint32HashKey, uint32_t> mVolumeIndexes;
+    nsTHashMap<nsUint32HashKey, uint32_t> mVolumeIndexes;
   };
 
  protected:
@@ -105,7 +105,7 @@ class AudioManager final : public nsIAudioManager, public nsIObserver {
   bool mIsVolumeInited = false;
 
   // Connected devices that are controlled by setDeviceConnectionState()
-  nsDataHashtable<nsUint32HashKey, nsCString> mConnectedDevices;
+  nsTHashMap<nsUint32HashKey, nsCString> mConnectedDevices;
 
   bool mSwitchDone = true;
 

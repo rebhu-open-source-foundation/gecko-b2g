@@ -151,6 +151,7 @@ include = [
   "TextUnderlinePosition",
   "TextTransform",
   "TextOverflow",
+  "RubyPosition",
   "MozListReversed",
   "Owned",
   "OwnedOrNull",

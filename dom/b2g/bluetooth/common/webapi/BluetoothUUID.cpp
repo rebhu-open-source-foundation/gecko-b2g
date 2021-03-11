@@ -14,12 +14,12 @@ using namespace mozilla::dom;
 
 bool BluetoothUUID::sInShutdown = false;
 // static
-nsDataHashtable<nsStringHashKey, uint32_t>* BluetoothUUID::sUUIDServiceTable;
+nsTHashMap<nsStringHashKey, uint32_t>* BluetoothUUID::sUUIDServiceTable;
 // static
-nsDataHashtable<nsStringHashKey, uint32_t>*
+nsTHashMap<nsStringHashKey, uint32_t>*
     BluetoothUUID::sUUIDCharacteristicTable;
 // static
-nsDataHashtable<nsStringHashKey, uint32_t>* BluetoothUUID::sUUIDDescriptorTable;
+nsTHashMap<nsStringHashKey, uint32_t>* BluetoothUUID::sUUIDDescriptorTable;
 
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(BluetoothUUID, mOwner)
 NS_IMPL_CYCLE_COLLECTING_ADDREF(BluetoothUUID)
@@ -147,7 +147,7 @@ bool BluetoothUUID::GetTable(GattAttribute aAttr, const nsAString& aString,
   // If we're in shutdown, don't create a new instance.
   NS_ENSURE_FALSE(sInShutdown, false);
 
-  nsDataHashtable<nsStringHashKey, uint32_t>** tableSlot = nullptr;
+  nsTHashMap<nsStringHashKey, uint32_t>** tableSlot = nullptr;
 
   if (aAttr == SERVICE) {
     tableSlot = &sUUIDServiceTable;
@@ -160,7 +160,7 @@ bool BluetoothUUID::GetTable(GattAttribute aAttr, const nsAString& aString,
   NS_ENSURE_TRUE(tableSlot, false);
 
   if (!*tableSlot) {
-    (*tableSlot) = new nsDataHashtable<nsStringHashKey, uint32_t>;
+    (*tableSlot) = new nsTHashMap<nsStringHashKey, uint32_t>;
     if (aAttr == SERVICE) {
       InitServiceTable();
     } else if (aAttr == CHARACTERISTIC) {

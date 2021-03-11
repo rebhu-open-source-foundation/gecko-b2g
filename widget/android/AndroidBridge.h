@@ -32,7 +32,7 @@
 #include "mozilla/Types.h"
 #include "mozilla/gfx/Point.h"
 #include "mozilla/jni/Utils.h"
-#include "nsDataHashtable.h"
+#include "nsTHashMap.h"
 
 #include "Units.h"
 
@@ -176,7 +176,7 @@ class AndroidBridge final {
                                              nsAString& aPath);
 
  protected:
-  static nsDataHashtable<nsStringHashKey, nsString> sStoragePaths;
+  static nsTHashMap<nsStringHashKey, nsString> sStoragePaths;
 
   static AndroidBridge* sBridge;
 

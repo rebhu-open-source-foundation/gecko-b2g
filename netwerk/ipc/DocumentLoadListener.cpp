@@ -1634,7 +1634,10 @@ bool DocumentLoadListener::MaybeTriggerProcessSwitch(
       (mLoadStateLoadType == LOAD_NORMAL ||
        mLoadStateLoadType == LOAD_HISTORY || mLoadStateLoadType == LOAD_LINK ||
        mLoadStateLoadType == LOAD_STOP_CONTENT ||
-       mLoadStateLoadType == LOAD_STOP_CONTENT_AND_REPLACE)) {
+       mLoadStateLoadType == LOAD_STOP_CONTENT_AND_REPLACE) &&
+      (!browsingContext->GetActiveSessionHistoryEntry() ||
+       browsingContext->GetActiveSessionHistoryEntry()
+           ->GetSaveLayoutStateFlag())) {
     options.mReplaceBrowsingContext = true;
     options.mTryUseBFCache = true;
   }
@@ -1754,15 +1757,6 @@ void DocumentLoadListener::TriggerProcessSwitch(
   // the listeners in the old process.
   mDoingProcessSwitch = true;
 
-  RefPtr<WindowGlobalParent> wgp = aContext->GetCurrentWindowGlobal();
-  if (wgp && wgp->IsProcessRoot()) {
-    if (RefPtr<BrowserParent> browserParent = wgp->GetBrowserParent()) {
-      // This load has already started, so we want to filter out any 'stop'
-      // progress events coming from the old process as a result of us
-      // disconnecting from it.
-      browserParent->SuspendProgressEvents();
-    }
-  }
   DisconnectListeners(NS_BINDING_ABORTED, NS_BINDING_ABORTED, true);
 
   LOG(("Process Switch: Calling ChangeRemoteness"));
@@ -2142,6 +2136,11 @@ DocumentLoadListener::OnStartRequest(nsIRequest* aRequest) {
       uint32_t httpsOnlyStatus = loadInfo->GetHttpsOnlyStatus();
       httpsOnlyStatus |= nsILoadInfo::HTTPS_ONLY_TOP_LEVEL_LOAD_IN_PROGRESS;
       loadInfo->SetHttpsOnlyStatus(httpsOnlyStatus);
+    }
+
+    if (mLoadingSessionHistoryInfo &&
+        nsDocShell::ShouldDiscardLayoutState(httpChannel)) {
+      mLoadingSessionHistoryInfo->mInfo.SetSaveLayoutStateFlag(false);
     }
   }
 

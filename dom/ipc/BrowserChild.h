@@ -789,8 +789,6 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
 
   bool HasValidInnerSize();
 
-  void SetTabId(const TabId& aTabId);
-
   ScreenIntRect GetOuterRect();
 
   void SetUnscaledInnerSize(const CSSSize& aSize) {
@@ -822,9 +820,10 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
   bool CreateRemoteLayerManager(
       mozilla::layers::PCompositorBridgeChild* aCompositorChild);
 
+  nsresult PrepareRequestData(nsIRequest* aRequest, RequestData& aRequestData);
   nsresult PrepareProgressListenerData(nsIWebProgress* aWebProgress,
                                        nsIRequest* aRequest,
-                                       Maybe<WebProgressData>& aWebProgressData,
+                                       WebProgressData& aWebProgressData,
                                        RequestData& aRequestData);
   already_AddRefed<nsIWebBrowserChrome3> GetWebBrowserChromeActor();
 

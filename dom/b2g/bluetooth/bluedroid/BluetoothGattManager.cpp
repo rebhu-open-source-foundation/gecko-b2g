@@ -15,7 +15,7 @@
 #include "mozilla/dom/bluetooth/BluetoothCommon.h"
 #include "mozilla/Services.h"
 #include "mozilla/StaticPtr.h"
-#include "nsDataHashtable.h"
+#include "nsTHashMap.h"
 #include "nsIObserverService.h"
 #include "nsThreadUtils.h"
 
@@ -277,7 +277,7 @@ class BluetoothGattServer final : public nsISupports {
   RefPtr<BluetoothReplyRunnable> mSendIndicationRunnable;
 
   // Map connection id from device address
-  nsDataHashtable<BluetoothAddressHashKey, int> mConnectionMap;
+  nsTHashMap<BluetoothAddressHashKey, int> mConnectionMap;
 
  private:
   ~BluetoothGattServer() {}

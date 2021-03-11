@@ -7,7 +7,7 @@
 #ifndef mozilla_dom_SpeakerManagerService_h__
 #define mozilla_dom_SpeakerManagerService_h__
 
-#include "nsDataHashtable.h"
+#include "nsTHashMap.h"
 #include "nsIObserver.h"
 #include "nsTArray.h"
 #include "SpeakerManager.h"
@@ -47,7 +47,7 @@ class SpeakerManagerService : public nsIObserver {
       return NS_ERROR_FAILURE;
     }
     mRegisteredSpeakerManagers.InsertOrUpdate(aSpeakerManager->WindowID(),
-                                   aSpeakerManager);
+                                              aSpeakerManager);
     return NS_OK;
   }
   nsresult UnRegisterSpeakerManager(SpeakerManager* aSpeakerManager) {
@@ -93,7 +93,7 @@ class SpeakerManagerService : public nsIObserver {
    */
   static void Shutdown();
   // Hash map between window ID and registered SpeakerManager
-  nsDataHashtable<nsUint64HashKey, RefPtr<SpeakerManager>>
+  nsTHashMap<nsUint64HashKey, RefPtr<SpeakerManager>>
       mRegisteredSpeakerManagers;
   // The Speaker status assign by UA
   bool mOrgSpeakerStatus;

@@ -413,7 +413,7 @@ class MediaManager final : public nsIMediaManagerService,
     bool mAudio = false;
     bool mVideo = false;
   };
-  nsDataHashtable<nsPtrHashKey<void>, ExternalRecorderData> mExternalRecorders;
+  nsTHashMap<nsPtrHashKey<void>, ExternalRecorderData> mExternalRecorders;
 #endif
 
 #if defined(MOZ_B2G_CAMERA) && defined(MOZ_WIDGET_GONK)
