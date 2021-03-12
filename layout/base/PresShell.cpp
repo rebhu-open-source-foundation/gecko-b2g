@@ -8118,7 +8118,7 @@ Document* PresShell::GetPrimaryContentDocument() {
     return nullptr;
   }
 
-  return childDocShell->GetDocument();
+  return childDocShell->GetExtantDocument();
 }
 
 #ifdef DEBUG

@@ -12,13 +12,11 @@
 ''':'
 # Commands that are to be run with Python 2.
 py2commands="
-    jsshell-bench
     mozharness
     raptor
     raptor-test
     telemetry-tests-client
     test
-    wpt-metadata-merge
 "
 
 # Commands that are to be run with the system Python 3 instead of the

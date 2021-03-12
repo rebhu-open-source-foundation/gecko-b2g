@@ -47,15 +47,6 @@
 
 #include "nsWrapperCacheInlines.h"
 
-// XXX(Bug 1674080) Remove this and let Codegen.py generate it instead when
-// needed.
-#include "mozilla/BasePrincipal.h"
-#include "nsJSPrincipals.h"
-
-// Workaround to fix missing static pref include.
-// See https://bugzilla.mozilla.org/show_bug.cgi?id=1680223
-#include "mozilla/StaticPrefs_dom.h"
-
 class nsGlobalWindowInner;
 class nsGlobalWindowOuter;
 class nsIInterfaceRequestor;

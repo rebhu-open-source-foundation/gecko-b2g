@@ -4361,7 +4361,7 @@
       let browser = this.getBrowserForTab(aTab);
       // Reset temporary permissions on the current tab. This is done here
       // because we only want to reset permissions on user reload.
-      SitePermissions.clearTemporaryPermissions(browser);
+      SitePermissions.clearTemporaryBlockPermissions(browser);
       // Also reset DOS mitigations for the basic auth prompt on reload.
       delete browser.authPromptAbuseCounter;
       gIdentityHandler.hidePopup();
@@ -7099,8 +7099,14 @@ var TabContextMenu = {
   },
 
   updateShareURLMenuItem() {
-    // We don't show a "share URL" in Linux, so bail.
-    if (!gProton || AppConstants.platform == "linux") {
+    // We only support "share URL" on macOS and on Windows 10:
+    if (
+      !gProton ||
+      !(
+        AppConstants.platform == "macosx" ||
+        AppConstants.isPlatformAndVersionAtLeast("win", "6.4")
+      )
+    ) {
       return;
     }
 

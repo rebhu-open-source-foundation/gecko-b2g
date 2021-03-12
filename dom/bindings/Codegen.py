@@ -16229,6 +16229,7 @@ class CGDescriptor(CGThing):
                 elif m.getExtendedAttribute("Replaceable"):
                     cgThings.append(CGSpecializedReplaceableSetter(descriptor, m))
                 elif m.getExtendedAttribute("LenientSetter"):
+                    # XXX In this case, we need to add an include for mozilla/dom/Document.h to the generated cpp file.
                     cgThings.append(CGSpecializedLenientSetter(descriptor, m))
                 if (
                     not m.isStatic()
@@ -18012,12 +18013,13 @@ class CGBindingRoot(CGThing):
     """
 
     def __init__(self, config, prefix, webIDLFile):
-        bindingHeaders = dict.fromkeys(("mozilla/dom/NonRefcountedDOMObject.h",), True)
+        bindingHeaders = dict.fromkeys(
+            ("mozilla/dom/NonRefcountedDOMObject.h", "MainThreadUtils.h"), True
+        )
         bindingDeclareHeaders = dict.fromkeys(
             (
                 "mozilla/dom/BindingDeclarations.h",
                 "mozilla/dom/Nullable.h",
-                "mozilla/ErrorResult.h",
             ),
             True,
         )
@@ -18054,6 +18056,27 @@ class CGBindingRoot(CGThing):
             or d.interface.isAsyncIterable()
             for d in descriptors
         )
+
+        def memberNeedsSubjectPrincipal(d, m):
+            if m.isAttr():
+                return (
+                    "needsSubjectPrincipal" in d.getExtendedAttributes(m, getter=True)
+                ) or (
+                    not m.readonly
+                    and "needsSubjectPrincipal"
+                    in d.getExtendedAttributes(m, setter=True)
+                )
+            return m.isMethod() and "needsSubjectPrincipal" in d.getExtendedAttributes(
+                m
+            )
+
+        if any(
+            memberNeedsSubjectPrincipal(d, m)
+            for d in descriptors
+            for m in d.interface.members
+        ):
+            bindingHeaders["mozilla/BasePrincipal.h"] = True
+            bindingHeaders["nsJSPrincipals.h"] = True
 
         # The conditions for which we generate profiler labels are fairly
         # complicated. The check below is a little imprecise to make it simple.
@@ -18247,6 +18270,9 @@ class CGBindingRoot(CGThing):
         bindingHeaders["AtomList.h"] = (
             hasNonEmptyDictionaries or jsImplemented or callbackDescriptors
         )
+
+        if callbackDescriptors:
+            bindingDeclareHeaders["mozilla/ErrorResult.h"] = True
 
         def descriptorClearsPropsInSlots(descriptor):
             if not descriptor.wrapperCache:
@@ -23154,13 +23180,13 @@ class CGEventRoot(CGThing):
             [
                 config.getDescriptor(parent).headerFile,
                 "mozilla/Attributes.h",
-                "mozilla/ErrorResult.h",
                 "mozilla/dom/%sBinding.h" % interfaceName,
                 "mozilla/dom/BindingUtils.h",
             ],
             [
                 "%s.h" % interfaceName,
                 "js/GCAPI.h",
+                "mozilla/HoldDropJSObjects.h",
                 "mozilla/dom/Nullable.h",
             ],
             "",

@@ -419,18 +419,29 @@ typedef nsRefPtrHashtable<nsUint64HashKey, FullIndexMetadata> IndexTable;
 // versionchange transaction thread. These threads can never race so this is
 // totally safe.
 struct FullObjectStoreMetadata {
-  ObjectStoreMetadata mCommonMetadata = {0, nsString(), KeyPath(0), false};
+  ObjectStoreMetadata mCommonMetadata;
   IndexTable mIndexes;
 
-  // These two members are only ever touched on a transaction thread!
-  int64_t mNextAutoIncrementId = 0;
-  int64_t mCommittedAutoIncrementId = 0;
+  // The auto increment ids are touched on both the background thread and the
+  // transaction I/O thread, and they must be kept in sync, so we need a mutex
+  // to protect them.
+  struct AutoIncrementIds {
+    int64_t next;
+    int64_t committed;
+  };
+  DataMutex<AutoIncrementIds> mAutoIncrementIds;
 
   FlippedOnce<false> mDeleted;
 
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(FullObjectStoreMetadata);
 
   bool HasLiveIndexes() const;
+
+  FullObjectStoreMetadata(ObjectStoreMetadata aCommonMetadata,
+                          const AutoIncrementIds& aAutoIncrementIds)
+      : mCommonMetadata{std::move(aCommonMetadata)},
+        mAutoIncrementIds{AutoIncrementIds{aAutoIncrementIds},
+                          "FullObjectStoreMetadata"} {}
 
  private:
   ~FullObjectStoreMetadata() = default;
@@ -9084,13 +9095,11 @@ SafeRefPtr<FullDatabaseMetadata> FullDatabaseMetadata::Duplicate() const {
   for (const auto& objectStoreEntry : mObjectStores) {
     const auto& objectStoreValue = objectStoreEntry.GetData();
 
-    auto newOSMetadata = MakeRefPtr<FullObjectStoreMetadata>();
-
-    newOSMetadata->mCommonMetadata = objectStoreValue->mCommonMetadata;
-    newOSMetadata->mNextAutoIncrementId =
-        objectStoreValue->mNextAutoIncrementId;
-    newOSMetadata->mCommittedAutoIncrementId =
-        objectStoreValue->mCommittedAutoIncrementId;
+    auto newOSMetadata = MakeRefPtr<FullObjectStoreMetadata>(
+        objectStoreValue->mCommonMetadata, [&objectStoreValue] {
+          const auto&& srcLocked = objectStoreValue->mAutoIncrementIds.Lock();
+          return *srcLocked;
+        }());
 
     for (const auto& indexEntry : objectStoreValue->mIndexes) {
       const auto& value = indexEntry.GetData();
@@ -11386,10 +11395,9 @@ mozilla::ipc::IPCResult VersionChangeTransaction::RecvCreateObjectStore(
     return IPC_FAIL_NO_REASON(this);
   }
 
-  RefPtr<FullObjectStoreMetadata> newMetadata = new FullObjectStoreMetadata();
-  newMetadata->mCommonMetadata = aMetadata;
-  newMetadata->mNextAutoIncrementId = aMetadata.autoIncrement() ? 1 : 0;
-  newMetadata->mCommittedAutoIncrementId = newMetadata->mNextAutoIncrementId;
+  const int64_t initialAutoIncrementId = aMetadata.autoIncrement() ? 1 : 0;
+  RefPtr<FullObjectStoreMetadata> newMetadata = new FullObjectStoreMetadata(
+      aMetadata, {initialAutoIncrementId, initialAutoIncrementId});
 
   if (NS_WARN_IF(!dbMetadata->mObjectStores.InsertOrUpdate(
           aMetadata.id(), std::move(newMetadata), fallible))) {
@@ -16231,37 +16239,39 @@ nsresult OpenDatabaseOp::LoadDatabaseInformation(
               IDB_TRY(OkIf(usedNames.ref().PutEntry(name, fallible)),
                       Err(NS_ERROR_OUT_OF_MEMORY));
 
-              RefPtr<FullObjectStoreMetadata> metadata =
-                  new FullObjectStoreMetadata();
-              metadata->mCommonMetadata.id() = objectStoreId;
-              metadata->mCommonMetadata.name() = name;
+              ObjectStoreMetadata commonMetadata;
+              commonMetadata.id() = objectStoreId;
+              commonMetadata.name() = std::move(name);
 
               IDB_TRY_INSPECT(const int32_t& columnType,
                               MOZ_TO_RESULT_INVOKE(stmt, GetTypeOfIndex, 3));
 
               if (columnType == mozIStorageStatement::VALUE_TYPE_NULL) {
-                metadata->mCommonMetadata.keyPath() = KeyPath(0);
+                commonMetadata.keyPath() = KeyPath(0);
               } else {
                 MOZ_ASSERT(columnType == mozIStorageStatement::VALUE_TYPE_TEXT);
 
                 nsString keyPathSerialization;
                 IDB_TRY(stmt.GetString(3, keyPathSerialization));
 
-                metadata->mCommonMetadata.keyPath() =
+                commonMetadata.keyPath() =
                     KeyPath::DeserializeFromString(keyPathSerialization);
-                IDB_TRY(OkIf(metadata->mCommonMetadata.keyPath().IsValid()),
+                IDB_TRY(OkIf(commonMetadata.keyPath().IsValid()),
                         Err(NS_ERROR_FILE_CORRUPTED));
               }
 
               IDB_TRY_INSPECT(const int64_t& nextAutoIncrementId,
                               MOZ_TO_RESULT_INVOKE(stmt, GetInt64, 1));
 
-              metadata->mCommonMetadata.autoIncrement() = !!nextAutoIncrementId;
-              metadata->mNextAutoIncrementId = nextAutoIncrementId;
-              metadata->mCommittedAutoIncrementId = nextAutoIncrementId;
+              commonMetadata.autoIncrement() = !!nextAutoIncrementId;
 
               IDB_TRY(OkIf(objectStores.InsertOrUpdate(
-                          objectStoreId, std::move(metadata), fallible)),
+                          objectStoreId,
+                          MakeRefPtr<FullObjectStoreMetadata>(
+                              std::move(commonMetadata),
+                              FullObjectStoreMetadata::AutoIncrementIds{
+                                  nextAutoIncrementId, nextAutoIncrementId}),
+                          fallible)),
                       Err(NS_ERROR_OUT_OF_MEMORY));
 
               lastObjectStoreId = std::max(lastObjectStoreId, objectStoreId);
@@ -16935,12 +16945,20 @@ void OpenDatabaseOp::AssertMetadataConsistency(
     // concurrently with this OpenOp, so it is not possible to assert equality
     // here. It's also possible that we've written the new ids to disk but not
     // yet updated the in-memory count.
-    MOZ_ASSERT(thisObjectStore->mNextAutoIncrementId <=
-               otherObjectStore->mNextAutoIncrementId);
-    MOZ_ASSERT(thisObjectStore->mCommittedAutoIncrementId <=
-                   otherObjectStore->mCommittedAutoIncrementId ||
-               thisObjectStore->mCommittedAutoIncrementId ==
-                   otherObjectStore->mNextAutoIncrementId);
+    // TODO The first part of the comment should probably be rephrased. I think
+    // it still applies but it sounds as if this were thread-unsafe like it was
+    // before, which isn't true anymore.
+    {
+      const auto&& thisAutoIncrementIds =
+          thisObjectStore->mAutoIncrementIds.Lock();
+      const auto&& otherAutoIncrementIds =
+          otherObjectStore->mAutoIncrementIds.Lock();
+
+      MOZ_ASSERT(thisAutoIncrementIds->next <= otherAutoIncrementIds->next);
+      MOZ_ASSERT(
+          thisAutoIncrementIds->committed <= otherAutoIncrementIds->committed ||
+          thisAutoIncrementIds->committed == otherAutoIncrementIds->next);
+    }
     MOZ_ASSERT(!otherObjectStore->mDeleted);
 
     MOZ_ASSERT(thisObjectStore->mIndexes.Count() ==
@@ -17763,28 +17781,26 @@ nsresult TransactionBase::CommitOp::WriteAutoIncrementCounts() {
         "UPDATE object_store "
         "SET auto_increment = :auto_increment WHERE id "
         "= :object_store_id;"_ns);
-    nsresult rv;
 
     for (const auto& metadata : metadataArray) {
       MOZ_ASSERT(!metadata->mDeleted);
-      MOZ_ASSERT(metadata->mNextAutoIncrementId > 1);
+
+      const int64_t nextAutoIncrementId = [&metadata] {
+        const auto&& lockedAutoIncrementIds =
+            metadata->mAutoIncrementIds.Lock();
+        return lockedAutoIncrementIds->next;
+      }();
+
+      MOZ_ASSERT(nextAutoIncrementId > 1);
 
       IDB_TRY_INSPECT(const auto& borrowedStmt, stmt.Borrow());
 
-      rv = borrowedStmt->BindInt64ByIndex(1, metadata->mCommonMetadata.id());
-      if (NS_WARN_IF(NS_FAILED(rv))) {
-        return rv;
-      }
+      IDB_TRY(
+          borrowedStmt->BindInt64ByIndex(1, metadata->mCommonMetadata.id()));
 
-      rv = borrowedStmt->BindInt64ByIndex(0, metadata->mNextAutoIncrementId);
-      if (NS_WARN_IF(NS_FAILED(rv))) {
-        return rv;
-      }
+      IDB_TRY(borrowedStmt->BindInt64ByIndex(0, nextAutoIncrementId));
 
-      rv = borrowedStmt->Execute();
-      if (NS_WARN_IF(NS_FAILED(rv))) {
-        return rv;
-      }
+      IDB_TRY(borrowedStmt->Execute());
     }
   }
 
@@ -17806,10 +17822,12 @@ void TransactionBase::CommitOp::CommitOrRollbackAutoIncrementCounts() {
     bool committed = NS_SUCCEEDED(mResultCode);
 
     for (const auto& metadata : metadataArray) {
+      auto&& lockedAutoIncrementIds = metadata->mAutoIncrementIds.Lock();
+
       if (committed) {
-        metadata->mCommittedAutoIncrementId = metadata->mNextAutoIncrementId;
+        lockedAutoIncrementIds->committed = lockedAutoIncrementIds->next;
       } else {
-        metadata->mNextAutoIncrementId = metadata->mCommittedAutoIncrementId;
+        lockedAutoIncrementIds->next = lockedAutoIncrementIds->committed;
       }
     }
   }
@@ -19606,7 +19624,12 @@ nsresult ObjectStoreAddOrPutRequestOp::DoDatabaseWork(
 
     if (mMetadata->mCommonMetadata.autoIncrement()) {
       if (keyUnset) {
-        autoIncrementNum = mMetadata->mNextAutoIncrementId;
+        {
+          const auto&& lockedAutoIncrementIds =
+              mMetadata->mAutoIncrementIds.Lock();
+
+          autoIncrementNum = lockedAutoIncrementIds->next;
+        }
 
         MOZ_ASSERT(autoIncrementNum > 0);
 
@@ -19619,7 +19642,10 @@ nsresult ObjectStoreAddOrPutRequestOp::DoDatabaseWork(
         double numericKey = key.ToFloat();
         numericKey = std::min(numericKey, double(1LL << 53));
         numericKey = floor(numericKey);
-        if (numericKey >= mMetadata->mNextAutoIncrementId) {
+
+        const auto&& lockedAutoIncrementIds =
+            mMetadata->mAutoIncrementIds.Lock();
+        if (numericKey >= lockedAutoIncrementIds->next) {
           autoIncrementNum = numericKey;
         }
       }
@@ -19792,7 +19818,12 @@ nsresult ObjectStoreAddOrPutRequestOp::DoDatabaseWork(
   IDB_TRY(autoSave.Commit());
 
   if (autoIncrementNum) {
-    mMetadata->mNextAutoIncrementId = autoIncrementNum + 1;
+    {
+      auto&& lockedAutoIncrementIds = mMetadata->mAutoIncrementIds.Lock();
+
+      lockedAutoIncrementIds->next = autoIncrementNum + 1;
+    }
+
     Transaction().NoteModifiedAutoIncrementObjectStore(mMetadata);
   }
 
