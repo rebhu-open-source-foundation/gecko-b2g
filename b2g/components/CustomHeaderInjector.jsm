@@ -7,6 +7,31 @@
 var EXPORTED_SYMBOLS = ["CustomHeaderInjector"];
 
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
+ChromeUtils.defineModuleGetter(
+  this,
+  "DeviceUtils",
+  "resource://gre/modules/DeviceUtils.jsm"
+);
+
+XPCOMUtils.defineLazyServiceGetter(
+  this,
+  "gMobileConnectionService",
+  "@mozilla.org/mobileconnection/mobileconnectionservice;1",
+  "nsIMobileConnectionService"
+);
+XPCOMUtils.defineLazyServiceGetter(
+  this,
+  "gIccService",
+  "@mozilla.org/icc/iccservice;1",
+  "nsIIccService"
+);
+
+const kTopicActiveNetwork = "network-active-changed";
+const kTopicPrefChange = "nsPref:changed";
+const kPrefDefaultServiceId = "dom.telephony.defaultServiceId";
 
 const DEBUG = false;
 function debug(msg) {
@@ -14,9 +39,15 @@ function debug(msg) {
 }
 
 this.CustomHeaderInjector = {
+  QueryInterface: ChromeUtils.generateQI([
+    Ci.nsIMobileConnectionListener,
+    Ci.nsIIccListener,
+  ]),
+
   _customHeader: {},
   _deviceInfo: {},
   _serviceHosts: [],
+  _defaultServiceId: null,
   init() {
     this._customHeader.name = Services.prefs.getCharPref(
       "network.http.customheader.name",
@@ -31,9 +62,22 @@ this.CustomHeaderInjector = {
     DEBUG &&
       debug(`Hosts require injection: ${JSON.stringify(this._serviceHosts)}`);
 
+    this._defaultServiceId = Services.prefs.getIntPref(
+      kPrefDefaultServiceId,
+      0
+    );
     this.initCustomHeaderValue();
 
     Services.obs.addObserver(this, "http-on-modify-request");
+    Services.obs.addObserver(this, kTopicActiveNetwork);
+    Services.obs.addObserver(this, kTopicPrefChange);
+
+    gIccService
+      .getIccByServiceId(this._defaultServiceId)
+      .registerListener(this);
+    gMobileConnectionService
+      .getItemByServiceId(this._defaultServiceId)
+      .registerListener(this);
   },
 
   buildCustomHeader() {
@@ -56,23 +100,37 @@ this.CustomHeaderInjector = {
 
   initCustomHeaderValue() {
     // Get SIM mnc and mcc.
-    this._deviceInfo.sim_mnc = "test_sim_mnc";
-    this._deviceInfo.sim_mcc = "test_sim_mcc";
+    let iccInfo = DeviceUtils.iccInfo;
+    this._deviceInfo.sim_mnc = iccInfo && iccInfo.mnc ? iccInfo.mnc : "";
+    this._deviceInfo.sim_mcc = iccInfo && iccInfo.mcc ? iccInfo.mcc : "";
 
     // Get Network mnc and mcc.
-    this._deviceInfo.net_mnc = "test_net_mnc";
-    this._deviceInfo.net_mcc = "test_net_mcc";
+    this._deviceInfo.net_mnc = DeviceUtils.networkMnc;
+    this._deviceInfo.net_mcc = DeviceUtils.networkMcc;
 
     // Get Network connection type.
-    this._deviceInfo.net_type = "test_net_type";
+    this._deviceInfo.net_type = DeviceUtils.networkType;
 
     // Get commercial reference.
-    this._deviceInfo.com_ref = "test_com_ref";
+    let cuRef = DeviceUtils.cuRef;
+    cuRef = !cuRef ? "" : cuRef.replace(/;/g, "\\u003B");
+    this._deviceInfo.com_ref = cuRef;
+
+    let promises = [];
 
     // Get Device Id.
-    this._deviceInfo.device_uid = "test_device_uid";
+    this._deviceInfo.device_uid = "";
+    promises.push(
+      DeviceUtils.getDeviceId().then(deviceid => {
+        this._deviceInfo.device_uid = !deviceid
+          ? ""
+          : deviceid.replace(/;/g, "\\u003B");
+      })
+    );
 
-    this.buildCustomHeader();
+    Promise.allSettled(promises).then(() => {
+      this.buildCustomHeader();
+    });
   },
 
   observe(aSubject, aTopic, aData) {
@@ -94,8 +152,94 @@ this.CustomHeaderInjector = {
         }
         break;
       }
+      case kTopicActiveNetwork: {
+        this.updateCustomHeaderNetValue();
+        break;
+      }
+
+      case kTopicPrefChange: {
+        if (aData === kPrefDefaultServiceId) {
+          this._defaultServiceId = Services.prefs.getIntPref(
+            kPrefDefaultServiceId,
+            0
+          );
+        }
+        break;
+      }
     }
   },
+
+  updateCustomHeaderNetValue() {
+    // Network mnc, network mcc, network connection type may varies.
+    // Otherwise, no need to rebuild the custom header.
+    // Get Network mnc and mcc.
+    let netMnc = DeviceUtils.networkMnc;
+    let netMcc = DeviceUtils.networkMcc;
+
+    // Get Network connection type.
+    let netType = DeviceUtils.networkType;
+
+    if (
+      netMnc !== this._deviceInfo.net_mnc ||
+      netMcc !== this._deviceInfo.net_mcc ||
+      netType !== this._deviceInfo.net_type
+    ) {
+      this._deviceInfo.net_mnc = netMnc;
+      this._deviceInfo.net_mcc = netMcc;
+      this._deviceInfo.net_type = netType;
+      this.buildCustomHeader();
+    }
+  },
+
+  updateCustomHeaderIccValue() {
+    let iccInfo = DeviceUtils.iccInfo;
+    // Get SIM mnc and mcc.
+    let simMnc = iccInfo && iccInfo.mnc ? iccInfo.mnc : "";
+    let simMcc = iccInfo && iccInfo.mcc ? iccInfo.mcc : "";
+    if (
+      this._deviceInfo.sim_mnc !== simMnc ||
+      this._deviceInfo.sim_mcc !== simMcc
+    ) {
+      this._deviceInfo.sim_mnc = simMnc;
+      this._deviceInfo.sim_mcc = simMcc;
+      this.buildCustomHeader();
+    }
+  },
+
+  // nsIMobileConnectionListener
+  notifyVoiceChanged() {
+    this.updateCustomHeaderNetValue();
+  },
+  notifyDataChanged() {},
+  notifyDataError(_message) {},
+  notifyCFStateChanged(
+    _action,
+    _reason,
+    _number,
+    _timeSeconds,
+    _serviceClass
+  ) {},
+  notifyEmergencyCbModeChanged(_active, _timeoutMs) {},
+  notifyOtaStatusChanged(_status) {},
+  notifyRadioStateChanged() {},
+  notifyClirModeChanged(_mode) {},
+  notifyLastKnownNetworkChanged() {},
+  notifyLastKnownHomeNetworkChanged() {},
+  notifyNetworkSelectionModeChanged() {},
+  notifyDeviceIdentitiesChanged() {},
+  notifySignalStrengthChanged() {},
+  notifyModemRestart(_reason) {},
+
+  // nsIIccListener
+  notifyStkCommand(_aStkProactiveCmd) {},
+  notifyStkSessionEnd() {},
+  notifyCardStateChanged() {
+    // the trick here is that sim mcc/mnc is very likely available if card state get ready.
+    // icc info change callback is triggerred frequently.
+    this.updateCustomHeaderIccValue();
+  },
+  notifyIccInfoChanged() {},
+  notifyIsimInfoChanged() {},
 };
 
 CustomHeaderInjector.init();
