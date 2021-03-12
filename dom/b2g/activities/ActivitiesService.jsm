@@ -288,16 +288,6 @@ var Activities = {
               caller: value.origin,
               handler: value.handlerOrigin,
             });
-          } else if (value.origin == origin) {
-            debug(
-              "Remove caller due to service worker shutdown, caller=" +
-                value.origin +
-                " handler=" +
-                value.handlerOrigin +
-                " handlerPID=" +
-                value.handlerPID
-            );
-            messages.push(key);
           }
         }
         let self = this;
