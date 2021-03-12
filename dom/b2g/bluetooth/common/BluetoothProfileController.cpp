@@ -164,6 +164,11 @@ void BluetoothProfileController::SetupProfiles(bool aAssignServiceClass) {
   bool isRemoteControl = IS_REMOTE_CONTROL(mTarget.cod);
   bool isKeyboard = IS_KEYBOARD(mTarget.cod);
   bool isPointingDevice = IS_POINTING_DEVICE(mTarget.cod);
+  bool isAudioVideo = IS_AUDIO_VIDEO(mTarget.cod);
+  bool isLoudSpeaker = IS_LOUDSPEAKER(mTarget.cod);
+  bool isHeadPhone = IS_HEADPHONE(mTarget.cod);
+  bool isCarAudio = IS_CAR_AUDIO(mTarget.cod);
+  bool isHifiAudio = IS_HiFi_AUDIO(mTarget.cod);
   bool isInvalid = IS_INVALID(mTarget.cod);
 
   // The value of CoD is invalid. Since the device didn't declare its class of
@@ -186,7 +191,10 @@ void BluetoothProfileController::SetupProfiles(bool aAssignServiceClass) {
   }
 
   // Rendering bit should be set if remote device supports A2DP.
-  if (hasRendering) {
+  // However some A2DP sink devices don't. So we match on some other Minor
+  // Device Class bits.
+  if (hasRendering || isAudioVideo && (isLoudSpeaker || isHeadPhone ||
+                                       isCarAudio || isHifiAudio)) {
     AddProfile(BluetoothA2dpManager::Get());
   }
 
