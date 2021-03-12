@@ -127,6 +127,9 @@ function NetworkService() {
   this.addedRoutes = new Map();
   this.netWorkerRequestQueue = new NetworkWorkerRequestQueue(this);
   this.shutdown = false;
+  this.trafficStats = Cc["@mozilla.org/network/trafficstats;1"].createInstance(
+    Ci.nsITrafficStats
+  );
 
   Services.prefs.addObserver(PREF_NETWORK_DEBUG_ENABLED, this);
   Services.obs.addObserver(this, TOPIC_XPCOM_SHUTDOWN);
@@ -215,7 +218,23 @@ NetworkService.prototype = {
 
   getNetworkInterfaceStats(aInterfaces, aCallback) {
     debug("getNetworkInterfaceStats for " + JSON.stringify(aInterfaces));
+    if (this.trafficStats) {
+      let statsInfos = {};
+      this.trafficStats.getStats(statsInfos);
+      let rxBytes = 0,
+        txBytes = 0,
+        now = Date.now();
+      for (let i = 0; i < statsInfos.value.length; i++) {
+        if (aInterfaces.includes(statsInfos.value[i].name)) {
+          rxBytes += statsInfos.value[i].rxBytes;
+          txBytes += statsInfos.value[i].txBytes;
+        }
+      }
+      aCallback.networkStatsAvailable(true, rxBytes, txBytes, now);
+      return;
+    }
 
+    // legacy parse kernel node.
     let file = new FileUtils.File("/proc/net/dev");
     if (!file) {
       aCallback.networkStatsAvailable(false, 0, 0, Date.now());

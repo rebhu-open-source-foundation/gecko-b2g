@@ -131,6 +131,7 @@ def Libxul(name, output_category=None):
             "log",
             "mtp",
             "nativewindow",
+            "netdbpf",
             "stdc++",
             "suspend",
             "sync",

@@ -110,6 +110,7 @@ out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/libhwbinder.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/libmedia_omx.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/libmedia.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/libmtp.so
+out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/libnetdbpf.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/libstagefright_foundation.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/libstagefright_omx.so
 out/target/product/${GONK_PRODUCT_NAME}/system/lib${BINSUFFIX}/libstagefright.so
@@ -152,6 +153,7 @@ hardware/interfaces/graphics/composer/2.2/utils/command-buffer/include
 hardware/interfaces/graphics/composer/2.3/utils/command-buffer/include
 hardware/libhardware/include
 hardware/libhardware_legacy/include
+system/bpf/libbpf_android/include
 system/connectivity
 system/core/base/include
 system/core/libcutils/include
@@ -168,6 +170,8 @@ system/libhidl/transport/include
 system/libhidl/transport/token/1.0/utils/include
 system/media/audio/include
 system/media/camera/include
+system/netd/libnetdbpf/include
+system/netd/libnetdutils/include
 EOF
 
 # Store the generated AIDL headers in the sysroot
