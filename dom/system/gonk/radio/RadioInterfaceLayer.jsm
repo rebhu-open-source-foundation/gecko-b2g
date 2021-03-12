@@ -6431,7 +6431,7 @@ RadioInterface.prototype = {
           message.serviceClass,
           message.number || "",
           number || "",
-          message.timeseconds
+          message.timeSeconds
         );
         break;
       case "queryCallWaiting":
