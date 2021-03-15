@@ -1206,7 +1206,8 @@ var WifiManager = (function() {
         let networkId = WifiConfigManager.getNetworkId(config);
         WifiConfigManager.updateLastSelectedNetwork(networkId, ok => {
           manager.disconnect(function() {
-            handleScanRequest(true, function() {});
+            config.netId = networkId;
+            manager.startToConnect(config, function() {});
           });
         });
       });
@@ -2053,11 +2054,19 @@ var WifiManager = (function() {
 
       let config = Object.create(null);
       for (let field in result.wifiConfig) {
-        config[field] = result.wifiConfig[field];
+        let value = result.wifiConfig[field];
+        if (typeof value == "string" && value.length == 0) {
+          continue;
+        }
+        config[field] = value;
       }
       config.bssid = WifiConstants.SUPPLICANT_BSSID_ANY;
       // Ignore the network ID from supplicant.
       delete config.netId;
+      // For OPEN network, 'psk' is invalid
+      if (config.keyMgmt === "NONE") {
+        delete config.psk;
+      }
 
       // Save WPS network configurations into config store.
       manager.saveNetwork(config, ok => {
