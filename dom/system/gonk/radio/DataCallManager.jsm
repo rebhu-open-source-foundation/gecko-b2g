@@ -73,6 +73,10 @@ XPCOMUtils.defineLazyGetter(this, "RIL", function() {
   return ChromeUtils.import("resource://gre/modules/ril_consts.js");
 });
 
+const { BinderServices } = ChromeUtils.import(
+  "resource://gre/modules/BinderServices.jsm"
+);
+
 var RIL_DEBUG = ChromeUtils.import(
   "resource://gre/modules/ril_consts_debug.js"
 );
@@ -264,6 +268,9 @@ DataCallManager.prototype = {
       return;
     }
     this._dataDefaultClientId = aNewClientId;
+
+    //Notify the binder with default DDS change.
+    BinderServices.datacall.onDefaultSlotIdChanged(this._dataDefaultClientId);
 
     // This is to handle boot up stage.
     if (this._currentDataClientId == -1) {
@@ -898,6 +905,7 @@ DataCallHandler.prototype = {
       }
     }
 
+    let readyApnTypes = [];
     //2. Create RadioNetworkInterface
     for (let [networkType, dataCallsList] of apnContextsList) {
       try {
@@ -916,6 +924,7 @@ DataCallHandler.prototype = {
 
         gNetworkManager.registerNetworkInterface(networkInterface);
         this.dataNetworkInterfaces.set(networkType, networkInterface);
+        readyApnTypes.push(networkType);
         //Set the default networkInterface to enable.
         if (networkInterface.info.type == NETWORK_TYPE_MOBILE) {
           this.debug("Enable the default RILNetworkInterface.");
@@ -932,6 +941,9 @@ DataCallHandler.prototype = {
         }
       }
     }
+
+    // Notify the binder the apn is ready.
+    BinderServices.datacall.onApnReady(this.clientId, readyApnTypes);
     this.debug("_setupApnSettings done. ");
   },
 
