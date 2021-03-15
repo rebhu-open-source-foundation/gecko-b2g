@@ -1462,6 +1462,8 @@ if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
         'b2g_stub/system/BaseSystem.h',
         'b2g_stub/telephony/BaseTelephony.h',
         'b2g_stub/telephony/data/BaseDataCall.h',
+        'b2g_stub/telephony/ims/BaseImsMMTelFeature.h',
+        'b2g_stub/telephony/ims/BaseImsMMTelListener.h',
         'composer-command-buffer/2.1/ComposerCommandBuffer.h',
         'composer-command-buffer/2.2/ComposerCommandBuffer.h',
         'composer-command-buffer/2.3/ComposerCommandBuffer.h',
