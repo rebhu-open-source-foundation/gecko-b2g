@@ -1727,8 +1727,8 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INTERNAL(FragmentOrElement)
           static_cast<IntersectionObserverList*>(
               elem->GetProperty(nsGkAtoms::intersectionobserverlist));
       if (observers) {
-        for (auto iter = observers->Iter(); !iter.Done(); iter.Next()) {
-          DOMIntersectionObserver* observer = iter.Key();
+        for (const auto& entry : *observers) {
+          DOMIntersectionObserver* observer = entry.GetKey();
           cb.NoteXPCOMChild(observer);
         }
       }

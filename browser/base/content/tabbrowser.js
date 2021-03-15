@@ -667,6 +667,7 @@
     _updateTabBarForPinnedTabs() {
       this.tabContainer._unlockTabSizing();
       this.tabContainer._positionPinnedTabs();
+      this.tabContainer._setPositionalAttributes();
       this.tabContainer._updateCloseButtons();
     },
 
@@ -4149,6 +4150,15 @@
         aOurTab._sharingState = aOtherTab._sharingState;
         webrtcUI.swapBrowserForNotification(otherBrowser, ourBrowser);
       }
+      if (aOtherTab.hasAttribute("pictureinpicture")) {
+        aOurTab.setAttribute("pictureinpicture", true);
+        modifiedAttrs.push("pictureinpicture");
+
+        let event = new CustomEvent("TabSwapPictureInPicture", {
+          detail: aOurTab,
+        });
+        aOtherTab.dispatchEvent(event);
+      }
 
       SitePermissions.copyTemporaryPermissions(otherBrowser, ourBrowser);
 
@@ -5337,7 +5347,7 @@
       // When Picture-in-Picture is open, we repurpose '.tab-icon-sound' as
       // an inert Picture-in-Picture indicator, so we should display
       // the default tooltip
-      else if (tab._overPlayingIcon && !tab.pictureinpicture) {
+      else if (!gProtonTabs && tab._overPlayingIcon && !tab.pictureinpicture) {
         let stringID;
         if (tab.selected) {
           stringID = tab.linkedBrowser.audioMuted

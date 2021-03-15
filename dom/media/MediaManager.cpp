@@ -486,6 +486,8 @@ class SourceListener : public SupportsWeakPtr {
 
   // Accessed from MediaTrackGraph thread, MediaManager thread, and MainThread
   // No locking needed as they're set on Activate() and never assigned to again.
+  //
+  // A SourceListener may have *both* audio and video for historical reasons.
   UniquePtr<DeviceState> mAudioDeviceState;
   UniquePtr<DeviceState> mVideoDeviceState;
 };
@@ -739,7 +741,8 @@ class GetUserMediaWindowListener {
     for (auto& l : mActiveListeners) {
       if (RefPtr<MediaDevice> device = l->GetAudioDevice()) {
         aOutDevices->AppendElement(device);
-      } else if (RefPtr<MediaDevice> device = l->GetVideoDevice()) {
+      }
+      if (RefPtr<MediaDevice> device = l->GetVideoDevice()) {
         aOutDevices->AppendElement(device);
       }
     }
