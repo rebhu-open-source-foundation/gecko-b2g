@@ -3185,12 +3185,15 @@ function WifiWorker() {
     }
     if (this.register) {
       imsService.registerListener(self);
-      let imsDelayTimeout = 7000;
-      imsDelayTimeout = Services.prefs.getIntPref("vowifi.delay.timer", 5000);
+      let imsDelayTimeout = Services.prefs.getIntPref(
+        "vowifi.delay.timer",
+        7000
+      );
       debug("delay " + imsDelayTimeout / 1000 + " secs for disabling wifi");
       self._wifiDisableDelayId = setTimeout(
         WifiManager.setWifiDisable,
-        imsDelayTimeout
+        imsDelayTimeout,
+        function() {}
       );
     } else {
       if (self._wifiDisableDelayId === null) {
@@ -3311,7 +3314,7 @@ WifiWorker.prototype = {
       aCapability != Ci.nsIImsRegHandler.IMS_CAPABILITY_VOICE_OVER_WIFI &&
       aCapability != Ci.nsIImsRegHandler.IMS_CAPABILITY_VIDEO_OVER_WIFI
     ) {
-      WifiManager.setWifiDisable();
+      WifiManager.setWifiDisable(function() {});
     }
   },
 
@@ -4896,9 +4899,7 @@ WifiWorker.prototype = {
   },
 
   _getDefaultServiceId() {
-    // FIXME: Component returned failure code: 0x8000ffff (NS_ERROR_UNEXPECTED)
-    // [nsIPrefBranch.getIntPref]
-    let id = 0; //Services.prefs.getIntPref(kPrefDefaultServiceId);
+    let id = Services.prefs.getIntPref(kPrefDefaultServiceId, 0);
     let numRil = Services.prefs.getIntPref(kPrefRilNumRadioInterfaces);
 
     if (id >= numRil || id < 0) {
