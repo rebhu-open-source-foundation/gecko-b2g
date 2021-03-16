@@ -2751,7 +2751,7 @@ TelephonyService.prototype = {
         notifyError(aError) {
           aCallback.notifyError(RIL.GECKO_ERROR_GENERIC_FAILURE);
           self._notifyAllListeners("notifyConferenceError", [
-            "addError",
+            RIL.GECKO_CONF_CALL_ERROR_ADD,
             aError,
           ]);
         },
@@ -2768,7 +2768,7 @@ TelephonyService.prototype = {
         aCallback.notifyError(RIL.GECKO_ERROR_GENERIC_FAILURE);
         // TODO: Bug 1124993. Deprecate it. Use callback response is enough.
         this._notifyAllListeners("notifyConferenceError", [
-          "addError",
+          RIL.GECKO_CONF_CALL_ERROR_ADD,
           response.errorMsg,
         ]);
         return;
@@ -2792,7 +2792,7 @@ TelephonyService.prototype = {
         aCallback.notifyError(RIL.GECKO_ERROR_GENERIC_FAILURE);
         // TODO: Bug 1124993. Deprecate it. Use callback response is enough.
         this._notifyAllListeners("notifyConferenceError", [
-          "addError",
+          RIL.GECKO_CONF_CALL_ERROR_ADD,
           response.errorMsg,
         ]);
         return;
@@ -2836,7 +2836,7 @@ TelephonyService.prototype = {
           aCallback.notifyError(RIL.GECKO_ERROR_GENERIC_FAILURE);
           // TODO: Bug 1124993. Deprecate it. Use callback response is enough.
           this._notifyAllListeners("notifyConferenceError", [
-            "removeError",
+            RIL.GECKO_CONF_CALL_ERROR_REMOVE,
             response.errorMsg,
           ]);
           return;
@@ -2868,7 +2868,7 @@ TelephonyService.prototype = {
         aCallback.notifyError(RIL.GECKO_ERROR_GENERIC_FAILURE);
         // TODO: Bug 1124993. Deprecate it. Use callback response is enough.
         this._notifyAllListeners("notifyConferenceError", [
-          "removeError",
+          RIL.GECKO_CONF_CALL_ERROR_REMOVE,
           response.errorMsg,
         ]);
         return;
@@ -3630,7 +3630,7 @@ TelephonyService.prototype = {
     };
 
     let self = this;
-    let ismCallback = this._createImsCallback(
+    let imsCallback = this._createImsCallback(
       () => {
         self._isDialing = false;
         if (DEBUG) {
@@ -3653,7 +3653,7 @@ TelephonyService.prototype = {
       }
     );
 
-    imsPhone.dial(dialRequest, ismCallback);
+    imsPhone.dial(dialRequest, imsCallback);
   },
 
   _initImsPhones() {
