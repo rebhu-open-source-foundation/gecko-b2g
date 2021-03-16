@@ -911,8 +911,6 @@ void ScreenHelperGonk::SetCompositorVsyncScheduler(
     mozilla::layers::CompositorVsyncScheduler* aObserver) {
   MOZ_ASSERT(NS_IsMainThread());
 
-  // We assume on b2g that there is only 1 CompositorBridgeParent
-  MOZ_ASSERT(mCompositorVsyncScheduler == nullptr);
   MOZ_ASSERT(aObserver);
   mCompositorVsyncScheduler = aObserver;
   mCompositorVsyncScheduler->SetDisplay(mDisplayEnabled);
