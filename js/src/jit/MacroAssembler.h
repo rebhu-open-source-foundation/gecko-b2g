@@ -2771,6 +2771,22 @@ class MacroAssembler : public MacroAssemblerSpecific {
   inline void mulFloat64x2(const SimdConstant& rhs, FloatRegister lhsDest)
       DEFINED_ON(x86_shared);
 
+  // Pairwise add
+
+  inline void extAddPairwiseInt8x16(FloatRegister src, FloatRegister dest)
+      DEFINED_ON(x86_shared, arm64);
+
+  inline void unsignedExtAddPairwiseInt8x16(FloatRegister src,
+                                            FloatRegister dest)
+      DEFINED_ON(x86_shared, arm64);
+
+  inline void extAddPairwiseInt16x8(FloatRegister src, FloatRegister dest)
+      DEFINED_ON(x86_shared, arm64);
+
+  inline void unsignedExtAddPairwiseInt16x8(FloatRegister src,
+                                            FloatRegister dest)
+      DEFINED_ON(x86_shared, arm64);
+
   // Floating square root
 
   inline void sqrtFloat32x4(FloatRegister src, FloatRegister dest)
@@ -4023,6 +4039,8 @@ class MacroAssembler : public MacroAssemblerSpecific {
 
     call(preBarrier);
     Pop(PreBarrierReg);
+    // On arm64, SP may be < PSP now (that's OK).
+    // eg testcase: tests/auto-regress/bug702915.js
     bind(&done);
   }
 

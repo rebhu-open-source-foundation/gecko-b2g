@@ -2789,6 +2789,28 @@ void MacroAssembler::mulFloat64x2(FloatRegister rhs, FloatRegister lhsDest) {
   Fmul(Simd2D(lhsDest), Simd2D(lhsDest), Simd2D(rhs));
 }
 
+// Pairwise add
+
+void MacroAssembler::extAddPairwiseInt8x16(FloatRegister src,
+                                           FloatRegister dest) {
+  Saddlp(Simd8H(dest), Simd16B(src));
+}
+
+void MacroAssembler::unsignedExtAddPairwiseInt8x16(FloatRegister src,
+                                                   FloatRegister dest) {
+  Uaddlp(Simd8H(dest), Simd16B(src));
+}
+
+void MacroAssembler::extAddPairwiseInt16x8(FloatRegister src,
+                                           FloatRegister dest) {
+  Saddlp(Simd4S(dest), Simd8H(src));
+}
+
+void MacroAssembler::unsignedExtAddPairwiseInt16x8(FloatRegister src,
+                                                   FloatRegister dest) {
+  Uaddlp(Simd4S(dest), Simd8H(src));
+}
+
 // Floating square root
 
 void MacroAssembler::sqrtFloat32x4(FloatRegister src, FloatRegister dest) {
@@ -3057,10 +3079,15 @@ void MacroAssembler::nearestFloat64x2(FloatRegister src, FloatRegister dest) {
 
 void MacroAssemblerCompat::addToStackPtr(Register src) {
   Add(GetStackPointer64(), GetStackPointer64(), ARMRegister(src, 64));
+  // Given that required invariant SP <= PSP, this is probably pointless,
+  // since it gives PSP a larger value.
+  syncStackPtr();
 }
 
 void MacroAssemblerCompat::addToStackPtr(Imm32 imm) {
   Add(GetStackPointer64(), GetStackPointer64(), Operand(imm.value));
+  // As above, probably pointless.
+  syncStackPtr();
 }
 
 void MacroAssemblerCompat::addToStackPtr(const Address& src) {
@@ -3068,6 +3095,8 @@ void MacroAssemblerCompat::addToStackPtr(const Address& src) {
   const ARMRegister scratch = temps.AcquireX();
   Ldr(scratch, toMemOperand(src));
   Add(GetStackPointer64(), GetStackPointer64(), scratch);
+  // As above, probably pointless.
+  syncStackPtr();
 }
 
 void MacroAssemblerCompat::addStackPtrTo(Register dest) {

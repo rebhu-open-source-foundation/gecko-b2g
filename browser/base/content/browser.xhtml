@@ -180,7 +180,7 @@
                    onpopupshowing="gSync.populateSendTabToDevicesMenu(event.target, TabContextMenu.contextTab.linkedBrowser.currentURI.spec, TabContextMenu.contextTab.linkedBrowser.contentTitle, TabContextMenu.contextTab.multiselected);"/>
       </menu>
       <menu id="context_reopenInContainer"
-            data-lazy-l10n-id="tab-context-open-in-container"
+            data-lazy-l10n-id="tab-context-open-in-new-container-tab"
             hidden="true">
         <menupopup oncommand="TabContextMenu.reopenInContainer(event);"
                    onpopupshowing="TabContextMenu.createReopenInContainerMenu(event);"/>
@@ -979,11 +979,11 @@
                        wrap="true"
                        hidden="true"/>
         <toolbaritem id="appMenu-fxa-status2"
+                     closemenu="none"
                      class="subviewbutton toolbaritem-combined-buttons">
           <label id="appMenu-fxa-text" class="toolbarbutton-text" data-l10n-id="appmenu-fxa-sync-and-save-data"/>
           <toolbarbutton id="appMenu-fxa-label2"
                         class="subviewbutton"
-                        closemenu="none"
                         oncommand="gSync.toggleAccountPanel(this, event)"/>
         </toolbaritem>
         <toolbarseparator id="appMenu-fxa-separator" class="proton-zap"/>

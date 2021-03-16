@@ -3774,6 +3774,24 @@ class Document : public nsINode,
   // Getter for PermissionDelegateHandler. Performs lazy initialization.
   PermissionDelegateHandler* GetPermissionDelegateHandler();
 
+  // Notify the document that a fetch or a XHR request has completed
+  // succesfully in this document. This is used by the password manager to infer
+  // whether a form is submitted.
+  void NotifyFetchOrXHRSuccess();
+
+  // Set whether NotifyFetchOrXHRSuccess should dispatch an event.
+  void SetNotifyFetchSuccess(bool aShouldNotify);
+
+  // When this is set, removing a form or a password field from DOM
+  // sends a Chrome-only event. This is now only used by the password manager.
+  void SetNotifyFormOrPasswordRemoved(bool aShouldNotify);
+
+  // This function is used by HTMLFormElement and HTMLInputElement to determin
+  // whether to send an event when it is removed from DOM.
+  bool ShouldNotifyFormOrPasswordRemoved() const {
+    return mShouldNotifyFormOrPasswordRemoved;
+  }
+
   /**
    * Localization
    *
@@ -5189,6 +5207,12 @@ class Document : public nsINode,
 
   // Scope preloads per document.  This is used by speculative loading as well.
   PreloadService mPreloadService;
+
+  // See NotifyFetchOrXHRSuccess and SetNotifyFetchSuccess.
+  bool mShouldNotifyFetchSuccess;
+
+  // See SetNotifyFormOrPasswordRemoved and ShouldNotifyFormOrPasswordRemoved.
+  bool mShouldNotifyFormOrPasswordRemoved;
 
   // Accumulate JS telemetry collected
   void AccumulateJSTelemetry();

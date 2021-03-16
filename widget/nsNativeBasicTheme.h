@@ -207,7 +207,6 @@ class nsNativeBasicTheme : protected nsNativeTheme, public nsITheme {
   std::pair<sRGBColor, sRGBColor> ComputeProgressTrackColors(UseSystemColors);
   std::pair<sRGBColor, sRGBColor> ComputeMeterchunkColors(
       const EventStates& aMeterState, UseSystemColors);
-  std::pair<sRGBColor, sRGBColor> ComputeMeterTrackColors(UseSystemColors);
   sRGBColor ComputeMenulistArrowButtonColor(const EventStates&,
                                             UseSystemColors);
   std::array<sRGBColor, 3> ComputeFocusRectColors(UseSystemColors);
@@ -315,7 +314,7 @@ class nsNativeBasicTheme : protected nsNativeTheme, public nsITheme {
   template <typename PaintBackendData>
   void PaintProgress(nsIFrame*, PaintBackendData&, const LayoutDeviceRect&,
                      const EventStates&, UseSystemColors, DPIRatio,
-                     bool aIsMeter, bool aBar);
+                     bool aIsMeter);
   template <typename PaintBackendData>
   void PaintButton(nsIFrame*, PaintBackendData&, const LayoutDeviceRect&,
                    const EventStates&, UseSystemColors, DPIRatio);

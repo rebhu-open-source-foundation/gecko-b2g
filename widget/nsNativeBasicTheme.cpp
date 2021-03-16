@@ -234,7 +234,7 @@ std::pair<sRGBColor, sRGBColor> nsNativeBasicTheme::ComputeCheckboxColors(
                          aState.HasState(NS_EVENT_STATE_INDETERMINATE);
 
   if (bool(aUseSystemColors)) {
-    sRGBColor backgroundColor = SystemColor(StyleSystemColor::TextBackground);
+    sRGBColor backgroundColor = SystemColor(StyleSystemColor::Buttonface);
     sRGBColor borderColor = SystemColor(StyleSystemColor::Buttontext);
     if (isDisabled) {
       borderColor = SystemColor(StyleSystemColor::Graytext);
@@ -242,7 +242,7 @@ std::pair<sRGBColor, sRGBColor> nsNativeBasicTheme::ComputeCheckboxColors(
         backgroundColor = borderColor;
       }
     } else if (isChecked || isIndeterminate) {
-      backgroundColor = SystemColor(StyleSystemColor::Highlight);
+      backgroundColor = borderColor = SystemColor(StyleSystemColor::Highlight);
     }
     return {backgroundColor, borderColor};
   }
@@ -280,7 +280,7 @@ std::pair<sRGBColor, sRGBColor> nsNativeBasicTheme::ComputeCheckboxColors(
 sRGBColor nsNativeBasicTheme::ComputeCheckmarkColor(
     const EventStates& aState, UseSystemColors aUseSystemColors) {
   if (bool(aUseSystemColors)) {
-    return SystemColor(StyleSystemColor::TextBackground);
+    return SystemColor(StyleSystemColor::Highlighttext);
   }
   if (aState.HasState(NS_EVENT_STATE_DISABLED)) {
     return sColorWhiteAlpha50;
@@ -411,7 +411,7 @@ std::pair<sRGBColor, sRGBColor> nsNativeBasicTheme::ComputeRangeTrackColors(
 std::pair<sRGBColor, sRGBColor> nsNativeBasicTheme::ComputeRangeThumbColors(
     const EventStates& aState, UseSystemColors aUseSystemColors) {
   if (bool(aUseSystemColors)) {
-    return SystemColorPair(StyleSystemColor::Highlight,
+    return SystemColorPair(StyleSystemColor::Highlighttext,
                            StyleSystemColor::Highlight);
   }
 
@@ -450,7 +450,7 @@ std::pair<sRGBColor, sRGBColor> nsNativeBasicTheme::ComputeProgressColors(
 std::pair<sRGBColor, sRGBColor> nsNativeBasicTheme::ComputeProgressTrackColors(
     UseSystemColors aUseSystemColors) {
   if (bool(aUseSystemColors)) {
-    return SystemColorPair(StyleSystemColor::TextBackground,
+    return SystemColorPair(StyleSystemColor::Buttonface,
                            StyleSystemColor::Buttontext);
   }
   return std::make_pair(sColorGrey10, sColorGrey40);
@@ -459,8 +459,7 @@ std::pair<sRGBColor, sRGBColor> nsNativeBasicTheme::ComputeProgressTrackColors(
 std::pair<sRGBColor, sRGBColor> nsNativeBasicTheme::ComputeMeterchunkColors(
     const EventStates& aMeterState, UseSystemColors aUseSystemColors) {
   if (bool(aUseSystemColors)) {
-    return SystemColorPair(StyleSystemColor::TextBackground,
-                           StyleSystemColor::TextForeground);
+    return ComputeProgressColors(aUseSystemColors);
   }
   sRGBColor borderColor = sColorMeterGreen20;
   sRGBColor chunkColor = sColorMeterGreen10;
@@ -474,15 +473,6 @@ std::pair<sRGBColor, sRGBColor> nsNativeBasicTheme::ComputeMeterchunkColors(
   }
 
   return std::make_pair(chunkColor, borderColor);
-}
-
-std::pair<sRGBColor, sRGBColor> nsNativeBasicTheme::ComputeMeterTrackColors(
-    UseSystemColors aUseSystemColors) {
-  if (bool(aUseSystemColors)) {
-    return SystemColorPair(StyleSystemColor::TextBackground,
-                           StyleSystemColor::TextForeground);
-  }
-  return std::make_pair(sColorGrey10, sColorGrey40);
 }
 
 sRGBColor nsNativeBasicTheme::ComputeMenulistArrowButtonColor(
@@ -1294,24 +1284,13 @@ void nsNativeBasicTheme::PaintRange(nsIFrame* aFrame,
   }
 }
 
-// TODO: Indeterminate state.
 template <typename PaintBackendData>
 void nsNativeBasicTheme::PaintProgress(nsIFrame* aFrame,
                                        PaintBackendData& aPaintData,
                                        const LayoutDeviceRect& aRect,
                                        const EventStates& aState,
                                        UseSystemColors aUseSystemColors,
-                                       DPIRatio aDpiRatio, bool aIsMeter,
-                                       bool aBar) {
-  auto [backgroundColor, borderColor] = [&] {
-    if (aIsMeter) {
-      return aBar ? ComputeMeterTrackColors(aUseSystemColors)
-                  : ComputeMeterchunkColors(aState, aUseSystemColors);
-    }
-    return aBar ? ComputeProgressTrackColors(aUseSystemColors)
-                : ComputeProgressColors(aUseSystemColors);
-  }();
-
+                                       DPIRatio aDpiRatio, bool aIsMeter) {
   const CSSCoord borderWidth = 1.0f;
   const CSSCoord radius = aIsMeter ? 5.0f : 2.0f;
 
@@ -1330,9 +1309,45 @@ void nsNativeBasicTheme::PaintProgress(nsIFrame* aFrame,
     rect.width = thickness;
   }
 
-  // This is the progress chunk, clip it to the right amount.
+  {
+    // Paint the track, unclipped.
+    auto [backgroundColor, borderColor] =
+        ComputeProgressTrackColors(aUseSystemColors);
+    PaintRoundedRectWithRadius(aPaintData, rect, rect, backgroundColor,
+                               borderColor, borderWidth, radius, aDpiRatio);
+  }
+
+  // Now paint the chunk, clipped as needed.
   LayoutDeviceRect clipRect = rect;
-  if (!aBar) {
+  if (aState.HasState(NS_EVENT_STATE_INDETERMINATE)) {
+    // For indeterminate progress, we paint an animated chunk of 1/3 of the
+    // progress size.
+    //
+    // Animation speed and math borrowed from GTK.
+    const LayoutDeviceCoord size = isHorizontal ? rect.width : rect.height;
+    const LayoutDeviceCoord barSize = size * 0.3333f;
+    const LayoutDeviceCoord travel = 2.0f * (size - barSize);
+
+    // Period equals to travel / pixelsPerMillisecond where pixelsPerMillisecond
+    // equals progressSize / 1000.0.  This is equivalent to 1600.
+    const unsigned kPeriod = 1600;
+
+    const int t = PR_IntervalToMilliseconds(PR_IntervalNow()) % kPeriod;
+    const LayoutDeviceCoord dx = travel * float(t) / float(kPeriod);
+    if (isHorizontal) {
+      rect.width = barSize;
+      rect.x += (dx < travel * .5f) ? dx : travel - dx;
+    } else {
+      rect.height = barSize;
+      rect.y += (dx < travel * .5f) ? dx : travel - dx;
+    }
+    clipRect = rect;
+    // Queue the next frame if needed.
+    if (!QueueAnimatedContentForRefresh(aFrame->GetContent(), 60)) {
+      NS_WARNING("Couldn't refresh indeterminate <progress>");
+    }
+  } else {
+    // This is the progress chunk, clip it to the right amount.
     double position = [&] {
       if (aIsMeter) {
         auto* meter = dom::HTMLMeterElement::FromNode(aFrame->GetContent());
@@ -1360,6 +1375,9 @@ void nsNativeBasicTheme::PaintProgress(nsIFrame* aFrame,
     }
   }
 
+  auto [backgroundColor, borderColor] =
+      aIsMeter ? ComputeMeterchunkColors(aState, aUseSystemColors)
+               : ComputeProgressColors(aUseSystemColors);
   PaintRoundedRectWithRadius(aPaintData, rect, clipRect, backgroundColor,
                              borderColor, borderWidth, radius, aDpiRatio);
 }
@@ -1680,28 +1698,17 @@ bool nsNativeBasicTheme::DoDrawWidgetBackground(PaintBackendData& aPaintData,
     case StyleAppearance::ProgressBar:
       PaintProgress(aFrame, aPaintData, devPxRect, eventState, useSystemColors,
                     dpiRatio,
-                    /* aIsMeter = */ false, /* aBar = */ true);
+                    /* aIsMeter = */ false);
       break;
     case StyleAppearance::Progresschunk:
-      if (nsProgressFrame* f = do_QueryFrame(aFrame->GetParent())) {
-        PaintProgress(f, aPaintData, devPxRect,
-                      f->GetContent()->AsElement()->State(), useSystemColors,
-                      dpiRatio,
-                      /* aIsMeter = */ false, /* aBar = */ false);
-      }
+      /* Painted as part of the progress bar */
       break;
     case StyleAppearance::Meter:
       PaintProgress(aFrame, aPaintData, devPxRect, eventState, useSystemColors,
-                    dpiRatio,
-                    /* aIsMeter = */ true, /* aBar = */ true);
+                    dpiRatio, /* aIsMeter = */ true);
       break;
     case StyleAppearance::Meterchunk:
-      if (nsMeterFrame* f = do_QueryFrame(aFrame->GetParent())) {
-        PaintProgress(f, aPaintData, devPxRect,
-                      f->GetContent()->AsElement()->State(), useSystemColors,
-                      dpiRatio,
-                      /* aIsMeter = */ true, /* aBar = */ false);
-      }
+      /* Painted as part of the meter bar */
       break;
     case StyleAppearance::ScrollbarthumbHorizontal:
     case StyleAppearance::ScrollbarthumbVertical: {

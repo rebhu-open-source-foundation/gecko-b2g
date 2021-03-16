@@ -68,26 +68,17 @@
 
 } /*** END proton ***/
 
-@supports not -moz-bool-pref("browser.proton.toolbar.enabled") {
+@supports not -moz-bool-pref("browser.proton.enabled") {
 :root:not([uidensity=compact], [chromehidden~="toolbar"]) #PanelUI-button {
   margin-inline-start: 3px;
   border-inline-start: 1px solid;
   border-image: linear-gradient(
     transparent 4px,
-    var(--lwt-toolbar-vertical-separator, rgba(0,0,0,.1)) 4px,
-    var(--lwt-toolbar-vertical-separator, rgba(0,0,0,.1)) calc(100% - 4px),
+    var(--toolbarseparator-color) 4px,
+    var(--toolbarseparator-color) calc(100% - 4px),
     transparent calc(100% - 4px)
   );
   border-image-slice: 1;
-}
-
-:root:not([uidensity=compact], [chromehidden~="toolbar"]) #nav-bar[brighttext] > #PanelUI-button {
-  border-image-source: linear-gradient(
-    transparent 4px,
-    var(--lwt-toolbar-vertical-separator, rgba(255,255,255,.2)) 4px,
-    var(--lwt-toolbar-vertical-separator, rgba(255,255,255,.2)) calc(100% - 4px),
-    transparent calc(100% - 4px)
-  );
 }
 } /*** END !proton ***/
 
@@ -933,7 +924,7 @@ toolbarbutton[constrain-size="true"][cui-areatype="menu-panel"] > .toolbarbutton
 }
 
 /* Hide the FxA toolbar button when its in the nav-bar, until in use */
-@supports -moz-bool-pref("browser.proton.toolbar.enabled") {
+@supports -moz-bool-pref("browser.proton.enabled") {
   :root[fxastatus="not_configured"] #nav-bar-customization-target > #fxa-toolbar-menu-button {
     display: none;
   }
@@ -2147,10 +2138,15 @@ panelview:not([mainview]) #PanelUI-whatsNew-title {
 }
 
 #PanelUI-whatsNew .panelMenu-toggleWhatsNew-checkbox {
-  background-color: var(--arrowpanel-dimmed);
   border-top: 1px solid var(--panel-separator-color);
-  padding-inline-start: 18px;
+  padding-inline-start: 16px;
   min-height: 41px;
+}
+
+@supports not -moz-bool-pref("browser.proton.enabled") {
+#PanelUI-whatsNew .panelMenu-toggleWhatsNew-checkbox {
+  background-color: var(--arrowpanel-dimmed);
+  padding-inline-start: 18px;
 }
 
 #PanelUI-whatsNew .panelMenu-toggleWhatsNew-checkbox:hover {
@@ -2203,6 +2199,7 @@ panelview:not([mainview]) #PanelUI-whatsNew-title {
 #PanelUI-whatsNew .checkbox-icon {
   display: none;
 }
+} /*** END !proton ***/
 
 #PanelUI-whatsNew .whatsNew-message {
   cursor: pointer;

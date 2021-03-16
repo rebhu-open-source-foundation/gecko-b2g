@@ -866,8 +866,8 @@ pref("devtools.performance.recording.duration.remote", 0);
 // explanations. Remote profiling also includes the java feature by default.
 // If the remote debuggee isn't an Android phone, then this feature will
 // be ignored.
-pref("devtools.performance.recording.features", "[\"js\",\"leaf\",\"stackwalk\",\"screenshots\"]");
-pref("devtools.performance.recording.features.remote", "[\"js\",\"leaf\",\"stackwalk\",\"screenshots\",\"java\"]");
+pref("devtools.performance.recording.features", "[\"js\",\"leaf\",\"stackwalk\",\"cpu\",\"screenshots\"]");
+pref("devtools.performance.recording.features.remote", "[\"js\",\"leaf\",\"stackwalk\",\"cpu\",\"screenshots\",\"java\"]");
 // Threads to be captured by the profiler.
 pref("devtools.performance.recording.threads", "[\"GeckoMain\",\"Compositor\",\"Renderer\"]");
 pref("devtools.performance.recording.threads.remote", "[\"GeckoMain\",\"Compositor\",\"Renderer\"]");
@@ -1093,17 +1093,6 @@ pref("dom.event.contextmenu.enabled",       true);
 pref("dom.event.coalesce_mouse_move",       true);
 
 pref("javascript.enabled",                  true);
-pref("javascript.options.blinterp",         true);
-// Duplicated in JitOptions - ensure both match.
-pref("javascript.options.blinterp.threshold", 10);
-pref("javascript.options.baselinejit",      true);
-// Duplicated in JitOptions - ensure both match.
-pref("javascript.options.baselinejit.threshold", 100);
-pref("javascript.options.ion",              true);
-// Duplicated in JitOptions - ensure both match.
-pref("javascript.options.ion.threshold",    1500);
-// Duplicated in JitOptions - ensure both match.
-pref("javascript.options.ion.frequent_bailout_threshold", 10);
 pref("javascript.options.asmjs",                  true);
 pref("javascript.options.wasm",                   true);
 pref("javascript.options.wasm_trustedprincipals", true);
@@ -1117,7 +1106,6 @@ pref("javascript.options.wasm_baselinejit",       true);
 #ifdef ENABLE_WASM_MULTI_VALUE
   pref("javascript.options.wasm_multi_value",     true);
 #endif
-pref("javascript.options.native_regexp",    true);
 pref("javascript.options.parallel_parsing", true);
 pref("javascript.options.source_pragmas",    true);
 
@@ -1127,10 +1115,6 @@ pref("javascript.options.asyncstack", true);
 pref("javascript.options.asyncstack_capture_debuggee_only", true);
 
 pref("javascript.options.throw_on_asmjs_validation_failure", false);
-pref("javascript.options.ion.offthread_compilation", true);
-#ifdef DEBUG
-  pref("javascript.options.jit.full_debug_checks", false);
-#endif
 // This preference instructs the JS engine to discard the
 // source of any privileged JS after compilation. This saves
 // memory, but makes things like Function.prototype.toSource()
@@ -1205,27 +1189,10 @@ pref("javascript.options.mem.gc_helper_thread_ratio", 50);
 // JSGC_MAX_HELPER_THREADS
 pref("javascript.options.mem.gc_max_helper_threads", 8);
 
-pref("javascript.options.showInConsole", false);
-
 pref("javascript.options.shared_memory", true);
 
 pref("javascript.options.throw_on_debuggee_would_run", false);
 pref("javascript.options.dump_stack_on_debuggee_would_run", false);
-
-// Spectre security vulnerability mitigations.
-#if defined(JS_CODEGEN_MIPS32) || defined(JS_CODEGEN_MIPS64)
-  pref("javascript.options.spectre.index_masking", false);
-  pref("javascript.options.spectre.object_mitigations.misc", false);
-  pref("javascript.options.spectre.string_mitigations", false);
-  pref("javascript.options.spectre.value_masking", false);
-  pref("javascript.options.spectre.jit_to_C++_calls", false);
-#else
-  pref("javascript.options.spectre.index_masking", true);
-  pref("javascript.options.spectre.object_mitigations.misc", true);
-  pref("javascript.options.spectre.string_mitigations", true);
-  pref("javascript.options.spectre.value_masking", true);
-  pref("javascript.options.spectre.jit_to_C++_calls", true);
-#endif
 
 // Dynamic module import.
 pref("javascript.options.dynamicImport", true);
@@ -3700,6 +3667,7 @@ pref("signon.autofillForms.http",           false);
 pref("signon.autologin.proxy",              false);
 pref("signon.capture.inputChanges.enabled", true);
 pref("signon.formlessCapture.enabled",      true);
+pref("signon.formRemovalCapture.enabled",   true);
 pref("signon.generation.available",               true);
 pref("signon.backup.enabled",               true);
 pref("signon.generation.confidenceThreshold",     "0.75");
@@ -4260,10 +4228,6 @@ pref("reader.parse-on-load.enabled", true);
 // After what size document we don't bother running Readability on it
 // because it'd slow things down too much
 pref("reader.parse-node-limit", 3000);
-
-// Force-enables reader mode parsing, even on low-memory platforms, where it
-// is disabled by default.
-pref("reader.parse-on-load.force-enabled", false);
 
 // Whether we include full URLs in browser console errors. This is disabled
 // by default because some platforms will persist these, leading to privacy issues.

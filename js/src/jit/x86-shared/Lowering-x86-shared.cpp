@@ -104,6 +104,15 @@ template void LIRGeneratorX86Shared::lowerForShiftInt64(
     LInstructionHelper<INT64_PIECES, INT64_PIECES + 1, 1>* ins,
     MDefinition* mir, MDefinition* lhs, MDefinition* rhs);
 
+void LIRGeneratorX86Shared::lowerForCompareI64AndBranch(
+    MTest* mir, MCompare* comp, JSOp op, MDefinition* left, MDefinition* right,
+    MBasicBlock* ifTrue, MBasicBlock* ifFalse) {
+  auto* lir = new (alloc())
+      LCompareI64AndBranch(comp, op, useInt64Register(left),
+                           useInt64OrConstant(right), ifTrue, ifFalse);
+  add(lir, mir);
+}
+
 void LIRGeneratorX86Shared::lowerForALU(LInstructionHelper<1, 1, 0>* ins,
                                         MDefinition* mir, MDefinition* input) {
   ins->setOperand(0, useRegisterAtStart(input));
@@ -1275,6 +1284,10 @@ void LIRGenerator::visitWasmUnarySimd128(MWasmUnarySimd128* ins) {
     case wasm::SimdOp::I32x4Abs:
     case wasm::SimdOp::I32x4TruncSSatF32x4:
     case wasm::SimdOp::F32x4ConvertUI32x4:
+    case wasm::SimdOp::I16x8ExtAddPairwiseI8x16S:
+    case wasm::SimdOp::I16x8ExtAddPairwiseI8x16U:
+    case wasm::SimdOp::I32x4ExtAddPairwiseI16x8S:
+    case wasm::SimdOp::I32x4ExtAddPairwiseI16x8U:
       // Prefer src == dest to avoid an unconditional src->dest move.
       useAtStart = true;
       reuseInput = true;

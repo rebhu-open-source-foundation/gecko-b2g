@@ -601,10 +601,10 @@ enum class SimdOp {
   I8x16MaxU = 0x79,
   F64x2Trunc = 0x7a,
   I8x16AvgrU = 0x7b,
-  // Unused = 0x7c
-  // Unused = 0x7d
-  // Unused = 0x7e
-  // Unused = 0x7f
+  I16x8ExtAddPairwiseI8x16S = 0x7c,
+  I16x8ExtAddPairwiseI8x16U = 0x7d,
+  I32x4ExtAddPairwiseI16x8S = 0x7e,
+  I32x4ExtAddPairwiseI16x8U = 0x7f,
   I16x8Abs = 0x80,
   I16x8Neg = 0x81,
   I16x8Q15MulrSatS = 0x82,
@@ -1020,15 +1020,6 @@ static const unsigned MaxParams = 1000;
 static const unsigned MaxResults = 1000;
 static const unsigned MaxStructFields = 1000;
 static const unsigned MaxMemory32LimitField = 65536;
-#ifdef JS_64BIT
-// FIXME (large ArrayBuffer): This should be upped to UINT32_MAX / PageSize
-// initially, then to (size_t(UINT32_MAX) + 1) / PageSize subsequently, see the
-// companion FIXME in WasmMemoryObject::grow() for additional information.
-static const unsigned MaxMemory32Pages = INT32_MAX / PageSize;
-#else
-static const unsigned MaxMemory32Pages = INT32_MAX / PageSize;
-#endif
-static const size_t MaxMemory32Bytes = size_t(MaxMemory32Pages) * PageSize;
 static const unsigned MaxStringBytes = 100000;
 static const unsigned MaxModuleBytes = 1024 * 1024 * 1024;
 static const unsigned MaxFunctionBytes = 7654321;

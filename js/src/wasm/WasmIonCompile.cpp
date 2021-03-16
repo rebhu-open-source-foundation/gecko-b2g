@@ -649,6 +649,7 @@ class FunctionCompiler {
     return ins;
   }
 
+#if defined(JS_CODEGEN_ARM)
   MDefinition* truncateWithTls(MDefinition* op, TruncFlags flags) {
     if (inDeadCode()) {
       return nullptr;
@@ -658,6 +659,7 @@ class FunctionCompiler {
     curBlock_->add(ins);
     return ins;
   }
+#endif
 
   MDefinition* compare(MDefinition* lhs, MDefinition* rhs, JSOp op,
                        MCompare::CompareType type) {
@@ -3534,7 +3536,8 @@ static bool EmitMemCopyCall(FunctionCompiler& f, MDefinition* dst,
   uint32_t lineOrBytecode = f.readCallSiteLineOrBytecode();
 
   const SymbolicAddressSignature& callee =
-      (f.moduleEnv().usesSharedMemory() ? SASigMemCopyShared : SASigMemCopy);
+      (f.moduleEnv().usesSharedMemory() ? SASigMemCopyShared32
+                                        : SASigMemCopy32);
   CallCompileState args;
   if (!f.passInstance(callee.argTypes[0], &args)) {
     return false;
@@ -3777,7 +3780,7 @@ static bool EmitMemFillCall(FunctionCompiler& f, MDefinition* start,
   uint32_t lineOrBytecode = f.readCallSiteLineOrBytecode();
 
   const SymbolicAddressSignature& callee =
-      f.moduleEnv().usesSharedMemory() ? SASigMemFillShared : SASigMemFill;
+      f.moduleEnv().usesSharedMemory() ? SASigMemFillShared32 : SASigMemFill32;
   CallCompileState args;
   if (!f.passInstance(callee.argTypes[0], &args)) {
     return false;
@@ -3914,7 +3917,7 @@ static bool EmitMemOrTableInit(FunctionCompiler& f, bool isMem) {
   uint32_t lineOrBytecode = f.readCallSiteLineOrBytecode();
 
   const SymbolicAddressSignature& callee =
-      isMem ? SASigMemInit : SASigTableInit;
+      isMem ? SASigMemInit32 : SASigTableInit;
   CallCompileState args;
   if (!f.passInstance(callee.argTypes[0], &args)) {
     return false;
@@ -5126,6 +5129,10 @@ static bool EmitBodyExprs(FunctionCompiler& f) {
           case uint32_t(SimdOp::F64x2ConvertLowI32x4U):
           case uint32_t(SimdOp::I32x4TruncSatF64x2SZero):
           case uint32_t(SimdOp::I32x4TruncSatF64x2UZero):
+          case uint32_t(SimdOp::I16x8ExtAddPairwiseI8x16S):
+          case uint32_t(SimdOp::I16x8ExtAddPairwiseI8x16U):
+          case uint32_t(SimdOp::I32x4ExtAddPairwiseI16x8S):
+          case uint32_t(SimdOp::I32x4ExtAddPairwiseI16x8U):
             CHECK(EmitUnarySimd128(f, SimdOp(op.b1)));
           case uint32_t(SimdOp::V128AnyTrue):
           case uint32_t(SimdOp::I8x16AllTrue):
@@ -5558,6 +5565,9 @@ bool wasm::IonCompileFunctions(const ModuleEnvironment& moduleEnv,
   JitContext jitContext(&alloc);
   MOZ_ASSERT(IsCompilingWasm());
   WasmMacroAssembler masm(alloc, moduleEnv);
+#if defined(JS_CODEGEN_ARM64)
+  masm.SetStackPointer64(PseudoStackPointer64);
+#endif
 
   // Swap in already-allocated empty vectors to avoid malloc/free.
   MOZ_ASSERT(code->empty());
@@ -5673,7 +5683,7 @@ bool wasm::IonCompileFunctions(const ModuleEnvironment& moduleEnv,
 bool js::wasm::IonPlatformSupport() {
 #if defined(JS_CODEGEN_X64) || defined(JS_CODEGEN_X86) ||    \
     defined(JS_CODEGEN_ARM) || defined(JS_CODEGEN_MIPS32) || \
-    defined(JS_CODEGEN_MIPS64)
+    defined(JS_CODEGEN_MIPS64) || defined(JS_CODEGEN_ARM64)
   return true;
 #else
   return false;

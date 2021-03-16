@@ -2160,7 +2160,7 @@ class ArrayType {
   ArrayType(ArrayType&&) = default;
   ArrayType& operator=(ArrayType&&) = default;
 
-  MOZ_MUST_USE bool clone(const ArrayType& src) {
+  [[nodiscard]] bool clone(const ArrayType& src) {
     elementType_ = src.elementType_;
     isMutable_ = src.isMutable_;
     return true;
@@ -3590,12 +3590,12 @@ enum class SymbolicAddress {
   WaitI32,
   WaitI64,
   Wake,
-  MemCopy,
-  MemCopyShared,
+  MemCopy32,
+  MemCopyShared32,
   DataDrop,
-  MemFill,
-  MemFillShared,
-  MemInit,
+  MemFill32,
+  MemFillShared32,
+  MemInit32,
   TableCopy,
   ElemDrop,
   TableFill,
@@ -4006,8 +4006,8 @@ static const unsigned MaxMemoryAccessSize = LitVal::sizeofLargestValue();
 
 #ifdef WASM_SUPPORTS_HUGE_MEMORY
 
-// On WASM_SUPPORTS_HUGE_MEMORY platforms, every asm.js or WebAssembly memory
-// unconditionally allocates a huge region of virtual memory of size
+// On WASM_SUPPORTS_HUGE_MEMORY platforms, every asm.js or WebAssembly 32-bit
+// memory unconditionally allocates a huge region of virtual memory of size
 // wasm::HugeMappedSize. This allows all memory resizing to work without
 // reallocation and provides enough guard space for all offsets to be folded
 // into memory accesses.
