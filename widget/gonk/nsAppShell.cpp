@@ -1073,13 +1073,12 @@ nsresult nsAppShell::Init() {
   rv = AddFdHandler(signalfds[0], pipeHandler, "");
   NS_ENSURE_SUCCESS(rv, rv);
 
-  bool isXPCShellTest = PR_GetEnv("XPCSHELL_TEST_PROFILE_DIR");
-
-  if (!isXPCShellTest) {
-    InitGonkMemoryPressureMonitoring();
-  }
-
   if (XRE_IsParentProcess()) {
+    bool isXPCShellTest = PR_GetEnv("XPCSHELL_TEST_PROFILE_DIR");
+
+    if (!isXPCShellTest) {
+      InitGonkMemoryPressureMonitoring();
+    }
     printf(
         "*****************************************************************\n");
     printf("***\n");
