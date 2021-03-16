@@ -4,6 +4,10 @@
 
 @namespace url("http://www.w3.org/1999/xhtml");
 
+:host {
+  background-color: black;
+}
+
 .videocontrols {
   display: flex;
   justify-content: center;
