@@ -10,7 +10,6 @@
 #include <media/MediaCodecBuffer.h>
 #include <media/stagefright/foundation/ABuffer.h>
 #include <media/stagefright/foundation/ADebug.h>
-#include <media/stagefright/MetaDataBase.h>
 #include <media/stagefright/MediaErrors.h>
 
 mozilla::LazyLogModule gMediaCodecProxyLog("MediaCodecProxy");
@@ -566,22 +565,8 @@ status_t MediaCodecProxy::Input(const uint8_t* aData, uint32_t aDataSize,
   return err;
 }
 
-MediaBuffer* MediaCodecProxy::CreateMediaBuffer(
-    const sp<MediaCodecBuffer>& aMediaCodecBuffer) {
-  const sp<ABuffer> buffer =
-      new ABuffer(aMediaCodecBuffer->data(), aMediaCodecBuffer->capacity());
-  buffer->setRange(aMediaCodecBuffer->offset(), aMediaCodecBuffer->size());
-  return new MediaBuffer(buffer);
-}
-
-MediaBuffer* MediaCodecProxy::CreateMediaBuffer(
-    const GraphicBuffer* aGraphicBuffer, size_t aSize) {
-  MediaBuffer* buffer = new MediaBuffer(NULL, aSize);
-  buffer->meta_data().setPointer(kKeyGraphicBuffer, (void*)aGraphicBuffer);
-  return buffer;
-}
-
-status_t MediaCodecProxy::Output(MediaBuffer** aBuffer, int64_t aTimeoutUs) {
+status_t MediaCodecProxy::Output(sp<SimpleMediaBuffer>* aBuffer,
+                                 int64_t aTimeoutUs) {
   // Read Lock for mCodec
   {
     RWLock::AutoRLock autolock(mCodecLock);
@@ -606,15 +591,13 @@ status_t MediaCodecProxy::Output(MediaBuffer** aBuffer, int64_t aTimeoutUs) {
     return err;
   }
 
-  MediaBuffer* buffer;
+  sp<SimpleMediaBuffer> buffer = new SimpleMediaBuffer(mOutputBuffers[index]);
   sp<GraphicBuffer> graphicBuffer;
 
   if (getOutputGraphicBufferFromIndex(index, &graphicBuffer) == OK &&
       graphicBuffer != nullptr) {
-    buffer = CreateMediaBuffer(graphicBuffer.get(), size);
+    buffer->SetGraphicBuffer(graphicBuffer);
     mOutputGraphicBuffers.insertAt(graphicBuffer, index);
-  } else {
-    buffer = CreateMediaBuffer(mOutputBuffers.itemAt(index));
   }
   MetaDataBase& metaData = buffer->meta_data();
   metaData.setInt32(kKeyBufferIndex, index);
@@ -632,7 +615,7 @@ status_t MediaCodecProxy::Output(MediaBuffer** aBuffer, int64_t aTimeoutUs) {
 
 void MediaCodecProxy::ReleaseMediaResources() { ReleaseMediaCodec(); }
 
-void MediaCodecProxy::ReleaseMediaBuffer(MediaBuffer* aBuffer) {
+void MediaCodecProxy::ReleaseMediaBuffer(const sp<SimpleMediaBuffer>& aBuffer) {
   if (aBuffer) {
     MetaDataBase& metaData = aBuffer->meta_data();
     int32_t index;
@@ -643,11 +626,9 @@ void MediaCodecProxy::ReleaseMediaBuffer(MediaBuffer* aBuffer) {
     LOG("ReleaseMediaBuffer time:%lld, index:%d", timeUs, index);
 #endif
     GraphicBuffer* srcBuffer = nullptr;
-    if (aBuffer->meta_data().findPointer(MediaCodecProxy::kKeyGraphicBuffer,
-                                         (void**)&srcBuffer)) {
+    if (aBuffer->GetGraphicBuffer()) {
       mOutputGraphicBuffers.removeAt(index);
     }
-    aBuffer->release();
     releaseOutputBuffer(index);
   }
 }

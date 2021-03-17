@@ -185,9 +185,9 @@ RefPtr<MediaDataDecoder::InitPromise> GonkVideoDecoderManager::Init() {
   return p;
 }
 
-nsresult GonkVideoDecoderManager::CreateVideoData(MediaBuffer* aBuffer,
-                                                  int64_t aStreamOffset,
-                                                  VideoData** v) {
+nsresult GonkVideoDecoderManager::CreateVideoData(
+    const sp<SimpleMediaBuffer>& aBuffer, int64_t aStreamOffset,
+    VideoData** v) {
   *v = nullptr;
   RefPtr<VideoData> data;
   int64_t timeUs;
@@ -335,7 +335,7 @@ inline static void CopyVenus(uint8_t* aSrc, uint8_t* aDst, uint32_t aWidth,
            /* aDstYScanlines = */ yScanlines);
 }
 
-static void CopyGraphicBuffer(GraphicBuffer* aSource,
+static void CopyGraphicBuffer(sp<GraphicBuffer>& aSource,
                               sp<GraphicBuffer>& aDestination) {
   void* srcPtr = nullptr;
   aSource->lock(GraphicBuffer::USAGE_SW_READ_OFTEN, &srcPtr);
@@ -411,16 +411,14 @@ static void CopyGraphicBuffer(GraphicBuffer* aSource,
 
 already_AddRefed<VideoData>
 GonkVideoDecoderManager::CreateVideoDataFromGraphicBuffer(
-    MediaBuffer* aSource, gfx::IntRect& aPicture) {
-  GraphicBuffer* srcBuffer = nullptr;
-  if (!aSource->meta_data().findPointer(MediaCodecProxy::kKeyGraphicBuffer,
-                                        (void**)&srcBuffer) ||
-      (srcBuffer == nullptr)) {
+    const sp<SimpleMediaBuffer>& aSource, gfx::IntRect& aPicture) {
+  sp<GraphicBuffer> srcBuffer = aSource->GetGraphicBuffer();
+  if (!srcBuffer) {
     LOG("Can't get GraphicBuffer from MediaBuffer, try to use normal buffer.");
     return nullptr;
   }
 
-  LOG("CreateVideoDataFromGraphicBuffer(), GraphicBuffer:%p", srcBuffer);
+  LOG("CreateVideoDataFromGraphicBuffer(), GraphicBuffer:%p", srcBuffer.get());
 
   RefPtr<TextureClient> textureClient;
 
@@ -449,11 +447,12 @@ GonkVideoDecoderManager::CreateVideoDataFromGraphicBuffer(
 
     CopyGraphicBuffer(srcBuffer, destBuffer);
   } else {
-    textureClient = mNativeWindow->getTextureClientFromBuffer(srcBuffer);
+    textureClient = mNativeWindow->getTextureClientFromBuffer(srcBuffer.get());
     textureClient->SetRecycleCallback(GonkVideoDecoderManager::RecycleCallback,
                                       this);
     static_cast<GrallocTextureData*>(textureClient->GetInternalData())
-        ->SetMediaBuffer(aSource);
+        ->SetMediaPrivate(aSource);
+    aSource->SetManager(this);
   }
 
   RefPtr<VideoData> data = VideoData::CreateAndCopyData(
@@ -470,8 +469,8 @@ GonkVideoDecoderManager::CreateVideoDataFromGraphicBuffer(
 }
 
 already_AddRefed<VideoData>
-GonkVideoDecoderManager::CreateVideoDataFromDataBuffer(MediaBuffer* aSource,
-                                                       gfx::IntRect& aPicture) {
+GonkVideoDecoderManager::CreateVideoDataFromDataBuffer(
+    const sp<SimpleMediaBuffer>& aSource, gfx::IntRect& aPicture) {
   if (!aSource->data()) {
     LOGE("No data in Video Buffer!");
     return nullptr;
@@ -612,7 +611,7 @@ nsresult GonkVideoDecoderManager::GetOutput(
     LOGE("Decoder is not inited");
     return NS_ERROR_UNEXPECTED;
   }
-  MediaBuffer* outputBuffer = nullptr;
+  sp<SimpleMediaBuffer> outputBuffer;
   err = mDecoder->Output(&outputBuffer, READ_OUTPUT_BUFFER_TIMEOUT_US);
   switch (err) {
     case OK: {
@@ -738,17 +737,24 @@ uint8_t* GonkVideoDecoderManager::GetColorConverterBuffer(int32_t aWidth,
 void GonkVideoDecoderManager::RecycleCallback(TextureClient* aClient,
                                               void* aClosure) {
   MOZ_ASSERT(aClient && !aClient->IsDead());
-  GonkVideoDecoderManager* videoManager =
-      static_cast<GonkVideoDecoderManager*>(aClosure);
   GrallocTextureData* client =
       static_cast<GrallocTextureData*>(aClient->GetInternalData());
   aClient->ClearRecycleCallback();
-  FenceHandle handle = client->GetAndResetReleaseFenceHandle();
-  videoManager->PostReleaseVideoBuffer(client->GetMediaBuffer(), handle);
+
+  sp<SimpleMediaBuffer> buffer =
+      static_cast<SimpleMediaBuffer*>(client->GetMediaPrivate().get());
+  client->SetMediaPrivate(nullptr);
+
+  sp<GonkVideoDecoderManager> videoManager =
+      static_cast<GonkVideoDecoderManager*>(buffer->GetManager().get());
+  if (videoManager) {
+    FenceHandle handle = client->GetAndResetReleaseFenceHandle();
+    videoManager->PostReleaseVideoBuffer(buffer, handle);
+  }
 }
 
 void GonkVideoDecoderManager::PostReleaseVideoBuffer(
-    android::MediaBuffer* aBuffer, FenceHandle aReleaseFence) {
+    const sp<SimpleMediaBuffer>& aBuffer, FenceHandle aReleaseFence) {
   {
     MutexAutoLock autoLock(mPendingReleaseItemsLock);
     if (aBuffer) {

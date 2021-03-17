@@ -79,12 +79,15 @@ class GonkVideoDecoderManager : public GonkDecoderManager {
 
   bool SetVideoFormat();
 
-  nsresult CreateVideoData(android::MediaBuffer* aBuffer, int64_t aStreamOffset,
-                           VideoData** aOutData);
+  nsresult CreateVideoData(
+      const android::sp<android::SimpleMediaBuffer>& aBuffer,
+      int64_t aStreamOffset, VideoData** aOutData);
   already_AddRefed<VideoData> CreateVideoDataFromGraphicBuffer(
-      android::MediaBuffer* aSource, gfx::IntRect& aPicture);
+      const android::sp<android::SimpleMediaBuffer>& aSource,
+      gfx::IntRect& aPicture);
   already_AddRefed<VideoData> CreateVideoDataFromDataBuffer(
-      android::MediaBuffer* aSource, gfx::IntRect& aPicture);
+      const android::sp<android::SimpleMediaBuffer>& aSource,
+      gfx::IntRect& aPicture);
 
   uint8_t* GetColorConverterBuffer(int32_t aWidth, int32_t aHeight);
 
@@ -93,8 +96,9 @@ class GonkVideoDecoderManager : public GonkDecoderManager {
   void CodecCanceled();
 
   void ReleaseAllPendingVideoBuffers();
-  void PostReleaseVideoBuffer(android::MediaBuffer* aBuffer,
-                              layers::FenceHandle mReleaseFence);
+  void PostReleaseVideoBuffer(
+      const android::sp<android::SimpleMediaBuffer>& aBuffer,
+      layers::FenceHandle mReleaseFence);
 
   VideoInfo mConfig;
 
@@ -115,9 +119,10 @@ class GonkVideoDecoderManager : public GonkDecoderManager {
   android::sp<android::IGraphicBufferProducer> mGraphicBufferProducer;
 
   struct ReleaseItem {
-    ReleaseItem(android::MediaBuffer* aBuffer, layers::FenceHandle& aFence)
+    ReleaseItem(const android::sp<android::SimpleMediaBuffer>& aBuffer,
+                layers::FenceHandle& aFence)
         : mBuffer(aBuffer), mReleaseFence(aFence) {}
-    android::MediaBuffer* mBuffer;
+    android::sp<android::SimpleMediaBuffer> mBuffer;
     layers::FenceHandle mReleaseFence;
   };
   nsTArray<ReleaseItem> mPendingReleaseItems;

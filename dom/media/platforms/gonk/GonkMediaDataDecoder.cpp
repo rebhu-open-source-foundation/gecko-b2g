@@ -10,6 +10,7 @@
 #include "MediaCodecProxy.h"
 
 #include <media/stagefright/foundation/ADebug.h>
+#include <media/stagefright/foundation/AMessage.h>
 
 #include "mozilla/Logging.h"
 

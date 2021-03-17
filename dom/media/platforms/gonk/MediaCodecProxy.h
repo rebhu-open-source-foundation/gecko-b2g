@@ -8,8 +8,9 @@
 #define MEDIA_CODEC_PROXY_H
 
 #include <nsString.h>
+#include <media/MediaCodecBuffer.h>
 #include <media/stagefright/MediaCodec.h>
-#include <media/stagefright/MediaBuffer.h>
+#include <media/stagefright/MetaData.h>
 #include <utils/threads.h>
 
 #include "mozilla/media/MediaSystemResourceClient.h"
@@ -20,6 +21,41 @@
 //#define DEBUG_BUFFER_USAGE
 
 namespace android {
+
+class SimpleMediaBuffer : public RefBase {
+ public:
+  explicit SimpleMediaBuffer(const sp<MediaCodecBuffer>& aMediaCodecBuffer)
+      : mMediaCodecBuffer(aMediaCodecBuffer) {}
+
+  void* data() const { return mMediaCodecBuffer->data(); }
+
+  size_t size() const { return mMediaCodecBuffer->size(); }
+
+  size_t range_offset() const { return 0; }
+
+  size_t range_length() const { return size(); }
+
+  MetaDataBase& meta_data() { return mMetaData; }
+
+  void SetGraphicBuffer(const sp<GraphicBuffer>& aGraphicBuffer) {
+    mGraphicBuffer = aGraphicBuffer;
+  }
+
+  sp<GraphicBuffer> GetGraphicBuffer() { return mGraphicBuffer; }
+
+  void SetManager(const sp<RefBase>& aManager) { mManager = aManager; }
+
+  sp<RefBase> GetManager() { return mManager.promote(); }
+
+ private:
+  virtual ~SimpleMediaBuffer() = default;
+
+  sp<MediaCodecBuffer> mMediaCodecBuffer;
+  sp<GraphicBuffer> mGraphicBuffer;
+  wp<RefBase> mManager;
+  MetaDataBase mMetaData;
+};
+
 // This class is intended to be a proxy for MediaCodec with codec resource
 // management. Basically user can use it like MediaCodec, but need to handle
 // the listener when Codec is reserved for Async case. A good example is
@@ -111,14 +147,14 @@ class MediaCodecProxy : public RefBase,
   status_t Input(const uint8_t* aData, uint32_t aDataSize,
                  int64_t aTimestampUsecs, uint64_t flags,
                  int64_t aTimeoutUs = 0);
-  status_t Output(MediaBuffer** aBuffer, int64_t aTimeoutUs);
+  status_t Output(sp<SimpleMediaBuffer>* aBuffer, int64_t aTimeoutUs);
   bool Prepare();
   void ReleaseMediaResources();
   // This updates mOutputBuffer when receiving INFO_OUTPUT_BUFFERS_CHANGED
   // event.
   bool UpdateOutputBuffers();
 
-  void ReleaseMediaBuffer(MediaBuffer* abuffer);
+  void ReleaseMediaBuffer(const sp<SimpleMediaBuffer>& aBuffer);
 
   // It allocates audio MediaCodec synchronously.
   bool AllocateAudioMediaCodec();
@@ -149,13 +185,6 @@ class MediaCodecProxy : public RefBase,
   bool allocateCodec();
   // Release Codec Resource
   void releaseCodec();
-
-  // Convert AOSP MediaCodec's MediaCodecBuffer to AOSP MediaBuffer
-  // The caller takes the ownership of the result MediaBuffer.
-  MediaBuffer* CreateMediaBuffer(const sp<MediaCodecBuffer>& aMediaCodecBuffer);
-  // Callfer should take care the life of aGraphicBuffer.
-  MediaBuffer* CreateMediaBuffer(const GraphicBuffer* aGraphicBuffer,
-                                 size_t aSize);
 
   // MediaCodec Parameter
   sp<ALooper> mCodecLooper;
