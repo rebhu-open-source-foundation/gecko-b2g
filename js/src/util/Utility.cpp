@@ -93,7 +93,13 @@ void InitLargeAllocLimit() {
 }  // namespace js
 #endif
 
-bool js::gDisablePoisoning = false;
+namespace js {
+#ifdef DEBUG
+bool gExtraPoisoningEnabled = true;
+#else
+bool gExtraPoisoningEnabled = false;
+#endif
+}  // namespace js
 
 JS_PUBLIC_DATA arena_id_t js::MallocArena;
 JS_PUBLIC_DATA arena_id_t js::ArrayBufferContentsArena;

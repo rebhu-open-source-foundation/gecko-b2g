@@ -4226,10 +4226,21 @@ mozilla::ipc::IPCResult BrowserParent::RecvCursorShowContextMenu() {
   return IPC_OK();
 }
 
+static BrowserParent* GetTopLevelBrowserParent(BrowserParent* aBrowserParent) {
+  MOZ_ASSERT(aBrowserParent);
+  BrowserParent* parent = aBrowserParent;
+  while (BrowserBridgeParent* bridge = parent->GetBrowserBridgeParent()) {
+    parent = bridge->Manager();
+  }
+  return parent;
+}
+
 mozilla::ipc::IPCResult BrowserParent::RecvRequestPointerLock(
     RequestPointerLockResolver&& aResolve) {
   nsCString error;
-  if (!PointerLockManager::SetLockedRemoteTarget(this)) {
+  if (sTopLevelWebFocus != GetTopLevelBrowserParent(this)) {
+    error = "PointerLockDeniedNotFocused";
+  } else if (!PointerLockManager::SetLockedRemoteTarget(this)) {
     error = "PointerLockDeniedInUse";
   } else {
     PointerEventHandler::ReleaseAllPointerCaptureRemoteTarget();
