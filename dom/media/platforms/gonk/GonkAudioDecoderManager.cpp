@@ -11,6 +11,7 @@
 #include "VideoUtils.h"
 #include "nsTArray.h"
 #include "mozilla/Logging.h"
+#include "mozilla/ScopeExit.h"
 #include <media/stagefright/MediaBuffer.h>
 #include <media/stagefright/MetaDataBase.h>
 #include <media/stagefright/MediaErrors.h>
@@ -173,7 +174,8 @@ nsresult GonkAudioDecoderManager::GetOutput(
   MediaBuffer* audioBuffer = nullptr;
   status_t err;
   err = mDecoder->Output(&audioBuffer, READ_OUTPUT_BUFFER_TIMEOUT_US);
-  AutoReleaseMediaBuffer a(audioBuffer, mDecoder.get());
+
+  auto raii = MakeScopeExit([&] { mDecoder->ReleaseMediaBuffer(audioBuffer); });
 
   switch (err) {
     case OK: {

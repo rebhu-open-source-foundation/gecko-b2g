@@ -293,23 +293,6 @@ void GonkDecoderManager::onMessageReceived(const sp<AMessage>& aMessage) {
   }
 }
 
-AutoReleaseMediaBuffer::AutoReleaseMediaBuffer(android::MediaBuffer* aBuffer,
-                                               android::MediaCodecProxy* aCodec)
-    : mBuffer(aBuffer), mCodec(aCodec) {}
-
-AutoReleaseMediaBuffer::~AutoReleaseMediaBuffer() {
-  MOZ_ASSERT(mCodec.get());
-  if (mBuffer) {
-    mCodec->ReleaseMediaBuffer(mBuffer);
-  }
-}
-
-android::MediaBuffer* AutoReleaseMediaBuffer::forget() {
-  android::MediaBuffer* tmp = mBuffer;
-  mBuffer = nullptr;
-  return tmp;
-}
-
 GonkMediaDataDecoder::GonkMediaDataDecoder(GonkDecoderManager* aManager)
     : mManager(aManager),
       mTaskQueue(

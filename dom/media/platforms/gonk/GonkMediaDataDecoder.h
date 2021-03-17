@@ -156,18 +156,6 @@ class GonkDecoderManager : public android::AHandler {
   void UpdateWaitingList(int64_t aForgetUpTo);
 };
 
-class AutoReleaseMediaBuffer {
- public:
-  AutoReleaseMediaBuffer(android::MediaBuffer* aBuffer,
-                         android::MediaCodecProxy* aCodec);
-  ~AutoReleaseMediaBuffer();
-  android::MediaBuffer* forget();
-
- private:
-  android::MediaBuffer* mBuffer;
-  android::sp<android::MediaCodecProxy> mCodec;
-};
-
 class DecoderManagerCallback;
 
 // Samples are decoded using the GonkDecoder (MediaCodec)

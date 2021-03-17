@@ -24,6 +24,7 @@
 #include "mozilla/layers/TextureClient.h"
 #include "mozilla/layers/TextureClientRecycleAllocator.h"
 #include "mozilla/Preferences.h"
+#include "mozilla/ScopeExit.h"
 
 #define CODECCONFIG_TIMEOUT_US 40000LL
 #define READ_OUTPUT_BUFFER_TIMEOUT_US 0LL
@@ -197,7 +198,7 @@ nsresult GonkVideoDecoderManager::CreateVideoData(MediaBuffer* aBuffer,
     return NS_ERROR_UNEXPECTED;
   }
 
-  AutoReleaseMediaBuffer autoRelease(aBuffer, mDecoder.get());
+  auto raii = MakeScopeExit([&] { mDecoder->ReleaseMediaBuffer(aBuffer); });
 
   if (!aBuffer->meta_data().findInt64(kKeyTime, &timeUs)) {
     LOGE("Decoder did not return frame time");
@@ -225,7 +226,7 @@ nsresult GonkVideoDecoderManager::CreateVideoData(MediaBuffer* aBuffer,
   if (data) {
     if (!mNeedsCopyBuffer) {
       // RecycleCallback() will be responsible for release the buffer.
-      autoRelease.forget();
+      raii.release();
     }
     mNeedsCopyBuffer = false;
   } else {
