@@ -191,7 +191,6 @@ nsresult GonkVideoDecoderManager::CreateVideoData(MediaBuffer* aBuffer,
   *v = nullptr;
   RefPtr<VideoData> data;
   int64_t timeUs;
-  int32_t keyFrame;
 
   if (aBuffer == nullptr) {
     LOGE("Video Buffer is not valid!");
@@ -217,9 +216,6 @@ nsresult GonkVideoDecoderManager::CreateVideoData(MediaBuffer* aBuffer,
     return NS_ERROR_NOT_AVAILABLE;
   }
 
-  if (!aBuffer->meta_data().findInt32(kKeyIsSyncFrame, &keyFrame)) {
-    keyFrame = 0;
-  }
   gfx::IntRect picture =
       mConfig.ScaledImageRect(mFrameInfo.mWidth, mFrameInfo.mHeight);
   data = CreateVideoDataFromGraphicBuffer(aBuffer, picture);
@@ -238,7 +234,6 @@ nsresult GonkVideoDecoderManager::CreateVideoData(MediaBuffer* aBuffer,
   // Fill necessary info.
   data->mOffset = aStreamOffset;
   data->mTime = media::TimeUnit::FromMicroseconds(timeUs);
-  data->mKeyframe = keyFrame;
   data.forget(v);
   return NS_OK;
 }
