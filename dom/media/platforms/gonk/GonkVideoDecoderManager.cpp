@@ -199,7 +199,7 @@ nsresult GonkVideoDecoderManager::CreateVideoData(
 
   auto raii = MakeScopeExit([&] { mDecoder->ReleaseMediaBuffer(aBuffer); });
 
-  if (!aBuffer->meta_data().findInt64(kKeyTime, &timeUs)) {
+  if (!aBuffer->MetaData().findInt64(kKeyTime, &timeUs)) {
     LOGE("Decoder did not return frame time");
     return NS_ERROR_UNEXPECTED;
   }
@@ -210,7 +210,7 @@ nsresult GonkVideoDecoderManager::CreateVideoData(
   }
   mLastTime = timeUs;
 
-  if (aBuffer->range_length() == 0) {
+  if (aBuffer->Size() == 0) {
     // Some decoders may return spurious empty buffers that we just want to
     // ignore quoted from Android's AwesomePlayer.cpp
     return NS_ERROR_NOT_AVAILABLE;
@@ -471,11 +471,11 @@ GonkVideoDecoderManager::CreateVideoDataFromGraphicBuffer(
 already_AddRefed<VideoData>
 GonkVideoDecoderManager::CreateVideoDataFromDataBuffer(
     const sp<SimpleMediaBuffer>& aSource, gfx::IntRect& aPicture) {
-  if (!aSource->data()) {
+  if (!aSource->Data()) {
     LOGE("No data in Video Buffer!");
     return nullptr;
   }
-  uint8_t* yuv420p_buffer = (uint8_t*)aSource->data();
+  uint8_t* yuv420p_buffer = (uint8_t*)aSource->Data();
   int32_t stride = mFrameInfo.mStride;
   int32_t slice_height = mFrameInfo.mSliceHeight;
 
@@ -489,7 +489,7 @@ GonkVideoDecoderManager::CreateVideoDataFromDataBuffer(
     yuv420p_buffer =
         GetColorConverterBuffer(mFrameInfo.mWidth, mFrameInfo.mHeight);
     if (mColorConverter.convertDecoderOutputToI420(
-            aSource->data(), mFrameInfo.mWidth, mFrameInfo.mHeight, crop,
+            aSource->Data(), mFrameInfo.mWidth, mFrameInfo.mHeight, crop,
             yuv420p_buffer) != OK) {
       LOGE("Color conversion failed!");
       return nullptr;

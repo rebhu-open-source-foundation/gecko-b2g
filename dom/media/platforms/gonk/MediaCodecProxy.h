@@ -27,15 +27,11 @@ class SimpleMediaBuffer : public RefBase {
   explicit SimpleMediaBuffer(const sp<MediaCodecBuffer>& aMediaCodecBuffer)
       : mMediaCodecBuffer(aMediaCodecBuffer) {}
 
-  void* data() const { return mMediaCodecBuffer->data(); }
+  void* Data() const { return mMediaCodecBuffer->data(); }
 
-  size_t size() const { return mMediaCodecBuffer->size(); }
+  size_t Size() const { return mMediaCodecBuffer->size(); }
 
-  size_t range_offset() const { return 0; }
-
-  size_t range_length() const { return size(); }
-
-  MetaDataBase& meta_data() { return mMetaData; }
+  MetaDataBase& MetaData() { return mMetaData; }
 
   void SetGraphicBuffer(const sp<GraphicBuffer>& aGraphicBuffer) {
     mGraphicBuffer = aGraphicBuffer;

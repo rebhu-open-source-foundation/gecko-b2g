@@ -116,17 +116,17 @@ bool GonkAudioDecoderManager::InitMediaCodecProxy() {
 
 nsresult GonkAudioDecoderManager::CreateAudioData(
     const sp<SimpleMediaBuffer>& aBuffer, int64_t aStreamOffset) {
-  if (!(aBuffer != nullptr && aBuffer->data() != nullptr)) {
+  if (!(aBuffer != nullptr && aBuffer->Data() != nullptr)) {
     LOGE("Audio Buffer is not valid!");
     return NS_ERROR_UNEXPECTED;
   }
 
   int64_t timeUs;
-  if (!aBuffer->meta_data().findInt64(kKeyTime, &timeUs)) {
+  if (!aBuffer->MetaData().findInt64(kKeyTime, &timeUs)) {
     return NS_ERROR_UNEXPECTED;
   }
 
-  if (aBuffer->range_length() == 0) {
+  if (aBuffer->Size() == 0) {
     // Some decoders may return spurious empty buffers that we just want to
     // ignore quoted from Android's AwesomePlayer.cpp
     return NS_ERROR_NOT_AVAILABLE;
@@ -139,9 +139,8 @@ nsresult GonkAudioDecoderManager::CreateAudioData(
   }
   mLastTime = timeUs;
 
-  const uint8_t* data = static_cast<const uint8_t*>(aBuffer->data());
-  size_t dataOffset = aBuffer->range_offset();
-  size_t size = aBuffer->range_length();
+  const uint8_t* data = static_cast<const uint8_t*>(aBuffer->Data());
+  size_t size = aBuffer->Size();
 
   uint64_t frames = size / (2 * mAudioChannels);
 
@@ -152,8 +151,7 @@ nsresult GonkAudioDecoderManager::CreateAudioData(
 
   typedef AudioCompactor::NativeCopy OmxCopy;
   mAudioCompactor.Push(aStreamOffset, timeUs, mAudioRate, frames,
-                       mAudioChannels,
-                       OmxCopy(data + dataOffset, size, mAudioChannels));
+                       mAudioChannels, OmxCopy(data, size, mAudioChannels));
   return NS_OK;
 }
 

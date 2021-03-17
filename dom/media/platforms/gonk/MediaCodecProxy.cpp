@@ -599,7 +599,7 @@ status_t MediaCodecProxy::Output(sp<SimpleMediaBuffer>* aBuffer,
     buffer->SetGraphicBuffer(graphicBuffer);
     mOutputGraphicBuffers.insertAt(graphicBuffer, index);
   }
-  MetaDataBase& metaData = buffer->meta_data();
+  MetaDataBase& metaData = buffer->MetaData();
   metaData.setInt32(kKeyBufferIndex, index);
   metaData.setInt64(kKeyTime, timeUs);
   *aBuffer = buffer;
@@ -617,7 +617,7 @@ void MediaCodecProxy::ReleaseMediaResources() { ReleaseMediaCodec(); }
 
 void MediaCodecProxy::ReleaseMediaBuffer(const sp<SimpleMediaBuffer>& aBuffer) {
   if (aBuffer) {
-    MetaDataBase& metaData = aBuffer->meta_data();
+    MetaDataBase& metaData = aBuffer->MetaData();
     int32_t index;
     metaData.findInt32(kKeyBufferIndex, &index);
 #ifdef DEBUG_BUFFER_USAGE
