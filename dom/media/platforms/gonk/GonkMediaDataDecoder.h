@@ -186,7 +186,7 @@ class GonkMediaDataDecoder : public MediaDataDecoder,
   void Output(DecodedData&& aDecodedData) override;
   void InputExhausted() override;
   void DrainComplete() override;
-  void NotifyError(const char* aCallSite, nsresult aResult);
+  void NotifyError(const char* aCallSite, nsresult aResult) override;
 
  private:
   void ResolveDecodePromise();

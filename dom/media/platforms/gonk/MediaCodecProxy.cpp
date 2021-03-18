@@ -625,7 +625,6 @@ void MediaCodecProxy::ReleaseMediaBuffer(const sp<SimpleMediaBuffer>& aBuffer) {
     metaData.findInt64(kKeyTime, &timeUs);
     LOG("ReleaseMediaBuffer time:%lld, index:%d", timeUs, index);
 #endif
-    GraphicBuffer* srcBuffer = nullptr;
     if (aBuffer->GetGraphicBuffer()) {
       mOutputGraphicBuffers.removeAt(index);
     }

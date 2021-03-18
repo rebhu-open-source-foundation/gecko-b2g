@@ -280,7 +280,7 @@ void GonkDecoderManager::onMessageReceived(const sp<AMessage>& aMessage) {
   switch (aMessage->what()) {
     case kNotifyDecoderActivity: {
       sp<GonkDecoderManager> self = this;
-      mTaskQueue->Dispatch(NS_NewRunnableFunction(
+      nsresult rv = mTaskQueue->Dispatch(NS_NewRunnableFunction(
           "GonkDecoderManager::ProcessToDo", [self, this]() {
             // This task may be run after Shutdown() is called. Don't do
             // anything in this case.
@@ -288,6 +288,8 @@ void GonkDecoderManager::onMessageReceived(const sp<AMessage>& aMessage) {
               ProcessToDo();
             }
           }));
+      MOZ_DIAGNOSTIC_ASSERT(NS_SUCCEEDED(rv));
+      Unused << rv;
       break;
     }
     default: {
