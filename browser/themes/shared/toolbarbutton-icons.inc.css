@@ -179,6 +179,10 @@ toolbar[brighttext] {
   list-style-image: url("chrome://browser/skin/open.svg");
 }
 
+#screenshot-button {
+  list-style-image: url("chrome://browser/skin/screenshot.svg");
+}
+
 #save-page-button {
   list-style-image: url("chrome://browser/skin/save.svg");
 }
@@ -369,6 +373,10 @@ toolbar[brighttext] {
   fill: rgb(213, 32, 20);
 }
 
+toolbar[brighttext] #panic-button[open] {
+  fill: #ff848b;
+}
+
 #library-button {
   list-style-image: url("chrome://browser/skin/library.svg");
 }
@@ -468,7 +476,7 @@ toolbar[brighttext] {
 /* ----- BOOKMARK BUTTONS ----- */
 
 .bookmark-item {
-  list-style-image: url("chrome://mozapps/skin/places/defaultFavicon.svg");
+  list-style-image: url("chrome://global/skin/icons/defaultFavicon.svg");
   -moz-context-properties: fill;
   fill: currentColor;
 }

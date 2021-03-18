@@ -94,10 +94,12 @@ void InitLargeAllocLimit() {
 #endif
 
 namespace js {
-#ifdef DEBUG
+#if defined(JS_GC_ALLOW_EXTRA_POISONING)
+#  if defined(DEBUG)
 bool gExtraPoisoningEnabled = true;
-#else
+#  else
 bool gExtraPoisoningEnabled = false;
+#  endif
 #endif
 }  // namespace js
 

@@ -1998,9 +1998,9 @@ void nsWindow::Move(double aX, double aY) {
       if (WinUtils::LogToPhysFactor(mWnd) != oldScale) {
         ChangedDPI();
       }
-    }
 
-    SetThemeRegion();
+      SetThemeRegion();
+    }
 
     ResizeDirectManipulationViewport();
   }
@@ -2064,9 +2064,9 @@ void nsWindow::Resize(double aWidth, double aHeight, bool aRepaint) {
         ChangedDPI();
       }
       SetThemeRegion();
-
-      ResizeDirectManipulationViewport();
     }
+
+    ResizeDirectManipulationViewport();
   }
 
   if (aRepaint) Invalidate();
@@ -2149,9 +2149,9 @@ void nsWindow::Resize(double aX, double aY, double aWidth, double aHeight,
                        SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
       }
       SetThemeRegion();
-
-      ResizeDirectManipulationViewport();
     }
+
+    ResizeDirectManipulationViewport();
   }
 
   if (aRepaint) Invalidate();

@@ -128,11 +128,12 @@ void DMABufSurface::GlobalRefCountDelete() {
 }
 
 void DMABufSurface::ReleaseDMABuf() {
-  LOGDMABUF(("DMABufSurfaceYUV::ReleaseDMABuf() UID %d", mUID));
+  LOGDMABUF(("DMABufSurface::ReleaseDMABuf() UID %d", mUID));
   for (int i = 0; i < mBufferPlaneCount; i++) {
     Unmap(i);
   }
 
+  MutexAutoLock lockFD(mSurfaceLock);
   CloseFileDescriptors(/* aForceClose */ true);
 
   for (int i = 0; i < mBufferPlaneCount; i++) {
@@ -141,6 +142,7 @@ void DMABufSurface::ReleaseDMABuf() {
       mGbmBufferObject[i] = nullptr;
     }
   }
+  mBufferPlaneCount = 0;
 }
 
 DMABufSurface::DMABufSurface(SurfaceType aSurfaceType)
@@ -805,9 +807,18 @@ DMABufSurfaceYUV::DMABufSurfaceYUV()
 DMABufSurfaceYUV::~DMABufSurfaceYUV() { ReleaseSurface(); }
 
 bool DMABufSurfaceYUV::OpenFileDescriptorForPlane(int aPlane) {
+  // The fd is already opened, no need to reopen.
+  // This can happen when we import dmabuf surface from VA-API decoder,
+  // mGbmBufferObject is null and we don't close
+  // file descriptors for surface as they are our only reference to it.
   if (mDmabufFds[aPlane] >= 0) {
     return true;
   }
+
+  MOZ_RELEASE_ASSERT(mGbmBufferObject[aPlane] != nullptr,
+                     "DMABufSurfaceYUV::OpenFileDescriptorForPlane: Missing "
+                     "mGbmBufferObject object!");
+
   mDmabufFds[aPlane] = nsGbmLib::GetFd(mGbmBufferObject[aPlane]);
   if (mDmabufFds[aPlane] < 0) {
     CloseFileDescriptors();

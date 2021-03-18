@@ -332,37 +332,6 @@ def _cxxLifecycleProxyType(ptr=False):
     return Type("mozilla::ipc::ActorLifecycleProxy", ptr=ptr)
 
 
-def _callInsertManagedActor(managees, actor):
-    return ExprCall(ExprSelect(managees, ".", "PutEntry"), args=[actor])
-
-
-def _callRemoveManagedActor(managees, actor):
-    return ExprCall(ExprSelect(managees, ".", "RemoveEntry"), args=[actor])
-
-
-def _callClearManagedActors(managees):
-    return ExprCall(ExprSelect(managees, ".", "Clear"))
-
-
-def _callHasManagedActor(managees, actor):
-    return ExprCall(ExprSelect(managees, ".", "Contains"), args=[actor])
-
-
-def _callGetLifecycleProxy(actor=ExprVar.THIS):
-    return ExprCall(ExprSelect(actor, "->", "GetLifecycleProxy"))
-
-
-def _releaseLifecycleProxy(actor=None):
-    return StmtCode(
-        """
-        mozilla::ipc::ActorLifecycleProxy* proxy =
-            (${actor})->GetLifecycleProxy();
-        NS_IF_RELEASE(proxy);
-        """,
-        actor=actor or ExprVar.THIS,
-    )
-
-
 def _otherSide(side):
     if side == "child":
         return "parent"
@@ -4352,14 +4321,9 @@ class _GenerateProtocolActorCode(ipdl.ast.Visitor):
                     """
                     {
                         ${manageecxxtype} actor = static_cast<${manageecxxtype}>(aListener);
-                        auto& container = ${container};
 
-                        // Use a temporary variable here so all the assertion expressions
-                        // in the MOZ_RELEASE_ASSERT call below are textually identical;
-                        // the linker can then merge the strings from the assertion macro(s).
-                        MOZ_RELEASE_ASSERT(container.Contains(actor),
-                            "actor not managed by this!");
-                        container.RemoveEntry(actor);
+                        const bool removed = ${container}.EnsureRemoved(actor);
+                        MOZ_RELEASE_ASSERT(removed, "actor not managed by this!");
 
                         auto* proxy = actor->GetLifecycleProxy();
                         NS_IF_RELEASE(proxy);

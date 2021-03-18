@@ -340,11 +340,7 @@ pref("browser.triple_click_selects_paragraph", true);
 pref("pdfjs.renderInteractiveForms", true);
 
 // Enable JavaScript support in the PDF viewer.
-#ifdef NIGHTLY_BUILD
-  pref("pdfjs.enableScripting", true);
-#else
-  pref("pdfjs.enableScripting", false);
-#endif
+pref("pdfjs.enableScripting", true);
 
 // Disable support for MathML
 pref("mathml.disabled",    false);
@@ -727,7 +723,7 @@ pref("accessibility.force_disabled", 0);
 pref("focusmanager.testmode", false);
 
 pref("accessibility.usetexttospeech", "");
-pref("accessibility.mouse_focuses_formcontrol", false);
+pref("accessibility.mouse_focuses_formcontrol", true);
 
 // Type Ahead Find
 pref("accessibility.typeaheadfind", true);

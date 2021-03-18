@@ -1692,6 +1692,10 @@ WritingMode nsIFrame::WritingModeForLine(WritingMode aSelfWM,
   return writingMode;
 }
 
+nsRect nsIFrame::GetMarginRect() const {
+  return GetMarginRectRelativeToSelf() + GetPosition();
+}
+
 nsRect nsIFrame::GetMarginRectRelativeToSelf() const {
   nsMargin m = GetUsedMargin().ApplySkipSides(GetSkipSides());
   nsRect r(0, 0, mRect.width, mRect.height);
@@ -6876,7 +6880,7 @@ Matrix4x4Flagged nsIFrame::GetTransformMatrix(ViewportType aViewportType,
      * coordinates to our parent.
      */
     if (isTransformed) {
-      NS_ASSERTION(nsLayoutUtils::GetCrossDocParentFrame(this),
+      NS_ASSERTION(nsLayoutUtils::GetCrossDocParentFrameInProcess(this),
                    "Cannot transform the viewport frame!");
 
       result = result * nsDisplayTransform::GetResultingTransformMatrix(
@@ -7011,7 +7015,7 @@ static void InvalidateRenderingObservers(nsIFrame* aDisplayRoot,
   SVGObserverUtils::InvalidateDirectRenderingObservers(aFrame);
   nsIFrame* parent = aFrame;
   while (parent != aDisplayRoot &&
-         (parent = nsLayoutUtils::GetCrossDocParentFrame(parent)) &&
+         (parent = nsLayoutUtils::GetCrossDocParentFrameInProcess(parent)) &&
          !parent->HasAnyStateBits(NS_FRAME_DESCENDANT_NEEDS_PAINT)) {
     SVGObserverUtils::InvalidateDirectRenderingObservers(parent);
   }
@@ -7066,7 +7070,7 @@ static void InvalidateFrameInternal(nsIFrame* aFrame, bool aHasDisplayItem,
   if (nsLayoutUtils::IsPopup(aFrame)) {
     needsSchedulePaint = true;
   } else {
-    nsIFrame* parent = nsLayoutUtils::GetCrossDocParentFrame(aFrame);
+    nsIFrame* parent = nsLayoutUtils::GetCrossDocParentFrameInProcess(aFrame);
     while (parent &&
            !parent->HasAnyStateBits(NS_FRAME_DESCENDANT_NEEDS_PAINT)) {
       if (aHasDisplayItem && !parent->HasAnyStateBits(NS_FRAME_IS_NONDISPLAY)) {
@@ -7081,7 +7085,7 @@ static void InvalidateFrameInternal(nsIFrame* aFrame, bool aHasDisplayItem,
         needsSchedulePaint = true;
         break;
       }
-      parent = nsLayoutUtils::GetCrossDocParentFrame(parent);
+      parent = nsLayoutUtils::GetCrossDocParentFrameInProcess(parent);
     }
     if (!parent) {
       needsSchedulePaint = true;
@@ -10853,7 +10857,7 @@ void nsIFrame::SetParent(nsContainerFrame* aParent) {
     for (nsIFrame* f = aParent;
          f && !f->HasAnyStateBits(NS_FRAME_DESCENDANT_NEEDS_PAINT |
                                   NS_FRAME_IS_NONDISPLAY);
-         f = nsLayoutUtils::GetCrossDocParentFrame(f)) {
+         f = nsLayoutUtils::GetCrossDocParentFrameInProcess(f)) {
       f->AddStateBits(NS_FRAME_DESCENDANT_NEEDS_PAINT);
     }
   }
@@ -10923,7 +10927,7 @@ static bool IsFrameScrolledOutOfView(const nsIFrame* aTarget,
   // find the first scrollable frame or root frame if we are in a fixed pos
   // subtree
   for (nsIFrame* f = const_cast<nsIFrame*>(aParent); f;
-       f = nsLayoutUtils::GetCrossDocParentFrame(f)) {
+       f = nsLayoutUtils::GetCrossDocParentFrameInProcess(f)) {
     nsIScrollableFrame* scrollableFrame = do_QueryFrame(f);
     if (scrollableFrame) {
       clipParent = f;

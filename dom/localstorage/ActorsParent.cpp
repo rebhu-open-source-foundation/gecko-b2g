@@ -1203,6 +1203,7 @@ class Connection final : public CachingDatabaseConnection {
   nsCOMPtr<nsITimer> mFlushTimer;
   UniquePtr<ArchivedOriginScope> mArchivedOriginScope;
   ConnectionWriteOptimizer mWriteOptimizer;
+  // XXX Consider changing this to ClientMetadata.
   const OriginMetadata mOriginMetadata;
   nsString mDirectoryPath;
   /**
@@ -5051,8 +5052,8 @@ void Datastore::ConnectionClosedCallback() {
     QuotaManager* quotaManager = QuotaManager::Get();
     MOZ_ASSERT(quotaManager);
 
-    quotaManager->ResetUsageForClient(PERSISTENCE_TYPE_DEFAULT, mOriginMetadata,
-                                      mozilla::dom::quota::Client::LS);
+    quotaManager->ResetUsageForClient(
+        ClientMetadata{mOriginMetadata, mozilla::dom::quota::Client::LS});
   }
 
   mConnection = nullptr;
@@ -6805,8 +6806,7 @@ nsresult PrepareDatastoreOp::DatabaseWork() {
                       quotaManager->GetDirectoryForOrigin(
                           PERSISTENCE_TYPE_DEFAULT, Origin()));
 
-        quotaManager->EnsureQuotaForOrigin(PERSISTENCE_TYPE_DEFAULT,
-                                           mOriginMetadata);
+        quotaManager->EnsureQuotaForOrigin(mOriginMetadata);
 
         return directoryEntry;
       }()));

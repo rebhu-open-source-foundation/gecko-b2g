@@ -25,6 +25,12 @@
   --toolbar-field-focus-border-color: var(--focus-outline-color);
   --urlbar-container-padding: 1px;
 }
+
+@media not (prefers-contrast) {
+  :root {
+    --toolbar-field-focus-border-color: color-mix(in srgb, var(--focus-outline-color) 50%, transparent);
+  }
+}
 } /*** END proton ***/
 
 #urlbar-container,
@@ -1017,14 +1023,14 @@ moz-input-box > menupopup .context-menu-add-engine > .menu-iconic-left::after {
   background: url(chrome://browser/skin/search-indicator-badge-add.svg) no-repeat center;
   height: 11px;
   width: 11px;
-  margin-inline: -7px;
+  margin-inline: -4px -7px;
   margin-top: -13px;
 }
 
 moz-input-box > menupopup .context-menu-add-engine > .menu-iconic-left::after {
   /* These differ from the urlbar and searchbar because the context menu
-     may not have enough vertical space */
-  margin-inline: -6px;
+     may not have enough space */
+  margin-inline: -7px -4px;
   margin-top: -8px;
 }
 

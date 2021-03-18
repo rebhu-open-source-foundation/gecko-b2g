@@ -2296,8 +2296,8 @@ void CompositorOGL::TryUnlockTextures() {
     }
   }
   mMaybeUnlockBeforeNextComposition.Clear();
-  for (auto it = texturesIdsToUnlockByPid.ConstIter(); !it.Done(); it.Next()) {
-    TextureSync::SetTexturesUnlocked(it.Key(), *it.UserData());
+  for (const auto& entry : texturesIdsToUnlockByPid) {
+    TextureSync::SetTexturesUnlocked(entry.GetKey(), *entry.GetWeak());
   }
 }
 #endif
