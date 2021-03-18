@@ -116,7 +116,7 @@ bool GonkAudioDecoderManager::InitMediaCodecProxy() {
 
 nsresult GonkAudioDecoderManager::CreateAudioData(
     const sp<SimpleMediaBuffer>& aBuffer, int64_t aStreamOffset) {
-  if (!(aBuffer != nullptr && aBuffer->Data() != nullptr)) {
+  if (!aBuffer || !aBuffer->Data()) {
     LOGE("Audio Buffer is not valid!");
     return NS_ERROR_UNEXPECTED;
   }
@@ -187,7 +187,7 @@ nsresult GonkAudioDecoderManager::GetOutput(
       sp<AMessage> audioCodecFormat;
 
       if (mDecoder->getOutputFormat(&audioCodecFormat) != OK ||
-          audioCodecFormat == nullptr) {
+          !audioCodecFormat) {
         return NS_ERROR_UNEXPECTED;
       }
 

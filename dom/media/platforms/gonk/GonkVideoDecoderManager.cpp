@@ -150,7 +150,7 @@ RefPtr<MediaDataDecoder::InitPromise> GonkVideoDecoderManager::Init() {
     return InitPromise::CreateAndReject(NS_ERROR_DOM_MEDIA_FATAL_ERR, __func__);
   }
 
-  if (mDecodeLooper.get() != nullptr) {
+  if (mDecodeLooper) {
     return InitPromise::CreateAndReject(NS_ERROR_DOM_MEDIA_FATAL_ERR, __func__);
   }
 
@@ -192,7 +192,7 @@ nsresult GonkVideoDecoderManager::CreateVideoData(
   RefPtr<VideoData> data;
   int64_t timeUs;
 
-  if (aBuffer == nullptr) {
+  if (!aBuffer) {
     LOGE("Video Buffer is not valid!");
     return NS_ERROR_UNEXPECTED;
   }
@@ -607,7 +607,7 @@ nsresult GonkVideoDecoderManager::GetOutput(
     return NS_ERROR_DOM_MEDIA_END_OF_STREAM;
   }
   status_t err;
-  if (mDecoder == nullptr) {
+  if (!mDecoder) {
     LOGE("Decoder is not inited");
     return NS_ERROR_UNEXPECTED;
   }
@@ -621,7 +621,7 @@ nsresult GonkVideoDecoderManager::GetOutput(
       if (rv == NS_ERROR_NOT_AVAILABLE) {
         // Decoder outputs a empty video buffer, try again
         return NS_ERROR_NOT_AVAILABLE;
-      } else if (rv != NS_OK || data == nullptr) {
+      } else if (rv != NS_OK || !data) {
         LOGE("Failed to create VideoData");
         return NS_ERROR_UNEXPECTED;
       }
@@ -657,7 +657,7 @@ nsresult GonkVideoDecoderManager::GetOutput(
         // For EOS, no need to do any thing.
         return NS_ERROR_DOM_MEDIA_END_OF_STREAM;
       }
-      if (rv != NS_OK || data == nullptr) {
+      if (rv != NS_OK || !data) {
         LOGE("Failed to create video data");
         return NS_ERROR_UNEXPECTED;
       }
@@ -692,17 +692,16 @@ void GonkVideoDecoderManager::CodecReserved() {
   // Set the "moz-use-undequeued-bufs" to use the undeque buffers to accelerate
   // the video decoding.
   format->setInt32("moz-use-undequeued-bufs", 1);
-  if (mNativeWindow != nullptr) {
+  if (mNativeWindow) {
     surface = new Surface(mGraphicBufferProducer);
   }
   mDecoder->configure(format, surface, nullptr, 0);
   mDecoder->Prepare();
 
   if (mConfig.mMimeType.EqualsLiteral("video/mp4v-es")) {
-    rv = mDecoder->Input(mConfig.mExtraData->Elements(),
-                         mConfig.mExtraData->Length(), 0,
-                         android::MediaCodec::BUFFER_FLAG_CODECCONFIG,
-                         CODECCONFIG_TIMEOUT_US);
+    rv = mDecoder->Input(
+        mConfig.mExtraData->Elements(), mConfig.mExtraData->Length(), 0,
+        android::MediaCodec::BUFFER_FLAG_CODECCONFIG, CODECCONFIG_TIMEOUT_US);
   }
 
   if (rv != OK) {

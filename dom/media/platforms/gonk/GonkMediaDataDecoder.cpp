@@ -111,9 +111,9 @@ int32_t GonkDecoderManager::ProcessQueuedSamples() {
                          INPUT_TIMEOUT_US);
     if (rv == OK) {
       mQueuedSamples.RemoveElementAt(0);
-      mWaitOutput.AppendElement(
-          WaitOutputInfo(data->mOffset, data->mTime.ToMicroseconds(),
-                         /* eos */ data->Data() == nullptr));
+      mWaitOutput.AppendElement(WaitOutputInfo(data->mOffset,
+                                               data->mTime.ToMicroseconds(),
+                                               /* eos */ !data->Data()));
     } else if (rv == -EAGAIN || rv == -ETIMEDOUT) {
       // In most cases, EAGAIN or ETIMEOUT are safe because OMX can't fill
       // buffer on time.
