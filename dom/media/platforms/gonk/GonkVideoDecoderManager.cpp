@@ -770,20 +770,16 @@ void GonkVideoDecoderManager::ReleaseAllPendingVideoBuffers() {
   nsTArray<ReleaseItem> releasingItems;
   {
     MutexAutoLock autoLock(mPendingReleaseItemsLock);
-    releasingItems.AppendElements(mPendingReleaseItems);
-    mPendingReleaseItems.Clear();
+    releasingItems.SwapElements(mPendingReleaseItems);
   }
 
   // Free all pending video buffers without holding mPendingReleaseItemsLock.
-  size_t size = releasingItems.Length();
-  for (size_t i = 0; i < size; i++) {
-    RefPtr<FenceHandle::FdObj> fdObj =
-        releasingItems[i].mReleaseFence.GetAndResetFdObj();
+  for (auto& item : releasingItems) {
+    RefPtr<FenceHandle::FdObj> fdObj = item.mReleaseFence.GetAndResetFdObj();
     sp<android::Fence> fence = new android::Fence(fdObj->GetAndResetFd());
     fence->waitForever("GonkVideoDecoderManager");
-    mDecoder->ReleaseMediaBuffer(releasingItems[i].mBuffer);
+    mDecoder->ReleaseMediaBuffer(item.mBuffer);
   }
-  releasingItems.Clear();
 }
 
 }  // namespace mozilla
