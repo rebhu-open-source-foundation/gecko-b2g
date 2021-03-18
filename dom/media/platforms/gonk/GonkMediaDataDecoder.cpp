@@ -172,8 +172,11 @@ nsresult GonkDecoderManager::Shutdown() {
   mTaskLooper->stop();
   mTaskLooper = nullptr;
 
+  // Don't set mTaskQueue to null since other threads may still dispatch tasks
+  // to it. Note that after GonkMediaDataDecoder calls
+  // mTaskQueue->BeginShutdown(), any Dispatch() call will simply return error.
+
   mCallback = nullptr;
-  mTaskQueue = nullptr;
   ShutdownInternal();
   mInitPromise.RejectIfExists(NS_ERROR_DOM_MEDIA_CANCELED, __func__);
   return NS_OK;

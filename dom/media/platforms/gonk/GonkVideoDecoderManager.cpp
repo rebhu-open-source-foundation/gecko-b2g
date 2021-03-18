@@ -763,12 +763,24 @@ void GonkVideoDecoderManager::PostReleaseVideoBuffer(
   }
 
   sp<GonkDecoderManager> self = this;
-  mTaskQueue->Dispatch(NS_NewRunnableFunction(
+  nsresult rv = mTaskQueue->Dispatch(NS_NewRunnableFunction(
       "GonkVideoDecoderManager::ReleaseAllPendingVideoBuffers",
       [self, this]() { ReleaseAllPendingVideoBuffers(); }));
+  if (NS_FAILED(rv)) {
+    LOG("Unable to diapatch ReleaseAllPendingVideoBuffers. Decoder manager may "
+        "have been shut down.");
+  }
 }
 
 void GonkVideoDecoderManager::ReleaseAllPendingVideoBuffers() {
+  AssertOnTaskQueue();
+
+  if (mIsShutdown) {
+    LOG("Skip ReleaseAllPendingVideoBuffers because decoder manager has been "
+        "shut down.");
+    return;
+  }
+
   nsTArray<ReleaseItem> releasingItems;
   {
     MutexAutoLock autoLock(mPendingReleaseItemsLock);
