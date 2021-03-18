@@ -1588,34 +1588,6 @@ void NetworkUtils::ExecuteCommand(NetworkParams aOptions) {
  * Set DNS servers for given network interface.
  */
 CommandResult NetworkUtils::setDNS(NetworkParams& aOptions) {
-  uint32_t length = aOptions.mDnses.Length();
-
-  // TODO: do we still need this ?
-  if (length > 0) {
-    for (uint32_t i = 0; i < length; i++) {
-      NS_ConvertUTF16toUTF8 autoDns(aOptions.mDnses[i]);
-
-      char dns_prop_key[Property::VALUE_MAX_LENGTH];
-      SprintfLiteral(dns_prop_key, "net.dns%d", i + 1);
-      Property::Set(dns_prop_key, autoDns.get());
-    }
-  } else {
-    // Set dnses from system properties.
-    IFProperties interfaceProperties;
-    getIFProperties(GET_CHAR(mIfname), interfaceProperties);
-
-    Property::Set("net.dns1", interfaceProperties.dns1);
-    Property::Set("net.dns2", interfaceProperties.dns2);
-  }
-
-  // Bump the DNS change property.
-  char dnschange[Property::VALUE_MAX_LENGTH];
-  Property::Get("net.dnschange", dnschange, "0");
-
-  char num[Property::VALUE_MAX_LENGTH];
-  snprintf(num, Property::VALUE_MAX_LENGTH - 1, "%d", atoi(dnschange) + 1);
-  Property::Set("net.dnschange", num);
-
   static CommandFunc COMMAND_CHAIN[] = {setInterfaceDns,
                                         defaultAsyncSuccessHandler};
   NetIdManager::NetIdInfo netIdInfo;
