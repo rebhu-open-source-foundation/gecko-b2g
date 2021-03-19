@@ -2712,7 +2712,7 @@ struct Stk {
   }
 };
 
-typedef Vector<Stk, 0, SystemAllocPolicy> StkVector;
+using StkVector = Vector<Stk, 0, SystemAllocPolicy>;
 
 // MachineStackTracker, used for stack-slot pointerness tracking.
 
@@ -3314,7 +3314,7 @@ class BaseCompiler final : public BaseCompilerInterface {
  public:
   BaseCompiler(const ModuleEnvironment& moduleEnv,
                const CompilerEnvironment& compilerEnv,
-               const FuncCompileInput& input, const ValTypeVector& locals,
+               const FuncCompileInput& func, const ValTypeVector& locals,
                const MachineState& trapExitLayout,
                size_t trapExitLayoutNumWords, Decoder& decoder,
                StkVector& stkSource, TempAllocator* alloc, MacroAssembler* masm,
@@ -3356,8 +3356,7 @@ class BaseCompiler final : public BaseCompilerInterface {
   }
 
   [[nodiscard]] bool generateOutOfLineCode() {
-    for (uint32_t i = 0; i < outOfLine_.length(); i++) {
-      OutOfLineCode* ool = outOfLine_[i];
+    for (auto ool : outOfLine_) {
       ool->bind(&fr, &masm);
       ool->generate(&masm);
     }
@@ -5443,8 +5442,7 @@ class BaseCompiler final : public BaseCompilerInterface {
   // Call this between opcodes.
   void performRegisterLeakCheck() {
     BaseRegAlloc::LeakCheck check(ra);
-    for (size_t i = 0; i < stk_.length(); i++) {
-      Stk& item = stk_[i];
+    for (auto& item : stk_) {
       switch (item.kind_) {
         case Stk::RegisterI32:
           check.addKnownI32(item.i32reg());
@@ -6014,7 +6012,7 @@ class BaseCompiler final : public BaseCompilerInterface {
     fr.allocArgArea(adjustment);
   }
 
-  const ABIArg reservePointerArgument(FunctionCall* call) {
+  ABIArg reservePointerArgument(FunctionCall* call) {
     return call->abi.next(MIRType::Pointer);
   }
 
@@ -6291,10 +6289,10 @@ class BaseCompiler final : public BaseCompilerInterface {
 #endif
     masm.bind(theTable);
 
-    for (uint32_t i = 0; i < labels.length(); i++) {
+    for (const auto& label : labels) {
       CodeLabel cl;
       masm.writeCodePointer(&cl);
-      cl.target()->bind(labels[i].offset());
+      cl.target()->bind(label.offset());
       masm.addCodeLabel(cl);
     }
   }
@@ -8414,7 +8412,7 @@ class BaseCompiler final : public BaseCompilerInterface {
     False
   };
 
-  [[nodiscard]] bool emitCallArgs(const ValTypeVector& args,
+  [[nodiscard]] bool emitCallArgs(const ValTypeVector& argTypes,
                                   const StackResultsLoc& results,
                                   FunctionCall* baselineCall,
                                   CalleeOnStack calleeOnStack);
@@ -10204,7 +10202,7 @@ bool BaseCompiler::endIfThen(ResultType type) {
 
 bool BaseCompiler::emitElse() {
   ResultType params, results;
-  NothingVector unused_thenValues;
+  NothingVector unused_thenValues{};
 
   if (!iter_.readElse(&params, &results, &unused_thenValues)) {
     return false;
@@ -10311,7 +10309,7 @@ bool BaseCompiler::endIfThenElse(ResultType type) {
 bool BaseCompiler::emitEnd() {
   LabelKind kind;
   ResultType type;
-  NothingVector unused_values;
+  NothingVector unused_values{};
   if (!iter_.readEnd(&kind, &type, &unused_values, &unused_values)) {
     return false;
   }
@@ -10364,7 +10362,7 @@ bool BaseCompiler::emitEnd() {
 bool BaseCompiler::emitBr() {
   uint32_t relativeDepth;
   ResultType type;
-  NothingVector unused_values;
+  NothingVector unused_values{};
   if (!iter_.readBr(&relativeDepth, &type, &unused_values)) {
     return false;
   }
@@ -10395,7 +10393,7 @@ bool BaseCompiler::emitBr() {
 bool BaseCompiler::emitBrIf() {
   uint32_t relativeDepth;
   ResultType type;
-  NothingVector unused_values;
+  NothingVector unused_values{};
   Nothing unused_condition;
   if (!iter_.readBrIf(&relativeDepth, &type, &unused_values,
                       &unused_condition)) {
@@ -10421,7 +10419,7 @@ bool BaseCompiler::emitBrOnNull() {
 
   uint32_t relativeDepth;
   ResultType type;
-  NothingVector unused_values;
+  NothingVector unused_values{};
   Nothing unused_condition;
   if (!iter_.readBrOnNull(&relativeDepth, &type, &unused_values,
                           &unused_condition)) {
@@ -10457,7 +10455,7 @@ bool BaseCompiler::emitBrTable() {
   Uint32Vector depths;
   uint32_t defaultDepth;
   ResultType branchParams;
-  NothingVector unused_values;
+  NothingVector unused_values{};
   Nothing unused_index;
   // N.B., `branchParams' gets set to the type of the default branch target.  In
   // the presence of subtyping, it could be that the different branch targets
@@ -10606,7 +10604,7 @@ bool BaseCompiler::emitCatch() {
   LabelKind kind;
   uint32_t eventIndex;
   ResultType paramType, resultType;
-  NothingVector unused_tryValues;
+  NothingVector unused_tryValues{};
 
   if (!iter_.readCatch(&kind, &eventIndex, &paramType, &resultType,
                        &unused_tryValues)) {
@@ -10832,7 +10830,7 @@ bool BaseCompiler::endTryCatch(ResultType type) {
 bool BaseCompiler::emitThrow() {
   uint32_t lineOrBytecode = readCallSiteLineOrBytecode();
   uint32_t exnIndex;
-  NothingVector unused_argValues;
+  NothingVector unused_argValues{};
 
   if (!iter_.readThrow(&exnIndex, &unused_argValues)) {
     return false;
@@ -10972,7 +10970,7 @@ void BaseCompiler::doReturn(ContinuationKind kind) {
 }
 
 bool BaseCompiler::emitReturn() {
-  NothingVector unused_values;
+  NothingVector unused_values{};
   if (!iter_.readReturn(&unused_values)) {
     return false;
   }
@@ -11151,7 +11149,7 @@ bool BaseCompiler::emitCall() {
   uint32_t lineOrBytecode = readCallSiteLineOrBytecode();
 
   uint32_t funcIndex;
-  NothingVector args_;
+  NothingVector args_{};
   if (!iter_.readCall(&funcIndex, &args_)) {
     return false;
   }
@@ -11211,7 +11209,7 @@ bool BaseCompiler::emitCallIndirect() {
   uint32_t funcTypeIndex;
   uint32_t tableIndex;
   Nothing callee_;
-  NothingVector args_;
+  NothingVector args_{};
   if (!iter_.readCallIndirect(&funcTypeIndex, &tableIndex, &callee_, &args_)) {
     return false;
   }
@@ -12513,7 +12511,7 @@ bool BaseCompiler::emitRefAsNonNull() {
 
 bool BaseCompiler::emitAtomicCmpXchg(ValType type, Scalar::Type viewType) {
   LinearMemoryAddress<Nothing> addr;
-  Nothing unused;
+  Nothing unused{};
 
   if (!iter_.readAtomicCmpXchg(&addr, type, Scalar::byteSize(viewType), &unused,
                                &unused)) {
@@ -13645,7 +13643,7 @@ bool BaseCompiler::emitStructNewWithRtt() {
 
   uint32_t typeIndex;
   Nothing rtt;
-  NothingVector args;
+  NothingVector args{};
   if (!iter_.readStructNewWithRtt(&typeIndex, &rtt, &args)) {
     return false;
   }
@@ -14191,8 +14189,8 @@ bool BaseCompiler::emitBrOnCast() {
 
   uint32_t lineOrBytecode = readCallSiteLineOrBytecode();
   uint32_t relativeDepth;
-  Nothing unused;
-  NothingVector unused_values;
+  Nothing unused{};
+  NothingVector unused_values{};
   uint32_t rttTypeIndex;
   uint32_t rttDepth;
   ResultType branchTargetType;
@@ -14913,6 +14911,10 @@ static void AbsI16x8(MacroAssembler& masm, RegV128 rs, RegV128 rd) {
 
 static void AbsI32x4(MacroAssembler& masm, RegV128 rs, RegV128 rd) {
   masm.absInt32x4(rs, rd);
+}
+
+static void AbsI64x2(MacroAssembler& masm, RegV128 rs, RegV128 rd) {
+  masm.absInt64x2(rs, rd);
 }
 
 static void ExtractLaneI8x16(MacroAssembler& masm, uint32_t laneIndex,
@@ -16878,6 +16880,8 @@ bool BaseCompiler::emitBody() {
             CHECK_NEXT(dispatchVectorUnary(AbsI16x8));
           case uint32_t(SimdOp::I32x4Abs):
             CHECK_NEXT(dispatchVectorUnary(AbsI32x4));
+          case uint32_t(SimdOp::I64x2Abs):
+            CHECK_NEXT(dispatchVectorUnary(AbsI64x2));
           case uint32_t(SimdOp::F32x4Ceil):
             CHECK_NEXT(dispatchVectorUnary(CeilF32x4));
           case uint32_t(SimdOp::F32x4Floor):
@@ -17379,12 +17383,8 @@ bool BaseCompiler::init() {
   }
 
   ArgTypeVector args(funcType());
-  if (!fr.setupLocals(locals_, args, compilerEnv_.debugEnabled(),
-                      &localInfo_)) {
-    return false;
-  }
-
-  return true;
+  return fr.setupLocals(locals_, args, compilerEnv_.debugEnabled(),
+                        &localInfo_);
 }
 
 FuncOffsets BaseCompiler::finish() {

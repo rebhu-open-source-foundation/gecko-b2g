@@ -22,6 +22,7 @@
 #include "mozilla/DebugOnly.h"
 
 #include <algorithm>
+#include <utility>
 
 #include "jsmath.h"
 
@@ -59,9 +60,8 @@ using mozilla::DebugOnly;
 using CheckedU32 = CheckedInt<uint32_t>;
 
 class FuncTypeIdSet {
-  typedef HashMap<const FuncType*, uint32_t, FuncTypeHashPolicy,
-                  SystemAllocPolicy>
-      Map;
+  using Map =
+      HashMap<const FuncType*, uint32_t, FuncTypeHashPolicy, SystemAllocPolicy>;
   Map map_;
 
  public:
@@ -1185,7 +1185,7 @@ Instance::Instance(JSContext* cx, Handle<WasmInstanceObject*> object,
           cx->runtime()->jitRuntime()->getExceptionTail().value),
       preBarrierCode_(
           cx->runtime()->jitRuntime()->preBarrier(MIRType::Object).value),
-      code_(code),
+      code_(std::move(code)),
       tlsData_(std::move(tlsDataIn)),
       memory_(memory),
       exceptionTags_(std::move(exceptionTags)),
@@ -1381,9 +1381,7 @@ bool Instance::init(JSContext* cx, const JSFunctionVector& funcImports,
     ExclusiveData<FuncTypeIdSet>::Guard lockedFuncTypeIdSet =
         funcTypeIdSet.lock();
 
-    for (uint32_t typeIndex = 0; typeIndex < metadata().types.length();
-         typeIndex++) {
-      const TypeDefWithId& typeDef = metadata().types[typeIndex];
+    for (const TypeDefWithId& typeDef : metadata().types) {
       switch (typeDef.kind()) {
         case TypeDefKind::Func: {
           const FuncType& funcType = typeDef.funcType();
@@ -1450,7 +1448,7 @@ size_t Instance::memoryMappedSize() const {
   return memory_->buffer().wasmMappedSize();
 }
 
-bool Instance::memoryAccessInGuardRegion(uint8_t* addr,
+bool Instance::memoryAccessInGuardRegion(const uint8_t* addr,
                                          unsigned numBytes) const {
   MOZ_ASSERT(numBytes > 0);
 
@@ -1468,7 +1466,8 @@ bool Instance::memoryAccessInGuardRegion(uint8_t* addr,
          lastByteOffset < memoryMappedSize();
 }
 
-bool Instance::memoryAccessInBounds(uint8_t* addr, unsigned numBytes) const {
+bool Instance::memoryAccessInBounds(const uint8_t* addr,
+                                    unsigned numBytes) const {
   MOZ_ASSERT(numBytes > 0 && numBytes <= sizeof(double));
 
   if (!metadata().usesMemory()) {
@@ -1490,11 +1489,7 @@ bool Instance::memoryAccessInBounds(uint8_t* addr, unsigned numBytes) const {
   // This calculation can't wrap around because the access is small and there
   // always is a guard page following the memory.
   size_t lastByteOffset = addr - base + (numBytes - 1);
-  if (lastByteOffset >= length) {
-    return false;
-  }
-
-  return true;
+  return lastByteOffset < length;
 }
 
 void Instance::tracePrivate(JSTracer* trc) {
@@ -2145,8 +2140,8 @@ JSString* Instance::createDisplayURL(JSContext* cx) {
     }
 
     const ModuleHash& hash = metadata().debugHash;
-    for (size_t i = 0; i < sizeof(ModuleHash); i++) {
-      char digit1 = hash[i] / 16, digit2 = hash[i] % 16;
+    for (unsigned char byte : hash) {
+      char digit1 = byte / 16, digit2 = byte % 16;
       if (!result.append(
               (char)(digit1 < 10 ? digit1 + '0' : digit1 + 'a' - 10))) {
         return nullptr;

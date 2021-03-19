@@ -1331,11 +1331,8 @@ void MacroAssembler::interleaveLowInt8x16(FloatRegister rhs,
 
 void MacroAssembler::permuteInt8x16(const uint8_t lanes[16], FloatRegister src,
                                     FloatRegister dest) {
-  ScratchSimd128Scope scratch(*this);
-  loadConstantSimd128Int(SimdConstant::CreateX16((const int8_t*)lanes),
-                         scratch);
   moveSimd128Int(src, dest);
-  vpshufb(scratch, dest, dest);
+  vpshufbSimd128(SimdConstant::CreateX16((const int8_t*)lanes), dest);
 }
 
 void MacroAssembler::permuteLowInt16x8(const uint16_t lanes[4],
@@ -2002,6 +1999,15 @@ void MacroAssembler::absInt16x8(FloatRegister src, FloatRegister dest) {
 
 void MacroAssembler::absInt32x4(FloatRegister src, FloatRegister dest) {
   vpabsd(Operand(src), dest);
+}
+
+void MacroAssembler::absInt64x2(FloatRegister src, FloatRegister dest) {
+  ScratchSimd128Scope scratch(*this);
+  vpshufd(ComputeShuffleMask(1, 1, 3, 3), src, scratch);
+  moveSimd128(src, dest);
+  vpsrad(Imm32(31), scratch, scratch);
+  vpxor(Operand(scratch), dest, dest);
+  vpsubq(Operand(scratch), dest, dest);
 }
 
 // Left shift by scalar

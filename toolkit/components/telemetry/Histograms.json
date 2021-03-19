@@ -1714,6 +1714,19 @@
     "description": "Time between receiving a keypress event on the event loop and compositing its result onto the screen (ms)",
     "bug_numbers": [1506537, 1580077]
   },
+  "MOUSEUP_FOLLOWED_BY_CLICK_PRESENT_LATENCY": {
+    "record_in_processes": [ "main", "gpu" ],
+    "products": ["firefox", "geckoview_streaming"],
+    "alert_emails": [ "perf-telemetry-alerts@mozilla.com", "sefeng@mozilla.com" ],
+    "expires_in_version": "never",
+    "kind": "exponential",
+    "releaseChannelCollection": "opt-out",
+    "low": 1,
+    "high": 200000,
+    "n_buckets": 50,
+    "description": "Time between receiving a mouseup which follow by a mouseclick on the event loop and compositing its result onto the screen (ms)",
+    "bug_numbers": [1698643]
+  },
   "SCROLL_PRESENT_LATENCY": {
     "record_in_processes": ["main", "gpu"],
     "products": ["firefox", "geckoview_streaming"],
@@ -2205,6 +2218,18 @@
     "bug_numbers": [1675503],
     "keyed": true,
     "description": "The time between navigationStart and the first contentful paint of a foreground http or https root content document, in milliseconds. The contentful paint timestamp is taken during display list building and does not include rasterization or compositing of that paint. This is collected only on page load where the main document uses or suppports HTTP3"
+  },
+  "HTTPS_RR_OPEN_TO_FIRST_SENT": {
+    "alert_emails": ["necko@mozilla.com", "kershaw@mozilla.com"],
+    "record_in_processes": ["main", "content"],
+    "products": ["firefox"],
+    "bug_numbers": [1697480],
+    "expires_in_version": "never",
+    "kind": "exponential",
+    "high": 30000,
+    "n_buckets": 50,
+    "keyed": true,
+    "description": "HTTP channel(keys: uses_https_rr_page, uses_https_rr_sub, no_https_rr_page, no_https_rr_sub): Open -> first byte of request sent (ms)"
   },
   "HTTP_PROXY_TYPE": {
     "record_in_processes": ["main", "content"],
@@ -3382,6 +3407,18 @@
     "high": 5000,
     "n_buckets": 100,
     "description": "Time from submission to dispatch of HTTP/3 transaction (ms)"
+  },
+  "TRANSACTION_WAIT_TIME_HTTPS_RR": {
+    "record_in_processes": ["main", "socket"],
+    "products": ["firefox"],
+    "alert_emails": ["necko@mozilla.com", "kershaw@mozilla.com"],
+    "bug_numbers": [1697480],
+    "expires_in_version": "never",
+    "kind": "exponential",
+    "high": 5000,
+    "n_buckets": 100,
+    "keyed": true,
+    "description": "Time from submission to dispatch of transaction when HTTPS RR is used (ms)"
   },
   "TRANSACTION_WAIT_TIME_HTTP2_SUP_HTTP3": {
     "record_in_processes": ["main", "content"],

@@ -39,6 +39,13 @@
   margin-inline: @urlbarMarginInline@;
 }
 
+@supports -moz-bool-pref("browser.proton.enabled") {
+:root[uidensity=touch] #urlbar-container,
+:root[uidensity=touch] #search-container {
+  padding-block: 6px;
+}
+}
+
 #urlbar,
 #searchbar {
   min-height: var(--urlbar-min-height);
@@ -356,7 +363,7 @@
 /* Urlbar search mode indicator */
 #urlbar-search-mode-indicator {
   display: none;
-  background-color: var(--urlbar-box-bg-overlay);
+  background-color: var(--urlbar-box-bgcolor);
   margin-inline-end: 8px;
   align-items: center;
   border-radius: var(--toolbarbutton-border-radius);

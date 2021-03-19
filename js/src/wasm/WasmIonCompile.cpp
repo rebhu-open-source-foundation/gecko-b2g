@@ -47,8 +47,8 @@ using mozilla::Some;
 
 namespace {
 
-typedef Vector<MBasicBlock*, 8, SystemAllocPolicy> BlockVector;
-typedef Vector<MDefinition*, 8, SystemAllocPolicy> DefVector;
+using BlockVector = Vector<MBasicBlock*, 8, SystemAllocPolicy>;
+using DefVector = Vector<MDefinition*, 8, SystemAllocPolicy>;
 
 struct IonCompilePolicy {
   // We store SSA definitions in the value stack.
@@ -94,9 +94,9 @@ class FunctionCompiler {
         : ins(ins), index(index) {}
   };
 
-  typedef Vector<ControlFlowPatch, 0, SystemAllocPolicy> ControlFlowPatchVector;
-  typedef Vector<ControlFlowPatchVector, 0, SystemAllocPolicy>
-      ControlFlowPatchsVector;
+  using ControlFlowPatchVector = Vector<ControlFlowPatch, 0, SystemAllocPolicy>;
+  using ControlFlowPatchsVector =
+      Vector<ControlFlowPatchVector, 0, SystemAllocPolicy>;
 
   const ModuleEnvironment& moduleEnv_;
   IonOpIter iter_;
@@ -961,9 +961,9 @@ class FunctionCompiler {
     AliasSet aliases = moduleEnv_.maxMemoryLength.isSome()
                            ? AliasSet::None()
                            : AliasSet::Load(AliasSet::WasmHeapMeta);
-    auto load = MWasmLoadTls::New(alloc(), tlsPointer_,
-                                  offsetof(wasm::TlsData, boundsCheckLimit32),
-                                  MIRType::Int32, aliases);
+    auto* load = MWasmLoadTls::New(alloc(), tlsPointer_,
+                                   offsetof(wasm::TlsData, boundsCheckLimit32),
+                                   MIRType::Int32, aliases);
     curBlock_->add(load);
     return load;
   }
@@ -2136,9 +2136,8 @@ class FunctionCompiler {
       return false;
     }
 
-    typedef HashMap<uint32_t, uint32_t, DefaultHasher<uint32_t>,
-                    SystemAllocPolicy>
-        IndexToCaseMap;
+    using IndexToCaseMap =
+        HashMap<uint32_t, uint32_t, DefaultHasher<uint32_t>, SystemAllocPolicy>;
 
     IndexToCaseMap indexToCase;
     if (!indexToCase.put(defaultDepth, defaultIndex)) {
@@ -5120,6 +5119,7 @@ static bool EmitBodyExprs(FunctionCompiler& f) {
           case uint32_t(SimdOp::I8x16Abs):
           case uint32_t(SimdOp::I16x8Abs):
           case uint32_t(SimdOp::I32x4Abs):
+          case uint32_t(SimdOp::I64x2Abs):
           case uint32_t(SimdOp::F32x4Ceil):
           case uint32_t(SimdOp::F32x4Floor):
           case uint32_t(SimdOp::F32x4Trunc):

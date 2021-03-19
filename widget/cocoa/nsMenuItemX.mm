@@ -257,6 +257,12 @@ void nsMenuItemX::SetKeyEquiv() {
   NS_OBJC_END_TRY_ABORT_BLOCK;
 }
 
+void nsMenuItemX::Dump(uint32_t aIndent) const {
+  printf("%*s - item [%p] %-16s <%s>\n", aIndent * 2, "", this,
+         mType == eSeparatorMenuItemType ? "----" : [mNativeMenuItem.title UTF8String],
+         NS_ConvertUTF16toUTF8(mContent->NodeName()).get());
+}
+
 //
 // nsChangeObserver
 //
@@ -279,9 +285,14 @@ void nsMenuItemX::ObserveAttributeChanged(dom::Document* aDocument, nsIContent* 
         UncheckRadioSiblings(mContent);
       }
       mMenuParent->SetRebuild(true);
-    } else if (aAttribute == nsGkAtoms::hidden || aAttribute == nsGkAtoms::collapsed ||
-               aAttribute == nsGkAtoms::label) {
+    } else if (aAttribute == nsGkAtoms::hidden || aAttribute == nsGkAtoms::collapsed) {
       mMenuParent->SetRebuild(true);
+    } else if (aAttribute == nsGkAtoms::label) {
+      if (mType != eSeparatorMenuItemType) {
+        nsAutoString newLabel;
+        mContent->AsElement()->GetAttr(kNameSpaceID_None, nsGkAtoms::label, newLabel);
+        mNativeMenuItem.title = nsMenuUtilsX::GetTruncatedCocoaLabel(newLabel);
+      }
     } else if (aAttribute == nsGkAtoms::key) {
       SetKeyEquiv();
     } else if (aAttribute == nsGkAtoms::image) {

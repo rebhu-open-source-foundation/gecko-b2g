@@ -12,6 +12,7 @@
 
 #include "nsCOMPtr.h"
 #include "nsTArray.h"
+#include "Units.h"
 #include "mozilla/dom/EventTarget.h"
 #include "mozilla/EventForwards.h"
 #include "mozilla/Maybe.h"
@@ -488,15 +489,10 @@ class nsPIDOMWindowInner : public mozIDOMWindow {
 
   virtual void SetFocusedElement(mozilla::dom::Element* aElement,
                                  uint32_t aFocusMethod = 0,
-                                 bool aNeedsFocus = false,
-                                 bool aWillShowOutline = false) = 0;
-  /**
-   * Get whether the focused element did show outlines when it was focused.
-   *
-   * Only for the focus manager. Returns false if there was no focused element.
-   */
-  bool FocusedElementShowedOutline() const {
-    return mFocusedElementShowedOutlines;
+                                 bool aNeedsFocus = false) = 0;
+
+  bool UnknownFocusMethodShouldShowOutline() const {
+    return mUnknownFocusMethodShouldShowOutline;
   }
 
   /**
@@ -682,7 +678,7 @@ class nsPIDOMWindowInner : public mozIDOMWindow {
   // notification.
   bool mHasNotifiedGlobalCreated;
 
-  bool mFocusedElementShowedOutlines = false;
+  bool mUnknownFocusMethodShouldShowOutline = true;
 
   uint32_t mMarkedCCGeneration;
 
@@ -789,8 +785,6 @@ class nsPIDOMWindowOuter : public mozIDOMWindowProxy {
   void RefreshMediaElementsVolume();
 
   float GetDevicePixelRatio(mozilla::dom::CallerType aCallerType);
-
-  bool HadOriginalOpener() const;
 
   virtual nsPIDOMWindowOuter* GetPrivateRoot() = 0;
 
@@ -941,6 +935,9 @@ class nsPIDOMWindowOuter : public mozIDOMWindowProxy {
 
   virtual void ForceFullScreenInWidget() = 0;
 
+  virtual void MacFullscreenMenubarOverlapChanged(
+      mozilla::DesktopCoord aOverlapAmount) = 0;
+
   // XXX: These focus methods all forward to the inner, could we change
   // consumers to call these on the inner directly?
 
@@ -956,14 +953,12 @@ class nsPIDOMWindowOuter : public mozIDOMWindowProxy {
 
   virtual void SetFocusedElement(mozilla::dom::Element* aElement,
                                  uint32_t aFocusMethod = 0,
-                                 bool aNeedsFocus = false,
-                                 bool aWillShowOutline = false) = 0;
+                                 bool aNeedsFocus = false) = 0;
   /**
-   * Get whether the focused element did show outlines when it was focused.
-   *
-   * Only for the focus manager. Returns false if there was no focused element.
+   * Get whether a focused element focused by unknown reasons (like script
+   * focus) should match the :focus-visible pseudo-class.
    */
-  bool FocusedElementShowedOutline() const;
+  bool UnknownFocusMethodShouldShowOutline() const;
 
   /**
    * Retrieves the method that was used to focus the current node.

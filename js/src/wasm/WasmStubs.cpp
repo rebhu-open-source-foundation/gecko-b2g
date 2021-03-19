@@ -38,7 +38,7 @@ using namespace js;
 using namespace js::jit;
 using namespace js::wasm;
 
-typedef Vector<jit::MIRType, 8, SystemAllocPolicy> MIRTypeVector;
+using MIRTypeVector = Vector<jit::MIRType, 8, SystemAllocPolicy>;
 using ABIArgMIRTypeIter = jit::ABIArgIter<MIRTypeVector>;
 
 /*****************************************************************************/
@@ -3027,10 +3027,7 @@ bool wasm::GenerateProvisionalLazyJitEntryStub(MacroAssembler& masm,
   masm.SetStackPointer64(sp);
 #endif
 
-  if (!FinishOffsets(masm, offsets)) {
-    return false;
-  }
-  return true;
+  return FinishOffsets(masm, offsets);
 }
 
 bool wasm::GenerateStubs(const ModuleEnvironment& env,

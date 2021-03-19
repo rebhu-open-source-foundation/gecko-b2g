@@ -111,8 +111,8 @@ class Instance {
   WasmMemoryObject* memory() const;
   size_t memoryMappedSize() const;
   SharedArrayRawBuffer* sharedMemoryBuffer() const;  // never null
-  bool memoryAccessInGuardRegion(uint8_t* addr, unsigned numBytes) const;
-  bool memoryAccessInBounds(uint8_t* addr, unsigned numBytes) const;
+  bool memoryAccessInGuardRegion(const uint8_t* addr, unsigned numBytes) const;
+  bool memoryAccessInBounds(const uint8_t* addr, unsigned numBytes) const;
   const SharedExceptionTagVector& exceptionTags() const {
     return exceptionTags_;
   }
@@ -186,10 +186,10 @@ class Instance {
   static int32_t wait_i64(Instance* instance, uint32_t byteOffset,
                           int64_t value, int64_t timeout);
   static int32_t wake(Instance* instance, uint32_t byteOffset, int32_t count);
-  static int32_t memCopy32(Instance* instance, uint32_t destByteOffset,
+  static int32_t memCopy32(Instance* instance, uint32_t dstByteOffset,
                            uint32_t srcByteOffset, uint32_t len,
                            uint8_t* memBase);
-  static int32_t memCopyShared32(Instance* instance, uint32_t destByteOffset,
+  static int32_t memCopyShared32(Instance* instance, uint32_t dstByteOffset,
                                  uint32_t srcByteOffset, uint32_t len,
                                  uint8_t* memBase);
   static int32_t dataDrop(Instance* instance, uint32_t segIndex);

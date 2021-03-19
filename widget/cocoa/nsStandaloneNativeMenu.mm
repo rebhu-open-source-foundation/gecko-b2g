@@ -93,10 +93,13 @@ nsStandaloneNativeMenu::ActivateNativeMenuItemAt(const nsAString& indexString) {
     return NS_ERROR_NOT_INITIALIZED;
   }
 
+  NSMenu* menu = mMenu->NativeNSMenu();
+
+  nsMenuUtilsX::CheckNativeMenuConsistency(menu);
+
   NSString* locationString =
       [NSString stringWithCharacters:reinterpret_cast<const unichar*>(indexString.BeginReading())
                               length:indexString.Length()];
-  NSMenu* menu = mMenu->NativeNSMenu();
   NSMenuItem* item = nsMenuUtilsX::NativeMenuItemWithLocation(menu, locationString, false);
 
   // We can't perform an action on an item with a submenu, that will raise
@@ -128,14 +131,10 @@ nsStandaloneNativeMenu::ForceUpdateNativeMenuAt(const nsAString& indexString) {
       [NSString stringWithCharacters:reinterpret_cast<const unichar*>(indexString.BeginReading())
                               length:indexString.Length()];
   NSArray<NSString*>* indexes = [locationString componentsSeparatedByString:@"|"];
-  unsigned int indexCount = indexes.count;
-  if (indexCount == 0) {
-    return NS_OK;
-  }
-
   nsMenuX* currentMenu = mMenu.get();
 
   // now find the correct submenu
+  unsigned int indexCount = indexes.count;
   for (unsigned int i = 1; currentMenu && i < indexCount; i++) {
     int targetIndex = [indexes objectAtIndex:i].intValue;
     int visible = 0;
@@ -154,14 +153,15 @@ nsStandaloneNativeMenu::ForceUpdateNativeMenuAt(const nsAString& indexString) {
         visible++;
         if (targetMenu->MenuObjectType() == eSubmenuObjectType && visible == (targetIndex + 1)) {
           currentMenu = static_cast<nsMenuX*>(targetMenu);
-          // fake open/close to cause lazy update to happen
-          currentMenu->MenuOpened();
-          currentMenu->MenuClosed();
           break;
         }
       }
     }
   }
+
+  // fake open/close to cause lazy update to happen
+  currentMenu->MenuOpened();
+  currentMenu->MenuClosed();
 
   return NS_OK;
 
@@ -185,4 +185,16 @@ void nsStandaloneNativeMenu::IconUpdated() {
 void nsStandaloneNativeMenu::SetContainerStatusBarItem(NSStatusItem* aItem) {
   mContainerStatusBarItem = aItem;
   IconUpdated();
+}
+
+NS_IMETHODIMP
+nsStandaloneNativeMenu::Dump() {
+  NS_OBJC_BEGIN_TRY_ABORT_BLOCK;
+
+  mMenu->Dump(0);
+  nsMenuUtilsX::DumpNativeMenu(mMenu->NativeNSMenu());
+
+  return NS_OK;
+
+  NS_OBJC_END_TRY_ABORT_BLOCK;
 }

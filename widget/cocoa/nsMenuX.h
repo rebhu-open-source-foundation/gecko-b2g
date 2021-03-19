@@ -67,16 +67,17 @@ class nsMenuX final : public nsMenuObjectX, public nsChangeObserver {
   NSMenuItem* NativeNSMenuItem() { return mNativeMenuItem; }
   GeckoNSMenu* NativeNSMenu() { return mNativeMenu; }
 
+  void Dump(uint32_t aIndent) const;
+
   static bool IsXULHelpMenu(nsIContent* aMenuContent);
 
  protected:
-  void MenuConstruct();
+  void RebuildMenu();
   nsresult RemoveAll();
   nsresult SetEnabled(bool aIsEnabled);
   nsresult GetEnabled(bool* aIsEnabled);
   already_AddRefed<nsIContent> GetMenuPopupContent();
   bool OnOpen();
-  bool OnClose();
   void AddMenuItem(mozilla::UniquePtr<nsMenuItemX>&& aMenuItem);
   void AddMenu(mozilla::UniquePtr<nsMenuX>&& aMenu);
   void LoadMenuItem(nsIContent* aMenuItemContent);
@@ -98,10 +99,8 @@ class nsMenuX final : public nsMenuObjectX, public nsChangeObserver {
   // nsMenuX objects should always have a valid native menu item.
   NSMenuItem* mNativeMenuItem = nil;  // [strong]
   bool mIsEnabled = true;
-  bool mDidFirePopupHiding = false;
-  bool mDidFirePopupHidden = false;
   bool mNeedsRebuild = true;
-  bool mConstructed = false;
+  bool mIsOpen = false;
   bool mVisible = true;
 };
 

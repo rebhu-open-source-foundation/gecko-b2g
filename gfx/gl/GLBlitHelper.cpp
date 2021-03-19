@@ -764,6 +764,9 @@ bool GLBlitHelper::BlitImageToFramebuffer(layers::Image* const srcImage,
     case ImageFormat::SHARED_RGB:
     case ImageFormat::TEXTURE_WRAPPER:
     case ImageFormat::DMABUF:
+    case ImageFormat::WAYLAND_DMABUF:
+    case ImageFormat::GRALLOC_PLANAR_YCBCR:
+    case ImageFormat::GONK_CAMERA_IMAGE:
       return false;  // todo
   }
   return false;

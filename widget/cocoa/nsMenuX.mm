@@ -154,11 +154,11 @@ nsMenuX::nsMenuX(nsMenuObjectX* aParent, nsMenuGroupOwnerX* aMenuGroupOwner, nsI
              !mContent->AsElement()->AttrValueIs(kNameSpaceID_None, nsGkAtoms::disabled,
                                                  nsGkAtoms::_true, eCaseMatters));
 
-  // We call MenuConstruct here because keyboard commands are dependent upon
-  // native menu items being created. If we only call MenuConstruct when a menu
+  // We call RebuildMenu here because keyboard commands are dependent upon
+  // native menu items being created. If we only call RebuildMenu when a menu
   // is actually selected, then we can't access keyboard commands until the
   // menu gets selected, which is bad.
-  MenuConstruct();
+  RebuildMenu();
 
   mIcon = MakeUnique<nsMenuItemIconX>(this);
 
@@ -321,25 +321,24 @@ nsresult nsMenuX::RemoveAll() {
 }
 
 nsEventStatus nsMenuX::MenuOpened() {
+  mIsOpen = true;
+
   // Open the node.
   if (mContent->IsElement()) {
     mContent->AsElement()->SetAttr(kNameSpaceID_None, nsGkAtoms::open, u"true"_ns, true);
   }
 
-  // Fire a handler. If we're told to stop, don't build the menu at all
-  bool keepProcessing = OnOpen();
-
-  if (!mNeedsRebuild || !keepProcessing) {
+  if (!OnOpen()) {
+    // The popupshowing had preventDefault() called on it. Stop processing menu opening.
+    // XXXmstange At the point this function is called, it is too late to stop
+    // the menu from opening. It will be displayed regardless of what we do here.
+    // This needs to be improved.
     return nsEventStatus_eConsumeNoDefault;
   }
 
-  if (!mConstructed || mNeedsRebuild) {
-    if (mNeedsRebuild) {
-      RemoveAll();
-    }
-
-    MenuConstruct();
-    mConstructed = true;
+  if (mNeedsRebuild) {
+    RemoveAll();
+    RebuildMenu();
   }
 
   nsEventStatus status = nsEventStatus_eIgnore;
@@ -353,38 +352,30 @@ nsEventStatus nsMenuX::MenuOpened() {
 }
 
 void nsMenuX::MenuClosed() {
-  if (mConstructed) {
-    // Don't close if a handler tells us to stop.
-    if (!OnClose()) {
-      return;
-    }
-
-    if (mNeedsRebuild) {
-      mConstructed = false;
-    }
-
-    if (mContent->IsElement()) {
-      mContent->AsElement()->UnsetAttr(kNameSpaceID_None, nsGkAtoms::open, true);
-    }
-
-    nsEventStatus status = nsEventStatus_eIgnore;
-    WidgetMouseEvent event(true, eXULPopupHidden, nullptr, WidgetMouseEvent::eReal);
-
-    nsCOMPtr<nsIContent> popupContent = GetMenuPopupContent();
-    nsIContent* dispatchTo = popupContent ? popupContent : mContent;
-    EventDispatcher::Dispatch(dispatchTo, nullptr, &event, nullptr, &status);
-
-    mDidFirePopupHidden = true;
-    mConstructed = false;
+  if (!mIsOpen) {
+    return;
   }
+
+  mIsOpen = false;
+
+  nsCOMPtr<nsIContent> popupContent = GetMenuPopupContent();
+  nsCOMPtr<nsIContent> dispatchTo = popupContent ? popupContent : mContent;
+
+  nsEventStatus status = nsEventStatus_eIgnore;
+  WidgetMouseEvent popupHiding(true, eXULPopupHiding, nullptr, WidgetMouseEvent::eReal);
+  EventDispatcher::Dispatch(dispatchTo, nullptr, &popupHiding, nullptr, &status);
+
+  if (mContent->IsElement()) {
+    mContent->AsElement()->UnsetAttr(kNameSpaceID_None, nsGkAtoms::open, true);
+  }
+
+  WidgetMouseEvent popupHidden(true, eXULPopupHidden, nullptr, WidgetMouseEvent::eReal);
+  EventDispatcher::Dispatch(dispatchTo, nullptr, &popupHidden, nullptr, &status);
 }
 
-void nsMenuX::MenuConstruct() {
-  mConstructed = false;
+void nsMenuX::RebuildMenu() {
+  MOZ_RELEASE_ASSERT(mNeedsRebuild);
   gConstructingMenu = true;
-
-  mDidFirePopupHiding = false;
-  mDidFirePopupHidden = false;
 
   // Retrieve our menupopup.
   nsCOMPtr<nsIContent> menuPopup = GetMenuPopupContent();
@@ -522,31 +513,6 @@ bool nsMenuX::OnOpen() {
   return true;
 }
 
-// Returns TRUE if we should keep processing the event, FALSE if the handler
-// wants to stop the closing of the menu.
-bool nsMenuX::OnClose() {
-  if (mDidFirePopupHiding || mDidFirePopupHidden) {
-    return true;
-  }
-
-  nsEventStatus status = nsEventStatus_eIgnore;
-  WidgetMouseEvent event(true, eXULPopupHiding, nullptr, WidgetMouseEvent::eReal);
-
-  nsCOMPtr<nsIContent> popupContent = GetMenuPopupContent();
-
-  nsresult rv = NS_OK;
-  nsIContent* dispatchTo = popupContent ? popupContent : mContent;
-  rv = EventDispatcher::Dispatch(dispatchTo, nullptr, &event, nullptr, &status);
-
-  mDidFirePopupHiding = true;
-
-  if (NS_FAILED(rv) || status == nsEventStatus_eConsumeNoDefault) {
-    return false;
-  }
-
-  return true;
-}
-
 // Find the |menupopup| child in the |popup| representing this menu. It should be one
 // of a very few children so we won't be iterating over a bazillion menu items to find
 // it (so the strcmp won't kill us).
@@ -600,20 +566,9 @@ void nsMenuX::ObserveAttributeChanged(dom::Document* aDocument, nsIContent* aCon
                                                    nsGkAtoms::_true, eCaseMatters));
   } else if (aAttribute == nsGkAtoms::label) {
     mContent->AsElement()->GetAttr(kNameSpaceID_None, nsGkAtoms::label, mLabel);
-
-    // invalidate my parent. If we're a submenu parent, we have to rebuild
-    // the parent menu in order for the changes to be picked up. If we're
-    // a regular menu, just change the title and redraw the menubar.
-    if (parentType == eMenuBarObjectType) {
-      // reuse the existing menu, to avoid rebuilding the root menu bar.
-      NS_ASSERTION(mNativeMenu, "nsMenuX::AttributeChanged: invalid menu handle.");
-      NSString* newCocoaLabelString = nsMenuUtilsX::GetTruncatedCocoaLabel(mLabel);
-      mNativeMenu.title = newCocoaLabelString;
-    } else if (parentType == eSubmenuObjectType) {
-      static_cast<nsMenuX*>(mParent)->SetRebuild(true);
-    } else if (parentType == eStandaloneNativeMenuObjectType) {
-      static_cast<nsStandaloneNativeMenu*>(mParent)->GetMenuXObject()->SetRebuild(true);
-    }
+    NSString* newCocoaLabelString = nsMenuUtilsX::GetTruncatedCocoaLabel(mLabel);
+    mNativeMenu.title = newCocoaLabelString;
+    mNativeMenuItem.title = newCocoaLabelString;
   } else if (aAttribute == nsGkAtoms::hidden || aAttribute == nsGkAtoms::collapsed) {
     SetRebuild(true);
 
@@ -690,6 +645,33 @@ void nsMenuX::SetupIcon() {
 void nsMenuX::IconUpdated() {
   mNativeMenuItem.image = mIcon->GetIconImage();
   mParent->IconUpdated();
+}
+
+void nsMenuX::Dump(uint32_t aIndent) const {
+  printf("%*s - menu [%p] %-16s <%s>", aIndent * 2, "", this,
+         mLabel.IsEmpty() ? "(empty label)" : NS_ConvertUTF16toUTF8(mLabel).get(),
+         NS_ConvertUTF16toUTF8(mContent->NodeName()).get());
+  if (mNeedsRebuild) {
+    printf(" [NeedsRebuild]");
+  }
+  if (mIsOpen) {
+    printf(" [Open]");
+  }
+  if (mVisible) {
+    printf(" [Visible]");
+  }
+  if (mIsEnabled) {
+    printf(" [IsEnabled]");
+  }
+  printf(" (%d visible items)", int(mVisibleItemsCount));
+  printf("\n");
+  for (const auto& subitem : mMenuObjectsArray) {
+    if (subitem->MenuObjectType() == eSubmenuObjectType) {
+      static_cast<nsMenuX*>(subitem.get())->Dump(aIndent + 1);
+    } else if (subitem->MenuObjectType() == eMenuItemObjectType) {
+      static_cast<nsMenuItemX*>(subitem.get())->Dump(aIndent + 1);
+    }
+  }
 }
 
 //

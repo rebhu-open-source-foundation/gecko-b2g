@@ -39,13 +39,79 @@
 
 using namespace mozilla;
 
+using IntID = mozilla::LookAndFeel::IntID;
+using FloatID = mozilla::LookAndFeel::FloatID;
+using ColorID = mozilla::LookAndFeel::ColorID;
+
+struct nsLookAndFeelIntPref {
+  const char* name;
+  IntID id;
+  bool isSet;
+  int32_t intVar;
+};
+
+struct nsLookAndFeelFloatPref {
+  const char* name;
+  FloatID id;
+  bool isSet;
+  float floatVar;
+};
+
+template <typename Index, typename Value, Index kFirst, Index kEnd>
+class EnumeratedCache {
+  static_assert(size_t(kFirst) == 0, "EnumeratedArray assumes this");
+
+  static constexpr uint32_t ChunkFor(Index aIndex) {
+    return uint32_t(aIndex) >> 5; // >> 5 is the same as / 32.
+  }
+  static constexpr uint32_t BitFor(Index aIndex) {
+    return 1u << (uint32_t(aIndex) & 31);
+  }
+  static constexpr uint32_t kChunks = ChunkFor(kEnd) + 1;
+
+  mozilla::EnumeratedArray<Index, kEnd, Value> mEntries;
+  uint32_t mValidity[kChunks] = {0};
+
+ public:
+  constexpr EnumeratedCache() = default;
+
+  bool IsValid(Index aIndex) const {
+    return mValidity[ChunkFor(aIndex)] & BitFor(aIndex);
+  }
+
+  const Value* Get(Index aIndex) const {
+    return IsValid(aIndex) ? &mEntries[aIndex] : nullptr;
+  }
+
+  void Insert(Index aIndex, Value aValue) {
+    mValidity[ChunkFor(aIndex)] |= BitFor(aIndex);
+    mEntries[aIndex] = aValue;
+  }
+
+  void Remove(Index aIndex) {
+    mValidity[ChunkFor(aIndex)] &= ~BitFor(aIndex);
+    mEntries[aIndex] = Value();
+  }
+
+  void Clear() {
+    for (auto& chunk : mValidity) {
+      chunk = 0;
+    }
+    for (auto& entry : mEntries) {
+      entry = Value();
+    }
+  }
+};
+
+static EnumeratedCache<ColorID, nscolor, ColorID(0), ColorID::End> sColorCache;
+
 // To make one of these prefs toggleable from a reftest add a user
 // pref in testing/profiles/reftest/user.js. For example, to make
 // ui.useAccessibilityTheme toggleable, add:
 //
 // user_pref("ui.useAccessibilityTheme", 0);
 //
-nsLookAndFeelIntPref nsXPLookAndFeel::sIntPrefs[] = {
+static nsLookAndFeelIntPref sIntPrefs[] = {
     {"ui.caretBlinkTime", IntID::CaretBlinkTime, false, 0},
     {"ui.caretWidth", IntID::CaretWidth, false, 0},
     {"ui.caretVisibleWithSelection", IntID::ShowCaretDuringSelection, false, 0},
@@ -105,7 +171,7 @@ nsLookAndFeelIntPref nsXPLookAndFeel::sIntPrefs[] = {
     {"ui.scrollArrowStyle", IntID::ScrollArrowStyle, false, 0},
 };
 
-nsLookAndFeelFloatPref nsXPLookAndFeel::sFloatPrefs[] = {
+static nsLookAndFeelFloatPref sFloatPrefs[] = {
     {"ui.IMEUnderlineRelativeSize", FloatID::IMEUnderlineRelativeSize, false,
      0},
     {"ui.SpellCheckerUnderlineRelativeSize",
@@ -120,7 +186,7 @@ nsLookAndFeelFloatPref nsXPLookAndFeel::sFloatPrefs[] = {
  * to the following array then you MUST update the
  * sizes of the sColorPrefs array in nsXPLookAndFeel.h
  */
-const char nsXPLookAndFeel::sColorPrefs[][41] = {
+static const char sColorPrefs[][41] = {
     "ui.windowBackground",
     "ui.windowForeground",
     "ui.widgetBackground",
@@ -240,9 +306,6 @@ const char nsXPLookAndFeel::sColorPrefs[][41] = {
     "ui.-moz-colheadertext",
     "ui.-moz-colheaderhovertext"};
 
-int32_t nsXPLookAndFeel::sCachedColors[size_t(LookAndFeel::ColorID::End)] = {0};
-int32_t nsXPLookAndFeel::sCachedColorBits[COLOR_CACHE_SIZE] = {0};
-
 bool nsXPLookAndFeel::sInitialized = false;
 
 nsXPLookAndFeel* nsXPLookAndFeel::sInstance = nullptr;
@@ -310,7 +373,7 @@ void nsXPLookAndFeel::Shutdown() {
 }
 
 // static
-void nsXPLookAndFeel::IntPrefChanged(nsLookAndFeelIntPref* data) {
+static void IntPrefChanged(nsLookAndFeelIntPref* data) {
   if (!data) {
     return;
   }
@@ -333,11 +396,11 @@ void nsXPLookAndFeel::IntPrefChanged(nsLookAndFeelIntPref* data) {
   }
 
   // Int prefs can't change our system colors or fonts.
-  NotifyChangedAllWindows(widget::ThemeChangeKind::MediaQueriesOnly);
+  LookAndFeel::NotifyChangedAllWindows(
+      widget::ThemeChangeKind::MediaQueriesOnly);
 }
 
-// static
-void nsXPLookAndFeel::FloatPrefChanged(nsLookAndFeelFloatPref* data) {
+static void FloatPrefChanged(nsLookAndFeelFloatPref* data) {
   if (!data) {
     return;
   }
@@ -360,12 +423,12 @@ void nsXPLookAndFeel::FloatPrefChanged(nsLookAndFeelFloatPref* data) {
   }
 
   // Float prefs can't change our system colors or fonts.
-  NotifyChangedAllWindows(widget::ThemeChangeKind::MediaQueriesOnly);
+  LookAndFeel::NotifyChangedAllWindows(
+      widget::ThemeChangeKind::MediaQueriesOnly);
 }
 
 // static
-void nsXPLookAndFeel::ColorPrefChanged(unsigned int index,
-                                       const char* prefName) {
+static void ColorPrefChanged(unsigned int index, const char* prefName) {
   nsAutoString colorStr;
   nsresult rv = Preferences::GetString(prefName, colorStr);
   if (NS_SUCCEEDED(rv) && !colorStr.IsEmpty()) {
@@ -373,12 +436,10 @@ void nsXPLookAndFeel::ColorPrefChanged(unsigned int index,
     if (colorStr[0] == char16_t('#')) {
       if (NS_HexToRGBA(nsDependentString(colorStr, 1), nsHexColorType::NoAlpha,
                        &thecolor)) {
-        int32_t id = NS_PTR_TO_INT32(index);
-        CACHE_COLOR(id, thecolor);
+        sColorCache.Insert(ColorID(index), thecolor);
       }
     } else if (NS_ColorNameToRGB(colorStr, &thecolor)) {
-      int32_t id = NS_PTR_TO_INT32(index);
-      CACHE_COLOR(id, thecolor);
+      sColorCache.Insert(ColorID(index), thecolor);
 #ifdef DEBUG_akkana
       printf("====== Changed color pref %s to 0x%lx\n", prefName, thecolor);
 #endif
@@ -386,8 +447,7 @@ void nsXPLookAndFeel::ColorPrefChanged(unsigned int index,
   } else {
     // Reset to the default color, by clearing the cache
     // to force lookup when the color is next used
-    int32_t id = NS_PTR_TO_INT32(index);
-    CLEAR_COLOR_CACHE(id);
+    sColorCache.Remove(ColorID(index));
 
 #ifdef DEBUG_akkana
     printf("====== Cleared color pref %s\n", prefName);
@@ -395,10 +455,10 @@ void nsXPLookAndFeel::ColorPrefChanged(unsigned int index,
   }
 
   // Color prefs affect style, because they by definition change system colors.
-  NotifyChangedAllWindows(widget::ThemeChangeKind::Style);
+  LookAndFeel::NotifyChangedAllWindows(widget::ThemeChangeKind::Style);
 }
 
-void nsXPLookAndFeel::InitFromPref(nsLookAndFeelIntPref* aPref) {
+static void InitFromPref(nsLookAndFeelIntPref* aPref) {
   int32_t intpref;
   nsresult rv = Preferences::GetInt(aPref->name, &intpref);
   if (NS_SUCCEEDED(rv)) {
@@ -407,7 +467,7 @@ void nsXPLookAndFeel::InitFromPref(nsLookAndFeelIntPref* aPref) {
   }
 }
 
-void nsXPLookAndFeel::InitFromPref(nsLookAndFeelFloatPref* aPref) {
+static void InitFromPref(nsLookAndFeelFloatPref* aPref) {
   int32_t intpref;
   nsresult rv = Preferences::GetInt(aPref->name, &intpref);
   if (NS_SUCCEEDED(rv)) {
@@ -416,7 +476,7 @@ void nsXPLookAndFeel::InitFromPref(nsLookAndFeelFloatPref* aPref) {
   }
 }
 
-void nsXPLookAndFeel::InitColorFromPref(int32_t i) {
+static void InitColorFromPref(int32_t i) {
   static_assert(ArrayLength(sColorPrefs) == size_t(ColorID::End),
                 "Should have a pref for each color value");
 
@@ -430,10 +490,10 @@ void nsXPLookAndFeel::InitColorFromPref(int32_t i) {
     nsAutoString hexString;
     colorStr.Right(hexString, colorStr.Length() - 1);
     if (NS_HexToRGBA(hexString, nsHexColorType::NoAlpha, &thecolor)) {
-      CACHE_COLOR(i, thecolor);
+      sColorCache.Insert(ColorID(i), thecolor);
     }
   } else if (NS_ColorNameToRGB(colorStr, &thecolor)) {
-    CACHE_COLOR(i, thecolor);
+    sColorCache.Insert(ColorID(i), thecolor);
   }
 }
 
@@ -770,9 +830,11 @@ nsresult nsXPLookAndFeel::GetColorValue(ColorID aID,
   aUseStandinsForNativeColors =
       aUseStandinsForNativeColors && ColorIsCSSAccessible(aID);
 
-  if (!aUseStandinsForNativeColors && IS_COLOR_CACHED(aID)) {
-    aResult = sCachedColors[uint32_t(aID)];
-    return NS_OK;
+  if (!aUseStandinsForNativeColors) {
+    if (const nscolor* cached = sColorCache.Get(aID)) {
+      aResult = *cached;
+      return NS_OK;
+    }
   }
 
   // There are no system color settings for these, so set them manually
@@ -833,7 +895,7 @@ nsresult nsXPLookAndFeel::GetColorValue(ColorID aID,
 
     // NOTE: Servo holds a lock and the main thread is paused, so writing to the
     // global cache here is fine.
-    CACHE_COLOR(aID, aResult);
+    sColorCache.Insert(aID, aResult);
     return NS_OK;
   }
 
@@ -868,16 +930,10 @@ nsresult nsXPLookAndFeel::GetFloatValue(FloatID aID, float& aResult) {
 
 void nsXPLookAndFeel::RefreshImpl() {
   // Wipe out our color cache.
-  uint32_t i;
-  for (i = 0; i < uint32_t(ColorID::End); i++) {
-    sCachedColors[i] = 0;
-  }
-  for (i = 0; i < COLOR_CACHE_SIZE; i++) {
-    sCachedColorBits[i] = 0;
-  }
+  sColorCache.Clear();
 
   // Reinit color cache from prefs.
-  for (i = 0; i < uint32_t(ColorID::End); ++i) {
+  for (uint32_t i = 0; i < uint32_t(ColorID::End); ++i) {
     InitColorFromPref(i);
   }
 

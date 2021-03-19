@@ -453,7 +453,7 @@ class TextureHost : public AtomicRefCountedWithFinalize<TextureHost> {
   virtual gfx::SurfaceFormat GetReadFormat() const { return GetFormat(); }
 
   virtual gfx::YUVColorSpace GetYUVColorSpace() const {
-    return gfx::YUVColorSpace::UNKNOWN;
+    return gfx::YUVColorSpace::Identity;
   }
 
   /**

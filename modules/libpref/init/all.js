@@ -723,7 +723,6 @@ pref("accessibility.force_disabled", 0);
 pref("focusmanager.testmode", false);
 
 pref("accessibility.usetexttospeech", "");
-pref("accessibility.mouse_focuses_formcontrol", true);
 
 // Type Ahead Find
 pref("accessibility.typeaheadfind", true);
@@ -3879,6 +3878,9 @@ pref("alerts.showFavicons", false);
 #ifdef XP_MACOSX
   // Whether to use macOS native full screen for Fullscreen API
   pref("full-screen-api.macos-native-full-screen", false);
+  // Whether the toolbar should slide down with the menubar when the user mouses
+  // to the top of the screen in fullscreen mode.
+  pref("full-screen-api.macos.shiftToolbar", false);
 #endif
 // whether to prevent the top level widget from going fullscreen
 pref("full-screen-api.ignore-widgets", false);

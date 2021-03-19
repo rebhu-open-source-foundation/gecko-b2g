@@ -4,6 +4,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "nsMenuUtilsX.h"
+#include <unordered_set>
 
 #include "mozilla/dom/Document.h"
 #include "mozilla/dom/DocumentInlines.h"
@@ -251,20 +252,84 @@ NSMenuItem* nsMenuUtilsX::NativeMenuItemWithLocation(NSMenu* aRootMenu, NSString
       targetIndex++;
     }
     int itemCount = currentSubmenu.numberOfItems;
-    if (targetIndex < itemCount) {
-      NSMenuItem* menuItem = [currentSubmenu itemAtIndex:targetIndex];
-      // if this is the last index just return the menu item
-      if (depth == pathLength - 1) {
-        return menuItem;
-      }
-      // if this is not the last index find the submenu and keep going
-      if (menuItem.hasSubmenu) {
-        currentSubmenu = menuItem.submenu;
-      } else {
-        return nil;
-      }
+    if (targetIndex >= itemCount) {
+      return nil;
+    }
+    NSMenuItem* menuItem = [currentSubmenu itemAtIndex:targetIndex];
+    // if this is the last index just return the menu item
+    if (depth == pathLength - 1) {
+      return menuItem;
+    }
+    // if this is not the last index find the submenu and keep going
+    if (menuItem.hasSubmenu) {
+      currentSubmenu = menuItem.submenu;
+    } else {
+      return nil;
     }
   }
 
   return nil;
+}
+
+static void CheckNativeMenuConsistencyImpl(NSMenu* aMenu, std::unordered_set<void*>& aSeenObjects);
+
+static void CheckNativeMenuItemConsistencyImpl(NSMenuItem* aMenuItem,
+                                               std::unordered_set<void*>& aSeenObjects) {
+  bool inserted = aSeenObjects.insert(aMenuItem).second;
+  MOZ_RELEASE_ASSERT(inserted, "Duplicate NSMenuItem object in native menu structure");
+  if (aMenuItem.hasSubmenu) {
+    CheckNativeMenuConsistencyImpl(aMenuItem.submenu, aSeenObjects);
+  }
+}
+
+static void CheckNativeMenuConsistencyImpl(NSMenu* aMenu, std::unordered_set<void*>& aSeenObjects) {
+  bool inserted = aSeenObjects.insert(aMenu).second;
+  MOZ_RELEASE_ASSERT(inserted, "Duplicate NSMenu object in native menu structure");
+  for (NSMenuItem* item in aMenu.itemArray) {
+    CheckNativeMenuItemConsistencyImpl(item, aSeenObjects);
+  }
+}
+
+void nsMenuUtilsX::CheckNativeMenuConsistency(NSMenu* aMenu) {
+  std::unordered_set<void*> seenObjects;
+  CheckNativeMenuConsistencyImpl(aMenu, seenObjects);
+}
+
+void nsMenuUtilsX::CheckNativeMenuConsistency(NSMenuItem* aMenuItem) {
+  std::unordered_set<void*> seenObjects;
+  CheckNativeMenuItemConsistencyImpl(aMenuItem, seenObjects);
+}
+
+static void DumpNativeNSMenuItemImpl(NSMenuItem* aItem, uint32_t aIndent,
+                                     const Maybe<int>& aIndexInParentMenu);
+
+static void DumpNativeNSMenuImpl(NSMenu* aMenu, uint32_t aIndent) {
+  printf("%*sNSMenu [%p] %-16s\n", aIndent * 2, "", aMenu,
+         (aMenu.title.length == 0 ? "(no title)" : aMenu.title.UTF8String));
+  int index = 0;
+  for (NSMenuItem* item in aMenu.itemArray) {
+    DumpNativeNSMenuItemImpl(item, aIndent + 1, Some(index));
+    index++;
+  }
+}
+
+static void DumpNativeNSMenuItemImpl(NSMenuItem* aItem, uint32_t aIndent,
+                                     const Maybe<int>& aIndexInParentMenu) {
+  printf("%*s", aIndent * 2, "");
+  if (aIndexInParentMenu) {
+    printf("[%d] ", *aIndexInParentMenu);
+  }
+  printf("NSMenuItem [%p] %-16s%s\n", aItem,
+         aItem.isSeparatorItem ? "----"
+                               : (aItem.title.length == 0 ? "(no title)" : aItem.title.UTF8String),
+         aItem.hasSubmenu ? " [hasSubmenu]" : "");
+  if (aItem.hasSubmenu) {
+    DumpNativeNSMenuImpl(aItem.submenu, aIndent + 1);
+  }
+}
+
+void nsMenuUtilsX::DumpNativeMenu(NSMenu* aMenu) { DumpNativeNSMenuImpl(aMenu, 0); }
+
+void nsMenuUtilsX::DumpNativeMenuItem(NSMenuItem* aMenuItem) {
+  DumpNativeNSMenuItemImpl(aMenuItem, 0, Nothing());
 }

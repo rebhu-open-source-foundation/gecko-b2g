@@ -301,10 +301,10 @@ class MOZ_STACK_CLASS OpIter : private Policy {
   using Value = typename Policy::Value;
   using ValueVector = typename Policy::ValueVector;
   using TypeAndValue = TypeAndValueT<Value>;
-  typedef Vector<TypeAndValue, 8, SystemAllocPolicy> TypeAndValueStack;
+  using TypeAndValueStack = Vector<TypeAndValue, 8, SystemAllocPolicy>;
   using ControlItem = typename Policy::ControlItem;
   using Control = ControlStackEntry<ControlItem>;
-  typedef Vector<Control, 8, SystemAllocPolicy> ControlStack;
+  using ControlStack = Vector<Control, 8, SystemAllocPolicy>;
 
  private:
   Decoder& d_;
@@ -393,7 +393,7 @@ class MOZ_STACK_CLASS OpIter : private Policy {
     controlStack_.back().setPolymorphicBase();
   }
 
-  inline bool checkIsSubtypeOf(ValType lhs, ValType rhs);
+  inline bool checkIsSubtypeOf(ValType actual, ValType expected);
   inline bool checkIsSubtypeOf(ResultType params, ResultType results);
 
  public:
@@ -464,7 +464,7 @@ class MOZ_STACK_CLASS OpIter : private Policy {
   [[nodiscard]] bool readBrIf(uint32_t* relativeDepth, ResultType* type,
                               ValueVector* values, Value* condition);
   [[nodiscard]] bool readBrTable(Uint32Vector* depths, uint32_t* defaultDepth,
-                                 ResultType* defaultBranchValueType,
+                                 ResultType* defaultBranchType,
                                  ValueVector* branchValues, Value* index);
 #ifdef ENABLE_WASM_EXCEPTIONS
   [[nodiscard]] bool readTry(ResultType* type);
@@ -511,18 +511,18 @@ class MOZ_STACK_CLASS OpIter : private Policy {
   [[nodiscard]] bool readRefAsNonNull(Value* input);
   [[nodiscard]] bool readBrOnNull(uint32_t* relativeDepth, ResultType* type,
                                   ValueVector* values, Value* condition);
-  [[nodiscard]] bool readCall(uint32_t* calleeIndex, ValueVector* argValues);
+  [[nodiscard]] bool readCall(uint32_t* funcTypeIndex, ValueVector* argValues);
   [[nodiscard]] bool readCallIndirect(uint32_t* funcTypeIndex,
                                       uint32_t* tableIndex, Value* callee,
                                       ValueVector* argValues);
   [[nodiscard]] bool readOldCallDirect(uint32_t numFuncImports,
-                                       uint32_t* funcIndex,
+                                       uint32_t* funcTypeIndex,
                                        ValueVector* argValues);
   [[nodiscard]] bool readOldCallIndirect(uint32_t* funcTypeIndex, Value* callee,
                                          ValueVector* argValues);
   [[nodiscard]] bool readWake(LinearMemoryAddress<Value>* addr, Value* count);
   [[nodiscard]] bool readWait(LinearMemoryAddress<Value>* addr,
-                              ValType resultType, uint32_t byteSize,
+                              ValType valueType, uint32_t byteSize,
                               Value* value, Value* timeout);
   [[nodiscard]] bool readFence();
   [[nodiscard]] bool readAtomicLoad(LinearMemoryAddress<Value>* addr,
@@ -597,7 +597,7 @@ class MOZ_STACK_CLASS OpIter : private Policy {
   [[nodiscard]] bool readVectorShift(Value* baseValue, Value* shift);
   [[nodiscard]] bool readVectorSelect(Value* v1, Value* v2, Value* controlMask);
   [[nodiscard]] bool readVectorShuffle(Value* v1, Value* v2, V128* selectMask);
-  [[nodiscard]] bool readV128Const(V128* f64);
+  [[nodiscard]] bool readV128Const(V128* value);
   [[nodiscard]] bool readLoadSplat(uint32_t byteSize,
                                    LinearMemoryAddress<Value>* addr);
   [[nodiscard]] bool readLoadExtend(LinearMemoryAddress<Value>* addr);
@@ -1361,7 +1361,7 @@ inline bool OpIter<Policy>::readBrIf(uint32_t* relativeDepth, ResultType* type,
 
 template <typename Policy>
 inline bool OpIter<Policy>::checkBrTableEntry(uint32_t* relativeDepth,
-                                              ResultType prevType,
+                                              ResultType prevBranchType,
                                               ResultType* type,
                                               ValueVector* branchValues) {
   if (!readVarU32(relativeDepth)) {
@@ -1375,8 +1375,8 @@ inline bool OpIter<Policy>::checkBrTableEntry(uint32_t* relativeDepth,
 
   *type = block->branchTargetType();
 
-  if (prevType != ResultType()) {
-    if (prevType.length() != type->length()) {
+  if (prevBranchType != ResultType()) {
+    if (prevBranchType.length() != type->length()) {
       return fail("br_table targets must all have the same arity");
     }
 
@@ -3146,7 +3146,7 @@ inline bool OpIter<Policy>::readVectorShuffle(Value* v1, Value* v2,
                                               V128* selectMask) {
   MOZ_ASSERT(Classify(op_) == OpKind::VectorShuffle);
 
-  for (unsigned i = 0; i < 16; i++) {
+  for (unsigned char& byte : selectMask->bytes) {
     uint8_t tmp;
     if (!readFixedU8(&tmp)) {
       return fail("unable to read shuffle index");
@@ -3154,7 +3154,7 @@ inline bool OpIter<Policy>::readVectorShuffle(Value* v1, Value* v2,
     if (tmp > 31) {
       return fail("shuffle index out of range");
     }
-    selectMask->bytes[i] = tmp;
+    byte = tmp;
   }
 
   if (!popWithType(ValType::V128, v2)) {
@@ -3174,8 +3174,8 @@ template <typename Policy>
 inline bool OpIter<Policy>::readV128Const(V128* value) {
   MOZ_ASSERT(Classify(op_) == OpKind::V128);
 
-  for (unsigned i = 0; i < 16; i++) {
-    if (!readFixedU8(&value->bytes[i])) {
+  for (unsigned char& byte : value->bytes) {
+    if (!readFixedU8(&byte)) {
       return fail("unable to read V128 constant");
     }
   }

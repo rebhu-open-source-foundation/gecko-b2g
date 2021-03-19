@@ -126,14 +126,14 @@
 #identity-box[pageproxystate="valid"].chromeUI > .identity-box-button,
 #identity-box[pageproxystate="valid"].extensionPage > .identity-box-button,
 #urlbar-label-box {
-  background-color: var(--urlbar-box-bg-overlay);
+  background-color: var(--urlbar-box-bgcolor);
 }
 
 #urlbar:not([focused="true"]) #identity-box[pageproxystate="valid"].notSecureText > .identity-box-button,
 #urlbar:not([focused="true"]) #identity-box[pageproxystate="valid"].chromeUI > .identity-box-button,
 #urlbar:not([focused="true"]) #identity-box[pageproxystate="valid"].extensionPage > .identity-box-button,
 #urlbar:not([focused="true"]) #urlbar-label-box {
-  background-color: var(--urlbar-box-unfocused-bg-overlay);
+  background-color: var(--urlbar-box-unfocused-bgcolor);
 }
 } /*** END proton ***/
 
@@ -238,7 +238,7 @@
 
 #identity-box[pageproxystate="valid"].verifiedDomain #identity-icon,
 #identity-box[pageproxystate="valid"].mixedActiveBlocked #identity-icon {
-  list-style-image: url(chrome://browser/skin/connection-secure.svg);
+  list-style-image: url(chrome://global/skin/icons/security.svg);
 }
 
 #identity-box[pageproxystate="valid"].verifiedDomain #identity-icon:not([lock-icon-gray]),
@@ -252,7 +252,7 @@
 #identity-box[pageproxystate="valid"].mixedDisplayContentLoadedActiveBlocked #identity-icon,
 #identity-box[pageproxystate="valid"].certUserOverridden #identity-icon,
 #identity-box[pageproxystate="valid"].certErrorPage #identity-icon {
-  list-style-image: url(chrome://global/skin/icons/connection-mixed-passive-loaded.svg);
+  list-style-image: url(chrome://global/skin/icons/security-warning.svg);
   fill: unset;
 }
 
@@ -260,7 +260,7 @@
 #identity-box[pageproxystate="valid"].notSecure #identity-icon,
 #identity-box[pageproxystate="valid"].mixedActiveContent #identity-icon,
 #identity-box[pageproxystate="valid"].httpsOnlyErrorPage #identity-icon {
-  list-style-image: url(chrome://global/skin/icons/connection-mixed-active-loaded.svg);
+  list-style-image: url(chrome://global/skin/icons/security-broken.svg);
 }
 
 #permissions-granted-icon {
