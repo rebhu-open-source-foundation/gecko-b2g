@@ -97,6 +97,7 @@ class B2G final : public DOMEventTargetHelper,
   already_AddRefed<Promise> GetFlashlightManager(ErrorResult& aRv);
   already_AddRefed<Promise> GetFlipManager(ErrorResult& aRv);
   InputMethod* GetInputMethod(ErrorResult& aRv);
+  static bool HasInputPermission(JSContext* /* unused */, JSObject* aGlobal);
   TetheringManager* GetTetheringManager(ErrorResult& aRv);
 
 #ifdef MOZ_B2G_RIL

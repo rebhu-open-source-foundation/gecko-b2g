@@ -294,10 +294,26 @@ already_AddRefed<Promise> B2G::GetFlipManager(ErrorResult& aRv) {
   return p.forget();
 }
 
+/* static */
+bool B2G::HasInputPermission(JSContext* /* unused */, JSObject* aGlobal) {
+  nsCOMPtr<nsPIDOMWindowInner> innerWindow = xpc::WindowOrNull(aGlobal);
+  return B2G::CheckPermission("input"_ns, innerWindow);
+}
+
 InputMethod* B2G::GetInputMethod(ErrorResult& aRv) {
   if (!mInputMethod) {
     if (!mOwner) {
       aRv.Throw(NS_ERROR_UNEXPECTED);
+      return nullptr;
+    }
+    nsPIDOMWindowInner* innerWindow = mOwner->AsInnerWindow();
+    if (!innerWindow) {
+      aRv.Throw(NS_ERROR_UNEXPECTED);
+      return nullptr;
+    }
+
+    if (!CheckPermission("input"_ns, innerWindow)) {
+      aRv.Throw(NS_ERROR_DOM_SECURITY_ERR);
       return nullptr;
     }
     mInputMethod = new InputMethod(GetParentObject());

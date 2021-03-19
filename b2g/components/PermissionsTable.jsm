@@ -240,6 +240,11 @@ this.PermissionsTable = {
     signed: DENY_ACTION,
     core: ALLOW_ACTION,
   },
+  input: {
+    pwa: DENY_ACTION,
+    signed: DENY_ACTION,
+    core: ALLOW_ACTION,
+  },
   mobileconnection: {
     pwa: DENY_ACTION,
     signed: DENY_ACTION,

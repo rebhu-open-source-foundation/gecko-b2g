@@ -43,7 +43,7 @@ partial interface B2G {
 
 [Exposed=Window]
 partial interface B2G {
-  [Throws, Pref="dom.inputmethod.enabled"]
+  [Throws, Func="B2G::HasInputPermission", Pref="dom.inputmethod.enabled"]
   readonly attribute InputMethod inputMethod;
 };
 
