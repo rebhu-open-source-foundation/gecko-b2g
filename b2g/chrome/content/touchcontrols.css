@@ -584,6 +584,11 @@
   display: none;
 }
 
+.controlBar .fullscreenButton[masking] {
+  opacity: 0;
+  pointer-events: none;
+}
+
 .statusOverlay[fadeout],
 .statusOverlay[error] + .controlsOverlay > .controlsSpacerStack {
   opacity: 0;

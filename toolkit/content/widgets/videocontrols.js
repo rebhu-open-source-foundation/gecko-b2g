@@ -303,8 +303,8 @@ this.VideoControlsImplWidget = class {
           return;
         }
         if (this._isAudioOnly) {
-          this.video.style.height = this.controlBarMinHeight + "px";
-          this.video.style.width = "66%";
+          this.video.style.height = "138px";
+          this.video.style.width = "100%";
         } else {
           this.video.style.removeProperty("height");
           this.video.style.removeProperty("width");
@@ -1682,12 +1682,22 @@ this.VideoControlsImplWidget = class {
       },
 
       setFullscreenButtonState() {
-        if (this.isAudioOnly || !this.document.fullscreenEnabled) {
-          this.controlBar.setAttribute("fullscreen-unavailable", true);
+        if (this.isAudioOnly) {
+          this.fullscreenButton.setAttribute("masking", true);
+          this.controlBar.removeAttribute("fullscreen-unavailable");
           this.adjustControlSize();
           return;
         }
+
+        if (!this.document.fullscreenEnabled) {
+          this.controlBar.setAttribute("fullscreen-unavailable", true);
+          this.fullscreenButton.removeAttribute("masking");
+          this.adjustControlSize();
+          return;
+        }
+
         this.controlBar.removeAttribute("fullscreen-unavailable");
+        this.fullscreenButton.removeAttribute("masking");
         this.adjustControlSize();
 
         var attrName = this.isVideoInFullScreen
