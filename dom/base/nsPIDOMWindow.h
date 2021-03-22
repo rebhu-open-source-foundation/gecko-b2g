@@ -419,7 +419,7 @@ class nsPIDOMWindowInner : public mozIDOMWindow {
 
   // Fire any DOM notification events related to things that happened while
   // the window was frozen.
-  virtual nsresult FireDelayedDOMEvents() = 0;
+  virtual nsresult FireDelayedDOMEvents(bool aIncludeSubWindows) = 0;
 
   /**
    * Get the docshell in this window.
@@ -678,6 +678,10 @@ class nsPIDOMWindowInner : public mozIDOMWindow {
   // notification.
   bool mHasNotifiedGlobalCreated;
 
+  // Whether when focused via an "unknown" focus method, we should show outlines
+  // by default or not. The initial value of this is true (so as to show
+  // outlines for stuff like html autofocus, or initial programmatic focus
+  // without any other user interaction).
   bool mUnknownFocusMethodShouldShowOutline = true;
 
   uint32_t mMarkedCCGeneration;
@@ -870,7 +874,7 @@ class nsPIDOMWindowOuter : public mozIDOMWindowProxy {
 
   // Fire any DOM notification events related to things that happened while
   // the window was frozen.
-  virtual nsresult FireDelayedDOMEvents() = 0;
+  virtual nsresult FireDelayedDOMEvents(bool aIncludeSubWindows) = 0;
 
   /**
    * Get the docshell in this window.

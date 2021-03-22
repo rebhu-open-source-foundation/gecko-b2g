@@ -129,13 +129,25 @@
   background-color: var(--urlbar-box-bgcolor);
 }
 
-#urlbar:not([focused="true"]) #identity-box[pageproxystate="valid"].notSecureText > .identity-box-button,
-#urlbar:not([focused="true"]) #identity-box[pageproxystate="valid"].chromeUI > .identity-box-button,
-#urlbar:not([focused="true"]) #identity-box[pageproxystate="valid"].extensionPage > .identity-box-button,
-#urlbar:not([focused="true"]) #urlbar-label-box {
-  background-color: var(--urlbar-box-unfocused-bgcolor);
+#identity-box[pageproxystate="valid"].notSecureText > .identity-box-button:hover:not([open]),
+#identity-box[pageproxystate="valid"].chromeUI > .identity-box-button:hover:not([open]),
+#identity-box[pageproxystate="valid"].extensionPage > .identity-box-button:hover:not([open]) {
+  background-color: var(--urlbar-box-hover-bgcolor);
+}
+
+#identity-box[pageproxystate="valid"].notSecureText > .identity-box-button:hover:active,
+#identity-box[pageproxystate="valid"].notSecureText > .identity-box-button[open=true],
+#identity-box[pageproxystate="valid"].chromeUI > .identity-box-button:hover:active,
+#identity-box[pageproxystate="valid"].chromeUI > .identity-box-button[open=true],
+#identity-box[pageproxystate="valid"].extensionPage > .identity-box-button:hover:active,
+#identity-box[pageproxystate="valid"].extensionPage > .identity-box-button[open=true] {
+  background-color: var(--urlbar-box-active-bgcolor);
 }
 } /*** END proton ***/
+
+#urlbar[searchmode]:not([focused="true"]) > #urlbar-input-container > #urlbar-label-box {
+  pointer-events: none;
+}
 
 @supports not -moz-bool-pref("browser.proton.urlbar.enabled") {
 #identity-box[pageproxystate="valid"].notSecureText,
@@ -163,7 +175,6 @@
 #urlbar[searchmode]:not([breakout-extend]) > #urlbar-input-container > #urlbar-label-box {
   border-inline-start-color: transparent;
   border-image-width: 0 1px 0 0;
-  pointer-events: none;
 }
 
 #urlbar[searchmode]:not([breakout-extend]) > #urlbar-input-container > #urlbar-label-box:-moz-locale-dir(rtl) {

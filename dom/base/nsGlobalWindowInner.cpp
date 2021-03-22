@@ -4376,6 +4376,11 @@ void nsGlobalWindowInner::SetFocusedElement(Element* aElement,
     } else if (nsFocusManager::GetFocusMoveActionCause(mFocusMethod) !=
                widget::InputContextAction::CAUSE_UNKNOWN) {
       mUnknownFocusMethodShouldShowOutline = false;
+    } else if (aFocusMethod & nsIFocusManager::FLAG_NOSHOWRING) {
+      // If we get focused via script, and script has explicitly opted out of
+      // outlines via FLAG_NOSHOWRING, we don't want to make a refocus start
+      // showing outlines.
+      mUnknownFocusMethodShouldShowOutline = false;
     }
   }
 
@@ -5876,7 +5881,7 @@ nsGlobalWindowInner::GetOrCreateServiceWorkerRegistration(
   return ref;
 }
 
-nsresult nsGlobalWindowInner::FireDelayedDOMEvents() {
+nsresult nsGlobalWindowInner::FireDelayedDOMEvents(bool aIncludeSubWindows) {
   if (mApplicationCache) {
     static_cast<nsDOMOfflineResourceList*>(mApplicationCache.get())
         ->FirePendingEvents();
@@ -5884,6 +5889,10 @@ nsresult nsGlobalWindowInner::FireDelayedDOMEvents() {
 
   // Fires an offline status event if the offline status has changed
   FireOfflineStatusEventIfChanged();
+
+  if (!aIncludeSubWindows) {
+    return NS_OK;
+  }
 
   nsCOMPtr<nsIDocShell> docShell = GetDocShell();
   if (docShell) {
@@ -5904,7 +5913,7 @@ nsresult nsGlobalWindowInner::FireDelayedDOMEvents() {
     for (nsCOMPtr<nsIDocShellTreeItem> childShell : children) {
       if (nsCOMPtr<nsPIDOMWindowOuter> pWin = childShell->GetWindow()) {
         auto* win = nsGlobalWindowOuter::Cast(pWin);
-        win->FireDelayedDOMEvents();
+        win->FireDelayedDOMEvents(true);
       }
     }
   }

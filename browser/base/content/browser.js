@@ -236,7 +236,7 @@ XPCOMUtils.defineLazyScriptGetter(
 XPCOMUtils.defineLazyScriptGetter(
   this,
   "pktUI",
-  "chrome://pocket/content/main.js"
+  "chrome://pocket/content/pktUI.js"
 );
 XPCOMUtils.defineLazyScriptGetter(
   this,
@@ -581,13 +581,19 @@ XPCOMUtils.defineLazyPreferenceGetter(
   false
 );
 
+/* Work around the pref callback being run after the document has been unlinked.
+   See bug 1543537. */
+var docWeak = Cu.getWeakReference(document);
 XPCOMUtils.defineLazyPreferenceGetter(
   this,
   "gProton",
   "browser.proton.enabled",
   false,
   (pref, oldValue, newValue) => {
-    document.documentElement.toggleAttribute("proton", newValue);
+    let doc = docWeak.get();
+    if (doc) {
+      doc.documentElement.toggleAttribute("proton", newValue);
+    }
   }
 );
 
@@ -9476,6 +9482,10 @@ var gDialogBox = {
     let haveClosedPromise = new Promise(resolve => {
       this._didCloseHTMLDialog = resolve;
     });
+
+    // Bring the window to the front in case we're minimized or occluded:
+    window.focus();
+
     try {
       await this._open(uri, args);
     } catch (ex) {

@@ -1033,7 +1033,6 @@ STATIC_ATOMS = [
     Atom("prefersTextSize", "prefers-text-size"),
     Atom("prefix", "prefix"),
     Atom("preload", "preload"),
-    Atom("mozpresentation", "mozpresentation"),
     Atom("preserve", "preserve"),
     Atom("preserveSpace", "preserve-space"),
     Atom("preventdefault", "preventdefault"),

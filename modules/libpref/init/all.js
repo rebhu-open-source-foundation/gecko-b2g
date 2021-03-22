@@ -1414,7 +1414,11 @@ pref("network.http.spdy.websockets", true);
 pref("network.http.spdy.enable-hpack-dump", false);
 
 // Http3 parameters
+#if defined(EARLY_BETA_OR_EARLIER) && !defined(ANDROID)
+pref("network.http.http3.enabled", true);
+#else
 pref("network.http.http3.enabled", false);
+#endif
 
 // Http3 qpack table size.
 pref("network.http.http3.default-qpack-table-size", 65536); // 64k
@@ -3107,7 +3111,7 @@ pref("font.size.monospace.x-math", 13);
 
   pref("font.name-list.serif.ja", "Hiragino Mincho ProN, Hiragino Mincho Pro");
   pref("font.name-list.sans-serif.ja", "Hiragino Kaku Gothic ProN, Hiragino Kaku Gothic Pro, Hiragino Sans");
-  pref("font.name-list.monospace.ja", "Osaka-Mono");
+  pref("font.name-list.monospace.ja", "Osaka-Mono, Hiragino Kaku Gothic ProN, Hiragino Sans");
 
   pref("font.name-list.serif.ko", "AppleMyungjo");
   pref("font.name-list.sans-serif.ko", "Apple SD Gothic Neo, AppleGothic");

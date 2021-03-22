@@ -6886,8 +6886,9 @@ bool nsGlobalWindowOuter::IsFrozen() const {
   return mInnerWindow->IsFrozen();
 }
 
-nsresult nsGlobalWindowOuter::FireDelayedDOMEvents() {
-  FORWARD_TO_INNER(FireDelayedDOMEvents, (), NS_ERROR_UNEXPECTED);
+nsresult nsGlobalWindowOuter::FireDelayedDOMEvents(bool aIncludeSubWindows) {
+  FORWARD_TO_INNER(FireDelayedDOMEvents, (aIncludeSubWindows),
+                   NS_ERROR_UNEXPECTED);
 }
 
 //*****************************************************************************

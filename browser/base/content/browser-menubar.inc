@@ -390,7 +390,7 @@
                         command="Tools:Downloads" data-l10n-id="menu-tools-downloads"/>
               <menuitem id="menu_openAddons"
                         key="key_openAddons"
-                        command="Tools:Addons" data-l10n-id="menu-tools-extensions"/>
+                        command="Tools:Addons" data-l10n-id="menu-tools-addons-and-themes"/>
 
               <!-- only one of sync-setup, sync-enable, sync-unverifieditem, sync-syncnowitem or sync-reauthitem will be showing at once -->
               <menuitem id="sync-setup"
@@ -447,11 +447,7 @@
 #ifdef XP_MACOSX
 <!-- nsMenuBarX hides these and uses them to build the Application menu. -->
               <menuitem id="menu_preferences"
-#ifdef NIGHTLY_BUILD
-                        data-l10n-id="menu-settings"
-#else
                         data-l10n-id="menu-preferences"
-#endif
                         key="key_preferencesCmdMac" oncommand="openPreferences(undefined);"/>
               <menuitem id="menu_mac_services" data-l10n-id="menu-application-services"/>
               <menuitem id="menu_mac_hide_app" data-l10n-id="menu-application-hide-this" key="key_hideThisAppCmdMac"/>

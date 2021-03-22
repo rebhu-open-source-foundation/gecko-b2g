@@ -1019,15 +1019,10 @@
 # Whether focus rings are always shown by default.
 #
 # This is the initial value of nsWindowRoot::mShowFocusRings, but it can be
-# overridden by system preferences.  For Windows, we start with default-true,
-# and by default the UISF_HIDEFOCUS message comes by and sets it to false.
+# overridden by system preferences. 
 - name: browser.display.show_focus_rings
   type: bool
-#ifndef XP_WIN
   value: false
-#else
-  value: true
-#endif
   mirror: always
 
 # Whether we should always enable focus rings after focus was moved by keyboard.
@@ -9201,7 +9196,16 @@
 # global mode is TRR-only (no fallback).
 - name: network.trr.wait-for-confirmation
   type: RelaxedAtomicBool
-  value: true
+  value: false
+  mirror: always
+
+# Normally when confirmation fails we wait for the confirmation to succeed
+# before attempting to do TRR. When this pref is true, we optimistically
+# assume the confirmation will succeed and might attempt TRR anyway.
+# If network.trr.wait-for-confirmation is true, this pref is ignored.
+- name: network.trr.attempt-when-retrying-confirmation
+  type: RelaxedAtomicBool
+  value: false
   mirror: always
 
 # Use GET (rather than POST)
@@ -9299,6 +9303,12 @@
   type: RelaxedAtomicUint32
   value: 60
   mirror: always
+
+# The uri indicates where to get ODoHConfigs.
+- name: network.trr.odoh.configs_uri
+  type: String
+  value: ""
+  mirror: never
 
 # Allow the network changed event to get sent when a network topology or setup
 # change is noticed while running.

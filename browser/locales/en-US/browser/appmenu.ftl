@@ -4,8 +4,13 @@
 
 ## App Menu
 
-appmenuitem-update-banner =
+appmenuitem-update-banner2 =
     .label-update-downloading = Downloading { -brand-shorter-name } update
+    .label-update-available = Update available — download now
+    .label-update-manual = Update available — download now
+    .label-update-unsupported = Unable to update
+    .label-update-restart = Update available — restart now
+
 appmenuitem-protection-dashboard-title = Protections Dashboard
 appmenuitem-new-window =
     .label = New Window
@@ -13,8 +18,8 @@ appmenuitem-new-private-window =
     .label = New Private Window
 appmenuitem-passwords =
     .label = Passwords
-appmenuitem-extensions-and-themes =
-    .label = Extensions and Themes
+appmenuitem-addons-and-themes =
+    .label = Add-ons and Themes
 appmenuitem-find-in-page =
     .label = Find In Page…
 appmenuitem-more-tools =

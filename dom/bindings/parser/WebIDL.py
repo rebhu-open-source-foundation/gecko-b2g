@@ -2463,12 +2463,6 @@ class IDLType(IDLObject):
         type that is implemented in SpiderMonkey."""
         return self.isInterface() and (self.isBufferSource() or self.isReadableStream())
 
-    def isDictionary(self):
-        return False
-
-    def isInterface(self):
-        return False
-
     def isAny(self):
         return self.tag() == IDLType.Tags.any
 
@@ -2804,44 +2798,11 @@ class IDLSequenceType(IDLParametrizedType):
     def prettyName(self):
         return "sequence<%s>" % self.inner.prettyName()
 
-    def nullable(self):
-        return False
-
-    def isPrimitive(self):
-        return False
-
-    def isString(self):
-        return False
-
-    def isByteString(self):
-        return False
-
-    def isDOMString(self):
-        return False
-
-    def isUSVString(self):
-        return False
-
-    def isUTF8String(self):
-        return False
-
-    def isJSString(self):
-        return False
-
     def isVoid(self):
         return False
 
     def isSequence(self):
         return True
-
-    def isDictionary(self):
-        return False
-
-    def isInterface(self):
-        return False
-
-    def isEnum(self):
-        return False
 
     def isJSONType(self):
         return self.inner.isJSONType()
@@ -3241,34 +3202,7 @@ class IDLWrapperType(IDLType):
     def __str__(self):
         return str(self.name) + " (Wrapper)"
 
-    def nullable(self):
-        return False
-
-    def isPrimitive(self):
-        return False
-
-    def isString(self):
-        return False
-
-    def isByteString(self):
-        return False
-
-    def isDOMString(self):
-        return False
-
-    def isUSVString(self):
-        return False
-
-    def isUTF8String(self):
-        return False
-
-    def isJSString(self):
-        return False
-
     def isVoid(self):
-        return False
-
-    def isSequence(self):
         return False
 
     def isDictionary(self):

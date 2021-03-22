@@ -75,7 +75,7 @@ use crate::gpu_types::{PrimitiveInstanceData, ScalingInstance, SvgFilterInstance
 use crate::gpu_types::{BlurInstance, ClearInstance, CompositeInstance, ZBufferId};
 use crate::internal_types::{TextureSource, ResourceCacheError};
 use crate::internal_types::{CacheTextureId, DebugOutput, FastHashMap, FastHashSet, RenderedDocument, ResultMsg};
-use crate::internal_types::{TextureCacheAllocationKind, TextureUpdateList};
+use crate::internal_types::{TextureCacheAllocInfo, TextureCacheAllocationKind, TextureUpdateList};
 use crate::internal_types::{RenderTargetInfo, Swizzle, DeferredResolveIndex};
 use crate::picture::{self, ResolvedSurfaceTexture};
 use crate::prim_store::DeferredResolve;
@@ -171,14 +171,6 @@ const GPU_TAG_BRUSH_LINEAR_GRADIENT: GpuProfileTag = GpuProfileTag {
     label: "B_LinearGradient",
     color: debug_colors::POWDERBLUE,
 };
-const GPU_TAG_BRUSH_RADIAL_GRADIENT: GpuProfileTag = GpuProfileTag {
-    label: "B_RadialGradient",
-    color: debug_colors::LIGHTPINK,
-};
-const GPU_TAG_BRUSH_CONIC_GRADIENT: GpuProfileTag = GpuProfileTag {
-    label: "B_ConicGradient",
-    color: debug_colors::GREEN,
-};
 const GPU_TAG_BRUSH_YUV_IMAGE: GpuProfileTag = GpuProfileTag {
     label: "B_YuvImage",
     color: debug_colors::DARKGREEN,
@@ -213,6 +205,14 @@ const GPU_TAG_CACHE_LINE_DECORATION: GpuProfileTag = GpuProfileTag {
 };
 const GPU_TAG_CACHE_FAST_LINEAR_GRADIENT: GpuProfileTag = GpuProfileTag {
     label: "C_FastLinearGradient",
+    color: debug_colors::BROWN,
+};
+const GPU_TAG_CACHE_RADIAL_GRADIENT: GpuProfileTag = GpuProfileTag {
+    label: "C_RadialGradient",
+    color: debug_colors::BROWN,
+};
+const GPU_TAG_CACHE_CONIC_GRADIENT: GpuProfileTag = GpuProfileTag {
+    label: "C_ConicGradient",
     color: debug_colors::BROWN,
 };
 const GPU_TAG_SETUP_TARGET: GpuProfileTag = GpuProfileTag {
@@ -285,8 +285,6 @@ impl BatchKind {
                     BrushBatchKind::Blend => "Brush (Blend)",
                     BrushBatchKind::MixBlend { .. } => "Brush (Composite)",
                     BrushBatchKind::YuvImage(..) => "Brush (YuvImage)",
-                    BrushBatchKind::ConicGradient => "Brush (ConicGradient)",
-                    BrushBatchKind::RadialGradient => "Brush (RadialGradient)",
                     BrushBatchKind::LinearGradient => "Brush (LinearGradient)",
                     BrushBatchKind::Opacity => "Brush (Opacity)",
                 }
@@ -305,8 +303,6 @@ impl BatchKind {
                     BrushBatchKind::Blend => GPU_TAG_BRUSH_BLEND,
                     BrushBatchKind::MixBlend { .. } => GPU_TAG_BRUSH_MIXBLEND,
                     BrushBatchKind::YuvImage(..) => GPU_TAG_BRUSH_YUV_IMAGE,
-                    BrushBatchKind::ConicGradient => GPU_TAG_BRUSH_CONIC_GRADIENT,
-                    BrushBatchKind::RadialGradient => GPU_TAG_BRUSH_RADIAL_GRADIENT,
                     BrushBatchKind::LinearGradient => GPU_TAG_BRUSH_LINEAR_GRADIENT,
                     BrushBatchKind::Opacity => GPU_TAG_BRUSH_OPACITY,
                 }
@@ -2360,30 +2356,86 @@ impl Renderer {
         let mut delete_cache_texture_time = 0;
 
         for update_list in pending_texture_updates.drain(..) {
+            // Find any textures that will need to be deleted in this group of allocations.
+            let mut pending_deletes = Vec::new();
+            for allocation in &update_list.allocations {
+                let old = self.texture_resolver.texture_cache_map.remove(&allocation.id);
+                match allocation.kind {
+                    TextureCacheAllocationKind::Alloc(_) => {
+                        assert!(old.is_none(), "Renderer and backend disagree!");
+                    }
+                    TextureCacheAllocationKind::Reset(_) |
+                    TextureCacheAllocationKind::Free => {
+                        assert!(old.is_some(), "Renderer and backend disagree!");
+                    }
+                }
+                if let Some(texture) = old {
+                    // Regenerate the cache allocation info so we can search through deletes for reuse.
+                    let size = texture.get_dimensions();
+                    let info = TextureCacheAllocInfo {
+                        width: size.width,
+                        height: size.height,
+                        format: texture.get_format(),
+                        filter: texture.get_filter(),
+                        target: texture.get_target(),
+                        is_shared_cache: texture.flags().contains(TextureFlags::IS_SHARED_TEXTURE_CACHE),
+                        has_depth: texture.supports_depth(),
+                    };
+                    pending_deletes.push((texture, info));
+                }
+            }
+            // Look for any alloc or reset that has matching alloc info and save it from being deleted.
+            let mut reused_textures = VecDeque::with_capacity(pending_deletes.len());
+            for allocation in &update_list.allocations {
+                match allocation.kind {
+                    TextureCacheAllocationKind::Alloc(ref info) |
+                    TextureCacheAllocationKind::Reset(ref info) => {
+                        reused_textures.push_back(
+                            pending_deletes.iter()
+                                .position(|(_, old_info)| *old_info == *info)
+                                .map(|index| pending_deletes.swap_remove(index).0)
+                        );
+                    }
+                    TextureCacheAllocationKind::Free => {}
+                }
+            }
+            // Now that we've saved as many deletions for reuse as we can, actually delete whatever is left.
+            if !pending_deletes.is_empty() {
+                let delete_texture_start = precise_time_ns();
+                for (texture, _) in pending_deletes {
+                    add_event_marker(c_str!("TextureCacheFree"));
+                    self.device.delete_texture(texture);
+                }
+                delete_cache_texture_time += precise_time_ns() - delete_texture_start;
+            }
+
             for allocation in update_list.allocations {
                 match allocation.kind {
                     TextureCacheAllocationKind::Alloc(_) => add_event_marker(c_str!("TextureCacheAlloc")),
                     TextureCacheAllocationKind::Reset(_) => add_event_marker(c_str!("TextureCacheReset")),
-                    TextureCacheAllocationKind::Free => add_event_marker(c_str!("TextureCacheFree")),
+                    TextureCacheAllocationKind::Free => {}
                 };
-                let old = match allocation.kind {
+                match allocation.kind {
                     TextureCacheAllocationKind::Alloc(ref info) |
                     TextureCacheAllocationKind::Reset(ref info) => {
                         let create_cache_texture_start = precise_time_ns();
                         // Create a new native texture, as requested by the texture cache.
+                        // If we managed to reuse a deleted texture, then prefer that instead.
                         //
                         // Ensure no PBO is bound when creating the texture storage,
                         // or GL will attempt to read data from there.
-                        let mut texture = self.device.create_texture(
-                            info.target,
-                            info.format,
-                            info.width,
-                            info.height,
-                            info.filter,
-                            // This needs to be a render target because some render
-                            // tasks get rendered into the texture cache.
-                            Some(RenderTargetInfo { has_depth: info.has_depth }),
-                        );
+                        let mut texture = reused_textures.pop_front().unwrap_or(None).unwrap_or_else(|| {
+                            self.device.create_texture(
+                                info.target,
+                                info.format,
+                                info.width,
+                                info.height,
+                                info.filter,
+                                // This needs to be a render target because some render
+                                // tasks get rendered into the texture cache.
+                                Some(RenderTargetInfo { has_depth: info.has_depth }),
+                            )
+                        });
 
                         if info.is_shared_cache {
                             texture.flags_mut()
@@ -2408,28 +2460,10 @@ impl Renderer {
 
                         create_cache_texture_time += precise_time_ns() - create_cache_texture_start;
 
-                        self.texture_resolver.texture_cache_map.insert(allocation.id, texture)
+                        self.texture_resolver.texture_cache_map.insert(allocation.id, texture);
                     }
-                    TextureCacheAllocationKind::Free => {
-                        self.texture_resolver.texture_cache_map.remove(&allocation.id)
-                    }
+                    TextureCacheAllocationKind::Free => {}
                 };
-
-                match allocation.kind {
-                    TextureCacheAllocationKind::Alloc(_) => {
-                        assert!(old.is_none(), "Renderer and backend disagree!");
-                    }
-                    TextureCacheAllocationKind::Reset(_) |
-                    TextureCacheAllocationKind::Free => {
-                        assert!(old.is_some(), "Renderer and backend disagree!");
-                    }
-                }
-
-                if let Some(old) = old {
-                    let delete_texture_start = precise_time_ns();
-                    self.device.delete_texture(old);
-                    delete_cache_texture_time += precise_time_ns() - delete_texture_start;
-                }
             }
 
             upload_to_texture_cache(self, update_list.updates);
@@ -4045,6 +4079,56 @@ impl Renderer {
             self.draw_instanced_batch(
                 &target.fast_linear_gradients,
                 VertexArrayKind::FastLinearGradient,
+                &BatchTextures::empty(),
+                stats,
+            );
+        }
+
+        // Draw any radial gradients for this target.
+        if !target.radial_gradients.is_empty() {
+            let _timer = self.gpu_profiler.start_timer(GPU_TAG_CACHE_RADIAL_GRADIENT);
+
+            self.set_blend(false, FramebufferKind::Other);
+
+            self.shaders.borrow_mut().cs_radial_gradient.bind(
+                &mut self.device,
+                &projection,
+                None,
+                &mut self.renderer_errors,
+            );
+
+            if let Some(ref texture) = self.dither_matrix_texture {
+                self.device.bind_texture(TextureSampler::Dither, texture, Swizzle::default());
+            }
+
+            self.draw_instanced_batch(
+                &target.radial_gradients,
+                VertexArrayKind::RadialGradient,
+                &BatchTextures::empty(),
+                stats,
+            );
+        }
+
+        // Draw any conic gradients for this target.
+        if !target.conic_gradients.is_empty() {
+            let _timer = self.gpu_profiler.start_timer(GPU_TAG_CACHE_CONIC_GRADIENT);
+
+            self.set_blend(false, FramebufferKind::Other);
+
+            self.shaders.borrow_mut().cs_conic_gradient.bind(
+                &mut self.device,
+                &projection,
+                None,
+                &mut self.renderer_errors,
+            );
+
+            if let Some(ref texture) = self.dither_matrix_texture {
+                self.device.bind_texture(TextureSampler::Dither, texture, Swizzle::default());
+            }
+
+            self.draw_instanced_batch(
+                &target.conic_gradients,
+                VertexArrayKind::ConicGradient,
                 &BatchTextures::empty(),
                 stats,
             );
@@ -5955,8 +6039,6 @@ fn should_skip_batch(kind: &BatchKind, flags: DebugFlags) -> bool {
         BatchKind::TextRun(_) => {
             flags.contains(DebugFlags::DISABLE_TEXT_PRIMS)
         }
-        BatchKind::Brush(BrushBatchKind::ConicGradient) |
-        BatchKind::Brush(BrushBatchKind::RadialGradient) |
         BatchKind::Brush(BrushBatchKind::LinearGradient) => {
             flags.contains(DebugFlags::DISABLE_GRADIENT_PRIMS)
         }
