@@ -1806,6 +1806,13 @@ var WifiManager = (function() {
               callback(ok);
             }
           );
+
+          gNetworkService.setIpv6PrivacyExtensions(
+            manager.ifname,
+            true,
+            function() {}
+          );
+          gNetworkService.setIpv6Status(manager.ifname, false, function() {});
           BinderServices.wifi.onWifiStateChanged(
             WifiConstants.WIFI_STATE_ENABLED
           );
@@ -2984,6 +2991,16 @@ function WifiWorker() {
     });
 
     self._ipAddress = this.info.ipaddr_str;
+
+    if (autoRoaming) {
+      // TODO: We're doing this because we only support dual stack currently.
+      // We'll need arp/ns detection mechanism to achieve ipv4/ipv6 independent.
+
+      // Reset IPv6 interface to trigger neighbor solicit and
+      // router solicit immediately.
+      gNetworkService.setIpv6Status(WifiManager.ifname, false, function() {});
+      gNetworkService.setIpv6Status(WifiManager.ifname, true, function() {});
+    }
 
     // We start the connection information timer when we associate, but
     // don't have our IP address until here. Make sure that we fire a new

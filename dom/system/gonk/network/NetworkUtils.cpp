@@ -582,8 +582,18 @@ void NetworkUtils::destroyNetwork(CommandChain* aChain,
 
 void NetworkUtils::setIpv6Enabled(CommandChain* aChain,
                                   CommandCallback aCallback,
-                                  NetworkResultOptions& aResult,
-                                  bool aEnabled) {
+                                  NetworkResultOptions& aResult) {
+  bool enable = GET_FIELD(mEnable);
+  Status status =
+      gNetd->interfaceSetEnableIPv6(std::string(GET_CHAR(mIfname)), enable);
+  NU_DBG("setIpv6Enabled %s %s", enable ? "enable" : "disable",
+         status.isOk() ? "success" : "failed but continue");
+  aCallback(aChain, false, aResult);
+}
+
+void NetworkUtils::enableIpv6(CommandChain* aChain, CommandCallback aCallback,
+                              NetworkResultOptions& aResult) {
+  // Check the interface while cmd came from create/destroy network.
   if (nsINetworkInfo::NETWORK_TYPE_WIFI != GET_FIELD(mNetworkType)) {
     NU_DBG("%s : ignore network type = %ld", __FUNCTION__,
            GET_FIELD(mNetworkType));
@@ -591,21 +601,22 @@ void NetworkUtils::setIpv6Enabled(CommandChain* aChain,
     return;
   }
 
-  Status status =
-      gNetd->interfaceSetEnableIPv6(std::string(GET_CHAR(mIfname)), aEnabled);
-  NU_DBG("setIpv6Enabled %s",
-         status.isOk() ? "success" : "failed but continue");
-  aCallback(aChain, false, aResult);
-}
-
-void NetworkUtils::enableIpv6(CommandChain* aChain, CommandCallback aCallback,
-                              NetworkResultOptions& aResult) {
-  setIpv6Enabled(aChain, aCallback, aResult, true);
+  GET_FIELD(mEnable) = true;
+  setIpv6Enabled(aChain, aCallback, aResult);
 }
 
 void NetworkUtils::disableIpv6(CommandChain* aChain, CommandCallback aCallback,
                                NetworkResultOptions& aResult) {
-  setIpv6Enabled(aChain, aCallback, aResult, false);
+  // Check the interface while cmd came from create/destroy network.
+  if (nsINetworkInfo::NETWORK_TYPE_WIFI != GET_FIELD(mNetworkType)) {
+    NU_DBG("%s : ignore network type = %ld", __FUNCTION__,
+           GET_FIELD(mNetworkType));
+    aCallback(aChain, false, aResult);
+    return;
+  }
+
+  GET_FIELD(mEnable) = false;
+  setIpv6Enabled(aChain, aCallback, aResult);
 }
 
 void NetworkUtils::addInterfaceToNetwork(CommandChain* aChain,
@@ -1528,6 +1539,7 @@ void NetworkUtils::ExecuteCommand(NetworkParams aOptions) {
       BUILD_ENTRY(setDefaultNetwork),
       BUILD_ENTRY(addInterfaceToNetwork),
       BUILD_ENTRY(removeInterfaceToNetwork),
+      BUILD_ENTRY(setIpv6Status),
       BUILD_ENTRY(setIpv6PrivacyExtensions),
       BUILD_ENTRY(dhcpRequest),
       BUILD_ENTRY(stopDhcp),
@@ -1923,6 +1935,16 @@ CommandResult NetworkUtils::removeInterfaceToNetwork(NetworkParams& aOptions) {
   }
   NU_DBG("removeInterfaceToNetwork no exist mIfname");
   return CommandResult(-1);
+}
+
+CommandResult NetworkUtils::setIpv6Status(NetworkParams& aOptions) {
+  static CommandFunc COMMAND_CHAIN[] = {
+      setIpv6Enabled,
+      defaultAsyncSuccessHandler,
+  };
+
+  runChain(aOptions, COMMAND_CHAIN, defaultAsyncFailureHandler);
+  return CommandResult(CommandResult::Pending());
 }
 
 CommandResult NetworkUtils::setIpv6PrivacyExtensions(NetworkParams& aOptions) {

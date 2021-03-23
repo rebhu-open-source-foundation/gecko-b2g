@@ -930,6 +930,24 @@ NetworkService.prototype = {
     });
   },
 
+  setIpv6Status(aInterfaceName, aEnable, aCallback) {
+    debug(
+      "setIpv6Status: interfaceName = " +
+        aInterfaceName +
+        ", enable = " +
+        aEnable
+    );
+    let params = {
+      cmd: "setIpv6Status",
+      ifname: aInterfaceName,
+      enable: aEnable,
+    };
+
+    this.controlMessage(params, function(aResult) {
+      aCallback.nativeCommandResult(!aResult.error);
+    });
+  },
+
   setIpv6PrivacyExtensions(aInterfaceName, aEnable, aCallback) {
     debug(
       "setIpv6PrivacyExtensions: interfaceName = " +

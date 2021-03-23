@@ -291,6 +291,7 @@ class NetworkUtils final {
   CommandResult setDefaultNetwork(NetworkParams& aOptions);
   CommandResult addInterfaceToNetwork(NetworkParams& aOptions);
   CommandResult removeInterfaceToNetwork(NetworkParams& aOptions);
+  CommandResult setIpv6Status(NetworkParams& aOptions);
   CommandResult setIpv6PrivacyExtensions(NetworkParams& aOptions);
   CommandResult dhcpRequest(NetworkParams& aOptions);
   CommandResult stopDhcp(NetworkParams& aOptions);
@@ -336,7 +337,7 @@ class NetworkUtils final {
   static void clearAddrForInterface(PARAMS);
   static void createNetwork(PARAMS);
   static void destroyNetwork(PARAMS);
-  static void setIpv6Enabled(PARAMS, bool aEnabled);
+  static void setIpv6Enabled(PARAMS);
   static void enableIpv6(PARAMS);
   static void disableIpv6(PARAMS);
   static void addInterfaceToNetwork(PARAMS);
