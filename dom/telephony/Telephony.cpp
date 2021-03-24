@@ -428,9 +428,19 @@ nsresult Telephony::HandleCallInfo(nsITelephonyCallInfo* aInfo) {
   call->UpdateVerStatus(verStatus);
 
   nsAutoString number;
+  nsAutoString name;
+  uint16_t numberPresentation;
+  uint16_t namePresentation;
   aInfo->GetNumber(number);
+  aInfo->GetName(name);
+  aInfo->GetNumberPresentation(&numberPresentation);
+  aInfo->GetNamePresentation(&namePresentation);
   RefPtr<TelephonyCallId> id = call->Id();
   id->UpdateNumber(number);
+  id->UpdateName(name);
+  id->UpdateNumberPresentation(numberPresentation);
+  id->UpdateNamePresentation(namePresentation);
+
 
   nsAutoString disconnectedReason;
   aInfo->GetDisconnectedReason(disconnectedReason);
