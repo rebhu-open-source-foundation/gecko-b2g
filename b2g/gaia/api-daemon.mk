@@ -1,6 +1,5 @@
 define build-sidl-daemon
   echo "run run-sidl-build-daemon";
-  CARGO_HOME=${CARGO_HOME:-"${HOME}/.cargo"}
   cd $(B2G_DIR)/sidl/daemon; RUST_BACKTRACE=1 BUILD_TYPE=debug RUST_LOG=debug WS_RUNTIME_TOKEN=secrettoken ${CARGO_HOME}/bin/cargo build --features=virtual-host; cd ../../;
 endef
 

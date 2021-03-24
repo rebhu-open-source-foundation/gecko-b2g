@@ -24,6 +24,8 @@ else ifeq ($(os_type), Darwin)
 GAIA_ICONS_TARGET_PATH := $(DIST)/$(MOZ_APP_NAME)/$(MOZ_MACBUNDLE_NAME)/Contents/Resources/fonts
 endif
 
+CARGO_HOME ?= $(HOME)/.cargo
+
 profile::
 	+$(MAKE) -j1 -C $(GAIADIR) clean
 	+$(MAKE) -j1 -C $(GAIADIR) -e DESKTOP=1 -e API_DAEMON_HOST=127.0.0.1:$(API_DAEMON_PORT) -e GAIA_DOMAIN=localhost:$(API_DAEMON_PORT)
