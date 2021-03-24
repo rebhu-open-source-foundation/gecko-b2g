@@ -17,14 +17,11 @@ namespace dom {
 
 B2G::B2G(nsIGlobalObject* aGlobal)
     : DOMEventTargetHelper(aGlobal), mOwner(aGlobal) {
+  // Warning: The constructor and destructor are called on both MAIN and WORKER
+  // threads, see Navigator::B2g() in WorkerNavigator::B2g().
+  // For main thread's initialization and cleaup, use MainThreadInit() and
+  // MainThreadShutdown().
   MOZ_ASSERT(aGlobal);
-}
-
-B2G::~B2G() {
-  nsCOMPtr<nsIObserverService> obs = services::GetObserverService();
-  if (obs) {
-    obs->RemoveObserver(this, "b2g-disk-storage-state");
-  }
 }
 
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(B2G)
@@ -87,7 +84,7 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(B2G, DOMEventTargetHelper)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mPowerSupplyManager)
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
-void B2G::Shutdown() {
+void B2G::MainThreadShutdown() {
   MOZ_RELEASE_ASSERT(NS_IsMainThread());
 
   if (mFlashlightManager) {
@@ -132,6 +129,17 @@ void B2G::Shutdown() {
 
   if (mDeviceStorageAreaListener) {
     mDeviceStorageAreaListener = nullptr;
+  }
+
+  RefPtr<power::PowerManagerService> pmService =
+      power::PowerManagerService::GetInstance();
+  if (pmService) {
+    pmService->RemoveWakeLockListener(this);
+  }
+
+  nsCOMPtr<nsIObserverService> obs = services::GetObserverService();
+  if (obs) {
+    obs->RemoveObserver(this, "b2g-disk-storage-state");
   }
 }
 
@@ -1045,25 +1053,27 @@ NS_IMETHODIMP B2G::Observe(nsISupports* aSubject, const char* aTopic,
   return NS_OK;
 }
 
-nsresult B2G::Init() {
+nsresult B2G::MainThreadInit() {
   MOZ_RELEASE_ASSERT(NS_IsMainThread());
+  nsresult rv = NS_OK;
 
   RefPtr<power::PowerManagerService> pmService =
       power::PowerManagerService::GetInstance();
 
-  if (!pmService) {
-    return NS_ERROR_FAILURE;
+  if (pmService) {
+    pmService->AddWakeLockListener(this);
+  } else {
+    rv = NS_ERROR_FAILURE;
   }
-
-  pmService->AddWakeLockListener(this);
 
   nsCOMPtr<nsIObserverService> obs = services::GetObserverService();
-  if (!obs) {
-    return NS_ERROR_FAILURE;
+  if (obs) {
+    obs->AddObserver(this, "b2g-disk-storage-state", false);
+  } else {
+    rv = NS_ERROR_FAILURE;
   }
-  obs->AddObserver(this, "b2g-disk-storage-state", false);
 
-  return NS_OK;
+  return rv;
 }
 
 }  // namespace dom

@@ -190,7 +190,7 @@ void Navigator::Invalidate() {
   }
 
   if (mB2G) {
-    mB2G->Shutdown();
+    mB2G->MainThreadShutdown();
     mB2G = nullptr;
   }
 
@@ -1058,7 +1058,7 @@ B2G* Navigator::B2g() {
 
   if (!mB2G) {
     mB2G = new B2G(mWindow->AsGlobal());
-    if (NS_WARN_IF(NS_FAILED(mB2G->Init()))) {
+    if (NS_WARN_IF(NS_FAILED(mB2G->MainThreadInit()))) {
       mB2G = nullptr;
     }
   }

@@ -203,13 +203,17 @@ class B2G final : public DOMEventTargetHelper,
   IMPL_EVENT_HANDLER(storagefull);
   IMPL_EVENT_HANDLER(storagefree);
 
+  // Initialization, main thread only
+  nsresult MainThreadInit();
   // Shutting down, main thread only
-  void Shutdown();
-  // Main thread only
-  nsresult Init();
+  void MainThreadShutdown();
 
  private:
-  ~B2G();
+  // Warning: The constructor and destructor are called on both MAIN and WORKER
+  // threads, see Navigator::B2g() in WorkerNavigator::B2g().
+  // For main thread's initialization and cleaup, use MainThreadInit() and
+  // MainThreadShutdown().
+  ~B2G() = default;
   already_AddRefed<nsDOMDeviceStorage> FindDeviceStorage(
       const nsAString& aName, const nsAString& aType);
 
