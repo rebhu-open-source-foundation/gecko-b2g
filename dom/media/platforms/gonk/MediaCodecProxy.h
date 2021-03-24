@@ -81,7 +81,8 @@ class MediaCodecProxy : public RefBase,
   // Static MediaCodec methods
   // Only support MediaCodec::CreateByType()
   static sp<MediaCodecProxy> CreateByType(sp<ALooper> aLooper,
-                                          const char* aMime, bool aEncoder);
+                                          const char* aMime, bool aEncoder,
+                                          uint32_t aFlags = 0);
 
   // MediaCodec methods
   status_t configure(const sp<AMessage>& aFormat,
@@ -175,7 +176,8 @@ class MediaCodecProxy : public RefBase,
   const MediaCodecProxy& operator=(const MediaCodecProxy&) = delete;
 
   // Constructor for MediaCodecProxy::CreateByType
-  MediaCodecProxy(sp<ALooper> aLooper, const char* aMime, bool aEncoder);
+  MediaCodecProxy(sp<ALooper> aLooper, const char* aMime, bool aEncoder,
+                  uint32_t aFlags);
 
   // Allocate Codec Resource
   bool allocateCodec();
@@ -186,6 +188,7 @@ class MediaCodecProxy : public RefBase,
   sp<ALooper> mCodecLooper;
   nsCString mCodecMime;
   bool mCodecEncoder;
+  uint32_t mCodecFlags;
 
   mozilla::MozPromiseHolder<CodecPromise> mCodecPromise;
   // When mPromiseMonitor is held, mResourceClient's functions should not be

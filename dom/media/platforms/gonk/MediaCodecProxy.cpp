@@ -10,6 +10,7 @@
 #include <media/MediaCodecBuffer.h>
 #include <media/stagefright/foundation/ABuffer.h>
 #include <media/stagefright/foundation/ADebug.h>
+#include <media/stagefright/MediaCodecList.h>
 #include <media/stagefright/MediaErrors.h>
 
 mozilla::LazyLogModule gMediaCodecProxyLog("MediaCodecProxy");
@@ -78,16 +79,19 @@ struct MediaCodecInterfaceWrapper {
 
 sp<MediaCodecProxy> MediaCodecProxy::CreateByType(sp<ALooper> aLooper,
                                                   const char* aMime,
-                                                  bool aEncoder) {
-  sp<MediaCodecProxy> codec = new MediaCodecProxy(aLooper, aMime, aEncoder);
+                                                  bool aEncoder,
+                                                  uint32_t aFlags) {
+  sp<MediaCodecProxy> codec =
+      new MediaCodecProxy(aLooper, aMime, aEncoder, aFlags);
   return codec;
 }
 
 MediaCodecProxy::MediaCodecProxy(sp<ALooper> aLooper, const char* aMime,
-                                 bool aEncoder)
+                                 bool aEncoder, uint32_t aFlags)
     : mCodecLooper(aLooper),
       mCodecMime(aMime),
       mCodecEncoder(aEncoder),
+      mCodecFlags(aFlags),
       mPromiseMonitor("MediaCodecProxy::mPromiseMonitor") {
   MOZ_ASSERT(mCodecLooper != nullptr, "ALooper should not be nullptr.");
 }
@@ -152,23 +156,26 @@ void MediaCodecProxy::ReleaseMediaCodec() {
 }
 
 bool MediaCodecProxy::allocateCodec() {
-  if (mCodecLooper == nullptr) {
+  if (!mCodecLooper) {
     return false;
   }
 
-  // Write Lock for mCodec
-  RWLock::AutoWLock awl(mCodecLock);
+  Vector<AString> matchingCodecs;
+  MediaCodecList::findMatchingCodecs(mCodecMime.get(), mCodecEncoder,
+                                     mCodecFlags, &matchingCodecs);
 
   // Create MediaCodec
-  mCodec =
-      MediaCodec::CreateByType(mCodecLooper, mCodecMime.get(), mCodecEncoder);
-  if (mCodec == nullptr) {
-    return false;
+  for (auto& componentName : matchingCodecs) {
+    auto codec = MediaCodec::CreateByComponentName(mCodecLooper, componentName);
+    if (codec) {
+      // Write Lock for mCodec
+      RWLock::AutoWLock awl(mCodecLock);
+      mCodec = codec;
+      mComponentName = componentName;
+      return true;
+    }
   }
-
-  mCodec->getName(&mComponentName);
-
-  return true;
+  return false;
 }
 
 void MediaCodecProxy::releaseCodec() {

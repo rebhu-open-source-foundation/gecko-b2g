@@ -14,9 +14,9 @@
 #include "nsThreadUtils.h"
 #include "Layers.h"
 #include "mozilla/Logging.h"
-#include <media/stagefright/MediaBuffer.h>
-#include <media/stagefright/MetaData.h>
+#include <media/stagefright/MediaCodecList.h>
 #include <media/stagefright/MediaErrors.h>
+#include <media/stagefright/MetaData.h>
 #include <media/stagefright/foundation/AString.h>
 #include "GonkNativeWindow.h"
 #include "mozilla/layers/GrallocTextureClient.h"
@@ -160,8 +160,9 @@ RefPtr<MediaDataDecoder::InitPromise> GonkVideoDecoderManager::Init() {
 
   RefPtr<InitPromise> p = mInitPromise.Ensure(__func__);
   android::sp<GonkVideoDecoderManager> self = this;
-  mDecoder = MediaCodecProxy::CreateByType(mDecodeLooper,
-                                           mConfig.mMimeType.get(), false);
+  mDecoder =
+      MediaCodecProxy::CreateByType(mDecodeLooper, mConfig.mMimeType.get(),
+                                    false, MediaCodecList::kHardwareCodecsOnly);
 
   uint32_t capability = MediaCodecProxy::kEmptyCapability;
   if (mDecoder->getCapability(&capability) == OK &&
