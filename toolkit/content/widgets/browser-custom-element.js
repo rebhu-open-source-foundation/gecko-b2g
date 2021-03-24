@@ -1296,6 +1296,11 @@
       let mm = this.messageManager;
       if (mm) {
         mm.sendAsyncMessage("WebView::SetCursorEnable", { enable });
+      } else if (!enable) {
+        // The browser child is destroyed. We need to remove the cursor from
+        // the screen when disabling virtual cursor.
+        const domWindowUtils = window.windowUtils;
+        domWindowUtils.sendMouseEvent("mouseout", -1, -1, 0, 0, 0);
       }
     }
 
