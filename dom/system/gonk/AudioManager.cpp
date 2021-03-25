@@ -644,18 +644,9 @@ void AudioManager::HandleBluetoothStatusChanged(nsISupports* aSubject,
       int btSampleRate =
           hfp->IsWbsEnabled() ? kBtWideBandSampleRate : kBtSampleRate;
       SetParameters("bt_samplerate=%d", btSampleRate);
-      SetParameters("BT_SCO=on");
-      SetForceForUse(nsIAudioManager::USE_COMMUNICATION,
-                     nsIAudioManager::FORCE_BT_SCO);
-    } else {
-      SetParameters("BT_SCO=off");
-      int32_t force;
-      GetForceForUse(nsIAudioManager::USE_COMMUNICATION, &force);
-      if (force == nsIAudioManager::FORCE_BT_SCO) {
-        SetForceForUse(nsIAudioManager::USE_COMMUNICATION,
-                       nsIAudioManager::FORCE_NONE);
-      }
     }
+    mBluetoothScoEnabled = isConnected;
+    UpdateBluetoothScoRouting();
   } else if (!strcmp(aTopic, BLUETOOTH_A2DP_STATUS_CHANGED_ID)) {
     if (!isConnected && mA2dpSwitchDone) {
       RefPtr<AudioManager> self = this;
@@ -680,17 +671,16 @@ void AudioManager::HandleBluetoothStatusChanged(nsISupports* aSubject,
       SetParameters("bluetooth_enabled=true");
       SetParameters("A2dpSuspended=false");
       mA2dpSwitchDone = true;
-      if (AudioSystem::getForceUse(AUDIO_POLICY_FORCE_FOR_MEDIA) ==
-          AUDIO_POLICY_FORCE_NO_BT_A2DP) {
-        SetForceForUse(AUDIO_POLICY_FORCE_FOR_MEDIA, AUDIO_POLICY_FORCE_NONE);
-      }
     }
     mBluetoothA2dpEnabled = isConnected;
+    mAllowBluetoothA2dp = true;
+    UpdateBluetoothA2dpRouting();
   } else if (!strcmp(aTopic, BLUETOOTH_HFP_STATUS_CHANGED_ID)) {
     UpdateDeviceConnectionState(
         isConnected, AUDIO_DEVICE_OUT_BLUETOOTH_SCO_HEADSET, aAddress);
     UpdateDeviceConnectionState(
         isConnected, AUDIO_DEVICE_IN_BLUETOOTH_SCO_HEADSET, aAddress);
+    mAllowBluetoothSco = true;
   } else if (!strcmp(aTopic, BLUETOOTH_HFP_NREC_STATUS_CHANGED_ID)) {
     BluetoothHfpManagerBase* hfp =
         static_cast<BluetoothHfpManagerBase*>(aSubject);
@@ -775,6 +765,37 @@ class HeadphoneSwitchObserver : public hal::SwitchObserver {
   }
 };
 
+#ifdef MOZ_B2G_BT
+void AudioManager::UpdateBluetoothA2dpRouting() {
+  bool forceNoA2dp = mBluetoothA2dpEnabled && !mAllowBluetoothA2dp;
+  auto forceUse = AudioSystem::getForceUse(AUDIO_POLICY_FORCE_FOR_MEDIA);
+
+  if (forceUse == AUDIO_POLICY_FORCE_NONE && forceNoA2dp) {
+    AudioSystem::setForceUse(AUDIO_POLICY_FORCE_FOR_MEDIA,
+                             AUDIO_POLICY_FORCE_NO_BT_A2DP);
+  } else if (forceUse == AUDIO_POLICY_FORCE_NO_BT_A2DP && !forceNoA2dp) {
+    AudioSystem::setForceUse(AUDIO_POLICY_FORCE_FOR_MEDIA,
+                             AUDIO_POLICY_FORCE_NONE);
+  }
+}
+
+void AudioManager::UpdateBluetoothScoRouting() {
+  bool forceSco = mBluetoothScoEnabled && mAllowBluetoothSco;
+  auto forceUse =
+      AudioSystem::getForceUse(AUDIO_POLICY_FORCE_FOR_COMMUNICATION);
+
+  if (forceUse == AUDIO_POLICY_FORCE_NONE && forceSco) {
+    SetParameters("BT_SCO=on");
+    AudioSystem::setForceUse(AUDIO_POLICY_FORCE_FOR_COMMUNICATION,
+                             AUDIO_POLICY_FORCE_BT_SCO);
+  } else if (forceUse == AUDIO_POLICY_FORCE_BT_SCO && !forceSco) {
+    SetParameters("BT_SCO=off");
+    AudioSystem::setForceUse(AUDIO_POLICY_FORCE_FOR_COMMUNICATION,
+                             AUDIO_POLICY_FORCE_NONE);
+  }
+}
+#endif
+
 void AudioManager::HandleHeadphoneSwitchEvent(const hal::SwitchEvent& aEvent) {
   // For more information, see bug 29237.
   // Holds the wakelock for making sure that gecko can do all the needed things
@@ -788,9 +809,11 @@ void AudioManager::HandleHeadphoneSwitchEvent(const hal::SwitchEvent& aEvent) {
   CreateWakeLock();
 
   NotifyHeadphonesStatus(aEvent.status());
+  bool isConnected = aEvent.status() != hal::SWITCH_STATE_OFF;
+
   // When user pulled out the headset, a delay of routing here can avoid the
   // leakage of audio from speaker.
-  if (aEvent.status() == hal::SWITCH_STATE_OFF && mSwitchDone) {
+  if (!isConnected && mSwitchDone) {
     // When system is in sleep mode and user unplugs the headphone, we need to
     // hold the wakelock here, or the delayed task will not be executed.
     RefPtr<AudioManager> self = this;
@@ -806,19 +829,20 @@ void AudioManager::HandleHeadphoneSwitchEvent(const hal::SwitchEvent& aEvent) {
         });
     MessageLoop::current()->PostDelayedTask(runnable.forget(), 1000);
     mSwitchDone = false;
-  } else if (aEvent.status() != hal::SWITCH_STATE_OFF) {
+  } else if (isConnected) {
     UpdateHeadsetConnectionState(aEvent.status());
     mSwitchDone = true;
   }
-  // Handle the coexistence of a2dp / headset device, latest one wins.
-  int32_t forceUse = 0;
-  GetForceForUse(AUDIO_POLICY_FORCE_FOR_MEDIA, &forceUse);
-  if (aEvent.status() != hal::SWITCH_STATE_OFF && mBluetoothA2dpEnabled) {
-    SetForceForUse(AUDIO_POLICY_FORCE_FOR_MEDIA, AUDIO_POLICY_FORCE_NO_BT_A2DP);
-  } else if (forceUse == AUDIO_POLICY_FORCE_NO_BT_A2DP) {
-    SetForceForUse(AUDIO_POLICY_FORCE_FOR_MEDIA, AUDIO_POLICY_FORCE_NONE);
-  }
-  if (aEvent.status() != hal::SWITCH_STATE_OFF) {
+
+#ifdef MOZ_B2G_BT
+  // Handle the coexistence of bluetooth / headset device, latest one wins.
+  mAllowBluetoothA2dp = !isConnected;
+  mAllowBluetoothSco = !isConnected;
+  UpdateBluetoothA2dpRouting();
+  UpdateBluetoothScoRouting();
+#endif
+
+  if (isConnected) {
     ReleaseWakeLock();
   }
 }
