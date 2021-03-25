@@ -1719,33 +1719,8 @@ bool nsContentUtils::IsHTMLBlockLevelElement(nsIContent* aContent) {
       nsGkAtoms::ul, nsGkAtoms::xmp);
 }
 
-class GetPushPermissionRunnable final : public WorkerMainThreadRunnable {
-  uint32_t mPermission;
-
- public:
-  explicit GetPushPermissionRunnable(WorkerPrivate* aWorker)
-      : WorkerMainThreadRunnable(aWorker,
-                                 "nsContentUtils :: Get Push Permission"_ns),
-        mPermission(nsIPermissionManager::DENY_ACTION) {}
-
-  bool MainThreadRun() override {
-    nsresult rv;
-    nsCOMPtr<nsIPermissionManager> permMgr =
-        do_GetService(NS_PERMISSIONMANAGER_CONTRACTID, &rv);
-    NS_ENSURE_SUCCESS(rv, false);
-
-    rv = permMgr->TestExactPermissionFromPrincipal(mWorkerPrivate->GetPrincipal(),
-                                              "push"_ns, &mPermission);
-    NS_ENSURE_SUCCESS(rv, false);
-
-    return true;
-  }
-
-  uint32_t GetPermission() { return mPermission; }
-};
-
 /* static */
-bool nsContentUtils::PushVisible(JSContext* aCx, JSObject* aObj) {
+bool nsContentUtils::PushVisibleForMainThread(JSContext* aCx, JSObject* aObj) {
   if (ThreadsafeIsCallerChrome()) {
     return true;
   }
@@ -1769,17 +1744,7 @@ bool nsContentUtils::PushVisible(JSContext* aCx, JSObject* aObj) {
     return perm == nsIPermissionManager::ALLOW_ACTION;
   }
 
-  WorkerPrivate* worker = GetCurrentThreadWorkerPrivate();
-  MOZ_ASSERT(worker);
-  ErrorResult result;
-  RefPtr<GetPushPermissionRunnable> r = new GetPushPermissionRunnable(worker);
-  r->Dispatch(Canceling, result);
-  if (result.Failed()) {
-    return false;
-  }
-  perm = r->GetPermission();
-
-  return perm == nsIPermissionManager::ALLOW_ACTION;
+  return true;
 }
 
 /* static */
