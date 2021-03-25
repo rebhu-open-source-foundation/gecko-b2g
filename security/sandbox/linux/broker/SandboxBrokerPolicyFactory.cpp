@@ -562,6 +562,9 @@ void SandboxBrokerPolicyFactory::InitContentPolicy() {
   policy->AddPath(rdonly, "/dev/__properties__/u:object_r:exported_fingerprint_prop:s0");  // For ro.build.fingerprint
   policy->AddPath(rdonly, "/dev/__properties__/u:object_r:exported_system_prop:s0");  // For persist.sys.timezone
   policy->AddPath(wronly, "/dev/socket/logdw");
+
+  // To access ecc list
+  policy->AddPath(rdonly, "/dev/__properties__/u:object_r:radio_prop:s0"); // For ro.ril.ecclist, ril.ecclist, ril.ecclist1
 #endif // MOZ_WIDGET_GONK
 
   // Read any extra paths that will get write permissions,
