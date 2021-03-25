@@ -17,8 +17,9 @@ ChromeUtils.defineModuleGetter(
 
 this.EXPORTED_SYMBOLS = [];
 
+const DEBUG = Services.prefs.getBoolPref("dom.activity.debug", false);
 function debug(aMsg) {
-  //dump(`ActivitiesService: ${aMsg}\n`);
+  dump(`ActivitiesService: ${aMsg}\n`);
 }
 
 const DB_NAME = "activities";
@@ -53,7 +54,7 @@ ActivitiesDb.prototype = {
     aOldVersion,
     aNewVersion
   ) {
-    debug("Upgrade schema " + aOldVersion + " -> " + aNewVersion);
+    DEBUG && debug("Upgrade schema " + aOldVersion + " -> " + aNewVersion);
 
     let self = this;
 
@@ -82,7 +83,7 @@ ActivitiesDb.prototype = {
     objectStore.createIndex("name", "name", { unique: false });
     objectStore.createIndex("manifest", "manifest", { unique: false });
 
-    debug("Created object stores and indexes");
+    DEBUG && debug("Created object stores and indexes");
 
     aNext();
   },
@@ -123,7 +124,7 @@ ActivitiesDb.prototype = {
       "readwrite",
       STORE_NAME,
       function(txn, store) {
-        debug("Object count: " + aObjects.length);
+        DEBUG && debug("Object count: " + aObjects.length);
         aObjects.forEach(function(aObject) {
           let object = {
             manifest: aObject.manifest,
@@ -132,7 +133,7 @@ ActivitiesDb.prototype = {
             description: aObject.description,
           };
           object.id = this.createId(object);
-          debug("Going to add " + JSON.stringify(object));
+          DEBUG && debug("Going to add " + JSON.stringify(object));
           store.put(object);
         }, this);
       }.bind(this),
@@ -153,7 +154,7 @@ ActivitiesDb.prototype = {
             name: aObject.name,
             description: aObject.description,
           };
-          debug("Going to remove " + JSON.stringify(object));
+          DEBUG && debug("Going to remove " + JSON.stringify(object));
           store.delete(this.createId(object));
         });
       },
@@ -169,7 +170,7 @@ ActivitiesDb.prototype = {
       let request = index.mozGetAll(aManifest);
       request.onsuccess = function manifestActivities(aEvent) {
         aEvent.target.result.forEach(function(result) {
-          debug("Removing activity: " + JSON.stringify(result));
+          DEBUG && debug("Removing activity: " + JSON.stringify(result));
           store.delete(result.id);
         });
       };
@@ -177,8 +178,6 @@ ActivitiesDb.prototype = {
   },
 
   find: function actdb_find(aObject, aSuccess, aError, aMatch) {
-    debug("Looking for " + aObject.options.name);
-
     this.newTxn(
       "readonly",
       STORE_NAME,
@@ -186,9 +185,6 @@ ActivitiesDb.prototype = {
         let index = store.index("name");
         let request = index.mozGetAll(aObject.options.name);
         request.onsuccess = function findSuccess(aEvent) {
-          debug(
-            "Request successful. Record count: " + aEvent.target.result.length
-          );
           if (!txn.result) {
             txn.result = {
               name: aObject.options.name,
@@ -271,23 +267,18 @@ var Activities = {
         let messages = [];
         for (const [key, value] of Object.entries(this.callers)) {
           if (value.handlerOrigin == origin) {
-            debug(
-              "Handler shutdown due to service worker shutdown, caller=" +
-                value.origin +
-                " handler=" +
-                value.handlerOrigin +
-                " handlerPID=" +
-                value.handlerPID
-            );
             messages.push(key);
-
-            this.notifyWebEmbedder("activity-aborted", {
+            let detail = {
               reason: "service-worker-shutdown",
               id: key,
               name: value.name,
               caller: value.origin,
               handler: value.handlerOrigin,
-            });
+              handlerPID: value.handlerPID,
+            };
+            DEBUG &&
+              debug(`sending activity-aborted: ${JSON.stringify(detail)}`);
+            this.notifyWebEmbedder("activity-aborted", detail);
           }
         }
         let self = this;
@@ -309,11 +300,8 @@ var Activities = {
    *   activity data as a payload.
    */
   startActivity: function activities_startActivity(aMsg) {
-    debug("StartActivity: " + JSON.stringify(aMsg));
     let self = this;
     let successCb = function successCb(aResults) {
-      debug(JSON.stringify(aResults));
-
       // We have no matching activity registered, let's fire an error.
       if (aResults.options.length === 0) {
         self.trySendAndCleanup(aMsg.id, "Activity:FireError", {
@@ -324,8 +312,6 @@ var Activities = {
       }
 
       let getActivityChoice = function(aResult) {
-        debug("Activity choice: " + aResult);
-
         // The user has cancelled the choice, fire an error.
         if (aResult === -1) {
           self.trySendAndCleanup(aMsg.id, "Activity:FireError", {
@@ -340,13 +326,12 @@ var Activities = {
         );
         if (!sysmm) {
           self.removeCaller(aMsg.id);
-          debug("Error: SystemMessageService is not present.");
+          DEBUG && debug(`Error: SystemMessageService is not present.`);
           return;
         }
 
         let result = aResults.options[aResult];
         let origin = Services.io.newURI(result.manifest).prePath;
-        debug("Sending system message to " + origin);
         self.callers[aMsg.id].handlerOrigin = origin;
 
         try {
@@ -360,7 +345,8 @@ var Activities = {
             origin
           );
         } catch (e) {
-          debug("Error when sending system message: " + e);
+          DEBUG &&
+            debug(`Error: fail in SystemMessageService.sendMessage - ${e}`);
         }
 
         if (!result.description.returnValue) {
@@ -402,7 +388,7 @@ var Activities = {
 
     let errorCb = function errorCb(aError) {
       // Something unexpected happened. Should we send an error back?
-      debug("Error in startActivity: " + aError + "\n");
+      DEBUG && debug(`Error: in finding activity - ${aError}`);
     };
 
     let matchFunc = function matchFunc(aResult) {
@@ -446,41 +432,63 @@ var Activities = {
     ) {
       caller = this.callers[msg.id];
       if (!caller) {
-        debug("!! caller is null for msg.id=" + msg.id);
+        if (aMessage.name == "Activity:Ready") {
+          const debugInfo = { id: msg.id, handlerPID: msg.handlerPID };
+          DEBUG &&
+            debug(
+              `activity handler resolved already: ${JSON.stringify(debugInfo)}`
+            );
+        }
         return;
       }
     }
 
     switch (aMessage.name) {
-      case "Activity:Start":
+      case "Activity:Start": {
         this.callers[msg.id] = {
           mm,
           name: msg.options.name,
           origin: msg.origin,
         };
-        this.notifyWebEmbedder("activity-opened", {
+        let detail = {
           id: msg.id,
           name: msg.options.name,
           origin: msg.origin,
-        });
+        };
+        DEBUG && debug(`sending activity-opened: ${JSON.stringify(detail)}`);
+        this.notifyWebEmbedder("activity-opened", detail);
         this.startActivity(msg);
         break;
+      }
 
-      case "Activity:Cancel":
-        this.notifyWebEmbedder("activity-aborted", {
+      case "Activity:Cancel": {
+        let detail = {
           reason: "caller-canceled",
           id: msg.id,
-          name: this.callers[msg.id].name,
-          caller: this.callers[msg.id].origin,
-          handler: this.callers[msg.id].handlerOrigin,
-        });
+          name: caller.name,
+          caller: caller.origin,
+          handler: caller.handlerOrigin,
+          handlerPID: caller.handlerPID,
+        };
+        DEBUG && debug(`sending activity-aborted: ${JSON.stringify(detail)}`);
+        this.notifyWebEmbedder("activity-aborted", detail);
         this.trySendAndCleanup(msg.id, "Activity:FireCancel", msg);
         break;
+      }
 
-      case "Activity:Ready":
+      case "Activity:Ready": {
         caller.handlerMM = mm;
         caller.handlerPID = msg.handlerPID;
+        const debugInfo = {
+          id: msg.id,
+          name: caller.name,
+          caller: caller.origin,
+          handler: caller.handlerOrigin,
+          handlerPID: caller.handlerPID,
+        };
+        DEBUG && debug(`activity handler ready: ${JSON.stringify(debugInfo)}`);
         break;
+      }
       case "Activity:PostResult":
         this.trySendAndCleanup(msg.id, "Activity:FireSuccess", msg);
         break;
@@ -492,21 +500,10 @@ var Activities = {
         this.db.add(
           msg,
           function onSuccess(aEvent) {
-            debug("Activities:Register:OK");
-            Services.obs.notifyObservers(
-              null,
-              "new-activity-registered-success"
-            );
-            mm.sendAsyncMessage("Activities:Register:OK", null);
+            DEBUG && debug(`Register success.`);
           },
           function onError(aEvent) {
-            msg.error = "REGISTER_ERROR";
-            debug("Activities:Register:KO");
-            Services.obs.notifyObservers(
-              null,
-              "new-activity-registered-failure"
-            );
-            mm.sendAsyncMessage("Activities:Register:KO", msg);
+            DEBUG && debug(`Register fail.`);
           }
         );
         break;
@@ -519,22 +516,17 @@ var Activities = {
       case "child-process-shutdown":
         for (let id in this.callers) {
           if (this.callers[id].handlerMM == mm) {
-            debug(
-              "Handler shutdown due to hosted process shutdown, caller=" +
-                this.callers[id].origin +
-                " handler=" +
-                this.callers[id].handlerOrigin +
-                " handlerPID=" +
-                this.callers[id].handlerPID
-            );
-
-            this.notifyWebEmbedder("activity-aborted", {
+            let detail = {
               reason: "process-shutdown",
               id,
               name: this.callers[id].name,
               caller: this.callers[id].origin,
               handler: this.callers[id].handlerOrigin,
-            });
+              handlerPID: this.callers[id].handlerPID,
+            };
+            DEBUG &&
+              debug(`sending activity-aborted: ${JSON.stringify(detail)}`);
+            this.notifyWebEmbedder("activity-aborted", detail);
 
             this.trySendAndCleanup(id, "Activity:FireError", {
               id,
@@ -542,16 +534,16 @@ var Activities = {
             });
           } else if (this.callers[id].mm == mm) {
             // if the caller crash, remove it from the callers.
-            debug(
-              "Caller shutdown due to process shutdown, caller=" +
-                this.callers[id].origin
-            );
+            DEBUG &&
+              debug(
+                "Caller shutdown due to process shutdown, caller=" +
+                  this.callers[id].origin
+              );
             this.removeCaller(id);
           }
         }
         break;
       case "Activities:Get":
-        debug("Activities:Get");
         let obj = {
           options: {
             name: msg.activityName,
@@ -584,12 +576,15 @@ var Activities = {
   },
 
   removeCaller: function activities_removeCaller(id) {
-    this.notifyWebEmbedder("activity-closed", {
+    let detail = {
       id,
       name: this.callers[id].name,
       caller: this.callers[id].origin,
       handler: this.callers[id].handlerOrigin,
-    });
+      handlerPID: this.callers[id].handlerPID,
+    };
+    DEBUG && debug(`sending activity-closed: ${JSON.stringify(detail)}`);
+    this.notifyWebEmbedder("activity-closed", detail);
     delete this.callers[id];
   },
 };

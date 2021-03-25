@@ -1166,6 +1166,7 @@ pref("devtools.debugger.prompt-connection", false);
 pref("devtools.console.stdout.chrome", true);
 pref("browser.dom.window.dump.enabled", true);
 pref("consoleservice.logcat", true);
+pref("dom.activity.debug", true);
 #endif
 
 // Start the b2g in e10s mode same as the browser
