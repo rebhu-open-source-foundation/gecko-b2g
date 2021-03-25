@@ -16,7 +16,6 @@ ChromeUtils.import("resource://gre/modules/AlarmService.jsm");
 ChromeUtils.import("resource://gre/modules/DownloadService.jsm");
 ChromeUtils.import("resource://gre/modules/NotificationDB.jsm");
 ChromeUtils.import("resource://gre/modules/ErrorPage.jsm");
-ChromeUtils.import("resource://gre/modules/CustomHeaderInjector.jsm");
 
 XPCOMUtils.defineLazyGetter(this, "MarionetteHelper", () => {
   const { MarionetteHelper } = ChromeUtils.import(
@@ -35,6 +34,8 @@ XPCOMUtils.defineLazyServiceGetter(
 const isGonk = AppConstants.platform === "gonk";
 
 if (isGonk) {
+  ChromeUtils.import("resource://gre/modules/CustomHeaderInjector.jsm");
+
   XPCOMUtils.defineLazyGetter(this, "libcutils", () => {
     const { libcutils } = ChromeUtils.import(
       "resource://gre/modules/systemlibs.js"
