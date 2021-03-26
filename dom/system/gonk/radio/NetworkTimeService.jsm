@@ -105,11 +105,13 @@ function NetworkTimeService() {
   this._timezoneAutoUpdateEnabled = false;
   this._dataDefaultServiceId = -1;
 
+  this._sntpTimeoutInSecs = Services.prefs.getIntPref("network.sntp.timeout");
+
   this._sntp = new Sntp(
     this.onSntpDataAvailable.bind(this),
     Services.prefs.getIntPref("network.sntp.maxRetryCount"),
     Services.prefs.getIntPref("network.sntp.refreshPeriod"),
-    Services.prefs.getIntPref("network.sntp.timeout"),
+    this._sntpTimeoutInSecs,
     Services.prefs.getCharPref("network.sntp.pools").split(";"),
     Services.prefs.getIntPref("network.sntp.port")
   );
@@ -177,6 +179,10 @@ NetworkTimeService.prototype = {
 
   _dataDefaultServiceId: null,
 
+  _sntpTimeoutInSecs: null,
+
+  _sntpTimer: null,
+
   debug(aMessage) {
     console.log("NetworkTimeService: " + aMessage);
   },
@@ -221,7 +227,7 @@ NetworkTimeService.prototype = {
       } else {
         this._suggestedTimeRequests.push(aCallback);
         if (this._suggestedTimeRequests.length == 1) {
-          this._sntp.request();
+          this._requestSntp();
         }
       }
       return;
@@ -317,7 +323,7 @@ NetworkTimeService.prototype = {
 
         if (this._sntp.isExpired()) {
           this.debug("sntp expired, request");
-          this._sntp.request();
+          this._requestSntp();
         }
         break;
 
@@ -479,7 +485,12 @@ NetworkTimeService.prototype = {
   },
 
   onSntpDataAvailable(aOffset) {
+    this._cancelSntpTimer();
     this._setClockBySntp(aOffset);
+    this._notifyRequesters(aOffset);
+  },
+
+  _notifyRequesters(aOffset) {
     if (this._suggestedTimeRequests.length) {
       let suggestion = Date.now() + aOffset;
       for (let index = 0; index < this._suggestedTimeRequests.length; index++) {
@@ -595,6 +606,31 @@ NetworkTimeService.prototype = {
         this.debug("Remove SettingObserve " + aKey + " failed");
       },
     });
+  },
+
+  _requestSntp() {
+    this._sntp.request();
+    this._cancelSntpTimer();
+
+    this._sntpTimer = Cc["@mozilla.org/timer;1"].createInstance(Ci.nsITimer);
+    this._sntpTimer.initWithCallback(
+      () => {
+        this._notifyRequesters(0);
+        this._sntpTimer = null;
+      },
+      this._sntpTimeoutInSecs * 1000,
+      Ci.nsITimer.TYPE_ONE_SHOT
+    );
+  },
+
+  _cancelSntpTimer() {
+    if (this._sntpTimer) {
+      if (DEBUG) {
+        this.debug("cancel sntp timer");
+      }
+      this._sntpTimer.cancel();
+      this._sntpTimer = null;
+    }
   },
 };
 

@@ -186,9 +186,9 @@ Sntp.prototype = {
 
     function SNTPListener() {}
     SNTPListener.prototype = {
-      onStartRequest: function onStartRequest(request, context) {},
+      onStartRequest: function onStartRequest(_request) {},
 
-      onStopRequest: function onStopRequest(request, context, status) {
+      onStopRequest: function onStopRequest(_request, status) {
         if (!Components.isSuccessCode(status)) {
           debug("Connection failed");
           this._requesting = false;
