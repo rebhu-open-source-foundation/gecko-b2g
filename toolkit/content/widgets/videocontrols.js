@@ -7,6 +7,10 @@
 // This is a UA widget. It runs in per-origin UA widget scope,
 // to be loaded by UAWidgetsChild.jsm.
 
+// Respect to UX spec, the video/audio height should be `138` in pixels
+// and automatically resize width to fit content.
+const CONTROL_PANEL_HEIGHT = 138;
+
 /*
  * This is the class of entry. It will construct the actual implementation
  * according to the value of the "controls" property.
@@ -303,7 +307,7 @@ this.VideoControlsImplWidget = class {
           return;
         }
         if (this._isAudioOnly) {
-          this.video.style.height = "138px";
+          this.video.style.height = `${CONTROL_PANEL_HEIGHT}px`;
           this.video.style.width = "100%";
         } else {
           this.video.style.removeProperty("height");
@@ -2368,10 +2372,8 @@ this.VideoControlsImplWidget = class {
           (this.isAudioOnly
             ? this.reflowedDimensions.videocontrolsWidth
             : this.reflowedDimensions.videoWidth) || minRequiredWidth;
-        let videoHeight = this.isAudioOnly
-          ? this.controlBarMinHeight
-          : givenHeight;
         let videocontrolsWidth = this.reflowedDimensions.videocontrolsWidth;
+        let videoHeight = this.isAudioOnly ? CONTROL_PANEL_HEIGHT : givenHeight;
 
         let widthUsed = minControlBarPaddingWidth;
         let preventAppendControl = false;
@@ -2402,13 +2404,8 @@ this.VideoControlsImplWidget = class {
         // should fix the dimensions in order not to recursively trigger reflow afterwards.
         if (this.video.localName == "audio") {
           if (givenHeight) {
-            // The height of controlBar should be capped with the bounds between controlBarMinHeight
-            // and controlBarMinVisibleHeight.
-            let controlBarHeight = Math.max(
-              Math.min(givenHeight, this.controlBarMinHeight),
-              this.controlBarMinVisibleHeight
-            );
-            this.controlBar.style.height = `${controlBarHeight}px`;
+            this.controlBar.style.height = `${videoHeight}px`;
+            return;
           }
           // Bug 1367875: Set minimum required width to controlBar if the given size is smaller than padding.
           // This can help us expand the control and restore to the default size the next time we need
@@ -2418,7 +2415,6 @@ this.VideoControlsImplWidget = class {
           } else {
             this.controlBar.style.width = `${videoWidth}px`;
           }
-          return;
         }
 
         if (
@@ -2540,7 +2536,7 @@ this.VideoControlsImplWidget = class {
         }
 
         // XXX: Calling getComputedStyle() here by itself doesn't cause any reflow,
-        // but there is no guard proventing accessing any properties and methods
+        // but there is no guard preventing accessing any properties and methods
         // of this saved CSSStyleDeclaration instance that could trigger reflow.
         this.controlBarComputedStyles = this.window.getComputedStyle(
           this.controlBar
