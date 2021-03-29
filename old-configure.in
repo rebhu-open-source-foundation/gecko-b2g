@@ -2143,6 +2143,19 @@ fi
 AC_SUBST(MOZ_B2G_CAMERA)
 
 dnl ========================================================
+dnl = Add Moz Fonts for desktop platform
+dnl ========================================================
+if test -n "$MOZTTDIR" -a ! -d "$MOZTTDIR" ; then
+    AC_MSG_ERROR([MOZTTDIR '$MOZTTDIR' isn't a valid directory])
+fi
+
+AC_SUBST(MOZTTDIR)
+if test -n "$MOZTTDIR" ; then
+    AC_DEFINE(PACKAGE_MOZTT)
+fi
+
+
+dnl ========================================================
 dnl = Enable Radio Interface for B2G (Gonk usually)
 dnl ========================================================
 

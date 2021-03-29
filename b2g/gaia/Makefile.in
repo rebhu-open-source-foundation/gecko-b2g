@@ -19,7 +19,7 @@ include $(topsrcdir)/config/rules.mk
 os_type := $(shell uname)
 
 ifeq ($(os_type), Linux)
-GAIA_ICONS_TARGET_PATH := $(DIST)/bin/res/fonts/
+GAIA_ICONS_TARGET_PATH := $(DIST)/bin/fonts/
 else ifeq ($(os_type), Darwin)
 GAIA_ICONS_TARGET_PATH := $(DIST)/$(MOZ_APP_NAME)/$(MOZ_MACBUNDLE_NAME)/Contents/Resources/fonts
 endif
@@ -27,6 +27,11 @@ endif
 profile::
 	+$(MAKE) -j1 -C $(GAIADIR) clean
 	+$(MAKE) -j1 -C $(GAIADIR) -e DESKTOP=1 -e API_DAEMON_HOST=127.0.0.1:$(API_DAEMON_PORT) -e GAIA_DOMAIN=localhost:$(API_DAEMON_PORT)
+ifdef MOZTTDIR
+	mkdir -p $(DIST)/bin/fonts
+	cp -r $(MOZTTDIR)/*/*.ttf $(DIST)/bin/fonts
+	cp -r $(MOZTTDIR)/*/*/*.ttf $(DIST)/bin/fonts
+endif
 	cp $(GAIA_ICONS_PATH) $(GAIA_ICONS_TARGET_PATH)
 	(cd $(B2G_DIR)/$(GAIA_PATH) && tar $(TAR_CREATE_FLAGS) - .) | (cd $(ABS_DIST)/bin/$(GAIA_PATH) && tar -xf -)
 	mkdir -p $(DIST)/bin/$(GAIA_PATH)/webapps/installed
