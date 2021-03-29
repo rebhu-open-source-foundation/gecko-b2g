@@ -78,11 +78,13 @@ already_AddRefed<VirtualCursorProxy> VirtualCursorService::GetCursor(
 /* static */
 void VirtualCursorService::RemoveCursor(nsPIDOMWindowOuter* aWindow) {
   MOZ_ASSERT(NS_IsMainThread());
-  RefPtr<VirtualCursorService> service = GetService();
-  service->mCursorMap.Remove(aWindow);
-  MOZ_LOG(gVirtualCursorLog, LogLevel::Debug,
-          ("VirtualCursorProxy RemoveCursor, remains %d",
-           service->mCursorMap.Count()));
+  if (aWindow) {
+    RefPtr<VirtualCursorService> service = GetService();
+    service->mCursorMap.Remove(aWindow);
+    MOZ_LOG(gVirtualCursorLog, LogLevel::Debug,
+            ("VirtualCursorProxy RemoveCursor, remains %d",
+            service->mCursorMap.Count()));
+  }
 }
 
 NS_IMETHODIMP VirtualCursorService::Init(nsIDOMWindow* aWindow) {

@@ -933,6 +933,9 @@ BrowserChild::ProvideWindow(nsIOpenWindowInfo* aOpenWindowInfo,
 }
 
 void BrowserChild::DestroyWindow() {
+  if (mBrowsingContext) {
+    VirtualCursorService::RemoveCursor(mBrowsingContext->GetDOMWindow());
+  }
   mBrowsingContext = nullptr;
 
   if (mStatusFilter) {
