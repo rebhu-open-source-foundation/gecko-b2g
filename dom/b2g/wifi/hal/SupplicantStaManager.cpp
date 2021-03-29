@@ -555,7 +555,6 @@ android::sp<SupplicantStaNetwork> SupplicantStaManager::CreateStaNetwork() {
 
 android::sp<SupplicantStaNetwork> SupplicantStaManager::GetStaNetwork(
     uint32_t aNetId) const {
-  MutexAutoLock lock(sLock);
   if (mSupplicantStaIface == nullptr) {
     return nullptr;
   }
@@ -1156,7 +1155,6 @@ int16_t SupplicantStaManager::ConvertToWpsConfigMethod(
  * P2P functions
  */
 android::sp<ISupplicantP2pIface> SupplicantStaManager::GetSupplicantP2pIface() {
-  MutexAutoLock lock(sLock);
   if (mSupplicant == nullptr) {
     return nullptr;
   }
