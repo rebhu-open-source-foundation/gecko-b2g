@@ -967,9 +967,11 @@ void Navigator::CheckProtocolHandlerAllowed(const nsAString& aScheme,
   // should have already taken care of this.
   nsCOMPtr<nsIExternalProtocolHandler> externalHandler =
       do_QueryInterface(handler);
-  MOZ_RELEASE_ASSERT(
-      externalHandler,
-      "We should never allow overriding a builtin protocol handler");
+  // We should never allow overriding a builtin protocol handler.
+  if (!externalHandler) {
+    raisePermissionDeniedScheme();
+    return;
+  }
 
   // check if we have prefs set saying not to add this.
   bool defaultExternal =
