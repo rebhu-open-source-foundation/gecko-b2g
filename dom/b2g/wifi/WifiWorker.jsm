@@ -1832,7 +1832,7 @@ var WifiManager = (function() {
         imsCapability == Ci.nsIImsRegHandler.IMS_CAPABILITY_VOICE_OVER_WIFI ||
         imsCapability == Ci.nsIImsRegHandler.IMS_CAPABILITY_VIDEO_OVER_WIFI
       ) {
-        notify("registerimslistener", { register: true });
+        notify("registerimslistener", { register: true, callback });
       } else {
         manager.setWifiDisable(callback);
       }
@@ -2754,7 +2754,6 @@ function WifiWorker() {
       self._macAddress = result.macAddress;
       debug("Got mac: " + self._macAddress);
       self._fireEvent("wifiUp", { macAddress: self._macAddress });
-      self.requestDone();
     });
 
     // Use external processing for SIM/USIM operations.
@@ -2772,7 +2771,6 @@ function WifiWorker() {
 
     // Notify everybody, even if they didn't ask us to come up.
     self._fireEvent("wifiDown", {});
-    self.requestDone();
   };
 
   WifiManager.onnetworkdisable = function() {
@@ -3210,7 +3208,7 @@ function WifiWorker() {
       self._wifiDisableDelayId = setTimeout(
         WifiManager.setWifiDisable,
         imsDelayTimeout,
-        function() {}
+        this.callback
       );
     } else {
       if (self._wifiDisableDelayId === null) {
@@ -3326,12 +3324,15 @@ WifiWorker.prototype = {
   notifyPreferredProfileChanged(aProfile) {},
 
   notifyCapabilityChanged(aCapability, aUnregisteredReason) {
+    let self = this;
     debug("notifyCapabilityChanged: aCapability = " + aCapability);
     if (
       aCapability != Ci.nsIImsRegHandler.IMS_CAPABILITY_VOICE_OVER_WIFI &&
       aCapability != Ci.nsIImsRegHandler.IMS_CAPABILITY_VIDEO_OVER_WIFI
     ) {
-      WifiManager.setWifiDisable(function() {});
+      WifiManager.setWifiDisable(function() {
+        self.requestDone();
+      });
     }
   },
 
@@ -4065,10 +4066,11 @@ WifiWorker.prototype = {
     );
 
     if (!enabled) {
-      // TODO: NS_ERROR_UNEXPECTED on nsIPrefBranch.getBoolPref
-      // let isWifiAffectTethering = Services.prefs.getBoolPref("wifi.affect.tethering");
+      let isWifiAffectTethering = Services.prefs.getBoolPref(
+        "wifi.affect.tethering"
+      );
       if (
-        /* isWifiAffectTethering && */
+        isWifiAffectTethering &&
         this.disconnectedByWifi &&
         this.isAirplaneMode() === false
       ) {
@@ -4298,10 +4300,11 @@ WifiWorker.prototype = {
     );
 
     if (!enabled) {
-      // TODO: NS_ERROR_UNEXPECTED on nsIPrefBranch.getBoolPref
-      // let isTetheringAffectWifi = Services.prefs.getBoolPref("tethering.affect.wifi");
+      let isTetheringAffectWifi = Services.prefs.getBoolPref(
+        "tethering.affect.wifi"
+      );
       if (
-        /* isTetheringAffectWifi && */
+        isTetheringAffectWifi &&
         this.disconnectedByWifiTethering &&
         this.isAirplaneMode() === false
       ) {

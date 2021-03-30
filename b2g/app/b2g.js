@@ -1116,6 +1116,11 @@ pref("dom.passpoint.supported", false);
 // Control wifi during emergency session
 pref("dom.emergency.wifi-control", true);
 
+// Customize whether tethering could be turned on again after wifi is turned off
+pref("wifi.affect.tethering", false);
+// Customize whether wifi could be turned on again after tethering is turned off
+pref("tethering.affect.wifi", false);
+
 // Enable IPv6 tethering router mode in Gecko
 pref("dom.b2g_ipv6_router_mode", true);
 
