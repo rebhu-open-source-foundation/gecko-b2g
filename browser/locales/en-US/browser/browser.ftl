@@ -183,8 +183,6 @@ page-action-send-tabs-urlbar =
       [1] Send Tab to Device
      *[other] Send { $tabCount } Tabs to Device
   }
-page-action-pocket-panel =
-  .label = Save Page to { -pocket-brand-name }
 page-action-copy-url-panel =
   .label = Copy Link
 page-action-copy-url-urlbar =
@@ -269,12 +267,13 @@ search-one-offs-history =
 
 ## Bookmark Panel
 
+bookmarks-add-bookmark = Add Bookmark
+bookmarks-edit-bookmark = Edit Bookmark
 bookmark-panel-show-editor-checkbox =
     .label = Show editor when saving
     .accesskey = S
-
-bookmark-panel-done-button =
-    .label = Done
+bookmark-panel-save-button =
+    .label = Save
 
 # Width of the bookmark panel.
 # Should be large enough to fully display the Done and
@@ -490,8 +489,6 @@ urlbar-go-button =
   .tooltiptext = Go to the address in the Location Bar
 urlbar-page-action-button =
   .tooltiptext = Page actions
-urlbar-pocket-button =
-  .tooltiptext = Save to { -pocket-brand-name }
 
 ## Action text shown in urlbar results, usually appended after the search
 ## string or the url, like "result value - action text".
@@ -571,8 +568,6 @@ crashed-subframe-submit =
 
 ## Bookmarks panels, menus and toolbar
 
-bookmarks-show-all-bookmarks =
-  .label = Show All Bookmarks
 bookmarks-manage-bookmarks =
   .label = Manage Bookmarks
 bookmarks-recent-bookmarks-panel-subheader = Recent Bookmarks
@@ -638,6 +633,12 @@ library-bookmarks-menu =
 library-recent-activity-title =
   .value = Recent Activity
 
+## Pocket toolbar button
+
+save-to-pocket-button =
+  .label = Save to { -pocket-brand-name }
+  .tooltiptext = Save to { -pocket-brand-name }
+
 ## More items
 
 more-menu-go-offline =
@@ -647,7 +648,7 @@ more-menu-go-offline =
 ## EME notification panel
 
 eme-notifications-drm-content-playing = Some audio or video on this site uses DRM software, which may limit what { -brand-short-name } can let you do with it.
-eme-notifications-drm-content-playing-manage = Manage Settings
+eme-notifications-drm-content-playing-manage = Manage settings
 eme-notifications-drm-content-playing-manage-accesskey = M
 eme-notifications-drm-content-playing-dismiss = Dismiss
 eme-notifications-drm-content-playing-dismiss-accesskey = D
@@ -663,3 +664,9 @@ panel-save-update-password = Password
 #  $name (String): The name of the addon that will be removed.
 addon-removal-title = Remove { $name }?
 addon-removal-abuse-report-checkbox = Report this extension to { -vendor-short-name }
+
+## Remote / Synced tabs
+
+remote-tabs-manage-account =
+  .label = Manage Account
+remote-tabs-sync-now = Sync Now

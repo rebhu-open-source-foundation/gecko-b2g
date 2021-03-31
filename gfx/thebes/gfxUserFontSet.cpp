@@ -21,6 +21,7 @@
 #include "gfxOTSUtils.h"
 #include "nsIFontLoadCompleteCallback.h"
 #include "nsProxyRelease.h"
+#include "nsTHashSet.h"
 
 using namespace mozilla;
 
@@ -42,7 +43,9 @@ gfxUserFontEntry::gfxUserFontEntry(
     const nsTArray<gfxFontFeature>& aFeatureSettings,
     const nsTArray<gfxFontVariation>& aVariationSettings,
     uint32_t aLanguageOverride, gfxCharacterMap* aUnicodeRanges,
-    StyleFontDisplay aFontDisplay, RangeFlags aRangeFlags)
+    StyleFontDisplay aFontDisplay, RangeFlags aRangeFlags,
+    float aAscentOverride, float aDescentOverride, float aLineGapOverride,
+    float aSizeAdjust)
     : gfxFontEntry("userfont"_ns),
       mUserFontLoadState(STATUS_NOT_LOADED),
       mFontDataLoadingState(NOT_LOADING),
@@ -61,6 +64,10 @@ gfxUserFontEntry::gfxUserFontEntry(
   mLanguageOverride = aLanguageOverride;
   mCharacterMap = aUnicodeRanges;
   mRangeFlags = aRangeFlags;
+  mAscentOverride = aAscentOverride;
+  mDescentOverride = aDescentOverride;
+  mLineGapOverride = aLineGapOverride;
+  mSizeAdjust = aSizeAdjust;
 }
 
 void gfxUserFontEntry::UpdateAttributes(
@@ -68,7 +75,9 @@ void gfxUserFontEntry::UpdateAttributes(
     const nsTArray<gfxFontFeature>& aFeatureSettings,
     const nsTArray<gfxFontVariation>& aVariationSettings,
     uint32_t aLanguageOverride, gfxCharacterMap* aUnicodeRanges,
-    StyleFontDisplay aFontDisplay, RangeFlags aRangeFlags) {
+    StyleFontDisplay aFontDisplay, RangeFlags aRangeFlags,
+    float aAscentOverride, float aDescentOverride, float aLineGapOverride,
+    float aSizeAdjust) {
   // Remove the entry from the user font cache, if present there, as the cache
   // key may no longer be correct with the new attributes.
   gfxUserFontSet::UserFontCache::ForgetFont(this);
@@ -82,6 +91,10 @@ void gfxUserFontEntry::UpdateAttributes(
   mLanguageOverride = aLanguageOverride;
   mCharacterMap = aUnicodeRanges;
   mRangeFlags = aRangeFlags;
+  mAscentOverride = aAscentOverride;
+  mDescentOverride = aDescentOverride;
+  mLineGapOverride = aLineGapOverride;
+  mSizeAdjust = aSizeAdjust;
 }
 
 gfxUserFontEntry::~gfxUserFontEntry() {
@@ -97,13 +110,18 @@ bool gfxUserFontEntry::Matches(
     const nsTArray<gfxFontFeature>& aFeatureSettings,
     const nsTArray<gfxFontVariation>& aVariationSettings,
     uint32_t aLanguageOverride, gfxCharacterMap* aUnicodeRanges,
-    StyleFontDisplay aFontDisplay, RangeFlags aRangeFlags) {
+    StyleFontDisplay aFontDisplay, RangeFlags aRangeFlags,
+    float aAscentOverride, float aDescentOverride, float aLineGapOverride,
+    float aSizeAdjust) {
   return Weight() == aWeight && Stretch() == aStretch &&
          SlantStyle() == aStyle && mFeatureSettings == aFeatureSettings &&
          mVariationSettings == aVariationSettings &&
          mLanguageOverride == aLanguageOverride &&
          mSrcList == aFontFaceSrcList && mFontDisplay == aFontDisplay &&
-         mRangeFlags == aRangeFlags &&
+         mRangeFlags == aRangeFlags && mAscentOverride == aAscentOverride &&
+         mDescentOverride == aDescentOverride &&
+         mLineGapOverride == aLineGapOverride &&
+         mSizeAdjust == aSizeAdjust &&
          ((!aUnicodeRanges && !mCharacterMap) ||
           (aUnicodeRanges && mCharacterMap &&
            mCharacterMap->Equals(aUnicodeRanges)));
@@ -137,10 +155,9 @@ class MOZ_STACK_CLASS gfxOTSMessageContext : public gfxOTSContext {
     if (level > 0) {
       // For warnings (rather than errors that cause the font to fail),
       // we only report the first instance of any given message.
-      if (mWarningsIssued.Contains(msg)) {
+      if (!mWarningsIssued.EnsureInserted(msg)) {
         return;
       }
-      mWarningsIssued.PutEntry(msg);
     }
 
     mMessages.AppendElement(gfxUserFontEntry::OTSMessage{msg, level});
@@ -158,7 +175,7 @@ class MOZ_STACK_CLASS gfxOTSMessageContext : public gfxOTSContext {
   }
 
  private:
-  nsTHashtable<nsCStringHashKey> mWarningsIssued;
+  nsTHashSet<nsCString> mWarningsIssued;
   nsTArray<gfxUserFontEntry::OTSMessage> mMessages;
 };
 
@@ -423,6 +440,10 @@ void gfxUserFontEntry::DoLoadNextSrc(bool aForceAsync) {
         fe->mLanguageOverride = mLanguageOverride;
         fe->mFamilyName = mFamilyName;
         fe->mRangeFlags = mRangeFlags;
+        fe->mAscentOverride = mAscentOverride;
+        fe->mDescentOverride = mDescentOverride;
+        fe->mLineGapOverride = mLineGapOverride;
+        fe->mSizeAdjust = mSizeAdjust;
         // For src:local(), we don't care whether the request is from
         // a private window as there's no issue of caching resources;
         // local fonts are just available all the time.
@@ -717,6 +738,10 @@ bool gfxUserFontEntry::LoadPlatformFont(const uint8_t* aOriginalFontData,
     fe->mLanguageOverride = mLanguageOverride;
     fe->mFamilyName = mFamilyName;
     fe->mRangeFlags = mRangeFlags;
+    fe->mAscentOverride = mAscentOverride;
+    fe->mDescentOverride = mDescentOverride;
+    fe->mLineGapOverride = mLineGapOverride;
+    fe->mSizeAdjust = mSizeAdjust;
     StoreUserFontData(fe, mFontSet->GetPrivateBrowsing(), originalFullName,
                       &metadata, metaOrigLen, compression);
     if (LOG_ENABLED()) {
@@ -909,7 +934,9 @@ already_AddRefed<gfxUserFontEntry> gfxUserFontSet::FindOrCreateUserFontEntry(
     const nsTArray<gfxFontFeature>& aFeatureSettings,
     const nsTArray<gfxFontVariation>& aVariationSettings,
     uint32_t aLanguageOverride, gfxCharacterMap* aUnicodeRanges,
-    StyleFontDisplay aFontDisplay, RangeFlags aRangeFlags) {
+    StyleFontDisplay aFontDisplay, RangeFlags aRangeFlags,
+    float aAscentOverride, float aDescentOverride, float aLineGapOverride,
+    float aSizeAdjust) {
   RefPtr<gfxUserFontEntry> entry;
 
   // If there's already a userfont entry in the family whose descriptors all
@@ -923,14 +950,16 @@ already_AddRefed<gfxUserFontEntry> gfxUserFontSet::FindOrCreateUserFontEntry(
     entry = FindExistingUserFontEntry(
         family, aFontFaceSrcList, aWeight, aStretch, aStyle, aFeatureSettings,
         aVariationSettings, aLanguageOverride, aUnicodeRanges, aFontDisplay,
-        aRangeFlags);
+        aRangeFlags, aAscentOverride, aDescentOverride, aLineGapOverride,
+        aSizeAdjust);
   }
 
   if (!entry) {
-    entry = CreateUserFontEntry(aFontFaceSrcList, aWeight, aStretch, aStyle,
-                                aFeatureSettings, aVariationSettings,
-                                aLanguageOverride, aUnicodeRanges, aFontDisplay,
-                                aRangeFlags);
+    entry = CreateUserFontEntry(
+        aFontFaceSrcList, aWeight, aStretch, aStyle, aFeatureSettings,
+        aVariationSettings, aLanguageOverride, aUnicodeRanges, aFontDisplay,
+        aRangeFlags, aAscentOverride, aDescentOverride, aLineGapOverride,
+        aSizeAdjust);
     entry->mFamilyName = aFamilyName;
   }
 
@@ -944,7 +973,9 @@ gfxUserFontEntry* gfxUserFontSet::FindExistingUserFontEntry(
     const nsTArray<gfxFontFeature>& aFeatureSettings,
     const nsTArray<gfxFontVariation>& aVariationSettings,
     uint32_t aLanguageOverride, gfxCharacterMap* aUnicodeRanges,
-    StyleFontDisplay aFontDisplay, RangeFlags aRangeFlags) {
+    StyleFontDisplay aFontDisplay, RangeFlags aRangeFlags,
+    float aAscentOverride, float aDescentOverride, float aLineGapOverride,
+    float aSizeAdjust) {
   nsTArray<RefPtr<gfxFontEntry>>& fontList = aFamily->GetFontList();
 
   for (size_t i = 0, count = fontList.Length(); i < count; i++) {
@@ -957,7 +988,8 @@ gfxUserFontEntry* gfxUserFontSet::FindExistingUserFontEntry(
     if (!existingUserFontEntry->Matches(
             aFontFaceSrcList, aWeight, aStretch, aStyle, aFeatureSettings,
             aVariationSettings, aLanguageOverride, aUnicodeRanges, aFontDisplay,
-            aRangeFlags)) {
+            aRangeFlags, aAscentOverride, aDescentOverride, aLineGapOverride,
+            aSizeAdjust)) {
       continue;
     }
 
@@ -1022,8 +1054,7 @@ gfxUserFontFamily* gfxUserFontSet::GetFamily(const nsACString& aFamilyName) {
 }
 
 void gfxUserFontSet::ForgetLocalFaces() {
-  for (const auto& entry : mFontFamilies) {
-    const auto fam = entry.GetData();
+  for (const auto& fam : mFontFamilies.Values()) {
     const auto& fonts = fam->GetFontList();
     for (const auto& f : fonts) {
       auto ufe = static_cast<gfxUserFontEntry*>(f.get());
@@ -1114,6 +1145,10 @@ bool gfxUserFontSet::UserFontCache::Entry::KeyEquals(
       mFontEntry->mFeatureSettings != fe->mFeatureSettings ||
       mFontEntry->mVariationSettings != fe->mVariationSettings ||
       mFontEntry->mLanguageOverride != fe->mLanguageOverride ||
+      mFontEntry->mAscentOverride != fe->mAscentOverride ||
+      mFontEntry->mDescentOverride != fe->mDescentOverride ||
+      mFontEntry->mLineGapOverride != fe->mLineGapOverride ||
+      mFontEntry->mSizeAdjust != fe->mSizeAdjust ||
       mFontEntry->mFamilyName != fe->mFamilyName) {
     return false;
   }

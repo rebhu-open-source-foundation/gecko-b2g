@@ -47,7 +47,7 @@ class nsLookAndFeel final : public nsXPLookAndFeel {
   static OperatingSystemVersion GetOperatingSystemVersion();
 
  public:
-  explicit nsLookAndFeel(const LookAndFeelCache* aCache);
+  nsLookAndFeel();
   virtual ~nsLookAndFeel();
 
   void NativeInit() final;
@@ -59,17 +59,12 @@ class nsLookAndFeel final : public nsXPLookAndFeel {
                      gfxFontStyle& aFontStyle) override;
   char16_t GetPasswordCharacterImpl() override;
 
-  LookAndFeelCache GetCacheImpl() override;
-  void SetCacheImpl(const LookAndFeelCache& aCache) override;
-
  private:
   enum CachedValueKind {
     PrimaryPointerCapabilitiesKind,
     AllPointerCapabilitiesKind,
     CachedValueKindMax = AllPointerCapabilitiesKind,
   };
-
-  void DoSetCache(const LookAndFeelCache& aCache);
 
   /**
    * Fetches the Windows accent color from the Windows settings if
@@ -140,13 +135,12 @@ class nsLookAndFeel final : public nsXPLookAndFeel {
     gfxFontStyle mFontStyle;
   };
 
-  mozilla::RangedArray<CachedSystemFont, size_t(FontID::MINIMUM),
-                       size_t(FontID::MAXIMUM) + 1 - size_t(FontID::MINIMUM)>
+  mozilla::EnumeratedArray<FontID, FontID::End, CachedSystemFont>
       mSystemFontCache;
 
-  mozilla::RangedArray<LookAndFeelFont, size_t(FontID::MINIMUM),
-                       size_t(FontID::MAXIMUM) + 1 - size_t(FontID::MINIMUM)>
-      mFontCache;
+  using FontCache =
+      mozilla::EnumeratedArray<FontID, FontID::End, LookAndFeelFont>;
+  FontCache mFontCache;
 
   nsCOMPtr<nsIWindowsRegKey> mDwmKey;
 

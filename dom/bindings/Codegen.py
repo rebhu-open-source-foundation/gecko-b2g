@@ -1391,6 +1391,8 @@ class CGHeaders(CGWrapper):
             if unrolled.isUnion():
                 headerSet.add(self.getUnionDeclarationFilename(config, unrolled))
                 bindingHeaders.add("mozilla/dom/UnionConversions.h")
+                for t in unrolled.flatMemberTypes:
+                    addHeadersForType((t, None))
             elif unrolled.isPromise():
                 # See comment in the isInterface() case for why we add
                 # Promise.h to headerSet, not bindingHeaders.

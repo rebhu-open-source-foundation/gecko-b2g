@@ -614,9 +614,25 @@ if (Services.prefs.getBoolPref("identity.fxaccounts.enabled")) {
     onViewShowing(aEvent) {
       let panelview = aEvent.target;
       let doc = panelview.ownerDocument;
+      let window = doc.defaultView;
+
+      // While we support this panel for both Proton and non-Proton versions
+      // of the AppMenu, we only want to show icons for the non-Proton
+      // version. When Proton ships and we remove the non-Proton variant,
+      // we can remove the subviewbutton-iconic classes from the markup.
+      if (window.PanelUI.protonAppMenuEnabled) {
+        let toolbarbuttons = panelview.querySelectorAll("toolbarbutton");
+        for (let toolbarbutton of toolbarbuttons) {
+          toolbarbutton.classList.remove("subviewbutton-iconic");
+        }
+      }
 
       let syncNowBtn = panelview.querySelector(".syncnow-label");
-      let l10nId = syncNowBtn.getAttribute("sync-now-data-l10n-id");
+      let l10nId = syncNowBtn.getAttribute(
+        panelview.ownerGlobal.gSync._isCurrentlySyncing
+          ? "syncing-data-l10n-id"
+          : "sync-now-data-l10n-id"
+      );
       syncNowBtn.setAttribute("data-l10n-id", l10nId);
 
       let SyncedTabsPanelList = doc.defaultView.SyncedTabsPanelList;

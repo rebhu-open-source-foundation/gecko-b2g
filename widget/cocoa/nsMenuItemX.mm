@@ -99,16 +99,24 @@ nsMenuItemX::~nsMenuItemX() {
   // object happens before the native menu item actually dies
   [mNativeMenuItem autorelease];
 
-  if (mContent) {
-    mMenuGroupOwner->UnregisterForContentChanges(mContent);
-  }
-  if (mCommandElement) {
-    mMenuGroupOwner->UnregisterForContentChanges(mCommandElement);
-  }
+  DetachFromGroupOwner();
 
   MOZ_COUNT_DTOR(nsMenuItemX);
 
   NS_OBJC_END_TRY_ABORT_BLOCK;
+}
+
+void nsMenuItemX::DetachFromGroupOwner() {
+  if (mMenuGroupOwner) {
+    if (mContent) {
+      mMenuGroupOwner->UnregisterForContentChanges(mContent);
+    }
+    if (mCommandElement) {
+      mMenuGroupOwner->UnregisterForContentChanges(mCommandElement);
+    }
+  }
+
+  mMenuGroupOwner = nullptr;
 }
 
 nsresult nsMenuItemX::SetChecked(bool aIsChecked) {
@@ -133,7 +141,7 @@ EMenuItemType nsMenuItemX::GetMenuItemType() { return mType; }
 
 // Executes the "cached" javaScript command.
 // Returns NS_OK if the command was executed properly, otherwise an error code.
-void nsMenuItemX::DoCommand() {
+void nsMenuItemX::DoCommand(NSEventModifierFlags aModifierFlags) {
   // flip "checked" state if we're a checkbox menu, or an un-checked radio menu
   if (mType == eCheckboxMenuItemType || (mType == eRadioMenuItemType && !mIsChecked)) {
     if (!mContent->IsElement() ||
@@ -144,7 +152,7 @@ void nsMenuItemX::DoCommand() {
     /* the AttributeChanged code will update all the internal state */
   }
 
-  nsMenuUtilsX::DispatchCommandTo(mContent);
+  nsMenuUtilsX::DispatchCommandTo(mContent, aModifierFlags);
 }
 
 nsresult nsMenuItemX::DispatchDOMEvent(const nsString& eventName, bool* preventDefaultCalled) {
@@ -335,6 +343,9 @@ bool IsMenuStructureElement(nsIContent* aContent) {
 
 void nsMenuItemX::ObserveContentRemoved(dom::Document* aDocument, nsIContent* aContainer,
                                         nsIContent* aChild, nsIContent* aPreviousSibling) {
+  MOZ_RELEASE_ASSERT(mMenuGroupOwner);
+  MOZ_RELEASE_ASSERT(mMenuParent);
+
   if (aChild == mCommandElement) {
     mMenuGroupOwner->UnregisterForContentChanges(mCommandElement);
     mCommandElement = nullptr;
@@ -346,6 +357,8 @@ void nsMenuItemX::ObserveContentRemoved(dom::Document* aDocument, nsIContent* aC
 
 void nsMenuItemX::ObserveContentInserted(dom::Document* aDocument, nsIContent* aContainer,
                                          nsIContent* aChild) {
+  MOZ_RELEASE_ASSERT(mMenuParent);
+
   // The child node could come from the custom element that is for display, so
   // only rebuild the menu if the child is related to the structure of the
   // menu.

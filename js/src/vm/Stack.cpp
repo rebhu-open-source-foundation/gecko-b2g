@@ -111,10 +111,10 @@ static inline void AssertScopeMatchesEnvironment(Scope* scope,
         case ScopeKind::StrictNamedLambda:
         case ScopeKind::FunctionLexical:
         case ScopeKind::ClassBody:
-          MOZ_ASSERT(&env->as<BlockLexicalEnvironmentObject>().scope() ==
+          MOZ_ASSERT(&env->as<ScopedLexicalEnvironmentObject>().scope() ==
                      si.scope());
           env =
-              &env->as<BlockLexicalEnvironmentObject>().enclosingEnvironment();
+              &env->as<ScopedLexicalEnvironmentObject>().enclosingEnvironment();
           break;
 
         case ScopeKind::With:
@@ -296,6 +296,18 @@ bool InterpreterFrame::recreateLexicalEnvironment(JSContext* cx) {
   }
 
   replaceInnermostEnvironment(*fresh);
+  return true;
+}
+
+bool InterpreterFrame::pushClassBodyEnvironment(JSContext* cx,
+                                                Handle<ClassBodyScope*> scope) {
+  ClassBodyLexicalEnvironmentObject* env =
+      ClassBodyLexicalEnvironmentObject::createForFrame(cx, scope, this);
+  if (!env) {
+    return false;
+  }
+
+  pushOnEnvironmentChain(*env);
   return true;
 }
 
@@ -748,4 +760,12 @@ bool JS::ProfilingFrameIterator::isWasm() const {
 
 bool JS::ProfilingFrameIterator::isJSJit() const {
   return kind_ == Kind::JSJit;
+}
+
+mozilla::Maybe<JS::ProfilingFrameIterator::RegisterState>
+JS::ProfilingFrameIterator::getCppEntryRegisters() const {
+  if (!isJSJit()) {
+    return mozilla::Nothing{};
+  }
+  return jit::JitRuntime::getCppEntryRegisters(jsJitIter().framePtr());
 }

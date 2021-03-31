@@ -1491,12 +1491,43 @@ static bool DecodeFunctionBodyExprs(const ModuleEnvironment& env,
         CHECK(iter.readCatch(&unusedKind, &unusedIndex, &unusedType,
                              &unusedType, &nothings));
       }
+      case uint16_t(Op::CatchAll): {
+        if (!env.exceptionsEnabled()) {
+          return iter.unrecognizedOpcode(&op);
+        }
+        LabelKind unusedKind;
+        CHECK(iter.readCatchAll(&unusedKind, &unusedType, &unusedType,
+                                &nothings));
+      }
+      case uint16_t(Op::Delegate): {
+        if (!env.exceptionsEnabled()) {
+          return iter.unrecognizedOpcode(&op);
+        }
+        uint32_t unusedDepth;
+        if (!iter.readDelegate(&unusedDepth, &unusedType, &nothings)) {
+          return false;
+        }
+        iter.popDelegate();
+        break;
+      }
+      case uint16_t(Op::Unwind):
+        if (!env.exceptionsEnabled()) {
+          return iter.unrecognizedOpcode(&op);
+        }
+        CHECK(iter.readUnwind(&unusedType, &nothings));
       case uint16_t(Op::Throw): {
         if (!env.exceptionsEnabled()) {
           return iter.unrecognizedOpcode(&op);
         }
         uint32_t unusedIndex;
         CHECK(iter.readThrow(&unusedIndex, &nothings));
+      }
+      case uint16_t(Op::Rethrow): {
+        if (!env.exceptionsEnabled()) {
+          return iter.unrecognizedOpcode(&op);
+        }
+        uint32_t unusedDepth;
+        CHECK(iter.readRethrow(&unusedDepth));
       }
 #endif
       case uint16_t(Op::ThreadPrefix): {

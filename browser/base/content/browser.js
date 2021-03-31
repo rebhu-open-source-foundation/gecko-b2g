@@ -68,6 +68,7 @@ XPCOMUtils.defineLazyModuleGetters(this, {
   RFPHelper: "resource://gre/modules/RFPHelper.jsm",
   SafeBrowsing: "resource://gre/modules/SafeBrowsing.jsm",
   Sanitizer: "resource:///modules/Sanitizer.jsm",
+  SaveToPocket: "chrome://pocket/content/SaveToPocket.jsm",
   SessionStartup: "resource:///modules/sessionstore/SessionStartup.jsm",
   SessionStore: "resource:///modules/sessionstore/SessionStore.jsm",
   ShortcutUtils: "resource://gre/modules/ShortcutUtils.jsm",
@@ -395,7 +396,7 @@ XPCOMUtils.defineLazyGetter(this, "gHighPriorityNotificationBox", () => {
   return new MozElements.NotificationBox(element => {
     element.classList.add("global-notificationbox");
     element.setAttribute("notificationside", "top");
-    if (Services.prefs.getBoolPref("browser.proton.infobars.enabled", false)) {
+    if (gProtonInfobarsEnabled) {
       // With Proton enabled all notification boxes are at the top, built into the browser chrome.
       let tabNotifications = document.getElementById("tab-notification-deck");
       gNavToolbox.insertBefore(element, tabNotifications);
@@ -407,7 +408,7 @@ XPCOMUtils.defineLazyGetter(this, "gHighPriorityNotificationBox", () => {
 
 // Regular notification bars shown at the bottom of the window.
 XPCOMUtils.defineLazyGetter(this, "gNotificationBox", () => {
-  return Services.prefs.getBoolPref("browser.proton.infobars.enabled", false)
+  return gProtonInfobarsEnabled
     ? gHighPriorityNotificationBox
     : new MozElements.NotificationBox(element => {
         element.classList.add("global-notificationbox");
@@ -437,22 +438,11 @@ XPCOMUtils.defineLazyGetter(this, "PopupNotifications", () => {
     "resource://gre/modules/PopupNotifications.jsm"
   );
   try {
-    // Hide all notifications while the URL is being edited and the address bar
-    // has focus, including the virtual focus in the results popup.
-    // We also have to hide notifications explicitly when the window is
-    // minimized because of the effects of the "noautohide" attribute on Linux.
-    // This can be removed once bug 545265 and bug 1320361 are fixed.
-    // Hide popup notifications when system tab prompts are shown so they
-    // don't cover up the prompt.
-    let shouldSuppress = () => {
-      return (
-        window.windowState == window.STATE_MINIMIZED ||
-        (gURLBar.getAttribute("pageproxystate") != "valid" &&
-          gURLBar.focused) ||
-        gBrowser?.selectedBrowser.hasAttribute("tabmodalChromePromptShowing") ||
-        gBrowser?.selectedBrowser.hasAttribute("tabDialogShowing")
-      );
-    };
+    // Hide all PopupNotifications while the URL is being edited and the
+    // address bar has focus, including the virtual focus in the results popup.
+    let shouldSuppress = () =>
+      (gURLBar.getAttribute("pageproxystate") != "valid" && gURLBar.focused) ||
+      shouldSuppressPopupNotifications();
     return new PopupNotifications(
       gBrowser,
       document.getElementById("notification-popup"),
@@ -558,7 +548,7 @@ XPCOMUtils.defineLazyPreferenceGetter(
   this,
   "gFxaMonitorLoginUrl",
   "identity.fxaccounts.service.monitorLoginUrl",
-  false,
+  null,
   (aPref, aOldVal, aNewVal) => {
     updateFxaToolbarMenu(gFxaToolbarEnabled);
   }
@@ -597,12 +587,11 @@ XPCOMUtils.defineLazyPreferenceGetter(
   }
 );
 
-/* Temporary pref while we settle some questions around new tab design.
-   This will eventually be removed and browser.proton.enabled will be used instead. */
+/* Temporary pref while the Proton infobars work stabilizes. */
 XPCOMUtils.defineLazyPreferenceGetter(
   this,
-  "gProtonTabs",
-  "browser.proton.tabs.enabled",
+  "gProtonInfobarsEnabled",
+  "browser.proton.infobars.enabled",
   false
 );
 
@@ -690,6 +679,20 @@ Object.defineProperty(this, "gFindBarPromise", {
     return gBrowser.getFindBar();
   },
 });
+
+function shouldSuppressPopupNotifications() {
+  // We have to hide notifications explicitly when the window is
+  // minimized because of the effects of the "noautohide" attribute on Linux.
+  // This can be removed once bug 545265 and bug 1320361 are fixed.
+  // Hide popup notifications when system tab prompts are shown so they
+  // don't cover up the prompt.
+  return (
+    window.windowState == window.STATE_MINIMIZED ||
+    gBrowser?.selectedBrowser.hasAttribute("tabmodalChromePromptShowing") ||
+    gBrowser?.selectedBrowser.hasAttribute("tabDialogShowing") ||
+    gDialogBox?.isOpen
+  );
+}
 
 async function gLazyFindCommand(cmd, ...args) {
   let fb = await gFindBarPromise;
@@ -1020,7 +1023,9 @@ const gStoragePressureObserver = {
       Services.prefs.getIntPref(
         "browser.storageManager.pressureNotification.usageThresholdGB"
       );
-    let msg = "";
+    let messageFragment = document.createDocumentFragment();
+    let message = document.createElement("span");
+
     let buttons = [{ supportPage: "storage-permissions" }];
     let usage = subject.QueryInterface(Ci.nsISupportsPRUint64).data;
     if (usage < USAGE_THRESHOLD_BYTES) {
@@ -1028,17 +1033,13 @@ const gStoragePressureObserver = {
       // This is because this usage is small and not the main cause for space issue.
       // In order to avoid the bad and wrong impression among users that
       // firefox eats disk space a lot, indicate users to clean up other disk space.
-      [msg] = await document.l10n.formatValues([
-        { id: "space-alert-under-5gb-message" },
-      ]);
+      document.l10n.setAttributes(message, "space-alert-under-5gb-message2");
     } else {
       // The firefox-used space >= 5GB, then guide users to about:preferences
       // to clear some data stored on firefox by websites.
-      [msg] = await document.l10n.formatValues([
-        { id: "space-alert-over-5gb-message" },
-      ]);
+      document.l10n.setAttributes(message, "space-alert-over-5gb-message2");
       buttons.push({
-        "l10n-id": "space-alert-over-5gb-pref-button",
+        "l10n-id": "space-alert-over-5gb-settings-button",
         callback(notificationBar, button) {
           // The advanced subpanes are only supported in the old organization, which will
           // be removed by bug 1349689.
@@ -1046,14 +1047,17 @@ const gStoragePressureObserver = {
         },
       });
     }
+    messageFragment.appendChild(message);
 
     gHighPriorityNotificationBox.appendNotification(
-      msg,
+      messageFragment,
       NOTIFICATION_VALUE,
       null,
       gHighPriorityNotificationBox.PRIORITY_WARNING_HIGH,
       buttons,
-      null
+      null,
+      null,
+      ["branding/brand.ftl", "browser/preferences/preferences.ftl"]
     );
 
     // This seems to be necessary to get the buttons to display correctly
@@ -1977,7 +1981,7 @@ var gBrowserInit = {
     // We do this before the session restore service gets initialized so we can
     // apply full zoom settings to tabs restored by the session restore service.
     FullZoom.init();
-    PanelUI.init();
+    PanelUI.init(shouldSuppressPopupNotifications);
 
     UpdateUrlbarSearchSplitterState();
 
@@ -3357,16 +3361,19 @@ function UpdateUrlbarSearchSplitterState() {
 }
 
 function UpdatePopupNotificationsVisibility() {
-  // Only need to do something if the PopupNotifications object for this window
-  // has already been initialized (i.e. its getter no longer exists).
-  if (Object.getOwnPropertyDescriptor(window, "PopupNotifications").get) {
-    return;
+  // Only need to update PopupNotifications if it has already been initialized
+  // for this window (i.e. its getter no longer exists).
+  if (!Object.getOwnPropertyDescriptor(window, "PopupNotifications").get) {
+    // Notify PopupNotifications that the visible anchors may have changed. This
+    // also checks the suppression state according to the "shouldSuppress"
+    // function defined earlier in this file.
+    PopupNotifications.anchorVisibilityChange();
   }
 
-  // Notify PopupNotifications that the visible anchors may have changed. This
-  // also checks the suppression state according to the "shouldSuppress"
-  // function defined earlier in this file.
-  PopupNotifications.anchorVisibilityChange();
+  // This is similar to the above, but for notifications attached to the
+  // hamburger menu icon (such as update notifications and add-on install
+  // notifications.)
+  PanelUI?.updateNotifications();
 }
 
 function PageProxyClickHandler(aEvent) {
@@ -5283,6 +5290,8 @@ var XULBrowserWindow = {
     BrowserPageActions.onLocationChange();
 
     SafeBrowsingNotificationBox.onLocationChange(aLocationURI);
+
+    SaveToPocket.onLocationChange(window);
 
     UrlbarProviderSearchTips.onLocationChange(
       window,
@@ -9296,9 +9305,9 @@ TabModalPromptBox.prototype = {
       !browser.hasAttribute("tabmodalChromePromptShowing")
     ) {
       browser.setAttribute("tabmodalChromePromptShowing", true);
-      // Notify PopupNotifications of the UI change so it hides the notification
-      // panel.
-      PopupNotifications.anchorVisibilityChange();
+      // Notify popup notifications of the UI change so they hide their
+      // notification panels.
+      UpdatePopupNotificationsVisibility();
     }
 
     let prompts = this.listPrompts(args.modalType);
@@ -9366,9 +9375,9 @@ TabModalPromptBox.prototype = {
       // If we remove the last tab chrome prompt, also remove the browser
       // attribute.
       browser.removeAttribute("tabmodalChromePromptShowing");
-      // Notify PopupNotifications of the UI change so it shows the notification
-      // panel again.
-      PopupNotifications.anchorVisibilityChange();
+      // Notify popup notifications of the UI change so they show notification
+      // panels again.
+      UpdatePopupNotificationsVisibility();
     }
     // Check if all prompts are closed
     if (!this._hasPrompts()) {
@@ -9508,6 +9517,7 @@ var gDialogBox = {
       dialog.removeEventListener("close", this);
       this._updateMenuAndCommandState(true /* to enable */);
       this._dialog = null;
+      UpdatePopupNotificationsVisibility();
     }
     if (this._queued.length) {
       setTimeout(() => this._openNextDialog(), 0);
@@ -9585,6 +9595,7 @@ var gDialogBox = {
       },
       args
     );
+    UpdatePopupNotificationsVisibility();
     return closedPromise;
   },
 
@@ -9650,7 +9661,7 @@ var ConfirmationHint = {
    * Shows a transient, non-interactive confirmation hint anchored to an
    * element, usually used in response to a user action to reaffirm that it was
    * successful and potentially provide extra context. Examples for such hints:
-   * - "Saved to Library!" after bookmarking a page
+   * - "Saved to bookmarks" after bookmarking a page
    * - "Sent!" after sending a tab to another device
    * - "Queued (offline)" when attempting to send a tab to another device
    *   while offline

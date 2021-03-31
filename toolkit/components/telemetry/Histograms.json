@@ -2596,9 +2596,9 @@
   "NETWORK_BACK_PRESSURE_SUSPENSION_RATE_V2": {
     "record_in_processes": ["main"],
     "products": ["firefox", "fennec"],
-    "expires_in_version": "90",
+    "expires_in_version": "never",
     "alert_emails": ["necko@mozilla.com", "ddamjanovic@mozilla.com"],
-    "bug_numbers": [1280629, 1494133, 1524552, 1616069, 1668513],
+    "bug_numbers": [1280629, 1494133, 1524552, 1616069, 1668513, 1700824],
     "kind": "categorical",
     "labels": ["Suspended", "NotSuspended", "SuspendedLocal", "NotSuspendedLocal"],
     "description": "Collect whether the resource is suspended by back pressure. And split by local-ness."
@@ -2606,9 +2606,9 @@
   "NETWORK_BACK_PRESSURE_SUSPENSION_CP_TYPE": {
     "record_in_processes": ["main"],
     "products": ["firefox", "fennec"],
-    "expires_in_version": "90",
+    "expires_in_version": "never",
     "alert_emails": ["necko@mozilla.com", "ddamjanovic@mozilla.com"],
-    "bug_numbers": [1487559, 1524552, 1616069, 1668513],
+    "bug_numbers": [1487559, 1524552, 1616069, 1668513, 1700824],
     "kind": "enumerated",
     "n_values": 64,
     "description": "Collect the content policy when the resource is non-local and suspended by back pressure (0-44 from nsContentPolicyType in nsIContentPolicy.idl)."
@@ -2616,9 +2616,9 @@
   "NETWORK_BACK_PRESSURE_SUSPENSION_DELAY_TIME_MS": {
     "record_in_processes": ["main"],
     "products": ["firefox", "fennec"],
-    "expires_in_version": "90",
+    "expires_in_version": "never",
     "alert_emails": ["necko@mozilla.com", "damjanovic@mozilla.com"],
-    "bug_numbers": [1498434, 1524552, 1616069, 1668513],
+    "bug_numbers": [1498434, 1524552, 1616069, 1668513, 1700824],
     "kind": "exponential",
     "high": 60000,
     "n_buckets": 100,
@@ -8483,7 +8483,7 @@
     "products": ["firefox", "fennec"],
     "alert_emails": ["mnakano.birchill@mozilla.com"],
     "bug_numbers": [1668134, 1665530],
-    "expires_in_version": "90",
+    "expires_in_version": "96",
     "kind": "boolean",
     "releaseChannelCollection": "opt-out",
     "description": "Number of HTML editors whose window or a node in it has had beforeinput event listeners"
@@ -8493,7 +8493,7 @@
     "products": ["firefox", "fennec"],
     "alert_emails": ["mnakano.birchill@mozilla.com"],
     "bug_numbers": [1668134, 1665530],
-    "expires_in_version": "90",
+    "expires_in_version": "96",
     "kind": "boolean",
     "releaseChannelCollection": "opt-out",
     "description": "Number of HTML editors whose dispatching beforeinput events are canceled"
@@ -8503,7 +8503,7 @@
     "products": ["firefox", "fennec"],
     "alert_emails": ["mnakano.birchill@mozilla.com"],
     "bug_numbers": [1668134, 1665530],
-    "expires_in_version": "90",
+    "expires_in_version": "96",
     "kind": "boolean",
     "releaseChannelCollection": "opt-out",
     "description": "Number of HTML editors whose window or a node in it has had mutation event listeners, but has not had beforeinput event listeners"
@@ -8513,7 +8513,7 @@
     "products": ["firefox", "fennec"],
     "alert_emails": ["mnakano.birchill@mozilla.com"],
     "bug_numbers": [1668134, 1665530],
-    "expires_in_version": "90",
+    "expires_in_version": "96",
     "kind": "boolean",
     "releaseChannelCollection": "opt-out",
     "description": "Number of HTML editors a node in the window has been observed by mutation observers, but has not had beforeinput event listeners"
@@ -9402,7 +9402,7 @@
     "low": 1,
     "high": 2147483646,
     "n_buckets": 10,
-    "bug_numbers": [1288745],
+    "bug_numbers": [1288745, 1685406],
     "description": "a testing histogram; not meant to be touched"
   },
   "TELEMETRY_TEST_LINEAR": {
@@ -9414,7 +9414,7 @@
     "low": 1,
     "high": 2147483646,
     "n_buckets": 10,
-    "bug_numbers": [1288745],
+    "bug_numbers": [1288745, 1685406],
     "description": "a testing histogram; not meant to be touched"
   },
   "TELEMETRY_TEST_BOOLEAN": {
@@ -10239,7 +10239,7 @@
     "record_in_processes": ["main"],
     "products": ["firefox"],
     "alert_emails": ["jwatt@jwatt.org"],
-    "expires_in_version": "88",
+    "expires_in_version": "95",
     "description": "Milliseconds taken on the background thread only for print background tasks. Keys describe the task, usually the information being retrieved, current possible keys are: DefaultSettings, MarginsForPaper, Printers, NamedPrinter, NamedOrDefaultPrinter, SupportsDuplex, SupportsColor, SupportsCollation, PaperList.",
     "keyed": true,
     "kind": "exponential",
@@ -10252,7 +10252,7 @@
     "record_in_processes": ["main"],
     "products": ["firefox"],
     "alert_emails": ["jwatt@jwatt.org"],
-    "expires_in_version": "88",
+    "expires_in_version": "95",
     "description": "Milliseconds taken for print background tasks from spawning to background thread back to before resolving or rejecting on the main thread. See PRINT_BACKGROUND_TASK_TIME_MS for key description.",
     "keyed": true,
     "kind": "exponential",
@@ -13290,6 +13290,17 @@
     "kind": "count",
     "releaseChannelCollection": "opt-out",
     "description": "Count of use of audio/video codecs in HTMLMediaElements and WebAudio. Those with 'resource' prefix are approximate; report based on HTTP ContentType or sniffing. Those with 'webaudio' prefix are for WebAudio."
+  },
+  "MSE_SOURCE_BUFFER_TYPE": {
+    "products": ["firefox", "geckoview_streaming"],
+    "record_in_processes": ["main", "content"],
+    "alert_emails": ["alwu@mozilla.com", "bryce@mozilla.com"],
+    "bug_numbers": [1699249],
+    "expires_in_version": "never",
+    "kind": "categorical",
+    "labels": ["VideoWebm", "AudioWebm", "VideoMp4", "AudioMp4", "VideoMp2t", "AudioMp2t", "AudioMpeg", "AudioAac"],
+    "releaseChannelCollection": "opt-out",
+    "description": "Count the actual or possible (because we don't support some of them for now) usage amount for each media mime type used in MSE. We collect this data in MediaSource's `AddSourceBuffer()` and `IsTypeSupported()`."
   },
   "FX_SANITIZE_TOTAL": {
     "record_in_processes": ["main", "content"],
@@ -16337,8 +16348,8 @@
     "record_in_processes": ["content"],
     "products": ["firefox"],
     "alert_emails": ["necko@mozilla.com", "kershaw@mozilla.com"],
-    "bug_numbers": [1658532, 1583604, 1666981],
-    "expires_in_version": "90",
+    "bug_numbers": [1658532, 1583604, 1666981, 1700831],
+    "expires_in_version": "96",
     "kind": "categorical",
     "labels": [
       "TYPE_SCRIPT_USED",
@@ -16615,5 +16626,50 @@
     "bug_numbers": [1689987],
     "alert_emails": ["necko@mozilla.com", "kershaw@mozilla.com"],
     "description": "HTTP subitem channel: ODoH lookup time (ms)"
+  },
+  "OPAQUE_RESPONSE_BLOCKING_TIME_MS" : {
+    "record_in_processes": ["main"],
+    "products": ["firefox"],
+    "expires_in_version": "93",
+    "kind": "exponential",
+    "high": 60000,
+    "n_buckets": 20,
+    "keyed": false,
+    "description": "The amount of time to process ORB.",
+    "alert_emails": ["echuang@mozilla.com", "necko@mozilla.com"],
+    "bug_numbers": [1683131]
+  },
+  "OPAQUE_RESPONSE_BLOCKING": {
+    "record_in_processes": ["main"],
+    "products": ["firefox"],
+    "alert_emails": ["echuang@mozilla.com", "necko@mozilla.com"],
+    "bug_numbers": [1683131],
+    "expires_in_version": "93",
+    "kind": "categorical",
+    "releaseChannelCollection": "opt-out",
+    "description": "Find out how many opaque responses are allowed, or blocked by ORB per source.",
+    "keyed": true,
+    "labels": [
+      "Other",
+      "Script",
+      "Image",
+      "Style",
+      "Object",
+      "Document",
+      "Subdocument",
+      "Ping",
+      "XHR",
+      "ObjectSubrequest",
+      "DTD",
+      "Font",
+      "Media",
+      "Websocket",
+      "CspReport",
+      "WebManifest",
+      "XSLT",
+      "Beacon",
+      "Fetch",
+      "Unexpected"
+    ]
   }
 }

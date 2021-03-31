@@ -629,6 +629,7 @@ TypeHostRecord::GetAllRecordsWithEchConfig(
 NS_IMETHODIMP
 TypeHostRecord::GetHasIPAddresses(bool* aResult) {
   NS_ENSURE_ARG(aResult);
+  MutexAutoLock lock(mResultsLock);
 
   if (!mResults.is<TypeRecordHTTPSSVC>()) {
     return NS_ERROR_NOT_AVAILABLE;
@@ -642,6 +643,7 @@ TypeHostRecord::GetHasIPAddresses(bool* aResult) {
 NS_IMETHODIMP
 TypeHostRecord::GetAllRecordsExcluded(bool* aResult) {
   NS_ENSURE_ARG(aResult);
+  MutexAutoLock lock(mResultsLock);
 
   if (!mResults.is<TypeRecordHTTPSSVC>()) {
     return NS_ERROR_NOT_AVAILABLE;
@@ -861,8 +863,8 @@ void nsHostResolver::Shutdown() {
       mIdleTaskCV.NotifyAll();
     }
 
-    for (auto iter = mRecordDB.ConstIter(); !iter.Done(); iter.Next()) {
-      iter.UserData()->Cancel();
+    for (const auto& data : mRecordDB.Values()) {
+      data->Cancel();
     }
     // empty host database
     mRecordDB.Clear();
@@ -2185,8 +2187,7 @@ size_t nsHostResolver::SizeOfIncludingThis(MallocSizeOf mallocSizeOf) const {
   size_t n = mallocSizeOf(this);
 
   n += mRecordDB.ShallowSizeOfExcludingThis(mallocSizeOf);
-  for (auto iter = mRecordDB.ConstIter(); !iter.Done(); iter.Next()) {
-    auto* entry = iter.UserData();
+  for (const auto& entry : mRecordDB.Values()) {
     n += entry->SizeOfIncludingThis(mallocSizeOf);
   }
 

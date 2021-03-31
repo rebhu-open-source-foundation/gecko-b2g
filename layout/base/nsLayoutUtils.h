@@ -83,6 +83,7 @@ class EffectSet;
 struct ActiveScrolledRoot;
 enum class ScrollOrigin : uint8_t;
 enum class StyleImageOrientation : uint8_t;
+enum class StyleSystemFont : uint8_t;
 enum class StyleScrollbarWidth : uint8_t;
 struct OverflowAreas;
 namespace dom {
@@ -495,8 +496,26 @@ class nsLayoutUtils {
    *
    * Just like IsProperAncestorFrameCrossDoc, except that it returns true when
    * aFrame == aAncestorFrame.
+   *
+   * TODO: Bug 1700245, all call sites of this function will be eventually
+   * replaced by IsAncestorFrameCrossDocInProcess.
    */
   static bool IsAncestorFrameCrossDoc(
+      const nsIFrame* aAncestorFrame, const nsIFrame* aFrame,
+      const nsIFrame* aCommonAncestor = nullptr);
+
+  /**
+   * IsAncestorFrameCrossDocInProcess checks whether aAncestorFrame is an
+   * ancestor of aFrame or equal to aFrame, looking across document boundaries
+   * in the same process.
+   * @param aCommonAncestor nullptr, or a common ancestor of aFrame and
+   * aAncestorFrame. If non-null, this can bound the search and speed up
+   * the function.
+   *
+   * Just like IsProperAncestorFrameCrossDoc, except that it returns true when
+   * aFrame == aAncestorFrame.
+   */
+  static bool IsAncestorFrameCrossDocInProcess(
       const nsIFrame* aAncestorFrame, const nsIFrame* aFrame,
       const nsIFrame* aCommonAncestor = nullptr);
 
@@ -2865,7 +2884,7 @@ class nsLayoutUtils {
       bool aUseUserFontSet);
 
   static void ComputeSystemFont(nsFont* aSystemFont,
-                                mozilla::LookAndFeel::FontID aFontID,
+                                mozilla::StyleSystemFont aFontID,
                                 const nsFont* aDefaultVariableFont,
                                 const mozilla::dom::Document* aDocument);
 

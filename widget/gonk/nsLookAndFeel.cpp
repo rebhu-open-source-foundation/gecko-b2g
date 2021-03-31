@@ -20,10 +20,11 @@
 #include "gfxFontConstants.h"
 #include "mozilla/gfx/2D.h"
 #include "cutils/properties.h"
+#include "nsITheme.h"
 
 static const char16_t UNICODE_BULLET = 0x2022;
 
-nsLookAndFeel::nsLookAndFeel(const LookAndFeelCache* aCache) {}
+nsLookAndFeel::nsLookAndFeel() = default;
 
 nsLookAndFeel::~nsLookAndFeel() {}
 

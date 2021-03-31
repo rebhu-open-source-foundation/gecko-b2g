@@ -30,7 +30,8 @@
 
 :root {
   --arrowpanel-menuitem-margin: 0;
-  --arrowpanel-menuitem-padding: 4px 12px;
+  --arrowpanel-menuitem-padding-block: 4px;
+  --arrowpanel-menuitem-padding: var(--arrowpanel-menuitem-padding-block) 12px;
   --arrowpanel-menuitem-border-radius: unset;
   --panel-separator-margin: 6px 0;
   --panel-subview-body-padding: 6px 0;
@@ -60,7 +61,8 @@
 @supports -moz-bool-pref("browser.proton.enabled") {
 :root {
   --arrowpanel-menuitem-margin: 0 8px;
-  --arrowpanel-menuitem-padding: 8px;
+  --arrowpanel-menuitem-padding-block: 8px;
+  --arrowpanel-menuitem-padding: var(--arrowpanel-menuitem-padding-block);
   --arrowpanel-menuitem-border-radius: 4px;
   --panel-separator-margin: 4px 8px;
   --panel-subview-body-padding: 8px 0;
@@ -267,6 +269,12 @@ panelmultiview[transitioning] > .panel-viewcontainer > .panel-viewstack > panelv
   .subview-subheader + .panel-subview-body {
     padding: 0;
   }
+
+  #appmenu-developer-tools-view.panel-subview-body {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
 } /** END Proton **/
 
 .panel-view-body-unscrollable {
@@ -319,14 +327,34 @@ panelmultiview[transitioning] > .panel-viewcontainer > .panel-viewstack > panelv
 }
 
 #wrapper-edit-controls:is([place="palette"],[place="menu-panel"]) > #edit-controls,
-#wrapper-zoom-controls:is([place="palette"],[place="menu-panel"]) > #zoom-controls {
-  margin-inline-start: 0;
+#widget-overflow-mainView #edit-controls,
+#wrapper-zoom-controls:is([place="palette"],[place="menu-panel"]) > #zoom-controls,
+#widget-overflow-mainView #zoom-controls,
+#widget-overflow-fixed-list #profiler-button,
+#widget-overflow-mainView #profiler-button {
+  margin: var(--arrowpanel-menuitem-margin);
 }
 
 #BMB_bookmarksPopup {
   max-width: @standaloneSubviewWidth@;
 }
 
+@supports -moz-bool-pref("browser.proton.doorhangers.enabled") {
+#BMB_bookmarksPopup::part(arrowscrollbox) {
+  border: 0;
+}
+
+#BMB_bookmarksPopup menupopup::part(arrowscrollbox) {
+  padding: var(--panel-subview-body-padding);
+  border: 0;
+}
+
+#BMB_bookmarksPopup .subviewbutton {
+  padding: var(--arrowpanel-menuitem-padding);
+}
+} /** END Proton **/
+
+@supports not -moz-bool-pref("browser.proton.doorhangers.enabled") {
 #BMB_bookmarksPopup::part(arrowscrollbox) {
   padding: 0;
 }
@@ -347,6 +375,7 @@ panelmultiview[transitioning] > .panel-viewcontainer > .panel-viewstack > panelv
   padding-top: 4px;
 }
 %endif
+} /** END not Proton **/
 
 #confirmation-hint {
   --arrowpanel-background: #0060df;
@@ -761,7 +790,7 @@ toolbarbutton[constrain-size="true"][cui-areatype="menu-panel"] > .toolbarbutton
     padding: 0;
   }
 
-  #appMenu-fxa-status2[fxastatus] > #appMenu-fxa-label2,
+  #appMenu-fxa-status2[fxastatus] > #appMenu-fxa-label2 > vbox > #appMenu-header-description,
   #appMenu-fxa-text {
     font-weight: 600;
   }
@@ -773,17 +802,17 @@ toolbarbutton[constrain-size="true"][cui-areatype="menu-panel"] > .toolbarbutton
 
   #appMenu-fxa-status2:not([fxastatus]) > #appMenu-fxa-label2 {
     padding: 6px 12px;
-    background-color: var(--buttons-secondary-bgcolor);
+    background-color: var(--button-bgcolor);
     font-size: 11px;
     font-weight: 600;
   }
 
   #appMenu-fxa-status2:not([fxastatus]) > #appMenu-fxa-label2:hover {
-    background-color: var(--buttons-secondary-hover-bgcolor);
+    background-color: var(--button-hover-bgcolor);
   }
 
   #appMenu-fxa-status2:not([fxastatus]) > #appMenu-fxa-label2:active {
-    background-color: var(--buttons-secondary-active-bgcolor);
+    background-color: var(--button-active-bgcolor);
   }
 
   :root[fxadisabled=true] #appMenu-fxa-status2,
@@ -792,8 +821,13 @@ toolbarbutton[constrain-size="true"][cui-areatype="menu-panel"] > .toolbarbutton
   }
 
   #fxa-manage-account-button > vbox > label,
-  #PanelUI-fxa-menu-syncnow-button > hbox > label {
+  #PanelUI-fxa-menu-syncnow-button > hbox > label,
+  #PanelUI-remotetabs-syncnow > hbox > label {
     margin-inline-start: 0;
+  }
+
+  #appMenu-fxa-label2 > vbox > label {
+    margin-inline: 0;
   }
 
   .syncNowBtn {
@@ -925,6 +959,7 @@ toolbarbutton[constrain-size="true"][cui-areatype="menu-panel"] > .toolbarbutton
 
 /* Hide the FxA toolbar button when its in the nav-bar, until in use */
 @supports -moz-bool-pref("browser.proton.enabled") {
+  :root[fxastatus="not_configured"] #widget-overflow-list > #fxa-toolbar-menu-button,
   :root[fxastatus="not_configured"] #nav-bar-customization-target > #fxa-toolbar-menu-button {
     display: none;
   }
@@ -1292,6 +1327,8 @@ panelview .toolbarbutton-1,
 @supports -moz-bool-pref("browser.proton.enabled") {
 #appMenu-zoomReduce-button2@buttonStateHoverOrFocus@,
 #appMenu-zoomReduce-button2@buttonStateActive@,
+#appMenu-zoomReset-button2@buttonStateHoverOrFocus@,
+#appMenu-zoomReset-button2@buttonStateActive@,
 #appMenu-zoomEnlarge-button2@buttonStateHoverOrFocus@,
 #appMenu-zoomEnlarge-button2@buttonStateActive@,
 #appMenu-fullscreen-button2@buttonStateHoverOrFocus@,
@@ -1305,37 +1342,46 @@ panelview .toolbarbutton-1,
 #appMenu-zoomEnlarge-button2 > .toolbarbutton-icon,
 #appMenu-fullscreen-button2 > .toolbarbutton-icon {
   -moz-context-properties: fill;
-  fill: var(--buttons-secondary-color);
+  fill: var(--button-color);
 }
 
 #appMenu-zoomReduce-button2 > .toolbarbutton-icon,
 #appMenu-zoomEnlarge-button2 > .toolbarbutton-icon {
   border-radius: 500px;
+  padding: 2px;
+}
+
+#appMenu-zoomReset-button2 > .toolbarbutton-text,
+#appMenu-fullscreen-button2 > .toolbarbutton-icon  {
+  border-radius: 2px;
 }
 
 #appMenu-fullscreen-button2 > .toolbarbutton-icon {
-  border-radius: 2px;
+  padding: 2px;
 }
 
 #appMenu-zoomReduce-button2 > .toolbarbutton-icon,
 #appMenu-zoomEnlarge-button2 > .toolbarbutton-icon,
 #appMenu-fullscreen-button2 > .toolbarbutton-icon {
-  background-color: var(--buttons-secondary-bgcolor);
+  background-color: var(--zoom-controls-bgcolor, var(--button-bgcolor, ButtonFace));
 }
 
 #appMenu-zoomReduce-button2@buttonStateHover@ > .toolbarbutton-icon,
+#appMenu-zoomReset-button2@buttonStateHover@ > .toolbarbutton-text,
 #appMenu-zoomEnlarge-button2@buttonStateHover@ > .toolbarbutton-icon,
 #appMenu-fullscreen-button2@buttonStateHover@ > .toolbarbutton-icon {
-  background-color: var(--buttons-secondary-hover-bgcolor);
+  background-color: var(--button-hover-bgcolor);
 }
 
 #appMenu-zoomReduce-button2@buttonStateActive@ > .toolbarbutton-icon,
+#appMenu-zoomReset-button2@buttonStateActive@ > .toolbarbutton-text,
 #appMenu-zoomEnlarge-button2@buttonStateActive@ > .toolbarbutton-icon,
 #appMenu-fullscreen-button2@buttonStateActive@ > .toolbarbutton-icon {
-  background-color: var(--buttons-secondary-active-bgcolor);
+  background-color: var(--button-active-bgcolor);
 }
 
 #appMenu-zoomReduce-button2@buttonStateFocus@ > .toolbarbutton-icon,
+#appMenu-zoomReset-button2@buttonStateFocus@ > .toolbarbutton-text,
 #appMenu-zoomEnlarge-button2@buttonStateFocus@ > .toolbarbutton-icon,
 #appMenu-fullscreen-button2@buttonStateFocus@ > .toolbarbutton-icon {
   box-shadow: var(--panelview-toolbarbutton-focus-box-shadow);
@@ -1501,13 +1547,11 @@ panelmultiview .toolbaritem-combined-buttons > spacer.after-label {
   background-color: var(--arrowpanel-dimmed);
 }
 
-#appMenu-zoomReset-button@buttonStateHoverOrFocus@,
-#appMenu-zoomReset-button2@buttonStateHoverOrFocus@ {
+#appMenu-zoomReset-button@buttonStateHoverOrFocus@ {
   background-color: var(--arrowpanel-dimmed-further);
 }
 
-#appMenu-zoomReset-button@buttonStateActive@,
-#appMenu-zoomReset-button2@buttonStateActive@ {
+#appMenu-zoomReset-button@buttonStateActive@ {
   background-color: var(--arrowpanel-dimmed-even-further);
 }
 
@@ -1623,10 +1667,12 @@ menuitem.panel-subview-footer@menuStateActive@,
   margin-inline-end: 3px;
 }
 
+@supports not -moz-bool-pref("browser.proton.doorhangers.enabled") {
 #BMB_bookmarksPopup menupopup > .bookmarks-actions-menuseparator {
   /* Hide bottom separator as the styled footer includes a top border serving the same purpose */
   display: none;
 }
+} /** END not Proton **/
 
 /* Disabled (empty) item is always alone and never has an icon, so fix its left padding */
 #BMB_bookmarksPopup menupopup[emptyplacesresult] .bookmark-item.subviewbutton {
@@ -1647,10 +1693,19 @@ menuitem.panel-subview-footer@menuStateActive@,
 }
 
 @supports -moz-bool-pref("browser.proton.enabled") {
+.PanelUI-subView menuseparator {
+  appearance: none;
+  min-height: 0;
+  border-top: 1px solid var(--panel-separator-color);
+  border-bottom: none;
+  margin: var(--panel-separator-margin);
+  padding: 0;
+}
+
 .PanelUI-subView toolbarseparator.proton-zap {
   border-image: var(--panel-separator-zap-gradient) 1;
 }
-}
+} /** END Proton **/
 
 .PanelUI-subView toolbarseparator.small-separator {
   margin-inline: 5px;
@@ -1712,7 +1767,7 @@ toolbarpaletteitem[place="palette"] > #search-container {
   border: 0;
   margin: 0;
   -moz-box-flex: 1;
-  padding-block: 4px;
+  padding-block: var(--arrowpanel-menuitem-padding-block);
   -moz-box-orient: horizontal;
 }
 
@@ -1842,13 +1897,13 @@ toolbarpaletteitem[place="menu-panel"] > .subviewbutton-nav::after {
 }
 
 .subviewradio@buttonStateHoverOrFocus@ {
-  background-color: var(--buttons-secondary-hover-bgcolor);
+  background-color: var(--button-hover-bgcolor);
 }
 
 .subviewradio[selected],
 .subviewradio[selected]:hover,
 .subviewradio@buttonStateActive@ {
-  background-color: var(--buttons-secondary-active-bgcolor);
+  background-color: var(--button-active-bgcolor);
 }
 
 @supports not -moz-bool-pref("browser.proton.enabled") {
@@ -1961,8 +2016,8 @@ toolbarpaletteitem[place="menu-panel"] > .subviewbutton-nav::after {
 }
 
 #panic-button-success-closebutton {
-  background-color: var(--buttons-secondary-bgcolor);
-  color: var(--buttons-secondary-color);
+  background-color: var(--button-bgcolor);
+  color: var(--button-color);
   margin: 5px 0 0;
   border: 1px solid transparent;
   border-radius: 4px;
@@ -1972,11 +2027,11 @@ toolbarpaletteitem[place="menu-panel"] > .subviewbutton-nav::after {
 }
 
 #panic-button-success-closebutton:hover {
-  background-color: var(--buttons-secondary-hover-bgcolor);
+  background-color: var(--button-hover-bgcolor);
 }
 
 #panic-button-success-closebutton:hover:active {
-  background-color: var(--buttons-secondary-active-bgcolor);
+  background-color: var(--button-active-bgcolor);
 }
 
 @supports not -moz-bool-pref("browser.proton.enabled") {
@@ -2436,6 +2491,12 @@ panelview:not([mainview]) #PanelUI-whatsNew-title {
 
 #customizationui-widget-panel[viewId="PanelUI-profiler"][mainviewshowing][arrowposition="after_start"][isinfoexpanded="true"]::part(arrow) {
   fill: #0556cd;
+}
+
+/* Override themes for the Pocket panel, because the Pocket
+   panel doesn't currently support multiple themes. */
+#customizationui-widget-panel[viewId="PanelUI-savetopocket"] {
+  --arrowpanel-background: #fbfbfb;
 }
 
 /* Hide the unused box that gets added here. */

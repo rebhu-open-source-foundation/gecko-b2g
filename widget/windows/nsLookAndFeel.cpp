@@ -89,7 +89,7 @@ static nsresult SystemWantsDarkTheme(int32_t& darkThemeEnabled) {
   return rv;
 }
 
-nsLookAndFeel::nsLookAndFeel(const LookAndFeelCache* aCache)
+nsLookAndFeel::nsLookAndFeel()
     : nsXPLookAndFeel(),
       mUseAccessibilityTheme(0),
       mUseDefaultTheme(0),
@@ -103,9 +103,6 @@ nsLookAndFeel::nsLookAndFeel(const LookAndFeelCache* aCache)
       mInitialized(false) {
   mozilla::Telemetry::Accumulate(mozilla::Telemetry::TOUCH_ENABLED_DEVICE,
                                  WinUtils::IsTouchDeviceSupportPresent());
-  if (aCache) {
-    DoSetCache(*aCache);
-  }
 }
 
 nsLookAndFeel::~nsLookAndFeel() {}
@@ -720,7 +717,7 @@ LookAndFeelFont nsLookAndFeel::GetLookAndFeelFontInternal(
 
 LookAndFeelFont nsLookAndFeel::GetLookAndFeelFont(LookAndFeel::FontID anID) {
   if (XRE_IsContentProcess()) {
-    return mFontCache[size_t(anID)];
+    return mFontCache[anID];
   }
 
   LookAndFeelFont result{};
@@ -746,7 +743,7 @@ LookAndFeelFont nsLookAndFeel::GetLookAndFeelFont(LookAndFeel::FontID anID) {
 
   switch (anID) {
     case LookAndFeel::FontID::Menu:
-    case LookAndFeel::FontID::PullDownMenu:
+    case LookAndFeel::FontID::MozPullDownMenu:
       result = GetLookAndFeelFontInternal(ncm.lfMenuFont, false);
       break;
     case LookAndFeel::FontID::Caption:
@@ -756,14 +753,12 @@ LookAndFeelFont nsLookAndFeel::GetLookAndFeelFont(LookAndFeel::FontID anID) {
       result = GetLookAndFeelFontInternal(ncm.lfSmCaptionFont, false);
       break;
     case LookAndFeel::FontID::StatusBar:
-    case LookAndFeel::FontID::Tooltips:
       result = GetLookAndFeelFontInternal(ncm.lfStatusFont, false);
       break;
-    case LookAndFeel::FontID::Widget:
-    case LookAndFeel::FontID::Dialog:
-    case LookAndFeel::FontID::Button:
-    case LookAndFeel::FontID::Field:
-    case LookAndFeel::FontID::List:
+    case LookAndFeel::FontID::MozDialog:
+    case LookAndFeel::FontID::MozButton:
+    case LookAndFeel::FontID::MozField:
+    case LookAndFeel::FontID::MozList:
       // XXX It's not clear to me whether this is exactly the right
       // set of LookAndFeel values to map to the dialog font; we may
       // want to add or remove cases here after reviewing the visual
@@ -806,7 +801,7 @@ bool nsLookAndFeel::GetSysFont(LookAndFeel::FontID anID, nsString& aFontName,
 
 bool nsLookAndFeel::NativeGetFont(FontID anID, nsString& aFontName,
                                   gfxFontStyle& aFontStyle) {
-  CachedSystemFont& cacheSlot = mSystemFontCache[size_t(anID)];
+  CachedSystemFont& cacheSlot = mSystemFontCache[anID];
 
   bool status;
   if (cacheSlot.mCacheValid) {
@@ -832,78 +827,6 @@ bool nsLookAndFeel::NativeGetFont(FontID anID, nsString& aFontName,
 char16_t nsLookAndFeel::GetPasswordCharacterImpl() {
 #define UNICODE_BLACK_CIRCLE_CHAR 0x25cf
   return UNICODE_BLACK_CIRCLE_CHAR;
-}
-
-LookAndFeelCache nsLookAndFeel::GetCacheImpl() {
-  MOZ_ASSERT(XRE_IsParentProcess());
-
-  LookAndFeelCache cache = nsXPLookAndFeel::GetCacheImpl();
-
-  LookAndFeelInt lafInt;
-  lafInt.id() = IntID::UseAccessibilityTheme;
-  lafInt.value() = GetInt(IntID::UseAccessibilityTheme);
-  cache.mInts().AppendElement(lafInt);
-
-  lafInt.id() = IntID::WindowsDefaultTheme;
-  lafInt.value() = GetInt(IntID::WindowsDefaultTheme);
-  cache.mInts().AppendElement(lafInt);
-
-  lafInt.id() = IntID::WindowsThemeIdentifier;
-  lafInt.value() = GetInt(IntID::WindowsThemeIdentifier);
-  cache.mInts().AppendElement(lafInt);
-
-  lafInt.id() = IntID::PrimaryPointerCapabilities;
-  lafInt.value() = GetInt(IntID::PrimaryPointerCapabilities);
-  cache.mInts().AppendElement(lafInt);
-
-  lafInt.id() = IntID::AllPointerCapabilities;
-  lafInt.value() = GetInt(IntID::AllPointerCapabilities);
-  cache.mInts().AppendElement(lafInt);
-
-  for (size_t i = size_t(LookAndFeel::FontID::MINIMUM);
-       i <= size_t(LookAndFeel::FontID::MAXIMUM); ++i) {
-    cache.mFonts().AppendElement(GetLookAndFeelFont(LookAndFeel::FontID(i)));
-  }
-
-  return cache;
-}
-
-void nsLookAndFeel::SetCacheImpl(const LookAndFeelCache& aCache) {
-  DoSetCache(aCache);
-}
-
-void nsLookAndFeel::DoSetCache(const LookAndFeelCache& aCache) {
-  MOZ_ASSERT(XRE_IsContentProcess());
-  MOZ_RELEASE_ASSERT(aCache.mFonts().Length() == mFontCache.length());
-
-  for (auto entry : aCache.mInts()) {
-    switch (entry.id()) {
-      case IntID::UseAccessibilityTheme:
-        mUseAccessibilityTheme = entry.value();
-        break;
-      case IntID::WindowsDefaultTheme:
-        mUseDefaultTheme = entry.value();
-        break;
-      case IntID::WindowsThemeIdentifier:
-        mNativeThemeId = entry.value();
-        break;
-      case IntID::PrimaryPointerCapabilities:
-        mPrimaryPointerCapabilities = entry.value();
-        break;
-      case IntID::AllPointerCapabilities:
-        mAllPointerCapabilities = entry.value();
-        break;
-      default:
-        MOZ_ASSERT_UNREACHABLE("Bogus Int ID in cache");
-        break;
-    }
-  }
-
-  size_t i = mFontCache.minIndex();
-  for (const auto& font : aCache.mFonts()) {
-    mFontCache[i] = font;
-    ++i;
-  }
 }
 
 /* static */

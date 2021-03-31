@@ -327,6 +327,7 @@ this.SyncedTabsPanelList = class SyncedTabsPanelList {
 
 var gSync = {
   _initialized: false,
+  _isCurrentlySyncing: false,
   // The last sync start time. Used to calculate the leftover animation time
   // once syncing completes (bug 1239042).
   _syncStartTime: 0,
@@ -489,13 +490,21 @@ var gSync = {
     ).hidden = false;
 
     if (PanelUI.protonAppMenuEnabled) {
+      const appMenuHeaderTitle = PanelMultiView.getViewNode(
+        document,
+        "appMenu-header-title"
+      );
+      const appMenuHeaderDescription = PanelMultiView.getViewNode(
+        document,
+        "appMenu-header-description"
+      );
+      appMenuHeaderTitle.hidden = true;
       // We must initialize the label attribute here instead of the markup
       // due to a timing error. The fluent label attribute was being applied
       // after we had updated appMenuLabel and thus displayed an incorrect
       // label for signed in users.
-      appMenuLabel.setAttribute(
-        "label",
-        this.fluentStrings.formatValueSync("appmenu-fxa-signed-in-label")
+      appMenuHeaderDescription.value = this.fluentStrings.formatValueSync(
+        "appmenu-fxa-signed-in-label"
       );
     }
 
@@ -540,7 +549,11 @@ var gSync = {
 
   onFxAPanelViewShowing(panelview) {
     let syncNowBtn = panelview.querySelector(".syncnow-label");
-    let l10nId = syncNowBtn.getAttribute("sync-now-data-l10n-id");
+    let l10nId = syncNowBtn.getAttribute(
+      this._isCurrentlySyncing
+        ? "syncing-data-l10n-id"
+        : "sync-now-data-l10n-id"
+    );
     syncNowBtn.setAttribute("data-l10n-id", l10nId);
 
     panelview.syncedTabsPanelList = new SyncedTabsPanelList(
@@ -799,7 +812,7 @@ var gSync = {
       "PanelUI-sign-out-separator"
     );
     fxaSignOutButtonEl.hidden = fxaSignOutSeparator.hidden =
-      fxaStatus != "signedin";
+      UIState.get() === UIState.STATUS_NOT_CONFIGURED;
 
     this.enableSendTabIfValidTab();
 
@@ -863,12 +876,11 @@ var gSync = {
     );
 
     let headerTitle = menuHeaderTitleEl.getAttribute("defaultLabel");
-    let headerDescription = menuHeaderDescriptionEl.getAttribute(
-      "defaultLabel"
+    let headerDescription = this.fluentStrings.formatValueSync(
+      "fxa-menu-turn-on-sync-default"
     );
 
     if (PanelUI.protonAppMenuEnabled) {
-      // TODO: sign out button icon is still showing despite removing class
       let toolbarbuttons = fxaMenuPanel.querySelectorAll("toolbarbutton");
       for (let toolbarbutton of toolbarbuttons) {
         toolbarbutton.classList.remove("subviewbutton-iconic");
@@ -890,17 +902,15 @@ var gSync = {
       }
     } else if (state.status === UIState.STATUS_LOGIN_FAILED) {
       stateValue = "login-failed";
-      headerTitle = state.email;
-      headerDescription = this.fluentStrings.formatValueSync(
-        "account-reconnect-to-fxa"
-      );
+      headerTitle = this.fluentStrings.formatValueSync("account-disconnected");
+      headerDescription = state.email;
       mainWindowEl.style.removeProperty("--avatar-image-url");
     } else if (state.status === UIState.STATUS_NOT_VERIFIED) {
       stateValue = "unverified";
-      headerTitle = state.email;
-      headerDescription = this.fluentStrings.formatValueSync(
+      headerTitle = this.fluentStrings.formatValueSync(
         "account-finish-account-setup"
       );
+      headerDescription = state.email;
     } else if (state.status === UIState.STATUS_SIGNED_IN) {
       stateValue = "signedin";
       if (state.avatarURL && !state.avatarIsDefault) {
@@ -939,6 +949,10 @@ var gSync = {
 
     menuHeaderTitleEl.value = headerTitle;
     menuHeaderDescriptionEl.value = headerDescription;
+    // We remove the data-l10n-id attribute here to prevent the node's value
+    // attribute from being overwritten by Fluent when the panel is moved
+    // around in the DOM.
+    menuHeaderDescriptionEl.removeAttribute("data-l10n-id");
   },
 
   enableSendTabIfValidTab() {
@@ -1007,6 +1021,14 @@ var gSync = {
       document,
       "appMenu-fxa-text"
     );
+    const appMenuHeaderTitle = PanelMultiView.getViewNode(
+      document,
+      "appMenu-header-title"
+    );
+    const appMenuHeaderDescription = PanelMultiView.getViewNode(
+      document,
+      "appMenu-header-description"
+    );
 
     let defaultLabel = PanelUI.protonAppMenuEnabled
       ? this.fluentStrings.formatValueSync("appmenu-fxa-signed-in-label")
@@ -1022,10 +1044,18 @@ var gSync = {
         appMenuHeaderText.hidden = false;
         appMenuHeaderText.style.visibility = "visible";
         appMenuStatus.classList.add("toolbaritem-combined-buttons");
+        appMenuLabel.classList.remove("subviewbutton-nav");
+        appMenuHeaderTitle.hidden = true;
+        appMenuHeaderDescription.value = defaultLabel;
       }
       return;
     }
     appMenuLabel.classList.remove("subviewbutton-nav");
+
+    if (PanelUI.protonAppMenuEnabled) {
+      appMenuHeaderText.style.visibility = "collapse";
+      appMenuStatus.classList.remove("toolbaritem-combined-buttons");
+    }
 
     // At this point we consider sync to be configured (but still can be in an error state).
     if (status == UIState.STATUS_LOGIN_FAILED) {
@@ -1035,10 +1065,17 @@ var gSync = {
       );
       appMenuStatus.setAttribute("fxastatus", "login-failed");
       let errorLabel = this.fluentStrings.formatValueSync(
-        "account-reconnect-to-fxa"
+        "account-disconnected"
       );
-      appMenuLabel.setAttribute("label", errorLabel);
       appMenuStatus.setAttribute("tooltiptext", tooltipDescription);
+      if (PanelUI.protonAppMenuEnabled) {
+        appMenuLabel.classList.add("subviewbutton-nav");
+        appMenuHeaderTitle.hidden = false;
+        appMenuHeaderTitle.value = errorLabel;
+        appMenuHeaderDescription.value = state.email;
+      } else {
+        appMenuLabel.setAttribute("label", errorLabel);
+      }
       return;
     } else if (status == UIState.STATUS_NOT_VERIFIED) {
       let tooltipDescription = this.fxaStrings.formatStringFromName(
@@ -1049,19 +1086,25 @@ var gSync = {
       let unverifiedLabel = this.fluentStrings.formatValueSync(
         "account-finish-account-setup"
       );
-      appMenuLabel.setAttribute("label", unverifiedLabel);
       appMenuStatus.setAttribute("tooltiptext", tooltipDescription);
+      if (PanelUI.protonAppMenuEnabled) {
+        appMenuLabel.classList.add("subviewbutton-nav");
+        appMenuHeaderTitle.hidden = false;
+        appMenuHeaderTitle.value = unverifiedLabel;
+        appMenuHeaderDescription.value = state.email;
+      } else {
+        appMenuLabel.setAttribute("label", unverifiedLabel);
+      }
       return;
     }
 
+    // At this point we consider sync to be logged-in.
     if (PanelUI.protonAppMenuEnabled) {
-      appMenuHeaderText.style.visibility = "collapse";
-      appMenuStatus.classList.remove("toolbaritem-combined-buttons");
+      appMenuHeaderTitle.hidden = true;
+      appMenuHeaderDescription.value = state.email;
     } else {
       appMenuLabel.classList.add("subviewbutton-iconic");
     }
-
-    // At this point we consider sync to be logged-in.
     appMenuStatus.setAttribute("fxastatus", "signedin");
     appMenuLabel.setAttribute("label", state.email);
     appMenuLabel.classList.add("subviewbutton-nav");
@@ -1660,6 +1703,7 @@ var gSync = {
 
   // Functions called by observers
   onActivityStart() {
+    this._isCurrentlySyncing = true;
     clearTimeout(this._syncAnimationTimer);
     this._syncStartTime = Date.now();
 
@@ -1681,6 +1725,7 @@ var gSync = {
   },
 
   _onActivityStop() {
+    this._isCurrentlySyncing = false;
     if (!gBrowser) {
       return;
     }
@@ -1801,11 +1846,9 @@ var gSync = {
   // Prompt the user to confirm disconnect from sync. In this case the data
   // on the device is not deleted.
   async _confirmSyncDisconnect() {
-    const l10nPrefix = "sync-disconnect-dialog";
-
     const [title, body, button] = await document.l10n.formatValues([
-      { id: `${l10nPrefix}-title` },
-      { id: `${l10nPrefix}-body` },
+      { id: `sync-disconnect-dialog-title2` },
+      { id: `sync-disconnect-dialog-body` },
       { id: "sync-disconnect-dialog-button" },
     ]);
 

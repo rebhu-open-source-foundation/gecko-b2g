@@ -84,6 +84,7 @@ class ClonedMessageData;
 class CoalescedMouseData;
 class CoalescedWheelData;
 class ContentSessionStore;
+class SessionStoreChangeListener;
 class TabListener;
 class RequestData;
 class WebProgressData;
@@ -241,6 +242,10 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
 
   bool IsTopLevel() const { return mIsTopLevel; }
 
+  bool ShouldSendWebProgressEventsToParent() const {
+    return mShouldSendWebProgressEventsToParent;
+  }
+
   /**
    * MessageManagerCallback methods that we override.
    */
@@ -386,9 +391,6 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
     return RecvNormalPriorityRealTouchMoveEvent(aEvent, aGuid, aInputBlockId,
                                                 aApzResponse);
   }
-
-  mozilla::ipc::IPCResult RecvFlushTabState(const uint32_t& aFlushId,
-                                            const bool& aIsFinal);
 
   mozilla::ipc::IPCResult RecvUpdateEpoch(const uint32_t& aEpoch);
 
@@ -702,7 +704,7 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
     mCancelContentJSEpoch = aEpoch;
   }
 
-  bool UpdateSessionStore(uint32_t aFlushId, bool aIsFinal = false);
+  bool UpdateSessionStore(bool aIsFinal = false);
 
 #ifdef XP_WIN
   // Check if the window this BrowserChild is associated with supports
@@ -908,6 +910,7 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
 
   RefPtr<layers::IAPZCTreeManager> mApzcTreeManager;
   RefPtr<TabListener> mSessionStoreListener;
+  RefPtr<SessionStoreChangeListener> mSessionStoreChangeListener;
 
   // The most recently seen layer observer epoch in RecvSetDocShellIsActive.
   layers::LayersObserverEpoch mLayersObserverEpoch;

@@ -4,8 +4,10 @@
 
 DIRS += [
     "target",
+    "target-configuration",
 ]
 
 DevToolsModules(
+    "commands-factory.js",
     "index.js",
 )

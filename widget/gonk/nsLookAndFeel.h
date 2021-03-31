@@ -21,7 +21,7 @@
 
 class nsLookAndFeel : public nsXPLookAndFeel {
  public:
-  explicit nsLookAndFeel(const LookAndFeelCache* aCache);
+  explicit nsLookAndFeel();
   virtual ~nsLookAndFeel();
 
   nsresult NativeGetInt(IntID aID, int32_t& aResult) override;

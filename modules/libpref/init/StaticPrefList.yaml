@@ -257,7 +257,7 @@
   # On Android, we want an opaque background to be visible under the page,
   # so layout should not force a default background.
 -   name: android.widget_paints_background
-    type: bool
+    type: RelaxedAtomicBool
     value: true
     mirror: always
 
@@ -587,6 +587,14 @@
   mirror: always
 
 - name: apz.overscroll.enabled
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+# The "test async scroll offset" (used via reftest-async-scroll
+# or nsIDOMWindowUtils.setAsyncScrollOffset()) can be used to
+# trigger overscroll. Used for tests only.
+- name: apz.overscroll.test_async_scroll_offset.enabled
   type: RelaxedAtomicBool
   value: false
   mirror: always
@@ -1019,7 +1027,7 @@
 # Whether focus rings are always shown by default.
 #
 # This is the initial value of nsWindowRoot::mShowFocusRings, but it can be
-# overridden by system preferences. 
+# overridden by system preferences.
 - name: browser.display.show_focus_rings
   type: bool
   value: false
@@ -1120,6 +1128,12 @@
   value: false
   mirror: always
 
+# Enable Proton restyle. Requires restart.
+- name: browser.proton.enabled
+  type: bool
+  value: false
+  mirror: always
+
 # Blocked plugin content
 - name: browser.safebrowsing.blockedURIs.enabled
   type: bool
@@ -1150,11 +1164,25 @@
   value: 512*1024
   mirror: always
 
-# ContentSessionStore prefs
+# SessionStore prefs
 # Maximum number of bytes of DOMSessionStorage data we collect per origin.
 - name: browser.sessionstore.dom_storage_limit
   type: uint32_t
   value: 2048
+  mirror: always
+
+# Minimal interval between two save operations in milliseconds (while the user is active).
+- name: browser.sessionstore.interval
+  type: uint32_t
+  value: 15000
+  mirror: always
+
+# Causes SessionStore to ignore non-final update messages from
+# browser tabs that were not caused by a flush from the parent.
+# This is a testing flag and should not be used by end-users.
+- name: browser.sessionstore.debug.no_auto_updates
+  type: bool
+  value: false
   mirror: always
 
 # If set, use DocumentChannel to directly initiate loads entirely
@@ -1194,6 +1222,14 @@
 #else
   value: false # Blocked by DocumentChannel, see Bug 1589982.
 #endif
+  mirror: always
+
+# When this pref is enabled, opaque response is only allowed to enter the
+# content process if it's a response for media (audio, image, video), CSS, or
+# JavaScript.
+- name: browser.opaqueResponseBlocking
+  type: RelaxedAtomicBool
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 # When true, zooming will be enabled on all sites, even ones that declare
@@ -1435,6 +1471,7 @@
   value: true
   mirror: always
 
+# KaiOS-only, see https://bugzilla.mozilla.org/show_bug.cgi?id=1699707#c10
 - name: device.sensors.ambientLight.enabled
   type: bool
   value: false
@@ -1450,6 +1487,7 @@
   value: true
   mirror: always
 
+# KaiOS-only, see https://bugzilla.mozilla.org/show_bug.cgi?id=1699707#c10
 - name: device.sensors.proximity.enabled
   type: bool
   value: false
@@ -1822,7 +1860,7 @@
 # Whether event timing will be gathered and returned by performance observer*
 - name: dom.enable_event_timing
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
 
 # Whether performance.GetEntries* will contain an entry for the active document
@@ -4402,9 +4440,22 @@
   value: false
   mirror: always
 
+- name: gfx.color_management.native_srgb
+  type: RelaxedAtomicBool
+#if defined(XP_MACOSX)
+  value: true
+#else
+  value: false
+#endif
+  mirror: always
+
 - name: gfx.color_management.enablev4
   type: RelaxedAtomicBool
+#if defined(XP_MACOSX) && defined(NIGHTLY_BUILD)
+  value: true
+#else
   value: false
+#endif
   mirror: always
 
 # 0 = Off, 1 = Full, 2 = Tagged Images Only.
@@ -4965,13 +5016,21 @@
 # Whether or not to fallback from WebRender/WebRender Software to Basic.
 - name: gfx.webrender.fallback.basic
   type: bool
+#if defined(MOZ_WIDGET_ANDROID)
   value: true
+#else
+  value: @IS_NOT_EARLY_BETA_OR_EARLIER@
+#endif
   mirror: once
 
 # Whether or not to fallback from WebRender to Software WebRender.
 - name: gfx.webrender.fallback.software
   type: bool
-  value: @IS_NIGHTLY_BUILD@
+#if defined(MOZ_WIDGET_ANDROID)
+  value: false
+#else
+  value: @IS_EARLY_BETA_OR_EARLIER@
+#endif
   mirror: once
 
 #ifdef XP_WIN
@@ -5116,7 +5175,7 @@
 # software backend
 - name: gfx.webrender.software.unaccelerated-widget.allow
   type: RelaxedAtomicBool
-  value: @IS_EARLY_BETA_OR_EARLIER@
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 # Whether to force widgets that don't support acceleration to use WebRender
@@ -5361,6 +5420,27 @@
   type: RelaxedAtomicBool
   value: true
   mirror: always
+
+# Force unmapping of unused shared surfaces after a timeout period or when we
+# encounter virtual memory pressure. By default this is only enabled on 32-bit
+# Firefox.
+- name: image.mem.shared.unmap.force-enabled
+  type: bool
+  value: false
+  mirror: once
+
+# Minimum timeout to unmap shared surfaces since they have been last used,
+# in milliseconds.
+- name: image.mem.shared.unmap.min_expiration_ms
+  type: uint32_t
+  value: 60*1000
+  mirror: once
+
+# Mininum size for shared surfaces to consider unmapping, in kilobytes.
+- name: image.mem.shared.unmap.min_threshold_kb
+  type: uint32_t
+  value: 100
+  mirror: once
 
 # How much of the data in the surface cache is discarded when we get a memory
 # pressure notification, as a fraction. The discard factor is interpreted as a
@@ -6610,10 +6690,24 @@
   value: true
   mirror: always
 
+# Is support for the @font-face metrics override descriptors enabled?
+- name: layout.css.font-metrics-overrides.enabled
+  type: RelaxedAtomicBool
+  value: @IS_NIGHTLY_BUILD@
+  mirror: always
+  rust: true
+
 # Is support for variation fonts enabled?
 - name: layout.css.font-variations.enabled
   type: RelaxedAtomicBool
   value: true
+  mirror: always
+  rust: true
+
+# Is support for the size-adjust @font-face descriptor enabled?
+- name: layout.css.size-adjust.enabled
+  type: RelaxedAtomicBool
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
   rust: true
 
@@ -6743,6 +6837,13 @@
   type: bool
   value: true
   mirror: always
+
+# Enables parsing size properties in page at-rules
+- name: layout.css.page-size.enabled
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+  rust: true
 
 # Dictates whether or not the prefers contrast media query will be
 # usable.
@@ -7181,13 +7282,6 @@
 #
 # [1]: https://github.com/w3c/csswg-drafts/issues/3749#issuecomment-477287453
 - name: layout.css.line-height.normal-as-resolved-value.enabled
-  type: bool
-  value: true
-  mirror: always
-
-# Are the width and height attributes on image-like elements mapped to the
-# internal-for-now aspect-ratio property?
-- name: layout.css.width-and-height-map-to-aspect-ratio.enabled
   type: bool
   value: true
   mirror: always
@@ -8683,6 +8777,12 @@
   value: false
   mirror: always
 
+# The cookieBehavior to be used in Private Browsing mode.
+- name: network.cookie.cookieBehavior.pbmode
+  type: RelaxedAtomicInt32
+  value: 0 # accept all cookies
+  mirror: always
+
 # Stale threshold for cookies in seconds.
 - name: network.cookie.staleThreshold
   type: uint32_t
@@ -9500,6 +9600,16 @@
 - name: nglayout.debug.widget_update_flashing
   type: RelaxedAtomicBool
   value: false
+  mirror: always
+
+- name: nglayout.initialpaint.delay
+  type: int32_t
+  value: 5
+  mirror: always
+
+- name: nglayout.initialpaint.delay_in_oopif
+  type: int32_t
+  value: 5
   mirror: always
 
 #---------------------------------------------------------------------------
@@ -11006,7 +11116,7 @@
 # entry in python/mozbuild/mozbuild/mozinfo.py and test_fission_autostart.py
 - name: widget.non-native-theme.enabled
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
 
 # The size in CSS pixels at full zoom of the minimum scrollbar width.
@@ -11017,6 +11127,13 @@
 #else
   value: 17
 #endif
+  mirror: always
+
+# Whether the active thumb color should always use the themed colors, even if
+# dark scrollbars are in use.
+- name: widget.non-native-theme.scrollbar.active-always-themed
+  type: bool
+  value: true
   mirror: always
 
 # Whether we use the Windows CSS scrollbar sizes, or the scrollbar sizes
@@ -11086,6 +11203,11 @@
   mirror: always
 
 #ifdef XP_MACOSX
+- name: widget.macos.native-context-menus
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
 - name: widget.macos.respect-system-appearance
   type: RelaxedAtomicBool
   value: false
@@ -11094,6 +11216,37 @@
 
 # Whether to allow gtk dark themes in content.
 - name: widget.content.allow-gtk-dark-theme
+  type: bool
+  value: false
+  mirror: always
+
+# Whether selection colors get passed from the real GTK theme even if
+# allow-gtk-dark-theme is false.
+- name: widget.content.allow-gtk-dark-theme.selection
+  type: bool
+  value: true
+  mirror: always
+
+# Whether form control accent colors get passed from the real GTK theme even if
+# allow-gtk-dark-theme is false.
+- name: widget.content.allow-gtk-dark-theme.accent
+  type: bool
+  value: true
+  mirror: always
+
+# Whether the scrollbar thumb active color gets passed from the real GTK theme
+# even if allow-gtk-dark-theme is false.
+- name: widget.content.allow-gtk-dark-theme.scrollbar_active
+  type: bool
+  value: true
+  mirror: always
+
+# Whether other scrollbar colors get passed from the real GTK theme even if
+# allow-gtk-dark-theme is false.
+#
+# This is default false because light scrollbars usually match better websites,
+# and we have automatic scrollbar darkening.
+- name: widget.content.allow-gtk-dark-theme.scrollbar
   type: bool
   value: false
   mirror: always
@@ -11148,15 +11301,6 @@
   value: true
   mirror: always
 #endif
-
-# Enable the RemoteLookAndFeel in content processes, which will cause all
-# LookAndFeel values to be queried in the parent process and sent to content
-# processes using IPC.  This is required for widgets to paint and behave
-# correctly when `security.sandbox.content.headless` is enabled.
-- name: widget.remote-look-and-feel
-  type: bool
-  value: true
-  mirror: once
 
 #---------------------------------------------------------------------------
 # Prefs starting with "xul."

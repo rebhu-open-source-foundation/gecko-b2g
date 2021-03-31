@@ -124,6 +124,7 @@
 #include "mozilla/net/AsyncUrlChannelClassifier.h"
 #include "mozilla/net/CookieJarSettings.h"
 #include "mozilla/net/NeckoChannelParams.h"
+#include "mozilla/net/OpaqueResponseUtils.h"
 #include "mozilla/net/UrlClassifierFeatureFactory.h"
 #include "HttpTrafficAnalyzer.h"
 #include "mozilla/net/SocketProcessParent.h"
@@ -623,18 +624,6 @@ nsresult nsHttpChannel::MaybeUseHTTPSRRForUpgrade(bool aShouldUpgrade,
   }
 
   auto shouldSkipUpgradeWithHTTPSRR = [&]() -> bool {
-    if (LoadBeConservative()) {
-      return true;
-    }
-
-    // Skip upgrading channel triggered by system unless it is a top-level
-    // load.
-    if (mLoadInfo->TriggeringPrincipal()->IsSystemPrincipal() &&
-        mLoadInfo->GetExternalContentPolicyType() !=
-            ExtContentPolicy::TYPE_DOCUMENT) {
-      return true;
-    }
-
     nsAutoCString uriHost;
     mURI->GetAsciiHost(uriHost);
 
@@ -728,6 +717,7 @@ nsresult nsHttpChannel::ContinueOnBeforeConnect(bool aShouldUpgrade,
 
   if (LoadIsTRRServiceChannel()) {
     mCaps |= NS_HTTP_LARGE_KEEPALIVE;
+    mCaps |= NS_HTTP_DISALLOW_HTTPS_RR;
   }
 
   mCaps |= NS_HTTP_TRR_FLAGS_FROM_MODE(nsIRequest::GetTRRMode());
@@ -1629,6 +1619,16 @@ nsresult nsHttpChannel::CallOnStartRequest() {
     return mStatus;
   }
 
+  // EnsureOpaqueResponseIsAllowed and EnsureOpauqeResponseIsAllowedAfterSniff
+  // are the checks for Opaque Response Blocking to ensure that we block as many
+  // cross-origin responses with CORS headers as possible that are not either
+  // Javascript or media to avoid leaking their contents through side channels.
+  if (!EnsureOpaqueResponseIsAllowed()) {
+    // XXXtt: Return an error code or make the response body null.
+    // We silence the error result now because we only want to get how many
+    // response will get allowed or blocked by ORB.
+  }
+
   // Allow consumers to override our content type
   if (mLoadFlags & LOAD_CALL_CONTENT_SNIFFERS) {
     // NOTE: We can have both a txn pump and a cache pump when the cache
@@ -1655,6 +1655,13 @@ nsresult nsHttpChannel::CallOnStartRequest() {
         trans->SetSniffedTypeToChannel(CallTypeSniffers, thisChannel);
       }
     }
+  }
+
+  auto isAllowedOrErr = EnsureOpaqueResponseIsAllowedAfterSniff();
+  if (isAllowedOrErr.isErr() || !isAllowedOrErr.inspect()) {
+    // XXXtt: Return an error code or make the response body null.
+    // We silence the error result now because we only want to get how many
+    // response will get allowed or blocked by ORB.
   }
 
   // Note that the code below should be synced with the code in
@@ -6612,11 +6619,6 @@ nsresult nsHttpChannel::BeginConnect() {
                       !(mCaps & NS_HTTP_BE_CONSERVATIVE) &&
                       !LoadBeConservative() && LoadAllowHttp3();
 
-  // No need to lookup HTTPSSVC record if mHTTPSSVCRecord already contains a
-  // value.
-  StoreUseHTTPSSVC(StaticPrefs::network_dns_upgrade_with_https_rr() &&
-                   mHTTPSSVCRecord.isNothing());
-
   RefPtr<AltSvcMapping> mapping;
   if (!mConnectionInfo && LoadAllowAltSvc() &&  // per channel
       (http2Allowed || http3Allowed) && !(mLoadFlags & LOAD_FRESH_CONNECTION) &&
@@ -6665,9 +6667,6 @@ nsresult nsHttpChannel::BeginConnect() {
                                originAttributes);
     Telemetry::Accumulate(Telemetry::HTTP_TRANSACTION_USE_ALTSVC, true);
     Telemetry::Accumulate(Telemetry::HTTP_TRANSACTION_USE_ALTSVC_OE, !isHttps);
-
-    // Don't use HTTPSSVC record if we found altsvc mapping.
-    StoreUseHTTPSSVC(false);
   } else if (mConnectionInfo) {
     LOG(("nsHttpChannel %p Using channel supplied connection info", this));
     Telemetry::Accumulate(Telemetry::HTTP_TRANSACTION_USE_ALTSVC, false);
@@ -6678,9 +6677,19 @@ nsresult nsHttpChannel::BeginConnect() {
     Telemetry::Accumulate(Telemetry::HTTP_TRANSACTION_USE_ALTSVC, false);
   }
 
-  if (mConnectionInfo->UsingConnect()) {
-    StoreUseHTTPSSVC(false);
+  bool httpsRRAllowed =
+      !LoadBeConservative() && !(mCaps & NS_HTTP_BE_CONSERVATIVE) &&
+      !(mLoadInfo->TriggeringPrincipal()->IsSystemPrincipal() &&
+        mLoadInfo->GetExternalContentPolicyType() !=
+            ExtContentPolicy::TYPE_DOCUMENT) &&
+      !mConnectionInfo->UsingConnect();
+  if (!httpsRRAllowed) {
+    mCaps |= NS_HTTP_DISALLOW_HTTPS_RR;
   }
+  // No need to lookup HTTPSSVC record if mHTTPSSVCRecord already contains a
+  // value.
+  StoreUseHTTPSSVC(StaticPrefs::network_dns_upgrade_with_https_rr() &&
+                   httpsRRAllowed && mHTTPSSVCRecord.isNothing());
 
   // Need to re-ask the handler, since mConnectionInfo may not be the connInfo
   // we used earlier
@@ -6800,8 +6809,8 @@ nsresult nsHttpChannel::MaybeStartDNSPrefetch() {
   bool httpssvcQueried = false;
   // If https rr is not queried sucessfully, we have to reset mUseHTTPSSVC to
   // false. Otherwise, this channel may wait https rr forever.
-  auto resetUsHTTPSSVC =
-      MakeScopeExit([&] { StoreUseHTTPSSVC(httpssvcQueried); });
+  auto resetUsHTTPSSVC = MakeScopeExit(
+      [&] { StoreUseHTTPSSVC(LoadUseHTTPSSVC() && httpssvcQueried); });
 
   // Start a DNS lookup very early in case the real open is queued the DNS can
   // happen in parallel. Do not do so in the presence of an HTTP proxy as
@@ -6855,7 +6864,7 @@ nsresult nsHttpChannel::MaybeStartDNSPrefetch() {
     // not "prefetch", since DNS prefetch can be disabled by the pref.
     if (LoadUseHTTPSSVC() ||
         (gHttpHandler->UseHTTPSRRForSpeculativeConnection() &&
-         !mHTTPSSVCRecord && !mConnectionInfo->UsingConnect())) {
+         !mHTTPSSVCRecord && !(mCaps & NS_HTTP_DISALLOW_HTTPS_RR))) {
       MOZ_ASSERT(!mHTTPSSVCRecord);
 
       OriginAttributes originAttributes;
@@ -9972,6 +9981,62 @@ HttpChannelSecurityWarningReporter* nsHttpChannel::GetWarningReporter() {
   return mWarningReporter.get();
 }
 
+// Should only be called by nsMediaSniffer::GetMIMETypeFromContent and
+// imageLoader::GetMIMETypeFromContent when the content type can be
+// recognized by these sniffers.
+void nsHttpChannel::DisableIsOpaqueResponseAllowedAfterSniffCheck(
+    SnifferType aType) {
+  MOZ_ASSERT(XRE_IsParentProcess());
+
+  if (mCheckIsOpaqueResponseAllowedAfterSniff) {
+    MOZ_ASSERT(mCachedOpaqueResponseBlockingPref);
+
+    // If the sniifer type is media and the request comes from a media element,
+    // we would like to check:
+    // - Whether the information provided by the media element shows it's an
+    // initial request.
+    // - Whether the response's status is either 200 or 206.
+    // - Whether the response's header shows it's the first partial response
+    // when the response's status is 206.
+    //
+    // If any of the results is false, then we set
+    // mBlockOpaqueResponseAfterSniff to true and block the response later.
+    if (aType == SnifferType::Media) {
+      MOZ_ASSERT(mLoadInfo);
+
+      bool isMediaRequest;
+      mLoadInfo->GetIsMediaRequest(&isMediaRequest);
+      if (isMediaRequest) {
+        bool isInitialRequest;
+        mLoadInfo->GetIsMediaInitialRequest(&isInitialRequest);
+        MOZ_ASSERT(isInitialRequest);
+
+        if (!isInitialRequest) {
+          mBlockOpaqueResponseAfterSniff = true;
+          ReportORBTelemetry("Blocked_NotAnInitialRequest"_ns);
+          return;
+        }
+
+        if (mResponseHead->Status() != 200 && mResponseHead->Status() != 206) {
+          mBlockOpaqueResponseAfterSniff = true;
+          ReportORBTelemetry("Blocked_Not200Or206"_ns);
+          return;
+        }
+
+        if (mResponseHead->Status() == 206 &&
+            !IsFirstPartialResponse(*mResponseHead)) {
+          mBlockOpaqueResponseAfterSniff = true;
+          ReportORBTelemetry("Blocked_InvaliidPartialResponse"_ns);
+          return;
+        }
+      }
+    }
+
+    mCheckIsOpaqueResponseAllowedAfterSniff = false;
+    ReportORBTelemetry("Allowed_SniffAsImageOrAudioOrVideo"_ns);
+  }
+}
+
 namespace {
 
 class CopyNonDefaultHeaderVisitor final : public nsIHttpHeaderVisitor {
@@ -10066,7 +10131,7 @@ void nsHttpChannel::ReEvaluateReferrerAfterTrackingStatusIsKnown() {
     Unused << mLoadInfo->GetCookieJarSettings(getter_AddRefs(cjs));
   }
   if (!cjs) {
-    cjs = net::CookieJarSettings::Create();
+    cjs = net::CookieJarSettings::Create(mLoadInfo->GetLoadingPrincipal());
   }
   if (cjs->GetRejectThirdPartyContexts()) {
     bool isPrivate = mLoadInfo->GetOriginAttributes().mPrivateBrowsingId > 0;

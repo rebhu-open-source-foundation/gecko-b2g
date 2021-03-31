@@ -307,19 +307,14 @@ void CompositorOGL::CleanupResources() {
     mTriangleVBO = 0;
     mPreviousFrameDoneSync = nullptr;
     mThisFrameDoneSync = nullptr;
+    mProgramsHolder = nullptr;
     mGLContext = nullptr;
-    mPrograms.clear();
     mNativeLayersReferenceRT = nullptr;
     mFullWindowRenderTarget = nullptr;
     return;
   }
 
-  for (std::map<ShaderConfigOGL, ShaderProgramOGL*>::iterator iter =
-           mPrograms.begin();
-       iter != mPrograms.end(); iter++) {
-    delete iter->second;
-  }
-  mPrograms.clear();
+  mProgramsHolder = nullptr;
   mNativeLayersReferenceRT = nullptr;
   mFullWindowRenderTarget = nullptr;
 
@@ -372,11 +367,13 @@ void CompositorOGL::CleanupResources() {
 }
 
 bool CompositorOGL::Initialize(GLContext* aGLContext,
+                               RefPtr<ShaderProgramOGLsHolder> aProgramsHolder,
                                nsCString* const out_failureReason) {
   MOZ_ASSERT(!mDestroyed);
   MOZ_ASSERT(!mGLContext);
 
   mGLContext = aGLContext;
+  mProgramsHolder = aProgramsHolder;
   mOwnsGLContext = false;
 
   return Initialize(out_failureReason);
@@ -404,6 +401,10 @@ bool CompositorOGL::Initialize(nsCString* const out_failureReason) {
   if (!mGLContext) {
     *out_failureReason = "FEATURE_FAILURE_OPENGL_CREATE_CONTEXT";
     return false;
+  }
+
+  if (!mProgramsHolder) {
+    mProgramsHolder = new ShaderProgramOGLsHolder(mGLContext);
   }
 
   MakeCurrent();
@@ -1045,6 +1046,28 @@ Maybe<IntRect> CompositorOGL::BeginFrame(const nsIntRegion& aInvalidRegion,
   SetRenderTarget(rt);
   mWindowRenderTarget = mCurrentRenderTarget;
 
+  for (auto iter = aInvalidRegion.RectIter(); !iter.Done(); iter.Next()) {
+    const IntRect& r = iter.Get();
+    mCurrentFrameInvalidRegion.OrWith(
+        IntRect(r.X(), FlipY(r.YMost()), r.Width(), r.Height()));
+  }
+  // Check to see if there is any transparent dirty region that would require
+  // clearing. If not, just invalidate the framebuffer if supported.
+  // TODO: Currently we initialize the clear region to the widget bounds as
+  // SwapBuffers will update the entire framebuffer. On platforms that support
+  // damage regions, we could initialize this to mCurrentFrameInvalidRegion.
+  IntRegion regionToClear(rect);
+  regionToClear.SubOut(aOpaqueRegion);
+  GLbitfield clearBits = LOCAL_GL_DEPTH_BUFFER_BIT;
+  if (regionToClear.IsEmpty() &&
+      mGLContext->IsSupported(GLFeature::invalidate_framebuffer)) {
+    GLenum attachments[] = {LOCAL_GL_COLOR};
+    mGLContext->fInvalidateFramebuffer(
+        LOCAL_GL_FRAMEBUFFER, MOZ_ARRAY_LENGTH(attachments), attachments);
+  } else {
+    clearBits |= LOCAL_GL_COLOR_BUFFER_BIT;
+  }
+
 #if defined(MOZ_WIDGET_ANDROID)
   if ((mSurfaceOrigin.x > 0) || (mSurfaceOrigin.y > 0)) {
     mGLContext->fClearColor(
@@ -1060,13 +1083,7 @@ Maybe<IntRect> CompositorOGL::BeginFrame(const nsIntRegion& aInvalidRegion,
   mGLContext->fClearColor(mClearColor.r, mClearColor.g, mClearColor.b,
                           mClearColor.a);
 #endif  // defined(MOZ_WIDGET_ANDROID)
-  mGLContext->fClear(LOCAL_GL_COLOR_BUFFER_BIT | LOCAL_GL_DEPTH_BUFFER_BIT);
-
-  for (auto iter = aInvalidRegion.RectIter(); !iter.Done(); iter.Next()) {
-    const IntRect& r = iter.Get();
-    mCurrentFrameInvalidRegion.OrWith(
-        IntRect(r.X(), FlipY(r.YMost()), r.Width(), r.Height()));
-  }
+  mGLContext->fClear(clearBits);
 
   return Some(rect);
 }
@@ -1314,22 +1331,7 @@ ShaderConfigOGL CompositorOGL::GetShaderConfigFor(Effect* aEffect,
 
 ShaderProgramOGL* CompositorOGL::GetShaderProgramFor(
     const ShaderConfigOGL& aConfig) {
-  std::map<ShaderConfigOGL, ShaderProgramOGL*>::iterator iter =
-      mPrograms.find(aConfig);
-  if (iter != mPrograms.end()) return iter->second;
-
-  ProgramProfileOGL profile = ProgramProfileOGL::GetProfileFor(aConfig);
-  ShaderProgramOGL* shader = new ShaderProgramOGL(gl(), profile);
-  if (!shader->Initialize()) {
-    gfxCriticalError() << "Shader compilation failure, cfg:"
-                       << " features: " << gfx::hexa(aConfig.mFeatures)
-                       << " multiplier: " << aConfig.mMultiplier
-                       << " op: " << aConfig.mCompositionOp;
-    delete shader;
-    return nullptr;
-  }
-
-  mPrograms[aConfig] = shader;
+  ShaderProgramOGL* shader = mProgramsHolder->GetShaderProgramFor(aConfig);
   return shader;
 }
 

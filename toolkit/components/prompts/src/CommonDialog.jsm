@@ -40,6 +40,8 @@ CommonDialog.prototype = {
    * null for TabModalPrompts.
    */
   async onLoad(commonDialogEl = null) {
+    let isEmbedded = !!commonDialogEl?.ownerGlobal.docShell.chromeEventHandler;
+
     switch (this.args.promptType) {
       case "alert":
       case "alertCheck":
@@ -132,11 +134,7 @@ CommonDialog.prototype = {
     // macOS (where there is no titlebar) or if the prompt is a common dialog document
     // and has been embedded (has a chromeEventHandler).
     infoTitle.hidden =
-      isOldContentPrompt ||
-      !(
-        AppConstants.platform === "macosx" ||
-        commonDialogEl?.ownerGlobal.docShell.chromeEventHandler
-      );
+      isOldContentPrompt || !(AppConstants.platform === "macosx" || isEmbedded);
 
     if (commonDialogEl) {
       commonDialogEl.ownerDocument.title = title;
@@ -177,6 +175,11 @@ CommonDialog.prototype = {
     if (this.args.text) {
       // Bug 317334 - crop string length as a workaround.
       croppedMessage = this.args.text.substr(0, 10000);
+      // TabModalPrompts don't have an infoRow to hide / not hide here, so
+      // guard on that here so long as they are in use.
+      if (this.ui.infoRow) {
+        this.ui.infoRow.hidden = false;
+      }
     }
     let infoBody = this.ui.infoBody;
     infoBody.appendChild(infoBody.ownerDocument.createTextNode(croppedMessage));
@@ -212,8 +215,6 @@ CommonDialog.prototype = {
       button.setAttribute("default", "true");
     }
 
-    let isEmbedded =
-      commonDialogEl && this.ui.prompt.docShell.chromeEventHandler;
     if (!isEmbedded && !this.ui.promptContainer?.hidden) {
       // Set default focus and select textbox contents if applicable. If we're
       // embedded SubDialogManager will call setDefaultFocus for us.

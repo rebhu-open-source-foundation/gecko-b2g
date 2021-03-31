@@ -46,7 +46,7 @@ using NSAppearanceName = NSString*;
 
 static void RegisterRespectSystemAppearancePrefListenerOnce();
 
-nsLookAndFeel::nsLookAndFeel(const LookAndFeelCache* aCache)
+nsLookAndFeel::nsLookAndFeel()
     : nsXPLookAndFeel(),
       mUseOverlayScrollbars(-1),
       mUseOverlayScrollbarsCached(false),
@@ -60,23 +60,17 @@ nsLookAndFeel::nsLookAndFeel(const LookAndFeelCache* aCache)
       mColorTextSelectBackgroundDisabled(0),
       mColorHighlight(0),
       mColorTextSelectForeground(0),
-      mColorMenuHoverText(0),
-      mColorButtonText(0),
-      mColorButtonHoverText(0),
+      mColorAlternateSelectedControlText(0),
+      mColorControlText(0),
       mColorText(0),
       mColorWindowText(0),
-      mColorActiveCaption(0),
+      mColorGrid(0),
       mColorActiveBorder(0),
       mColorGrayText(0),
-      mColorInactiveBorder(0),
-      mColorInactiveCaption(0),
+      mColorControlBackground(0),
       mColorScrollbar(0),
       mColorThreeDHighlight(0),
-      mColorMenu(0),
-      mColorWindowFrame(0),
-      mColorFieldText(0),
       mColorDialog(0),
-      mColorDialogText(0),
       mColorDragTargetZone(0),
       mColorChromeActive(0),
       mColorChromeInactive(0),
@@ -92,9 +86,6 @@ nsLookAndFeel::nsLookAndFeel(const LookAndFeelCache* aCache)
       mColorSourceListSelectionFontSmoothingBg(0),
       mColorActiveSourceListSelectionFontSmoothingBg(0),
       mInitialized(false) {
-  if (aCache) {
-    DoSetCache(*aCache);
-  }
   RegisterRespectSystemAppearancePrefListenerOnce();
 }
 
@@ -222,7 +213,7 @@ nsresult nsLookAndFeel::NativeGetColor(ColorID aID, nscolor& aColor) {
     case ColorID::Highlighttext:  // CSS2 color
     case ColorID::MozAccentColorForeground:
     case ColorID::MozMenuhovertext:
-      aColor = mColorMenuHoverText;
+      aColor = mColorAlternateSelectedControlText;
       break;
     case ColorID::IMESelectedRawTextBackground:
     case ColorID::IMESelectedConvertedTextBackground:
@@ -261,11 +252,11 @@ nsresult nsLookAndFeel::NativeGetColor(ColorID aID, nscolor& aColor) {
       //
     case ColorID::MozMacButtonactivetext:
     case ColorID::MozMacDefaultbuttontext:
-      aColor = mColorButtonText;
+      aColor = NS_RGB(0xFF, 0xFF, 0xFF);
       break;
     case ColorID::Buttontext:
     case ColorID::MozButtonhovertext:
-      aColor = mColorButtonHoverText;
+      aColor = mColorControlText;
       break;
     case ColorID::Captiontext:
     case ColorID::Menutext:
@@ -277,7 +268,7 @@ nsresult nsLookAndFeel::NativeGetColor(ColorID aID, nscolor& aColor) {
       aColor = mColorWindowText;
       break;
     case ColorID::Activecaption:
-      aColor = mColorActiveCaption;
+      aColor = mColorGrid;
       break;
     case ColorID::Activeborder:
       aColor = mColorActiveBorder;
@@ -302,10 +293,8 @@ nsresult nsLookAndFeel::NativeGetColor(ColorID aID, nscolor& aColor) {
       aColor = mColorGrayText;
       break;
     case ColorID::Inactiveborder:
-      aColor = mColorInactiveBorder;
-      break;
     case ColorID::Inactivecaption:
-      aColor = mColorInactiveCaption;
+      aColor = mColorControlBackground;
       break;
     case ColorID::Inactivecaptiontext:
       aColor = NS_RGB(0x45, 0x45, 0x45);
@@ -329,19 +318,21 @@ nsresult nsLookAndFeel::NativeGetColor(ColorID aID, nscolor& aColor) {
       aColor = NS_RGB(0xDA, 0xDA, 0xDA);
       break;
     case ColorID::Menu:
-      aColor = mColorMenu;
+      aColor = mColorAlternateSelectedControlText;
       break;
     case ColorID::Windowframe:
-      aColor = mColorWindowFrame;
+      aColor = mColorGrid;
       break;
     case ColorID::Window:
+      aColor = NS_RGB(0xff, 0xff, 0xff);
+      break;
     case ColorID::Field:
     case ColorID::MozCombobox:
-      aColor = NS_RGB(0xff, 0xff, 0xff);
+      aColor = mColorControlBackground;
       break;
     case ColorID::Fieldtext:
     case ColorID::MozComboboxtext:
-      aColor = mColorFieldText;
+      aColor = mColorControlText;
       break;
     case ColorID::MozDialog:
       aColor = mColorDialog;
@@ -351,7 +342,7 @@ nsresult nsLookAndFeel::NativeGetColor(ColorID aID, nscolor& aColor) {
     case ColorID::MozHtmlCellhighlighttext:
     case ColorID::MozColheadertext:
     case ColorID::MozColheaderhovertext:
-      aColor = mColorDialogText;
+      aColor = mColorControlText;
       break;
     case ColorID::MozDragtargetzone:
       aColor = mColorDragTargetZone;
@@ -661,7 +652,7 @@ bool nsLookAndFeel::NativeGetFont(FontID aID, nsString& aFontName, gfxFontStyle&
   NS_OBJC_BEGIN_TRY_BLOCK_RETURN;
 
   // hack for now
-  if (aID == FontID::Window || aID == FontID::Document) {
+  if (aID == FontID::MozWindow || aID == FontID::MozDocument) {
     aFontStyle.style = mozilla::FontSlantStyle::Normal();
     aFontStyle.weight = mozilla::FontWeight::Normal();
     aFontStyle.stretch = mozilla::FontStretch::Normal();
@@ -681,177 +672,6 @@ bool nsLookAndFeel::NativeGetFont(FontID aID, nsString& aFontName, gfxFontStyle&
   return true;
 
   NS_OBJC_END_TRY_BLOCK_RETURN(false);
-}
-
-mozilla::widget::LookAndFeelCache nsLookAndFeel::GetCacheImpl() {
-  LookAndFeelCache cache = nsXPLookAndFeel::GetCacheImpl();
-
-  constexpr IntID kIntIdsToCache[] = {
-      IntID::UseOverlayScrollbars, IntID::AllowOverlayScrollbarsOverlap,
-      IntID::PrefersReducedMotion, IntID::SystemUsesDarkTheme, IntID::UseAccessibilityTheme};
-
-  constexpr ColorID kColorIdsToCache[] = {
-      ColorID::Highlight,
-      ColorID::Highlighttext,
-      ColorID::Menutext,
-      ColorID::TextSelectBackground,
-      ColorID::TextSelectBackgroundDisabled,
-      ColorID::TextSelectForeground,
-      ColorID::MozMacDefaultbuttontext,
-      ColorID::MozButtonhovertext,
-      ColorID::Windowtext,
-      ColorID::Activecaption,
-      ColorID::Activeborder,
-      ColorID::Graytext,
-      ColorID::Inactiveborder,
-      ColorID::Inactivecaption,
-      ColorID::Scrollbar,
-      ColorID::Threedhighlight,
-      ColorID::Menu,
-      ColorID::Windowframe,
-      ColorID::Fieldtext,
-      ColorID::MozDialog,
-      ColorID::MozDialogtext,
-      ColorID::MozDragtargetzone,
-      ColorID::MozMacChromeActive,
-      ColorID::MozMacChromeInactive,
-      ColorID::MozMacFocusring,
-      ColorID::MozMacMenutextselect,
-      ColorID::MozMacDisabledtoolbartext,
-      ColorID::MozMacMenuselect,
-      ColorID::MozCellhighlight,
-      ColorID::MozEventreerow,
-      ColorID::MozOddtreerow,
-      ColorID::MozMacMenupopup,
-      ColorID::MozMacSourceList,
-      ColorID::MozMacSourceListSelection,
-      ColorID::MozMacActiveMenuitem,
-  };
-
-  for (IntID id : kIntIdsToCache) {
-    cache.mInts().AppendElement(LookAndFeelInt(id, GetInt(id)));
-  }
-
-  for (ColorID id : kColorIdsToCache) {
-    nscolor color = 0;
-    NativeGetColor(id, color);
-    cache.mColors().AppendElement(LookAndFeelColor(id, color));
-  }
-
-  return cache;
-}
-
-void nsLookAndFeel::SetCacheImpl(const LookAndFeelCache& aCache) { DoSetCache(aCache); }
-
-void nsLookAndFeel::DoSetCache(const LookAndFeelCache& aCache) {
-  for (auto entry : aCache.mInts()) {
-    switch (entry.id()) {
-      case IntID::UseOverlayScrollbars:
-        mUseOverlayScrollbars = entry.value();
-        mUseOverlayScrollbarsCached = true;
-        break;
-      case IntID::AllowOverlayScrollbarsOverlap:
-        mAllowOverlayScrollbarsOverlap = entry.value();
-        mAllowOverlayScrollbarsOverlapCached = true;
-        break;
-      case IntID::SystemUsesDarkTheme:
-        mSystemUsesDarkTheme = entry.value();
-        mSystemUsesDarkThemeCached = true;
-        break;
-      case IntID::PrefersReducedMotion:
-        mPrefersReducedMotion = entry.value();
-        mPrefersReducedMotionCached = true;
-        break;
-      case IntID::UseAccessibilityTheme:
-        mUseAccessibilityTheme = entry.value();
-        mUseAccessibilityThemeCached = true;
-        break;
-      default:
-        MOZ_ASSERT_UNREACHABLE("Bogus Int ID in cache");
-        break;
-    }
-  }
-  for (const auto& entry : aCache.mColors()) {
-    nscolor& slot = [&]() -> nscolor& {
-      switch (entry.id()) {
-        case ColorID::Highlight:
-          return mColorHighlight;
-        case ColorID::Highlighttext:
-          return mColorMenuHoverText;
-        case ColorID::Menutext:
-          return mColorText;
-        case ColorID::TextSelectBackground:
-          return mColorTextSelectBackground;
-        case ColorID::TextSelectBackgroundDisabled:
-          return mColorTextSelectBackgroundDisabled;
-        case ColorID::TextSelectForeground:
-          return mColorTextSelectForeground;
-        case ColorID::MozMacDefaultbuttontext:
-          return mColorButtonText;
-        case ColorID::MozButtonhovertext:
-          return mColorButtonHoverText;
-        case ColorID::Windowtext:
-          return mColorWindowText;
-        case ColorID::Activecaption:
-          return mColorActiveCaption;
-        case ColorID::Activeborder:
-          return mColorActiveBorder;
-        case ColorID::Graytext:
-          return mColorGrayText;
-        case ColorID::Inactiveborder:
-          return mColorInactiveBorder;
-        case ColorID::Inactivecaption:
-          return mColorInactiveCaption;
-        case ColorID::Scrollbar:
-          return mColorScrollbar;
-        case ColorID::Threedhighlight:
-          return mColorThreeDHighlight;
-        case ColorID::Menu:
-          return mColorMenu;
-        case ColorID::Windowframe:
-          return mColorWindowFrame;
-        case ColorID::Fieldtext:
-          return mColorFieldText;
-        case ColorID::MozDialog:
-          return mColorDialog;
-        case ColorID::MozDialogtext:
-          return mColorDialogText;
-        case ColorID::MozDragtargetzone:
-          return mColorDragTargetZone;
-        case ColorID::MozMacChromeActive:
-          return mColorChromeActive;
-        case ColorID::MozMacChromeInactive:
-          return mColorChromeInactive;
-        case ColorID::MozMacFocusring:
-          return mColorFocusRing;
-        case ColorID::MozMacMenutextselect:
-          return mColorTextSelect;
-        case ColorID::MozMacDisabledtoolbartext:
-          return mColorDisabledToolbarText;
-        case ColorID::MozMacMenuselect:
-          return mColorMenuSelect;
-        case ColorID::MozCellhighlight:
-          return mColorCellHighlight;
-        case ColorID::MozEventreerow:
-          return mColorEvenTreeRow;
-        case ColorID::MozOddtreerow:
-          return mColorOddTreeRow;
-        case ColorID::MozMacMenupopup:
-          return mColorMenuFontSmoothingBg;
-        case ColorID::MozMacSourceList:
-          return mColorSourceListFontSmoothingBg;
-        case ColorID::MozMacSourceListSelection:
-          return mColorSourceListSelectionFontSmoothingBg;
-        case ColorID::MozMacActiveMenuitem:
-          return mColorActiveSourceListSelectionFontSmoothingBg;
-        default:
-          MOZ_ASSERT_UNREACHABLE("Unknown color in the cache");
-          return mColorOddTreeRow;
-      }
-    }();
-    slot = entry.color();
-  }
-  mInitialized = true;
 }
 
 void nsLookAndFeel::EnsureInit() {
@@ -893,25 +713,20 @@ void nsLookAndFeel::EnsureInit() {
     mColorTextSelectForeground = NS_DONT_CHANGE_COLOR;
   }
 
-  mColorMenuHoverText = GetColorFromNSColor([NSColor alternateSelectedControlTextColor]);
+  mColorAlternateSelectedControlText =
+      GetColorFromNSColor([NSColor alternateSelectedControlTextColor]);
 
-  mColorButtonText = NS_RGB(0xFF, 0xFF, 0xFF);
-  mColorButtonHoverText = GetColorFromNSColor([NSColor controlTextColor]);
+  mColorControlText = GetColorFromNSColor([NSColor controlTextColor]);
   mColorText = GetColorFromNSColor([NSColor textColor]);
   mColorWindowText = GetColorFromNSColor([NSColor windowFrameTextColor]);
-  mColorActiveCaption = GetColorFromNSColor([NSColor gridColor]);
+  mColorGrid = GetColorFromNSColor([NSColor gridColor]);
   mColorActiveBorder = GetColorFromNSColor([NSColor keyboardFocusIndicatorColor]);
   NSColor* disabledColor = [NSColor disabledControlTextColor];
   mColorGrayText = GetColorFromNSColorWithAlpha(disabledColor, [disabledColor alphaComponent]);
-  mColorInactiveBorder = GetColorFromNSColor([NSColor controlBackgroundColor]);
-  mColorInactiveCaption = GetColorFromNSColor([NSColor controlBackgroundColor]);
+  mColorControlBackground = GetColorFromNSColor([NSColor controlBackgroundColor]);
   mColorScrollbar = GetColorFromNSColor([NSColor scrollBarColor]);
   mColorThreeDHighlight = GetColorFromNSColor([NSColor highlightColor]);
-  mColorMenu = GetColorFromNSColor([NSColor alternateSelectedControlTextColor]);
-  mColorWindowFrame = GetColorFromNSColor([NSColor gridColor]);
-  mColorFieldText = GetColorFromNSColor([NSColor controlTextColor]);
   mColorDialog = GetColorFromNSColor([NSColor controlHighlightColor]);
-  mColorDialogText = GetColorFromNSColor([NSColor controlTextColor]);
   mColorDragTargetZone = GetColorFromNSColor([NSColor selectedControlColor]);
 
   int grey = NativeGreyColorAsInt(toolbarFillGrey, true);

@@ -22,10 +22,10 @@ namespace mozilla {
 
 namespace widget {
 class FullLookAndFeel;
-class LookAndFeelCache;
 }  // namespace widget
 
 enum class StyleSystemColor : uint8_t;
+enum class StyleSystemFont : uint8_t;
 
 class LookAndFeel {
  public:
@@ -417,36 +417,14 @@ class LookAndFeel {
     // should be added to the calculated caret width.
     CaretAspectRatio,
 
+    // GTK text scale factor.
+    TextScaleFactor,
+
     // Not an ID; used to define the range of valid IDs.  Must be last.
     End,
   };
 
-  // These constants must be kept in 1:1 correspondence with the
-  // NS_STYLE_FONT_* system font constants.
-  enum class FontID {
-    Caption = 1,  // css2
-    MINIMUM = Caption,
-    Icon,
-    Menu,
-    MessageBox,
-    SmallCaption,
-    StatusBar,
-
-    Window,  // css3
-    Document,
-    Workspace,
-    Desktop,
-    Info,
-    Dialog,
-    Button,
-    PullDownMenu,
-    List,
-    Field,
-
-    Tooltips,  // moz
-    Widget,
-    MAXIMUM = Widget,
-  };
+  using FontID = mozilla::StyleSystemFont;
 
   /**
    * GetColor() return a native color value (might be overwritten by prefs) for
@@ -568,12 +546,6 @@ class LookAndFeel {
    */
   static void NativeInit();
 
-  /**
-   * If the implementation is caching values, these accessors allow the
-   * cache to be exported and imported.
-   */
-  static widget::LookAndFeelCache GetCache();
-  static void SetCache(const widget::LookAndFeelCache& aCache);
   static void SetData(widget::FullLookAndFeel&& aTables);
   static void NotifyChangedAllWindows(widget::ThemeChangeKind);
 };

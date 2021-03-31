@@ -107,9 +107,7 @@
 #  include "mozilla/WindowsProcessMitigations.h"
 #  include "mozilla/WinHeaderOnlyUtils.h"
 #  include "mozilla/mscom/ProcessRuntime.h"
-#  if defined(MOZ_GECKO_PROFILER)
-#    include "mozilla/mscom/ProfilerMarkers.h"
-#  endif  // defined(MOZ_GECKO_PROFILER)
+#  include "mozilla/mscom/ProfilerMarkers.h"
 #  include "mozilla/widget/AudioSession.h"
 #  include "WinTokenUtils.h"
 
@@ -496,9 +494,6 @@ static const char kPrefFissionExperimentEnrollmentStatus[] =
 static const char kPrefFissionExperimentStartupEnrollmentStatus[] =
     "fission.experiment.startupEnrollmentStatus";
 
-static const char kPrefNonNativeThemeEnabled[] =
-    "widget.non-native-theme.enabled";
-
 // The computed FissionAutostart value for the session, read by content
 // processes to initialize gFissionAutostart.
 //
@@ -732,12 +727,6 @@ static void EnsureFissionAutostartInitialized() {
   Preferences::SetBool(kPrefFissionAutostartSession, gFissionAutostart,
                        PrefValueKind::Default);
   Preferences::Lock(kPrefFissionAutostartSession);
-
-  if (gFissionExperimentStatus == nsIXULRuntime::eExperimentStatusControl ||
-      gFissionExperimentStatus == nsIXULRuntime::eExperimentStatusTreatment) {
-    Preferences::SetBool(kPrefNonNativeThemeEnabled, true,
-                         PrefValueKind::Default);
-  }
 
   // If we're actively enrolled in the fission experiment, disqualify the user
   // from the experiment if the fission pref is modified.
@@ -3516,7 +3505,8 @@ int XREMain::XRE_mainInit(bool* aExitFlag) {
 #ifdef MOZ_BACKGROUNDTASKS
   Maybe<nsCString> backgroundTask = Nothing();
   const char* backgroundTaskName = nullptr;
-  if (ARG_FOUND == CheckArg("backgroundtask", &backgroundTaskName)) {
+  if (ARG_FOUND ==
+      CheckArg("backgroundtask", &backgroundTaskName, CheckArgFlag::None)) {
     backgroundTask = Some(backgroundTaskName);
   }
   BackgroundTasks::Init(backgroundTask);
@@ -3883,6 +3873,12 @@ int XREMain::XRE_mainInit(bool* aExitFlag) {
 #ifdef MOZ_BACKGROUNDTASKS
   if (BackgroundTasks::IsBackgroundTaskMode()) {
     safeModeRequested = Some(false);
+
+    // Remove the --backgroundtask arg now that it has been saved in
+    // gRestartArgv.
+    const char* tmpBackgroundTaskName = nullptr;
+    Unused << CheckArg("backgroundtask", &tmpBackgroundTaskName,
+                       CheckArgFlag::RemoveArg);
   }
 #endif
 
@@ -4895,10 +4891,8 @@ nsresult XREMain::XRE_mainRun() {
   auto dllServicesDisable =
       MakeScopeExit([&dllServices]() { dllServices->DisableFull(); });
 
-#  if defined(MOZ_GECKO_PROFILER)
   mozilla::mscom::InitProfilerMarkers();
-#  endif  // defined(MOZ_GECKO_PROFILER)
-#endif    // defined(XP_WIN)
+#endif  // defined(XP_WIN)
 
   // We need the appStartup pointer to span multiple scopes, so we declare
   // it here.

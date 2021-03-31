@@ -2965,23 +2965,6 @@ devtools.accessibility:
     record_in_processes:
       - 'main'
 
-  tabbing_order_activated:
-    bug_numbers:
-      - 1675539
-    description: >
-      Number of times a tabbing order overlay was activated in the accessibility
-      panel.
-    expires: "89"
-    kind: uint
-    notification_emails:
-      - dev-developer-tools@lists.mozilla.org
-      - accessibility@mozilla.com
-    release_channel_collection: opt-out
-    products:
-      - 'firefox'
-    record_in_processes:
-      - 'main'
-
 devtools.application:
   opened_count:
     bug_numbers:
@@ -3326,6 +3309,52 @@ telemetry:
     release_channel_collection: opt-out
     record_in_processes:
       - main
+
+  state_file_read_errors:
+    bug_numbers:
+      - 1700835
+    description: >
+      How many times we errored out trying to load state.json
+    expires: "94"
+    kind: uint
+    notification_emails:
+      - chutten@mozilla.com
+    products:
+      - 'firefox'
+    release_channel_collection: opt-out
+    record_in_processes:
+      - main
+
+  using_pref_client_id:
+    bug_numbers:
+      - 1700835
+    description: >
+      How often we loaded the client_id from prefs instead of state.json.
+    expires: "94"
+    kind: uint
+    notification_emails:
+      - chutten@mozilla.com
+    products:
+      - 'firefox'
+    release_channel_collection: opt-out
+    record_in_processes:
+      - main
+
+  removed_client_ids:
+    bug_numbers:
+      - 1700835
+    description: >
+      How many times we removed the client ids.
+    expires: "94"
+    kind: uint
+    notification_emails:
+      - chutten@mozilla.com
+    products:
+      - 'firefox'
+    release_channel_collection: opt-out
+    record_in_processes:
+      - main
+
 
 telemetry.discarded:
   accumulations:
@@ -4074,6 +4103,36 @@ idb.failure:
       - 'fennec'
     record_in_processes:
       - 'main'
+  unknown_objectstore_empty_database:
+    bug_numbers:
+      - 1669730
+    description: >
+      Tracking the number of attempts to open an unknown objectstore on an
+      empty IndexedDB database.
+    expires: "89"
+    kind: uint
+    notification_emails:
+      - storage-telemetry@mozilla.com
+    release_channel_collection: opt-out
+    products:
+      - 'firefox'
+    record_in_processes:
+      - 'content'
+  unknown_objectstore_non_empty_database:
+    bug_numbers:
+      - 1669730
+    description: >
+      Tracking the number of attempts to open an unknown objectstore on a
+      non-empty IndexedDB database.
+    expires: "89"
+    kind: uint
+    notification_emails:
+      - storage-telemetry@mozilla.com
+    release_channel_collection: opt-out
+    products:
+      - 'firefox'
+    record_in_processes:
+      - 'content'
 
 # The following section contains scalars for the PDF viewer.
 pdf.viewer:
@@ -4832,6 +4891,230 @@ browser.search:
       - 'main'
     release_channel_collection: opt-out
 
+browser.search.content:
+  urlbar:
+    bug_numbers:
+      - 1089670
+      - 1475571
+      - 1482158
+      - 1545172
+      - 1634564
+    description: >
+      Records counts for in-content searches where the search was most likely started from the urlbar. The key format is <provider>:[tagged|tagged-follow-on|organic]:[code|none]
+    expires: never
+    keyed: true
+    kind: uint
+    notification_emails:
+      - fx-search@mozilla.com
+      - rev-data@mozilla.com
+    release_channel_collection: opt-out
+    products:
+      - 'firefox'
+    record_in_processes:
+      - main
+
+  urlbar_searchmode:
+    bug_numbers:
+      - 1089670
+      - 1475571
+      - 1482158
+      - 1545172
+      - 1634564
+    description: >
+      Records counts for in-content searches where the search was most likely started from the urlbar in search mode. The key format is <provider>:[tagged|tagged-follow-on|organic]:[code|none]
+    expires: never
+    keyed: true
+    kind: uint
+    notification_emails:
+      - fx-search@mozilla.com
+      - rev-data@mozilla.com
+    release_channel_collection: opt-out
+    products:
+      - 'firefox'
+    record_in_processes:
+      - main
+
+  searchbar:
+    bug_numbers:
+      - 1089670
+      - 1475571
+      - 1482158
+      - 1545172
+      - 1634564
+    description: >
+      Records counts for in-content searches where the search was most likely started from the search bar. The key format is <provider>:[tagged|tagged-follow-on|organic]:[code|none]
+    expires: never
+    keyed: true
+    kind: uint
+    notification_emails:
+      - fx-search@mozilla.com
+      - rev-data@mozilla.com
+    release_channel_collection: opt-out
+    products:
+      - 'firefox'
+    record_in_processes:
+      - main
+
+  about_home:
+    bug_numbers:
+      - 1089670
+      - 1475571
+      - 1482158
+      - 1545172
+      - 1634564
+    description: >
+      Records counts for in-content searches where the search was most likely started from the about:home. The key format is <provider>:[tagged|tagged-follow-on|organic]:[code|none]
+    expires: never
+    keyed: true
+    kind: uint
+    notification_emails:
+      - fx-search@mozilla.com
+      - rev-data@mozilla.com
+    release_channel_collection: opt-out
+    products:
+      - 'firefox'
+    record_in_processes:
+      - main
+
+  about_newtab:
+    bug_numbers:
+      - 1089670
+      - 1475571
+      - 1482158
+      - 1545172
+      - 1634564
+    description: >
+      Records counts for in-content searches where the search was most likely started from the about:newtab. The key format is <provider>:[tagged|tagged-follow-on|organic]:[code|none]
+    expires: never
+    keyed: true
+    kind: uint
+    notification_emails:
+      - fx-search@mozilla.com
+      - rev-data@mozilla.com
+    release_channel_collection: opt-out
+    products:
+      - 'firefox'
+    record_in_processes:
+      - main
+
+  contextmenu:
+    bug_numbers:
+      - 1089670
+      - 1475571
+      - 1482158
+      - 1545172
+      - 1634564
+    description: >
+      Records counts for in-content searches where the search was most likely started from the context menu. The key format is <provider>:[tagged|tagged-follow-on|organic]:[code|none]
+    expires: never
+    keyed: true
+    kind: uint
+    notification_emails:
+      - fx-search@mozilla.com
+      - rev-data@mozilla.com
+    release_channel_collection: opt-out
+    products:
+      - 'firefox'
+    record_in_processes:
+      - main
+
+  webextension:
+    bug_numbers:
+      - 1089670
+      - 1475571
+      - 1482158
+      - 1545172
+      - 1634564
+    description: >
+      Records counts for in-content searches where the search was most likely started from a webextension. The key format is <provider>:[tagged|tagged-follow-on|organic]:[code|none]
+    expires: never
+    keyed: true
+    kind: uint
+    notification_emails:
+      - fx-search@mozilla.com
+      - rev-data@mozilla.com
+    release_channel_collection: opt-out
+    products:
+      - 'firefox'
+    record_in_processes:
+      - main
+
+  system:
+    bug_numbers:
+      - 1089670
+      - 1475571
+      - 1482158
+      - 1545172
+      - 1634564
+    description: >
+      Records counts for in-content searches where the search was most likely started from the system, e.g. command line. The key format is <provider>:[tagged|tagged-follow-on|organic]:[code|none]
+    expires: never
+    keyed: true
+    kind: uint
+    notification_emails:
+      - fx-search@mozilla.com
+      - rev-data@mozilla.com
+    release_channel_collection: opt-out
+    products:
+      - 'firefox'
+    record_in_processes:
+      - main
+
+  tabhistory:
+    bug_numbers:
+      - 1634564
+    description: >
+      Records counts for in-content searches where the search was loaded from the tab history. The key format is <provider>:[tagged|tagged-follow-on|organic]:[code|none]
+    expires: never
+    keyed: true
+    kind: uint
+    notification_emails:
+      - fx-search@mozilla.com
+      - rev-data@mozilla.com
+    release_channel_collection: opt-out
+    products:
+      - 'firefox'
+    record_in_processes:
+      - main
+
+  reload:
+    bug_numbers:
+      - 1634564
+    description: >
+      Records counts for in-content searches where the search was loaded by reloading the page. The key format is <provider>:[tagged|tagged-follow-on|organic]:[code|none]
+    expires: never
+    keyed: true
+    kind: uint
+    notification_emails:
+      - fx-search@mozilla.com
+      - rev-data@mozilla.com
+    release_channel_collection: opt-out
+    products:
+      - 'firefox'
+    record_in_processes:
+      - main
+
+  unknown:
+    bug_numbers:
+      - 1089670
+      - 1475571
+      - 1482158
+      - 1545172
+      - 1634564
+    description: >
+      Records counts for in-content searches where the search was started from a place that could not be determined or not categorized by the other scalars. The key format is <provider>:[tagged|tagged-follow-on|organic]:[code|none]
+    expires: never
+    keyed: true
+    kind: uint
+    notification_emails:
+      - fx-search@mozilla.com
+      - rev-data@mozilla.com
+    release_channel_collection: opt-out
+    products:
+      - 'firefox'
+    record_in_processes:
+      - main
+
 browser.search.withads:
   urlbar:
     bug_numbers:
@@ -4843,7 +5126,7 @@ browser.search.withads:
     kind: uint
     notification_emails:
       - fx-search@mozilla.com
-      - teon@mozilla.com
+      - rev-data@mozilla.com
     release_channel_collection: opt-out
     products:
       - 'firefox'
@@ -4957,6 +5240,40 @@ browser.search.withads:
       - 1664847
     description: >
       Records counts of SERP pages with adverts displayed where the search was started from the system, e.g. command line. The key format is ‘<provider>:<tagged|organic>’
+    expires: never
+    keyed: true
+    kind: uint
+    notification_emails:
+      - fx-search@mozilla.com
+      - rev-data@mozilla.com
+    release_channel_collection: opt-out
+    products:
+      - 'firefox'
+    record_in_processes:
+      - main
+
+  tabhistory:
+    bug_numbers:
+      - 1664847
+    description: >
+      Records counts of SERP pages with adverts displayed where the search was loaded from the tab history. The key format is ‘<provider>:<tagged|organic>’
+    expires: never
+    keyed: true
+    kind: uint
+    notification_emails:
+      - fx-search@mozilla.com
+      - rev-data@mozilla.com
+    release_channel_collection: opt-out
+    products:
+      - 'firefox'
+    record_in_processes:
+      - main
+
+  reload:
+    bug_numbers:
+      - 1664847
+    description: >
+      Records counts of SERP pages with adverts displayed where the search was loaded by reloading the page. The key format is ‘<provider>:<tagged|organic>’
     expires: never
     keyed: true
     kind: uint
@@ -4991,7 +5308,7 @@ browser.search.adclicks:
     bug_numbers:
       - 1664847
     description: >
-      Records counts of SERP pages with adverts displayed where the search was started from the urlbar. The key format is ‘<provider>:<tagged|organic>’
+      Records clicks of adverts on SERP pages where the search was started from the urlbar. The key format is ‘<provider>:<tagged|organic>’
     expires: never
     keyed: true
     kind: uint
@@ -5008,7 +5325,7 @@ browser.search.adclicks:
     bug_numbers:
       - 1664847
     description: >
-      Records counts of SERP pages with adverts displayed where the search was started from the urlbar in search mode. The key format is ‘<provider>:<tagged|organic>’
+      Records clicks of adverts on SERP pages where the search was started from the urlbar in search mode. The key format is ‘<provider>:<tagged|organic>’
     expires: never
     keyed: true
     kind: uint
@@ -5025,7 +5342,7 @@ browser.search.adclicks:
     bug_numbers:
       - 1664847
     description: >
-      Records counts of SERP pages with adverts displayed where the search was started from the search bar. The key format is ‘<provider>:<tagged|organic>’
+      RRecords clicks of adverts on SERP pages where the search was started from the search bar. The key format is ‘<provider>:<tagged|organic>’
     expires: never
     keyed: true
     kind: uint
@@ -5042,7 +5359,7 @@ browser.search.adclicks:
     bug_numbers:
       - 1664847
     description: >
-      Records counts of SERP pages with adverts displayed where the search was started from about:home. The key format is ‘<provider>:<tagged|organic>’
+      Records clicks of adverts on SERP pages where the search was started from about:home. The key format is ‘<provider>:<tagged|organic>’
     expires: never
     keyed: true
     kind: uint
@@ -5059,7 +5376,7 @@ browser.search.adclicks:
     bug_numbers:
       - 1664847
     description: >
-      Records counts of SERP pages with adverts displayed where the search was started from about:newtab. The key format is ‘<provider>:<tagged|organic>’
+      Records clicks of adverts on SERP pages where the search was started from about:newtab. The key format is ‘<provider>:<tagged|organic>’
     expires: never
     keyed: true
     kind: uint
@@ -5076,7 +5393,7 @@ browser.search.adclicks:
     bug_numbers:
       - 1664847
     description: >
-      Records counts of SERP pages with adverts displayed where the search was started from the context menu. The key format is ‘<provider>:<tagged|organic>’
+      Records clicks of adverts on SERP pages where the search was started from the context menu. The key format is ‘<provider>:<tagged|organic>’
     expires: never
     keyed: true
     kind: uint
@@ -5093,7 +5410,7 @@ browser.search.adclicks:
     bug_numbers:
       - 1664847
     description: >
-      Records counts of SERP pages with adverts displayed where the search was started from a webextension. The key format is ‘<provider>:<tagged|organic>’
+      Records clicks of adverts on SERP pages where the search was started from a webextension. The key format is ‘<provider>:<tagged|organic>’
     expires: never
     keyed: true
     kind: uint
@@ -5110,7 +5427,7 @@ browser.search.adclicks:
     bug_numbers:
       - 1664847
     description: >
-      Records counts of SERP pages with adverts displayed where the search was started from the system, e.g. command line. The key format is ‘<provider>:<tagged|organic>’
+      Records clicks of adverts on SERP pages where the search was started from the system, e.g. command line. The key format is ‘<provider>:<tagged|organic>’
     expires: never
     keyed: true
     kind: uint
@@ -5123,11 +5440,45 @@ browser.search.adclicks:
     record_in_processes:
       - main
 
+  tabhistory:
+    bug_numbers:
+      - 1664847
+    description: >
+      Records clicks of adverts on SERP pages where the search was loaded from the tab history. The key format is ‘<provider>:<tagged|organic>’
+    expires: never
+    keyed: true
+    kind: uint
+    notification_emails:
+      - fx-search@mozilla.com
+      - rev-data@mozilla.com
+    release_channel_collection: opt-out
+    products:
+      - 'firefox'
+    record_in_processes:
+      - main
+
+  reload:
+    bug_numbers:
+      - 1664847
+    description: >
+      Records clicks of adverts on SERP pages where the search was loaded by reloading the page. The key format is ‘<provider>:<tagged|organic>’
+    expires: never
+    keyed: true
+    kind: uint
+    notification_emails:
+      - fx-search@mozilla.com
+      - rev-data@mozilla.com
+    release_channel_collection: opt-out
+    products:
+      - 'firefox'
+    record_in_processes:
+      - main
+
   unknown:
     bug_numbers:
       - 1664847
     description: >
-      Records counts of SERP pages with adverts displayed where the search was started from a place not categorized by the other scalars. The key format is ‘<provider>:<tagged|organic>’
+      Records clicks of adverts on SERP pages where the search was started from a place not categorized by the other scalars. The key format is ‘<provider>:<tagged|organic>’
     expires: never
     keyed: true
     kind: uint
@@ -6715,7 +7066,7 @@ migration:
       - 1672585
     description: >
       Set when a profile refresh is initiated from the uninstaller.
-    expires: "90"
+    expires: never
     kind: boolean
     notification_emails:
       - agashlin@mozilla.com
@@ -6825,6 +7176,7 @@ telemetry.test:
   unsigned_int_kind:
     bug_numbers:
       - 1276190
+      - 1685406
     description: >
       This is a test uint type with a really long description, maybe spanning even multiple
       lines, to just prove a point: everything works just fine.
@@ -6844,6 +7196,7 @@ telemetry.test:
   string_kind:
     bug_numbers:
       - 1276190
+      - 1685406
     description: A string test type with a one line comment that works just fine!
     expires: never
     kind: string
@@ -6861,6 +7214,7 @@ telemetry.test:
   boolean_kind:
     bug_numbers:
       - 1281214
+      - 1685406
     description: A boolean test type with a one line comment that works just fine!
     expires: never
     kind: boolean
@@ -6990,6 +7344,7 @@ telemetry.test:
   keyed_unsigned_int:
     bug_numbers:
       - 1277806
+      - 1685406
     description: A testing keyed uint scalar; not meant to be touched.
     expires: never
     kind: uint
@@ -7043,6 +7398,7 @@ telemetry.test:
   keyed_boolean_kind:
     bug_numbers:
       - 1277806
+      - 1685406
     description: A testing keyed boolean scalar; not meant to be touched.
     expires: never
     kind: boolean
@@ -7280,6 +7636,7 @@ telemetry.test:
   multiple_stores_string:
     bug_numbers:
       - 1498164
+      - 1685406
     description: >
       This is a test string type with multiple stores.
     expires: never
@@ -7335,6 +7692,35 @@ telemetry.test:
       - 'main'
       - 'sync'
 
+  mirror_for_date:
+    bug_numbers: [1685406]
+    description: Test only. This is a mirror probe for a Glean datetime metric.
+    expires: never
+    kind: string
+    notification_emails: [glean-team@mozilla.com]
+    products: ["firefox", "thunderbird"]
+    record_in_processes: ["all"]
+
+  mirror_for_timespan:
+    bug_numbers: [1685406]
+    description: Test only. This is a mirror probe for a Glean timespan metric.
+    expires: never
+    kind: uint
+    notification_emails: [glean-team@mozilla.com]
+    products: ["firefox", "thunderbird"]
+    record_in_processes: ["all"]
+
+  mirror_for_labeled_bool:
+    bug_numbers: [1685406]
+    description: Test only. This is a mirror probe for a Glean labeled_boolean metric.
+    expires: never
+    kind: boolean
+    keyed: true
+    notification_emails: [glean-team@mozilla.com]
+    products: ["firefox", "thunderbird"]
+    record_in_processes: ["all"]
+
+
 # The following section contains counters for corruption of internal omni jar files.
 corroborate:
   omnijar_corrupted:
@@ -7384,6 +7770,23 @@ cache:
       - 'firefox'
     record_in_processes:
       - 'main'
+
+opaque.response.blocking:
+  parsing_size_kb:
+    bug_numbers:
+      - 1695987
+    description: >
+      How many KB of response bodies are parsed by ORB?
+    expires: "93"
+    kind: uint
+    notification_emails:
+      - echuang@mozilla.com
+      - necko@mozilla.com
+    products:
+      - 'firefox'
+    record_in_processes:
+      - 'main'
+    release_channel_collection: opt-out
 
 # NOTE: Please don't add new definitions below this point. Consider adding
 # them earlier in the file and leave the telemetry.test category as the last

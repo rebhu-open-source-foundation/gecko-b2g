@@ -4302,7 +4302,6 @@ gboolean nsWindow::OnTouchpadPinchEvent(GdkEventTouchpadPinch* aEvent) {
         // to not equal Zero as our discussion because we observed that the
         // scale of the PHASE_BEGIN event is 1.
         PreviousSpan = 0.999;
-        mLastPinchEventSpan = aEvent->scale;
         break;
 
       case GDK_TOUCHPAD_GESTURE_PHASE_UPDATE:
@@ -4312,7 +4311,6 @@ gboolean nsWindow::OnTouchpadPinchEvent(GdkEventTouchpadPinch* aEvent) {
         }
         CurrentSpan = aEvent->scale;
         PreviousSpan = mLastPinchEventSpan;
-        mLastPinchEventSpan = aEvent->scale;
         break;
 
       case GDK_TOUCHPAD_GESTURE_PHASE_END:
@@ -4338,6 +4336,11 @@ gboolean nsWindow::OnTouchpadPinchEvent(GdkEventTouchpadPinch* aEvent) {
                      : PreviousSpan),
         KeymapWrapper::ComputeKeyModifiers(aEvent->state));
 
+    if (!event.SetLineOrPageDeltaY(this)) {
+      return FALSE;
+    }
+
+    mLastPinchEventSpan = aEvent->scale;
     DispatchPinchGestureInput(event);
   }
   return TRUE;
@@ -4397,8 +4400,8 @@ gboolean nsWindow::OnTouchEvent(GdkEventTouch* aEvent) {
   if (aEvent->type == GDK_TOUCH_BEGIN || aEvent->type == GDK_TOUCH_UPDATE) {
     mTouches.InsertOrUpdate(aEvent->sequence, std::move(touch));
     // add all touch points to event object
-    for (auto iter = mTouches.Iter(); !iter.Done(); iter.Next()) {
-      event.mTouches.AppendElement(new dom::Touch(*iter.UserData()));
+    for (const auto& data : mTouches.Values()) {
+      event.mTouches.AppendElement(new dom::Touch(*data));
     }
   } else if (aEvent->type == GDK_TOUCH_END ||
              aEvent->type == GDK_TOUCH_CANCEL) {
@@ -4975,6 +4978,9 @@ nsresult nsWindow::Create(nsIWidget* aParent, nsNativeWidget aNativeParent,
                            G_CALLBACK(settings_changed_cb), this);
     g_signal_connect_after(default_settings, "notify::gtk-xft-dpi",
                            G_CALLBACK(settings_xft_dpi_changed_cb), this);
+    // Text resolution affects system fonts and widget sizes.
+    g_signal_connect_after(default_settings, "notify::resolution",
+                           G_CALLBACK(settings_changed_cb), this);
     // For remote LookAndFeel, to refresh the content processes' copies:
     g_signal_connect_after(default_settings, "notify::gtk-cursor-blink-time",
                            G_CALLBACK(settings_changed_cb), this);
@@ -7911,7 +7917,7 @@ int nsWindow::GdkCoordToDevicePixels(gint coord) {
 LayoutDeviceIntPoint nsWindow::GdkEventCoordsToDevicePixels(gdouble x,
                                                             gdouble y) {
   gint scale = GdkScaleFactor();
-  return LayoutDeviceIntPoint::Round(x * scale, y * scale);
+  return LayoutDeviceIntPoint::Floor(x * scale, y * scale);
 }
 
 LayoutDeviceIntPoint nsWindow::GdkPointToDevicePixels(GdkPoint point) {

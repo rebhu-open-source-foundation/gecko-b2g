@@ -273,8 +273,16 @@ OpKind wasm::Classify(OpBytes op) {
 #  ifdef ENABLE_WASM_EXCEPTIONS
     case Op::Catch:
       WASM_EXN_OP(OpKind::Catch);
+    case Op::CatchAll:
+      WASM_EXN_OP(OpKind::CatchAll);
+    case Op::Delegate:
+      WASM_EXN_OP(OpKind::Delegate);
+    case Op::Unwind:
+      WASM_EXN_OP(OpKind::Unwind);
     case Op::Throw:
       WASM_EXN_OP(OpKind::Throw);
+    case Op::Rethrow:
+      WASM_EXN_OP(OpKind::Rethrow);
     case Op::Try:
       WASM_EXN_OP(OpKind::Try);
 #  endif

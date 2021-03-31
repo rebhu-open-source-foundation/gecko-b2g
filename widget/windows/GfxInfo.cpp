@@ -75,6 +75,9 @@ GfxInfo::GetDWriteVersion(nsAString& aDwriteVersion) {
 
 NS_IMETHODIMP
 GfxInfo::GetHasBattery(bool* aHasBattery) {
+  MOZ_RELEASE_ASSERT(!XRE_IsContentProcess(),
+                     "Win32k Lockdown doesn't support querying the battery in "
+                     "content process");
   *aHasBattery = mHasBattery;
   return NS_OK;
 }
@@ -361,6 +364,10 @@ static bool HasBattery() {
     HANDLE mHandle;
   };
 
+  MOZ_ASSERT(!XRE_IsContentProcess(),
+             "Win32k Lockdown doesn't support querying the battery in content "
+             "process");
+
   HDEVINFO hdev =
       ::SetupDiGetClassDevs(&GUID_DEVCLASS_BATTERY, nullptr, nullptr,
                             DIGCF_PRESENT | DIGCF_DEVICEINTERFACE);
@@ -450,7 +457,10 @@ static bool HasBattery() {
 #define DEVICE_KEY_PREFIX L"\\Registry\\Machine\\"
 nsresult GfxInfo::Init() {
   nsresult rv = GfxInfoBase::Init();
-  mHasBattery = HasBattery();
+
+  if (!XRE_IsContentProcess()) {
+    mHasBattery = HasBattery();
+  }
 
   DISPLAY_DEVICEW displayDevice;
   displayDevice.cb = sizeof(displayDevice);
@@ -1843,15 +1853,12 @@ const nsTArray<GfxDriverInfo>& GfxInfo::GetGfxDriverInfo() {
 
     ////////////////////////////////////
     // FEATURE_WEBRENDER_SOFTWARE - ALLOWLIST
-#if defined(_M_IX86) || defined(_M_X64) || defined(__i386__) || \
-    defined(__i386) || defined(__amd64__)
-#  ifdef EARLY_BETA_OR_EARLIER
+#ifdef EARLY_BETA_OR_EARLIER
     APPEND_TO_DRIVER_BLOCKLIST2(OperatingSystem::Windows, DeviceFamily::All,
                                 nsIGfxInfo::FEATURE_WEBRENDER_SOFTWARE,
                                 nsIGfxInfo::FEATURE_ALLOW_ALWAYS,
                                 DRIVER_COMPARISON_IGNORED, V(0, 0, 0, 0),
                                 "FEATURE_ROLLOUT_EARLY_BETA_SOFTWARE_WR");
-#  endif
 #endif
 
 #if defined(_M_X64) || defined(__amd64__)

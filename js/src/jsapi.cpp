@@ -1544,15 +1544,15 @@ static void SetNativeStackLimit(JSContext* cx, JS::StackKind kind,
   if (stackSize == 0) {
     cx->nativeStackLimit[kind] = UINTPTR_MAX;
   } else {
-    MOZ_ASSERT(cx->nativeStackBase <= size_t(-1) - stackSize);
-    cx->nativeStackLimit[kind] = cx->nativeStackBase + stackSize - 1;
+    MOZ_ASSERT(cx->nativeStackBase() <= size_t(-1) - stackSize);
+    cx->nativeStackLimit[kind] = cx->nativeStackBase() + stackSize - 1;
   }
 #else
   if (stackSize == 0) {
     cx->nativeStackLimit[kind] = 0;
   } else {
-    MOZ_ASSERT(cx->nativeStackBase >= stackSize);
-    cx->nativeStackLimit[kind] = cx->nativeStackBase - (stackSize - 1);
+    MOZ_ASSERT(cx->nativeStackBase() >= stackSize);
+    cx->nativeStackLimit[kind] = cx->nativeStackBase() - (stackSize - 1);
   }
 #endif
 }
@@ -5431,9 +5431,7 @@ JS_PUBLIC_API bool JS_CharsToId(JSContext* cx, JS::TwoByteChars chars,
     return false;
   }
 #ifdef DEBUG
-  uint32_t dummy;
-  MOZ_ASSERT(!atom->isIndex(&dummy),
-             "API misuse: |chars| must not encode an index");
+  MOZ_ASSERT(!atom->isIndex(), "API misuse: |chars| must not encode an index");
 #endif
   idp.set(AtomToId(atom));
   return true;

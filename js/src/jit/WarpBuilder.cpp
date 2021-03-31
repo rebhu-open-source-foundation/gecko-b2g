@@ -268,11 +268,6 @@ bool WarpBuilder::startNewOsrPreHeaderBlock(BytecodeLocation loopHead) {
     return false;
   }
 
-  // Give the preheader block the same hit count as the code before the loop.
-  if (pred->getHitState() == MBasicBlock::HitState::Count) {
-    current->setHitCount(pred->getHitCount());
-  }
-
   return true;
 }
 
@@ -2048,6 +2043,18 @@ bool WarpBuilder::build_PushLexicalEnv(BytecodeLocation loc) {
   return true;
 }
 
+bool WarpBuilder::build_PushClassBodyEnv(BytecodeLocation loc) {
+  MOZ_ASSERT(usesEnvironmentChain());
+
+  ClassBodyScope* scope = &loc.getScope(script_)->as<ClassBodyScope>();
+  MDefinition* env = current->environmentChain();
+
+  auto* ins = MNewClassBodyEnvironmentObject::New(alloc(), env, scope);
+  current->add(ins);
+  current->setEnvironmentChain(ins);
+  return true;
+}
+
 bool WarpBuilder::build_PopLexicalEnv(BytecodeLocation) {
   MDefinition* enclosingEnv = walkEnvironmentChain(1);
   current->setEnvironmentChain(enclosingEnv);
@@ -3306,10 +3313,9 @@ bool WarpBuilder::buildIC(BytecodeLocation loc, CacheKind kind,
 bool WarpBuilder::buildBailoutForColdIC(BytecodeLocation loc, CacheKind kind) {
   MOZ_ASSERT(loc.opHasIC());
 
-  // TODO: ideally we would terminate the block here and set the implicitly-used
-  // flag for skipped bytecode ops. OSR makes this more tricky though.
   MBail* bail = MBail::New(alloc(), BailoutKind::FirstExecution);
   current->add(bail);
+  current->setAlwaysBails();
 
   MIRType resultType;
   switch (kind) {

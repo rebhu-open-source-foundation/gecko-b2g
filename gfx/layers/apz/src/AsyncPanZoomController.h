@@ -451,6 +451,11 @@ class AsyncPanZoomController {
   bool IsFlingingFast() const;
 
   /**
+   * Returns whether this APZC is currently autoscrolling.
+   */
+  bool IsAutoscroll() const { return mState == AUTOSCROLL; }
+
+  /**
    * Returns the identifier of the touch in the last touch event processed by
    * this APZC. This should only be called when the last touch event contained
    * only one touch.
@@ -1443,6 +1448,9 @@ class AsyncPanZoomController {
   // Start an overscroll animation with the given initial velocity.
   void StartOverscrollAnimation(const ParentLayerPoint& aVelocity);
 
+  // Return the directions in which this APZC allows overscrolling.
+  ScrollDirections GetOverscrollableDirections() const;
+
   // Start a smooth-scrolling animation to the given destination, with physics
   // based on the prefs for the indicated origin.
   void SmoothScrollTo(const CSSPoint& aDestination,
@@ -1625,9 +1633,10 @@ class AsyncPanZoomController {
   // its composition bounds.
   bool Contains(const ScreenIntPoint& aPoint) const;
 
-  bool IsOverscrolled() const {
-    return mX.IsOverscrolled() || mY.IsOverscrolled();
-  }
+  bool IsInOverscrollGutter(const ScreenPoint& aPoint) const;
+  bool IsInOverscrollGutter(const ParentLayerPoint& aPoint) const;
+
+  bool IsOverscrolled() const;
 
   bool IsInPanningState() const;
 

@@ -51,6 +51,9 @@ const { gDevTools } = require("devtools/client/framework/devtools");
 const {
   TabDescriptorFactory,
 } = require("devtools/client/framework/tab-descriptor-factory");
+const {
+  CommandsFactory,
+} = require("devtools/shared/commands/commands-factory");
 const DevToolsUtils = require("devtools/shared/DevToolsUtils");
 
 // This is overridden in files that load shared-head via loadSubScript.
@@ -465,7 +468,9 @@ async function navigateTo(uri, { isErrorPage = false } = {}) {
   // Navigating from/to pages loaded in the parent process, like about:robots,
   // also spawn new targets.
   // (If target switching is disabled, the toolbox will reboot)
-  const onTargetSwitched = toolbox.targetList.once("switched-target");
+  const onTargetSwitched = toolbox.commands.targetCommand.once(
+    "switched-target"
+  );
   // Otherwise, if we don't switch target, it is safe to wait for navigate event.
   const onNavigate = target.once("navigate");
 
@@ -534,8 +539,13 @@ async function navigateTo(uri, { isErrorPage = false } = {}) {
 async function createAndAttachTargetForTab(tab) {
   info("Creating and attaching to a local tab target");
 
-  const descriptor = await TabDescriptorFactory.createDescriptorForTab(tab);
-  const target = await descriptor.getTarget();
+  const commands = await CommandsFactory.forTab(tab);
+
+  // Initialize the TargetCommands which require some async stuff to be done
+  // before being fully ready. This will define the `targetCommand.targetFront` attribute.
+  await commands.targetCommand.startListening();
+
+  const target = commands.targetCommand.targetFront;
   await target.attach();
   return target;
 }
@@ -596,37 +606,6 @@ var openInspectorForURL = async function(url, hostType) {
 async function getActiveInspector() {
   const toolbox = await gDevTools.getToolboxForTab(gBrowser.selectedTab);
   return toolbox.getPanel("inspector");
-}
-
-/**
- * Simulate a key event from a <key> element.
- * @param {DOMNode} key
- */
-function synthesizeKeyFromKeyTag(key) {
-  is(key && key.tagName, "key", "Successfully retrieved the <key> node");
-
-  const modifiersAttr = key.getAttribute("modifiers");
-
-  let name = null;
-
-  if (key.getAttribute("keycode")) {
-    name = key.getAttribute("keycode");
-  } else if (key.getAttribute("key")) {
-    name = key.getAttribute("key");
-  }
-
-  isnot(name, null, "Successfully retrieved keycode/key");
-
-  const modifiers = {
-    shiftKey: !!modifiersAttr.match("shift"),
-    ctrlKey: !!modifiersAttr.match("control"),
-    altKey: !!modifiersAttr.match("alt"),
-    metaKey: !!modifiersAttr.match("meta"),
-    accelKey: !!modifiersAttr.match("accel"),
-  };
-
-  info("Synthesizing key " + name + " " + JSON.stringify(modifiers));
-  EventUtils.synthesizeKey(name, modifiers);
 }
 
 /**

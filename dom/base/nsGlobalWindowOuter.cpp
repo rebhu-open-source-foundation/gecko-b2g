@@ -1255,21 +1255,15 @@ already_AddRefed<nsIPrincipal> nsOuterWindowProxy::GetNoPDFJSPrincipal(
     return nullptr;
   }
 
-  Document* doc = inner->GetExtantDoc();
-  if (!doc) {
-    return nullptr;
+  if (Document* doc = inner->GetExtantDoc()) {
+    if (nsCOMPtr<nsIPropertyBag2> propBag =
+            do_QueryInterface(doc->GetChannel())) {
+      nsCOMPtr<nsIPrincipal> principal(
+          do_GetProperty(propBag, u"noPDFJSPrincipal"_ns));
+      return principal.forget();
+    }
   }
-
-  nsCOMPtr<nsIPropertyBag2> propBag(do_QueryInterface(doc->GetChannel()));
-  if (!propBag) {
-    return nullptr;
-  }
-
-  nsCOMPtr<nsIPrincipal> principal;
-  propBag->GetPropertyAsInterface(u"noPDFJSPrincipal"_ns,
-                                  NS_GET_IID(nsIPrincipal),
-                                  getter_AddRefs(principal));
-  return principal.forget();
+  return nullptr;
 }
 
 const nsOuterWindowProxy nsOuterWindowProxy::singleton;
@@ -3071,31 +3065,16 @@ void nsPIDOMWindowOuter::MaybeNotifyMediaResumedFromBlock(
 
 bool nsPIDOMWindowOuter::GetAudioMuted() const {
   BrowsingContext* bc = GetBrowsingContext();
-  return bc ? bc->Top()->GetMuted() : false;
-}
-
-float nsPIDOMWindowOuter::GetAudioVolume() const { return mAudioVolume; }
-
-nsresult nsPIDOMWindowOuter::SetAudioVolume(float aVolume) {
-  if (aVolume < 0.0) {
-    return NS_ERROR_DOM_INDEX_SIZE_ERR;
-  }
-
-  if (mAudioVolume == aVolume) {
-    return NS_OK;
-  }
-
-  mAudioVolume = aVolume;
-  RefreshMediaElementsVolume();
-  return NS_OK;
+  return bc && bc->Top()->GetMuted();
 }
 
 void nsPIDOMWindowOuter::RefreshMediaElementsVolume() {
   RefPtr<AudioChannelService> service = AudioChannelService::GetOrCreate();
   if (service) {
+    // TODO: RefreshAgentsVolume can probably be simplified further.
     service->RefreshAgentsVolume(this,
                                  AudioChannelService::GetDefaultAudioChannel(),
-                                 GetAudioVolume(), GetAudioMuted());
+                                 1.0f, GetAudioMuted());
   }
 }
 
@@ -7666,7 +7645,6 @@ nsPIDOMWindowOuter::nsPIDOMWindowOuter(uint64_t aWindowID)
       mMediaSuspend(StaticPrefs::media_block_autoplay_until_in_foreground()
                         ? nsISuspendedTypes::SUSPENDED_BLOCK
                         : nsISuspendedTypes::NONE_SUSPENDED),
-      mAudioVolume(1.0),
       mDesktopModeViewport(false),
       mIsRootOuterWindow(false),
       mInnerWindow(nullptr),

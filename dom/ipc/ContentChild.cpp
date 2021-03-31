@@ -86,6 +86,7 @@
 #  include "mozilla/dom/bluetooth/PBluetoothChild.h"
 #endif
 #include "mozilla/dom/ipc/SharedMap.h"
+#include "mozilla/extensions/ExtensionsChild.h"
 #include "mozilla/extensions/StreamFilterParent.h"
 #include "mozilla/gfx/Logging.h"
 #include "mozilla/gfx/gfxVars.h"
@@ -659,7 +660,7 @@ NS_INTERFACE_MAP_END
 
 mozilla::ipc::IPCResult ContentChild::RecvSetXPCOMProcessAttributes(
     XPCOMInitData&& aXPCOMInit, const StructuredCloneData& aInitialData,
-    LookAndFeelData&& aLookAndFeelData,
+    FullLookAndFeel&& aLookAndFeelData,
     nsTArray<SystemFontListEntry>&& aFontList,
     const Maybe<SharedMemoryHandle>& aSharedUASheetHandle,
     const uintptr_t& aSharedUASheetAddress,
@@ -2568,17 +2569,8 @@ mozilla::ipc::IPCResult ContentChild::RecvNotifyVisited(
 }
 
 mozilla::ipc::IPCResult ContentChild::RecvThemeChanged(
-    LookAndFeelData&& aLookAndFeelData, widget::ThemeChangeKind aKind) {
-  switch (aLookAndFeelData.type()) {
-    case LookAndFeelData::TLookAndFeelCache:
-      LookAndFeel::SetCache(aLookAndFeelData.get_LookAndFeelCache());
-      break;
-    case LookAndFeelData::TFullLookAndFeel:
-      LookAndFeel::SetData(std::move(aLookAndFeelData.get_FullLookAndFeel()));
-      break;
-    default:
-      MOZ_ASSERT(false, "unreachable");
-  }
+    FullLookAndFeel&& aLookAndFeelData, widget::ThemeChangeKind aKind) {
+  LookAndFeel::SetData(std::move(aLookAndFeelData));
   LookAndFeel::NotifyChangedAllWindows(aKind);
   return IPC_OK();
 }
@@ -3105,7 +3097,7 @@ void ContentChild::AddIdleObserver(nsIObserver* aObserver,
   // Make sure aObserver isn't released while we wait for the parent
   aObserver->AddRef();
   SendAddIdleObserver(reinterpret_cast<uint64_t>(aObserver), aIdleTimeInS);
-  mIdleObservers.PutEntry(aObserver);
+  mIdleObservers.Insert(aObserver);
 }
 
 void ContentChild::RemoveIdleObserver(nsIObserver* aObserver,
@@ -3113,7 +3105,7 @@ void ContentChild::RemoveIdleObserver(nsIObserver* aObserver,
   MOZ_ASSERT(aObserver, "null idle observer");
   SendRemoveIdleObserver(reinterpret_cast<uint64_t>(aObserver), aIdleTimeInS);
   aObserver->Release();
-  mIdleObservers.RemoveEntry(aObserver);
+  mIdleObservers.Remove(aObserver);
 }
 
 mozilla::ipc::IPCResult ContentChild::RecvNotifyIdleObserver(
@@ -3249,7 +3241,8 @@ void ContentChild::ForceKillTimerCallback(nsITimer* aTimer, void* aClosure) {
 mozilla::ipc::IPCResult ContentChild::RecvShutdown() {
   // Signal the ongoing shutdown to AppShutdown, this
   // will make abort nested SpinEventLoopUntilOrQuit loops
-  AppShutdown::AdvanceShutdownPhase(ShutdownPhase::AppShutdownConfirmed);
+  AppShutdown::AdvanceShutdownPhaseWithoutNotify(
+      ShutdownPhase::AppShutdownConfirmed);
 
   nsCOMPtr<nsIObserverService> os = services::GetObserverService();
   if (os) {
@@ -4704,6 +4697,21 @@ mozilla::ipc::IPCResult ContentChild::RecvCanSavePresentation(
   if (!resolved) {
     aResolver(nsIContentViewer::eAllowNavigation);
   }
+}
+
+mozilla::ipc::IPCResult ContentChild::RecvFlushTabState(
+    const MaybeDiscarded<BrowsingContext>& aContext,
+    FlushTabStateResolver&& aResolver) {
+  if (aContext.IsNullOrDiscarded()) {
+    aResolver(false);
+    return IPC_OK();
+  }
+
+  aContext->FlushSessionStore();
+
+  aResolver(true);
+
+  return IPC_OK();
 }
 
 mozilla::ipc::IPCResult ContentChild::RecvGoBack(

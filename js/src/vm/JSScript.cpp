@@ -263,15 +263,14 @@ XDRResult BaseScript::XDRLazyScriptData(XDRState<mode>* xdr,
   RootedFunction func(cx);
 
   if (lazy->useMemberInitializers()) {
-    uint32_t numMemberInitializers;
+    uint32_t bits;
     if (mode == XDR_ENCODE) {
       MOZ_ASSERT(lazy->getMemberInitializers().valid);
-      numMemberInitializers =
-          lazy->getMemberInitializers().numMemberInitializers;
+      bits = lazy->getMemberInitializers().serialize();
     }
-    MOZ_TRY(xdr->codeUint32(&numMemberInitializers));
+    MOZ_TRY(xdr->codeUint32(&bits));
     if (mode == XDR_DECODE) {
-      lazy->setMemberInitializers(MemberInitializers(numMemberInitializers));
+      lazy->setMemberInitializers(MemberInitializers::deserialize(bits));
     }
   }
 
@@ -497,8 +496,10 @@ static XDRResult XDRScope(XDRState<mode>* xdr, js::PrivateScriptData* data,
     case ScopeKind::NamedLambda:
     case ScopeKind::StrictNamedLambda:
     case ScopeKind::FunctionLexical:
-    case ScopeKind::ClassBody:
       MOZ_TRY(LexicalScope::XDR(xdr, scopeKind, enclosing, scope));
+      break;
+    case ScopeKind::ClassBody:
+      MOZ_TRY(ClassBodyScope::XDR(xdr, scopeKind, enclosing, scope));
       break;
     case ScopeKind::With:
       MOZ_TRY(WithScope::XDR(xdr, enclosing, scope));
@@ -817,15 +818,14 @@ XDRResult js::PrivateScriptData::XDR(XDRState<mode>* xdr, HandleScript script,
 
   // Code the field initializer data.
   if (script->useMemberInitializers()) {
-    uint32_t numMemberInitializers;
+    uint32_t bits;
     if (mode == XDR_ENCODE) {
       MOZ_ASSERT(data->getMemberInitializers().valid);
-      numMemberInitializers =
-          data->getMemberInitializers().numMemberInitializers;
+      bits = data->getMemberInitializers().serialize();
     }
-    MOZ_TRY(xdr->codeUint32(&numMemberInitializers));
+    MOZ_TRY(xdr->codeUint32(&bits));
     if (mode == XDR_DECODE) {
-      data->setMemberInitializers(MemberInitializers(numMemberInitializers));
+      data->setMemberInitializers(MemberInitializers::deserialize(bits));
     }
   }
 
@@ -1519,20 +1519,6 @@ uint64_t JSScript::getHitCount(jsbytecode* pc) {
     count -= throwCount->numExec();
     targetOffset = throwCount->pcOffset() - 1;
   } while (true);
-}
-
-void JSScript::incHitCount(jsbytecode* pc) {
-  MOZ_ASSERT(containsPC(pc));
-  if (pc < main()) {
-    pc = main();
-  }
-
-  ScriptCounts& sc = getScriptCounts();
-  js::PCCounts* baseCount = sc.getImmediatePrecedingPCCounts(pcToOffset(pc));
-  if (!baseCount) {
-    return;
-  }
-  baseCount->numExec()++;
 }
 
 void JSScript::addIonCounts(jit::IonScriptCounts* ionCounts) {
@@ -4635,6 +4621,8 @@ size_t JSScript::calculateLiveFixed(jsbytecode* pc) {
         nlivefixed = scope->as<LexicalScope>().nextFrameSlot();
       } else if (scope->is<VarScope>()) {
         nlivefixed = scope->as<VarScope>().nextFrameSlot();
+      } else if (scope->is<ClassBodyScope>()) {
+        nlivefixed = scope->as<ClassBodyScope>().nextFrameSlot();
       }
     }
   }
@@ -4839,8 +4827,10 @@ bool JSScript::formalIsAliased(unsigned argSlot) {
   MOZ_CRASH("Argument slot not found");
 }
 
-bool JSScript::anyFormalIsAliased() {
-  if (functionHasParameterExprs()) {
+// Returns true if any formal argument is mapped by the arguments
+// object, but lives in the call object.
+bool JSScript::anyFormalIsForwarded() {
+  if (!argsObjAliasesFormals()) {
     return false;
   }
 

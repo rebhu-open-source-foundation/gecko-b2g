@@ -24,14 +24,18 @@ appmenuitem-find-in-page =
     .label = Find In Page…
 appmenuitem-more-tools =
     .label = More Tools
-appmenuitem-exit =
-    .label = Exit
-appmenu-menu-button-closed =
+appmenuitem-exit2 =
+    .label =
+        { PLATFORM() ->
+            [linux] Quit
+           *[other] Exit
+        }
+appmenu-menu-button-closed2 =
     .tooltiptext = Open Application Menu
-    .label = { -brand-shorter-name }
-appmenu-menu-button-opened =
+    .label = { -brand-short-name }
+appmenu-menu-button-opened2 =
     .tooltiptext = Close Application Menu
-    .label = { -brand-shorter-name }
+    .label = { -brand-short-name }
 
 # Settings is now used to access the browser settings across all platforms,
 # instead of Options or Preferences.
@@ -49,6 +53,11 @@ appmenuitem-fullscreen =
 
 ## Firefox Account toolbar button and Sync panel in App menu.
 
+appmenu-remote-tabs-sign-into-sync =
+  .label = Sign in to Sync…
+appmenu-remote-tabs-turn-on-sync =
+  .label = Turn on Sync…
+
 appmenuitem-fxa-toolbar-sync-now2 = Sync Now
 appmenuitem-fxa-manage-account = Manage Account
 appmenu-fxa-header =
@@ -59,7 +68,7 @@ appmenu-fxa-header =
 appmenu-fxa-last-sync = Last synced { $time }
     .label = Last synced { $time }
 appmenu-fxa-sync-and-save-data =
-    .value = Sync and Save Data
+    .value = Sync and save data
 appmenu-fxa-signed-in-label = Sign In
 appmenu-fxa-setup-sync =
     .label = Turn On Syncing…

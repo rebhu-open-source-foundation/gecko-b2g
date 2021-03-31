@@ -21,9 +21,6 @@ namespace js {
 
 class ArrayObject;
 
-/* 2^32-2, inclusive */
-const uint32_t MAX_ARRAY_INDEX = 4294967294u;
-
 MOZ_ALWAYS_INLINE bool IdIsIndex(jsid id, uint32_t* indexp) {
   if (JSID_IS_INT(id)) {
     int32_t i = JSID_TO_INT(id);
@@ -37,12 +34,7 @@ MOZ_ALWAYS_INLINE bool IdIsIndex(jsid id, uint32_t* indexp) {
   }
 
   JSAtom* atom = JSID_TO_ATOM(id);
-  if (atom->length() == 0 ||
-      !mozilla::IsAsciiDigit(atom->latin1OrTwoByteChar(0))) {
-    return false;
-  }
-
-  return js::StringIsArrayIndex(atom, indexp);
+  return atom->isIndex(indexp);
 }
 
 // The methods below only create dense boxed arrays.
@@ -156,6 +148,12 @@ extern bool ObjectMayHaveExtraIndexedProperties(JSObject* obj);
 
 // JS::IsArray has multiple overloads, use js::IsArrayFromJit to disambiguate.
 extern bool IsArrayFromJit(JSContext* cx, HandleObject obj, bool* isArray);
+
+extern bool ArrayLengthGetter(JSContext* cx, HandleObject obj, HandleId id,
+                              MutableHandleValue vp);
+
+extern bool ArrayLengthSetter(JSContext* cx, HandleObject obj, HandleId id,
+                              HandleValue v, ObjectOpResult& result);
 
 class MOZ_NON_TEMPORARY_CLASS ArraySpeciesLookup final {
   /*

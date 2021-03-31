@@ -3971,6 +3971,19 @@ void CodeGenerator::visitNewLexicalEnvironmentObject(
   callVM<Fn, BlockLexicalEnvironmentObject::create>(lir);
 }
 
+void CodeGenerator::visitNewClassBodyEnvironmentObject(
+    LNewClassBodyEnvironmentObject* lir) {
+  pushArg(Imm32(gc::DefaultHeap));
+  pushArg(ToRegister(lir->enclosing()));
+  pushArg(ImmGCPtr(lir->mir()->scope()));
+
+  using Fn =
+      ClassBodyLexicalEnvironmentObject* (*)(JSContext*,
+                                             Handle<ClassBodyScope*>,
+                                             HandleObject, gc::InitialHeap);
+  callVM<Fn, ClassBodyLexicalEnvironmentObject::create>(lir);
+}
+
 void CodeGenerator::visitCopyLexicalEnvironmentObject(
     LCopyLexicalEnvironmentObject* lir) {
   pushArg(Imm32(lir->mir()->copySlots()));
@@ -12111,8 +12124,7 @@ void CodeGenerator::addGetPropertyCache(LInstruction* ins,
   CacheKind kind = CacheKind::GetElem;
   if (id.constant() && id.value().isString()) {
     JSString* idString = id.value().toString();
-    uint32_t dummy;
-    if (idString->isAtom() && !idString->asAtom().isIndex(&dummy)) {
+    if (idString->isAtom() && !idString->asAtom().isIndex()) {
       kind = CacheKind::GetProp;
     }
   }
@@ -12129,8 +12141,7 @@ void CodeGenerator::addSetPropertyCache(LInstruction* ins,
   CacheKind kind = CacheKind::SetElem;
   if (id.constant() && id.value().isString()) {
     JSString* idString = id.value().toString();
-    uint32_t dummy;
-    if (idString->isAtom() && !idString->asAtom().isIndex(&dummy)) {
+    if (idString->isAtom() && !idString->asAtom().isIndex()) {
       kind = CacheKind::SetProp;
     }
   }
@@ -12178,8 +12189,7 @@ void CodeGenerator::visitGetPropSuperCache(LGetPropSuperCache* ins) {
   CacheKind kind = CacheKind::GetElemSuper;
   if (id.constant() && id.value().isString()) {
     JSString* idString = id.value().toString();
-    uint32_t dummy;
-    if (idString->isAtom() && !idString->asAtom().isIndex(&dummy)) {
+    if (idString->isAtom() && !idString->asAtom().isIndex()) {
       kind = CacheKind::GetPropSuper;
     }
   }
@@ -14177,10 +14187,25 @@ void CodeGenerator::visitWasmTrap(LWasmTrap* lir) {
 
 void CodeGenerator::visitWasmBoundsCheck(LWasmBoundsCheck* ins) {
   const MWasmBoundsCheck* mir = ins->mir();
+  Label ok;
   Register ptr = ToRegister(ins->ptr());
   Register boundsCheckLimit = ToRegister(ins->boundsCheckLimit());
-  Label ok;
   masm.wasmBoundsCheck32(Assembler::Below, ptr, boundsCheckLimit, &ok);
+  masm.wasmTrap(wasm::Trap::OutOfBounds, mir->bytecodeOffset());
+  masm.bind(&ok);
+}
+
+void CodeGenerator::visitWasmBoundsCheck64(LWasmBoundsCheck64* ins) {
+  const MWasmBoundsCheck* mir = ins->mir();
+  Label ok;
+#ifdef JS_64BIT
+  Register64 ptr = ToRegister64(ins->ptr());
+  Register64 boundsCheckLimit = ToRegister64(ins->boundsCheckLimit());
+  masm.wasmBoundsCheck64(Assembler::Below, ptr, boundsCheckLimit, &ok);
+#else
+  // 64-bit bounds checks are used only on 64-bit systems.
+  MOZ_CRASH("Should not happen");
+#endif
   masm.wasmTrap(wasm::Trap::OutOfBounds, mir->bytecodeOffset());
   masm.bind(&ok);
 }
@@ -14204,6 +14229,12 @@ void CodeGenerator::visitWasmLoadTls(LWasmLoadTls* ins) {
       masm.load32(Address(ToRegister(ins->tlsPtr()), ins->mir()->offset()),
                   ToRegister(ins->output()));
       break;
+#ifdef JS_64BIT
+    case MIRType::Int64:
+      masm.load64(Address(ToRegister(ins->tlsPtr()), ins->mir()->offset()),
+                  ToOutRegister64(ins));
+      break;
+#endif
     default:
       MOZ_CRASH("MIRType not supported in WasmLoadTls");
   }

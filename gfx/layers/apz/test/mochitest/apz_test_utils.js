@@ -249,7 +249,13 @@ function promiseAfterPaint() {
   });
 }
 
-function promiseApzRepaintsFlushed(aWindow = window) {
+// This waits until any pending events on the APZ controller thread are
+// processed, and any resulting repaint requests are received by the main
+// thread. Note that while the repaint requests do get processed by the
+// APZ handler on the main thread, the repaints themselves may not have
+// occurred by the the returned promise resolves. If you want to wait
+// for those repaints, consider using promiseApzFlushedRepaints instead.
+function promiseOnlyApzControllerFlushed(aWindow = window) {
   return new Promise(function(resolve, reject) {
     var repaintDone = function() {
       dump("PromiseApzRepaintsFlushed: APZ flush done\n");
@@ -284,7 +290,7 @@ function promiseApzRepaintsFlushed(aWindow = window) {
 // most tests.
 async function promiseApzFlushedRepaints() {
   await promiseAllPaintsDone();
-  await promiseApzRepaintsFlushed();
+  await promiseOnlyApzControllerFlushed();
   await promiseAllPaintsDone();
 }
 
@@ -583,7 +589,7 @@ async function waitUntilApzStable() {
   dump("WaitUntilApzStable: done promiseFocus\n");
   await promiseAllPaintsDone();
   dump("WaitUntilApzStable: done promiseAllPaintsDone\n");
-  await promiseApzRepaintsFlushed();
+  await promiseOnlyApzControllerFlushed();
   dump("WaitUntilApzStable: all done\n");
 }
 
@@ -609,7 +615,7 @@ async function forceLayerTreeToCompositor() {
     }
   }
   await promiseAllPaintsDone(null, true);
-  await promiseApzRepaintsFlushed();
+  await promiseOnlyApzControllerFlushed();
 }
 
 function isApzEnabled() {
@@ -1148,7 +1154,7 @@ function assertNotCheckerboarded(utils, scrollerId, msgPrefix) {
 async function waitToClearOutAnyPotentialScrolls(aWindow) {
   await promiseFrame(aWindow);
   await promiseFrame(aWindow);
-  await promiseApzRepaintsFlushed(aWindow);
+  await promiseOnlyApzControllerFlushed(aWindow);
   await promiseFrame(aWindow);
   await promiseFrame(aWindow);
 }
@@ -1156,5 +1162,53 @@ async function waitToClearOutAnyPotentialScrolls(aWindow) {
 function waitForScrollEvent(target) {
   return new Promise(resolve => {
     target.addEventListener("scroll", resolve, { once: true });
+  });
+}
+
+// This is a simplified/combined version of promiseOnlyApzControllerFlushed and
+// promiseAllPaintsDone.  We need this function because, unfortunately, there is
+// no easy way to use paint_listeners.js' functions and apz_test_utils.js'
+// functions in popup contents opened by extensions either as scripts in the
+// popup contents or scripts inside SpecialPowers.spawn because we can't use
+// privileged functions in the popup contents' script, we can't use functions
+// basically as it as in the sandboxed context either.
+async function flushApzRepaintsInPopup(popup) {
+  // Flush APZ repaints and waits for MozAfterPaint.
+  await SpecialPowers.spawn(popup, [], async () => {
+    return new Promise(resolve => {
+      const utils = SpecialPowers.getDOMWindowUtils(content.window);
+      var repaintDone = function() {
+        dump("APZ flush done\n");
+        SpecialPowers.Services.obs.removeObserver(
+          repaintDone,
+          "apz-repaints-flushed"
+        );
+        if (utils.isMozAfterPaintPending) {
+          dump("Waits for a MozAfterPaint event\n");
+          content.window.addEventListener(
+            "MozAfterPaint",
+            () => {
+              dump("Got a MozAfterPaint event\n");
+              resolve();
+            },
+            { once: true }
+          );
+        } else {
+          content.window.setTimeout(resolve, 0);
+        }
+      };
+      SpecialPowers.Services.obs.addObserver(
+        repaintDone,
+        "apz-repaints-flushed"
+      );
+      if (utils.flushApzRepaints()) {
+        dump("Flushed APZ repaints, waiting for callback...\n");
+      } else {
+        dump(
+          "Flushing APZ repaints was a no-op, triggering callback directly...\n"
+        );
+        repaintDone();
+      }
+    });
   });
 }

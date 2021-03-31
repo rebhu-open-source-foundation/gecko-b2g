@@ -42,7 +42,7 @@
 @supports -moz-bool-pref("browser.proton.enabled") {
 :root[uidensity=touch] #urlbar-container,
 :root[uidensity=touch] #search-container {
-  padding-block: 6px;
+  padding-block: 5px;
 }
 }
 
@@ -485,18 +485,6 @@
   fill: var(--toolbarbutton-icon-fill-attention);
 }
 
-#pocket-button,
-#pageAction-panel-pocket {
-  list-style-image: url("chrome://browser/skin/pocket-outline.svg");
-}
-
-#pocket-button[open="true"],
-#pocket-button[pocketed="true"] {
-  list-style-image: url("chrome://global/skin/icons/pocket.svg");
-  fill: #ef4056;
-  fill-opacity: 1;
-}
-
 #pageAction-panel-pinTab,
 #pageAction-urlbar-pinTab {
   list-style-image: url("chrome://browser/skin/pin-tab.svg");
@@ -570,10 +558,6 @@
   height: 11px;
   min-width: 11px;
   min-height: 11px;
-}
-
-#pageActionActivatedActionPanel[actionID="pocket"] {
-  --arrowpanel-background: #fbfbfb;
 }
 
 /* URL bar and page action buttons */
@@ -902,10 +886,10 @@
   appearance: none;
   color: inherit;
   font-size: .8em;
-  padding: 0 8px;
-  border-radius: 1em;
+  padding: 3px 7px;
+  border-radius: var(--toolbarbutton-border-radius);
   background-color: var(--urlbar-box-bgcolor);
-  margin-block: calc((var(--urlbar-min-height) - var(--urlbar-container-padding) - 2px /* border */ - 18px) / 2);
+  margin-block: calc((var(--urlbar-min-height) - 20px) / 2 - 1px /* border */ - var(--urlbar-container-padding));
   overflow: hidden;
 }
 
@@ -938,6 +922,9 @@
 #urlbar-zoom-button {
   background-color: hsla(0,0%,0%,.05);
   border: 1px solid hsla(210,4%,50%,.3);
+  border-radius: 1em;
+  padding: 0 8px;
+  margin-block: calc((var(--urlbar-min-height) - 18px) / 2  - 1px /* border */ - var(--urlbar-container-padding));
 }
 
 #urlbar-zoom-button:hover {
@@ -1041,6 +1028,14 @@ moz-input-box > menupopup .context-menu-add-engine > .menu-iconic-left::after {
   width: 11px;
   margin-inline: -4px -7px;
   margin-top: -13px;
+}
+
+#urlbar .searchbar-separator {
+  display: none;
+}
+
+#urlbar .search-one-offs {
+  border-top: 1px solid var(--panel-separator-color);
 }
 
 moz-input-box > menupopup .context-menu-add-engine > .menu-iconic-left::after {

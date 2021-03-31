@@ -24,7 +24,7 @@
 #include "nsRefPtrHashtable.h"
 #include "nsString.h"
 #include "nsTArrayForwardDeclare.h"
-#include "nsTHashtable.h"
+#include "nsTHashSet.h"
 
 #if defined(XP_MACOSX) && defined(MOZ_SANDBOX)
 #  include "nsIFile.h"
@@ -57,8 +57,6 @@ class PScriptCacheChild;
 namespace widget {
 enum class ThemeChangeKind : uint8_t;
 }
-
-using mozilla::loader::PScriptCacheChild;
 
 #if !defined(XP_WIN)
 // Returns whether or not the currently running build is an unpackaged
@@ -332,7 +330,7 @@ class ContentChild final : public PContentChild,
 
   mozilla::ipc::IPCResult RecvNotifyVisited(nsTArray<VisitedQueryResult>&&);
 
-  mozilla::ipc::IPCResult RecvThemeChanged(LookAndFeelData&& aLookAndFeelData,
+  mozilla::ipc::IPCResult RecvThemeChanged(FullLookAndFeel&&,
                                            widget::ThemeChangeKind);
 
   mozilla::ipc::IPCResult RecvUpdateSystemParameters(
@@ -587,7 +585,7 @@ class ContentChild final : public PContentChild,
 
   mozilla::ipc::IPCResult RecvSetXPCOMProcessAttributes(
       XPCOMInitData&& aXPCOMInit, const StructuredCloneData& aInitialData,
-      LookAndFeelData&& aLookAndFeelData,
+      FullLookAndFeel&& aLookAndFeelData,
       nsTArray<SystemFontListEntry>&& aFontList,
       const Maybe<base::SharedMemoryHandle>& aSharedUASheetHandle,
       const uintptr_t& aSharedUASheetAddress,
@@ -649,7 +647,7 @@ class ContentChild final : public PContentChild,
   bool DeallocPSessionStorageObserverChild(
       PSessionStorageObserverChild* aActor);
 
-  LookAndFeelData& BorrowLookAndFeelData() { return mLookAndFeelData; }
+  FullLookAndFeel& BorrowLookAndFeelData() { return mLookAndFeelData; }
 
   /**
    * Helper function for protocols that use the GPU process when available.
@@ -928,6 +926,10 @@ class ContentChild final : public PContentChild,
       Maybe<uint64_t> aDocumentChannelId,
       CanSavePresentationResolver&& aResolve);
 
+  mozilla::ipc::IPCResult RecvFlushTabState(
+      const MaybeDiscarded<BrowsingContext>& aContext,
+      FlushTabStateResolver&& aResolver);
+
  public:
   static void DispatchBeforeUnloadToSubtree(
       BrowsingContext* aStartingAt,
@@ -952,7 +954,7 @@ class ContentChild final : public PContentChild,
   nsTArray<mozilla::UniquePtr<AlertObserver>> mAlertObservers;
   RefPtr<ConsoleListener> mConsoleListener;
 
-  nsTHashtable<nsPtrHashKey<nsIObserver>> mIdleObservers;
+  nsTHashSet<nsIObserver*> mIdleObservers;
 
   nsTArray<nsCString> mAvailableDictionaries;
 
@@ -961,7 +963,7 @@ class ContentChild final : public PContentChild,
   // only on MacOSX and Linux.
   nsTArray<mozilla::dom::SystemFontListEntry> mFontList;
   // Temporary storage for look and feel data.
-  LookAndFeelData mLookAndFeelData;
+  FullLookAndFeel mLookAndFeelData;
   // Temporary storage for list of shared-fontlist memory blocks.
   nsTArray<base::SharedMemoryHandle> mSharedFontListBlocks;
 

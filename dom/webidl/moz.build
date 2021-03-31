@@ -1129,7 +1129,6 @@ GENERATED_EVENTS_WEBIDL_FILES = [
     "CloseEvent.webidl",
     "DeviceLightEvent.webidl",
     "DeviceOrientationEvent.webidl",
-    "DeviceProximityEvent.webidl",
     "DeviceStorageAreaChangedEvent.webidl",
     "DeviceStorageChangeEvent.webidl",
     "DownloadEvent.webidl",

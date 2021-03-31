@@ -13,6 +13,7 @@
   --toolbar-bgcolor: var(--toolbar-non-lwt-bgcolor);
   --toolbar-bgimage: var(--toolbar-non-lwt-bgimage);
   --toolbar-color: var(--toolbar-non-lwt-textcolor);
+
   /* Note: Setting this to 0 (without px) breaks CSS calculations for OSX. */
   --space-above-tabbar: 0px;
   --tabs-navbar-shadow-size: 1px;
@@ -22,29 +23,26 @@
   --short-notification-background: #0250BB;
   --short-notification-gradient: #9059FF;
 
-  --buttons-secondary-bgcolor: color-mix(in srgb, currentColor 13%, transparent);
-  --buttons-secondary-hover-bgcolor: color-mix(in srgb, currentColor 17%, transparent);
-  --buttons-secondary-active-bgcolor: color-mix(in srgb, currentColor 30%, transparent);
-  --buttons-secondary-color: currentColor;
+  --button-bgcolor: color-mix(in srgb, currentColor 13%, transparent);
+  --button-hover-bgcolor: color-mix(in srgb, currentColor 17%, transparent);
+  --button-active-bgcolor: color-mix(in srgb, currentColor 30%, transparent);
+  --button-color: currentColor;
 
   --buttons-destructive-bgcolor: #e22850;
   --buttons-destructive-hover-bgcolor: #c50042;
   --buttons-destructive-active-bgcolor: #810220;
   --buttons-destructive-color: #fbfbfe;
 
-  --arrowpanel-dimmed: color-mix(in srgb, currentColor 17%, transparent);
-  --arrowpanel-dimmed-further: color-mix(in srgb, currentColor 30%, transparent);
-  --arrowpanel-dimmed-even-further: color-mix(in srgb, currentColor 35%, transparent);
-
   --identity-box-margin-inline: 4px;
   --identity-box-label-opacity: .8;
-  --urlbar-box-bgcolor: var(--buttons-secondary-bgcolor);
+  --urlbar-box-bgcolor: var(--button-bgcolor);
   --urlbar-box-hover-bgcolor: color-mix(in srgb, var(--urlbar-box-bgcolor), currentColor 12%);
   --urlbar-box-active-bgcolor: color-mix(in srgb, var(--urlbar-box-bgcolor), currentColor 21%);
 
   --urlbar-min-height: 32px;
   --urlbar-icon-padding: 6px; /* (32px - 2px border - 2px padding - 16px icon) / 2 */
   --urlbar-separator-color: var(--panel-separator-color);
+  --urlbar-popup-url-color: -moz-nativehyperlinktext;
 
   --lwt-additional-images: none;
   --lwt-background-alignment: right top;
@@ -63,6 +61,11 @@
 :root[uidensity=compact] {
   --urlbar-min-height: 26px;
   --urlbar-icon-padding: 3px; /* (26px - 2px border - 2px padding - 16px icon) / 2 */
+}
+
+:root[uidensity=touch] {
+  --urlbar-min-height: 34px;
+  --urlbar-icon-padding: 7px; /* (34px - 2px border - 2px padding - 16px icon) / 2 */
 }
 
 @supports not -moz-bool-pref("browser.proton.urlbar.enabled") {
@@ -310,6 +313,12 @@ menupopup::part(drop-indicator) {
 :root:not([lwtheme-image]) .browserContainer > findbar:-moz-lwtheme:-moz-window-inactive {
   background-color: var(--lwt-accent-color-inactive, var(--lwt-accent-color));
 }
+
+@supports -moz-bool-pref("browser.proton.enabled") {
+.browserContainer > findbar {
+  padding: 6px;
+}
+} /*** END proton ***/
 
 /* Private browsing and accessibility indicators */
 
@@ -796,7 +805,7 @@ menupopup::part(drop-indicator) {
 .ac-dropmarker::part(icon) {
   list-style-image: url(chrome://global/skin/icons/arrow-dropdown-12.svg);
   -moz-context-properties: fill;
-  fill: -moz-DialogText;
+  fill: var(--input-color, -moz-DialogText);
 }
 
 .ac-has-end-icon {
@@ -866,7 +875,7 @@ popupnotificationcontent {
 }
 
 .popup-notification-checkbox {
-  margin-block: 8px;
+  margin-block: 8px 0;
 }
 
 .popup-notification-body-container {
@@ -892,14 +901,54 @@ popupnotificationcontent {
   list-style-image: url("chrome://browser/skin/notification-icons/microphone.svg");
 }
 
-.popup-notification-body description,
-.popup-notification-body label,
-.popup-notification-body checkbox {
+.popup-notification-body :is(description, label, checkbox, input) {
   margin-inline-start: 0;
 }
 
+.popup-notification-body html|input {
+  padding: 8px;
+  border-radius: 4px;
+  border: 0;
+  outline: 1px solid var(--input-border-color, ThreeDShadow);
+  outline-offset: -1px;
+  background-color: var(--input-bgcolor, Field);
+  color: var(--input-color, FieldText);
+}
+
+.popup-notification-body html|input:focus-visible {
+  outline: 2px solid var(--focus-outline-color);
+}
+
+/**
+ * There's already a margin-block-start of 8px on popupnotificationcontent,
+ * so the first label only needs 8px of margin-block-start to match the
+ * spec.
+ */
+.password-notification-label:first-of-type {
+  margin-block-start: 8px;
+}
+
+.password-notification-label:not(:first-of-type) {
+  margin-block-start: 16px;
+}
+
+#password-notification-visibilityToggle {
+  margin-block-start: 14px;
+}
+
+#password-notification-visibilityToggle > .checkbox-label-box > .checkbox-label {
+  opacity: 0.7;
+}
+
+.popup-notification-description > b {
+  font-weight: inherit;
+}
+
+.popup-notification-description {
+  font-weight: 600;
+}
 } /** END Proton **/
 
 #tab-notification-deck {
-  display: flex;
+  display: block;
 }

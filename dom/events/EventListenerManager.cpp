@@ -301,9 +301,8 @@ void EventListenerManager::AddEventListenerInternal(
     EnableDevice(eDeviceOrientation);
   } else if (aTypeAtom == nsGkAtoms::onabsolutedeviceorientation) {
     EnableDevice(eAbsoluteDeviceOrientation);
-  } else if (aTypeAtom == nsGkAtoms::ondeviceproximity ||
-             aTypeAtom == nsGkAtoms::onuserproximity) {
-    EnableDevice(eDeviceProximity);
+  } else if (aTypeAtom == nsGkAtoms::onuserproximity) {
+    EnableDevice(eUserProximity);
   } else if (aTypeAtom == nsGkAtoms::ondevicelight) {
     EnableDevice(eDeviceLight);
   } else if (aTypeAtom == nsGkAtoms::ondevicemotion) {
@@ -491,7 +490,6 @@ bool EventListenerManager::IsDeviceType(EventMessage aEventMessage) {
     case eAbsoluteDeviceOrientation:
     case eDeviceMotion:
     case eDeviceLight:
-    case eDeviceProximity:
     case eUserProximity:
 #ifdef MOZ_B2G
     case eAtmPressure:
@@ -531,7 +529,6 @@ void EventListenerManager::EnableDevice(EventMessage aEventMessage) {
       window->EnableDeviceSensor(SENSOR_ORIENTATION);
 #endif
       break;
-    case eDeviceProximity:
     case eUserProximity:
       window->EnableDeviceSensor(SENSOR_PROXIMITY);
       break;
@@ -585,7 +582,6 @@ void EventListenerManager::DisableDevice(EventMessage aEventMessage) {
       window->DisableDeviceSensor(SENSOR_LINEAR_ACCELERATION);
       window->DisableDeviceSensor(SENSOR_GYROSCOPE);
       break;
-    case eDeviceProximity:
     case eUserProximity:
       window->DisableDeviceSensor(SENSOR_PROXIMITY);
       break;
@@ -1057,7 +1053,7 @@ nsresult EventListenerManager::CompileEventHandlerInternal(
 
   RefPtr<ScriptFetchOptions> fetchOptions = new ScriptFetchOptions(
       CORS_NONE, aElement->OwnerDoc()->GetReferrerPolicy(), aElement,
-      aElement->OwnerDoc()->NodePrincipal());
+      aElement->OwnerDoc()->NodePrincipal(), nullptr);
 
   RefPtr<EventScript> eventScript = new EventScript(fetchOptions, uri);
 

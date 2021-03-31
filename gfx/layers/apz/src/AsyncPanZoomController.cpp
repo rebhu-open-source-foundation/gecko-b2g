@@ -2589,6 +2589,10 @@ nsEventStatus AsyncPanZoomController::OnPan(const PanGestureInput& aEvent,
     return OnPanBegin(aEvent);
   }
 
+  if (mState == OVERSCROLL_ANIMATION && !aFingersOnTouchpad) {
+    return nsEventStatus_eConsumeNoDefault;
+  }
+
   // Note that there is a multiplier that applies onto the "physical" pan
   // displacement (how much the user's fingers moved) that produces the
   // "logical" pan displacement (how much the page should move). For some of the
@@ -2690,15 +2694,21 @@ nsEventStatus AsyncPanZoomController::OnPan(const PanGestureInput& aEvent,
     // Don't expect a composite to be triggered if the displacement is zero
     RecordScrollPayload(aEvent.mTimeStamp);
   }
+
+  const ParentLayerPoint velocity = GetVelocityVector();
   bool consumed = CallDispatchScroll(startPoint, endPoint, handoffState);
 
-  if (!consumed && !aFingersOnTouchpad) {
-    // If there is unconsumed scroll and we're in the momentum part of the
-    // pan gesture, terminate the momentum scroll. This prevents momentum
-    // scroll events from unexpectedly causing scrolling later if somehow
-    // the APZC becomes scrollable again in this direction (e.g. if the user
-    // uses some other input method to scroll in the opposite direction).
-    SetState(NOTHING);
+  if (!aFingersOnTouchpad) {
+    if (IsOverscrolled() && mState != OVERSCROLL_ANIMATION) {
+      StartOverscrollAnimation(velocity);
+    } else if (!consumed) {
+      // If there is unconsumed scroll and we're in the momentum part of the
+      // pan gesture, terminate the momentum scroll. This prevents momentum
+      // scroll events from unexpectedly causing scrolling later if somehow
+      // the APZC becomes scrollable again in this direction (e.g. if the user
+      // uses some other input method to scroll in the opposite direction).
+      SetState(NOTHING);
+    }
   }
 
   return nsEventStatus_eConsumeNoDefault;
@@ -2720,6 +2730,14 @@ nsEventStatus AsyncPanZoomController::OnPanEnd(const PanGestureInput& aEvent) {
     return HandleEndOfPan();
   }
 
+  if (IsOverscrolled() && mState != OVERSCROLL_ANIMATION) {
+    // If we are in overscrolled state, trigger OverscrollAnimation to
+    // ensure we will snap back to the scroll edge.
+    StartOverscrollAnimation(GetVelocityVector());
+  } else {
+    SetState(NOTHING);
+  }
+
   // Drop any velocity on axes where we don't have room to scroll anyways
   // (in this APZC, or an APZC further in the handoff chain).
   // This ensures that we don't enlarge the display port unnecessarily.
@@ -2738,7 +2756,6 @@ nsEventStatus AsyncPanZoomController::OnPanEnd(const PanGestureInput& aEvent) {
     }
   }
 
-  SetState(NOTHING);
   RequestContentRepaint();
 
   if (!aEvent.mFollowedByMomentum) {
@@ -2757,6 +2774,10 @@ nsEventStatus AsyncPanZoomController::OnPanMomentumStart(
     CancelAnimation();
   }
 
+  if (mState == OVERSCROLL_ANIMATION) {
+    return nsEventStatus_eConsumeNoDefault;
+  }
+
   SetState(PAN_MOMENTUM);
   ScrollSnapToDestination();
 
@@ -2769,6 +2790,10 @@ nsEventStatus AsyncPanZoomController::OnPanMomentumStart(
 nsEventStatus AsyncPanZoomController::OnPanMomentumEnd(
     const PanGestureInput& aEvent) {
   APZC_LOG("%p got a pan-momentumend in state %d\n", this, mState);
+
+  if (mState == OVERSCROLL_ANIMATION) {
+    return nsEventStatus_eConsumeNoDefault;
+  }
 
   // Call into OnPan in order to process any delta included in this event.
   OnPan(aEvent, false);
@@ -2979,6 +3004,54 @@ bool AsyncPanZoomController::Contains(const ScreenIntPoint& aPoint) const {
     GetFrameMetrics().GetCompositionBounds().ToIntRect(&cb);
   }
   return cb.Contains(*point);
+}
+
+bool AsyncPanZoomController::IsInOverscrollGutter(
+    const ScreenPoint& aHitTestPoint) const {
+  if (!IsOverscrolled()) {
+    return false;
+  }
+
+  Maybe<ParentLayerPoint> apzcPoint =
+      UntransformBy(GetTransformToThis(), aHitTestPoint);
+  if (!apzcPoint) return false;
+  return IsInOverscrollGutter(*apzcPoint);
+}
+
+bool AsyncPanZoomController::IsInOverscrollGutter(
+    const ParentLayerPoint& aHitTestPoint) const {
+  ParentLayerRect compositionBounds;
+  {
+    RecursiveMutexAutoLock lock(mRecursiveMutex);
+    compositionBounds = GetFrameMetrics().GetCompositionBounds();
+  }
+  if (!compositionBounds.Contains(aHitTestPoint)) {
+    // Point is outside of scrollable element's bounds altogether.
+    return false;
+  }
+  auto overscrollTransform = GetOverscrollTransform(eForHitTesting);
+  ParentLayerPoint overscrollUntransformed =
+      overscrollTransform.Inverse().TransformPoint(aHitTestPoint);
+
+  if (compositionBounds.Contains(overscrollUntransformed)) {
+    // Point is over scrollable content.
+    return false;
+  }
+
+  // Point is in gutter.
+  return true;
+}
+
+bool AsyncPanZoomController::IsOverscrolled() const {
+  // As an optimization, avoid calling Apply/UnapplyAsyncTestAttributes
+  // unless we're in a test environment where we need it.
+  if (StaticPrefs::apz_overscroll_test_async_scroll_offset_enabled()) {
+    RecursiveMutexAutoLock lock(mRecursiveMutex);
+    AutoApplyAsyncTestAttributes testAttributeApplier(this, lock);
+    return mX.IsOverscrolled() || mY.IsOverscrolled();
+  }
+  RecursiveMutexAutoLock lock(mRecursiveMutex);
+  return mX.IsOverscrolled() || mY.IsOverscrolled();
 }
 
 ParentLayerPoint AsyncPanZoomController::PanStart() const {
@@ -3372,6 +3445,28 @@ void AsyncPanZoomController::OverscrollForPanning(
   OverscrollBy(aOverscroll);
 }
 
+ScrollDirections AsyncPanZoomController::GetOverscrollableDirections() const {
+  ScrollDirections result;
+
+  RecursiveMutexAutoLock lock(mRecursiveMutex);
+
+  // If the target has the disregarded direction, it means it's single line
+  // text control, thus we don't want to overscroll in both directions.
+  if (mScrollMetadata.GetDisregardedDirection()) {
+    return result;
+  }
+
+  if (mX.CanScroll() && mX.OverscrollBehaviorAllowsOverscrollEffect()) {
+    result += ScrollDirection::eHorizontal;
+  }
+
+  if (mY.CanScroll() && mY.OverscrollBehaviorAllowsOverscrollEffect()) {
+    result += ScrollDirection::eVertical;
+  }
+
+  return result;
+}
+
 void AsyncPanZoomController::OverscrollBy(ParentLayerPoint& aOverscroll) {
   if (!StaticPrefs::apz_overscroll_enabled()) {
     return;
@@ -3380,18 +3475,15 @@ void AsyncPanZoomController::OverscrollBy(ParentLayerPoint& aOverscroll) {
   RecursiveMutexAutoLock lock(mRecursiveMutex);
   // Do not go into overscroll in a direction in which we have no room to
   // scroll to begin with.
-  bool xCanScroll = mX.CanScroll();
-  bool yCanScroll = mY.CanScroll();
-  bool xConsumed = FuzzyEqualsAdditive(aOverscroll.x, 0.0f, COORDINATE_EPSILON);
-  bool yConsumed = FuzzyEqualsAdditive(aOverscroll.y, 0.0f, COORDINATE_EPSILON);
+  ScrollDirections overscrollableDirections = GetOverscrollableDirections();
+  if (FuzzyEqualsAdditive(aOverscroll.x, 0.0f, COORDINATE_EPSILON)) {
+    overscrollableDirections -= ScrollDirection::eHorizontal;
+  }
+  if (FuzzyEqualsAdditive(aOverscroll.y, 0.0f, COORDINATE_EPSILON)) {
+    overscrollableDirections -= ScrollDirection::eVertical;
+  }
 
-  bool shouldOverscrollX =
-      xCanScroll && !xConsumed && mX.OverscrollBehaviorAllowsOverscrollEffect();
-  bool shouldOverscrollY =
-      yCanScroll && !yConsumed && mY.OverscrollBehaviorAllowsOverscrollEffect();
-
-  mOverscrollEffect->ConsumeOverscroll(aOverscroll, shouldOverscrollX,
-                                       shouldOverscrollY);
+  mOverscrollEffect->ConsumeOverscroll(aOverscroll, overscrollableDirections);
 }
 
 RefPtr<const OverscrollHandoffChain>
@@ -3619,7 +3711,11 @@ void AsyncPanZoomController::SmoothMsdScrollTo(const CSSPoint& aDestination) {
 void AsyncPanZoomController::StartOverscrollAnimation(
     const ParentLayerPoint& aVelocity) {
   SetState(OVERSCROLL_ANIMATION);
-  StartAnimation(new OverscrollAnimation(*this, aVelocity));
+
+  ParentLayerPoint velocity = aVelocity;
+  AdjustDeltaForAllowedScrollDirections(velocity,
+                                        GetOverscrollableDirections());
+  StartAnimation(new OverscrollAnimation(*this, velocity));
 }
 
 bool AsyncPanZoomController::CallDispatchScroll(
@@ -4400,9 +4496,14 @@ AsyncTransform AsyncPanZoomController::GetCurrentAsyncTransform(
 AsyncTransformComponentMatrix
 AsyncPanZoomController::GetCurrentAsyncTransformWithOverscroll(
     AsyncTransformConsumer aMode, AsyncTransformComponents aComponents) const {
-  return AsyncTransformComponentMatrix(
-             GetCurrentAsyncTransform(aMode, aComponents)) *
-         GetOverscrollTransform(aMode);
+  AsyncTransformComponentMatrix asyncTransform =
+      GetCurrentAsyncTransform(aMode, aComponents);
+  // The overscroll transform is considered part of the visual component of
+  // the async transform, because it should apply to fixed content as well.
+  if (aComponents.contains(AsyncTransformComponent::eVisual)) {
+    return asyncTransform * GetOverscrollTransform(aMode);
+  }
+  return asyncTransform;
 }
 
 LayoutDeviceToParentLayerScale AsyncPanZoomController::GetCurrentPinchZoomScale(
@@ -4504,8 +4605,11 @@ void AsyncPanZoomController::ApplyAsyncTestAttributes(
       CSSPoint difference = mTestAsyncScrollOffset - clampedPoint;
 
       ScrollByAndClamp(mTestAsyncScrollOffset);
-      ParentLayerPoint overscroll = difference * Metrics().GetZoom();
-      OverscrollBy(overscroll);
+
+      if (StaticPrefs::apz_overscroll_test_async_scroll_offset_enabled()) {
+        ParentLayerPoint overscroll = difference * Metrics().GetZoom();
+        OverscrollBy(overscroll);
+      }
       ResampleCompositedAsyncTransform(aProofOfLock);
     }
   }

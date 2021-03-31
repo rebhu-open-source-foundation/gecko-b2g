@@ -127,6 +127,7 @@
   MACRO_(dotThis, dotThis, ".this")                                            \
   MACRO_(dotInitializers, dotInitializers, ".initializers")                    \
   MACRO_(dotFieldKeys, dotFieldKeys, ".fieldKeys")                             \
+  MACRO_(dotPrivateBrand, dotPrivateBrand, ".privateBrand")                    \
   MACRO_(dotStaticInitializers, dotStaticInitializers, ".staticInitializers")  \
   MACRO_(dotStaticFieldKeys, dotStaticFieldKeys, ".staticFieldKeys")           \
   MACRO_(each, each, "each")                                                   \
@@ -183,6 +184,8 @@
   MACRO2(futexOK, futexOK, "ok")                                               \
   MACRO_(futexTimedOut, futexTimedOut, "timed-out")                            \
   MACRO_(gcCycleNumber, gcCycleNumber, "gcCycleNumber")                        \
+  MACRO_(GatherAsyncParentCompletions, GatherAsyncParentCompletions,           \
+         "GatherAsyncParentCompletions")                                       \
   MACRO_(Generator, Generator, "Generator")                                    \
   MACRO_(GeneratorNext, GeneratorNext, "GeneratorNext")                        \
   MACRO_(GeneratorReturn, GeneratorReturn, "GeneratorReturn")                  \

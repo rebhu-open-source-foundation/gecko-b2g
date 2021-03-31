@@ -47,6 +47,7 @@
 #include "mozilla/PresShell.h"
 #include "mozilla/Services.h"
 #include "mozilla/StaticPrefs_ui.h"
+#include "mozilla/StaticPrefs_widget.h"
 #include "mozilla/StaticPrefs_xul.h"
 #include "mozilla/widget/nsAutoRollup.h"
 
@@ -708,6 +709,15 @@ void nsXULPopupManager::ShowPopup(nsIContent* aPopup,
                         aTriggerEvent);
 }
 
+static bool ShouldUseNativeContextMenus() {
+#ifdef XP_MACOSX
+  return StaticPrefs::widget_macos_native_context_menus() &&
+         Preferences::GetBool("browser.proton.contextmenus.enabled", false);
+#else
+  return false;
+#endif
+}
+
 void nsXULPopupManager::ShowPopupAtScreen(nsIContent* aPopup, int32_t aXPos,
                                           int32_t aYPos, bool aIsContextMenu,
                                           Event* aTriggerEvent) {
@@ -716,6 +726,20 @@ void nsXULPopupManager::ShowPopupAtScreen(nsIContent* aPopup, int32_t aXPos,
 
   nsCOMPtr<nsIContent> triggerContent;
   InitTriggerEvent(aTriggerEvent, aPopup, getter_AddRefs(triggerContent));
+
+  if (aIsContextMenu && ShouldUseNativeContextMenus()) {
+    bool haveNativeMenu = popupFrame->InitializePopupAsNativeContextMenu(
+        triggerContent, aXPos, aYPos);
+    if (haveNativeMenu) {
+      // Show the menu. ShowNativeMenu synchronously fires a popupshowing event.
+      // Make sure mOpeningPopup is set to aPopup during the event, so that
+      // document.popupNode can find the popup.
+      mOpeningPopup = aPopup;
+      popupFrame->ShowNativeMenu();
+      mOpeningPopup = nullptr;
+      return;
+    }
+  }
 
   popupFrame->InitializePopupAtScreen(triggerContent, aXPos, aYPos,
                                       aIsContextMenu);

@@ -18,28 +18,39 @@ job-defaults:
     suite: raptor
     test-manifest-loader: null  # don't load tests in the taskgraph
     run-on-projects:
-        by-app:
-            firefox:
-                by-test-platform:
-                    windows7-32.*/opt: []
-                    macosx.*64(?:-qr)?/opt: ["mozilla-central"]
-                    (linux|windows10|macos)(?!.*shippable).*: []
-                    default: ["trunk", "mozilla-beta"]
-            chrome: []
-            chromium: []
-            default:  # tests that dont have "apps: []"
-                by-test-name:
-                    raptor-.*-profiling.*:
-                        by-test-platform:
-                            windows7-32.*/opt: []
-                            (linux|windows10|macos)(?!.*shippable).*: []
-                            default: ["mozilla-central"]
+        by-variant:
+            fission:
+                by-app:
+                    chrome: []
+                    chromium: []
                     default:
+                        by-test-platform:
+                            linux64-shippable-qr/opt: ["mozilla-central"]
+                            windows10-64-shippable-qr/opt: ["mozilla-central"]
+                            default: []
+            default:
+                by-app:
+                    firefox:
                         by-test-platform:
                             windows7-32.*/opt: []
                             macosx.*64(?:-qr)?/opt: ["mozilla-central"]
                             (linux|windows10|macos)(?!.*shippable).*: []
                             default: ["trunk", "mozilla-beta"]
+                    chrome: []
+                    chromium: []
+                    default:  # tests that dont have "apps: []"
+                        by-test-name:
+                            raptor-.*-profiling.*:
+                                by-test-platform:
+                                    windows7-32.*/opt: []
+                                    (linux|windows10|macos)(?!.*shippable).*: []
+                                    default: ["mozilla-central"]
+                            default:
+                                by-test-platform:
+                                    windows7-32.*/opt: []
+                                    macosx.*64(?:-qr)?/opt: ["mozilla-central"]
+                                    (linux|windows10|macos)(?!.*shippable).*: []
+                                    default: ["trunk", "mozilla-beta"]
     limit-platforms:
         by-app:
             chrome:
@@ -55,7 +66,6 @@ job-defaults:
             default:
                 - .*
     tier: 2
-    fission-tier: 2
     virtualization: hardware
     mozharness:
         script: raptor_script.py
@@ -73,15 +83,6 @@ job-defaults:
             - --setpref=extensions.logging.enabled=true
             # Bug 1663449: Disable conditioned profiles for raptor tests because of test failures
             - --no-conditioned-profile
-    fission-run-on-projects:
-        by-app:
-            chrome: []
-            chromium: []
-            default:
-                by-test-platform:
-                    linux64-shippable-qr/opt: ["mozilla-central"]
-                    windows10-64-shippable-qr/opt: ["mozilla-central"]
-                    default: []
     fetches:
         fetch:
             by-app:
@@ -103,7 +104,18 @@ raptor-speedometer-firefox:
     variants: ["fission"]
     try-name: raptor-speedometer-firefox
     treeherder-symbol: Rap(sp)
-    run-on-projects: []
+    run-on-projects:
+        by-variant:
+            fission:
+                by-app:
+                    chrome: []
+                    chromium: []
+                    default:
+                        by-test-platform:
+                            linux64-shippable-qr/opt: ["mozilla-central"]
+                            windows10-64-shippable-qr/opt: ["mozilla-central"]
+                            default: []
+            default: []
     mozharness:
         extra-options:
             - --test=raptor-speedometer
@@ -124,7 +136,18 @@ raptor-stylebench-firefox:
     variants: ["fission"]
     try-name: raptor-stylebench-firefox
     treeherder-symbol: Rap(sb)
-    run-on-projects: []
+    run-on-projects:
+        by-variant:
+            fission:
+                by-app:
+                    chrome: []
+                    chromium: []
+                    default:
+                        by-test-platform:
+                            linux64-shippable-qr/opt: ["mozilla-central"]
+                            windows10-64-shippable-qr/opt: ["mozilla-central"]
+                            default: []
+            default: []
     mozharness:
         extra-options:
             - --test=raptor-stylebench
@@ -145,7 +168,18 @@ raptor-motionmark-htmlsuite-firefox:
     variants: ["fission"]
     try-name: raptor-motionmark-htmlsuite-firefox
     treeherder-symbol: Rap(mm-h)
-    run-on-projects: []
+    run-on-projects:
+        by-variant:
+            fission:
+                by-app:
+                    chrome: []
+                    chromium: []
+                    default:
+                        by-test-platform:
+                            linux64-shippable-qr/opt: ["mozilla-central"]
+                            windows10-64-shippable-qr/opt: ["mozilla-central"]
+                            default: []
+            default: []
     mozharness:
         extra-options:
             - --test=raptor-motionmark-htmlsuite
@@ -165,8 +199,22 @@ raptor-motionmark-animometer-firefox:
     variants: ["fission"]
     try-name: raptor-motionmark-animometer-firefox
     treeherder-symbol: Rap(mm-a)
-    run-on-projects: []
-    tier: 1
+    run-on-projects:
+        by-variant:
+            fission:
+                by-app:
+                    chrome: []
+                    chromium: []
+                    default:
+                        by-test-platform:
+                            linux64-shippable-qr/opt: ["mozilla-central"]
+                            windows10-64-shippable-qr/opt: ["mozilla-central"]
+                            default: []
+            default: []
+    tier:
+        by-variant:
+            fission: 2
+            default: 1
     mozharness:
         extra-options:
             - --test=raptor-motionmark-animometer
@@ -187,7 +235,10 @@ raptor-webaudio-firefox:
     variants: ["fission"]
     try-name: raptor-webaudio-firefox
     treeherder-symbol: Rap(wa)
-    tier: 1
+    tier:
+        by-variant:
+            fission: 2
+            default: 1
     mozharness:
         extra-options:
             - --test=raptor-webaudio
@@ -196,6 +247,7 @@ raptor-webaudio-firefox-profiling:
     description: "Raptor WebAudio on Firefox with Gecko Profiling"
     try-name: raptor-webaudio-firefox
     treeherder-symbol: Rap-Prof(wa)
+    run-on-projects: []
     max-run-time: 900
     mozharness:
         extra-options:
@@ -215,6 +267,7 @@ raptor-sunspider-firefox-profiling:
     description: "Raptor SunSpider on Firefox with Gecko Profiling"
     try-name: raptor-sunspider-firefox-profiling
     treeherder-symbol: Rap-Prof(ss)
+    run-on-projects: []
     max-run-time: 900
     mozharness:
         extra-options:
@@ -227,11 +280,16 @@ raptor-unity-webgl-firefox:
     try-name: raptor-unity-webgl-firefox
     treeherder-symbol: Rap(ugl)
     run-on-projects:
-        by-test-platform:
-            (linux|windows|macos)(?!.*shippable).*: []
-            default: ["autoland"]
-    fission-run-on-projects: []
-    tier: 3
+        by-variant:
+            fission: []
+            default:
+                by-test-platform:
+                    (linux|windows|macos)(?!.*shippable).*: []
+                    default: ["autoland"]
+    tier:
+        by-variant:
+            fission: 2
+            default: 3
     mozharness:
         extra-options:
             - --test=raptor-unity-webgl
@@ -243,6 +301,7 @@ raptor-unity-webgl-firefox-profiling:
     description: "Raptor Unity WebGL on Firefox with Gecko Profiling"
     try-name: raptor-unity-webgl-firefox-profiling
     treeherder-symbol: Rap-Prof(ugl)
+    run-on-projects: []
     mozharness:
         extra-options:
             - --test=raptor-unity-webgl
@@ -267,6 +326,7 @@ raptor-wasm-misc-firefox-profiling:
     description: "Raptor WASM Misc on Firefox with Gecko Profiling"
     try-name: raptor-wasm-misc-firefox-profiling
     treeherder-symbol: Rap-Prof(wm)
+    run-on-projects: []
     max-run-time: 900
     mozharness:
         extra-options:
@@ -292,6 +352,7 @@ raptor-wasm-misc-baseline-firefox-profiling:
     description: "Raptor WASM Misc on Firefox with baseline JIT and Gecko Profiling"
     try-name: raptor-wasm-misc-baseline-firefox-profiling
     treeherder-symbol: Rap-Prof(wm-b)
+    run-on-projects: []
     max-run-time: 900
     mozharness:
         extra-options:
@@ -317,6 +378,7 @@ raptor-wasm-misc-optimizing-firefox-profiling:
     description: "Raptor WASM Misc on Firefox with optimizing JIT and Gecko Profiling"
     try-name: raptor-wasm-misc-optimizing-firefox-profiling
     treeherder-symbol: Rap-Prof(wm-i)
+    run-on-projects: []
     max-run-time: 900
     mozharness:
         extra-options:
@@ -347,6 +409,7 @@ raptor-assorted-dom-firefox-profiling:
     description: "Raptor Assorted-Dom on Firefox with Gecko Profiling"
     try-name: raptor-assorted-dom-firefox-profiling
     treeherder-symbol: Rap-Prof(dom)
+    run-on-projects: []
     max-run-time: 900
     mozharness:
         extra-options:
@@ -374,6 +437,7 @@ raptor-wasm-godot-firefox-profiling:
     description: "Raptor Wasm Godot on Firefox with Gecko Profiling"
     try-name: raptor-wasm-godot-firefox-profiling
     treeherder-symbol: Rap-Prof(godot)
+    run-on-projects: []
     max-run-time: 900
     mozharness:
         extra-options:
@@ -398,6 +462,7 @@ raptor-wasm-godot-baseline-firefox-profiling:
     description: "Raptor Wasm Godot on Firefox with baseline JIT and Gecko Profiling"
     try-name: raptor-wasm-godot-baseline-firefox-profiling
     treeherder-symbol: Rap-Prof(godot-b)
+    run-on-projects: []
     max-run-time: 900
     mozharness:
         extra-options:
@@ -437,7 +502,10 @@ raptor-youtube-playback-v9-power-firefox:
             (linux|windows|macos)(?!.*shippable).*: []
             default: ["mozilla-central"]
     max-run-time: 2700
-    tier: 3
+    tier:
+        by-variant:
+            fission: 2
+            default: 3
     mozharness:
         extra-options:
             - --test=raptor-youtube-playback-v9
@@ -452,7 +520,10 @@ raptor-youtube-playback-h264-power-firefox:
             (linux|windows|macos)(?!.*shippable).*: []
             default: ["mozilla-central"]
     max-run-time: 2700
-    tier: 3
+    tier:
+        by-variant:
+            fission: 2
+            default: 3
     mozharness:
         extra-options:
             - --test=raptor-youtube-playback-h264
@@ -464,9 +535,20 @@ raptor-youtube-playback-av1-sfr-firefox:
     try-name: raptor-youtube-playback-av1-sfr-firefox
     treeherder-symbol: Rap(ytp-av1-sfr)
     run-on-projects:
-        by-test-platform:
-            (linux|windows|macos)(?!.*shippable).*: []
-            default: ['mozilla-central']
+        by-variant:
+            fission:
+                by-app:
+                    chrome: []
+                    chromium: []
+                    default:
+                        by-test-platform:
+                            linux64-shippable-qr/opt: ["mozilla-central"]
+                            windows10-64-shippable-qr/opt: ["mozilla-central"]
+                            default: []
+            default:
+                by-test-platform:
+                    (linux|windows|macos)(?!.*shippable).*: []
+                    default: ['mozilla-central']
     limit-platforms:
         - windows10-64-ref-hw-2017/opt
         - macosx1015-64-shippable-qr/opt
@@ -484,10 +566,21 @@ raptor-youtube-playback-h264-sfr-firefox:
     try-name: raptor-youtube-playback-h264-sfr-firefox
     treeherder-symbol: Rap(ytp-h264-sfr)
     run-on-projects:
-        by-test-platform:
-            windows7-32.*/opt: []
-            (linux|windows10|macos)(?!.*shippable).*: []
-            default: ['mozilla-central']
+        by-variant:
+            fission:
+                by-app:
+                    chrome: []
+                    chromium: []
+                    default:
+                        by-test-platform:
+                            linux64-shippable-qr/opt: ["mozilla-central"]
+                            windows10-64-shippable-qr/opt: ["mozilla-central"]
+                            default: []
+            default:
+                by-test-platform:
+                    windows7-32.*/opt: []
+                    (linux|windows10|macos)(?!.*shippable).*: []
+                    default: ['mozilla-central']
     max-run-time:
         by-test-platform:
             windows10-aarch64/opt: 3600
@@ -502,10 +595,21 @@ raptor-youtube-playback-hfr-firefox:
     try-name: raptor-youtube-playback-hfr-firefox
     treeherder-symbol: Rap(ytp-hfr)
     run-on-projects:
-        by-test-platform:
-            windows7-32.*/opt: []
-            (linux|windows10|macos)(?!.*shippable).*: []
-            default: ['mozilla-central']
+        by-variant:
+            fission:
+                by-app:
+                    chrome: []
+                    chromium: []
+                    default:
+                        by-test-platform:
+                            linux64-shippable-qr/opt: ["mozilla-central"]
+                            windows10-64-shippable-qr/opt: ["mozilla-central"]
+                            default: []
+            default:
+                by-test-platform:
+                    windows7-32.*/opt: []
+                    (linux|windows10|macos)(?!.*shippable).*: []
+                    default: ['mozilla-central']
     max-run-time: 3600
     tier: 2
     mozharness:
@@ -518,10 +622,21 @@ raptor-youtube-playback-vp9-sfr-firefox:
     try-name: raptor-youtube-playback-vp9-sfr-firefox
     treeherder-symbol: Rap(ytp-vp9-sfr)
     run-on-projects:
-        by-test-platform:
-            windows7-32.*/opt: []
-            (linux|windows10|macos)(?!.*shippable).*: []
-            default: ['mozilla-central']
+        by-variant:
+            fission:
+                by-app:
+                    chrome: []
+                    chromium: []
+                    default:
+                        by-test-platform:
+                            linux64-shippable-qr/opt: ["mozilla-central"]
+                            windows10-64-shippable-qr/opt: ["mozilla-central"]
+                            default: []
+            default:
+                by-test-platform:
+                    windows7-32.*/opt: []
+                    (linux|windows10|macos)(?!.*shippable).*: []
+                    default: ['mozilla-central']
     max-run-time:
         by-test-platform:
             windows10-aarch64/opt: 3600
@@ -538,10 +653,21 @@ raptor-youtube-playback-widevine-hfr-firefox:
     try-name: raptor-youtube-playback-widevine-hfr-firefox
     treeherder-symbol: Rap(ytp-widevine-hfr)
     run-on-projects:
-        by-test-platform:
-            windows7-32.*/opt: []
-            (linux|windows10|macos)(?!.*shippable).*: []
-            default: ['mozilla-central']
+        by-variant:
+            fission:
+                by-app:
+                    chrome: []
+                    chromium: []
+                    default:
+                        by-test-platform:
+                            linux64-shippable-qr/opt: ["mozilla-central"]
+                            windows10-64-shippable-qr/opt: ["mozilla-central"]
+                            default: []
+            default:
+                by-test-platform:
+                    windows7-32.*/opt: []
+                    (linux|windows10|macos)(?!.*shippable).*: []
+                    default: ['mozilla-central']
     max-run-time:
         by-test-platform:
             windows10-aarch64/opt: 3600
@@ -556,10 +682,21 @@ raptor-youtube-playback-widevine-h264-sfr-firefox:
     try-name: raptor-youtube-playback-widevine-h264-sfr-firefox
     treeherder-symbol: Rap(ytp-widevine-h264-sfr)
     run-on-projects:
-        by-test-platform:
-            windows7-32.*/opt: []
-            (linux|windows10|macos)(?!.*shippable).*: []
-            default: ['mozilla-central']
+        by-variant:
+            fission:
+                by-app:
+                    chrome: []
+                    chromium: []
+                    default:
+                        by-test-platform:
+                            linux64-shippable-qr/opt: ["mozilla-central"]
+                            windows10-64-shippable-qr/opt: ["mozilla-central"]
+                            default: []
+            default:
+                by-test-platform:
+                    windows7-32.*/opt: []
+                    (linux|windows10|macos)(?!.*shippable).*: []
+                    default: ['mozilla-central']
     max-run-time:
         by-test-platform:
             windows10-aarch64/opt: 3600
@@ -574,9 +711,20 @@ raptor-youtube-playback-widevine-vp9-sfr-firefox:
     try-name: raptor-youtube-playback-widevine-vp9-sfr-firefox
     treeherder-symbol: Rap(ytp-widevine-vp9-sfr)
     run-on-projects:
-        by-test-platform:
-            (linux|windows|macos)(?!.*shippable).*: []
-            default: ['mozilla-central']
+        by-variant:
+            fission:
+                by-app:
+                    chrome: []
+                    chromium: []
+                    default:
+                        by-test-platform:
+                            linux64-shippable-qr/opt: ["mozilla-central"]
+                            windows10-64-shippable-qr/opt: ["mozilla-central"]
+                            default: []
+            default:
+                by-test-platform:
+                    (linux|windows|macos)(?!.*shippable).*: []
+                    default: ['mozilla-central']
     max-run-time:
         by-test-platform:
             windows10-aarch64/opt: 3600
@@ -592,7 +740,18 @@ raptor-ares6-firefox:
     variants: ["fission"]
     try-name: raptor-ares6-firefox
     treeherder-symbol: Rap(ares6)
-    run-on-projects: []
+    run-on-projects:
+        by-variant:
+            fission:
+                by-app:
+                    chrome: []
+                    chromium: []
+                    default:
+                        by-test-platform:
+                            linux64-shippable-qr/opt: ["mozilla-central"]
+                            windows10-64-shippable-qr/opt: ["mozilla-central"]
+                            default: []
+            default: []
     max-run-time: 2500
     mozharness:
         extra-options:
@@ -604,7 +763,10 @@ raptor-ares6-firefox-profiling:
     treeherder-symbol: Rap-Prof(ares6)
     run-on-projects: []
     max-run-time: 2500
-    tier: 3
+    tier:
+        by-variant:
+            fission: 2
+            default: 3
     mozharness:
         extra-options:
             - --test=raptor-ares6
@@ -616,11 +778,25 @@ raptor-jetstream2-firefox:
     try-name: raptor-jetstream2-firefox
     treeherder-symbol: Rap(js2)
     run-on-projects:
-        by-test-platform:
-            windows7-32.*/opt: []
-            (linux|windows10|macos)(?!.*shippable).*: []
-            default: ['mozilla-central']
-    tier: 3
+        by-variant:
+            fission:
+                by-app:
+                    chrome: []
+                    chromium: []
+                    default:
+                        by-test-platform:
+                            linux64-shippable-qr/opt: ["mozilla-central"]
+                            windows10-64-shippable-qr/opt: ["mozilla-central"]
+                            default: []
+            default:
+                by-test-platform:
+                    windows7-32.*/opt: []
+                    (linux|windows10|macos)(?!.*shippable).*: []
+                    default: ['mozilla-central']
+    tier:
+        by-variant:
+            fission: 2
+            default: 3
     max-run-time: 8000
     mozharness:
         extra-options:
@@ -633,8 +809,12 @@ raptor-jetstream2-firefox-profiling:
     description: "Raptor Jetstream2 on Firefox with Gecko Profiling"
     try-name: raptor-jetstream2-firefox-profiling
     treeherder-symbol: Rap-Prof(js2)
+    run-on-projects: []
     max-run-time: 8000
-    tier: 3
+    tier:
+        by-variant:
+            fission: 2
+            default: 3
     mozharness:
         extra-options:
             - --test=raptor-jetstream2

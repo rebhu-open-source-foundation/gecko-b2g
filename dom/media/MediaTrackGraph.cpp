@@ -1841,7 +1841,8 @@ void MediaTrackGraphImpl::SignalMainThreadCleanup() {
 
 void MediaTrackGraphImpl::AppendMessage(UniquePtr<ControlMessage> aMessage) {
   MOZ_ASSERT(NS_IsMainThread(), "main thread only");
-  MOZ_ASSERT_IF(aMessage->GetTrack(), !aMessage->GetTrack()->IsDestroyed());
+  MOZ_RELEASE_ASSERT(!aMessage->GetTrack() ||
+                     !aMessage->GetTrack()->IsDestroyed());
   MOZ_DIAGNOSTIC_ASSERT(mMainThreadTrackCount > 0 || mMainThreadPortCount > 0);
 
   if (!mGraphDriverRunning &&
@@ -3425,8 +3426,8 @@ void MediaTrackGraph::AddTrack(MediaTrack* aTrack) {
 #ifdef MOZ_DIAGNOSTIC_ASSERT_ENABLED
   if (graph->mRealtime) {
     bool found = false;
-    for (auto iter = gGraphs.ConstIter(); !iter.Done(); iter.Next()) {
-      if (iter.UserData() == graph) {
+    for (const auto& currentGraph : gGraphs.Values()) {
+      if (currentGraph == graph) {
         found = true;
         break;
       }

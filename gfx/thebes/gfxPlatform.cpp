@@ -1217,9 +1217,10 @@ bool gfxPlatform::UseWebRender() { return gfx::gfxVars::UseWebRender(); }
 /* static */
 bool gfxPlatform::DoesFissionForceWebRender() {
   // Because WebRender doesn't currently support all of the tests that Fission
-  // runs in CI, we only require WebRender for users who both have Fission and
-  // are enrolled in the Fission experiment.
-  return FissionAutostart() && FissionExperimentEnrolled();
+  // runs in CI, we only require WebRender for users who are enrolled in the
+  // the Fission experiment. This applies to both the control and the treatment
+  // groups, so they are as comparable as possible.
+  return FissionExperimentEnrolled();
 }
 
 /* static */
@@ -2189,7 +2190,8 @@ void gfxPlatform::InitializeCMS() {
      of this preference, which means nsIPrefBranch::GetBoolPref will
      typically throw (and leave its out-param untouched).
    */
-  if (StaticPrefs::gfx_color_management_force_srgb()) {
+  if (StaticPrefs::gfx_color_management_force_srgb() ||
+      StaticPrefs::gfx_color_management_native_srgb()) {
     gCMSOutputProfile = gCMSsRGBProfile;
   }
 
@@ -3437,10 +3439,15 @@ bool gfxPlatform::FallbackFromAcceleration(FeatureStatus aStatus,
     return false;
   }
 
-  // Continue using Software WebRender.
-  gfxCriticalNoteOnce << "Fallback remains SW-WR";
+  if (gfxVars::UseSoftwareWebRender()) {
+    // Continue using Software WebRender (disabled fallback to Basic).
+    gfxCriticalNoteOnce << "Fallback remains SW-WR";
+  } else {
+    // Continue using WebRender (disabled fallback to Basic and Software
+    // WebRender).
+    gfxCriticalNoteOnce << "Fallback remains WR";
+  }
   MOZ_ASSERT(gfxVars::UseWebRender());
-  MOZ_ASSERT(gfxVars::UseSoftwareWebRender());
   return false;
 }
 

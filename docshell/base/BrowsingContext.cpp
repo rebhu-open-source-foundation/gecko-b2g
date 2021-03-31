@@ -20,6 +20,7 @@
 #  endif
 #endif
 #include "mozilla/dom/CanonicalBrowsingContext.h"
+#include "mozilla/dom/BrowserChild.h"
 #include "mozilla/dom/BrowserParent.h"
 #include "mozilla/dom/BrowsingContextGroup.h"
 #include "mozilla/dom/BrowsingContextBinding.h"
@@ -34,6 +35,7 @@
 #include "mozilla/dom/PopupBlocker.h"
 #include "mozilla/dom/ScriptSettings.h"
 #include "mozilla/dom/SessionStorageManager.h"
+#include "mozilla/dom/SessionStoreDataCollector.h"
 #include "mozilla/dom/StructuredCloneTags.h"
 #include "mozilla/dom/UserActivationIPCUtils.h"
 #include "mozilla/dom/WindowBinding.h"
@@ -489,6 +491,7 @@ void BrowsingContext::CreateFromIPC(BrowsingContext::IPCInitializer&& aInit,
 
   context->mWindowless = aInit.mWindowless;
   context->mCreatedDynamically = aInit.mCreatedDynamically;
+  context->mChildOffset = aInit.mChildOffset;
   if (context->GetHasSessionHistory()) {
     context->CreateChildSHistory();
     if (mozilla::SessionHistoryInParent()) {
@@ -528,7 +531,8 @@ BrowsingContext::BrowsingContext(WindowContext* aParentWindow,
       mEmbeddedByThisProcess(false),
       mUseRemoteTabs(false),
       mUseRemoteSubframes(false),
-      mCreatedDynamically(false) {
+      mCreatedDynamically(false),
+      mChildOffset(0) {
   MOZ_RELEASE_ASSERT(!mParentWindow || mParentWindow->Group() == mGroup);
   MOZ_RELEASE_ASSERT(mBrowsingContextId != 0);
   MOZ_RELEASE_ASSERT(mGroup);
@@ -721,7 +725,8 @@ void BrowsingContext::Attach(bool aFromIPC, ContentParent* aOriginProcess) {
       MOZ_DIAGNOSTIC_ASSERT(mParentWindow->GetWindowGlobalChild()->CanSend(),
                             "local attach call with dead parent window");
     }
-
+    mChildOffset =
+        mCreatedDynamically ? -1 : mParentWindow->Children().Length();
     mParentWindow->AppendChildBrowsingContext(this);
   } else {
     mGroup->Toplevels().AppendElement(this);
@@ -971,7 +976,7 @@ void BrowsingContext::UnregisterWindowContext(WindowContext* aWindow) {
   }
 }
 
-void BrowsingContext::PreOrderWalk(
+void BrowsingContext::PreOrderWalkVoid(
     const std::function<void(BrowsingContext*)>& aCallback) {
   aCallback(this);
 
@@ -979,8 +984,35 @@ void BrowsingContext::PreOrderWalk(
   children.AppendElements(Children());
 
   for (auto& child : children) {
-    child->PreOrderWalk(aCallback);
+    child->PreOrderWalkVoid(aCallback);
   }
+}
+
+BrowsingContext::WalkFlag BrowsingContext::PreOrderWalkFlag(
+    const std::function<WalkFlag(BrowsingContext*)>& aCallback) {
+  switch (aCallback(this)) {
+    case WalkFlag::Skip:
+      return WalkFlag::Next;
+    case WalkFlag::Stop:
+      return WalkFlag::Stop;
+    case WalkFlag::Next:
+    default:
+      break;
+  }
+
+  AutoTArray<RefPtr<BrowsingContext>, 8> children;
+  children.AppendElements(Children());
+
+  for (auto& child : children) {
+    switch (child->PreOrderWalkFlag(aCallback)) {
+      case WalkFlag::Stop:
+        return WalkFlag::Stop;
+      default:
+        break;
+    }
+  }
+
+  return WalkFlag::Next;
 }
 
 void BrowsingContext::PostOrderWalk(
@@ -1330,8 +1362,8 @@ void BrowsingContext::DiscardFromContentParent(ContentParent* aCP) {
 
   if (sBrowsingContexts) {
     AutoTArray<RefPtr<BrowsingContext>, 8> toDiscard;
-    for (const auto& entry : *sBrowsingContexts) {
-      auto* bc = entry.GetData()->Canonical();
+    for (const auto& data : sBrowsingContexts->Values()) {
+      auto* bc = data->Canonical();
       if (!bc->IsDiscarded() && bc->IsEmbeddedInProcess(aCP->ChildID())) {
         toDiscard.AppendElement(bc);
       }
@@ -2110,6 +2142,44 @@ void BrowsingContext::IncrementHistoryEntryCountForBrowsingContext() {
   Unused << SetHistoryEntryCount(GetHistoryEntryCount() + 1);
 }
 
+void BrowsingContext::FlushSessionStore() {
+  nsTArray<RefPtr<BrowserChild>> nestedBrowserChilds;
+
+  PreOrderWalk([&](BrowsingContext* aContext) {
+    BrowserChild* browserChild = BrowserChild::GetFrom(aContext->GetDocShell());
+    if (browserChild && browserChild->GetBrowsingContext() == aContext) {
+      nestedBrowserChilds.AppendElement(browserChild);
+    }
+
+    if (aContext->CreatedDynamically()) {
+      return WalkFlag::Skip;
+    }
+
+    WindowContext* windowContext = aContext->GetCurrentWindowContext();
+    if (!windowContext) {
+      return WalkFlag::Skip;
+    }
+
+    WindowGlobalChild* windowChild = windowContext->GetWindowGlobalChild();
+    if (!windowChild) {
+      return WalkFlag::Next;
+    }
+
+    RefPtr<SessionStoreDataCollector> collector =
+        windowChild->GetSessionStoreDataCollector();
+    if (!collector) {
+      return WalkFlag::Next;
+    }
+
+    collector->Flush();
+    return WalkFlag::Next;
+  });
+
+  for (auto& child : nestedBrowserChilds) {
+    child->UpdateSessionStore();
+  }
+}
+
 std::tuple<bool, bool> BrowsingContext::CanFocusCheck(CallerType aCallerType) {
   nsFocusManager* fm = nsFocusManager::GetFocusManager();
   if (!fm) {
@@ -2379,6 +2449,7 @@ BrowsingContext::IPCInitializer BrowsingContext::GetIPCInitializer() {
   init.mUseRemoteTabs = mUseRemoteTabs;
   init.mUseRemoteSubframes = mUseRemoteSubframes;
   init.mCreatedDynamically = mCreatedDynamically;
+  init.mChildOffset = mChildOffset;
   init.mOriginAttributes = mOriginAttributes;
   if (mChildSessionHistory && mozilla::SessionHistoryInParent()) {
     init.mSessionHistoryIndex = mChildSessionHistory->Index();
@@ -2689,8 +2760,8 @@ bool BrowsingContext::LegacyCheckOnlyOwningProcessCanSet(
   return true;
 }
 
-auto BrowsingContext::LegacyRevertIfNotOwningOrParentProcess(ContentParent* aSource)
-    -> CanSetResult {
+auto BrowsingContext::LegacyRevertIfNotOwningOrParentProcess(
+    ContentParent* aSource) -> CanSetResult {
   if (aSource) {
     MOZ_ASSERT(XRE_IsParentProcess());
 
@@ -3174,6 +3245,11 @@ bool BrowsingContext::CanSet(FieldIndex<IDX_PendingInitialization>,
   return IsTop() && GetPendingInitialization() && !aNewValue;
 }
 
+bool BrowsingContext::CanSet(FieldIndex<IDX_HasRestoreData>, bool aNewValue,
+                             ContentParent* aSource) {
+  return IsTop();
+}
+
 bool BrowsingContext::IsPopupAllowed() {
   for (auto* context = GetCurrentWindowContext(); context;
        context = context->GetParentWindowContext()) {
@@ -3397,6 +3473,7 @@ void IPDLParamTraits<dom::BrowsingContext::IPCInitializer>::Write(
   WriteIPDLParam(aMessage, aActor, aInit.mUseRemoteTabs);
   WriteIPDLParam(aMessage, aActor, aInit.mUseRemoteSubframes);
   WriteIPDLParam(aMessage, aActor, aInit.mCreatedDynamically);
+  WriteIPDLParam(aMessage, aActor, aInit.mChildOffset);
   WriteIPDLParam(aMessage, aActor, aInit.mOriginAttributes);
   WriteIPDLParam(aMessage, aActor, aInit.mRequestContextId);
   WriteIPDLParam(aMessage, aActor, aInit.mSessionHistoryIndex);
@@ -3416,6 +3493,7 @@ bool IPDLParamTraits<dom::BrowsingContext::IPCInitializer>::Read(
                      &aInit->mUseRemoteSubframes) ||
       !ReadIPDLParam(aMessage, aIterator, aActor,
                      &aInit->mCreatedDynamically) ||
+      !ReadIPDLParam(aMessage, aIterator, aActor, &aInit->mChildOffset) ||
       !ReadIPDLParam(aMessage, aIterator, aActor, &aInit->mOriginAttributes) ||
       !ReadIPDLParam(aMessage, aIterator, aActor, &aInit->mRequestContextId) ||
       !ReadIPDLParam(aMessage, aIterator, aActor,

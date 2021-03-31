@@ -35,6 +35,7 @@
 
 #include "nsClassHashtable.h"
 #include "nsTHashMap.h"
+#include "nsTHashSet.h"
 #include "nsPluginTags.h"
 #include "nsHashKeys.h"
 #include "nsIAsyncShutdown.h"
@@ -1294,6 +1295,8 @@ class ContentParent final
   mozilla::ipc::IPCResult RecvCreateAudioIPCConnection(
       CreateAudioIPCConnectionResolver&& aResolver);
 
+  already_AddRefed<extensions::PExtensionsParent> AllocPExtensionsParent();
+
   PFileDescriptorSetParent* AllocPFileDescriptorSetParent(
       const mozilla::ipc::FileDescriptor&);
 
@@ -1494,6 +1497,10 @@ class ContentParent final
 
   mozilla::ipc::IPCResult RecvSessionHistoryEntryScrollRestorationIsManual(
       const MaybeDiscarded<BrowsingContext>& aContext, const bool& aIsManual);
+
+  mozilla::ipc::IPCResult RecvSessionHistoryEntryScrollPosition(
+      const MaybeDiscarded<BrowsingContext>& aContext, const int32_t& aX,
+      const int32_t& aY);
 
   mozilla::ipc::IPCResult RecvSessionHistoryEntryCacheKey(
       const MaybeDiscarded<BrowsingContext>& aContext,
@@ -1716,7 +1723,7 @@ class ContentParent final
   // GetFilesHelper can be aborted by receiving RecvDeleteGetFilesRequest.
   nsRefPtrHashtable<nsIDHashKey, GetFilesHelper> mGetFilesPendingRequests;
 
-  nsTHashtable<nsCStringHashKey> mActivePermissionKeys;
+  nsTHashSet<nsCString> mActivePermissionKeys;
 
   nsTArray<nsCString> mBlobURLs;
 
@@ -1745,7 +1752,7 @@ class ContentParent final
   static bool sEarlySandboxInit;
 #endif
 
-  nsTHashtable<nsRefPtrHashKey<BrowsingContextGroup>> mGroups;
+  nsTHashSet<RefPtr<BrowsingContextGroup>> mGroups;
 
   // See `BrowsingContext::mEpochs` for an explanation of this field.
   uint64_t mBrowsingContextFieldEpoch = 0;

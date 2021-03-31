@@ -169,6 +169,20 @@ pref("app.update.staging.enabled", true);
 
 pref("app.update.langpack.enabled", true);
 
+#if defined(MOZ_BACKGROUNDTASKS) && defined(MOZ_UPDATE_AGENT) && defined(NIGHTLY_BUILD)
+  // If set to true, on Windows, the browser will attempt to schedule OS-level
+  // background tasks to update itself even when it is not running.  This pref
+  // is special: any profile that believes itself the default profile will
+  // mirror this pref's default value to the per-installation pref
+  // `app.update.background.enabled`.  This pref will be used to stage the roll
+  // out of the background update feature via Normandy.  (The per-installation
+  // pref allows profiles beyond the default profile to enable and disable the
+  // background update feature manually.)
+  pref("app.update.background.scheduling.enabled", false);
+  // By default, check for updates when the browser is not running every 7 hours.
+  pref("app.update.background.interval", 25200);
+#endif
+
 // Symmetric (can be overridden by individual extensions) update preferences.
 // e.g.
 //  extensions.{GUID}.update.enabled
@@ -534,6 +548,10 @@ pref("browser.tabs.loadBookmarksInBackground", false);
 pref("browser.tabs.loadBookmarksInTabs", false);
 pref("browser.tabs.tabClipWidth", 140);
 pref("browser.tabs.tabMinWidth", 76);
+// Users running in any of the following language codes will have the
+// secondary text on tabs hidden due to size constraints and readability
+// of the text at small font sizes.
+pref("browser.tabs.secondaryTextUnsupportedLocales", "ar,bn,bo,ckb,fa,gu,he,hi,ja,km,kn,ko,lo,mr,my,ne,pa,si,ta,te,th,ur,zh");
 // Initial titlebar state is managed by -moz-gtk-csd-hide-titlebar-by-default
 // on Linux.
 #ifndef UNIX_BUT_NOT_MAC
@@ -590,7 +608,7 @@ pref("security.allow_parent_unrestricted_js_loads", false);
 // Unload tabs when available memory is running low
 pref("browser.tabs.unloadOnLowMemory", false);
 
-pref("browser.ctrlTab.recentlyUsedOrder", true);
+pref("browser.ctrlTab.sortByRecentlyUsed", false);
 
 // By default, do not export HTML at shutdown.
 // If true, at shutdown the bookmarks in your menu and toolbar will
@@ -828,7 +846,6 @@ pref("browser.preferences.experimental", false);
 pref("browser.preferences.experimental.hidden", false);
 pref("browser.preferences.defaultPerformanceSettings.enabled", true);
 
-pref("browser.proton.enabled", false);
 pref("browser.proton.toolbar.version", 0);
 
 // Backspace and Shift+Backspace behavior
@@ -906,9 +923,6 @@ pref("browser.sessionstore.resume_from_crash", true);
 pref("browser.sessionstore.resume_session_once", false);
 pref("browser.sessionstore.resuming_after_os_restart", false);
 
-// Minimal interval between two save operations in milliseconds (while the user is active).
-pref("browser.sessionstore.interval", 15000); // 15 seconds
-
 // Minimal interval between two save operations in milliseconds (while the user is idle).
 pref("browser.sessionstore.interval.idle", 3600000); // 1h
 
@@ -949,10 +963,6 @@ pref("browser.sessionstore.upgradeBackup.latestBuildID", "");
 pref("browser.sessionstore.upgradeBackup.maxUpgradeBackups", 3);
 // End-users should not run sessionstore in debug mode
 pref("browser.sessionstore.debug", false);
-// Causes SessionStore to ignore non-final update messages from
-// browser tabs that were not caused by a flush from the parent.
-// This is a testing flag and should not be used by end-users.
-pref("browser.sessionstore.debug.no_auto_updates", false);
 // Forget closed windows/tabs after two weeks
 pref("browser.sessionstore.cleanup.forget_closed_after", 1209600000);
 // Amount of failed SessionFile writes until we restart the worker.
@@ -1231,7 +1241,7 @@ pref("services.sync.prefs.sync.app.shield.optoutstudies.enabled", true);
 pref("services.sync.prefs.sync.browser.contentblocking.category", true);
 pref("services.sync.prefs.sync.browser.contentblocking.features.strict", true);
 pref("services.sync.prefs.sync.browser.crashReports.unsubmittedCheck.autoSubmit2", true);
-pref("services.sync.prefs.sync.browser.ctrlTab.recentlyUsedOrder", true);
+pref("services.sync.prefs.sync.browser.ctrlTab.sortByRecentlyUsed", true);
 pref("services.sync.prefs.sync.browser.discovery.enabled", true);
 pref("services.sync.prefs.sync.browser.download.useDownloadDir", true);
 pref("services.sync.prefs.sync.browser.formfill.enable", true);
@@ -1671,8 +1681,6 @@ pref("toolkit.telemetry.newProfilePing.enabled", true);
 pref("toolkit.telemetry.updatePing.enabled", true);
 // Enables sending 'bhr' pings when the browser hangs.
 pref("toolkit.telemetry.bhrPing.enabled", true);
-// Whether to enable Ecosystem Telemetry, requires a restart.
-pref("toolkit.telemetry.ecosystemtelemetry.enabled", false);
 
 // Ping Centre Telemetry settings.
 pref("browser.ping-centre.telemetry", true);
@@ -1684,9 +1692,11 @@ pref("media.gmp-provider.enabled", true);
 #ifdef NIGHTLY_BUILD
 // Enable Dynamic First-Party Isolation in Nightly.
 pref("network.cookie.cookieBehavior", 5 /* BEHAVIOR_REJECT_TRACKER_AND_PARTITION_FOREIGN */);
+pref("network.cookie.cookieBehavior.pbmode", 5 /* BEHAVIOR_REJECT_TRACKER_AND_PARTITION_FOREIGN */);
 #else
 // Enable blocking access to storage from tracking resources by default.
 pref("network.cookie.cookieBehavior", 4 /* BEHAVIOR_REJECT_TRACKER */);
+pref("network.cookie.cookieBehavior.pbmode", 4 /* BEHAVIOR_REJECT_TRACKER */);
 #endif
 
 // Enable fingerprinting blocking by default for all channels, only on desktop.
@@ -1933,8 +1943,8 @@ pref("signon.management.page.sort", "name");
 // the utm_creative param be last.
 pref("signon.management.page.breachAlertUrl",
      "https://monitor.firefox.com/breach-details/");
-pref("signon.management.page.showPasswordSyncNotification", true);
 pref("signon.passwordEditCapture.enabled", true);
+pref("signon.relatedRealms.enabled", false);
 pref("signon.showAutoCompleteFooter", true);
 pref("signon.showAutoCompleteImport", "import");
 pref("signon.suggestImportCount", 3);
@@ -2414,8 +2424,8 @@ pref("devtools.browserconsole.input.editorWidth", 0);
 // Display an onboarding UI for the Editor mode.
 pref("devtools.webconsole.input.editorOnboarding", true);
 
-// Enable the new performance recording panel in Nightly builds.
-#if defined(NIGHTLY_BUILD)
+// Enable the new performance recording panel in Nightly and Beta/DevEdition builds.
+#if defined(NIGHTLY_BUILD) || defined(MOZ_DEV_EDITION)
   pref("devtools.performance.new-panel-enabled", true);
 #else
   pref("devtools.performance.new-panel-enabled", false);

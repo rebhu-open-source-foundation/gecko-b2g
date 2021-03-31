@@ -92,6 +92,7 @@ sRGBColor nsNativeBasicTheme::sAccentColorDark = sRGBColor::OpaqueWhite();
 sRGBColor nsNativeBasicTheme::sAccentColorDarker = sRGBColor::OpaqueWhite();
 CSSIntCoord nsNativeBasicTheme::sHorizontalScrollbarHeight = CSSIntCoord(0);
 CSSIntCoord nsNativeBasicTheme::sVerticalScrollbarWidth = CSSIntCoord(0);
+bool nsNativeBasicTheme::sOverlayScrollbars = false;
 
 static constexpr nsLiteralCString kPrefs[] = {
     "widget.non-native-theme.use-theme-accent"_ns,
@@ -114,7 +115,7 @@ void nsNativeBasicTheme::Shutdown() {
 
 void nsNativeBasicTheme::LookAndFeelChanged() {
   RecomputeAccentColors();
-  RecomputeScrollbarSizes();
+  RecomputeScrollbarParams();
 }
 
 void nsNativeBasicTheme::RecomputeAccentColors() {
@@ -164,7 +165,10 @@ void nsNativeBasicTheme::RecomputeAccentColors() {
       RelativeLuminanceUtils::Adjust(accent, darkerLuminanceAdjust));
 }
 
-void nsNativeBasicTheme::RecomputeScrollbarSizes() {
+void nsNativeBasicTheme::RecomputeScrollbarParams() {
+  sOverlayScrollbars =
+      LookAndFeel::GetInt(LookAndFeel::IntID::UseOverlayScrollbars);
+
   uint32_t defaultSize = StaticPrefs::widget_non_native_theme_scrollbar_size();
   if (StaticPrefs::widget_non_native_theme_win_scrollbar_use_system_size()) {
     sHorizontalScrollbarHeight = LookAndFeel::GetInt(
@@ -173,6 +177,15 @@ void nsNativeBasicTheme::RecomputeScrollbarSizes() {
         LookAndFeel::IntID::SystemVerticalScrollbarWidth, defaultSize);
   } else {
     sHorizontalScrollbarHeight = sVerticalScrollbarWidth = defaultSize;
+  }
+  // On GTK, widgets don't account for text scale factor, but that's included
+  // in the usual DPI computations, so we undo that here, just like
+  // GetMonitorScaleFactor does it in nsNativeThemeGTK.
+  float scale =
+      LookAndFeel::GetFloat(LookAndFeel::FloatID::TextScaleFactor, 1.0f);
+  if (scale != 1.0f) {
+    sVerticalScrollbarWidth = float(sVerticalScrollbarWidth) / scale;
+    sHorizontalScrollbarHeight = float(sHorizontalScrollbarHeight) / scale;
   }
 }
 
@@ -651,9 +664,15 @@ sRGBColor nsNativeBasicTheme::ComputeScrollbarThumbColor(
     const EventStates& aElementState, const EventStates& aDocumentState,
     UseSystemColors aUseSystemColors) {
   if (!bool(aUseSystemColors) && ShouldUseDarkScrollbar(aFrame, aStyle)) {
-    return sRGBColor::FromABGR(AdjustUnthemedScrollbarThumbColor(
-        NS_RGBA(249, 249, 250, 102), aElementState));
+    const bool forceThemed =
+        aElementState.HasState(NS_EVENT_STATE_ACTIVE) &&
+        StaticPrefs::widget_non_native_theme_scrollbar_active_always_themed();
+    if (!forceThemed) {
+      return sRGBColor::FromABGR(AdjustUnthemedScrollbarThumbColor(
+          NS_RGBA(249, 249, 250, 102), aElementState));
+    }
   }
+
   const nsStyleUI* ui = aStyle.StyleUI();
   nscolor color;
   if (ui->mScrollbarColor.IsColors()) {
@@ -851,7 +870,7 @@ void nsNativeBasicTheme::PaintRoundedRectWithRadius(
   // stroke fills exactly the area we want to fill and not more.
   rect.Deflate(borderWidth * 0.5f);
 
-  LayoutDeviceCoord radius(aRadius * aDpiRatio);
+  LayoutDeviceCoord radius(aRadius * aDpiRatio - borderWidth * 0.5f);
   // Fix up the radius if it's too large with the rect we're going to paint.
   {
     LayoutDeviceCoord min = std::min(rect.width, rect.height);
@@ -1464,35 +1483,36 @@ template <typename PaintBackendData>
 bool nsNativeBasicTheme::DoPaintDefaultScrollbar(
     PaintBackendData& aPaintData, const LayoutDeviceRect& aRect,
     bool aHorizontal, nsIFrame* aFrame, const ComputedStyle& aStyle,
-    const EventStates& aDocumentState, UseSystemColors aUseSystemColors,
-    DPIRatio aDpiRatio) {
+    const EventStates& aElementState, const EventStates& aDocumentState,
+    UseSystemColors aUseSystemColors, DPIRatio aDpiRatio) {
+  if (sOverlayScrollbars && !aElementState.HasAtLeastOneOfStates(
+                                NS_EVENT_STATE_HOVER | NS_EVENT_STATE_ACTIVE)) {
+    return true;
+  }
   auto scrollbarColor =
       ComputeScrollbarColor(aFrame, aStyle, aDocumentState, aUseSystemColors);
   FillRect(aPaintData, aRect, scrollbarColor);
   return true;
 }
 
-bool nsNativeBasicTheme::PaintScrollbar(DrawTarget& aDrawTarget,
-                                        const LayoutDeviceRect& aRect,
-                                        bool aHorizontal, nsIFrame* aFrame,
-                                        const ComputedStyle& aStyle,
-                                        const EventStates& aDocumentState,
-                                        UseSystemColors aUseSystemColors,
-                                        DPIRatio aDpiRatio) {
+bool nsNativeBasicTheme::PaintScrollbar(
+    DrawTarget& aDrawTarget, const LayoutDeviceRect& aRect, bool aHorizontal,
+    nsIFrame* aFrame, const ComputedStyle& aStyle,
+    const EventStates& aElementState, const EventStates& aDocumentState,
+    UseSystemColors aUseSystemColors, DPIRatio aDpiRatio) {
   return DoPaintDefaultScrollbar(aDrawTarget, aRect, aHorizontal, aFrame,
-                                 aStyle, aDocumentState, aUseSystemColors,
-                                 aDpiRatio);
+                                 aStyle, aElementState, aDocumentState,
+                                 aUseSystemColors, aDpiRatio);
 }
 
-bool nsNativeBasicTheme::PaintScrollbar(WebRenderBackendData& aWrData,
-                                        const LayoutDeviceRect& aRect,
-                                        bool aHorizontal, nsIFrame* aFrame,
-                                        const ComputedStyle& aStyle,
-                                        const EventStates& aDocumentState,
-                                        UseSystemColors aUseSystemColors,
-                                        DPIRatio aDpiRatio) {
+bool nsNativeBasicTheme::PaintScrollbar(
+    WebRenderBackendData& aWrData, const LayoutDeviceRect& aRect,
+    bool aHorizontal, nsIFrame* aFrame, const ComputedStyle& aStyle,
+    const EventStates& aElementState, const EventStates& aDocumentState,
+    UseSystemColors aUseSystemColors, DPIRatio aDpiRatio) {
   return DoPaintDefaultScrollbar(aWrData, aRect, aHorizontal, aFrame, aStyle,
-                                 aDocumentState, aUseSystemColors, aDpiRatio);
+                                 aElementState, aDocumentState,
+                                 aUseSystemColors, aDpiRatio);
 }
 
 template <typename PaintBackendData>
@@ -1599,7 +1619,8 @@ bool nsNativeBasicTheme::CreateWebRenderCommandsForWidget(
     return false;
   }
   WebRenderBackendData data{aBuilder, aResources, aSc, aManager};
-  return DoDrawWidgetBackground(data, aFrame, aAppearance, aRect, DrawOverflow::Yes);
+  return DoDrawWidgetBackground(data, aFrame, aAppearance, aRect,
+                                DrawOverflow::Yes);
 }
 
 static LayoutDeviceRect ToSnappedRect(const nsRect& aRect,
@@ -1763,8 +1784,8 @@ bool nsNativeBasicTheme::DoDrawWidgetBackground(PaintBackendData& aPaintData,
     case StyleAppearance::ScrollbarVertical: {
       bool isHorizontal = aAppearance == StyleAppearance::ScrollbarHorizontal;
       return PaintScrollbar(aPaintData, devPxRect, isHorizontal, aFrame,
-                            *nsLayoutUtils::StyleForScrollbar(aFrame), docState,
-                            useSystemColors, dpiRatio);
+                            *nsLayoutUtils::StyleForScrollbar(aFrame),
+                            eventState, docState, useSystemColors, dpiRatio);
     }
     case StyleAppearance::Scrollcorner:
       return PaintScrollCorner(aPaintData, devPxRect, aFrame,
@@ -1822,15 +1843,20 @@ void nsNativeBasicTheme::PaintAutoStyleOutline(nsIFrame* aFrame,
       LayoutDeviceCoord(SnapBorderWidth(kInnerFocusOutlineWidth, aDpiRatio));
   rect.Inflate(width);
 
+  const nscoord offset = aFrame->StyleOutline()->mOutlineOffset.ToAppUnits();
   nscoord cssRadii[8];
   if (!aFrame->GetBorderRadii(cssRadii)) {
+    const CSSCoord cssOffset = CSSCoord::FromAppUnits(offset);
+    const CSSCoord radius =
+        cssOffset >= 0.0f
+            ? kInnerFocusOutlineWidth
+            : std::max(kInnerFocusOutlineWidth + cssOffset, CSSCoord(0.0f));
     return PaintRoundedRectWithRadius(aPaintData, rect, sRGBColor::White(0.0f),
                                       innerColor, kInnerFocusOutlineWidth,
-                                      /* aRadius = */ 0.0f, aDpiRatio);
+                                      radius, aDpiRatio);
   }
 
   nsPresContext* pc = aFrame->PresContext();
-  const nscoord offset = aFrame->StyleOutline()->mOutlineOffset.ToAppUnits();
   const Float devPixelOffset = pc->AppUnitsToFloatDevPixels(offset);
 
   RectCornerRadii innerRadii;

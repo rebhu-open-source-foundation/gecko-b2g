@@ -18,7 +18,6 @@
   --autocomplete-popup-highlight-color: HighlightText;
 
   --urlbar-result-hover-bgcolor: var(--arrowpanel-dimmed);
-  --urlbar-popup-url-color: hsl(210, 77%, 47%);
   --urlbar-popup-action-color: hsl(178, 100%, 28%);
 
   /* Colors copied from in-content button styling */
@@ -33,6 +32,18 @@
 
   --urlbarView-item-inline-padding: calc(var(--urlbar-icon-padding) / 2 + 3px);
 }
+
+@supports not -moz-bool-pref("browser.proton.urlbar.enabled") {
+:root {
+  --urlbar-popup-url-color: hsl(210, 77%, 47%);
+}
+} /*** END !proton ***/
+
+@supports -moz-bool-pref("browser.proton.urlbar.enabled") {
+:root:-moz-lwtheme {
+  --urlbar-popup-url-color: rgb(0,97,224);
+}
+} /*** END proton ***/
 
 :root[lwt-toolbar-field-focus-brighttext] {
   --urlbar-popup-url-color: var(--lwt-popup-brighttext-url-color);
@@ -49,17 +60,19 @@
   --urlbarView-item-inline-padding: var(--urlbar-icon-padding);
 }
 
-/* Fallback colours for when theme authors don't define lwtheme variables. */
 :root:-moz-lwtheme {
+  --urlbar-popup-action-color: rgb(21,20,26);
+  /* Fallback colours for when theme authors don't define lwtheme variables. */
   --autocomplete-popup-highlight-background: rgb(0, 99, 255);
   --autocomplete-popup-highlight-color: white;
 }
+
 :root[lwt-toolbar-field-brighttext] {
   --autocomplete-popup-highlight-background: rgb(0, 99, 225);
 }
 
 :root[lwt-toolbar-field-focus-brighttext] {
-  --urlbar-popup-action-color: #bfbfc9;
+  --urlbar-popup-action-color: rgb(191,191,201);
 }
 } /*** END proton ***/
 
@@ -334,7 +347,7 @@
   -moz-context-properties: fill, stroke;
 }
 
-/* Favicon badges have this priority: switchtab/remotetab > pinned > bookmark. */
+/* Favicon badges have this priority: pinned > bookmark. */
 
 .urlbarView-row[type=bookmark] > .urlbarView-row-inner > .urlbarView-no-wrap > .urlbarView-type-icon {
   background-image: url(chrome://browser/skin/bookmark-12.svg);
@@ -348,12 +361,19 @@
   stroke: #fff;
 }
 
+@supports not -moz-bool-pref("browser.proton.urlbar.enabled") {
 .urlbarView:not([actionoverride]) .urlbarView-row[type=switchtab] > .urlbarView-row-inner > .urlbarView-no-wrap > .urlbarView-type-icon,
 .urlbarView-row[type=remotetab] > .urlbarView-row-inner > .urlbarView-no-wrap > .urlbarView-type-icon {
   background-image: url(chrome://browser/skin/tab-12.svg);
   color: #008eaf; /* Teal-70 */
   stroke: #fff;
 }
+:root[lwt-toolbar-field-brighttext] .urlbarView:not([actionoverride]) .urlbarView-row[type=switchtab] > .urlbarView-row-inner > .urlbarView-no-wrap > .urlbarView-type-icon,
+:root[lwt-toolbar-field-brighttext] .urlbarView-row[type=remotetab] > .urlbarView-row-inner > .urlbarView-no-wrap > .urlbarView-type-icon {
+  color: #00c8d7; /* Teal-60 */
+  stroke: #38383d; /* Grey-70 */
+}
+} /*** END !proton ***/
 
 :root[lwt-toolbar-field-brighttext] .urlbarView-row[type=bookmark] > .urlbarView-row-inner > .urlbarView-no-wrap > .urlbarView-type-icon {
   color: #0a84ff; /* Blue-50 */
@@ -365,11 +385,6 @@
   stroke: #38383d; /* Grey-70 */
 }
 
-:root[lwt-toolbar-field-brighttext] .urlbarView:not([actionoverride]) .urlbarView-row[type=switchtab] > .urlbarView-row-inner > .urlbarView-no-wrap > .urlbarView-type-icon,
-:root[lwt-toolbar-field-brighttext] .urlbarView-row[type=remotetab] > .urlbarView-row-inner > .urlbarView-no-wrap > .urlbarView-type-icon {
-  color: #00c8d7; /* Teal-60 */
-  stroke: #38383d; /* Grey-70 */
-}
 
 /* Help button */
 
@@ -611,6 +626,31 @@
   display: none;
 }
 
+@supports -moz-bool-pref("browser.proton.urlbar.enabled") {
+/* Switch-to-tab action text is styled as a chiclet. */
+.urlbarView-row:is([type=switchtab], [type=remotetab]) > .urlbarView-row-inner > .urlbarView-no-wrap > .urlbarView-action {
+  background-color: var(--urlbar-box-bgcolor);
+  border-radius: var(--toolbarbutton-border-radius);
+  padding: 6px 8px;
+  margin-block: -6px;
+  margin-inline-start: 8px;
+}
+
+:root[uidensity=compact] .urlbarView-row:is([type=switchtab], [type=remotetab]) > .urlbarView-row-inner > .urlbarView-no-wrap > .urlbarView-action {
+  padding: 3px 6px;
+  margin-block: -3px;
+}
+
+.urlbarView-row:is([type=switchtab], [type=remotetab]):is([selected], :hover) > .urlbarView-row-inner > .urlbarView-no-wrap > .urlbarView-action {
+  background-color: var(--urlbar-box-active-bgcolor);
+}
+
+.urlbarView-row:is([type=remotetab]) > .urlbarView-row-inner > .urlbarView-no-wrap > .urlbarView-title-separator,
+.urlbarView:not([actionoverride]) .urlbarView-row[type=switchtab] > .urlbarView-row-inner > .urlbarView-no-wrap > .urlbarView-title-separator {
+  visibility: collapse;
+}
+} /*** END !proton ***/
+
 .urlbarView-tags {
   overflow: hidden;
 }
@@ -738,18 +778,22 @@
 /* search bar popup */
 
 #PopupSearchAutoComplete {
-  background: var(--autocomplete-popup-background);
+  background-color: var(--autocomplete-popup-background);
   color: var(--autocomplete-popup-color);
+  border-color: var(--arrowpanel-border-color);
+}
+
+@supports -moz-bool-pref("browser.proton.urlbar.enabled") {
+#PopupSearchAutoComplete {
+  background-color: var(--lwt-toolbar-field-focus);
   border: 1px solid var(--arrowpanel-border-color);
   /* Remove the top border since the panel is flush with the input. */
   border-top-width: 0;
+  border-radius: var(--arrowpanel-border-radius);
+  /* override autocomplete.css padding */
+  padding: var(--panel-subview-body-padding) !important;
 }
-
-@supports not -moz-bool-pref("browser.proton.urlbar.enabled") {
-#PopupSearchAutoComplete {
-  border-width: 0;
-}
-} /*** END !proton ***/
+} /*** END proton ***/
 
 #PopupSearchAutoComplete .autocomplete-richlistitem[selected] {
   background: var(--autocomplete-popup-highlight-background);

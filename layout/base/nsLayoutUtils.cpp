@@ -1046,6 +1046,17 @@ bool nsLayoutUtils::IsAncestorFrameCrossDoc(const nsIFrame* aAncestorFrame,
 }
 
 // static
+bool nsLayoutUtils::IsAncestorFrameCrossDocInProcess(
+    const nsIFrame* aAncestorFrame, const nsIFrame* aFrame,
+    const nsIFrame* aCommonAncestor) {
+  for (const nsIFrame* f = aFrame; f != aCommonAncestor;
+       f = GetCrossDocParentFrameInProcess(f)) {
+    if (f == aAncestorFrame) return true;
+  }
+  return aCommonAncestor == aAncestorFrame;
+}
+
+// static
 bool nsLayoutUtils::IsProperAncestorFrame(const nsIFrame* aAncestorFrame,
                                           const nsIFrame* aFrame,
                                           const nsIFrame* aCommonAncestor) {
@@ -3450,8 +3461,11 @@ nsresult nsLayoutUtils::PaintFrame(gfxContext* aRenderingContext,
   MOZ_ASSERT(updateState != PartialUpdateResult::Failed);
   builder->Check();
 
-  Telemetry::AccumulateTimeDelta(Telemetry::PAINT_BUILD_DISPLAYLIST_TIME,
-                                 startBuildDisplayList);
+  const double geckoDLBuildTime =
+      (TimeStamp::Now() - startBuildDisplayList).ToMilliseconds();
+
+  Telemetry::Accumulate(Telemetry::PAINT_BUILD_DISPLAYLIST_TIME,
+                        geckoDLBuildTime);
 
   bool consoleNeedsDisplayList =
       (gfxUtils::DumpDisplayList() || gfxEnv::DumpPaint()) &&
@@ -3463,6 +3477,11 @@ nsresult nsLayoutUtils::PaintFrame(gfxContext* aRenderingContext,
   UniquePtr<std::stringstream> ss;
   if (consoleNeedsDisplayList) {
     ss = MakeUnique<std::stringstream>();
+    Document* doc = presContext->Document();
+    nsAutoString uri;
+    if (doc && doc->GetDocumentURI(uri) == NS_OK) {
+      *ss << "Display list for " << uri << "\n";
+    }
     DumpBeforePaintDisplayList(ss, builder, list, visibleRect);
   }
 
@@ -3499,8 +3518,8 @@ nsresult nsLayoutUtils::PaintFrame(gfxContext* aRenderingContext,
 #endif
 
   TimeStamp paintStart = TimeStamp::Now();
-  RefPtr<LayerManager> layerManager =
-      list->PaintRoot(builder, aRenderingContext, flags);
+  RefPtr<LayerManager> layerManager = list->PaintRoot(
+      builder, aRenderingContext, flags, Some(geckoDLBuildTime));
   Telemetry::AccumulateTimeDelta(Telemetry::PAINT_RASTERIZE_TIME, paintStart);
 
   if (builder->IsPaintingToWindow()) {
@@ -6766,8 +6785,7 @@ const nsIFrame* nsLayoutUtils::GetDisplayRootFrame(const nsIFrame* aFrame) {
 nsIFrame* nsLayoutUtils::GetReferenceFrame(nsIFrame* aFrame) {
   nsIFrame* f = aFrame;
   for (;;) {
-    const nsStyleDisplay* disp = f->StyleDisplay();
-    if (f->IsTransformed(disp) || f->IsPreserve3DLeaf(disp) || IsPopup(f)) {
+    if (f->IsTransformed() || f->IsPreserve3DLeaf() || IsPopup(f)) {
       return f;
     }
     nsIFrame* parent = GetCrossDocParentFrame(f);
@@ -9470,9 +9488,9 @@ void nsLayoutUtils::ComputeSystemFont(nsFont* aSystemFont,
   // aSystemFont->langGroup = fontStyle.langGroup;
   aSystemFont->sizeAdjust = fontStyle.sizeAdjust;
 
-  if (aFontID == LookAndFeel::FontID::Field ||
-      aFontID == LookAndFeel::FontID::Button ||
-      aFontID == LookAndFeel::FontID::List) {
+  if (aFontID == LookAndFeel::FontID::MozField ||
+      aFontID == LookAndFeel::FontID::MozButton ||
+      aFontID == LookAndFeel::FontID::MozList) {
     const bool isWindowsOrNonNativeTheme =
 #ifdef XP_WIN
         true ||

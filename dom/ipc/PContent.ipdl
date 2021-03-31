@@ -13,6 +13,7 @@ include protocol PCompositorManager;
 include protocol PContentPermissionRequest;
 include protocol PCycleCollectWithLogs;
 include protocol PDocumentChannel;
+include protocol PExtensions;
 include protocol PExternalHelperApp;
 include protocol PHandlerService;
 include protocol PDeviceStorageRequest;
@@ -617,6 +618,7 @@ nested(upto inside_cpow) sync protocol PContent
     manages PContentPermissionRequest;
     manages PCycleCollectWithLogs;
     manages PDeviceStorageRequest;
+    manages PExtensions;
     manages PExternalHelperApp;
     manages PFileDescriptorSet;
 #ifdef MOZ_B2G_FM
@@ -699,6 +701,8 @@ parent:
     // this should be enough...
     async CloneDocumentTreeInto(MaybeDiscardedBrowsingContext aSourceBc,
                                 MaybeDiscardedBrowsingContext aTargetBc);
+
+    async PExtensions();
 
 child:
     async ConstructBrowser(ManagedEndpoint<PBrowserChild> browserEp,
@@ -817,7 +821,7 @@ child:
      * Tell the child that the system theme has changed, and that a repaint is
      * necessary.
      */
-    async ThemeChanged(LookAndFeelData lookAndFeelData, ThemeChangeKind aKind);
+    async ThemeChanged(FullLookAndFeel lookAndFeelData, ThemeChangeKind aKind);
 
     async UpdateSystemParameters(SystemParameterKVPair[] aUpdates);
 
@@ -929,7 +933,7 @@ child:
 
     async SetXPCOMProcessAttributes(XPCOMInitData xpcomInit,
                                     StructuredCloneData initialData,
-                                    LookAndFeelData lookAndFeeldata,
+                                    FullLookAndFeel lookAndFeeldata,
                                     /* used on MacOSX/Linux/Android only: */
                                     SystemFontListEntry[] systemFontList,
                                     SharedMemoryHandle? sharedUASheetHandle,
@@ -1192,7 +1196,11 @@ child:
   // Update the cached list of codec supported in the given process.
   async UpdateMediaCodecsSupported(RemoteDecodeIn aLocation, MediaCodecsSupported aSupported);
 
+  async FlushTabState(MaybeDiscardedBrowsingContext aBrowsingContext)
+      returns(bool aHadContext);
+
 parent:
+
 
     async SynchronizeLayoutHistoryState(MaybeDiscardedBrowsingContext aContext,
                                         nsILayoutHistoryState aState);
@@ -1202,6 +1210,8 @@ parent:
 
     async SessionHistoryEntryScrollRestorationIsManual(MaybeDiscardedBrowsingContext aContext,
                                                        bool aIsManual);
+    async SessionHistoryEntryScrollPosition(MaybeDiscardedBrowsingContext aContext,
+                                            int32_t aX, int32_t aY);
 
     async SessionHistoryEntryCacheKey(MaybeDiscardedBrowsingContext aContext,
                                       uint32_t aCacheKey);

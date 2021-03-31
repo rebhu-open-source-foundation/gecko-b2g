@@ -18,6 +18,7 @@
 #include "frontend/BytecodeCompilation.h"  // CanLazilyParse
 #include "frontend/BytecodeSection.h"      // EmitScriptThingsVector
 #include "frontend/CompilationStencil.h"  // CompilationStencil, CompilationState, ExtensibleCompilationStencil, CompilationGCOutput, CompilationStencilMerger
+#include "frontend/NameAnalysisTypes.h"   // EnvironmentCoordinate
 #include "frontend/SharedContext.h"
 #include "gc/AllocKind.h"               // gc::AllocKind
 #include "gc/Rooting.h"                 // RootedAtom
@@ -32,12 +33,13 @@
 #include "vm/BindingKind.h"             // BindingKind
 #include "vm/EnvironmentObject.h"
 #include "vm/GeneratorAndAsyncKind.h"  // GeneratorKind, FunctionAsyncKind
-#include "vm/JSContext.h"              // JSContext
+#include "vm/HelperThreads.h"          // js::StartOffThreadParseScript
+#include "vm/HelperThreadState.h"
+#include "vm/JSContext.h"  // JSContext
 #include "vm/JSFunction.h"  // JSFunction, GetFunctionPrototype, NewFunctionWithProto
-#include "vm/JSObject.h"      // JSObject
+#include "vm/JSObject.h"      // JSObject, TenuredObject
 #include "vm/JSONPrinter.h"   // js::JSONPrinter
 #include "vm/JSScript.h"      // BaseScript, JSScript
-#include "vm/ObjectGroup.h"   // TenuredObject
 #include "vm/Printer.h"       // js::Fprinter
 #include "vm/RegExpObject.h"  // js::RegExpObject
 #include "vm/Scope.h"  // Scope, *Scope, ScopeKindString, ScopeIter, ScopeKindIsCatch, BindingIter, GetScopeDataTrailingNames
@@ -280,6 +282,22 @@ bool ScopeContext::cacheEnclosingScopeBindingForEval(
           }
           break;
 
+        case BindingKind::Synthetic:
+          if (!addToEnclosingLexicalBindingCache(
+                  cx, input, parserAtoms, bi.name(),
+                  EnclosingLexicalBindingKind::Synthetic)) {
+            return false;
+          }
+          break;
+
+        case BindingKind::PrivateMethod:
+          if (!addToEnclosingLexicalBindingCache(
+                  cx, input, parserAtoms, bi.name(),
+                  EnclosingLexicalBindingKind::PrivateMethod)) {
+            return false;
+          }
+          break;
+
         case BindingKind::Import:
         case BindingKind::FormalParameter:
         case BindingKind::Var:
@@ -345,24 +363,36 @@ bool ScopeContext::cachePrivateFieldsForEval(JSContext* cx,
 
   effectiveScopePrivateFieldCache_.emplace();
 
+  // We compute an environment coordinate relative to the effective scope
+  // environment. In order to safely consume these environment coordinates, they
+  // need to be appropriately mapped at the calling context.
+  uint32_t hops = 0;
   for (ScopeIter si(effectiveScope); si; si++) {
     if (si.scope()->kind() != ScopeKind::ClassBody) {
       continue;
     }
-
+    uint32_t slots = 0;
     for (js::BindingIter bi(si.scope()); bi; bi++) {
-      if (IsPrivateField(bi.name())) {
+      if (bi.kind() == BindingKind::PrivateMethod ||
+          (bi.kind() == BindingKind::Synthetic && IsPrivateField(bi.name()))) {
         auto parserName =
             parserAtoms.internJSAtom(cx, input.atomCache, bi.name());
         if (!parserName) {
           return false;
         }
 
-        if (!effectiveScopePrivateFieldCache_->put(parserName)) {
+        NameLocation loc =
+            NameLocation::EnvironmentCoordinate(bi.kind(), hops, slots);
+
+        if (!effectiveScopePrivateFieldCache_->put(parserName, loc)) {
           ReportOutOfMemory(cx);
           return false;
         }
       }
+      slots++;
+    }
+    if (si.scope()->hasEnvironment()) {
+      hops++;
     }
   }
 
@@ -562,6 +592,15 @@ bool ScopeContext::effectiveScopePrivateFieldCacheHas(
   return effectiveScopePrivateFieldCache_->has(name);
 }
 
+mozilla::Maybe<NameLocation> ScopeContext::getPrivateFieldLocation(
+    TaggedParserAtomIndex name) {
+  auto p = effectiveScopePrivateFieldCache_->lookup(name);
+  if (!p) {
+    return mozilla::Nothing();
+  }
+  return mozilla::Some(p->value());
+}
+
 bool CompilationInput::initScriptSource(JSContext* cx) {
   source = do_AddRef(cx->new_<ScriptSource>());
   if (!source) {
@@ -657,9 +696,14 @@ Scope* ScopeStencil::createScope(JSContext* cx, CompilationAtomCache& atomCache,
     case ScopeKind::Catch:
     case ScopeKind::NamedLambda:
     case ScopeKind::StrictNamedLambda:
-    case ScopeKind::FunctionLexical:
-    case ScopeKind::ClassBody: {
+    case ScopeKind::FunctionLexical: {
       using ScopeType = LexicalScope;
+      MOZ_ASSERT(matchScopeKind<ScopeType>(kind()));
+      return createSpecificScope<ScopeType, BlockLexicalEnvironmentObject>(
+          cx, atomCache, enclosingScope, baseScopeData);
+    }
+    case ScopeKind::ClassBody: {
+      using ScopeType = ClassBodyScope;
       MOZ_ASSERT(matchScopeKind<ScopeType>(kind()));
       return createSpecificScope<ScopeType, BlockLexicalEnvironmentObject>(
           cx, atomCache, enclosingScope, baseScopeData);
@@ -2240,12 +2284,21 @@ void ScopeStencil::dumpFields(js::JSONPrinter& json,
     case ScopeKind::Catch:
     case ScopeKind::NamedLambda:
     case ScopeKind::StrictNamedLambda:
-    case ScopeKind::FunctionLexical:
-    case ScopeKind::ClassBody: {
+    case ScopeKind::FunctionLexical: {
       const auto* data =
           static_cast<const LexicalScope::ParserData*>(baseScopeData);
       json.property("nextFrameSlot", data->slotInfo.nextFrameSlot);
       json.property("constStart", data->slotInfo.constStart);
+
+      trailingNames = GetScopeDataTrailingNames(data);
+      break;
+    }
+
+    case ScopeKind::ClassBody: {
+      const auto* data =
+          static_cast<const ClassBodyScope::ParserData*>(baseScopeData);
+      json.property("nextFrameSlot", data->slotInfo.nextFrameSlot);
+      json.property("privateMethodStart", data->slotInfo.privateMethodStart);
 
       trailingNames = GetScopeDataTrailingNames(data);
       break;
@@ -3450,9 +3503,10 @@ void JS::StencilRelease(JS::Stencil* stencil) {
   }
 }
 
-already_AddRefed<JS::Stencil> JS::CompileGlobalScriptToStencil(
-    JSContext* cx, const ReadOnlyCompileOptions& options,
-    SourceText<mozilla::Utf8Unit>& srcBuf) {
+template <typename CharT>
+static already_AddRefed<JS::Stencil> CompileGlobalScriptToStencilImpl(
+    JSContext* cx, const JS::ReadOnlyCompileOptions& options,
+    JS::SourceText<CharT>& srcBuf) {
   ScopeKind scopeKind =
       options.nonSyntacticScope ? ScopeKind::NonSyntactic : ScopeKind::Global;
 
@@ -3467,6 +3521,47 @@ already_AddRefed<JS::Stencil> JS::CompileGlobalScriptToStencil(
   return do_AddRef(stencil.release());
 }
 
+already_AddRefed<JS::Stencil> JS::CompileGlobalScriptToStencil(
+    JSContext* cx, const JS::ReadOnlyCompileOptions& options,
+    JS::SourceText<mozilla::Utf8Unit>& srcBuf) {
+  return CompileGlobalScriptToStencilImpl(cx, options, srcBuf);
+}
+
+already_AddRefed<JS::Stencil> JS::CompileGlobalScriptToStencil(
+    JSContext* cx, const JS::ReadOnlyCompileOptions& options,
+    JS::SourceText<char16_t>& srcBuf) {
+  return CompileGlobalScriptToStencilImpl(cx, options, srcBuf);
+}
+
+template <typename CharT>
+static already_AddRefed<JS::Stencil> CompileModuleScriptToStencilImpl(
+    JSContext* cx, const JS::ReadOnlyCompileOptions& optionsInput,
+    JS::SourceText<CharT>& srcBuf) {
+  JS::CompileOptions options(cx, optionsInput);
+  options.setModule();
+
+  Rooted<CompilationInput> input(cx, CompilationInput(options));
+  auto stencil = js::frontend::ParseModuleToStencil(cx, input.get(), srcBuf);
+  if (!stencil) {
+    return nullptr;
+  }
+
+  // Convert the UniquePtr to a RefPtr and increment the count (to 1).
+  return do_AddRef(stencil.release());
+}
+
+already_AddRefed<JS::Stencil> JS::CompileModuleScriptToStencil(
+    JSContext* cx, const JS::ReadOnlyCompileOptions& options,
+    JS::SourceText<mozilla::Utf8Unit>& srcBuf) {
+  return CompileModuleScriptToStencilImpl(cx, options, srcBuf);
+}
+
+already_AddRefed<JS::Stencil> JS::CompileModuleScriptToStencil(
+    JSContext* cx, const JS::ReadOnlyCompileOptions& options,
+    JS::SourceText<char16_t>& srcBuf) {
+  return CompileModuleScriptToStencilImpl(cx, options, srcBuf);
+}
+
 JSScript* JS::InstantiateGlobalStencil(
     JSContext* cx, const JS::ReadOnlyCompileOptions& options,
     RefPtr<JS::Stencil> stencil) {
@@ -3477,6 +3572,21 @@ JSScript* JS::InstantiateGlobalStencil(
   }
 
   return gcOutput.get().script;
+}
+
+JSObject* JS::InstantiateModuleStencil(
+    JSContext* cx, const JS::ReadOnlyCompileOptions& optionsInput,
+    RefPtr<JS::Stencil> stencil) {
+  JS::CompileOptions options(cx, optionsInput);
+  options.setModule();
+
+  Rooted<CompilationInput> input(cx, CompilationInput(options));
+  Rooted<CompilationGCOutput> gcOutput(cx);
+  if (!InstantiateStencils(cx, input.get(), *stencil, gcOutput.get())) {
+    return nullptr;
+  }
+
+  return gcOutput.get().module;
 }
 
 JS::TranscodeResult JS::EncodeStencil(JSContext* cx,
@@ -3512,4 +3622,11 @@ JS::TranscodeResult JS::DecodeStencil(JSContext* cx,
   }
   stencilOut = do_AddRef(stencil.release());
   return TranscodeResult::Ok;
+}
+
+already_AddRefed<JS::Stencil> JS::FinishOffThreadStencil(
+    JSContext* cx, JS::OffThreadToken* token) {
+  MOZ_ASSERT(cx);
+  MOZ_ASSERT(CurrentThreadCanAccessRuntime(cx->runtime()));
+  return do_AddRef(HelperThreadState().finishStencilParseTask(cx, token));
 }

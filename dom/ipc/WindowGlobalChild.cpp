@@ -17,6 +17,8 @@
 #include "mozilla/dom/BrowserBridgeChild.h"
 #include "mozilla/dom/ContentParent.h"
 #include "mozilla/dom/SecurityPolicyViolationEvent.h"
+#include "mozilla/dom/SessionStoreRestoreData.h"
+#include "mozilla/dom/SessionStoreDataCollector.h"
 #include "mozilla/dom/WindowGlobalActorsBinding.h"
 #include "mozilla/dom/WindowGlobalParent.h"
 #include "mozilla/dom/WindowContext.h"
@@ -72,7 +74,7 @@ WindowGlobalChild::WindowGlobalChild(dom::WindowContext* aWindowContext,
   if (BrowsingContext()->GetParent()) {
     embedderInnerWindowID = BrowsingContext()->GetEmbedderInnerWindowId();
   }
-  profiler_register_page(BrowsingContext()->Id(), InnerWindowId(),
+  profiler_register_page(BrowsingContext()->BrowserId(), InnerWindowId(),
                          aDocumentURI->GetSpecOrDefault(),
                          embedderInnerWindowID);
 #endif
@@ -155,6 +157,7 @@ already_AddRefed<WindowGlobalChild> WindowGlobalChild::CreateDisconnected(
 
   RefPtr<WindowGlobalChild> windowChild = new WindowGlobalChild(
       windowContext, aInit.principal(), aInit.documentURI());
+  windowContext->mIsInProcess = true;
   windowContext->mWindowGlobalChild = windowChild;
   return windowChild.forget();
 }
@@ -336,6 +339,11 @@ void WindowGlobalChild::Destroy() {
   RefPtr<BrowserChild> browserChild = GetBrowserChild();
   if (!browserChild || !browserChild->IsDestroyed()) {
     SendDestroy();
+  }
+
+  if (mSessionStoreDataCollector) {
+    mSessionStoreDataCollector->Cancel();
+    mSessionStoreDataCollector = nullptr;
   }
 }
 
@@ -555,6 +563,13 @@ mozilla::ipc::IPCResult WindowGlobalChild::RecvSetContainerFeaturePolicy(
   return IPC_OK();
 }
 
+mozilla::ipc::IPCResult WindowGlobalChild::RecvRestoreTabContent(
+    dom::SessionStoreRestoreData* aData, RestoreTabContentResolver&& aResolve) {
+  aData->RestoreInto(BrowsingContext());
+  aResolve(true);
+  return IPC_OK();
+}
+
 IPCResult WindowGlobalChild::RecvRawMessage(
     const JSActorMessageMeta& aMeta, const Maybe<ClonedMessageData>& aData,
     const Maybe<ClonedMessageData>& aStack) {
@@ -582,7 +597,7 @@ void WindowGlobalChild::SetDocumentURI(nsIURI* aDocumentURI) {
   if (BrowsingContext()->GetParent()) {
     embedderInnerWindowID = BrowsingContext()->GetEmbedderInnerWindowId();
   }
-  profiler_register_page(BrowsingContext()->Id(), InnerWindowId(),
+  profiler_register_page(BrowsingContext()->BrowserId(), InnerWindowId(),
                          aDocumentURI->GetSpecOrDefault(),
                          embedderInnerWindowID);
 #endif
@@ -673,8 +688,20 @@ nsISupports* WindowGlobalChild::GetParentObject() {
   return xpc::NativeGlobal(xpc::PrivilegedJunkScope());
 }
 
-NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(WindowGlobalChild, mWindowGlobal,
-                                      mContainerFeaturePolicy, mWindowContext)
+void WindowGlobalChild::SetSessionStoreDataCollector(
+    SessionStoreDataCollector* aCollector) {
+  mSessionStoreDataCollector = aCollector;
+}
+
+SessionStoreDataCollector* WindowGlobalChild::GetSessionStoreDataCollector()
+    const {
+  return mSessionStoreDataCollector;
+}
+
+NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE_WEAK_PTR(WindowGlobalChild, mWindowGlobal,
+                                               mContainerFeaturePolicy,
+                                               mWindowContext,
+                                               mSessionStoreDataCollector)
 
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(WindowGlobalChild)
   NS_WRAPPERCACHE_INTERFACE_MAP_ENTRY
