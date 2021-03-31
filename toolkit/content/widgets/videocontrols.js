@@ -700,11 +700,23 @@ this.VideoControlsImplWidget = class {
         }
       },
 
+      autoDisappearPanel() {
+        this.startFadeIn(this.controlBar);
+        this.window.clearTimeout(this._hideControlsTimeout);
+        this._hideControlsTimeout = this.window.setTimeout(
+          () => this._hideControlsFn(),
+          this.HIDE_CONTROLS_TIMEOUT_MS
+        );
+      },
+
       handleVideoEvent(aEvent) {
         switch (aEvent.type) {
           case "play":
             this.setPlayButtonState(false);
             this.setupStatusFader();
+            if (!this.isAudioOnly) {
+              this.autoDisappearPanel();
+            }
             if (
               !this._triggeredByControls &&
               this.dynamicControls &&
@@ -718,12 +730,15 @@ this.VideoControlsImplWidget = class {
             this._triggeredByControls = false;
             break;
           case "pause":
+            this.setupStatusFader();
+            if (!this.isAudioOnly) {
+              this.autoDisappearPanel();
+            }
             // Little white lie: if we've internally paused the video
             // while dragging the scrubber, don't change the button state.
             if (!this.scrubber.isDragging) {
               this.setPlayButtonState(true);
             }
-            this.setupStatusFader();
             break;
           case "ended":
             this.setPlayButtonState(true);
@@ -742,12 +757,7 @@ this.VideoControlsImplWidget = class {
             // but only if the click-to-play overlay has already
             // been hidden (we don't hide controls when the overlay is visible).
             if (this.clickToPlay.hidden && !this.isAudioOnly) {
-              this.startFadeIn(this.controlBar);
-              this.window.clearTimeout(this._hideControlsTimeout);
-              this._hideControlsTimeout = this.window.setTimeout(
-                () => this._hideControlsFn(),
-                this.HIDE_CONTROLS_TIMEOUT_MS
-              );
+              this.autoDisappearPanel();
             }
             break;
           case "loadedmetadata":
@@ -1360,7 +1370,9 @@ this.VideoControlsImplWidget = class {
           this._controlsHiddenByTimeout = true;
         }
       },
-      HIDE_CONTROLS_TIMEOUT_MS: 2000,
+
+      // Video controller should auto disappear after 5sec timeout(refer to v2.5)
+      HIDE_CONTROLS_TIMEOUT_MS: 5000,
 
       // By "Video" we actually mean the video controls container,
       // because we don't want to consider the padding of <video> added
