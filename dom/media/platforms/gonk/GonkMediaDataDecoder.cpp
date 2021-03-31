@@ -163,14 +163,17 @@ nsresult GonkDecoderManager::Shutdown() {
     mDecoder->ReleaseMediaResources();
     mDecoder = nullptr;
   }
-  mDecodeLooper->stop();
-  mDecodeLooper = nullptr;
 
-  // To avoid race condition, mTaskLooper should be stopped first, so looper
-  // thread won't try to access null mTaskQueue.
-  mTaskLooper->unregisterHandler(id());
-  mTaskLooper->stop();
-  mTaskLooper = nullptr;
+  if (mDecodeLooper) {
+    mDecodeLooper->stop();
+    mDecodeLooper = nullptr;
+  }
+
+  if (mTaskLooper) {
+    mTaskLooper->unregisterHandler(id());
+    mTaskLooper->stop();
+    mTaskLooper = nullptr;
+  }
 
   // Don't set mTaskQueue to null since other threads may still dispatch tasks
   // to it. Note that after GonkMediaDataDecoder calls
