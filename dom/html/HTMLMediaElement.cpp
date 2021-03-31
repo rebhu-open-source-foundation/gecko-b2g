@@ -4396,12 +4396,6 @@ already_AddRefed<Promise> HTMLMediaElement::Play(ErrorResult& aRv) {
     return promise.forget();
   }
 
-  if (AudioChannelAgentBlockedPlay()) {
-    LOG(LogLevel::Debug, ("%p play blocked by AudioChannelAgent.", this));
-    promise->MaybeReject(NS_ERROR_DOM_MEDIA_NOT_ALLOWED_ERR);
-    return promise.forget();
-  }
-
   const bool handlingUserInput = UserActivation::IsHandlingUserInput();
   mPendingPlayPromises.AppendElement(promise);
 
@@ -6915,19 +6909,6 @@ void HTMLMediaElement::UpdateAudioChannelPlayingState() {
   if (mAudioChannelWrapper) {
     mAudioChannelWrapper->UpdateAudioChannelPlayingState();
   }
-}
-
-bool HTMLMediaElement::AudioChannelAgentBlockedPlay() {
-  if (!mAudioChannelWrapper) {
-    // If the mAudioChannelWrapper doesn't exist that means the CC happened.
-    LOG(LogLevel::Debug,
-        ("%p AudioChannelAgentBlockedPlay() returning true due to null "
-         "AudioChannelAgent.",
-         this));
-    return true;
-  }
-
-  return mAudioChannelWrapper->IsSuspended();
 }
 
 static const char* VisibilityString(Visibility aVisibility) {
