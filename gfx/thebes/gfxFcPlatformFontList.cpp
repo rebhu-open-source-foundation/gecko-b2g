@@ -1728,7 +1728,9 @@ void gfxFcPlatformFontList::InitSharedFontListForPlatform() {
 #ifdef MOZ_BUNDLED_FONTS
   if (StaticPrefs::gfx_bundled_fonts_activate_AtStartup() != 0) {
     FcFontSet* appFonts = FcConfigGetFonts(nullptr, FcSetApplication);
-    addFontSetFamilies(appFonts, policy.get(), /* aAppFonts = */ true);
+    if (appFonts) {
+      addFontSetFamilies(appFonts, policy.get(), /* aAppFonts = */ true);
+    }
   }
 #endif
 
