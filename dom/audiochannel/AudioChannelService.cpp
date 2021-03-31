@@ -1039,7 +1039,7 @@ void AudioChannelService::NotifyMediaResumedFromBlock(
 nsSuspendedTypes AudioChannelService::InitialSuspendType() {
   CreateServiceIfNeeded();
   return StaticPrefs::dom_audiochannel_mutedByDefault()
-             ? nsISuspendedTypes::SUSPENDED_PAUSE
+             ? nsISuspendedTypes::SUSPENDED_BLOCK
              : nsISuspendedTypes::NONE_SUSPENDED;
 }
 
