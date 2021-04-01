@@ -49,9 +49,6 @@ DomPanel.prototype = {
 
     await onGetProperties;
 
-    this.isReady = true;
-    this.emit("ready");
-
     return this;
   },
 

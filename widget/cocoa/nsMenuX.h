@@ -31,6 +31,7 @@ class nsIWidget;
   nsMenuX* mGeckoMenu;  // weak ref
 }
 - (id)initWithGeckoMenu:(nsMenuX*)geckoMenu;
+@property BOOL menuIsInMenubar;
 @end
 
 // Once instantiated, this object lives until its DOM node or its parent window is destroyed.
@@ -94,6 +95,9 @@ class nsMenuX final : public nsMenuParentX,
   // When calling this method, the caller must hold a strong reference to this object, because other
   // references to this object can be dropped during the handling of the DOM event.
   void MenuClosedAsync();
+
+  // Close the menu if it's open, and flush any pending popuphiding / popuphidden events.
+  bool Close();
 
   void SetRebuild(bool aMenuEvent);
   void SetupIcon();

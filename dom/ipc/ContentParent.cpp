@@ -259,6 +259,7 @@
 #include "private/pprio.h"
 #include "xpcpublic.h"
 #include "nsOpenWindowInfo.h"
+#include "nsFrameLoaderOwner.h"
 
 #ifdef MOZ_B2G_RIL
 #  include "mozilla/dom/cellbroadcast/CellBroadcastParent.h"
@@ -1569,6 +1570,11 @@ already_AddRefed<RemoteBrowser> ContentParent::CreateBrowser(
     ContentParent* aOpenerContentParent) {
   AUTO_PROFILER_LABEL("ContentParent::CreateBrowser", OTHER);
 
+  MOZ_DIAGNOSTIC_ASSERT(
+      !aBrowsingContext->Canonical()->GetBrowserParent(),
+      "BrowsingContext must not have BrowserParent, or have previous "
+      "BrowserParent cleared");
+
   if (!sCanLaunchSubprocesses) {
     return nullptr;
   }
@@ -1716,6 +1722,10 @@ already_AddRefed<RemoteBrowser> ContentParent::CreateBrowser(
   if (NS_WARN_IF(!ok)) {
     return nullptr;
   }
+
+  // Ensure that we're marked as the current BrowserParent on our
+  // CanonicalBrowsingContext.
+  aBrowsingContext->Canonical()->SetCurrentBrowserParent(browserParent);
 
   windowParent->Init();
 
@@ -4154,6 +4164,10 @@ mozilla::ipc::IPCResult ContentParent::RecvConstructPopupBrowser(
     return IPC_FAIL(this, "Cannot create without valid initial principal");
   }
 
+  if (browsingContext->GetBrowserParent()) {
+    return IPC_FAIL(this, "BrowsingContext already has a BrowserParent");
+  }
+
   uint32_t chromeFlags = aChromeFlags;
   TabId openerTabId(0);
   ContentParentId openerCpId(0);
@@ -4221,6 +4235,8 @@ mozilla::ipc::IPCResult ContentParent::RecvConstructPopupBrowser(
                                                     initialWindow))) {
     return IPC_FAIL(this, "BindPWindowGlobalEndpoint failed");
   }
+
+  browsingContext->SetCurrentBrowserParent(parent);
 
   initialWindow->Init();
 
@@ -7468,7 +7484,7 @@ mozilla::ipc::IPCResult ContentParent::RecvClearFocus(
 }
 
 mozilla::ipc::IPCResult ContentParent::RecvSetFocusedBrowsingContext(
-    const MaybeDiscarded<BrowsingContext>& aContext) {
+    const MaybeDiscarded<BrowsingContext>& aContext, uint64_t aActionId) {
   if (aContext.IsNullOrDiscarded()) {
     MOZ_LOG(
         BrowsingContext::GetLog(), LogLevel::Debug,
@@ -7478,13 +7494,25 @@ mozilla::ipc::IPCResult ContentParent::RecvSetFocusedBrowsingContext(
   CanonicalBrowsingContext* context = aContext.get_canonical();
 
   nsFocusManager* fm = nsFocusManager::GetFocusManager();
-  if (fm) {
-    fm->SetFocusedBrowsingContextInChrome(context);
-    BrowserParent::UpdateFocusFromBrowsingContext();
+  if (!fm) {
+    return IPC_OK();
   }
 
+  if (!fm->SetFocusedBrowsingContextInChrome(context, aActionId)) {
+    LOGFOCUS((
+        "Ignoring out-of-sequence attempt [%p] to set focused browsing context "
+        "in parent.",
+        context));
+    Unused << SendReviseFocusedBrowsingContext(
+        aActionId, fm->GetFocusedBrowsingContextInChrome(),
+        fm->GetActionIdForFocusedBrowsingContextInChrome());
+    return IPC_OK();
+  }
+
+  BrowserParent::UpdateFocusFromBrowsingContext();
+
   context->Group()->EachOtherParent(this, [&](ContentParent* aParent) {
-    Unused << aParent->SendSetFocusedBrowsingContext(context);
+    Unused << aParent->SendSetFocusedBrowsingContext(context, aActionId);
   });
 
   return IPC_OK();

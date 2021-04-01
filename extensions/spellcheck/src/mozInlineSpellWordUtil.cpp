@@ -264,12 +264,15 @@ nsresult mozInlineSpellWordUtil::SetPositionAndEnd(nsINode* aPositionNode,
 
 nsresult mozInlineSpellWordUtil::EnsureWords() {
   if (mSoftTextValid) return NS_OK;
-  BuildSoftText();
-  nsresult rv = BuildRealWords();
-  if (NS_FAILED(rv)) {
-    mRealWords.Clear();
-    return rv;
+  AdjustSoftBeginAndBuildSoftText();
+
+  mRealWords.Clear();
+  Result<RealWords, nsresult> realWords = BuildRealWords();
+  if (realWords.isErr()) {
+    return realWords.unwrapErr();
   }
+
+  mRealWords = realWords.unwrap();
   mSoftTextValid = true;
   return NS_OK;
 }
@@ -761,10 +764,10 @@ void mozInlineSpellWordUtil::NormalizeWord(nsAString& aWord) {
   aWord = result;
 }
 
-void mozInlineSpellWordUtil::BuildSoftText() {
+void mozInlineSpellWordUtil::AdjustSoftBeginAndBuildSoftText() {
   MOZ_LOG(sInlineSpellWordUtilLog, LogLevel::Debug, ("%s", __FUNCTION__));
 
-  // First we have to work backwards from mSoftStart to find a text node
+  // First we have to work backwards from mSoftBegin to find a text node
   // containing a DOM word separator, a non-inline-element
   // boundary, or the hard start node. That's where we'll start building the
   // soft string from.
@@ -888,19 +891,20 @@ void mozInlineSpellWordUtil::BuildSoftText() {
            NS_ConvertUTF16toUTF8(mSoftText).get()));
 }
 
-nsresult mozInlineSpellWordUtil::BuildRealWords() {
+auto mozInlineSpellWordUtil::BuildRealWords() const
+    -> Result<RealWords, nsresult> {
   // This is pretty simple. We just have to walk mSoftText, tokenizing it
   // into "real words".
   // We do an outer traversal of words delimited by IsDOMWordSeparator, calling
-  // SplitDOMWord on each of those DOM words
+  // SplitDOMWordAndAppendTo on each of those DOM words
   int32_t wordStart = -1;
-  mRealWords.Clear();
+  RealWords realWords;
   for (int32_t i = 0; i < int32_t(mSoftText.Length()); ++i) {
     if (IsDOMWordSeparator(mSoftText.CharAt(i))) {
       if (wordStart >= 0) {
-        nsresult rv = SplitDOMWord(wordStart, i);
+        nsresult rv = SplitDOMWordAndAppendTo(wordStart, i, realWords);
         if (NS_FAILED(rv)) {
-          return rv;
+          return Err(rv);
         }
         wordStart = -1;
       }
@@ -911,13 +915,14 @@ nsresult mozInlineSpellWordUtil::BuildRealWords() {
     }
   }
   if (wordStart >= 0) {
-    nsresult rv = SplitDOMWord(wordStart, mSoftText.Length());
+    nsresult rv =
+        SplitDOMWordAndAppendTo(wordStart, mSoftText.Length(), realWords);
     if (NS_FAILED(rv)) {
-      return rv;
+      return Err(rv);
     }
   }
 
-  return NS_OK;
+  return realWords;
 }
 
 /*********** DOM/realwords<->mSoftText mapping functions ************/
@@ -1086,9 +1091,10 @@ int32_t mozInlineSpellWordUtil::FindRealWordContaining(
   return -1;
 }
 
-// mozInlineSpellWordUtil::SplitDOMWord
+// mozInlineSpellWordUtil::SplitDOMWordAndAppendTo
 
-nsresult mozInlineSpellWordUtil::SplitDOMWord(int32_t aStart, int32_t aEnd) {
+nsresult mozInlineSpellWordUtil::SplitDOMWordAndAppendTo(
+    int32_t aStart, int32_t aEnd, nsTArray<RealWord>& aRealWords) const {
   nsDependentSubstring targetText(mSoftText, aStart, aEnd - aStart);
   WordSplitState<nsDependentSubstring> state(targetText);
   state.mCurCharClass = state.ClassifyCharacter(0, true);
@@ -1097,7 +1103,7 @@ nsresult mozInlineSpellWordUtil::SplitDOMWord(int32_t aStart, int32_t aEnd) {
   if (state.mCurCharClass != CHAR_CLASS_END_OF_INPUT && state.IsSpecialWord()) {
     int32_t specialWordLength =
         state.mDOMWordText.Length() - state.mDOMWordOffset;
-    if (!mRealWords.AppendElement(
+    if (!aRealWords.AppendElement(
             RealWord(aStart + state.mDOMWordOffset, specialWordLength, false),
             fallible)) {
       return NS_ERROR_OUT_OF_MEMORY;
@@ -1116,7 +1122,7 @@ nsresult mozInlineSpellWordUtil::SplitDOMWord(int32_t aStart, int32_t aEnd) {
     // find the end of the word
     state.AdvanceThroughWord();
     int32_t wordLen = state.mDOMWordOffset - wordOffset;
-    if (!mRealWords.AppendElement(
+    if (!aRealWords.AppendElement(
             RealWord(aStart + wordOffset, wordLen,
                      !state.ShouldSkipWord(wordOffset, wordLen)),
             fallible)) {

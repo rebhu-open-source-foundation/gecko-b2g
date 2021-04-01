@@ -314,12 +314,6 @@ menupopup::part(drop-indicator) {
   background-color: var(--lwt-accent-color-inactive, var(--lwt-accent-color));
 }
 
-@supports -moz-bool-pref("browser.proton.enabled") {
-.browserContainer > findbar {
-  padding: 6px;
-}
-} /*** END proton ***/
-
 /* Private browsing and accessibility indicators */
 
 .accessibility-indicator,
@@ -890,7 +884,7 @@ popupnotificationcontent {
 .webRTC-selectDevice-icon {
   -moz-context-properties: fill;
   fill: currentColor;
-  margin-inline-end: 6px;
+  margin-inline-end: 8px;
 }
 
 #webRTC-selectCamera-icon {

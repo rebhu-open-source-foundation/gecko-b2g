@@ -65,7 +65,6 @@ class DebuggerPanel {
     this._store = store;
     this._selectors = selectors;
     this._client = client;
-    this.isReady = true;
 
     this.panelWin.document.addEventListener(
       "drag:start",
