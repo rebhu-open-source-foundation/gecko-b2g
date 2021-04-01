@@ -7,7 +7,6 @@
 #define LOG_TAG "SupplicantStaManager"
 
 #include "SupplicantStaManager.h"
-#include "SupplicantCallback.h"
 #include <cutils/properties.h>
 #include <utils/Log.h>
 #include <string.h>
@@ -41,6 +40,7 @@ SupplicantStaManager::SupplicantStaManager()
     : mServiceManager(nullptr),
       mSupplicant(nullptr),
       mSupplicantStaIface(nullptr),
+      mSupplicantStaIfaceCallback(nullptr),
       mServiceManagerDeathRecipient(nullptr),
       mSupplicantDeathRecipient(nullptr),
       mDeathEventHandler(nullptr),
@@ -219,6 +219,7 @@ Result_t SupplicantStaManager::TearDownInterface() {
   mCurrentNetwork.clear();
   mSupplicant = nullptr;
   mSupplicantStaIface = nullptr;
+  mSupplicantStaIfaceCallback = nullptr;
   mServiceManager = nullptr;
 
   return nsIWifiResult::SUCCESS;
@@ -452,15 +453,18 @@ Result_t SupplicantStaManager::SetupStaInterface(
                                            supplicantCallbackV1_1);
     HIDL_SET(GetSupplicantStaIfaceV1_2(), registerCallback_1_2,
              SupplicantStatus, response, supplicantCallbackV1_2);
+    mSupplicantStaIfaceCallback = supplicantCallbackV1_2;
   } else if (IsSupplicantV1_1()) {
     android::sp<SupplicantStaIfaceCallbackV1_1> supplicantCallbackV1_1 =
         new SupplicantStaIfaceCallbackV1_1(mInterfaceName, mCallback,
                                            supplicantCallback);
     HIDL_SET(GetSupplicantStaIfaceV1_1(), registerCallback_1_1,
              SupplicantStatus, response, supplicantCallbackV1_1);
+    mSupplicantStaIfaceCallback = supplicantCallbackV1_1;
   } else {
     HIDL_SET(mSupplicantStaIface, registerCallback, SupplicantStatus, response,
              supplicantCallback);
+    mSupplicantStaIfaceCallback = supplicantCallback;
   }
 
   if (response.code != SupplicantStatusCode::SUCCESS) {
@@ -468,7 +472,8 @@ Result_t SupplicantStaManager::SetupStaInterface(
     return nsIWifiResult::ERROR_COMMAND_FAILED;
   }
 
-  return CHECK_SUCCESS(mSupplicantStaIface != nullptr);
+  return CHECK_SUCCESS(mSupplicantStaIface != nullptr &&
+                       mSupplicantStaIfaceCallback != nullptr);
 }
 
 android::sp<ISupplicantStaIface> SupplicantStaManager::GetSupplicantStaIface() {
