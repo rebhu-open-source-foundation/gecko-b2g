@@ -67,13 +67,19 @@ def _process_event(sentry_event, topsrcdir):
         # unmodified.
         return
 
+    base_ref = repo.base_ref_as_hg()
+    if not base_ref:
+        # If we don't know which revision this exception is attached to, then it's
+        # not worth sending
+        return
+
     if not _is_unmodified_mach_core(repo):
         return
 
     for map_fn in (_settle_mach_module_id, _patch_absolute_paths, _delete_server_name):
         sentry_event = map_fn(sentry_event, topsrcdir)
 
-    sentry_event["release"] = "hg-rev-{}".format(repo.base_ref_as_hg())
+    sentry_event["release"] = "hg-rev-{}".format(base_ref)
     return sentry_event
 
 
@@ -135,13 +141,19 @@ def _patch_absolute_paths(sentry_event, topsrcdir):
         for target in (target_path, repr_path):
             # Paths in the Sentry event aren't consistent:
             # * On *nix, they're mostly forward slashes.
+            # * On *nix, not all absolute paths start with a leading forward slash.
             # * On Windows, they're mostly backslashes.
             # * On Windows, `.extra."sys.argv"` uses forward slashes.
             # * The Python variables in-scope captured by the Sentry report may be
             #   inconsistent, even for a single path. For example, on
             #   Windows, Mach calculates the state_dir as "C:\Users\<user>/.mozbuild".
-            #
-            # To resolve this, we have our path-patching match
+
+            # Handle the case where not all absolute paths start with a leading
+            # forward slash: make the initial slash optional in the search string.
+            if target.startswith("/"):
+                target = "/?" + target[1:]
+
+            # Handle all possible slash variants: our search string should match
             # both forward slashes and backslashes. This is done by dynamically
             # replacing each "/" and "\" with the regex "[\/\\]" (match both).
             slash_regex = re.compile(r"[\/\\]")

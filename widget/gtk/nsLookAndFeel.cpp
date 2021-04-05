@@ -300,7 +300,8 @@ static bool IsSelectionColorBackground(LookAndFeel::ColorID aID) {
   }
 }
 
-nsresult nsLookAndFeel::NativeGetColor(ColorID aID, nscolor& aColor) {
+nsresult nsLookAndFeel::NativeGetColor(ColorID aID, ColorScheme,
+                                       nscolor& aColor) {
   EnsureInit();
 
   nsresult res = NS_OK;
@@ -672,9 +673,6 @@ nsresult nsLookAndFeel::NativeGetInt(IntID aID, int32_t& aResult) {
     case IntID::OperatingSystemVersionIdentifier:
       aResult = 0;
       res = NS_ERROR_NOT_IMPLEMENTED;
-      break;
-    case IntID::TouchEnabled:
-      aResult = mozilla::widget::WidgetUtils::IsTouchDeviceSupportPresent();
       break;
     case IntID::MacGraphiteTheme:
       aResult = 0;

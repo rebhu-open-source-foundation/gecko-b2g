@@ -81,7 +81,8 @@ void nsLookAndFeel::RefreshImpl() {
   mSystemUsesDarkThemeCached = false;
 }
 
-nsresult nsLookAndFeel::NativeGetColor(ColorID aID, nscolor& aColor) {
+nsresult nsLookAndFeel::NativeGetColor(ColorID aID, ColorScheme,
+                                       nscolor& aColor) {
   nsresult rv = NS_OK;
 
   EnsureInitSystemColors();
@@ -356,10 +357,6 @@ nsresult nsLookAndFeel::NativeGetInt(IntID aID, int32_t& aResult) {
 
     case IntID::ScrollSliderStyle:
       aResult = eScrollThumbStyle_Proportional;
-      break;
-
-    case IntID::TouchEnabled:
-      aResult = 1;
       break;
 
     case IntID::WindowsDefaultTheme:

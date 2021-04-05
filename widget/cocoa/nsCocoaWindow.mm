@@ -6,6 +6,7 @@
 
 #include "nsCocoaWindow.h"
 
+#include "AppearanceOverride.h"
 #include "NativeKeyBindings.h"
 #include "ScreenHelperCocoa.h"
 #include "TextInputHandler.h"
@@ -33,6 +34,7 @@
 #include "nsCocoaFeatures.h"
 #include "nsIScreenManager.h"
 #include "nsIWidgetListener.h"
+#include "SDKDeclarations.h"
 #include "VibrancyManager.h"
 #include "nsPresContext.h"
 #include "nsDocShell.h"
@@ -551,6 +553,11 @@ nsresult nsCocoaWindow::CreateNativeWindow(const NSRect& aRect, nsBorderStyle aB
   [[WindowDataMap sharedWindowDataMap] ensureDataForWindow:mWindow];
   mWindowMadeHere = true;
 
+  if (@available(macOS 10.14, *)) {
+    // When the window's appearance is set to nil (no override), make sure it respects the global
+    // aqua override.
+    mWindow.appearanceSource = MOZGlobalAppearance.sharedInstance;
+  }
   [mWindow setWindowAppearance:mWindowAppearance];
 
   return NS_OK;
@@ -2965,12 +2972,6 @@ static NSMutableSet* gSwizzledFrameViewClasses = nil;
 - (void)_setNeedsDisplayInRect:(NSRect)aRect;
 @end
 
-#if !defined(MAC_OS_X_VERSION_10_12_2) || MAC_OS_X_VERSION_MAX_ALLOWED < MAC_OS_X_VERSION_10_12_2
-@interface NSView (NSTouchBarProvider)
-- (NSTouchBar*)makeTouchBar;
-@end
-#endif
-
 @interface NSView (NSVisualEffectViewSetMaskImage)
 - (void)setMaskImage:(NSImage*)image;
 @end
@@ -3220,13 +3221,6 @@ static const NSString* kStateWantsTitleDrawn = @"wantsTitleDrawn";
   return mDrawTitle;
 }
 
-#if !defined(MAC_OS_X_VERSION_10_13) || MAC_OS_X_VERSION_MAX_ALLOWED < MAC_OS_X_VERSION_10_13
-typedef NSString* NSAppearanceName;
-#endif
-#if !defined(MAC_OS_X_VERSION_10_14) || MAC_OS_X_VERSION_MAX_ALLOWED < MAC_OS_X_VERSION_10_14
-const NSAppearanceName NSAppearanceNameDarkAqua = @"NSAppearanceNameDarkAqua";
-#endif
-
 - (void)setWindowAppearance:(nsIWidget::WindowAppearance)aAppearance {
   if (@available(macOS 10.14, *)) {
     switch (aAppearance) {
@@ -3237,7 +3231,7 @@ const NSAppearanceName NSAppearanceNameDarkAqua = @"NSAppearanceNameDarkAqua";
         self.appearance = [NSAppearance appearanceNamed:NSAppearanceNameDarkAqua];
         break;
       default:
-        // nil means "no override".
+        // nil means "inherit effectiveAppearance from self.appearanceSource".
         self.appearance = nil;
         break;
     }
@@ -3441,18 +3435,6 @@ const NSAppearanceName NSAppearanceNameDarkAqua = @"NSAppearanceNameDarkAqua";
 
 @end
 
-#if !defined(MAC_OS_VERSION_11_0) || MAC_OS_X_VERSION_MAX_ALLOWED < MAC_OS_VERSION_11_0
-typedef NS_ENUM(NSInteger, NSTitlebarSeparatorStyle) {
-  NSTitlebarSeparatorStyleAutomatic,
-  NSTitlebarSeparatorStyleNone,
-  NSTitlebarSeparatorStyleLine,
-  NSTitlebarSeparatorStyleShadow
-};
-@interface NSWindow (NSTitlebarSeparatorStyle)
-@property NSTitlebarSeparatorStyle titlebarSeparatorStyle;
-@end
-#endif
-
 @interface MOZTitlebarAccessoryView : NSView
 @end
 
@@ -3593,6 +3575,8 @@ typedef NS_ENUM(NSInteger, NSTitlebarSeparatorStyle) {
     [[self mainChildView] ensureNextCompositeIsAtomicWithMainThreadPaint];
     NSNumber* revealAmount = (change[NSKeyValueChangeNewKey]);
     [self updateTitlebarShownAmount:[revealAmount doubleValue]];
+  } else {
+    [super observeValueForKeyPath:keyPath ofObject:object change:change context:context];
   }
 }
 

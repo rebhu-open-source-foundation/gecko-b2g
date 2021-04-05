@@ -23,6 +23,14 @@
 
 namespace mozilla::widget {
 
+// A cached copy of the data extracted by ExtractData.
+//
+// Storing this lets us avoid doing most of the work of ExtractData each
+// time we create a new content process.
+//
+// Only used in the parent process.
+static StaticAutoPtr<FullLookAndFeel> sCachedLookAndFeelData;
+
 RemoteLookAndFeel::RemoteLookAndFeel(FullLookAndFeel&& aData)
     : mTables(std::move(aData.tables())) {
   MOZ_ASSERT(XRE_IsContentProcess(),
@@ -98,9 +106,14 @@ void AddToMap(nsTArray<Item>& aItems, nsTArray<UInt>& aMap, Id aId,
 
 }  // namespace
 
-nsresult RemoteLookAndFeel::NativeGetColor(ColorID aID, nscolor& aResult) {
+nsresult RemoteLookAndFeel::NativeGetColor(ColorID aID, ColorScheme aScheme,
+                                           nscolor& aResult) {
   const nscolor* result;
-  MOZ_TRY_VAR(result, MapLookup(mTables.colors(), mTables.colorMap(), aID));
+  const bool dark = aScheme == ColorScheme::Dark;
+  MOZ_TRY_VAR(
+      result,
+      MapLookup(dark ? mTables.darkColors() : mTables.lightColors(),
+                dark ? mTables.darkColorMap() : mTables.lightColorMap(), aID));
   aResult = *result;
   return NS_OK;
 }
@@ -141,6 +154,7 @@ static bool AddIDsToMap(nsXPLookAndFeel* aImpl, FullLookAndFeel* aLf,
   using FontID = LookAndFeel::FontID;
   using FloatID = LookAndFeel::FloatID;
   using ColorID = LookAndFeel::ColorID;
+  using ColorScheme = LookAndFeel::ColorScheme;
 
   bool anyFromOtherTheme = false;
   for (auto id : MakeEnumeratedRange(IntID::End)) {
@@ -160,8 +174,11 @@ static bool AddIDsToMap(nsXPLookAndFeel* aImpl, FullLookAndFeel* aLf,
       continue;
     }
     nscolor theColor;
-    nsresult rv = aImpl->NativeGetColor(id, theColor);
-    AddToMap(aLf->tables().colors(), aLf->tables().colorMap(), id,
+    nsresult rv = aImpl->NativeGetColor(id, ColorScheme::Light, theColor);
+    AddToMap(aLf->tables().lightColors(), aLf->tables().lightColorMap(), id,
+             NS_SUCCEEDED(rv) ? Some(theColor) : Nothing{});
+    rv = aImpl->NativeGetColor(id, ColorScheme::Dark, theColor);
+    AddToMap(aLf->tables().darkColors(), aLf->tables().darkColorMap(), id,
              NS_SUCCEEDED(rv) ? Some(theColor) : Nothing{});
   }
 
@@ -241,7 +258,5 @@ void RemoteLookAndFeel::ClearCachedData() {
   MOZ_ASSERT(XRE_IsParentProcess());
   sCachedLookAndFeelData = nullptr;
 }
-
-StaticAutoPtr<FullLookAndFeel> RemoteLookAndFeel::sCachedLookAndFeelData;
 
 }  // namespace mozilla::widget

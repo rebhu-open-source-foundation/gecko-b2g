@@ -359,6 +359,7 @@ var gSync = {
         "browser/accounts.ftl",
         "browser/appmenu.ftl",
         "browser/sync.ftl",
+        "browser/branding/sync-brand.ftl",
       ],
       true
     ));
@@ -498,6 +499,10 @@ var gSync = {
         document,
         "appMenu-header-description"
       );
+      const appMenuHeaderText = PanelMultiView.getViewNode(
+        document,
+        "appMenu-fxa-text"
+      );
       appMenuHeaderTitle.hidden = true;
       // We must initialize the label attribute here instead of the markup
       // due to a timing error. The fluent label attribute was being applied
@@ -505,6 +510,9 @@ var gSync = {
       // label for signed in users.
       appMenuHeaderDescription.value = this.fluentStrings.formatValueSync(
         "appmenu-fxa-signed-in-label"
+      );
+      appMenuHeaderText.textContent = this.fluentStrings.formatValueSync(
+        "appmenu-fxa-sync-and-save-data2"
       );
     }
 
@@ -1029,6 +1037,7 @@ var gSync = {
       document,
       "appMenu-header-description"
     );
+    const fxaPanelView = PanelMultiView.getViewNode(document, "PanelUI-fxa");
 
     let defaultLabel = PanelUI.protonAppMenuEnabled
       ? this.fluentStrings.formatValueSync("appmenu-fxa-signed-in-label")
@@ -1108,6 +1117,10 @@ var gSync = {
     appMenuStatus.setAttribute("fxastatus", "signedin");
     appMenuLabel.setAttribute("label", state.email);
     appMenuLabel.classList.add("subviewbutton-nav");
+    fxaPanelView.setAttribute(
+      "title",
+      this.fluentStrings.formatValueSync("appmenu-fxa-header2")
+    );
     appMenuStatus.removeAttribute("tooltiptext");
   },
 
