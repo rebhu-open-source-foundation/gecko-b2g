@@ -942,6 +942,7 @@ using CompilerFunction = CompilerGCPointer<JSFunction*>;
 using CompilerBaseScript = CompilerGCPointer<BaseScript*>;
 using CompilerPropertyName = CompilerGCPointer<PropertyName*>;
 using CompilerShape = CompilerGCPointer<Shape*>;
+using CompilerGetterSetter = CompilerGCPointer<GetterSetter*>;
 
 // An instruction is an SSA name that is inserted into a basic block's IR
 // stream.
@@ -9170,7 +9171,8 @@ class MGuardValue : public MUnaryInstruction, public BoxInputsPolicy::Data {
 
   MGuardValue(MDefinition* val, const Value& expected)
       : MUnaryInstruction(classOpcode, val), expected_(expected) {
-    MOZ_ASSERT(expected.isNullOrUndefined() || expected.isMagic());
+    MOZ_ASSERT(expected.isNullOrUndefined() || expected.isMagic() ||
+               expected.isPrivateGCThing());
 
     setGuard();
     setMovable();
@@ -11945,10 +11947,11 @@ class MLoadWrapperTarget : public MUnaryInstruction,
 // Guard the accessor shape is present on the object or its prototype chain.
 class MGuardHasGetterSetter : public MUnaryInstruction,
                               public SingleObjectPolicy::Data {
+  jsid propId_;
   CompilerShape shape_;
 
-  MGuardHasGetterSetter(MDefinition* obj, Shape* shape)
-      : MUnaryInstruction(classOpcode, obj), shape_(shape) {
+  MGuardHasGetterSetter(MDefinition* obj, jsid id, Shape* shape)
+      : MUnaryInstruction(classOpcode, obj), propId_(id), shape_(shape) {
     setResultType(MIRType::Object);
     setMovable();
     setGuard();
@@ -11959,6 +11962,7 @@ class MGuardHasGetterSetter : public MUnaryInstruction,
   TRIVIAL_NEW_WRAPPERS
   NAMED_OPERANDS((0, object))
 
+  jsid propId() const { return propId_; }
   Shape* shape() const { return shape_; }
 
   AliasSet getAliasSet() const override {
@@ -11967,6 +11971,9 @@ class MGuardHasGetterSetter : public MUnaryInstruction,
 
   bool congruentTo(const MDefinition* ins) const override {
     if (!ins->isGuardHasGetterSetter()) {
+      return false;
+    }
+    if (ins->toGuardHasGetterSetter()->propId() != propId()) {
       return false;
     }
     if (ins->toGuardHasGetterSetter()->shape() != shape()) {

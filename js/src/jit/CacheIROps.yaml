@@ -529,6 +529,7 @@
   cost_estimate: 4
   args:
     obj: ObjId
+    id: IdField
     shape: ShapeField
 
 - name: GuardInt32IsNonNegative
@@ -586,6 +587,24 @@
     obj: ObjId
     expected: ObjId
     slot: RawInt32Field
+
+- name: GuardFixedSlotValue
+  shared: true
+  transpile: true
+  cost_estimate: 1
+  args:
+    obj: ObjId
+    offset: RawInt32Field
+    val: ValueField
+
+- name: GuardDynamicSlotValue
+  shared: true
+  transpile: true
+  cost_estimate: 1
+  args:
+    obj: ObjId
+    offset: RawInt32Field
+    val: ValueField
 
 - name: GuardNoAllocationMetadataBuilder
   shared: true

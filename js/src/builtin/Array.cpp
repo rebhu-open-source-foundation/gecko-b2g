@@ -973,7 +973,7 @@ static bool AddLengthProperty(JSContext* cx, HandleArrayObject obj) {
 
   Shape* shape = obj->lastProperty();
   if (!shape->isEmptyShape()) {
-    MOZ_ASSERT(JSID_IS_ATOM(shape->propidRaw(), cx->names().length));
+    MOZ_ASSERT(shape->propidRaw().isAtom(cx->names().length));
     MOZ_ASSERT(shape->previous()->isEmptyShape());
     return true;
   }
@@ -4119,16 +4119,17 @@ void js::ArraySpeciesLookup::initialize(JSContext* cx) {
   // Look up the '@@species' value on Array
   Shape* speciesShape =
       arrayCtor->lookup(cx, SYMBOL_TO_JSID(cx->wellKnownSymbols().species));
-  if (!speciesShape || !speciesShape->hasGetterValue()) {
+  if (!speciesShape || !arrayCtor->hasGetter(speciesShape)) {
     return;
   }
 
   // Get the referred value, ensure it holds the canonical Array[@@species]
   // function.
-  JSFunction* speciesFun;
-  if (!IsFunctionObject(speciesShape->getterValue(), &speciesFun)) {
+  JSObject* speciesGetter = arrayCtor->getGetter(speciesShape);
+  if (!speciesGetter->is<JSFunction>()) {
     return;
   }
+  JSFunction* speciesFun = &speciesGetter->as<JSFunction>();
   if (!IsSelfHostedFunctionWithName(speciesFun, cx->names().ArraySpecies)) {
     return;
   }
@@ -4146,10 +4147,8 @@ void js::ArraySpeciesLookup::initialize(JSContext* cx) {
   arrayProto_ = arrayProto;
   arrayConstructor_ = arrayCtor;
   arrayConstructorShape_ = arrayCtor->lastProperty();
-#ifdef DEBUG
   arraySpeciesShape_ = speciesShape;
   canonicalSpeciesFunc_ = speciesFun;
-#endif
   arrayProtoShape_ = arrayProto->lastProperty();
   arrayProtoConstructorSlot_ = ctorShape->slot();
 }
@@ -4181,12 +4180,8 @@ bool js::ArraySpeciesLookup::isArrayStateStillSane() {
   }
 
   // Ensure the species getter contains the canonical @@species function.
-  // Note: This is currently guaranteed to be always true, because modifying
-  // the getter property implies a new shape is generated. If this ever
-  // changes, convert this assertion into an if-statement.
-  MOZ_ASSERT(arraySpeciesShape_->getterObject() == canonicalSpeciesFunc_);
-
-  return true;
+  JSObject* getter = arrayConstructor_->getGetter(arraySpeciesShape_);
+  return getter == canonicalSpeciesFunc_;
 }
 
 bool js::ArraySpeciesLookup::tryOptimizeArray(JSContext* cx,
@@ -4223,7 +4218,7 @@ bool js::ArraySpeciesLookup::tryOptimizeArray(JSContext* cx,
     return false;
   }
 
-  MOZ_ASSERT(JSID_IS_ATOM(shape->propidRaw(), cx->names().length));
+  MOZ_ASSERT(shape->propidRaw().isAtom(cx->names().length));
   return true;
 }
 

@@ -38,7 +38,6 @@ const TEST_ACTION_UNKNOWN = 0;
 const TEST_ACTION_CANCELLED = 1;
 const TEST_ACTION_TERMSCRIPT = 2;
 const TEST_ACTION_TERMPLUGIN = 3;
-const TEST_ACTION_TERMGLOBAL = 4;
 const SLOW_SCRIPT = 1;
 const PLUGIN_HANG = 2;
 const ADDON_HANG = 3;
@@ -102,10 +101,6 @@ TestHangReport.prototype = {
     this._resolver(TEST_ACTION_TERMPLUGIN);
   },
 
-  terminateGlobal() {
-    this._resolver(TEST_ACTION_TERMGLOBAL);
-  },
-
   isReportForBrowserOrChildren(aFrameLoader) {
     if (this._browser) {
       return this._browser.frameLoader === aFrameLoader;
@@ -159,7 +154,9 @@ add_task(async function terminateScriptTest() {
   Services.obs.notifyObservers(hangReport, "process-hang-report");
   let notification = await promise;
 
-  let buttons = notification.currentNotification.getElementsByTagName("button");
+  let buttons = notification.currentNotification.buttonContainer.getElementsByTagName(
+    "button"
+  );
   is(buttons.length, buttonCount, "proper number of buttons");
 
   // Click the "Stop" button, we should get a terminate script callback
@@ -182,13 +179,10 @@ add_task(async function waitForScriptTest() {
   Services.obs.notifyObservers(hangReport, "process-hang-report");
   let notification = await promise;
 
-  let buttons = notification.currentNotification.getElementsByTagName("button");
-  is(buttons.length, buttonCount, "proper number of buttons");
-  let toolbarbuttons = notification.currentNotification.getElementsByTagName(
-    "toolbarbutton"
+  let buttons = notification.currentNotification.buttonContainer.getElementsByTagName(
+    "button"
   );
-  is(toolbarbuttons.length, 1, "proper number of toolbarbuttons");
-  let closeButton = toolbarbuttons[0];
+  is(buttons.length, buttonCount, "proper number of buttons");
 
   await pushPrefs(["browser.hangNotification.waitPeriod", 1000]);
 
@@ -210,8 +204,8 @@ add_task(async function waitForScriptTest() {
     }
   });
 
-  // Click the "Wait" button this time, we shouldn't get a callback at all.
-  closeButton.click();
+  // Click the "Close" button this time, we shouldn't get a callback at all.
+  notification.currentNotification.closeButton.click();
 
   // send another hang pulse, we should not get a notification here
   Services.obs.notifyObservers(hangReport, "process-hang-report");
@@ -260,7 +254,9 @@ add_task(async function terminatePluginTest() {
   Services.obs.notifyObservers(hangReport, "process-hang-report");
   let notification = await promise;
 
-  let buttons = notification.currentNotification.getElementsByTagName("button");
+  let buttons = notification.currentNotification.buttonContainer.getElementsByTagName(
+    "button"
+  );
   // Plugin hangs only ever show 1 button in the notification - even in
   // DevEdition.
   is(buttons.length, 1, "proper number of buttons");
@@ -328,8 +324,8 @@ add_task(async function terminateAtShutdown() {
   );
   is(
     addonAction,
-    TEST_ACTION_TERMGLOBAL,
-    "On shutdown, should have terminated global for add-on hang."
+    TEST_ACTION_TERMSCRIPT,
+    "On shutdown, should have terminated script for add-on hang."
   );
 
   // ProcessHangMonitor should now be in the "shutting down" state,
@@ -359,8 +355,8 @@ add_task(async function terminateAtShutdown() {
   );
   is(
     addonAction2,
-    TEST_ACTION_TERMGLOBAL,
-    "On shutdown, should have terminated global for add-on hang."
+    TEST_ACTION_TERMSCRIPT,
+    "On shutdown, should have terminated script for add-on hang."
   );
 
   ProcessHangMonitor._shuttingDown = false;
@@ -430,8 +426,8 @@ add_task(async function terminateNoWindows() {
   );
   is(
     addonAction,
-    TEST_ACTION_TERMGLOBAL,
-    "With no open windows, should have terminated global for add-on hang."
+    TEST_ACTION_TERMSCRIPT,
+    "With no open windows, should have terminated script for add-on hang."
   );
 
   // ProcessHangMonitor should notice we're in the "no windows" state,
@@ -461,8 +457,8 @@ add_task(async function terminateNoWindows() {
   );
   is(
     addonAction2,
-    TEST_ACTION_TERMGLOBAL,
-    "With no open windows, should have terminated global for add-on hang."
+    TEST_ACTION_TERMSCRIPT,
+    "With no open windows, should have terminated script for add-on hang."
   );
 
   document.documentElement.setAttribute("windowtype", "navigator:browser");
@@ -519,8 +515,8 @@ add_task(async function terminateClosedWindow() {
   );
   is(
     addonAction,
-    TEST_ACTION_TERMGLOBAL,
-    "When closing window, should have terminated global for add-on hang."
+    TEST_ACTION_TERMSCRIPT,
+    "When closing window, should have terminated script for add-on hang."
   );
 });
 

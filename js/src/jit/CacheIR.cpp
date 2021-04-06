@@ -183,6 +183,9 @@ int64_t CacheIRCloner::readStubInt64(uint32_t offset) {
 Shape* CacheIRCloner::getShapeField(uint32_t stubOffset) {
   return reinterpret_cast<Shape*>(readStubWord(stubOffset));
 }
+GetterSetter* CacheIRCloner::getGetterSetterField(uint32_t stubOffset) {
+  return reinterpret_cast<GetterSetter*>(readStubWord(stubOffset));
+}
 JSObject* CacheIRCloner::getObjectField(uint32_t stubOffset) {
   return reinterpret_cast<JSObject*>(readStubWord(stubOffset));
 }
@@ -479,15 +482,16 @@ static NativeGetPropCacheability IsCacheableGetPropCall(NativeObject* obj,
   MOZ_ASSERT(shape);
   MOZ_ASSERT(IsCacheableProtoChain(obj, holder));
 
-  if (!shape->hasGetterValue() || !shape->getterValue().isObject()) {
+  if (!shape->hasGetterValue()) {
     return CanAttachNone;
   }
 
-  if (!shape->getterValue().toObject().is<JSFunction>()) {
+  JSObject* getterObject = holder->getGetter(shape);
+  if (!getterObject || !getterObject->is<JSFunction>()) {
     return CanAttachNone;
   }
 
-  JSFunction& getter = shape->getterValue().toObject().as<JSFunction>();
+  JSFunction& getter = getterObject->as<JSFunction>();
 
   if (getter.isClassConstructor()) {
     return CanAttachNone;
@@ -851,7 +855,7 @@ static void EmitCallGetterResultNoGuards(JSContext* cx, CacheIRWriter& writer,
                                          NativeObject* obj,
                                          NativeObject* holder, Shape* shape,
                                          ValOperandId receiverId) {
-  JSFunction* target = &shape->getterValue().toObject().as<JSFunction>();
+  JSFunction* target = &holder->getGetter(shape)->as<JSFunction>();
   bool sameRealm = cx->realm() == target->realm();
 
   switch (IsCacheableGetPropCall(obj, holder, shape)) {
@@ -890,7 +894,7 @@ static void EmitCallGetterResultGuards(CacheIRWriter& writer, NativeObject* obj,
       TestMatchingHolder(writer, holder, holderId);
     }
   } else {
-    writer.guardHasGetterSetter(objId, shape);
+    writer.guardHasGetterSetter(objId, shape->propid(), shape);
   }
 }
 
@@ -944,20 +948,21 @@ static bool CanAttachDOMCall(JSContext* cx, JSJitInfo::OpType type,
 }
 
 static bool CanAttachDOMGetterSetter(JSContext* cx, JSJitInfo::OpType type,
-                                     NativeObject* obj, Shape* shape,
-                                     ICState::Mode mode) {
+                                     NativeObject* obj, NativeObject* holder,
+                                     Shape* shape, ICState::Mode mode) {
   MOZ_ASSERT(type == JSJitInfo::Getter || type == JSJitInfo::Setter);
 
-  Value v =
-      type == JSJitInfo::Getter ? shape->getterValue() : shape->setterValue();
-  JSFunction* fun = &v.toObject().as<JSFunction>();
+  JSObject* accessor = type == JSJitInfo::Getter ? holder->getGetter(shape)
+                                                 : holder->getSetter(shape);
+  JSFunction* fun = &accessor->as<JSFunction>();
 
   return CanAttachDOMCall(cx, type, obj, fun, mode);
 }
 
-static void EmitCallDOMGetterResultNoGuards(CacheIRWriter& writer, Shape* shape,
+static void EmitCallDOMGetterResultNoGuards(CacheIRWriter& writer,
+                                            NativeObject* holder, Shape* shape,
                                             ObjOperandId objId) {
-  JSFunction* getter = &shape->getterValue().toObject().as<JSFunction>();
+  JSFunction* getter = &holder->getGetter(shape)->as<JSFunction>();
   writer.callDOMGetterResult(objId, getter->jitInfo());
   writer.returnFromIC();
 }
@@ -970,7 +975,7 @@ static void EmitCallDOMGetterResult(JSContext* cx, CacheIRWriter& writer,
   // The shape guard ensures the receiver's Class is valid for this DOM getter.
   EmitCallGetterResultGuards(writer, obj, holder, shape, objId,
                              ICState::Mode::Specialized);
-  EmitCallDOMGetterResultNoGuards(writer, shape, objId);
+  EmitCallDOMGetterResultNoGuards(writer, holder, shape, objId);
 }
 
 void GetPropIRGenerator::attachMegamorphicNativeSlot(ObjOperandId objId,
@@ -1025,7 +1030,7 @@ AttachDecision GetPropIRGenerator::tryAttachNative(HandleObject obj,
       maybeEmitIdGuard(id);
 
       if (!isSuper() && CanAttachDOMGetterSetter(cx_, JSJitInfo::Getter, nobj,
-                                                 shape, mode_)) {
+                                                 holder, shape, mode_)) {
         EmitCallDOMGetterResult(cx_, writer, nobj, holder, shape, objId);
 
         trackAttached("DOMGetter");
@@ -1123,7 +1128,7 @@ AttachDecision GetPropIRGenerator::tryAttachWindowProxy(HandleObject obj,
     case CanAttachNativeGetter: {
       // Make sure the native getter is okay with the IC passing the Window
       // instead of the WindowProxy as |this| value.
-      JSFunction* callee = &shape->getterObject()->as<JSFunction>();
+      JSFunction* callee = &holder->getGetter(shape)->as<JSFunction>();
       MOZ_ASSERT(callee->isNativeWithoutJitEntry());
       if (!callee->hasJitInfo() ||
           callee->jitInfo()->needsOuterizedThisObject()) {
@@ -1141,8 +1146,8 @@ AttachDecision GetPropIRGenerator::tryAttachWindowProxy(HandleObject obj,
       ObjOperandId windowObjId =
           GuardAndLoadWindowProxyWindow(writer, objId, windowObj);
 
-      if (CanAttachDOMGetterSetter(cx_, JSJitInfo::Getter, windowObj, shape,
-                                   mode_)) {
+      if (CanAttachDOMGetterSetter(cx_, JSJitInfo::Getter, windowObj, holder,
+                                   shape, mode_)) {
         EmitCallDOMGetterResult(cx_, writer, windowObj, holder, shape,
                                 windowObjId);
         trackAttached("WindowProxyDOMGetter");
@@ -1651,7 +1656,7 @@ AttachDecision GetPropIRGenerator::tryAttachProxy(HandleObject obj,
 AttachDecision GetPropIRGenerator::tryAttachObjectLength(HandleObject obj,
                                                          ObjOperandId objId,
                                                          HandleId id) {
-  if (!JSID_IS_ATOM(id, cx_->names().length)) {
+  if (!id.isAtom(cx_->names().length)) {
     return AttachDecision::NoAction;
   }
 
@@ -1704,10 +1709,9 @@ AttachDecision GetPropIRGenerator::tryAttachTypedArray(HandleObject obj,
     return AttachDecision::NoAction;
   }
 
-  bool isLength = JSID_IS_ATOM(id, cx_->names().length);
-  bool isByteOffset = JSID_IS_ATOM(id, cx_->names().byteOffset);
-  if (!isLength && !isByteOffset &&
-      !JSID_IS_ATOM(id, cx_->names().byteLength)) {
+  bool isLength = id.isAtom(cx_->names().length);
+  bool isByteOffset = id.isAtom(cx_->names().byteOffset);
+  if (!isLength && !isByteOffset && !id.isAtom(cx_->names().byteLength)) {
     return AttachDecision::NoAction;
   }
 
@@ -1719,7 +1723,7 @@ AttachDecision GetPropIRGenerator::tryAttachTypedArray(HandleObject obj,
     return AttachDecision::NoAction;
   }
 
-  JSFunction& fun = shape->getterValue().toObject().as<JSFunction>();
+  JSFunction& fun = holder->getGetter(shape)->as<JSFunction>();
   if (isLength) {
     if (!TypedArrayObject::isOriginalLengthGetter(fun.native())) {
       return AttachDecision::NoAction;
@@ -1784,8 +1788,8 @@ AttachDecision GetPropIRGenerator::tryAttachDataView(HandleObject obj,
     return AttachDecision::NoAction;
   }
 
-  bool isByteOffset = JSID_IS_ATOM(id, cx_->names().byteOffset);
-  if (!isByteOffset && !JSID_IS_ATOM(id, cx_->names().byteLength)) {
+  bool isByteOffset = id.isAtom(cx_->names().byteOffset);
+  if (!isByteOffset && !id.isAtom(cx_->names().byteLength)) {
     return AttachDecision::NoAction;
   }
 
@@ -1802,7 +1806,7 @@ AttachDecision GetPropIRGenerator::tryAttachDataView(HandleObject obj,
     return AttachDecision::NoAction;
   }
 
-  auto& fun = shape->getterValue().toObject().as<JSFunction>();
+  auto& fun = holder->getGetter(shape)->as<JSFunction>();
   if (isByteOffset) {
     if (!DataViewObject::isOriginalByteOffsetGetter(fun.native())) {
       return AttachDecision::NoAction;
@@ -1854,7 +1858,7 @@ AttachDecision GetPropIRGenerator::tryAttachArrayBufferMaybeShared(
     return AttachDecision::NoAction;
   }
 
-  if (!JSID_IS_ATOM(id, cx_->names().byteLength)) {
+  if (!id.isAtom(cx_->names().byteLength)) {
     return AttachDecision::NoAction;
   }
 
@@ -1866,7 +1870,7 @@ AttachDecision GetPropIRGenerator::tryAttachArrayBufferMaybeShared(
     return AttachDecision::NoAction;
   }
 
-  auto& fun = shape->getterValue().toObject().as<JSFunction>();
+  auto& fun = holder->getGetter(shape)->as<JSFunction>();
   if (buf->is<ArrayBufferObject>()) {
     if (!ArrayBufferObject::isOriginalByteLengthGetter(fun.native())) {
       return AttachDecision::NoAction;
@@ -1917,7 +1921,7 @@ AttachDecision GetPropIRGenerator::tryAttachRegExp(HandleObject obj,
     return AttachDecision::NoAction;
   }
 
-  auto& fun = shape->getterValue().toObject().as<JSFunction>();
+  auto& fun = holder->getGetter(shape)->as<JSFunction>();
   JS::RegExpFlags flags = JS::RegExpFlag::NoFlags;
   if (!RegExpObject::isOriginalFlagGetter(fun.native(), &flags)) {
     return AttachDecision::NoAction;
@@ -1945,8 +1949,8 @@ AttachDecision GetPropIRGenerator::tryAttachFunction(HandleObject obj,
     return AttachDecision::NoAction;
   }
 
-  bool isLength = JSID_IS_ATOM(id, cx_->names().length);
-  if (!isLength && !JSID_IS_ATOM(id, cx_->names().name)) {
+  bool isLength = id.isAtom(cx_->names().length);
+  if (!isLength && !id.isAtom(cx_->names().name)) {
     return AttachDecision::NoAction;
   }
 
@@ -2083,7 +2087,7 @@ AttachDecision GetPropIRGenerator::tryAttachPrimitive(ValOperandId valId,
   JSProtoKey protoKey;
   switch (val_.type()) {
     case ValueType::String:
-      if (JSID_IS_ATOM(id, cx_->names().length)) {
+      if (id.isAtom(cx_->names().length)) {
         // String length is special-cased, see js::GetProperty.
         return AttachDecision::NoAction;
       }
@@ -2165,7 +2169,7 @@ AttachDecision GetPropIRGenerator::tryAttachPrimitive(ValOperandId valId,
 
 AttachDecision GetPropIRGenerator::tryAttachStringLength(ValOperandId valId,
                                                          HandleId id) {
-  if (!val_.isString() || !JSID_IS_ATOM(id, cx_->names().length)) {
+  if (!val_.isString() || !id.isAtom(cx_->names().length)) {
     return AttachDecision::NoAction;
   }
 
@@ -2236,8 +2240,7 @@ AttachDecision GetPropIRGenerator::tryAttachMagicArgumentsName(
     return AttachDecision::NoAction;
   }
 
-  if (!JSID_IS_ATOM(id, cx_->names().length) &&
-      !JSID_IS_ATOM(id, cx_->names().callee)) {
+  if (!id.isAtom(cx_->names().length) && !id.isAtom(cx_->names().callee)) {
     return AttachDecision::NoAction;
   }
 
@@ -2245,10 +2248,10 @@ AttachDecision GetPropIRGenerator::tryAttachMagicArgumentsName(
   writer.guardMagicValue(valId, JS_OPTIMIZED_ARGUMENTS);
   writer.guardFrameHasNoArgumentsObject();
 
-  if (JSID_IS_ATOM(id, cx_->names().length)) {
+  if (id.isAtom(cx_->names().length)) {
     writer.loadFrameNumActualArgsResult();
   } else {
-    MOZ_ASSERT(JSID_IS_ATOM(id, cx_->names().callee));
+    MOZ_ASSERT(id.isAtom(cx_->names().callee));
     writer.loadFrameCalleeResult();
   }
 
@@ -2321,7 +2324,7 @@ AttachDecision GetPropIRGenerator::tryAttachArgumentsObjectCallee(
     return AttachDecision::NoAction;
   }
 
-  if (!JSID_IS_ATOM(id, cx_->names().callee)) {
+  if (!id.isAtom(cx_->names().callee)) {
     return AttachDecision::NoAction;
   }
 
@@ -2821,9 +2824,10 @@ AttachDecision GetNameIRGenerator::tryAttachGlobalNameGetter(ObjOperandId objId,
     writer.guardShape(holderId, holder->lastProperty());
   }
 
-  if (CanAttachDOMGetterSetter(cx_, JSJitInfo::Getter, global, shape, mode_)) {
+  if (CanAttachDOMGetterSetter(cx_, JSJitInfo::Getter, global, holder, shape,
+                               mode_)) {
     // The global shape guard above ensures the instance JSClass is correct.
-    EmitCallDOMGetterResultNoGuards(writer, shape, globalId);
+    EmitCallDOMGetterResultNoGuards(writer, holder, shape, globalId);
     trackAttached("GlobalNameDOMGetter");
   } else {
     ValOperandId receiverId = writer.boxObject(globalId);
@@ -3711,11 +3715,12 @@ static bool IsCacheableSetPropCallNative(NativeObject* obj,
     return false;
   }
 
-  if (!shape->setterObject() || !shape->setterObject()->is<JSFunction>()) {
+  JSObject* setterObject = holder->getSetter(shape);
+  if (!setterObject || !setterObject->is<JSFunction>()) {
     return false;
   }
 
-  JSFunction& setter = shape->setterObject()->as<JSFunction>();
+  JSFunction& setter = setterObject->as<JSFunction>();
   if (!setter.isNativeWithoutJitEntry()) {
     return false;
   }
@@ -3744,11 +3749,12 @@ static bool IsCacheableSetPropCallScripted(NativeObject* obj,
     return false;
   }
 
-  if (!shape->setterObject() || !shape->setterObject()->is<JSFunction>()) {
+  JSObject* setterObject = holder->getSetter(shape);
+  if (!setterObject || !setterObject->is<JSFunction>()) {
     return false;
   }
 
-  JSFunction& setter = shape->setterObject()->as<JSFunction>();
+  JSFunction& setter = setterObject->as<JSFunction>();
   if (setter.isClassConstructor()) {
     return false;
   }
@@ -3786,7 +3792,7 @@ static void EmitCallSetterNoGuards(JSContext* cx, CacheIRWriter& writer,
                                    NativeObject* obj, NativeObject* holder,
                                    Shape* shape, ObjOperandId objId,
                                    ValOperandId rhsId) {
-  JSFunction* target = &shape->setterValue().toObject().as<JSFunction>();
+  JSFunction* target = &holder->getSetter(shape)->as<JSFunction>();
   bool sameRealm = cx->realm() == target->realm();
 
   if (target->isNativeWithoutJitEntry()) {
@@ -3802,9 +3808,9 @@ static void EmitCallSetterNoGuards(JSContext* cx, CacheIRWriter& writer,
 }
 
 static void EmitCallDOMSetterNoGuards(JSContext* cx, CacheIRWriter& writer,
-                                      Shape* shape, ObjOperandId objId,
-                                      ValOperandId rhsId) {
-  JSFunction* setter = &shape->setterValue().toObject().as<JSFunction>();
+                                      NativeObject* holder, Shape* shape,
+                                      ObjOperandId objId, ValOperandId rhsId) {
+  JSFunction* setter = &holder->getSetter(shape)->as<JSFunction>();
   MOZ_ASSERT(cx->realm() == setter->realm());
 
   writer.callDOMSetter(objId, setter->jitInfo(), rhsId);
@@ -3838,12 +3844,12 @@ AttachDecision SetPropIRGenerator::tryAttachSetter(HandleObject obj,
       TestMatchingHolder(writer, holder, holderId);
     }
   } else {
-    writer.guardHasGetterSetter(objId, propShape);
+    writer.guardHasGetterSetter(objId, id, propShape);
   }
 
-  if (CanAttachDOMGetterSetter(cx_, JSJitInfo::Setter, nobj, propShape,
+  if (CanAttachDOMGetterSetter(cx_, JSJitInfo::Setter, nobj, holder, propShape,
                                mode_)) {
-    EmitCallDOMSetterNoGuards(cx_, writer, propShape, objId, rhsId);
+    EmitCallDOMSetterNoGuards(cx_, writer, holder, propShape, objId, rhsId);
 
     trackAttached("DOMSetter");
     return AttachDecision::Attach;
@@ -3862,7 +3868,7 @@ AttachDecision SetPropIRGenerator::tryAttachSetArrayLength(HandleObject obj,
   // Don't attach an array length stub for ops like JSOp::InitElem.
   MOZ_ASSERT(IsPropertySetOp(JSOp(*pc_)));
 
-  if (!obj->is<ArrayObject>() || !JSID_IS_ATOM(id, cx_->names().length) ||
+  if (!obj->is<ArrayObject>() || !id.isAtom(cx_->names().length) ||
       !obj->as<ArrayObject>().lengthIsWritable()) {
     return AttachDecision::NoAction;
   }
@@ -4411,7 +4417,7 @@ bool SetPropIRGenerator::canAttachAddSlotStub(HandleObject obj, HandleId id) {
   // Special-case JSFunction resolve hook to allow redefining the 'prototype'
   // property without triggering lazy expansion of property and object
   // allocation.
-  if (obj->is<JSFunction>() && JSID_IS_ATOM(id, cx_->names().prototype)) {
+  if (obj->is<JSFunction>() && id.isAtom(cx_->names().prototype)) {
     MOZ_ASSERT(ClassMayResolveId(cx_->names(), obj->getClass(), id, obj));
 
     // We're only interested in functions that have a builtin .prototype
@@ -4554,7 +4560,7 @@ AttachDecision SetPropIRGenerator::tryAttachAddSlotStub(HandleShape oldShape) {
 
   // If this is the special function.prototype case, we need to guard the
   // function is a non-builtin constructor. See canAttachAddSlotStub.
-  if (nobj->is<JSFunction>() && JSID_IS_ATOM(id, cx_->names().prototype)) {
+  if (nobj->is<JSFunction>() && id.isAtom(cx_->names().prototype)) {
     MOZ_ASSERT(nobj->as<JSFunction>().isNonBuiltinConstructor());
     writer.guardFunctionIsNonBuiltinCtor(objId);
   }
