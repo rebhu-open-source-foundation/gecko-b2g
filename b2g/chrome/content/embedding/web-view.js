@@ -825,6 +825,11 @@
       this.log(`deactivateKeyForwarding`);
       Services.KeyboardAppProxy.deactivate();
     }
+
+    download(url) {
+      this.log(`download ${url}`);
+      this.browser?.webViewDownload(url);
+    }
   }
 
   webViewLogEnabled && console.log(`Setting up <web-view> custom element`);

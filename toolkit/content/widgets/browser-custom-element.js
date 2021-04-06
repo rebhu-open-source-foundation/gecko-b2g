@@ -32,6 +32,12 @@
 
   ChromeUtils.defineModuleGetter(
     LazyModules,
+    "NetUtil",
+    "resource://gre/modules/NetUtil.jsm"
+  );
+
+  ChromeUtils.defineModuleGetter(
+    LazyModules,
     "RemoteWebNavigation",
     "resource://gre/modules/RemoteWebNavigation.jsm"
   );
@@ -1324,6 +1330,76 @@
         });
         mm.sendAsyncMessage("WebView::GetCursorEnabled", { id });
       });
+    }
+
+    webViewDownload(url) {
+      console.log(`webViewDownload ${url}`);
+      let channel = LazyModules.NetUtil.newChannel({
+        uri: Services.io.newURI(url),
+        loadingPrincipal: this._contentPrincipal,
+        securityFlags:
+          Ci.nsILoadInfo.SEC_ALLOW_CROSS_ORIGIN_INHERITS_SEC_CONTEXT,
+        contentPolicyType: Ci.nsIContentPolicy.TYPE_OTHER,
+      });
+
+      channel.loadInfo.cookieJarSettings = this.cookieJarSettings;
+
+      if (channel instanceof Ci.nsIHttpChannel) {
+        if (channel instanceof Ci.nsIHttpChannelInternal) {
+          channel.forceAllowThirdPartyCookie = true;
+        }
+        try {
+          let referrerInfo = Cc["@mozilla.org/referrer-info;1"].createInstance(
+            Ci.nsIReferrerInfo
+          );
+          referrerInfo.init(
+            Ci.nsIReferrerInfo.NO_REFERRER,
+            false,
+            this.currentURI
+          );
+          channel.referrerInfo = referrerInfo;
+        } catch (e) {
+          console.error(`webViewDownload set referrerInfo ${e}`);
+        }
+      }
+
+      function DownloadListener() {}
+      DownloadListener.prototype = {
+        extListener: null,
+        onStartRequest(request, context) {
+          let extHelperAppSvc = Cc[
+            "@mozilla.org/uriloader/external-helper-app-service;1"
+          ].getService(Ci.nsIExternalHelperAppService);
+          let channel = request.QueryInterface(Ci.nsIChannel);
+
+          this.extListener = extHelperAppSvc.doContent(
+            channel.contentType,
+            request,
+            null,
+            true
+          );
+
+          this.extListener?.onStartRequest(request, context);
+        },
+        onStopRequest(request, context, statusCode) {
+          this.extListener?.onStopRequest(request, context, statusCode);
+        },
+        onDataAvailable(request, context, inputStream, offset, count) {
+          this.extListener?.onDataAvailable(
+            request,
+            context,
+            inputStream,
+            offset,
+            count
+          );
+        },
+        QueryInterface: ChromeUtils.generateQI([
+          Ci.nsIStreamListener,
+          Ci.nsIRequestObserver,
+        ]),
+      };
+
+      channel.asyncOpen(new DownloadListener());
     }
 
     webViewcreateEvent(evtName, detail, cancelable) {

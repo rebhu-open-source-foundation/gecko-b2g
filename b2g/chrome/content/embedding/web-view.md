@@ -15,6 +15,7 @@ The <web-view> element supports the following attributes:
 - `cleanup() : void` : releases resources before removing the <web-view> from the DOM. The <web-view> is not usable after this call.
 - `deactivateKeyForwarding() : void` : disable key forwarding.
 - `disableCursor() : void` : disables the virtual cursor.
+- `download(uri) : init download.
 - `enableCursor() : void` : enables the virtual cursor.
 - `focus() : void` : focuses the browser.
 - `getBackgroundColor() : Promise<String>`: returns the CSS value of the page's background color.
