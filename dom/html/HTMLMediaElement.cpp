@@ -1418,7 +1418,8 @@ class HTMLMediaElement::AudioChannelAgentCallback final
         mAudioChannel(aChannel),
         mAudioChannelVolume(1.0),
         mPlayingThroughTheAudioChannel(false),
-        mSuspended(false),
+        mSuspendedPaused(false),
+        mSuspendedBlocked(false),
         mIsOwnerAudible(IsOwnerAudible()),
         mIsShutDown(false) {
     MOZ_ASSERT(mOwner);
@@ -1487,10 +1488,16 @@ class HTMLMediaElement::AudioChannelAgentCallback final
 
     switch (aSuspend) {
       case nsISuspendedTypes::NONE_SUSPENDED:
-        SetSuspended(false);
+        SetSuspendedPaused(false);
+        SetSuspendedBlocked(false);
         break;
       case nsISuspendedTypes::SUSPENDED_PAUSE:
-        SetSuspended(true);
+        SetSuspendedPaused(true);
+        SetSuspendedBlocked(false);
+        break;
+      case nsISuspendedTypes::SUSPENDED_BLOCK:
+        SetSuspendedPaused(false);
+        SetSuspendedBlocked(true);
         break;
       default:
         MOZ_LOG(AudioChannelService::GetAudioChannelLog(), LogLevel::Debug,
@@ -1551,7 +1558,10 @@ class HTMLMediaElement::AudioChannelAgentCallback final
     return mOwner->Volume() * mAudioChannelVolume;
   }
 
-  bool IsSuspended() const { return mSuspended; }
+  bool IsStoppedOrSuspended() const {
+    return !mAudioChannelAgent || !mAudioChannelAgent->IsPlayingStarted() ||
+           mSuspendedPaused || mSuspendedBlocked;
+  }
 
  private:
   ~AudioChannelAgentCallback() { MOZ_ASSERT(mIsShutDown); };
@@ -1596,30 +1606,38 @@ class HTMLMediaElement::AudioChannelAgentCallback final
     // to clear the output capturing track.
     mOwner->AudioCaptureTrackChange(false);
     // Reset suspended state after the agent stops playing.
-    SetSuspended(false);
+    SetSuspendedPaused(false);
+    SetSuspendedBlocked(false);
   }
 
-  void SetSuspended(bool aSuspended) {
-    if (mSuspended == aSuspended) {
+  void SetSuspendedPaused(bool aPaused) {
+    if (mSuspendedPaused == aPaused) {
       return;
     }
 
-    MOZ_LOG(AudioChannelService::GetAudioChannelLog(), LogLevel::Debug,
-            ("HTMLMediaElement::AudioChannelAgentCallback, "
-             "SetAudioChannelSuspended, this = %p, aSuspended = %d\n",
-             this, aSuspended));
-
-    mSuspended = aSuspended;
-    mOwner->SetSuspendedByAudioChannel(aSuspended);
+    mSuspendedPaused = aPaused;
+    mOwner->SetSuspendedByAudioChannel(aPaused);
 
     // Only dispatch mozinterrupt events when the agent has started playing.
     if (IsPlayingStarted()) {
-      mOwner->DispatchAsyncEvent(aSuspended ? u"mozinterruptbegin"_ns
-                                            : u"mozinterruptend"_ns);
+      mOwner->DispatchAsyncEvent(aPaused ? u"mozinterruptbegin"_ns
+                                         : u"mozinterruptend"_ns);
     }
 
     NotifyAudioPlaybackChanged(
         AudioChannelService::AudibleChangedReasons::ePauseStateChanged);
+  }
+
+  void SetSuspendedBlocked(bool aBlocked) {
+    if (mSuspendedBlocked == aBlocked) {
+      return;
+    }
+
+    mSuspendedBlocked = aBlocked;
+    // Only notify media element when we are unblocked.
+    if (IsPlayingStarted() && !aBlocked) {
+      mOwner->NotifyAudioChannelBlockingChanged();
+    }
   }
 
   bool IsPlayingStarted() {
@@ -1631,7 +1649,7 @@ class HTMLMediaElement::AudioChannelAgentCallback final
 
   AudibleState IsOwnerAudible() const {
     // Suspended or paused media doesn't produce any sound.
-    if (IsSuspended() || mOwner->mPaused) {
+    if (IsStoppedOrSuspended() || mOwner->mPaused) {
       return AudibleState::eNotAudible;
     }
     return mOwner->IsAudible() ? AudibleState::eAudible
@@ -1692,7 +1710,8 @@ class HTMLMediaElement::AudioChannelAgentCallback final
   bool mPlayingThroughTheAudioChannel;
   // It's used when we temporary lost platform audio focus. MediaElement can
   // only be resumed when we gain the audio focus again.
-  bool mSuspended;
+  bool mSuspendedPaused;
+  bool mSuspendedBlocked;
   // Indicate whether media element is audible for users.
   AudibleState mIsOwnerAudible;
   bool mIsShutDown;
@@ -4474,7 +4493,11 @@ void HTMLMediaElement::PlayInternal(bool aHandlingUserInput) {
     if (mDecoder->IsEnded()) {
       SetCurrentTime(0);
     }
+#ifdef MOZ_B2G
+    if (CanDecoderStartPlaying()) {
+#else
     if (!mSuspendedByInactiveDocOrDocshell) {
+#endif
       mDecoder->Play();
     }
   }
@@ -5154,7 +5177,11 @@ nsresult HTMLMediaElement::FinishDecoderSetup(MediaDecoder* aDecoder) {
 
   if (!mPaused) {
     SetPlayedOrSeeked(true);
+#ifdef MOZ_B2G
+    if (CanDecoderStartPlaying()) {
+#else
     if (!mSuspendedByInactiveDocOrDocshell) {
+#endif
       mDecoder->Play();
     }
   }
@@ -6059,7 +6086,11 @@ void HTMLMediaElement::ChangeReadyState(nsMediaReadyState aState) {
   if (oldState < HAVE_FUTURE_DATA && mReadyState >= HAVE_FUTURE_DATA) {
     DispatchAsyncEvent(u"canplay"_ns);
     if (!mPaused) {
+#ifdef MOZ_B2G
+      if (mDecoder && CanDecoderStartPlaying()) {
+#else
       if (mDecoder && !mSuspendedByInactiveDocOrDocshell) {
+#endif
         MOZ_ASSERT(AutoplayPolicy::IsAllowedToPlay(*this));
         mDecoder->Play();
       }
@@ -6155,10 +6186,6 @@ bool HTMLMediaElement::CanActivateAutoplay() {
     return false;
   }
 
-  if (mAudioChannelWrapper && mAudioChannelWrapper->IsSuspended()) {
-    return false;
-  }
-
   return mReadyState >= HAVE_ENOUGH_DATA;
 }
 
@@ -6185,8 +6212,14 @@ void HTMLMediaElement::CheckAutoplayDataReady() {
     if (mCurrentPlayRangeStart == -1.0) {
       mCurrentPlayRangeStart = CurrentTime();
     }
+#ifdef MOZ_B2G
+    if (CanDecoderStartPlaying()) {
+      mDecoder->Play();
+    }
+#else
     MOZ_ASSERT(!mSuspendedByInactiveDocOrDocshell);
     mDecoder->Play();
+#endif
   } else if (mSrcStream) {
     SetPlayedOrSeeked(true);
   }
@@ -6486,7 +6519,11 @@ void HTMLMediaElement::SuspendOrResumeElement(bool aSuspendElement,
   } else {
     if (mDecoder) {
       mDecoder->Resume();
+#ifdef MOZ_B2G
+      if (!mPaused && !mDecoder->IsEnded() && CanDecoderStartPlaying()) {
+#else
       if (!mPaused && !mDecoder->IsEnded()) {
+#endif
         mDecoder->Play();
       }
       mDecoder->SetDelaySeekMode(false);
@@ -6538,6 +6575,22 @@ void HTMLMediaElement::NotifySuspendConditionChanged() {
   bool shouldSuspend =
       isDocOrDocshellInactive || isVideoHidden || mSuspendedByAudioChannel;
   SuspendOrResumeElement(shouldSuspend, isDocOrDocshellInactive);
+}
+
+void HTMLMediaElement::NotifyAudioChannelBlockingChanged() {
+  LOG(LogLevel::Debug,
+      ("%p NotifyAudioChannelBlockingChanged(CanDecoderStartPlaying=%d)", this,
+       CanDecoderStartPlaying()));
+
+  if (!mPaused && mDecoder && !mDecoder->IsEnded() &&
+      CanDecoderStartPlaying()) {
+    mDecoder->Play();
+  }
+}
+
+bool HTMLMediaElement::CanDecoderStartPlaying() const {
+  return !mSuspendedByInactiveDocOrDocshell && mAudioChannelWrapper &&
+         !mAudioChannelWrapper->IsStoppedOrSuspended();
 }
 
 void HTMLMediaElement::NotifyOwnerDocumentActivityChanged() {

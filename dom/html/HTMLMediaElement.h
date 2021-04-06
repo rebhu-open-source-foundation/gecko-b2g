@@ -1854,6 +1854,8 @@ class HTMLMediaElement : public nsGenericHTMLElement,
    */
   void AfterMaybeChangeAttr(int32_t aNamespaceID, nsAtom* aName, bool aNotify);
 
+  bool CanDecoderStartPlaying() const;
+
   // True if Init() has been called after construction
   bool mInitialized = false;
 
@@ -1914,6 +1916,8 @@ class HTMLMediaElement : public nsGenericHTMLElement,
   bool mSuspendedByAudioChannel = false;
 
   void NotifySuspendConditionChanged();
+
+  void NotifyAudioChannelBlockingChanged();
 
   // For debugging bug 1407148.
   void AssertReadyStateIsNothing();
