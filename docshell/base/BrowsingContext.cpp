@@ -242,6 +242,11 @@ already_AddRefed<BrowsingContext> BrowsingContext::GetCurrentTopByBrowserId(
 }
 
 /* static */
+bool  BrowsingContext::ContainCurrentTopByBrowserId(uint64_t aBrowserId) {
+  return sCurrentTopByBrowserId->Contains(aBrowserId);
+}
+
+/* static */
 already_AddRefed<BrowsingContext> BrowsingContext::GetFromWindow(
     WindowProxyHolder& aProxy) {
   return do_AddRef(aProxy.get());

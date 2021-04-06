@@ -68,6 +68,11 @@ class WebProgressListener final : public nsIWebProgressListener,
       return NS_OK;
     }
 
+    // Invalid BrowserId, if mPromise is null, just ignore.
+    if (!mPromise && !BrowsingContext::ContainCurrentTopByBrowserId(mBrowserId)) {
+      return NS_OK;
+    }
+
     // Our browsing context may have been discarded before finishing the load,
     // this is a navigation error.
     RefPtr<CanonicalBrowsingContext> browsingContext =
