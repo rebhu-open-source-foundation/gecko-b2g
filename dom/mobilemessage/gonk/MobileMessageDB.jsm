@@ -4946,7 +4946,7 @@ GetThreadsCursor.prototype = {
         threadRecord.unreadCount,
         threadRecord.lastMessageType,
         threadRecord.isGroup,
-        threadRecord.lastMessageAttachementStatus
+        threadRecord.lastMessageAttachementStatus || ATTACHMENT_STATUS_NONE
       );
       collector.notifyResult(txn, threadId, thread);
     };
