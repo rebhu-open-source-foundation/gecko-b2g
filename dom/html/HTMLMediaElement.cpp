@@ -1563,6 +1563,8 @@ class HTMLMediaElement::AudioChannelAgentCallback final
            mSuspendedPaused || mSuspendedBlocked;
   }
 
+  bool IsSuspendedPaused() const { return mSuspendedPaused; }
+
  private:
   ~AudioChannelAgentCallback() { MOZ_ASSERT(mIsShutDown); };
 
@@ -1616,7 +1618,7 @@ class HTMLMediaElement::AudioChannelAgentCallback final
     }
 
     mSuspendedPaused = aPaused;
-    mOwner->SetSuspendedByAudioChannel(aPaused);
+    mOwner->NotifySuspendConditionChanged();
 
     // Only dispatch mozinterrupt events when the agent has started playing.
     if (IsPlayingStarted()) {
@@ -6561,19 +6563,16 @@ bool HTMLMediaElement::ShouldBeSuspendedByInactiveDocShell() const {
   return bc && !bc->IsActive() && bc->Top()->GetSuspendMediaWhenInactive();
 }
 
-void HTMLMediaElement::SetSuspendedByAudioChannel(bool aSuspended) {
-  mSuspendedByAudioChannel = aSuspended;
-  NotifySuspendConditionChanged();
-}
-
 void HTMLMediaElement::NotifySuspendConditionChanged() {
   // The logic of |isDocOrDocshellInactive| should be same as |shouldSuspend| in
   // NotifyOwnerDocumentActivityChanged().
   bool isDocOrDocshellInactive =
       !OwnerDoc()->IsActive() || ShouldBeSuspendedByInactiveDocShell();
   bool isVideoHidden = IsVideo() && HasVideo() && OwnerDoc()->Hidden();
+  bool isAudioInterrupted =
+      mAudioChannelWrapper && mAudioChannelWrapper->IsSuspendedPaused();
   bool shouldSuspend =
-      isDocOrDocshellInactive || isVideoHidden || mSuspendedByAudioChannel;
+      isDocOrDocshellInactive || isVideoHidden || isAudioInterrupted;
   SuspendOrResumeElement(shouldSuspend, isDocOrDocshellInactive);
 }
 

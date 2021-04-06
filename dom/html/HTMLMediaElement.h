@@ -1911,10 +1911,6 @@ class HTMLMediaElement : public nsGenericHTMLElement,
   // playing in that shell.
   bool ShouldBeSuspendedByInactiveDocShell() const;
 
-  void SetSuspendedByAudioChannel(bool aSuspended);
-
-  bool mSuspendedByAudioChannel = false;
-
   void NotifySuspendConditionChanged();
 
   void NotifyAudioChannelBlockingChanged();
