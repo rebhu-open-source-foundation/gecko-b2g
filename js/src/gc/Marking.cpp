@@ -1146,13 +1146,6 @@ void GCMarker::traverse(BaseScript* thing) {
 }
 }  // namespace js
 
-namespace js {
-template <>
-void GCMarker::traverse(AccessorShape* thing) {
-  MOZ_CRASH("AccessorShape must be marked as a Shape");
-}
-}  // namespace js
-
 #ifdef DEBUG
 void GCMarker::setCheckAtomMarking(bool check) {
   MOZ_ASSERT(check != checkAtomMarking);
@@ -1291,15 +1284,7 @@ void Shape::traceChildren(JSTracer* trc) {
       dictNext.setObject(obj);
     }
   }
-
   cache_.trace(trc);
-
-  if (hasGetterObject()) {
-    TraceManuallyBarrieredEdge(trc, &asAccessorShape().getter_, "getter");
-  }
-  if (hasSetterObject()) {
-    TraceManuallyBarrieredEdge(trc, &asAccessorShape().setter_, "setter");
-  }
 }
 inline void js::GCMarker::eagerlyMarkChildren(Shape* shape) {
   MOZ_ASSERT(shape->isMarked(markColor()));
@@ -1324,16 +1309,6 @@ inline void js::GCMarker::eagerlyMarkChildren(Shape* shape) {
     // must point to this shape or an anscestor.  Since these pointers will
     // be traced by this loop they do not need to be traced here as well.
     MOZ_ASSERT(shape->canSkipMarkingShapeCache());
-
-    // When triggered between slices on behalf of a barrier, these
-    // objects may reside in the nursery, so require an extra check.
-    // FIXME: Bug 1157967 - remove the isTenured checks.
-    if (shape->hasGetterObject() && shape->getterObject()->isTenured()) {
-      markAndTraverseEdge(shape, shape->getterObject());
-    }
-    if (shape->hasSetterObject() && shape->setterObject()->isTenured()) {
-      markAndTraverseEdge(shape, shape->setterObject());
-    }
 
     shape = shape->previous();
   } while (shape && mark(shape));

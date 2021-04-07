@@ -267,8 +267,20 @@ search-one-offs-history =
 
 ## Bookmark Panel
 
-bookmarks-add-bookmark = Add Bookmark
-bookmarks-edit-bookmark = Edit Bookmark
+bookmarks-add-bookmark = Add bookmark
+bookmarks-edit-bookmark = Edit bookmark
+bookmark-panel-cancel =
+    .label = Cancel
+    .accesskey = C
+# Variables:
+#  $count (number): number of bookmarks that will be removed
+bookmark-panel-remove =
+    .label =
+        { $count ->
+            [1] Remove bookmark
+           *[other] Remove { $count } bookmarks
+        }
+    .accesskey = R
 bookmark-panel-show-editor-checkbox =
     .label = Show editor when saving
     .accesskey = S
@@ -568,7 +580,7 @@ pointerlock-warning-no-domain = This document has control of your pointer. Press
 
 crashed-subframe-message = <strong>Part of this page crashed.</strong> To let { -brand-product-name } know about this issue and get it fixed faster, please submit a report.
 crashed-subframe-learnmore-link =
-  .value = Learn More
+  .value = Learn more
 crashed-subframe-submit =
   .label = Submit report
   .accesskey = S

@@ -10919,6 +10919,12 @@ nsresult PresShell::SetIsActive(bool aIsActive) {
   }
 #endif
 
+  if (aIsActive) {
+    if (nsIFrame* rootFrame = GetRootFrame()) {
+      rootFrame->SchedulePaint();
+    }
+  }
+
   return rv;
 }
 

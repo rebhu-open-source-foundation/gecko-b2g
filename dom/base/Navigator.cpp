@@ -175,7 +175,6 @@ void Navigator::Invalidate() {
   mMimeTypes = nullptr;
 
   if (mPlugins) {
-    mPlugins->Invalidate();
     mPlugins = nullptr;
   }
 
@@ -488,7 +487,6 @@ nsPluginArray* Navigator::GetPlugins(ErrorResult& aRv) {
       return nullptr;
     }
     mPlugins = new nsPluginArray(mWindow);
-    mPlugins->Init();
   }
 
   return mPlugins;

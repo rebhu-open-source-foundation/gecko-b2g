@@ -6101,6 +6101,32 @@ bool CacheIRCompiler::emitLoadNewObjectFromTemplateResult(
   return true;
 }
 
+bool CacheIRCompiler::emitNewPlainObjectResult(uint32_t numFixedSlots,
+                                               uint32_t numDynamicSlots,
+                                               gc::AllocKind allocKind,
+                                               uint32_t shapeOffset) {
+  JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
+  AutoOutputRegister output(*this);
+  AutoScratchRegister obj(allocator, masm);
+  AutoScratchRegister scratch(allocator, masm);
+  AutoScratchRegisterMaybeOutput shape(allocator, masm, output);
+
+  StubFieldOffset shapeSlot(shapeOffset, StubField::Type::Shape);
+
+  FailurePath* failure;
+  if (!addFailurePath(&failure)) {
+    return false;
+  }
+
+  emitLoadStubField(shapeSlot, shape);
+  masm.createPlainGCObject(obj, shape, scratch, shape, numFixedSlots,
+                           numDynamicSlots, allocKind, gc::DefaultHeap,
+                           failure->label());
+
+  masm.tagValue(JSVAL_TYPE_OBJECT, obj, output.valueReg());
+  return true;
+}
+
 bool CacheIRCompiler::emitComparePointerResultShared(JSOp op,
                                                      TypedOperandId lhsId,
                                                      TypedOperandId rhsId) {
@@ -7016,13 +7042,14 @@ bool CacheIRCompiler::emitMegamorphicStoreSlot(ObjOperandId objId,
 
 bool CacheIRCompiler::emitGuardHasGetterSetter(ObjOperandId objId,
                                                uint32_t idOffset,
-                                               uint32_t shapeOffset) {
+                                               uint32_t getterSetterOffset) {
   JitSpew(JitSpew_Codegen, "%s", __FUNCTION__);
 
   Register obj = allocator.useRegister(masm, objId);
 
   StubFieldOffset id(idOffset, StubField::Type::Id);
-  StubFieldOffset shape(shapeOffset, StubField::Type::Shape);
+  StubFieldOffset getterSetter(getterSetterOffset,
+                               StubField::Type::GetterSetter);
 
   AutoScratchRegister scratch1(allocator, masm);
   AutoScratchRegister scratch2(allocator, masm);
@@ -7039,15 +7066,15 @@ bool CacheIRCompiler::emitGuardHasGetterSetter(ObjOperandId objId,
   volatileRegs.takeUnchecked(scratch2);
   masm.PushRegsInMask(volatileRegs);
 
-  using Fn =
-      bool (*)(JSContext * cx, JSObject * obj, jsid id, Shape * propShape);
+  using Fn = bool (*)(JSContext * cx, JSObject * obj, jsid id,
+                      GetterSetter * getterSetter);
   masm.setupUnalignedABICall(scratch1);
   masm.loadJSContext(scratch1);
   masm.passABIArg(scratch1);
   masm.passABIArg(obj);
   emitLoadStubField(id, scratch2);
   masm.passABIArg(scratch2);
-  emitLoadStubField(shape, scratch3);
+  emitLoadStubField(getterSetter, scratch3);
   masm.passABIArg(scratch3);
   masm.callWithABI<Fn, ObjectHasGetterSetterPure>();
   masm.mov(ReturnReg, scratch1);

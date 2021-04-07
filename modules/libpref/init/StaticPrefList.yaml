@@ -609,6 +609,21 @@
   value: 5.0f
   mirror: always
 
+- name: apz.overscroll.spring_stiffness
+  type: AtomicFloat
+  value: 200
+  mirror: always
+
+- name: apz.overscroll.damping
+  type: AtomicFloat
+  value: 1.1
+  mirror: always
+
+- name: apz.overscroll.max_velocity
+  type: AtomicFloat
+  value: 10
+  mirror: always
+
 - name: apz.paint_skipping.enabled
   type: RelaxedAtomicBool
   value: true
@@ -7421,6 +7436,13 @@
   value: false
   mirror: always
 
+# Should deprecated plugin behavior fallback to normal behavior or use
+# the experimental design.
+- name: layout.use-plugin-fallback
+  type: bool
+  value: false
+  mirror: always
+
 #---------------------------------------------------------------------------
 # Prefs starting with "mathml."
 #---------------------------------------------------------------------------
@@ -9643,7 +9665,7 @@
 # Whether to record the telemetry event when a JAR channel is failed to load.
 - name: network.jar.record_failure_reason
   type: RelaxedAtomicBool
-  value: true
+  value: @IS_EARLY_BETA_OR_EARLIER@
   mirror: always
 
 #---------------------------------------------------------------------------

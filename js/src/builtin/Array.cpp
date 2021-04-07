@@ -869,8 +869,7 @@ bool js::ArraySetLength(JSContext* cx, Handle<ArrayObject*> arr, HandleId id,
     RootedShape lengthShape(cx, arr->lookup(cx, id));
     MOZ_ASSERT(lengthShape->isCustomDataProperty());
     unsigned attrs = lengthShape->attributes() | JSPROP_READONLY;
-    if (!NativeObject::putAccessorProperty(cx, arr, id, nullptr, nullptr,
-                                           attrs)) {
+    if (!NativeObject::changeCustomDataPropAttributes(cx, arr, id, attrs)) {
       return false;
     }
   }
@@ -979,9 +978,8 @@ static bool AddLengthProperty(JSContext* cx, HandleArrayObject obj) {
   }
 
   RootedId lengthId(cx, NameToId(cx->names().length));
-  return NativeObject::addAccessorProperty(
-      cx, obj, lengthId, nullptr, nullptr,
-      JSPROP_CUSTOM_DATA_PROP | JSPROP_PERMANENT);
+  return NativeObject::addCustomDataProperty(
+      cx, obj, lengthId, JSPROP_CUSTOM_DATA_PROP | JSPROP_PERMANENT);
 }
 
 static bool IsArrayConstructor(const JSObject* obj) {
@@ -4125,8 +4123,9 @@ void js::ArraySpeciesLookup::initialize(JSContext* cx) {
 
   // Get the referred value, ensure it holds the canonical Array[@@species]
   // function.
-  JSObject* speciesGetter = arrayCtor->getGetter(speciesShape);
-  if (!speciesGetter->is<JSFunction>()) {
+  uint32_t speciesGetterSlot = speciesShape->slot();
+  JSObject* speciesGetter = arrayCtor->getGetter(speciesGetterSlot);
+  if (!speciesGetter || !speciesGetter->is<JSFunction>()) {
     return;
   }
   JSFunction* speciesFun = &speciesGetter->as<JSFunction>();
@@ -4147,7 +4146,7 @@ void js::ArraySpeciesLookup::initialize(JSContext* cx) {
   arrayProto_ = arrayProto;
   arrayConstructor_ = arrayCtor;
   arrayConstructorShape_ = arrayCtor->lastProperty();
-  arraySpeciesShape_ = speciesShape;
+  arraySpeciesGetterSlot_ = speciesGetterSlot;
   canonicalSpeciesFunc_ = speciesFun;
   arrayProtoShape_ = arrayProto->lastProperty();
   arrayProtoConstructorSlot_ = ctorShape->slot();
@@ -4180,7 +4179,7 @@ bool js::ArraySpeciesLookup::isArrayStateStillSane() {
   }
 
   // Ensure the species getter contains the canonical @@species function.
-  JSObject* getter = arrayConstructor_->getGetter(arraySpeciesShape_);
+  JSObject* getter = arrayConstructor_->getGetter(arraySpeciesGetterSlot_);
   return getter == canonicalSpeciesFunc_;
 }
 
