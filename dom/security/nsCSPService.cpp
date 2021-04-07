@@ -161,6 +161,8 @@ CSPService::ShouldLoad(uint32_t aContentType,
 
     switch (aContentType) {
       case nsIContentPolicy::TYPE_SCRIPT:
+      case nsIContentPolicy::TYPE_INTERNAL_SCRIPT:
+      case nsIContentPolicy::TYPE_INTERNAL_SCRIPT_PRELOAD:
       case nsIContentPolicy::TYPE_STYLESHEET:
         {
           // Whitelist the theme resources.
