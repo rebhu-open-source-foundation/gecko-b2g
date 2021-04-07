@@ -734,6 +734,13 @@ AuthorizationManager* B2G::GetAuthorizationManager(ErrorResult& aRv) {
       aRv.Throw(NS_ERROR_UNEXPECTED);
       return nullptr;
     }
+
+    // for worker thread, we check permission here instead of by webIDL visibility func
+    if (!NS_IsMainThread() && !CheckPermissionOnWorkerThread("cloud-authorization"_ns)) {
+      aRv.Throw(NS_ERROR_DOM_NOT_ALLOWED_ERR);
+      return nullptr;
+    }
+
     mAuthorizationManager = new AuthorizationManager(GetParentObject());
   }
   return mAuthorizationManager;
@@ -748,7 +755,8 @@ bool B2G::HasAuthorizationManagerSupport(JSContext* /* unused */,
     return innerWindow ? CheckPermission("cloud-authorization"_ns, innerWindow)
                        : false;
   } else {
-    return CheckPermissionOnWorkerThread("cloud-authorization"_ns);
+    // defer checking permission to the time of construction
+    return true;
   }
 }
 
