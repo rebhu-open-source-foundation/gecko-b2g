@@ -3892,7 +3892,7 @@
 
 # Whether we should enable virtual cursor or not
 - name: dom.virtualcursor.enabled
-  type: bool
+  type: RelaxedAtomicBool
   value: false
   mirror: always
 
