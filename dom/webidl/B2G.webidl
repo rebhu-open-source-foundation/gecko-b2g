@@ -18,6 +18,12 @@ partial interface B2G {
   attribute EventHandler onstoragefull;
 };
 
+[Exposed=Window]
+partial interface B2G {
+  [Throws, Func="B2G::HasWebAppsManagePermission"]
+  readonly attribute ActivityUtils activityUtils;
+};
+
 partial interface B2G {
   [Throws, Exposed=(Window,Worker), Pref="dom.alarm.enabled"]
   readonly attribute AlarmManager alarmManager;

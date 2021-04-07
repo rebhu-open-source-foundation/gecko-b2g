@@ -411,6 +411,7 @@ WEBIDL_FILES = [
     "AbstractRange.webidl",
     "AbstractWorker.webidl",
     "AccessibilityRole.webidl",
+    "ActivityUtils.webidl",
     "AddonManager.webidl",
     "AnalyserNode.webidl",
     "Animatable.webidl",

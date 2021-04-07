@@ -39,6 +39,7 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(B2G, DOMEventTargetHelper)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mOwner)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mActivityUtils)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mAlarmManager)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mDeviceStorageAreaListener)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mFlashlightManager)
@@ -221,6 +222,28 @@ bool B2G::CheckPermissionOnWorkerThread(const nsACString& aType) {
   }
 
   return r->mIsAllowed;
+}
+
+ActivityUtils* B2G::GetActivityUtils(ErrorResult& aRv) {
+  if (!mActivityUtils) {
+    if (!mOwner) {
+      aRv.Throw(NS_ERROR_UNEXPECTED);
+      return nullptr;
+    }
+    mActivityUtils = ConstructJSImplementation<ActivityUtils>(
+        "@mozilla.org/activity-utils;1", GetParentObject(), aRv);
+    if (aRv.Failed()) {
+      return nullptr;
+    }
+  }
+  return mActivityUtils;
+}
+
+/* static */
+bool B2G::HasWebAppsManagePermission(JSContext* /* unused */,
+                                     JSObject* aGlobal) {
+  nsCOMPtr<nsPIDOMWindowInner> innerWindow = xpc::WindowOrNull(aGlobal);
+  return B2G::CheckPermission("webapps-manage"_ns, innerWindow);
 }
 
 AlarmManager* B2G::GetAlarmManager(ErrorResult& aRv) {

@@ -227,7 +227,7 @@ var Activities = {
     "Activities:Unregister",
     "Activities:UnregisterAll",
 
-    // Not in used for now.
+    // ActivityUtils.jsm
     "Activities:Get",
 
     "child-process-shutdown",
@@ -240,11 +240,14 @@ var Activities = {
 
     Services.obs.addObserver(this, "xpcom-shutdown");
     Services.obs.addObserver(this, "service-worker-shutdown");
+    Services.obs.addObserver(this, "b2g-sw-registration-done");
 
     this.db = new ActivitiesDb();
     this.db.init();
     this.callers = {};
     this.activityChoiceID = 0;
+    this.allRegistrationsReady = false;
+    this.pendingGetRequests = [];
   },
 
   observe: function activities_observe(aSubject, aTopic, aData) {
@@ -288,6 +291,19 @@ var Activities = {
             error: "ACTIVITY_HANDLER_SHUTDOWN",
           });
         });
+        break;
+      case "b2g-sw-registration-done":
+        this.allRegistrationsReady = true;
+        this.pendingGetRequests.forEach(
+          function(request) {
+            DEBUG &&
+              debug(
+                `handle pending Get request ${request.msg.name} ${request.msg.requestID}`
+              );
+            this.handleGetRequest(request.target, request.msg);
+          }.bind(this)
+        );
+        this.pendingGetRequests = [];
         break;
     }
   },
@@ -513,6 +529,17 @@ var Activities = {
       case "Activities:UnregisterAll":
         this.db.removeAll(msg);
         break;
+      case "Activities:Get":
+        if (!this.allRegistrationsReady) {
+          DEBUG &&
+            debug(
+              `Receive Activities:Get but not ready yet. ${msg.name} ${msg.requestID}`
+            );
+          this.pendingGetRequests.push({ target: mm, msg });
+          break;
+        }
+        this.handleGetRequest(mm, msg);
+        break;
       case "child-process-shutdown":
         for (let id in this.callers) {
           if (this.callers[id].handlerMM == mm) {
@@ -543,35 +570,6 @@ var Activities = {
           }
         }
         break;
-      case "Activities:Get":
-        let obj = {
-          options: {
-            name: msg.activityName,
-          },
-        };
-        this.db.find(
-          obj,
-          function onSuccess(aResults) {
-            mm.sendAsyncMessage("Activities:Get:OK", {
-              results: aResults,
-              oid: msg.oid,
-              requestID: msg.requestID,
-            });
-          },
-          function onError(aEvent) {
-            mm.sendAsyncMessage("Activities:Get:KO", {
-              oid: msg.oid,
-              requestID: msg.requestID,
-            });
-          },
-          function matchFunc(aResult) {
-            return ActivitiesServiceFilter.match(
-              obj.options.data,
-              aResult.description.filters
-            );
-          }
-        );
-        break;
     }
   },
 
@@ -586,6 +584,32 @@ var Activities = {
     DEBUG && debug(`sending activity-closed: ${JSON.stringify(detail)}`);
     this.notifyWebEmbedder("activity-closed", detail);
     delete this.callers[id];
+  },
+
+  handleGetRequest: function activities_handleGetRequest(mm, msg) {
+    let obj = {
+      options: {
+        name: msg.name,
+      },
+    };
+    this.db.find(
+      obj,
+      function onSuccess(aResults) {
+        mm.sendAsyncMessage(`Activities:Get:${msg.requestID}`, {
+          results: aResults,
+          success: true,
+        });
+      },
+      function onError(aError) {
+        mm.sendAsyncMessage(`Activities:Get:${msg.requestID}`, {
+          error: aError,
+          success: false,
+        });
+      },
+      function matchFunc(aResult) {
+        return true;
+      }
+    );
   },
 };
 

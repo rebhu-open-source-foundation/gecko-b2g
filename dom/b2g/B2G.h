@@ -12,6 +12,7 @@
 #include "nsPIDOMWindow.h"
 #include "nsWrapperCache.h"
 #include "mozilla/DOMEventTargetHelper.h"
+#include "mozilla/dom/ActivityUtilsBinding.h"
 #include "mozilla/dom/AlarmManager.h"
 #include "mozilla/dom/DOMVirtualCursor.h"
 #include "mozilla/dom/ExternalAPI.h"
@@ -93,6 +94,9 @@ class B2G final : public DOMEventTargetHelper,
                               nsPIDOMWindowInner* aWindow);
   static bool CheckPermissionOnWorkerThread(const nsACString& aType);
 
+  ActivityUtils* GetActivityUtils(ErrorResult& aRv);
+  static bool HasWebAppsManagePermission(JSContext* /* unused */,
+                                         JSObject* aGlobal);
   AlarmManager* GetAlarmManager(ErrorResult& aRv);
   already_AddRefed<Promise> GetFlashlightManager(ErrorResult& aRv);
   already_AddRefed<Promise> GetFlipManager(ErrorResult& aRv);
@@ -219,6 +223,7 @@ class B2G final : public DOMEventTargetHelper,
       const nsAString& aName, const nsAString& aType);
 
   nsTArray<nsWeakPtr> mDeviceStorageStores;
+  RefPtr<ActivityUtils> mActivityUtils;
   RefPtr<AlarmManager> mAlarmManager;
   RefPtr<DeviceStorageAreaListener> mDeviceStorageAreaListener;
   RefPtr<FlashlightManager> mFlashlightManager;
