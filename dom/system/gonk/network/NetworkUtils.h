@@ -340,6 +340,8 @@ class NetworkUtils final {
   static void setIpv6Enabled(PARAMS);
   static void enableIpv6(PARAMS);
   static void disableIpv6(PARAMS);
+  static void wakeupAddInterface(PARAMS);
+  static void wakeupDelInterface(PARAMS);
   static void addInterfaceToNetwork(PARAMS);
   static void removeInterfaceToNetwork(PARAMS);
   static void addDefaultRouteToNetwork(PARAMS);

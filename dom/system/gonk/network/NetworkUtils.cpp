@@ -78,6 +78,10 @@ static const uint32_t DNS_RESOLVER_DEFAULT_SUCCESS_THRESHOLD_PERCENT = 25;
 static const uint32_t DNS_RESOLVER_DEFAULT_MIN_SAMPLES = 8;
 static const uint32_t DNS_RESOLVER_DEFAULT_MAX_SAMPLES = 64;
 
+// Wake up event for driver specific constants.
+static const int32_t WAKEUP_PACKET_MARK = 0x80000000;
+static const int32_t WAKEUP_PACKET_MASK = 0x80000000;
+
 static const char RADVD_CONF_FILE[] = "/data/misc/radvd/radvd.conf";
 
 struct IFProperties {
@@ -617,6 +621,46 @@ void NetworkUtils::disableIpv6(CommandChain* aChain, CommandCallback aCallback,
 
   GET_FIELD(mEnable) = false;
   setIpv6Enabled(aChain, aCallback, aResult);
+}
+
+void NetworkUtils::wakeupAddInterface(CommandChain* aChain,
+                                      CommandCallback aCallback,
+                                      NetworkResultOptions& aResult) {
+  // Marks only available on wlan interfaces.
+  if (nsINetworkInfo::NETWORK_TYPE_WIFI != GET_FIELD(mNetworkType)) {
+    NU_DBG("%s : ignore network type = %ld", __FUNCTION__,
+           GET_FIELD(mNetworkType));
+    aCallback(aChain, false, aResult);
+    return;
+  }
+
+  std::string interface(GET_CHAR(mIfname));
+  std::string prefix = "iface:" + interface;
+  Status status = gNetd->wakeupAddInterface(
+      interface, prefix, WAKEUP_PACKET_MARK, WAKEUP_PACKET_MASK);
+  NU_DBG("%s : %s", status.isOk() ? "success" : "failed but continue",
+         __FUNCTION__);
+  aCallback(aChain, false, aResult);
+}
+
+void NetworkUtils::wakeupDelInterface(CommandChain* aChain,
+                                      CommandCallback aCallback,
+                                      NetworkResultOptions& aResult) {
+  // Marks only available on wlan interfaces.
+  if (nsINetworkInfo::NETWORK_TYPE_WIFI != GET_FIELD(mNetworkType)) {
+    NU_DBG("%s : ignore network type = %ld", __FUNCTION__,
+           GET_FIELD(mNetworkType));
+    aCallback(aChain, false, aResult);
+    return;
+  }
+
+  std::string interface(GET_CHAR(mIfname));
+  std::string prefix = "iface:" + interface;
+  Status status = gNetd->wakeupDelInterface(
+      interface, prefix, WAKEUP_PACKET_MARK, WAKEUP_PACKET_MASK);
+  NU_DBG("%s : %s", status.isOk() ? "success" : "failed but continue",
+         __FUNCTION__);
+  aCallback(aChain, false, aResult);
 }
 
 void NetworkUtils::addInterfaceToNetwork(CommandChain* aChain,
@@ -1640,6 +1684,7 @@ CommandResult NetworkUtils::createNetwork(NetworkParams& aOptions) {
       createNetwork,
       enableIpv6,
       addInterfaceToNetwork,
+      wakeupAddInterface,
       defaultAsyncSuccessHandler,
   };
 
@@ -1667,9 +1712,8 @@ CommandResult NetworkUtils::createNetwork(NetworkParams& aOptions) {
  */
 CommandResult NetworkUtils::destroyNetwork(NetworkParams& aOptions) {
   static CommandFunc COMMAND_CHAIN[] = {
-      disableIpv6,
-      destroyNetwork,
-      defaultAsyncSuccessHandler,
+      disableIpv6,    wakeupDelInterface,         removeInterfaceToNetwork,
+      destroyNetwork, defaultAsyncSuccessHandler,
   };
 
   NetIdManager::NetIdInfo netIdInfo;
@@ -2609,6 +2653,9 @@ void NetworkUtils::updateDebug() {
       mozilla::Preferences::GetBool(PREF_NETWORK_DEBUG_ENABLED, false);
   if (gNetdUnsolService) {
     gNetdUnsolService->updateDebug(ENABLE_NU_DEBUG);
+  }
+  if (gNetdEventListener) {
+    gNetdEventListener->updateDebug(ENABLE_NU_DEBUG);
   }
 }
 
