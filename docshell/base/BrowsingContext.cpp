@@ -2218,8 +2218,10 @@ std::tuple<bool, bool> BrowsingContext::CanFocusCheck(CallerType aCallerType) {
   bool canFocus = aCallerType == CallerType::System ||
                   !Preferences::GetBool("dom.disable_window_flip", true);
   if (!canFocus && openerBC == callerBC) {
-    canFocus = (RevisePopupAbuseLevel(PopupBlocker::GetPopupControlState()) <
-                PopupBlocker::openBlocked);
+    canFocus =
+        (callerBC ? callerBC : this)
+            ->RevisePopupAbuseLevel(PopupBlocker::GetPopupControlState()) <
+        PopupBlocker::openBlocked;
   }
 
   bool isActive = false;

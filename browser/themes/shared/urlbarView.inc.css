@@ -315,40 +315,11 @@
 }
 
 .urlbarView-row[type=tabtosearch] > .urlbarView-row-inner > .urlbarView-no-wrap > .urlbarView-favicon {
-  color: rgb(0,97,224);
-  stroke: #fff;
-  -moz-context-properties: fill, stroke;
-}
-
-.urlbarView-row[type=tabtosearch][selected] > .urlbarView-row-inner > .urlbarView-no-wrap > .urlbarView-favicon {
-  color: #fff;
-  stroke: rgb(0,97,224);
-}
-
-:root[lwt-toolbar-field-focus-brighttext] .urlbarView-row[type=tabtosearch]:not([selected]) > .urlbarView-row-inner > .urlbarView-no-wrap > .urlbarView-favicon {
-  color: rgb(0,221,255);
-}
-
-:root[lwt-toolbar-field-focus-brighttext] .urlbarView-row[type=tabtosearch][selected] > .urlbarView-row-inner > .urlbarView-no-wrap > .urlbarView-favicon {
-  stroke: rgb(0,221,255);
-}
-
-@media not (-moz-proton-urlbar) {
-.urlbarView-row[type=tabtosearch] > .urlbarView-row-inner > .urlbarView-no-wrap > .urlbarView-favicon {
-  color: #0060df; /* Blue-60 */
-}
-
-.urlbarView-row[type=tabtosearch][selected] > .urlbarView-row-inner > .urlbarView-no-wrap > .urlbarView-favicon {
-  stroke: #0060df;
-}
-
-:root[lwt-toolbar-field-focus-brighttext] .urlbarView-row[type=tabtosearch]:not([selected]) > .urlbarView-row-inner > .urlbarView-no-wrap > .urlbarView-favicon {
-  color: #0a84ff; /* Blue-50 */
-}
-
-:root[lwt-toolbar-field-focus-brighttext] .urlbarView-row[type=tabtosearch][selected] > .urlbarView-row-inner > .urlbarView-no-wrap > .urlbarView-favicon {
-  stroke: #0a84ff;
-}
+  /* We use the URL color for this icon to inherit its accessibility
+     properties, like adapting to high contrast modes. We also want to ensure
+     contrast from the result highlight. */
+  color: var(--urlbar-popup-url-color);
+  -moz-context-properties: fill;
 }
 
 /* Type icon */
@@ -682,9 +653,15 @@
   background-color: var(--urlbar-box-active-bgcolor);
 }
 
-.urlbarView-row[type=remotetab]:not([selected], :hover) > .urlbarView-row-inner > .urlbarView-no-wrap > .urlbarView-title-separator,
-.urlbarView:not([actionoverride]) .urlbarView-row[type=switchtab] > .urlbarView-row-inner > .urlbarView-no-wrap > .urlbarView-title-separator {
-  visibility: collapse;
+.urlbarView-row[type=remotetab]:not([selected], :hover) > .urlbarView-row-inner > .urlbarView-no-wrap > .urlbarView-title-separator::before,
+.urlbarView:not([actionoverride]) .urlbarView-row[type=switchtab] > .urlbarView-row-inner > .urlbarView-no-wrap > .urlbarView-title-separator::before {
+  /* We make the title separator transparent so it stays in the accessibility
+     tree. We want screen readers to pause between the result title and the
+     switch-to-tab action text. */
+  opacity: 0;
+  /* -1em for the width of the \2014 character. -.4em to offset the
+     margin-inline-start already set on this element. */
+  margin-inline-end: -1.4em;
 }
 } /*** END !proton ***/
 
@@ -714,16 +691,16 @@
   flex-wrap: wrap;
 }
 
+.urlbarView:not([noresults]) > .search-one-offs:not([hidden]) {
+  border-top: 1px solid var(--panel-separator-color);
+}
+
 @media (-moz-proton-urlbar) {
 #urlbar .search-one-offs:not([hidden]) {
   padding-block: 10px;
   border-top-color: var(--urlbar-separator-color);
 }
 } /*** END proton ***/
-
-.urlbarView[noresults] > .search-one-offs {
-  border-top: none;
-}
 
 #urlbar .search-panel-one-offs-container {
   /* Make sure horizontally we can fit four buttons, empty space, settings. */
@@ -844,7 +821,6 @@
   border: 1px solid var(--arrowpanel-border-color);
   /* Remove the top border since the panel is flush with the input. */
   border-top-width: 0;
-  border-radius: var(--arrowpanel-border-radius);
   /* override autocomplete.css padding */
   padding: var(--panel-subview-body-padding) !important;
 }

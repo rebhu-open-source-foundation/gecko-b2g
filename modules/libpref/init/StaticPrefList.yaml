@@ -539,6 +539,11 @@
     type: RelaxedAtomicBool
     value: true
     mirror: always
+
+-   name: apz.gtk.touchpad_pinch.three_fingers.enabled
+    type: RelaxedAtomicBool
+    value: false
+    mirror: always
 #endif
 
 - name: apz.keyboard.enabled
@@ -717,6 +722,11 @@
   mirror: always
 
 - name: apz.windows.use_direct_manipulation
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
+- name: apz.windows.check_for_pan_gesture_conversion
   type: RelaxedAtomicBool
   value: true
   mirror: always
@@ -1146,7 +1156,7 @@
 # Enable Proton restyle. Requires restart.
 - name: browser.proton.enabled
   type: RelaxedAtomicBool
-  value: false
+  value: true
   mirror: always
   rust: true
 
@@ -5240,7 +5250,7 @@
 # software backend
 - name: gfx.webrender.software.unaccelerated-widget.allow
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: false
   mirror: always
 
 # Whether to force widgets that don't support acceleration to use WebRender
@@ -10517,6 +10527,19 @@
   type: bool
   value: false
   mirror: always
+
+# Enables the 'context-fill' and 'context-stroke' keywords for particular
+# domains. We expect this list to be Mozilla-controlled properties, since the
+# 'context-*' keywords are not part of any spec. We expect to remove this
+# preference and the 'context-` keyword support entirely in the
+# not-too-distant future when a standardized alternative ships. This preference
+# is _not_ for allowing web content to use these keywords. For performance
+# reasons, the list of domains in this preference should remain short in
+# length.
+- name: svg.context-properties.content.allowed-domains
+  type: String
+  value: ""
+  mirror: never
 
 # Enable the use of display-lists for SVG hit-testing.
 - name: svg.display-lists.hit-testing.enabled
