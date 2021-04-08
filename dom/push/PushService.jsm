@@ -1542,7 +1542,12 @@ var PushService = {
         this._sendUnregister(
           record,
           Ci.nsIPushErrorReporter.UNSUBSCRIBE_PENDING_RECORD
-        );
+        ).catch(e => {
+          console.error(
+            "executePendingUnregisteringByKeyID: Error notifying server",
+            e
+          );
+        });
       } else {
         console.error("Retry count exceeded, drop the record");
         this.removePendingUnsubscribe(record.keyID);
@@ -1572,7 +1577,12 @@ var PushService = {
             this._sendUnregister(
               record,
               Ci.nsIPushErrorReporter.UNSUBSCRIBE_PENDING_RECORD
-            );
+            ).catch(e => {
+              console.error(
+                "executeAllPendingUnregistering: Error notifying server",
+                e
+              );
+            });
           } else {
             console.error("Retry count exceeded, drop the record");
             this.removePendingUnsubscribe(record.keyID);
