@@ -4475,9 +4475,9 @@
   mirror: once
 
 - name: gfx.apitrace.enabled
-  type: bool
+  type: RelaxedAtomicBool
   value: false
-  mirror: once
+  mirror: always
 
 # Nb: we ignore this pref on release and beta.
 - name: gfx.blocklist.all
