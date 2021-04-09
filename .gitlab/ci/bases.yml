@@ -158,7 +158,7 @@ variables:
     - './mach lint -l ${SPECIFIC_LINTERS// /" -l "} ${MACH_LINT_PARAMETERS}'
 
 .build_desktop:
-  image: ${CI_REGISTRY}/re/kaios-build/next/desktop:1.49.0_5_0
+  image: ${CI_REGISTRY}/re/kaios-build/next/desktop:1.49.0_5_2
   tags:
     - gecko-dev
   variables:
@@ -176,7 +176,7 @@ variables:
     - sccache -s
 
 .build_emulator:
-  image: ${CI_REGISTRY}/re/kaios-build/next/daily:1.49.0_5_1
+  image: ${CI_REGISTRY}/re/kaios-build/next/daily:1.49.0_5_2
   tags:
     - gecko-dev
   variables:
@@ -201,7 +201,7 @@ variables:
     - sccache -s
 
 .build_arm:
-  image: ${CI_REGISTRY}/re/kaios-build/next/daily:1.49.0_5_1
+  image: ${CI_REGISTRY}/re/kaios-build/next/daily:1.49.0_5_2
   tags:
     - gecko-dev
   variables:
