@@ -131,6 +131,10 @@
 #include "gfxUserFontSet.h"
 #include "RestoreTabContentObserver.h"
 
+#if defined(MOZ_WIDGET_GONK)
+#  include "nsVolumeService.h"
+#endif
+
 using namespace mozilla;
 using namespace mozilla::net;
 using namespace mozilla::dom;
@@ -376,6 +380,10 @@ void nsLayoutStatics::Shutdown() {
   PointerEventHandler::ReleaseStatics();
 
   VirtualCursorService::Shutdown();
+
+#ifdef MOZ_WIDGET_GONK
+  mozilla::system::nsVolumeService::Shutdown();
+#endif /* MOZ_WIDGET_GONK */
 
   TouchManager::ReleaseStatics();
 
