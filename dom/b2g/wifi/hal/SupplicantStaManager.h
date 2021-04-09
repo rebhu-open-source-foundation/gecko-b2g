@@ -254,6 +254,7 @@ class SupplicantStaManager
   std::unordered_map<std::string, NetworkConfiguration> mCurrentConfiguration;
   std::unordered_map<std::string, android::sp<SupplicantStaNetwork>>
       mCurrentNetwork;
+  NetworkConfiguration mDummyNetworkConfiguration;
 
   DISALLOW_COPY_AND_ASSIGN(SupplicantStaManager);
 };

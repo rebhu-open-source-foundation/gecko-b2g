@@ -595,12 +595,14 @@ android::sp<SupplicantStaNetwork> SupplicantStaManager::GetCurrentNetwork()
 }
 
 NetworkConfiguration SupplicantStaManager::GetCurrentConfiguration() const {
+  std::unordered_map<std::string, NetworkConfiguration> currentConfiguration =
+      mCurrentConfiguration;
   std::unordered_map<std::string, NetworkConfiguration>::const_iterator config =
-      mCurrentConfiguration.find(mInterfaceName);
-  if (config == mCurrentConfiguration.end()) {
-    return NetworkConfiguration();
+      currentConfiguration.find(mInterfaceName);
+  if (config == currentConfiguration.end()) {
+    return mDummyNetworkConfiguration;
   }
-  return mCurrentConfiguration.at(mInterfaceName);
+  return currentConfiguration.at(mInterfaceName);
 }
 
 int32_t SupplicantStaManager::GetCurrentNetworkId() const {
