@@ -595,13 +595,13 @@ var Activities = {
     this.db.find(
       obj,
       function onSuccess(aResults) {
-        mm.sendAsyncMessage(`Activities:Get:${msg.requestID}`, {
+        mm.sendAsyncMessage(msg.requestID, {
           results: aResults,
           success: true,
         });
       },
       function onError(aError) {
-        mm.sendAsyncMessage(`Activities:Get:${msg.requestID}`, {
+        mm.sendAsyncMessage(msg.requestID, {
           error: aError,
           success: false,
         });
