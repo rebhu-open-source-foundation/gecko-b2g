@@ -1325,6 +1325,7 @@ class ContentSandboxPolicy : public SandboxPolicyCommon {
       case __NR_connect:           // For uds_transport.rs
       CASES_FOR_fcntl:             // For uds_transport.rs
       case __NR_process_vm_readv:  // For crash report dump
+      case __NR_sched_setaffinity: // For libGLESv2_adreno.so
         return Allow();
 #endif
 
