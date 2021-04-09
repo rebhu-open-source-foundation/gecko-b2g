@@ -45,7 +45,6 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <thread>
 #include <utility>
 #ifdef XP_UNIX
 #  include <sys/mman.h>
@@ -631,7 +630,7 @@ bool shell::enablePropertyErrorMessageFix = false;
 bool shell::enableIteratorHelpers = false;
 bool shell::enablePrivateClassFields = false;
 bool shell::enablePrivateClassMethods = false;
-bool shell::enableTopLevelAwait = false;
+bool shell::enableTopLevelAwait = true;
 bool shell::useOffThreadParseGlobal = true;
 #ifdef JS_GC_ZEAL
 uint32_t shell::gZealBits = 0;
@@ -6637,6 +6636,10 @@ static bool CompileAndSerializeInSeparateProcess(JSContext* cx,
                                                  const uint8_t* bytecode,
                                                  size_t bytecodeLength,
                                                  wasm::Bytes* serialized) {
+#if defined(__wasi__)
+  MOZ_CRASH("WASI doesn't support Wasm.");
+  return false;
+#else
   AutoPipe stdIn, stdOut;
   if (!stdIn.init() || !stdOut.init()) {
     return false;
@@ -6665,7 +6668,7 @@ static bool CompileAndSerializeInSeparateProcess(JSContext* cx,
     return false;
   }
 
-#ifdef XP_WIN
+#  ifdef XP_WIN
   // The spawned process will have all the stdIn/stdOut file handles open, but
   // without the power of fork, we need some other way to communicate the
   // integer fd values so we encode them in argv and WasmCompileAndSerialize()
@@ -6691,14 +6694,14 @@ static bool CompileAndSerializeInSeparateProcess(JSContext* cx,
   if (!arg || !argv.append(std::move(arg))) {
     return false;
   }
-#endif
+#  endif
 
   // Required by both _spawnv and exec.
   if (!argv.append(nullptr)) {
     return false;
   }
 
-#ifdef XP_WIN
+#  ifdef XP_WIN
   if (!EscapeForShell(cx, argv)) {
     return false;
   }
@@ -6707,7 +6710,7 @@ static bool CompileAndSerializeInSeparateProcess(JSContext* cx,
   if (childPid == -1) {
     return false;
   }
-#else
+#  else
   pid_t childPid = fork();
   switch (childPid) {
     case -1:
@@ -6730,7 +6733,7 @@ static bool CompileAndSerializeInSeparateProcess(JSContext* cx,
       execv(sArgv[0], argv.get());
       exit(-1);
   }
-#endif
+#  endif
 
   // In the parent process. Closing stdOut.writer() is necessary for
   // stdOut.reader() below to hit EOF.
@@ -6750,11 +6753,11 @@ static bool CompileAndSerializeInSeparateProcess(JSContext* cx,
   stdOut.closeReader();
 
   int status;
-#ifdef XP_WIN
+#  ifdef XP_WIN
   if (_cwait(&status, childPid, WAIT_CHILD) == -1) {
     return false;
   }
-#else
+#  else
   while (true) {
     if (waitpid(childPid, &status, 0) >= 0) {
       break;
@@ -6763,9 +6766,10 @@ static bool CompileAndSerializeInSeparateProcess(JSContext* cx,
       return false;
     }
   }
-#endif
+#  endif
 
   return status == 0;
+#endif  // __wasi__
 }
 
 static bool WasmCompileAndSerialize(JSContext* cx) {
@@ -8059,7 +8063,7 @@ static void BufferStreamMain(BufferStreamJob* job) {
       break;
     }
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(delayMillis));
+    ThisThread::SleepMilliseconds(delayMillis);
 
     chunkSize = std::min(chunkSize, byteLength - byteOffset);
 

@@ -1180,7 +1180,7 @@
 
 - name: browser.proton.doorhangers.enabled
   type: RelaxedAtomicBool
-  value: false
+  value: true
   mirror: always
   rust: true
 
@@ -5810,13 +5810,13 @@
     type: bool
     value: false
     mirror: always
+#endif  // NIGHTLY_BUILD
 
   # Experimental support for Top-level Await in JavaScript.
 -   name: javascript.options.experimental.top_level_await
     type: bool
-    value: false
+    value: true
     mirror: always
-#endif  // NIGHTLY_BUILD
 
 # The amount of time we wait between a request to GC (due to leaving a page) and doing the actual GC, in ms.
 - name: javascript.options.gc_delay
@@ -5899,10 +5899,15 @@
 #endif
   mirror: always
 
+# SIMD is supported only on x86 and x64, with arm64 support imminent.
 #if defined(ENABLE_WASM_SIMD)
 -   name: javascript.options.wasm_simd
     type: bool
+#if defined(MOZ_AARCH64)
     value: @IS_NIGHTLY_BUILD@
+#else
+    value: true
+#endif
     mirror: always
 #endif  // defined(ENABLE_WASM_SIMD)
 
@@ -8921,11 +8926,6 @@
 - name: network.cookie.thirdparty.nonsecureSessionOnly
   type: bool
   value: false
-  mirror: always
-
-- name: network.data.max-uri-length-mobile
-  type: RelaxedAtomicUint32
-  value: 2 * 1024 * 1024
   mirror: always
 
 # If we should attempt to race the cache and network.

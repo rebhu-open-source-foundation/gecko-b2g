@@ -15,7 +15,7 @@ include:
   - '.gitlab/ci/lint.yml'
 
 default:
-  image: ${CI_REGISTRY}/re/kaios-build/next/daily:1.49.0_5_1
+  image: ${CI_REGISTRY}/re/kaios-build/next/daily:1.49.0_5_2
   tags:
     - hk-fantastic4
 
