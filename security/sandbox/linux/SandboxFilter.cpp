@@ -652,14 +652,6 @@ class SandboxPolicyCommon : public SandboxPolicyBase {
     }
 
     switch (sysno) {
-#ifdef MOZ_WIDGET_GONK
-      // Allow some system calls utilized by app process
-      // Follow-up: will have separate bugs to review these usage
-      case __NR_connect:           // For uds_transport.rs
-      CASES_FOR_fcntl:             // For uds_transport.rs
-      case __NR_process_vm_readv:  // For crash report dump
-        return Allow();
-#endif
         // Timekeeping
         //
         // (Note: the switch needs to start with a literal case, not a
@@ -722,7 +714,6 @@ class SandboxPolicyCommon : public SandboxPolicyBase {
       CASES_FOR_fstat:
         return Allow();
 
-#ifndef MOZ_WIDGET_GONK
       CASES_FOR_fcntl : {
         Arg<int> cmd(1);
         Arg<int> flags(2);
@@ -747,7 +738,6 @@ class SandboxPolicyCommon : public SandboxPolicyBase {
                                .Else(InvalidSyscall()))
             .Default(SandboxPolicyBase::EvaluateSyscall(sysno));
       }
-#endif
 
         // Simple I/O
       case __NR_pread64:
@@ -1330,6 +1320,11 @@ class ContentSandboxPolicy : public SandboxPolicyCommon {
 #ifdef __NR_getgroups
       case __NR_getgroups:
 #endif
+      // Allow some system calls utilized by app process
+      // Follow-up: will have separate bugs to review these usage
+      case __NR_connect:           // For uds_transport.rs
+      CASES_FOR_fcntl:             // For uds_transport.rs
+      case __NR_process_vm_readv:  // For crash report dump
         return Allow();
 #endif
 
@@ -1414,6 +1409,7 @@ class ContentSandboxPolicy : public SandboxPolicyCommon {
             .Else(SandboxPolicyCommon::EvaluateSyscall(sysno));
       }
 
+#ifndef MOZ_WIDGET_GONK
       CASES_FOR_fcntl : {
         Arg<int> cmd(1);
         return Switch(cmd)
@@ -1433,6 +1429,7 @@ class ContentSandboxPolicy : public SandboxPolicyCommon {
             .Case(F_GET_SEALS, Allow())
             .Default(SandboxPolicyCommon::EvaluateSyscall(sysno));
       }
+#endif
 
       case __NR_brk:
         // FIXME(bug 1510861) are we using any hints that aren't allowed
