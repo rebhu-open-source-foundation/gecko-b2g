@@ -293,6 +293,7 @@ var Activities = {
         });
         break;
       case "b2g-sw-registration-done":
+        Services.obs.removeObserver(this, "b2g-sw-registration-done");
         this.allRegistrationsReady = true;
         this.pendingGetRequests.forEach(
           function(request) {
