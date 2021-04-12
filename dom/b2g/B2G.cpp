@@ -99,6 +99,11 @@ void B2G::MainThreadShutdown() {
   }
 
 #ifdef MOZ_B2G_RIL
+  if (mIccManager) {
+    mIccManager->Shutdown();
+    mIccManager = nullptr;
+  }
+
   if (mMobileMessageManager) {
     mMobileMessageManager->Shutdown();
     mMobileMessageManager = nullptr;
