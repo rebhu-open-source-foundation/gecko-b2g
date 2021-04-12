@@ -110,6 +110,8 @@ void B2G::MainThreadShutdown() {
     mPowerSupplyManager = nullptr;
   }
 
+  mListeners.Clear();
+
   if (mUsbManager) {
     mUsbManager->Shutdown();
     mUsbManager = nullptr;
