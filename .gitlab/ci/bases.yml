@@ -2,6 +2,8 @@ variables:
   SCCACHE_REDIS_BASEURL: redis://10.81.70.108
 
 .global_setup: &global_setup
+  # remove the replacement of remote url in case the container is stale
+  - 'git config --global --remove-section url."${LOCAL_GIT_MIRROR}" || true'
   - '[[ -f /entrypoint.sh ]] && /entrypoint.sh'
   - export CI_USE_MIRROR=${CI_USE_MIRROR:-false} # in case not set in config.toml
   - export CPU_CORES=$(cat /proc/cpuinfo | grep processor -c)
