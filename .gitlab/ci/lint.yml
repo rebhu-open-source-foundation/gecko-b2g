@@ -54,6 +54,10 @@
   stage: lint
   variables:
     SPECIFIC_LINTERS: "license rejected-words file-whitespace"
+  # rejected-words sometimes is unable to successfully extract staged files when passing "--workdir=staged"
+  # explicitly pass changed_files instead.
+  script:
+    - './mach lint -l ${SPECIFIC_LINTERS// /" -l "} -f unix -v ${changed_files[@]}'
   rules:
     - if: '$CI_MERGE_REQUEST_TITLE =~ /skip-lint|^WIP\:/'
       when: never
