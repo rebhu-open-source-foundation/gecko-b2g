@@ -89,6 +89,7 @@ variables:
 
 .precautions_base:
   stage: .pre
+  image: ${CI_REGISTRY}/kaios/gecko-dev/lint:3d9d58d5
   tags:
     - gecko-lint
   variables:
@@ -127,6 +128,7 @@ variables:
   rules:
     - if: '$CI_MERGE_REQUEST_TITLE =~ /skip-lint|^WIP\:/'
       when: never
+    - when: on_success
 
 .lint_base:
   # this image is based on the one used by taskcluster in mozilla ci,
