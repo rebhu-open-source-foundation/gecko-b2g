@@ -6072,7 +6072,7 @@
 # Enable DEAA antialiasing for transformed layers in the compositor.
 - name: layers.deaa.enabled
   type: RelaxedAtomicBool
-#if defined(MOZ_WIDGET_ANDROID)
+#if defined(MOZ_WIDGET_ANDROID) || defined(MOZ_WIDGET_GONK)
   value: false
 #else
   value: true
