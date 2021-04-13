@@ -110,6 +110,13 @@ void B2G::MainThreadShutdown() {
   }
 #endif
 
+#ifdef MOZ_B2G_FM
+  if (mFMRadio) {
+    mFMRadio->Shutdown();
+    mFMRadio = nullptr;
+  }
+#endif
+
   if (mPowerSupplyManager) {
     mPowerSupplyManager->Shutdown();
     mPowerSupplyManager = nullptr;
