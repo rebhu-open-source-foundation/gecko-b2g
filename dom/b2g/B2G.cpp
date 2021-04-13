@@ -129,6 +129,13 @@ void B2G::MainThreadShutdown() {
     mUsbManager = nullptr;
   }
 
+#ifdef MOZ_AUDIO_CHANNEL_MANAGER
+  if (mAudioChannelManager) {
+    mAudioChannelManager->Shutdown();
+    mAudioChannelManager = nullptr;
+  }
+#endif
+
 #ifdef MOZ_B2G_CAMERA
   mCameraManager = nullptr;
 #endif
