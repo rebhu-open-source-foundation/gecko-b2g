@@ -14,8 +14,6 @@
   --toolbar-bgimage: var(--toolbar-non-lwt-bgimage);
   --toolbar-color: var(--toolbar-non-lwt-textcolor);
 
-  /* Note: Setting this to 0 (without px) breaks CSS calculations for OSX. */
-  --space-above-tabbar: 0px;
   --tabs-navbar-shadow-size: 1px;
 
   --panelui-subview-transition-duration: 150ms;
@@ -68,7 +66,7 @@
   --urlbar-icon-padding: 7px; /* (34px - 2px border - 2px padding - 16px icon) / 2 */
 }
 
-@media not (-moz-proton-urlbar) {
+@media not (-moz-proton) {
 :root {
   --urlbar-min-height: 30px;
   --urlbar-icon-padding: 6px; /* (30px - 2px border - 16px icon) / 2 */
@@ -107,17 +105,11 @@
     --focus-outline-color: #00DDFF;
   }
 }
-} /*** END proton ***/
 
-@media (-moz-proton-urlbar) {
 :root[lwt-toolbar-field-focus-brighttext] {
   --lwt-popup-brighttext-url-color: #00ddff;
 }
 } /*** END proton ***/
-
-:root[extradragspace][tabsintitlebar]:not([inFullscreen]) {
-  --space-above-tabbar: 8px;
-}
 
 @media (min-resolution: 1.5dppx) {
   :root {

@@ -76,20 +76,10 @@ using mozilla::Nothing;
 using mozilla::RangedPtr;
 using mozilla::Span;
 
-extern mozilla::Atomic<bool> fuzzingSafe;
-
 // About the fuzzer intercession points: If fuzzing has been selected and only a
 // single compiler has been selected then we will disable features that are not
 // supported by that single compiler.  This is strictly a concession to the
 // fuzzer infrastructure.
-
-static inline bool IsFuzzing() {
-#ifdef FUZZING
-  return true;
-#else
-  return fuzzingSafe;
-#endif
-}
 
 static inline bool IsFuzzingIon(JSContext* cx) {
   return IsFuzzing() && !cx->options().wasmBaseline() &&
@@ -104,58 +94,9 @@ static inline bool IsFuzzingCranelift(JSContext* cx) {
 // These functions read flags and apply fuzzing intercession policies.  Never go
 // directly to the flags in code below, always go via these accessors.
 
-static inline bool WasmMultiValueFlag(JSContext* cx) {
-#ifdef ENABLE_WASM_MULTI_VALUE
-  return cx->options().wasmMultiValue();
-#else
-  return false;
-#endif
-}
-
-static inline bool WasmSimdFlag(JSContext* cx) {
-#ifdef ENABLE_WASM_SIMD
-  if (IsFuzzingCranelift(cx)) {
-    return false;
-  }
-  return cx->options().wasmSimd() && js::jit::JitSupportsWasmSimd();
-#else
-  return false;
-#endif
-}
-
 static inline bool WasmSimdWormholeFlag(JSContext* cx) {
 #ifdef ENABLE_WASM_SIMD_WORMHOLE
   return cx->options().wasmSimdWormhole();
-#else
-  return false;
-#endif
-}
-
-static inline bool WasmReftypesFlag(JSContext* cx) {
-#ifdef ENABLE_WASM_REFTYPES
-  return cx->options().wasmReftypes();
-#else
-  return false;
-#endif
-}
-
-static inline bool WasmFunctionReferencesFlag(JSContext* cx) {
-  if (IsFuzzingIon(cx) || IsFuzzingCranelift(cx)) {
-    return false;
-  }
-#ifdef ENABLE_WASM_FUNCTION_REFERENCES
-  return WasmReftypesFlag(cx) && cx->options().wasmFunctionReferences();
-#else
-  return false;
-#endif
-}
-
-static inline bool WasmGcFlag(JSContext* cx) {
-  if (IsFuzzingIon(cx) || IsFuzzingCranelift(cx)) {
-    return false;
-  }
-#ifdef ENABLE_WASM_GC
-  return WasmFunctionReferencesFlag(cx) && cx->options().wasmGc();
 #else
   return false;
 #endif
@@ -166,13 +107,13 @@ static inline bool WasmThreadsFlag(JSContext* cx) {
          cx->realm()->creationOptions().getSharedMemoryAndAtomicsEnabled();
 }
 
-static inline bool WasmExceptionsFlag(JSContext* cx) {
-#ifdef ENABLE_WASM_EXCEPTIONS
-  return cx->options().wasmExceptions();
-#else
-  return false;
-#endif
-}
+#define WASM_FEATURE(NAME, LOWER_NAME, COMPILE_PRED, COMPILER_PRED, FLAG_PRED, \
+                     ...)                                                      \
+  static inline bool Wasm##NAME##Flag(JSContext* cx) {                         \
+    return (COMPILE_PRED) && (FLAG_PRED) && cx->options().wasm##NAME();        \
+  }
+JS_FOR_WASM_FEATURES(WASM_FEATURE, WASM_FEATURE);
+#undef WASM_FEATURE
 
 static inline bool WasmDebuggerActive(JSContext* cx) {
   if (IsFuzzingIon(cx) || IsFuzzingCranelift(cx)) {
@@ -387,29 +328,13 @@ bool wasm::AnyCompilerAvailable(JSContext* cx) {
 // compiler that can support the feature.  Subsequent compiler selection must
 // ensure that only compilers that actually support the feature are used.
 
-bool wasm::ReftypesAvailable(JSContext* cx) {
-  // All compilers support reference types.
-  return WasmReftypesFlag(cx) && AnyCompilerAvailable(cx);
-}
-
-bool wasm::FunctionReferencesAvailable(JSContext* cx) {
-  // Cranelift and Ion do not support function-references.
-  return WasmFunctionReferencesFlag(cx) && BaselineAvailable(cx);
-}
-
-bool wasm::GcTypesAvailable(JSContext* cx) {
-  // Cranelift and Ion do not support GC.
-  return WasmGcFlag(cx) && BaselineAvailable(cx);
-}
-
-bool wasm::MultiValuesAvailable(JSContext* cx) {
-  return WasmMultiValueFlag(cx) && AnyCompilerAvailable(cx);
-}
-
-bool wasm::SimdAvailable(JSContext* cx) {
-  return WasmSimdFlag(cx) &&
-         (BaselineAvailable(cx) || IonAvailable(cx) || CraneliftAvailable(cx));
-}
+#define WASM_FEATURE(NAME, LOWER_NAME, COMPILE_PRED, COMPILER_PRED, FLAG_PRED, \
+                     ...)                                                      \
+  bool wasm::NAME##Available(JSContext* cx) {                                  \
+    return Wasm##NAME##Flag(cx) && (COMPILER_PRED);                            \
+  }
+JS_FOR_WASM_FEATURES(WASM_FEATURE, WASM_FEATURE)
+#undef WASM_FEATURE
 
 #ifdef ENABLE_WASM_SIMD_WORMHOLE
 static bool IsSimdPrivilegedContext(JSContext* cx) {
@@ -441,13 +366,6 @@ bool wasm::SimdWormholeAvailable(JSContext* cx) {
 
 bool wasm::ThreadsAvailable(JSContext* cx) {
   return WasmThreadsFlag(cx) && AnyCompilerAvailable(cx);
-}
-
-bool wasm::ExceptionsAvailable(JSContext* cx) {
-  // Ion & Cranelift do not support Exceptions (for now).
-  // Exceptions require multi-value.
-  return WasmExceptionsFlag(cx) && MultiValuesAvailable(cx) &&
-         BaselineAvailable(cx);
 }
 
 bool wasm::HasPlatformSupport(JSContext* cx) {
@@ -2955,18 +2873,11 @@ bool WasmTableObject::construct(JSContext* cx, unsigned argc, Value* vp) {
   if (StringEqualsLiteral(elementLinearStr, "anyfunc") ||
       StringEqualsLiteral(elementLinearStr, "funcref")) {
     tableType = RefType::func();
-#ifdef ENABLE_WASM_REFTYPES
   } else if (StringEqualsLiteral(elementLinearStr, "externref")) {
-    if (!ReftypesAvailable(cx)) {
-      JS_ReportErrorNumberUTF8(cx, GetErrorMessage, nullptr,
-                               JSMSG_WASM_BAD_ELEMENT);
-      return false;
-    }
     tableType = RefType::extern_();
-#endif
 #ifdef ENABLE_WASM_GC
   } else if (StringEqualsLiteral(elementLinearStr, "eqref")) {
-    if (!GcTypesAvailable(cx)) {
+    if (!GcAvailable(cx)) {
       JS_ReportErrorNumberUTF8(cx, GetErrorMessage, nullptr,
                                JSMSG_WASM_BAD_ELEMENT);
       return false;
@@ -2974,13 +2885,8 @@ bool WasmTableObject::construct(JSContext* cx, unsigned argc, Value* vp) {
     tableType = RefType::eq();
 #endif
   } else {
-#ifdef ENABLE_WASM_REFTYPES
     JS_ReportErrorNumberUTF8(cx, GetErrorMessage, nullptr,
                              JSMSG_WASM_BAD_ELEMENT_GENERALIZED);
-#else
-    JS_ReportErrorNumberUTF8(cx, GetErrorMessage, nullptr,
-                             JSMSG_WASM_BAD_ELEMENT);
-#endif
     return false;
   }
 
@@ -3451,17 +3357,12 @@ bool WasmGlobalObject::construct(JSContext* cx, unsigned argc, Value* vp) {
   } else if (SimdAvailable(cx) && StringEqualsLiteral(typeLinearStr, "v128")) {
     globalType = ValType::V128;
 #endif
-#ifdef ENABLE_WASM_REFTYPES
-  } else if (ReftypesAvailable(cx) &&
-             StringEqualsLiteral(typeLinearStr, "funcref")) {
+  } else if (StringEqualsLiteral(typeLinearStr, "funcref")) {
     globalType = RefType::func();
-  } else if (ReftypesAvailable(cx) &&
-             StringEqualsLiteral(typeLinearStr, "externref")) {
+  } else if (StringEqualsLiteral(typeLinearStr, "externref")) {
     globalType = RefType::extern_();
-#endif
 #ifdef ENABLE_WASM_GC
-  } else if (GcTypesAvailable(cx) &&
-             StringEqualsLiteral(typeLinearStr, "eqref")) {
+  } else if (GcAvailable(cx) && StringEqualsLiteral(typeLinearStr, "eqref")) {
     globalType = RefType::eq();
 #endif
   } else {

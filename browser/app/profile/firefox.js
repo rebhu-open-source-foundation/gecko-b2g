@@ -169,7 +169,8 @@ pref("app.update.staging.enabled", true);
 
 pref("app.update.langpack.enabled", true);
 
-#if defined(MOZ_BACKGROUNDTASKS) && defined(MOZ_UPDATE_AGENT) && defined(NIGHTLY_BUILD)
+#if defined(MOZ_UPDATE_AGENT)
+  pref("app.update.background.loglevel", "error");
   // If set to true, on Windows, the browser will attempt to schedule OS-level
   // background tasks to update itself even when it is not running.  This pref
   // is special: any profile that believes itself the default profile will
@@ -178,7 +179,12 @@ pref("app.update.langpack.enabled", true);
   // out of the background update feature via Normandy.  (The per-installation
   // pref allows profiles beyond the default profile to enable and disable the
   // background update feature manually.)
+#if defined(NIGHTLY_BUILD) && defined(XP_WIN)
+  pref("app.update.background.scheduling.enabled", true);
+  pref("app.update.background.experimental", true);
+#else
   pref("app.update.background.scheduling.enabled", false);
+#endif
   // By default, check for updates when the browser is not running every 7 hours.
   pref("app.update.background.interval", 25200);
 #endif
@@ -570,10 +576,6 @@ pref("browser.tabs.secondaryTextUnsupportedLocales", "ar,bn,bo,ckb,fa,gu,he,hi,j
 
 //Control the visibility of Tab Manager Menu.
 pref("browser.tabs.tabmanager.enabled", false);
-
-// Offer additional drag space to the user. The drag space
-// will only be shown if browser.tabs.drawInTitlebar is true.
-pref("browser.tabs.extraDragSpace", false);
 
 // When tabs opened by links in other tabs via a combination of
 // browser.link.open_newwindow being set to 3 and target="_blank" etc are
@@ -1473,11 +1475,7 @@ pref("browser.newtabpage.activity-stream.discoverystream.spocs.personalized", tr
 pref("browser.newtabpage.activity-stream.feeds.section.topstories", true);
 
 // The pref controls if search hand-off is enabled for Activity Stream.
-#ifdef NIGHTLY_BUILD
-  pref("browser.newtabpage.activity-stream.improvesearch.handoffToAwesomebar", true);
-#else
-  pref("browser.newtabpage.activity-stream.improvesearch.handoffToAwesomebar", false);
-#endif
+pref("browser.newtabpage.activity-stream.improvesearch.handoffToAwesomebar", true);
 
 pref("browser.newtabpage.activity-stream.logowordmark.alwaysVisible", false);
 
@@ -2030,7 +2028,7 @@ pref("doh-rollout.trr-selection.enabled", false);
 
 // DoH Rollout: whether to enable automatic steering to provider endpoints.
 // This pref is also controlled by a Normandy rollout.
-pref("doh-rollout.provider-steering.enabled", false);
+pref("doh-rollout.provider-steering.enabled", true);
 
 // DoH Rollout: provider details for automatic steering.
 pref("doh-rollout.provider-steering.provider-list", "[{ \"name\": \"comcast\", \"canonicalName\": \"doh-discovery.xfinity.com\", \"uri\": \"https://doh.xfinity.com/dns-query\" }]");

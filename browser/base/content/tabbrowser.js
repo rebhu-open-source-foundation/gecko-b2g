@@ -826,7 +826,7 @@
       if (!browser._notificationBox) {
         browser._notificationBox = new MozElements.NotificationBox(element => {
           element.setAttribute("notificationside", "top");
-          if (gProtonInfobarsEnabled) {
+          if (gProton) {
             element.setAttribute(
               "name",
               `tab-notification-box-${this._nextNotificationBoxId++}`
@@ -1112,7 +1112,7 @@
 
       this._appendStatusPanel();
 
-      if (gProtonInfobarsEnabled) {
+      if (gProton) {
         this._updateVisibleNotificationBox(newBrowser);
       }
 
@@ -2520,6 +2520,21 @@
         );
       }
       return this.addTab(aURI, params);
+    },
+
+    addAdjacentNewTab(tab) {
+      Services.obs.notifyObservers(
+        {
+          wrappedJSObject: new Promise(resolve => {
+            this.selectedTab = this.addTrustedTab(BROWSER_NEW_TAB_URL, {
+              index: tab._tPos + 1,
+              userContextId: tab.userContextId,
+            });
+            resolve(this.selectedBrowser);
+          }),
+        },
+        "browser-open-newtab-start"
+      );
     },
 
     /**

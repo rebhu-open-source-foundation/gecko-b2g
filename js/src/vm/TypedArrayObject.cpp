@@ -1370,7 +1370,7 @@ template <typename T>
   }
 
   // Step 9.
-  uint32_t len;
+  uint64_t len;
   if (!GetLengthProperty(cx, arrayLike, &len)) {
     return nullptr;
   }
@@ -1380,6 +1380,8 @@ template <typename T>
   if (!maybeCreateArrayBuffer(cx, len, nullptr, &buffer)) {
     return nullptr;
   }
+
+  MOZ_ASSERT(len <= maxByteLength() / BYTES_PER_ELEMENT);
 
   Rooted<TypedArrayObject*> obj(
       cx, makeInstance(cx, buffer, BufferSize(0), BufferSize(len), proto));
@@ -1692,7 +1694,7 @@ bool TypedArrayObject::set_impl(JSContext* cx, const CallArgs& args) {
     size_t targetLength = target->length().get();
 
     // Step 16.
-    uint32_t srcLength;
+    uint64_t srcLength;
     if (!GetLengthProperty(cx, src, &srcLength)) {
       return false;
     }
@@ -1710,6 +1712,8 @@ bool TypedArrayObject::set_impl(JSContext* cx, const CallArgs& args) {
                                 JSMSG_SOURCE_ARRAY_TOO_LONG);
       return false;
     }
+
+    MOZ_ASSERT(srcLength <= targetLength);
 
     // Steps 11-14, 18-21.
     if (srcLength > 0) {
