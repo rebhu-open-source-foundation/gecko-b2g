@@ -570,6 +570,15 @@
   /* Just remove this element once Proton is released */
   display: none;
 }
+
+/* The background can be very dark and if the add-on uses a black-ish svg it
+   will be barely visible. In the future we should have a standardized SVG
+   solution we can apply to add-on icons, for now we can only try to make them
+   visible through some filtering tricks */
+:root[lwt-toolbar-field-brighttext] #urlbar:not([focused="true"]) .urlbar-addon-page-action[style*=".svg"],
+:root[lwt-toolbar-field-focus-brighttext] #urlbar[focused="true"] .urlbar-addon-page-action[style*=".svg"] {
+  filter: grayscale(100%) brightness(20%) invert();
+}
 } /*** END proton ***/
 
 @media not (-moz-proton) {
@@ -604,7 +613,7 @@
   padding: var(--urlbar-icon-padding);
   -moz-context-properties: fill, fill-opacity;
   fill: currentColor;
-  fill-opacity: 0.6;
+  fill-opacity: var(--urlbar-icon-fill-opacity);
   color: inherit;
 }
 
@@ -967,9 +976,14 @@
 .searchbar-search-icon {
   list-style-image: url(chrome://global/skin/icons/search-glass.svg);
   -moz-context-properties: fill, fill-opacity;
+  fill-opacity: var(--urlbar-icon-fill-opacity);
   pointer-events: none;
   margin-inline: 8px 6px;
   width: 16px;
+}
+
+@media not (-moz-proton) {
+.searchbar-search-icon {
   fill-opacity: .4;
 }
 
@@ -980,6 +994,7 @@
 .searchbar-search-button:hover:active > .searchbar-search-icon {
   fill-opacity: .8;
 }
+} /*** END !proton ***/
 
 .searchbar-search-icon-overlay {
   pointer-events: none;

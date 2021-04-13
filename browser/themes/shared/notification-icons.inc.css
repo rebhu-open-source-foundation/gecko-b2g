@@ -10,8 +10,9 @@
   padding: var(--urlbar-icon-padding);
   /* subtract identity-block.inc-css margin-inline-start */
   padding-inline-start: calc(var(--urlbar-icon-padding) - 4px);
-  -moz-context-properties: fill;
+  -moz-context-properties: fill, fill-opacity;
   fill: currentColor;
+  fill-opacity: var(--urlbar-icon-fill-opacity);
   color: inherit;
   border-radius: var(--toolbarbutton-border-radius);
 }
@@ -220,6 +221,10 @@
   list-style-image: url(chrome://browser/skin/notification-icons/webauthn.svg);
 }
 
+#permission-popup-menulist {
+  margin-inline-end: 0;
+}
+
 @media (-moz-proton-doorhangers) {
 #webRTC-preview:not([hidden]) {
   min-width: 368px;
@@ -293,6 +298,15 @@
   padding-inline-start: calc(1.5em + 16px);
   border-top: 1px solid var(--panel-separator-color);
 }
+
+.popup-subitem {
+  list-style-image: url("chrome://browser/skin/notification-icons/popup-subitem.svg");
+  margin-inline-start: 42px;
+}
+
+#permission-popup-menulist {
+  margin-inline-end: 2px;
+}
 } /** END not Proton **/
 
 #webRTC-previewWarningBox:-moz-locale-dir(rtl) {
@@ -309,8 +323,6 @@
 }
 
 .popup-subitem {
-  list-style-image: url("chrome://browser/skin/notification-icons/popup-subitem.svg");
-  margin-inline-start: 42px;
   width: 16px;
   height: 16px;
   -moz-context-properties: fill, fill-opacity;

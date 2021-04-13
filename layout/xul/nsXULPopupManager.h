@@ -484,6 +484,11 @@ class nsXULPopupManager final : public nsIDOMEventListener,
                  bool aAsynchronous, bool aIsCancel,
                  nsIContent* aLastPopup = nullptr);
 
+  /*
+   * Hide the popup of a <menu>.
+   */
+  void HideMenu(nsIContent* aMenu);
+
   /**
    * Hide a popup after a short delay. This is used when rolling over menu
    * items. This timer is stored in mCloseTimer. The timer may be cancelled and
@@ -526,6 +531,14 @@ class nsXULPopupManager final : public nsIDOMEventListener,
    *          event which triggered the menu to be executed, may not be null
    */
   void ExecuteMenu(nsIContent* aMenu, nsXULMenuCommandEvent* aEvent);
+
+  /**
+   * If a native menu is open, and aItem is an item in the menu's subtree,
+   * execute the item with the help of the native menu and close the menu.
+   * Returns true if a native menu was open.
+   */
+  bool ActivateNativeMenuItem(nsIContent* aItem, mozilla::Modifiers aModifiers,
+                              mozilla::ErrorResult& aRv);
 
   /**
    * Return true if the popup for the supplied content node is open.

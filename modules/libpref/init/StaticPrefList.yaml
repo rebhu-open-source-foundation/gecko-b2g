@@ -1274,6 +1274,17 @@
 #endif
   mirror: always
 
+# When this pref is enabled then we use a separate content process for
+# top-level load of file:// URIs
+- name: browser.tabs.remote.separateFileUriProcess
+  type: RelaxedAtomicBool
+#if !defined(ANDROID)
+  value: true
+#else
+  value: false
+#endif
+  mirror: always
+
 # When this pref is enabled, opaque response is only allowed to enter the
 # content process if it's a response for media (audio, image, video), CSS, or
 # JavaScript.
@@ -2955,6 +2966,12 @@
 - name: dom.security.featurePolicy.webidl.enabled
   type: bool
   value: false
+  mirror: always
+
+# Perform IPC based Principal vetting in ContentParent
+- name: dom.security.enforceIPCBasedPrincipalVetting
+  type: RelaxedAtomicBool
+  value: true
   mirror: always
 
 # For testing purposes only: Flipping this pref to true allows
@@ -5104,6 +5121,15 @@
     mirror: once
 #endif
 
+- name: gfx.webrender.program-binary-disk
+  type: bool
+#if defined(XP_WIN) || defined(ANDROID)
+  value: true
+#else
+  value: false
+#endif
+  mirror: once
+
 - name: gfx.webrender.use-optimized-shaders
   type: bool
   value: true
@@ -5721,7 +5747,7 @@
 
 # A threshold for Warp to decide whether a function can be inlined.
 # If the size of a function is smaller than this threshold, then it
-# may be inlined. 
+# may be inlined.
 #
 # NOTE: These must match JitOptions defaults.
 - name: javascript.options.inlining_bytecode_max_length
@@ -5931,10 +5957,10 @@
     mirror: always
 #endif
 
-# Experimental support for ArrayBuffers larger than 2 GB.
+# Support for ArrayBuffers larger than 2 GB on 64-bit systems
 - name: javascript.options.large_arraybuffers
   type: bool
-  value: false
+  value: true
   mirror: always  # LoadStartupJSPrefs
   do_not_use_directly: true
 
@@ -6934,7 +6960,7 @@
 # Dictates whether or not the forced-colors media query is enabled.
 - name: layout.css.forced-colors.enabled
   type: RelaxedAtomicBool
-  value: false
+  value: true
   mirror: always
   rust: true
 

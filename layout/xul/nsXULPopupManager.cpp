@@ -662,6 +662,12 @@ void nsXULPopupManager::SetActiveMenuBar(nsMenuBarFrame* aMenuBar,
 
 void nsXULPopupManager::ShowMenu(nsIContent* aMenu, bool aSelectFirstItem,
                                  bool aAsynchronous) {
+  if (mNativeMenu && aMenu->IsElement() &&
+      mNativeMenu->Element()->Contains(aMenu)) {
+    mNativeMenu->OpenSubmenu(aMenu->AsElement());
+    return;
+  }
+
   nsMenuFrame* menuFrame = do_QueryFrame(aMenu->GetPrimaryFrame());
   if (!menuFrame || !menuFrame->IsMenu()) return;
 
@@ -1125,6 +1131,26 @@ void nsXULPopupManager::HidePopup(nsIContent* aPopup, bool aHideChain,
   }
 }
 
+void nsXULPopupManager::HideMenu(nsIContent* aMenu) {
+  if (mNativeMenu && aMenu->IsElement() &&
+      mNativeMenu->Element()->Contains(aMenu)) {
+    mNativeMenu->CloseSubmenu(aMenu->AsElement());
+    return;
+  }
+
+  nsMenuFrame* menu = do_QueryFrame(aMenu->GetPrimaryFrame(FlushType::Frames));
+  if (!menu) {
+    return;
+  }
+
+  nsMenuPopupFrame* popupFrame = menu->GetPopup();
+  if (!popupFrame) {
+    return;
+  }
+
+  HidePopup(popupFrame->GetContent(), false, true, false, false);
+}
+
 // This is used to hide the popup after a transition finishes.
 class TransitionEnder final : public nsIDOMEventListener {
  protected:
@@ -1420,6 +1446,17 @@ void nsXULPopupManager::ExecuteMenu(nsIContent* aMenu,
   aEvent->SetCloseMenuMode(cmm);
   nsCOMPtr<nsIRunnable> event = aEvent;
   aMenu->OwnerDoc()->Dispatch(TaskCategory::Other, event.forget());
+}
+
+bool nsXULPopupManager::ActivateNativeMenuItem(nsIContent* aItem,
+                                               mozilla::Modifiers aModifiers,
+                                               mozilla::ErrorResult& aRv) {
+  if (mNativeMenu && aItem->IsElement() &&
+      mNativeMenu->Element()->Contains(aItem)) {
+    mNativeMenu->ActivateItem(aItem->AsElement(), aModifiers, aRv);
+    return true;
+  }
+  return false;
 }
 
 nsEventStatus nsXULPopupManager::FirePopupShowingEvent(
