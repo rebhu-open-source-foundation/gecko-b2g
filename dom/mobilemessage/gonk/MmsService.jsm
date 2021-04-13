@@ -3410,6 +3410,8 @@ MmsService.prototype = {
     if (!msg) {
       return;
     }
+    msg = { ...options, ...msg };
+
     if (DEBUG) {
       debug("receiveWapPush: msg = " + JSON.stringify(msg));
     }
