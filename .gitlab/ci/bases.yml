@@ -149,17 +149,10 @@ variables:
     - *global_setup
     - *koost_setup
     - export MACH_USE_SYSTEM_PYTHON=${MACH_USE_SYSTEM_PYTHON-1}
-    - |
-      if [[ ${GIT_CLONE_PATH##*/} == koost ]]; then
-        changed_files=("${changed_files[@]/#/koost/}")
-        MACH_LINT_PARAMETERS="${MACH_LINT_PARAMETERS} ${changed_files[@]}"
-      else
-        MACH_LINT_PARAMETERS="${MACH_LINT_PARAMETERS} --workdir=staged"
-      fi
+    - '[[ ${GIT_CLONE_PATH##*/} == koost ]] && changed_files=("${changed_files[@]/#/koost/}")'
     - 'msg "linters to be activated: ${SPECIFIC_LINTERS}"'
-    - 'msg "MACH_LINT_PARAMETERS: ${MACH_LINT_PARAMETERS}"'
   script:
-    - './mach lint -l ${SPECIFIC_LINTERS// /" -l "} ${MACH_LINT_PARAMETERS}'
+    - './mach lint -l ${SPECIFIC_LINTERS// /" -l "} ${MACH_LINT_PARAMETERS} "${changed_files[@]}"'
 
 .build_desktop:
   image: ${CI_REGISTRY}/re/kaios-build/next/desktop:1.49.0_5_2

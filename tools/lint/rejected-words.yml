@@ -25,6 +25,7 @@ avoid-blacklist-and-whitelist:
         - ftl
         - yml
     exclude:
+        - b2g/app/b2g.js
         - browser/app/profile/firefox.js
         - browser/app/winlauncher/LauncherProcessWin.cpp
         - browser/base/content/browser.js

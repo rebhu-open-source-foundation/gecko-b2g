@@ -59,6 +59,10 @@ lint:rs:
   extends: .lint_rs
   stage: lint
 
+lint:yml:
+  extends: .lint_yml
+  stage: lint
+
 build:arm:
   extends: .build_arm
   stage: build

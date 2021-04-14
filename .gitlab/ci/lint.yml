@@ -29,7 +29,7 @@
       cp -r /build/node_modules_eslint node_modules &&
       ln -sf ../tools/lint/eslint/eslint-plugin-mozilla node_modules &&
       ln -sf ../tools/lint/eslint/eslint-plugin-spidermonkey-js node_modules
-    - './mach lint -l ${SPECIFIC_LINTERS// /" -l "} ${MACH_LINT_PARAMETERS}'
+    - './mach lint -l ${SPECIFIC_LINTERS// /" -l "} ${MACH_LINT_PARAMETERS} "${changed_files[@]}"'
   after_script:
     # mv node_modules back to GIT_CLONE_PATH in order for cache
     - |
@@ -41,7 +41,7 @@
     - if: '$CI_MERGE_REQUEST_TITLE =~ /skip-lint|^WIP\:/'
       when: never
     - changes:
-        - "**/*.{js,jsm,jsx,xul,html,xhtml}"
+      - "**/*.{js,jsm,jsx,xul,html,xhtml}"
   # cache node_modules as taskcluster does
   cache:
     key: "${CI_MERGE_REQUEST_TARGET_BRANCH_NAME}-eslint"
@@ -54,10 +54,6 @@
   stage: lint
   variables:
     SPECIFIC_LINTERS: "license rejected-words file-whitespace"
-  # rejected-words sometimes is unable to successfully extract staged files when passing "--workdir=staged"
-  # explicitly pass changed_files instead.
-  script:
-    - './mach lint -l ${SPECIFIC_LINTERS// /" -l "} -f unix -v ${changed_files[@]}'
   rules:
     - if: '$CI_MERGE_REQUEST_TITLE =~ /skip-lint|^WIP\:/'
       when: never
@@ -73,7 +69,7 @@
     - if: '$CI_MERGE_REQUEST_TITLE =~ /skip-lint|^WIP\:/'
       when: never
     - changes:
-        - "**/*.{c,cpp,cc,h}"
+      - "**/*.{c,cpp,cc,h}"
 
 .lint_python:
   extends: .lint_base
@@ -86,7 +82,7 @@
     - if: '$CI_MERGE_REQUEST_TITLE =~ /skip-lint|^WIP\:/'
       when: never
     - changes:
-        - "**/*.py"
+      - "**/*.py"
 
 .lint_rs:
   extends: .lint_base
@@ -97,5 +93,18 @@
     - if: '$CI_MERGE_REQUEST_TITLE =~ /skip-lint|^WIP\:/'
       when: never
     - changes:
-        - "**/*.rs"
-        - "**/Cargo.toml"
+      - "**/*.rs"
+      - "**/Cargo.toml"
+
+.lint_yml:
+  extends: .lint_base
+  variables:
+    PATHSPEC: "'*.yml' '*.yaml' ':(glob)**/.ymllint'"
+    SPECIFIC_LINTERS: 'yaml'
+  rules:
+    - if: '$CI_MERGE_REQUEST_TITLE =~ /skip-lint|^WIP\:/'
+      when: never
+    - changes:
+      - '**/*.yml'
+      - '**/*.yaml'
+      - '**/.ymllint'
