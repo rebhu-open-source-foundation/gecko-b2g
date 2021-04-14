@@ -8,7 +8,7 @@
     - gecko-eslint
   variables:
     SPECIFIC_LINTERS: "eslint codespell"
-    PATHSPEC: '*.{js,jsm,jsx,xul,html,xhtml}'
+    PATHSPEC: "*.{js,jsm,jsx,xul,html,xhtml} ':(glob)**/.eslintignore' ':(glob)**/*eslintrc*' 'tools/lint/eslint/eslint-plugin-mozilla/' 'tools/lint/eslint/eslint-plugin-spidermonkey-js/'"
   script:
     - |
       if [[ ${GIT_CLONE_PATH##*/} == koost ]]; then
@@ -42,6 +42,12 @@
       when: never
     - changes:
       - "**/*.{js,jsm,jsx,xul,html,xhtml}"
+      # Run when eslint policies change.
+      - "**/.eslintignore"
+      - "**/*eslintrc*"
+      # The plugin implementing custom checks by moz.
+      - "tools/lint/eslint/eslint-plugin-mozilla/**"
+      - "tools/lint/eslint/eslint-plugin-spidermonkey-js/**"
   # cache node_modules as taskcluster does
   cache:
     key: "${CI_MERGE_REQUEST_TARGET_BRANCH_NAME}-eslint"
