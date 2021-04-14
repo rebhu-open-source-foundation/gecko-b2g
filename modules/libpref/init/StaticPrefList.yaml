@@ -3071,6 +3071,21 @@
   value: false
   mirror: always
 
+# If true, top-level request will get upgraded to HTTPS and
+# downgraded again if the request failed.
+- name: dom.security.https_only_mode_https_first
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+# If true, top-level requests in Private Browsing Mode will get
+# upgraded to HTTPS. (If dom.security.https_only_mode_https_first
+# is set to true then this pref has no effect)
+- name: dom.security.https_only_mode_https_first_pbm
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
 - name: dom.security.unexpected_system_load_telemetry_enabled
   type: bool
   value: true
@@ -3633,7 +3648,7 @@
 # W3C pointer events draft.
 - name: dom.w3c_pointer_events.implicit_capture
   type: bool
-  value: @IS_NIGHTLY_BUILD@
+  value: @IS_EARLY_BETA_OR_EARLIER@
   mirror: always
 
 # In case Touch API is enabled, this pref controls whether to support
@@ -5264,14 +5279,7 @@
 # software backend
 - name: gfx.webrender.software.unaccelerated-widget.allow
   type: RelaxedAtomicBool
-  value: false
-  mirror: always
-
-# Whether to force widgets that don't support acceleration to use WebRender
-# software backend
-- name: gfx.webrender.software.unaccelerated-widget.force
-  type: RelaxedAtomicBool
-  value: false
+  value: @IS_EARLY_BETA_OR_EARLIER@
   mirror: always
 
 # Whether to force widgets to don't support acceleration to use WebRender
@@ -5896,15 +5904,6 @@
   value: true
 #endif
   mirror: always
-
-#if defined(MOZ_AARCH64)
-# Cranelift->Ion transition.  Temporary switch.  When we land Phase 2
-# of the transition, this switch will disappear altogether.
-- name: javascript.options.wasm_force_ion
-  type: bool
-  value: false
-  mirror: always
-#endif
 
 # SIMD is supported only on x86 and x64, with arm64 support imminent.
 #if defined(ENABLE_WASM_SIMD)
@@ -6690,7 +6689,7 @@
 # Whether the `aspect-ratio` in css-sizing-4 is enabled.
 - name: layout.css.aspect-ratio.enabled
   type: bool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
   rust: true
 
@@ -6719,6 +6718,14 @@
   type: RelaxedAtomicBool
   value: true
   mirror: always
+
+# Whether the bloom filter optimization is applied to attribute names too, not
+# only classes / id / namespaces / etc.
+- name: layout.css.bloom-filter-attribute-names.enabled
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+  rust: true
 
 # Set the number of device pixels per CSS pixel. A value <= 0 means choose
 # automatically based on user settings for the platform (e.g., "UI scale factor"
@@ -6801,7 +6808,7 @@
 # Is support for the @font-face metrics override descriptors enabled?
 - name: layout.css.font-metrics-overrides.enabled
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
   rust: true
 

@@ -295,7 +295,6 @@ class nsBaseWidget : public nsIWidget, public nsSupportsWeakReference {
     return NS_ERROR_NOT_IMPLEMENTED;
   }
   bool ComputeShouldAccelerate();
-  virtual bool WidgetTypePrefersSoftwareWebRender() const;
   virtual bool WidgetTypeSupportsAcceleration() { return true; }
   [[nodiscard]] virtual nsresult OnDefaultButtonLoaded(
       const LayoutDeviceIntRect& aButtonRect) override {
@@ -318,8 +317,10 @@ class nsBaseWidget : public nsIWidget, public nsSupportsWeakReference {
                           const ScrollableLayerGuid::ViewID& aViewId,
                           const CSSRect& aRect,
                           const uint32_t& aFlags) override;
+
   // Dispatch an event that must be first be routed through APZ.
-  nsEventStatus DispatchInputEvent(mozilla::WidgetInputEvent* aEvent) override;
+  ContentAndAPZEventStatus DispatchInputEvent(
+      mozilla::WidgetInputEvent* aEvent) override;
   void DispatchEventToAPZOnly(mozilla::WidgetInputEvent* aEvent) override;
 
   void SetConfirmedTargetAPZC(
