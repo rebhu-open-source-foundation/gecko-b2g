@@ -693,6 +693,13 @@ void BrowsingContext::SetEmbedderElement(Element* aEmbedder) {
   }
 
   mEmbedderElement = aEmbedder;
+
+  if (mEmbedderElement) {
+    if (nsCOMPtr<nsIObserverService> obs = services::GetObserverService()) {
+      obs->NotifyWhenScriptSafe(ToSupports(this),
+                                "browsing-context-did-set-embedder", nullptr);
+    }
+  }
 }
 
 void BrowsingContext::Embed() {

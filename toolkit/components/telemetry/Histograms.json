@@ -91,17 +91,6 @@
     "labels": ["OtherBinaryFile", "DmgFile", "RarFile", "ZipFile"],
     "description": "Whether a binary file examined by download protection is one of the common archive formats."
   },
-  "APPLICATION_REPUTATION_HASH_LENGTH": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
-    "alert_emails": ["dlee@mozilla.com", "safebrowsing-telemetry@mozilla.org"],
-    "bug_numbers": [1485180, 1531034],
-    "expires_in_version": "69",
-    "releaseChannelCollection": "opt-out",
-    "kind": "categorical",
-    "labels": ["ValidHash", "OriginalHashEmpty", "OriginalHashTooShort", "OriginalHashTooLong", "MissingDigest", "MissingSha256", "InvalidSha256"],
-    "description": "Whether the hash included in application reputation lookups is valid or broken in some way."
-  },
   "APPLICATION_REPUTATION_REASON": {
     "record_in_processes": ["main", "content"],
     "products": ["firefox", "fennec", "thunderbird"],
@@ -15761,11 +15750,11 @@
       "nohlmeier@mozilla.com",
       "padenot@mozilla.com"
     ],
-    "expires_in_version": "90",
+    "expires_in_version": "96",
     "kind": "linear",
     "high": 60,
     "n_buckets": 10,
-    "bug_numbers": [1490074, 1570634, 1606206, 1652196],
+    "bug_numbers": [1490074, 1570634, 1606206, 1652196, 1700828],
     "description": "How long the AudioContext would become audible since it was created, time unit is seconds.",
     "releaseChannelCollection": "opt-out"
   },
@@ -15791,40 +15780,11 @@
       "padenot@mozilla.com",
       "ktomlinson@mozilla.com"
     ],
-    "expires_in_version": "90",
+    "expires_in_version": "96",
     "kind": "categorical",
     "labels": ["NeverBlocked", "AllowedAfterBlocked", "NeverAllowed"],
-    "bug_numbers": [1512277, 1652196],
+    "bug_numbers": [1512277, 1652196, 1700828],
     "description": "The number of times an AudioContext is allowed to start after being blocked, or the number of AudioContexts attempting to start which were never blocked or never allowed.",
-    "releaseChannelCollection": "opt-out"
-  },
-  "MEDIA_CONTROL_SETTING_CHANGE": {
-    "record_in_processes": ["main"],
-    "products": ["firefox"],
-    "alert_emails": [
-      "alwu@mozilla.com",
-      "bvandyk@mozilla.com",
-      "cchang@mozilla.com"
-    ],
-    "bug_numbers": [1667454],
-    "expires_in_version": "90",
-    "kind": "categorical",
-    "labels": ["EnableFromUI", "EnableTotal", "DisableFromUI", "DisableTotal"],
-    "description": "Counts the number of times a user enable or disable the media control feature via UI button, and the total number of times media control feature is enabled and disabled, which allow us to calculate the number of times a user changes setting via modifying the preference directly.",
-    "releaseChannelCollection": "opt-out"
-  },
-  "MEDIA_CONTROL_HANDLE_PLAY_PAUSE_STOP_ACTIONS": {
-    "record_in_processes": ["content"],
-    "products": ["firefox"],
-    "alert_emails": [
-      "alwu@mozilla.com",
-      "cchang@mozilla.com"
-    ],
-    "bug_numbers": [1668139],
-    "expires_in_version": "90",
-    "kind": "categorical",
-    "labels": ["DefaultHandler", "MediaSessionHandler"],
-    "description": "The number of times `play/pause/stop` actions are being handled on either default handler or media session action handler.",
     "releaseChannelCollection": "opt-out"
   },
   "TABS_AUDIO_COMPETITION": {

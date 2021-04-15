@@ -1284,7 +1284,7 @@ void PresShell::Destroy() {
         }
       }
     }
-    mPresContext->ClearOneShotPostRefreshObservers();
+    mPresContext->CancelManagedPostRefreshObservers();
   }
 
 #ifdef MOZ_REFLOW_PERF

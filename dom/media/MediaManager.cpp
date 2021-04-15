@@ -981,15 +981,16 @@ uint32_t MediaDevice::FitnessDistance(
 
 uint32_t MediaDevice::GetBestFitnessDistance(
     const nsTArray<const NormalizedConstraintSet*>& aConstraintSets,
-    bool aIsChrome) {
+    CallerType aCallerType) {
   MOZ_ASSERT(MediaManager::IsInMediaThread());
   MOZ_ASSERT(mSource);
 
-  const nsString& id = aIsChrome ? mRawID : mID;
+  bool isChrome = aCallerType == CallerType::System;
+  const nsString& id = isChrome ? mRawID : mID;
   auto type = GetMediaSource();
   uint64_t distance = 0;
   if (!aConstraintSets.IsEmpty()) {
-    if (aIsChrome /* For the screen/window sharing preview */ ||
+    if (isChrome /* For the screen/window sharing preview */ ||
         type == MediaSourceEnum::Camera ||
         type == MediaSourceEnum::Microphone) {
       distance += uint64_t(MediaConstraintsHelper::FitnessDistance(
@@ -1201,7 +1202,7 @@ static void GetMediaDevices(MediaEngine* aEngine, uint64_t aWindowId,
 }
 
 RefPtr<MediaManager::BadConstraintsPromise> MediaManager::SelectSettings(
-    const MediaStreamConstraints& aConstraints, bool aIsChrome,
+    const MediaStreamConstraints& aConstraints, CallerType aCallerType,
     const RefPtr<MediaDeviceSetRefCnt>& aDevices) {
   MOZ_ASSERT(NS_IsMainThread());
 
@@ -1210,7 +1211,7 @@ RefPtr<MediaManager::BadConstraintsPromise> MediaManager::SelectSettings(
 
   return MediaManager::Dispatch<BadConstraintsPromise>(
       __func__, [aConstraints, aDevices,
-                 aIsChrome](MozPromiseHolder<BadConstraintsPromise>& holder) {
+                 aCallerType](MozPromiseHolder<BadConstraintsPromise>& holder) {
         auto& devices = *aDevices;
 
         // Since the advanced part of the constraints algorithm needs to know
@@ -1238,12 +1239,12 @@ RefPtr<MediaManager::BadConstraintsPromise> MediaManager::SelectSettings(
         if (needVideo && videos.Length()) {
           badConstraint = MediaConstraintsHelper::SelectSettings(
               NormalizedConstraints(GetInvariant(aConstraints.mVideo)), videos,
-              aIsChrome);
+              aCallerType);
         }
         if (!badConstraint && needAudio && audios.Length()) {
           badConstraint = MediaConstraintsHelper::SelectSettings(
               NormalizedConstraints(GetInvariant(aConstraints.mAudio)), audios,
-              aIsChrome);
+              aCallerType);
         }
         if (!badConstraint && !needVideo == !videos.Length() &&
             !needAudio == !audios.Length()) {
@@ -1266,11 +1267,11 @@ class GetUserMediaTask {
  public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(GetUserMediaTask)
   GetUserMediaTask(uint64_t aWindowID, const ipc::PrincipalInfo& aPrincipalInfo,
-                   bool aIsChrome,
+                   CallerType aCallerType,
                    RefPtr<MediaManager::MediaDeviceSetRefCnt> aMediaDeviceSet)
       : mPrincipalInfo(aPrincipalInfo),
         mWindowID(aWindowID),
-        mIsChrome(aIsChrome),
+        mCallerType(aCallerType),
         mMediaDeviceSet(std::move(aMediaDeviceSet)) {}
 
   virtual void Denied(MediaMgrError::Name aName,
@@ -1280,9 +1281,7 @@ class GetUserMediaTask {
   virtual SelectAudioOutputTask* AsSelectAudioOutputTask() { return nullptr; }
 
   uint64_t GetWindowID() const { return mWindowID; }
-  enum CallerType CallerType() const {
-    return mIsChrome ? CallerType::System : CallerType::NonSystem;
-  }
+  enum CallerType CallerType() const { return mCallerType; }
 
   size_t SizeOfIncludingThis(MallocSizeOf aMallocSizeOf) const {
     size_t amount = aMallocSizeOf(this);
@@ -1327,7 +1326,7 @@ class GetUserMediaTask {
   // object of the MediaDevices on which getUserMedia() was called
   const uint64_t mWindowID;
   // Whether the JS caller of getUserMedia() has system (subject) principal
-  const bool mIsChrome;
+  const enum CallerType mCallerType;
 
  public:
   const RefPtr<MediaManager::MediaDeviceSetRefCnt> mMediaDeviceSet;
@@ -1349,10 +1348,10 @@ class GetUserMediaStreamTask final : public GetUserMediaTask {
       RefPtr<DeviceListener> aAudioDeviceListener,
       RefPtr<DeviceListener> aVideoDeviceListener,
       const MediaEnginePrefs& aPrefs, const ipc::PrincipalInfo& aPrincipalInfo,
-      bool aIsChrome,
+      enum CallerType aCallerType,
       RefPtr<MediaManager::MediaDeviceSetRefCnt>&& aMediaDeviceSet,
       bool aShouldFocusSource)
-      : GetUserMediaTask(aWindowID, aPrincipalInfo, aIsChrome,
+      : GetUserMediaTask(aWindowID, aPrincipalInfo, aCallerType,
                          std::move(aMediaDeviceSet)),
         mConstraints(aConstraints),
         mHolder(std::move(aHolder)),
@@ -1427,7 +1426,7 @@ class GetUserMediaStreamTask final : public GetUserMediaTask {
           nsTArray<RefPtr<MediaDevice>> devices;
           devices.AppendElement(mAudioDevice);
           badConstraint = MediaConstraintsHelper::SelectSettings(
-              NormalizedConstraints(constraints), devices, mIsChrome);
+              NormalizedConstraints(constraints), devices, mCallerType);
         }
       }
     }
@@ -1441,13 +1440,13 @@ class GetUserMediaStreamTask final : public GetUserMediaTask {
           nsTArray<RefPtr<MediaDevice>> devices;
           devices.AppendElement(mVideoDevice);
           badConstraint = MediaConstraintsHelper::SelectSettings(
-              NormalizedConstraints(constraints), devices, mIsChrome);
+              NormalizedConstraints(constraints), devices, mCallerType);
         }
         if (mAudioDevice) {
           mAudioDevice->Deallocate();
         }
       } else {
-        if (!mIsChrome) {
+        if (mCallerType == CallerType::NonSystem) {
           if (mShouldFocusSource) {
             rv = mVideoDevice->FocusOnSelectedSource();
 
@@ -1720,8 +1719,7 @@ class SelectAudioOutputTask final : public GetUserMediaTask {
       uint64_t aWindowID, enum CallerType aCallerType,
       const ipc::PrincipalInfo& aPrincipalInfo,
       RefPtr<MediaManager::MediaDeviceSetRefCnt>&& aMediaDeviceSet)
-      : GetUserMediaTask(aWindowID, aPrincipalInfo,
-                         aCallerType == CallerType::System,
+      : GetUserMediaTask(aWindowID, aPrincipalInfo, aCallerType,
                          std::move(aMediaDeviceSet)),
         mHolder(std::move(aHolder)) {}
 
@@ -2866,7 +2864,7 @@ RefPtr<MediaManager::StreamPromise> MediaManager::GetUserMedia(
                               audioEnumerationType, true, devices)
       ->Then(
           GetCurrentSerialEventTarget(), __func__,
-          [self, windowID, c, windowListener, isChrome, devices](bool) {
+          [self, windowID, c, windowListener, aCallerType, devices](bool) {
             LOG("GetUserMedia: post enumeration promise success callback "
                 "starting");
             // Ensure that our windowID is still good.
@@ -2881,7 +2879,7 @@ RefPtr<MediaManager::StreamPromise> MediaManager::GetUserMedia(
                   __func__);
             }
             // Apply any constraints. This modifies the passed-in list.
-            return self->SelectSettings(c, isChrome, devices);
+            return self->SelectSettings(c, aCallerType, devices);
           },
           [](RefPtr<MediaMgrError>&& aError) {
             LOG("GetUserMedia: post enumeration EnumerateDevicesImpl "
@@ -2893,7 +2891,7 @@ RefPtr<MediaManager::StreamPromise> MediaManager::GetUserMedia(
           GetCurrentSerialEventTarget(), __func__,
           [self, windowID, c, windowListener, placeholderListener, hasAudio,
            hasVideo, askPermission, prefs, isSecure, isHandlingUserInput,
-           callID, principalInfo, isChrome, devices,
+           callID, principalInfo, aCallerType, devices,
            resistFingerprinting](const char* badConstraint) mutable {
             LOG("GetUserMedia: starting post enumeration promise2 success "
                 "callback!");
@@ -2980,7 +2978,7 @@ RefPtr<MediaManager::StreamPromise> MediaManager::GetUserMedia(
             auto task = MakeRefPtr<GetUserMediaStreamTask>(
                 c, std::move(holder), windowID, std::move(windowListener),
                 std::move(audioListener), std::move(videoListener), prefs,
-                principalInfo, isChrome, std::move(devices), focusSource);
+                principalInfo, aCallerType, std::move(devices), focusSource);
 
             size_t taskCount =
                 self->AddTaskAndGetCount(windowID, callID, std::move(task));
@@ -4710,8 +4708,7 @@ RefPtr<DeviceListener::DeviceListenerPromise> DeviceListener::ApplyConstraints(
   }
 
   return MediaManager::Dispatch<DeviceListenerPromise>(
-      __func__, [device = mDeviceState->mDevice, aConstraints,
-                 isChrome = aCallerType == CallerType::System](
+      __func__, [device = mDeviceState->mDevice, aConstraints, aCallerType](
                     MozPromiseHolder<DeviceListenerPromise>& aHolder) mutable {
         MOZ_ASSERT(MediaManager::IsInMediaThread());
         MediaManager* mgr = MediaManager::GetIfExists();
@@ -4726,7 +4723,7 @@ RefPtr<DeviceListener::DeviceListenerPromise> DeviceListener::ApplyConstraints(
               nsTArray<RefPtr<MediaDevice>> devices;
               devices.AppendElement(device);
               badConstraint = MediaConstraintsHelper::SelectSettings(
-                  NormalizedConstraints(aConstraints), devices, isChrome);
+                  NormalizedConstraints(aConstraints), devices, aCallerType);
             }
           } else {
             // Unexpected. ApplyConstraints* cannot fail with any other error.

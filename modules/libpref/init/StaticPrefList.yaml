@@ -310,7 +310,7 @@
 
 - name: apz.mac.enable_double_tap_zoom_touchpad_gesture
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
 
 - name: apz.allow_immediate_handoff
@@ -593,7 +593,11 @@
 
 - name: apz.overscroll.enabled
   type: RelaxedAtomicBool
+#if defined(XP_MACOSX)
+  value: true
+#else
   value: false
+#endif
   mirror: always
 
 # The "test async scroll offset" (used via reftest-async-scroll
@@ -1168,7 +1172,7 @@
 
 - name: browser.proton.modals.enabled
   type: RelaxedAtomicBool
-  value: false
+  value: true
   mirror: always
   rust: true
 
@@ -2240,6 +2244,12 @@
 
 # Whether we allow BrowsingContextGroup to suspend input events
 - name: dom.input_events.canSuspendInBCG.enabled
+  type: bool
+  value: false
+  mirror: always
+
+# Whether we perform a more strict alignment with vsync for input events
+- name: dom.input_events.strict_input_vsync_alignment
   type: bool
   value: false
   mirror: always
@@ -5590,7 +5600,7 @@
 - name: image.avif.enabled
   type: RelaxedAtomicBool
 #if defined(MOZ_AV1)
-  value: true
+  value: false
 #else
   value: false
 #endif

@@ -1397,7 +1397,7 @@ pref("prompts.windowPromptSubDialog", true);
 pref("browser.newtab.preload", true);
 
 // Preference to enable the entire new newtab experience at once.
-pref("browser.newtabpage.activity-stream.newNewtabExperience.enabled", false);
+pref("browser.newtabpage.activity-stream.newNewtabExperience.enabled", true);
 
 // A preference which allows us to enable the fly out customization overlay
 // on the newtab page.
@@ -1471,7 +1471,7 @@ pref("browser.newtabpage.activity-stream.feeds.section.topstories", true);
 // The pref controls if search hand-off is enabled for Activity Stream.
 pref("browser.newtabpage.activity-stream.improvesearch.handoffToAwesomebar", true);
 
-pref("browser.newtabpage.activity-stream.logowordmark.alwaysVisible", false);
+pref("browser.newtabpage.activity-stream.logowordmark.alwaysVisible", true);
 
 // Used to display triplet cards on newtab
 pref("trailhead.firstrun.newtab.triplets", "");
@@ -1932,6 +1932,9 @@ pref("extensions.pocket.site", "getpocket.com");
 pref("extensions.pocket.onSaveRecs", true);
 pref("extensions.pocket.onSaveRecs.locales", "en-US,en-GB,en-CA");
 
+// Enable Pocket button home panel for non link pages.
+pref("extensions.pocket.showHome", true);
+
 // Control what version of the logged out doorhanger is displayed
 // Possibilities are: `control`, `control-one-button`, `variant_a`, `variant_b`, `variant_c`
 pref("extensions.pocket.loggedOutVariant", "control");
@@ -1994,9 +1997,6 @@ pref("browser.suppress_first_window_animation", true);
 
 // Preference that allows individual users to disable Screenshots.
 pref("extensions.screenshots.disabled", false);
-// Preference that allows individual users to leave Screenshots enabled, but
-// disable uploading to the server.
-pref("extensions.screenshots.upload-disabled", false);
 
 // DoH Rollout: whether to enable automatic performance-based TRR-selection.
 // This pref is controlled by a Normandy rollout so we don't overload providers.
