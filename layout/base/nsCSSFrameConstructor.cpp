@@ -3885,7 +3885,7 @@ nsresult nsCSSFrameConstructor::GetAnonymousContent(
   bool allowStyleCaching =
       StaticPrefs::layout_css_cached_scrollbar_styles_enabled() &&
       aParentFrame->StyleVisibility()->mVisible == StyleVisibility::Visible &&
-#ifndef ANDROID
+#if !defined(ANDROID) || defined(MOZ_WIDGET_GONK)
       aParentFrame->StyleUI()->mPointerEvents == StylePointerEvents::Auto &&
 #endif
       mPresShell->GetPresContext()->Medium() == nsGkAtoms::screen;
