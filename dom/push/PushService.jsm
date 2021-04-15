@@ -507,8 +507,6 @@ var PushService = {
       .catch(e => {
         console.error("backgroundUnregister: Error notifying server", e);
       });
-    // Try to unregister all records still pending in queue.
-    this.executeAllPendingUnregistering(record.keyID);
   },
 
   // utility function used to add/remove observers in startObservers() and
