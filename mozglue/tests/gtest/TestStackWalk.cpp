@@ -12,7 +12,7 @@
 
 #include "gtest/gtest.h"
 
-bool gDummy = true;
+MOZ_EXPORT bool gStackWalkTesterDummy = true;
 
 struct StackWalkTester;
 
@@ -161,7 +161,7 @@ struct StackWalkTester {
     // produce a tail-call optimization, which we explicitly don't want to
     // happen. So we add a branch that depends on an extern value to prevent
     // that from happening.
-    MOZ_RELEASE_ASSERT(gDummy);
+    MOZ_RELEASE_ASSERT(gStackWalkTesterDummy);
   }
 
   explicit StackWalkTester(std::initializer_list<CallInfo> aFuncCalls)

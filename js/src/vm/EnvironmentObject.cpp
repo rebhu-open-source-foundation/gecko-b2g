@@ -453,10 +453,10 @@ bool ModuleEnvironmentObject::hasImportBinding(HandlePropertyName name) {
   return importBindings().has(NameToId(name));
 }
 
-bool ModuleEnvironmentObject::lookupImport(jsid name,
-                                           ModuleEnvironmentObject** envOut,
-                                           Shape** shapeOut) {
-  return importBindings().lookup(name, envOut, shapeOut);
+bool ModuleEnvironmentObject::lookupImport(
+    jsid name, ModuleEnvironmentObject** envOut,
+    mozilla::Maybe<ShapeProperty>* propOut) {
+  return importBindings().lookup(name, envOut, propOut);
 }
 
 void ModuleEnvironmentObject::fixEnclosingEnvironmentAfterRealmMerge(
@@ -465,16 +465,17 @@ void ModuleEnvironmentObject::fixEnclosingEnvironmentAfterRealmMerge(
 }
 
 /* static */
-bool ModuleEnvironmentObject::lookupProperty(
-    JSContext* cx, HandleObject obj, HandleId id, MutableHandleObject objp,
-    MutableHandle<PropertyResult> propp) {
+bool ModuleEnvironmentObject::lookupProperty(JSContext* cx, HandleObject obj,
+                                             HandleId id,
+                                             MutableHandleObject objp,
+                                             PropertyResult* propp) {
   const IndirectBindingMap& bindings =
       obj->as<ModuleEnvironmentObject>().importBindings();
-  Shape* shape;
+  mozilla::Maybe<ShapeProperty> shapeProp;
   ModuleEnvironmentObject* env;
-  if (bindings.lookup(id, &env, &shape)) {
+  if (bindings.lookup(id, &env, &shapeProp)) {
     objp.set(env);
-    propp.setNativeProperty(shape);
+    propp->setNativeProperty(*shapeProp);
     return true;
   }
 
@@ -505,10 +506,10 @@ bool ModuleEnvironmentObject::getProperty(JSContext* cx, HandleObject obj,
                                           MutableHandleValue vp) {
   const IndirectBindingMap& bindings =
       obj->as<ModuleEnvironmentObject>().importBindings();
-  Shape* shape;
+  mozilla::Maybe<ShapeProperty> prop;
   ModuleEnvironmentObject* env;
-  if (bindings.lookup(id, &env, &shape)) {
-    vp.set(env->getSlot(shape->slot()));
+  if (bindings.lookup(id, &env, &prop)) {
+    vp.set(env->getSlot(prop->slot()));
     return true;
   }
 
@@ -535,12 +536,12 @@ bool ModuleEnvironmentObject::getOwnPropertyDescriptor(
     MutableHandle<PropertyDescriptor> desc) {
   const IndirectBindingMap& bindings =
       obj->as<ModuleEnvironmentObject>().importBindings();
-  Shape* shape;
+  mozilla::Maybe<ShapeProperty> prop;
   ModuleEnvironmentObject* env;
-  if (bindings.lookup(id, &env, &shape)) {
+  if (bindings.lookup(id, &env, &prop)) {
     desc.setAttributes(JSPROP_ENUMERATE | JSPROP_PERMANENT);
     desc.object().set(obj);
-    RootedValue value(cx, env->getSlot(shape->slot()));
+    RootedValue value(cx, env->getSlot(prop->slot()));
     desc.setValue(value);
     desc.assertComplete();
     return true;
@@ -709,11 +710,11 @@ static bool CheckUnscopables(JSContext* cx, HandleObject obj, HandleId id,
 
 static bool with_LookupProperty(JSContext* cx, HandleObject obj, HandleId id,
                                 MutableHandleObject objp,
-                                MutableHandle<PropertyResult> propp) {
+                                PropertyResult* propp) {
   // SpiderMonkey-specific: consider the internal '.this' name to be unscopable.
   if (IsUnscopableDotName(cx, id)) {
     objp.set(nullptr);
-    propp.setNotFound();
+    propp->setNotFound();
     return true;
   }
 
@@ -725,14 +726,14 @@ static bool with_LookupProperty(JSContext* cx, HandleObject obj, HandleId id,
     return false;
   }
 
-  if (propp.isFound()) {
+  if (propp->isFound()) {
     bool scopable;
     if (!CheckUnscopables(cx, actual, id, &scopable)) {
       return false;
     }
     if (!scopable) {
       objp.set(nullptr);
-      propp.setNotFound();
+      propp->setNotFound();
     }
   }
   return true;
@@ -1183,7 +1184,7 @@ static void ReportRuntimeLexicalErrorId(JSContext* cx, unsigned errorNumber,
 
 static bool lexicalError_LookupProperty(JSContext* cx, HandleObject obj,
                                         HandleId id, MutableHandleObject objp,
-                                        MutableHandle<PropertyResult> propp) {
+                                        PropertyResult* propp) {
   ReportRuntimeLexicalErrorId(
       cx, obj->as<RuntimeLexicalErrorObject>().errorNumber(), id);
   return false;
@@ -3474,19 +3475,19 @@ bool js::CheckLexicalNameConflict(
     HandleObject varObj, HandlePropertyName name) {
   const char* redeclKind = nullptr;
   RootedId id(cx, NameToId(name));
-  RootedShape shape(cx);
+  mozilla::Maybe<ShapeProperty> prop;
   if (varObj->is<GlobalObject>() &&
       varObj->as<GlobalObject>().realm()->isInVarNames(name)) {
     // ES 15.1.11 step 5.a
     redeclKind = "var";
-  } else if ((shape = lexicalEnv->lookup(cx, name))) {
+  } else if ((prop = lexicalEnv->lookup(cx, name))) {
     // ES 15.1.11 step 5.b
-    redeclKind = shape->writable() ? "let" : "const";
+    redeclKind = prop->writable() ? "let" : "const";
   } else if (varObj->is<NativeObject>() &&
-             (shape = varObj->as<NativeObject>().lookup(cx, name))) {
+             (prop = varObj->as<NativeObject>().lookup(cx, name))) {
     // Faster path for ES 15.1.11 step 5.c-d when the shape can be found
     // without going through a resolve hook.
-    if (!shape->configurable()) {
+    if (!prop->configurable()) {
       redeclKind = "non-configurable global property";
     }
   } else {
@@ -3511,8 +3512,9 @@ bool js::CheckLexicalNameConflict(
 [[nodiscard]] static bool CheckVarNameConflict(
     JSContext* cx, Handle<LexicalEnvironmentObject*> lexicalEnv,
     HandlePropertyName name) {
-  if (Shape* shape = lexicalEnv->lookup(cx, name)) {
-    ReportRuntimeRedeclaration(cx, name, shape->writable() ? "let" : "const");
+  mozilla::Maybe<ShapeProperty> prop = lexicalEnv->lookup(cx, name);
+  if (prop.isSome()) {
+    ReportRuntimeRedeclaration(cx, name, prop->writable() ? "let" : "const");
     return false;
   }
   return true;
@@ -3593,7 +3595,7 @@ static bool InitGlobalOrEvalDeclarations(
 
     switch (bi.kind()) {
       case BindingKind::Var: {
-        Rooted<PropertyResult> prop(cx);
+        PropertyResult prop;
         RootedObject obj2(cx);
         if (!LookupProperty(cx, varObj, name, &obj2, &prop)) {
           return false;
@@ -3669,7 +3671,7 @@ static bool InitHoistedFunctionDeclarations(JSContext* cx, HandleScript script,
     }
     RootedValue rval(cx, ObjectValue(*clone));
 
-    Rooted<PropertyResult> prop(cx);
+    PropertyResult prop;
     RootedObject pobj(cx);
     if (!LookupProperty(cx, varObj, name, &pobj, &prop)) {
       return false;
@@ -3705,15 +3707,15 @@ static bool InitHoistedFunctionDeclarations(JSContext* cx, HandleScript script,
     MOZ_ASSERT(varObj->is<NativeObject>() ||
                varObj->is<DebugEnvironmentProxy>());
     if (varObj->is<GlobalObject>()) {
-      Shape* shape = prop.shape();
-      if (shape->configurable()) {
+      ShapeProperty shapeProp = prop.shapeProperty();
+      if (shapeProp.configurable()) {
         if (!DefineDataProperty(cx, varObj, name, rval, attrs)) {
           return false;
         }
       } else {
-        MOZ_ASSERT(shape->isDataDescriptor());
-        MOZ_ASSERT(shape->writable());
-        MOZ_ASSERT(shape->enumerable());
+        MOZ_ASSERT(shapeProp.isDataProperty());
+        MOZ_ASSERT(shapeProp.writable());
+        MOZ_ASSERT(shapeProp.enumerable());
       }
 
       // Careful: the presence of a shape, even one appearing to derive from
@@ -4226,20 +4228,22 @@ JSObject* js::MaybeOptimizeBindGlobalName(JSContext* cx,
   // 'let') at compile time.
   Rooted<GlobalLexicalEnvironmentObject*> env(cx,
                                               &global->lexicalEnvironment());
-  if (Shape* shape = env->lookup(cx, name)) {
-    if (shape->writable() &&
-        !env->getSlot(shape->slot()).isMagic(JS_UNINITIALIZED_LEXICAL)) {
+  mozilla::Maybe<ShapeProperty> prop = env->lookup(cx, name);
+  if (prop.isSome()) {
+    if (prop->writable() &&
+        !env->getSlot(prop->slot()).isMagic(JS_UNINITIALIZED_LEXICAL)) {
       return env;
     }
     return nullptr;
   }
 
-  if (Shape* shape = global->lookup(cx, name)) {
+  prop = global->lookup(cx, name);
+  if (prop.isSome()) {
     // If the property does not currently exist on the global lexical
     // scope, we can bind name to the global object if the property
     // exists on the global and is non-configurable, as then it cannot
     // be shadowed.
-    if (!shape->configurable()) {
+    if (!prop->configurable()) {
       return global;
     }
   }

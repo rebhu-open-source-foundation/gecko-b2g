@@ -18,8 +18,10 @@ types.addDictType("target-configuration.configuration", {
   overrideDPPX: "nullable:number",
   paintFlashing: "nullable:boolean",
   printSimulationEnabled: "nullable:boolean",
+  rdmPaneOrientation: "nullable:json",
   restoreFocus: "nullable:boolean",
   serviceWorkersTestingEnabled: "nullable:boolean",
+  touchEventsOverride: "nullable:string",
 });
 
 const targetConfigurationSpec = generateActorSpec({

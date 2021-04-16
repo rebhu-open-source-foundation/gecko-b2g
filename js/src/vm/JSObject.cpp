@@ -1906,8 +1906,7 @@ JSProtoKey JS::IdentifyStandardConstructor(JSObject* obj) {
 }
 
 bool js::LookupProperty(JSContext* cx, HandleObject obj, js::HandleId id,
-                        MutableHandleObject objp,
-                        MutableHandle<PropertyResult> propp) {
+                        MutableHandleObject objp, PropertyResult* propp) {
   if (LookupPropertyOp op = obj->getOpsLookupProperty()) {
     return op(cx, obj, id, objp, propp);
   }
@@ -1917,15 +1916,14 @@ bool js::LookupProperty(JSContext* cx, HandleObject obj, js::HandleId id,
 
 bool js::LookupName(JSContext* cx, HandlePropertyName name,
                     HandleObject envChain, MutableHandleObject objp,
-                    MutableHandleObject pobjp,
-                    MutableHandle<PropertyResult> propp) {
+                    MutableHandleObject pobjp, PropertyResult* propp) {
   RootedId id(cx, NameToId(name));
 
   for (RootedObject env(cx, envChain); env; env = env->enclosingEnvironment()) {
     if (!LookupProperty(cx, env, id, pobjp, propp)) {
       return false;
     }
-    if (propp.isFound()) {
+    if (propp->isFound()) {
       objp.set(env);
       return true;
     }
@@ -1933,7 +1931,7 @@ bool js::LookupName(JSContext* cx, HandlePropertyName name,
 
   objp.set(nullptr);
   pobjp.set(nullptr);
-  propp.setNotFound();
+  propp->setNotFound();
   return true;
 }
 
@@ -1967,7 +1965,7 @@ bool js::LookupNameWithGlobalDefault(JSContext* cx, HandlePropertyName name,
   RootedId id(cx, NameToId(name));
 
   RootedObject pobj(cx);
-  Rooted<PropertyResult> prop(cx);
+  PropertyResult prop;
 
   RootedObject env(cx, envChain);
   for (; !env->is<GlobalObject>(); env = env->enclosingEnvironment()) {
@@ -1989,7 +1987,7 @@ bool js::LookupNameUnqualified(JSContext* cx, HandlePropertyName name,
   RootedId id(cx, NameToId(name));
 
   RootedObject pobj(cx);
-  Rooted<PropertyResult> prop(cx);
+  PropertyResult prop;
 
   RootedObject env(cx, envChain);
   for (; !env->isUnqualifiedVarObj(); env = env->enclosingEnvironment()) {
@@ -2029,7 +2027,7 @@ bool js::LookupNameUnqualified(JSContext* cx, HandlePropertyName name,
         return false;
       }
     } else if (env->is<LexicalEnvironmentObject>() &&
-               !prop.shape()->writable()) {
+               !prop.shapeProperty().writable()) {
       // Assigning to a named lambda callee name is a no-op in sloppy mode.
       if (!(env->is<BlockLexicalEnvironmentObject>() &&
             env->as<BlockLexicalEnvironmentObject>().scope().kind() ==
@@ -2063,7 +2061,7 @@ bool js::HasOwnProperty(JSContext* cx, HandleObject obj, HandleId id,
     return true;
   }
 
-  Rooted<PropertyResult> prop(cx);
+  PropertyResult prop;
   if (!NativeLookupOwnProperty<CanGC>(cx, obj.as<NativeObject>(), id, &prop)) {
     return false;
   }
@@ -2103,12 +2101,12 @@ static inline bool NativeGetPureInline(NativeObject* pobj, jsid id,
   }
 
   // Fail if we have a custom getter.
-  Shape* shape = prop.shape();
-  if (!shape->isDataProperty()) {
+  ShapeProperty shapeProp = prop.shapeProperty();
+  if (!shapeProp.isDataProperty()) {
     return false;
   }
 
-  *vp = pobj->getSlot(shape->slot());
+  *vp = pobj->getSlot(shapeProp.slot());
   MOZ_ASSERT(!vp->isMagic());
   return true;
 }
@@ -2151,8 +2149,9 @@ static inline bool NativeGetGetterPureInline(NativeObject* holder,
                                              JSFunction** fp) {
   MOZ_ASSERT(prop.isNativeProperty());
 
-  if (holder->hasGetter(prop.shape())) {
-    JSObject* getter = holder->getGetter(prop.shape());
+  ShapeProperty shapeProp = prop.shapeProperty();
+  if (holder->hasGetter(shapeProp)) {
+    JSObject* getter = holder->getGetter(shapeProp);
     if (getter->is<JSFunction>()) {
       *fp = &getter->as<JSFunction>();
       return true;
@@ -2210,12 +2209,14 @@ bool js::GetOwnNativeGetterPure(JSContext* cx, JSObject* obj, jsid id,
     return true;
   }
 
+  ShapeProperty shapeProp = prop.shapeProperty();
+
   NativeObject* nobj = &obj->as<NativeObject>();
-  if (!nobj->hasGetter(prop.shape())) {
+  if (!nobj->hasGetter(shapeProp)) {
     return true;
   }
 
-  JSObject* getterObj = nobj->getGetter(prop.shape());
+  JSObject* getterObj = nobj->getGetter(shapeProp);
   if (!getterObj->is<JSFunction>()) {
     return true;
   }
@@ -2236,7 +2237,7 @@ bool js::HasOwnDataPropertyPure(JSContext* cx, JSObject* obj, jsid id,
     return false;
   }
 
-  *result = prop.isNativeProperty() && prop.shape()->isDataProperty();
+  *result = prop.isNativeProperty() && prop.shapeProperty().isDataProperty();
   return true;
 }
 
@@ -3175,17 +3176,19 @@ static void DumpProperty(const NativeObject* obj, Shape& shape,
     out.printf("id %p", reinterpret_cast<void*>(JSID_BITS(id)));
   }
 
-  if (shape.isDataProperty()) {
+  ShapeProperty prop = ShapeProperty(&shape);
+
+  if (prop.isDataProperty()) {
     out.printf(": ");
-    dumpValue(obj->getSlot(shape.maybeSlot()), out);
-  } else if (shape.isAccessorDescriptor()) {
-    out.printf(": getter %p setter %p", obj->getGetter(&shape),
-               obj->getSetter(&shape));
+    dumpValue(obj->getSlot(prop.slot()), out);
+  } else if (prop.isAccessorProperty()) {
+    out.printf(": getter %p setter %p", obj->getGetter(prop),
+               obj->getSetter(prop));
   }
 
   out.printf(" (shape %p", (void*)&shape);
 
-  uint8_t attrs = shape.attributes();
+  uint8_t attrs = prop.attributes();
   if (attrs & JSPROP_ENUMERATE) {
     out.put(" enumerate");
   }
@@ -3196,7 +3199,7 @@ static void DumpProperty(const NativeObject* obj, Shape& shape,
     out.put(" permanent");
   }
 
-  if (shape.isCustomDataProperty()) {
+  if (prop.isCustomDataProperty()) {
     out.printf(" <custom-data-prop>");
   }
 

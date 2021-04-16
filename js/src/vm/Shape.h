@@ -120,8 +120,56 @@ MOZ_ALWAYS_INLINE size_t JSSLOT_FREE(const JSClass* clasp) {
 
 namespace js {
 
+/* Limit on the number of slotful properties in an object. */
+static const uint32_t SHAPE_INVALID_SLOT = Bit(24) - 1;
+static const uint32_t SHAPE_MAXIMUM_SLOT = Bit(24) - 2;
+
 class Shape;
 struct StackShape;
+
+// ShapeProperty contains information (attributes, slot number) for a property
+// stored in the Shape tree. Property lookups on NativeObjects return a
+// ShapeProperty.
+class ShapeProperty {
+  uint32_t slot_;
+  uint8_t attrs_;
+
+ public:
+  inline explicit ShapeProperty(Shape* shape);
+
+  bool isDataProperty() const {
+    return !(attrs_ &
+             (JSPROP_GETTER | JSPROP_SETTER | JSPROP_CUSTOM_DATA_PROP));
+  }
+  bool isCustomDataProperty() const { return attrs_ & JSPROP_CUSTOM_DATA_PROP; }
+  bool isAccessorProperty() const {
+    return attrs_ & (JSPROP_GETTER | JSPROP_SETTER);
+  }
+
+  // Note: unlike isDataProperty, this returns true also for custom data
+  // properties. See JSPROP_CUSTOM_DATA_PROP.
+  bool isDataDescriptor() const {
+    return isDataProperty() || isCustomDataProperty();
+  }
+
+  uint32_t slot() const {
+    MOZ_ASSERT(!isCustomDataProperty());
+    MOZ_ASSERT(slot_ < SHAPE_INVALID_SLOT);
+    return slot_;
+  }
+
+  uint8_t attributes() const { return attrs_; }
+  bool writable() const { return !(attrs_ & JSPROP_READONLY); }
+  bool configurable() const { return !(attrs_ & JSPROP_PERMANENT); }
+  bool enumerable() const { return attrs_ & JSPROP_ENUMERATE; }
+
+  bool operator==(const ShapeProperty& other) const {
+    return slot_ == other.slot_ && attrs_ == other.attrs_;
+  }
+  bool operator!=(const ShapeProperty& other) const {
+    return !operator==(other);
+  }
+};
 
 struct ShapeHasher : public DefaultHasher<Shape*> {
   using Key = Shape*;
@@ -256,10 +304,6 @@ class PropertyTree {
 };
 
 class TenuringTracer;
-
-/* Limit on the number of slotful properties in an object. */
-static const uint32_t SHAPE_INVALID_SLOT = Bit(24) - 1;
-static const uint32_t SHAPE_MAXIMUM_SLOT = Bit(24) - 2;
 
 enum class MaybeAdding { Adding = true, NotAdding = false };
 
@@ -1203,6 +1247,8 @@ class Shape : public gc::CellWithTenuredGCPointer<gc::TenuredCell, BaseShape> {
     return (attrs & (JSPROP_SETTER | JSPROP_GETTER)) != 0;
   }
 
+  bool isAccessorProperty() const { return isAccessorDescriptor(); }
+
   uint32_t entryCount() {
     JS::AutoCheckCannotGC nogc;
     if (ShapeTable* table = maybeTable(nogc)) {
@@ -1586,6 +1632,9 @@ MOZ_ALWAYS_INLINE bool ShapeIC::search(jsid id, Shape** foundShape) {
 
   return false;
 }
+
+inline ShapeProperty::ShapeProperty(Shape* shape)
+    : slot_(shape->maybeSlot()), attrs_(shape->attributes()) {}
 
 }  // namespace js
 

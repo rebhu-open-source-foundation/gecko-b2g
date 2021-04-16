@@ -32,24 +32,10 @@ const responsiveSpec = generateActorSpec({
       },
     },
 
-    setTouchEventsOverride: {
+    toggleTouchSimulator: {
       request: {
-        flag: Arg(0, "string"),
+        options: Arg(0, "json"),
       },
-      response: {
-        valueChanged: RetVal("boolean"),
-      },
-    },
-
-    getTouchEventsOverride: {
-      request: {},
-      response: {
-        flag: RetVal("string"),
-      },
-    },
-
-    clearTouchEventsOverride: {
-      request: {},
       response: {
         valueChanged: RetVal("boolean"),
       },
@@ -109,12 +95,8 @@ const responsiveSpec = generateActorSpec({
       response: {},
     },
 
-    simulateScreenOrientationChange: {
-      request: {
-        orientation: Arg(0, "string"),
-        angle: Arg(1, "number"),
-        deviceChange: Arg(2, "boolean"),
-      },
+    dispatchOrientationChangeEvent: {
+      request: {},
       response: {},
     },
 
