@@ -1157,6 +1157,14 @@
   value: false
   mirror: always
 
+# Whether the toolbar is dark/light/auto.
+# Controls @media -moz-toolbar-prefers-color-scheme.
+- name: browser.theme.dark-toolbar-theme
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+  rust: true
+
 # Enable Proton restyle. Requires restart.
 - name: browser.proton.enabled
   type: RelaxedAtomicBool
@@ -2392,8 +2400,19 @@
   value: @IS_NIGHTLY_BUILD@
   mirror: always
 
-# Support for input type=month, type=week and type=datetime-local. By default,
-# disabled.
+# Support for input type=datetime-local.
+- name: dom.forms.datetime-local
+  type: bool
+  value: @IS_ANDROID@
+  mirror: always
+
+# Support for input type=datetime-local widget. Disabled for now.
+- name: dom.forms.datetime-local.widget
+  type: bool
+  value: false
+  mirror: always
+
+# Support for input type=month, type=week. By default, disabled.
 - name: dom.forms.datetime.others
   type: bool
   value: @IS_ANDROID@

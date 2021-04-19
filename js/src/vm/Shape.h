@@ -152,8 +152,10 @@ class ShapeProperty {
     return isDataProperty() || isCustomDataProperty();
   }
 
+  bool hasSlot() const { return !isCustomDataProperty(); }
+
   uint32_t slot() const {
-    MOZ_ASSERT(!isCustomDataProperty());
+    MOZ_ASSERT(hasSlot());
     MOZ_ASSERT(slot_ < SHAPE_INVALID_SLOT);
     return slot_;
   }
@@ -169,6 +171,32 @@ class ShapeProperty {
   bool operator!=(const ShapeProperty& other) const {
     return !operator==(other);
   }
+};
+
+class ShapePropertyWithKey : public ShapeProperty {
+  JS::PropertyKey key_;
+
+ public:
+  explicit ShapePropertyWithKey(Shape* shape);
+
+  JS::PropertyKey key() const { return key_; }
+
+  void trace(JSTracer* trc) {
+    TraceRoot(trc, &key_, "ShapePropertyWithKey-key");
+  }
+};
+
+template <class Wrapper>
+class WrappedPtrOperations<ShapePropertyWithKey, Wrapper> {
+  const ShapePropertyWithKey& value() const {
+    return static_cast<const Wrapper*>(this)->get();
+  }
+
+ public:
+  bool isDataProperty() const { return value().isDataProperty(); }
+  uint32_t slot() const { return value().slot(); }
+  JS::PropertyKey key() const { return value().key(); }
+  uint8_t attributes() const { return value().attributes(); }
 };
 
 struct ShapeHasher : public DefaultHasher<Shape*> {
@@ -1078,7 +1106,7 @@ class Shape : public gc::CellWithTenuredGCPointer<gc::TenuredCell, BaseShape> {
       static_assert(allowGC == CanGC);
     }
 
-    explicit Range(Shape* shape) : cursor((JSContext*)nullptr, shape) {
+    explicit Range(Shape* shape) : cursor(nullptr, shape) {
       static_assert(allowGC == NoGC);
     }
 
@@ -1635,6 +1663,56 @@ MOZ_ALWAYS_INLINE bool ShapeIC::search(jsid id, Shape** foundShape) {
 
 inline ShapeProperty::ShapeProperty(Shape* shape)
     : slot_(shape->maybeSlot()), attrs_(shape->attributes()) {}
+
+inline ShapePropertyWithKey::ShapePropertyWithKey(Shape* shape)
+    : ShapeProperty(shape), key_(shape->propid()) {}
+
+using ShapePropertyVector = GCVector<ShapePropertyWithKey, 8>;
+
+// Iterator for iterating over a shape's properties. It can be used like this:
+//
+//   for (ShapePropertyIter<NoGC> iter(nobj->shape()); !iter.done(); iter++) {
+//     PropertyKey key = iter->key();
+//     if (iter->isDataProperty() && iter->enumerable()) { .. }
+//   }
+template <AllowGC allowGC>
+class MOZ_RAII ShapePropertyIter {
+ protected:
+  friend class Shape;
+
+  typename MaybeRooted<Shape*, allowGC>::RootType cursor_;
+
+ public:
+  ShapePropertyIter(JSContext* cx, Shape* shape) : cursor_(cx, shape) {
+    static_assert(allowGC == CanGC);
+  }
+
+  explicit ShapePropertyIter(Shape* shape) : cursor_(nullptr, shape) {
+    static_assert(allowGC == NoGC);
+  }
+
+  bool done() const { return cursor_->isEmptyShape(); }
+
+  void operator++(int) {
+    MOZ_ASSERT(!done());
+    cursor_ = cursor_->previous();
+  }
+
+  ShapePropertyWithKey get() const {
+    MOZ_ASSERT(!done());
+    return ShapePropertyWithKey(cursor_);
+  }
+
+  ShapePropertyWithKey operator*() const { return get(); }
+
+  // Fake pointer struct to make operator-> work.
+  // See https://stackoverflow.com/a/52856349.
+  struct FakePtr {
+    ShapePropertyWithKey val_;
+    const ShapePropertyWithKey* operator->() const { return &val_; }
+  };
+  FakePtr operator->() const { return {get()}; }
+};
 
 }  // namespace js
 

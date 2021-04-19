@@ -3810,8 +3810,6 @@ BrowserGlue.prototype = {
         return "disallow-postUpdate";
       }
 
-      // Check enabled last to avoid waiting on remote data in the common case.
-      await NimbusFeatures.upgradeDialog.ready();
       return NimbusFeatures.upgradeDialog.isEnabled() ? "" : "disabled";
     })();
 
@@ -4628,7 +4626,7 @@ var DefaultBrowserCheck = {
             ? "default-browser-prompt-message-pin"
             : "default-browser-prompt-message-alt",
         },
-        { id: "default-browser-prompt-checkbox-label" },
+        { id: "default-browser-prompt-checkbox-not-again-label" },
         {
           id: needPin
             ? "default-browser-prompt-button-primary-pin"

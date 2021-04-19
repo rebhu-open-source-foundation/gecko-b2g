@@ -176,6 +176,27 @@ void nsMenuX::DetachFromGroupOwnerRecursive() {
   }
 }
 
+void nsMenuX::OnMenuWillOpen(dom::Element* aPopupElement) {
+  RefPtr<nsMenuX> kungFuDeathGrip(this);
+  if (mObserver) {
+    mObserver->OnMenuWillOpen(aPopupElement);
+  }
+}
+
+void nsMenuX::OnMenuDidOpen(dom::Element* aPopupElement) {
+  RefPtr<nsMenuX> kungFuDeathGrip(this);
+  if (mObserver) {
+    mObserver->OnMenuDidOpen(aPopupElement);
+  }
+}
+
+void nsMenuX::OnMenuClosed(dom::Element* aPopupElement) {
+  RefPtr<nsMenuX> kungFuDeathGrip(this);
+  if (mObserver) {
+    mObserver->OnMenuClosed(aPopupElement);
+  }
+}
+
 void nsMenuX::UnregisterCommands() {
   NS_OBJC_BEGIN_TRY_ABORT_BLOCK;
 
@@ -222,6 +243,7 @@ void nsMenuX::AddMenuItem(RefPtr<nsMenuItemX>&& aMenuItem) {
 void nsMenuX::AddMenu(RefPtr<nsMenuX>&& aMenu) {
   NS_OBJC_BEGIN_TRY_ABORT_BLOCK;
 
+  aMenu->SetObserver(this);
   mMenuChildren.AppendElement(aMenu);
 
   if (nsMenuUtilsX::NodeIsHiddenOrCollapsed(aMenu->Content())) {
@@ -315,6 +337,7 @@ nsresult nsMenuX::RemoveAll() {
         [](const RefPtr<nsMenuX>& aMenu) {
           aMenu->DetachFromGroupOwnerRecursive();
           aMenu->DetachFromParent();
+          aMenu->SetObserver(nullptr);
         },
         [](const RefPtr<nsMenuItemX>& aMenuItem) {
           aMenuItem->DetachFromGroupOwner();
@@ -411,15 +434,16 @@ void nsMenuX::MenuOpenedAsync() {
     mContent->AsElement()->SetAttr(kNameSpaceID_None, nsGkAtoms::open, u"true"_ns, true);
   }
 
+  nsCOMPtr<nsIContent> popupContent = GetMenuPopupContent();
+
   // Notify our observer.
-  if (mObserver) {
-    mObserver->OnMenuOpened();
+  if (mObserver && popupContent) {
+    mObserver->OnMenuDidOpen(popupContent->AsElement());
   }
 
   // Fire popupshown.
   nsEventStatus status = nsEventStatus_eIgnore;
   WidgetMouseEvent event(true, eXULPopupShown, nullptr, WidgetMouseEvent::eReal);
-  nsCOMPtr<nsIContent> popupContent = GetMenuPopupContent();
   nsIContent* dispatchTo = popupContent ? popupContent : mContent;
   EventDispatcher::Dispatch(dispatchTo, nullptr, &event, nullptr, &status);
 }
@@ -518,8 +542,8 @@ void nsMenuX::MenuClosedAsync() {
   EventDispatcher::Dispatch(dispatchTo, nullptr, &popupHidden, nullptr, &status);
 
   // Notify our observer.
-  if (mObserver) {
-    mObserver->OnMenuClosed();
+  if (mObserver && popupContent) {
+    mObserver->OnMenuClosed(popupContent->AsElement());
   }
 }
 
@@ -567,6 +591,14 @@ void nsMenuX::ActivateItemAndClose(RefPtr<nsMenuItemX>&& aItem, NSEventModifierF
 bool nsMenuX::Close() {
   NS_OBJC_BEGIN_TRY_ABORT_BLOCK;
 
+  if (mDidFirePopupshowingAndIsApprovedToOpen && !mIsOpen) {
+    // Close is being called right after this menu was opened, but before MenuOpened() had a chance
+    // to run. Call it here so that we can go through the entire popupshown -> popuphiding ->
+    // popuphidden sequence. Some callers expect to get a popuphidden event even if they close the
+    // popup before it was fully open.
+    MenuOpened();
+  }
+
   FlushMenuOpenedRunnable();
 
   bool wasOpen = mIsOpenForGecko;
@@ -579,6 +611,9 @@ bool nsMenuX::Close() {
     // If we do get here, it's usually because we're running an automated test. Close the menu
     // without the fade-out animation so that we don't unnecessarily slow down the automated tests.
     [mNativeMenu cancelTrackingWithoutAnimation];
+
+    // Handle closing synchronously.
+    MenuClosed();
   }
 
   FlushMenuClosedRunnable();
@@ -731,10 +766,14 @@ bool nsMenuX::OnOpen() {
                "seems odd.");
   }
 
+  nsCOMPtr<nsIContent> popupContent = GetMenuPopupContent();
+
+  if (mObserver && popupContent) {
+    mObserver->OnMenuWillOpen(popupContent->AsElement());
+  }
+
   nsEventStatus status = nsEventStatus_eIgnore;
   WidgetMouseEvent event(true, eXULPopupShowing, nullptr, WidgetMouseEvent::eReal);
-
-  nsCOMPtr<nsIContent> popupContent = GetMenuPopupContent();
 
   nsresult rv = NS_OK;
   nsIContent* dispatchTo = popupContent ? popupContent : mContent;

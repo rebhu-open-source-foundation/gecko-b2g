@@ -564,23 +564,19 @@ DenseElementResult NativeObject::maybeDensifySparseElements(
   uint32_t numDenseElements = 0;
   uint32_t newInitializedLength = 0;
 
-  RootedShape shape(cx, obj->lastProperty());
-  while (!shape->isEmptyShape()) {
+  for (ShapePropertyIter<NoGC> iter(obj->shape()); !iter.done(); iter++) {
     uint32_t index;
-    if (IdIsIndex(shape->propid(), &index)) {
-      if (shape->attributes() == JSPROP_ENUMERATE) {
-        MOZ_ASSERT(shape->isDataProperty());
-        numDenseElements++;
-        newInitializedLength = std::max(newInitializedLength, index + 1);
-      } else {
-        /*
-         * For simplicity, only densify the object if all indexed
-         * properties can be converted to dense elements.
-         */
-        return DenseElementResult::Incomplete;
-      }
+    if (!IdIsIndex(iter->key(), &index)) {
+      continue;
     }
-    shape = shape->previous();
+    if (iter->attributes() != JSPROP_ENUMERATE) {
+      // For simplicity, only densify the object if all indexed properties can
+      // be converted to dense elements.
+      return DenseElementResult::Incomplete;
+    }
+    MOZ_ASSERT(iter->isDataProperty());
+    numDenseElements++;
+    newInitializedLength = std::max(newInitializedLength, index + 1);
   }
 
   if (numDenseElements * SPARSE_DENSITY_RATIO < newInitializedLength) {
@@ -612,7 +608,7 @@ DenseElementResult NativeObject::maybeDensifySparseElements(
 
   RootedValue value(cx);
 
-  shape = obj->lastProperty();
+  RootedShape shape(cx, obj->shape());
   while (!shape->isEmptyShape()) {
     jsid id = shape->propid();
     uint32_t index;
@@ -2884,16 +2880,14 @@ bool js::CopyDataPropertiesNative(JSContext* cx, HandlePlainObject target,
   }
 
   // Collect all enumerable data properties.
-  using ShapeVector = GCVector<Shape*, 8>;
-  Rooted<ShapeVector> shapes(cx, ShapeVector(cx));
+  Rooted<ShapePropertyVector> props(cx, ShapePropertyVector(cx));
 
-  RootedShape fromShape(cx, from->lastProperty());
-  for (Shape::Range<NoGC> r(fromShape); !r.empty(); r.popFront()) {
-    Shape* shape = &r.front();
-    jsid id = shape->propid();
+  RootedShape fromShape(cx, from->shape());
+  for (ShapePropertyIter<NoGC> iter(fromShape); !iter.done(); iter++) {
+    jsid id = iter->key();
     MOZ_ASSERT(!JSID_IS_INT(id));
 
-    if (!shape->enumerable()) {
+    if (!iter->enumerable()) {
       continue;
     }
     if (excludedItems && excludedItems->contains(cx, id)) {
@@ -2905,11 +2899,11 @@ bool js::CopyDataPropertiesNative(JSContext* cx, HandlePlainObject target,
     // This enables two optimizations:
     // 1. We don't need to handle the case when accessors modify |from|.
     // 2. String and symbol properties can be added in one go.
-    if (!shape->isDataProperty()) {
+    if (!iter->isDataProperty()) {
       return true;
     }
 
-    if (!shapes.append(shape)) {
+    if (!props.append(*iter)) {
       return false;
     }
   }
@@ -2918,24 +2912,24 @@ bool js::CopyDataPropertiesNative(JSContext* cx, HandlePlainObject target,
 
   // If |target| contains no own properties, we can directly call
   // addProperty instead of the slower putProperty.
-  const bool targetHadNoOwnProperties = target->lastProperty()->isEmptyShape();
+  const bool targetHadNoOwnProperties = target->empty();
 
   RootedId key(cx);
   RootedValue value(cx);
-  for (size_t i = shapes.length(); i > 0; i--) {
-    Shape* shape = shapes[i - 1];
-    MOZ_ASSERT(shape->isDataProperty());
-    MOZ_ASSERT(shape->enumerable());
+  for (size_t i = props.length(); i > 0; i--) {
+    ShapePropertyWithKey prop = props[i - 1];
+    MOZ_ASSERT(prop.isDataProperty());
+    MOZ_ASSERT(prop.enumerable());
 
-    key = shape->propid();
+    key = prop.key();
     MOZ_ASSERT(!JSID_IS_INT(key));
 
     MOZ_ASSERT(from->is<NativeObject>());
-    MOZ_ASSERT(from->lastProperty() == fromShape);
+    MOZ_ASSERT(from->shape() == fromShape);
 
-    value = from->getSlot(shape->slot());
+    value = from->getSlot(prop.slot());
     if (targetHadNoOwnProperties) {
-      MOZ_ASSERT(!target->contains(cx, key),
+      MOZ_ASSERT(!target->containsPure(key),
                  "didn't expect to find an existing property");
 
       if (!AddDataPropertyNonPrototype(cx, target, key, value)) {
