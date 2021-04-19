@@ -34,6 +34,8 @@ static const char SUPPLICANT_INTERFACE_NAME_V1_2[] =
 static const char HAL_INSTANCE_NAME[] = "default";
 
 mozilla::Mutex SupplicantStaManager::sLock("supplicant-sta");
+mozilla::Mutex SupplicantStaManager::sHashLock("supplicant-hash");
+
 static StaticAutoPtr<SupplicantStaManager> sSupplicantManager;
 
 SupplicantStaManager::SupplicantStaManager()
@@ -215,7 +217,7 @@ Result_t SupplicantStaManager::TearDownInterface() {
     }
   }
 
-  mCurrentConfiguration.clear();
+  ModifyConfigurationHash(CLEAN_ALL, mDummyNetworkConfiguration);
   mCurrentNetwork.clear();
   mSupplicant = nullptr;
   mSupplicantStaIface = nullptr;
@@ -595,14 +597,29 @@ android::sp<SupplicantStaNetwork> SupplicantStaManager::GetCurrentNetwork()
 }
 
 NetworkConfiguration SupplicantStaManager::GetCurrentConfiguration() const {
-  std::unordered_map<std::string, NetworkConfiguration> currentConfiguration =
-      mCurrentConfiguration;
+  MutexAutoLock lock(sHashLock);
   std::unordered_map<std::string, NetworkConfiguration>::const_iterator config =
-      currentConfiguration.find(mInterfaceName);
-  if (config == currentConfiguration.end()) {
+      mCurrentConfiguration.find(mInterfaceName);
+  if (config == mCurrentConfiguration.end()) {
     return mDummyNetworkConfiguration;
   }
-  return currentConfiguration.at(mInterfaceName);
+  return mCurrentConfiguration.at(mInterfaceName);
+}
+
+void SupplicantStaManager::ModifyConfigurationHash(
+    int aAction, const NetworkConfiguration& aConfig) {
+  MutexAutoLock lock(sHashLock);
+  switch (aAction) {
+    case CLEAN_ALL:
+      mCurrentConfiguration.clear();
+      break;
+    case ERASE_CONFIG:
+      mCurrentConfiguration.erase(mInterfaceName);
+      break;
+    case ADD_CONFIG:
+      mCurrentConfiguration.insert(std::make_pair(mInterfaceName, aConfig));
+      break;
+  }
 }
 
 int32_t SupplicantStaManager::GetCurrentNetworkId() const {
@@ -633,12 +650,10 @@ Result_t SupplicantStaManager::ConnectToNetwork(ConfigurationOptions* aConfig) {
   Result_t result = nsIWifiResult::ERROR_UNKNOWN;
   android::sp<SupplicantStaNetwork> staNetwork;
   NetworkConfiguration config(aConfig);
+  NetworkConfiguration existConfig = GetCurrentConfiguration();
 
-  std::unordered_map<std::string, NetworkConfiguration>::const_iterator
-      existConfig = mCurrentConfiguration.find(mInterfaceName);
-
-  if (existConfig != mCurrentConfiguration.end() &&
-      CompareConfiguration(mCurrentConfiguration.at(mInterfaceName), config)) {
+  if (!CompareConfiguration(existConfig, mDummyNetworkConfiguration) &&
+      CompareConfiguration(existConfig, config)) {
     WIFI_LOGD(LOG_TAG, "Same network, do not need to create a new one");
 
     staNetwork = GetCurrentNetwork();
@@ -647,7 +662,7 @@ Result_t SupplicantStaManager::ConnectToNetwork(ConfigurationOptions* aConfig) {
       return nsIWifiResult::ERROR_COMMAND_FAILED;
     }
   } else {
-    mCurrentConfiguration.erase(mInterfaceName);
+    ModifyConfigurationHash(ERASE_CONFIG, mDummyNetworkConfiguration);
     mCurrentNetwork.erase(mInterfaceName);
 
     // remove all supplicant networks
@@ -669,11 +684,11 @@ Result_t SupplicantStaManager::ConnectToNetwork(ConfigurationOptions* aConfig) {
   result = staNetwork->SetConfiguration(config);
   if (result != nsIWifiResult::SUCCESS) {
     WIFI_LOGE(LOG_TAG, "Failed to set wifi configuration");
-    mCurrentConfiguration.clear();
+    ModifyConfigurationHash(CLEAN_ALL, mDummyNetworkConfiguration);
     mCurrentNetwork.clear();
     return result;
   }
-  mCurrentConfiguration.insert(std::make_pair(mInterfaceName, config));
+  ModifyConfigurationHash(ADD_CONFIG, config);
   mCurrentNetwork.insert(std::make_pair(mInterfaceName, staNetwork));
 
   // success, start to make connection
@@ -801,7 +816,7 @@ Result_t SupplicantStaManager::RemoveNetworks() {
     }
   }
 
-  mCurrentConfiguration.erase(mInterfaceName);
+  ModifyConfigurationHash(ERASE_CONFIG, mDummyNetworkConfiguration);
   mCurrentNetwork.erase(mInterfaceName);
   return nsIWifiResult::SUCCESS;
 }

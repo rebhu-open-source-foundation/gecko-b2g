@@ -235,6 +235,7 @@ class SupplicantStaManager
   static int16_t ConvertToWpsConfigMethod(const std::string& aConfigMethod);
 
   static mozilla::Mutex sLock;
+  static mozilla::Mutex sHashLock;
 
   android::sp<::android::hidl::manager::V1_0::IServiceManager> mServiceManager;
   android::sp<ISupplicant> mSupplicant;
@@ -251,6 +252,13 @@ class SupplicantStaManager
   std::string mInterfaceName;
 
   // For current connecting network.
+  enum {
+    CLEAN_ALL,
+    ERASE_CONFIG,
+    ADD_CONFIG,
+  };
+  void ModifyConfigurationHash(int aAction,
+                               const NetworkConfiguration& aConfig);
   std::unordered_map<std::string, NetworkConfiguration> mCurrentConfiguration;
   std::unordered_map<std::string, android::sp<SupplicantStaNetwork>>
       mCurrentNetwork;
