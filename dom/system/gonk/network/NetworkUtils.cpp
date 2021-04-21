@@ -294,6 +294,10 @@ class NetdInitRunnable : public mozilla::Runnable {
         Property::Set("ctl.stop", "netd");
       }
     }
+
+    if (gNetworkUtils) {
+      gNetworkUtils->updateDebug();
+    }
     return NS_OK;
   }
 
