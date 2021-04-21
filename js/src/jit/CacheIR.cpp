@@ -102,6 +102,7 @@ size_t js::jit::NumInputsForCacheKind(CacheKind kind) {
     case CacheKind::BindName:
     case CacheKind::Call:
     case CacheKind::OptimizeSpreadCall:
+    case CacheKind::NewArray:
       return 1;
     case CacheKind::Compare:
     case CacheKind::GetElem:
@@ -560,7 +561,7 @@ static bool IsCacheableNoProperty(JSContext* cx, NativeObject* obj,
 }
 
 static NativeGetPropCacheability CanAttachNativeGetProp(
-    JSContext* cx, JSObject* obj, JS::PropertyKey id, NativeObject** holder,
+    JSContext* cx, JSObject* obj, PropertyKey id, NativeObject** holder,
     Maybe<ShapeProperty>* shapeProp, jsbytecode* pc) {
   MOZ_ASSERT(JSID_IS_STRING(id) || JSID_IS_SYMBOL(id));
   MOZ_ASSERT(!*holder);
@@ -2736,7 +2737,7 @@ AttachDecision GetNameIRGenerator::tryAttachStub() {
 
 static bool CanAttachGlobalName(JSContext* cx,
                                 GlobalLexicalEnvironmentObject* globalLexical,
-                                JS::PropertyKey id, NativeObject** holder,
+                                PropertyKey id, NativeObject** holder,
                                 Maybe<ShapeProperty>* prop) {
   // The property must be found, and it must be found as a normal data property.
   NativeObject* current = globalLexical;
@@ -3459,7 +3460,7 @@ AttachDecision CheckPrivateFieldIRGenerator::tryAttachStub() {
   }
   JSObject* obj = &val_.toObject();
   ObjOperandId objId = writer.guardToObject(valId);
-  JS::PropertyKey key = SYMBOL_TO_JSID(idVal_.toSymbol());
+  PropertyKey key = SYMBOL_TO_JSID(idVal_.toSymbol());
 
   ThrowCondition condition;
   ThrowMsgKind msgKind;
@@ -3654,7 +3655,7 @@ static Maybe<ShapeProperty> LookupShapeForSetSlot(JSOp op, NativeObject* obj,
   return prop;
 }
 
-static bool CanAttachNativeSetSlot(JSOp op, JSObject* obj, JS::PropertyKey id,
+static bool CanAttachNativeSetSlot(JSOp op, JSObject* obj, PropertyKey id,
                                    Maybe<ShapeProperty>* prop) {
   if (!obj->is<NativeObject>()) {
     return false;
@@ -3820,7 +3821,7 @@ static bool IsCacheableSetPropCallScripted(NativeObject* obj,
 }
 
 static bool CanAttachSetter(JSContext* cx, jsbytecode* pc, JSObject* obj,
-                            JS::PropertyKey id, NativeObject** holder,
+                            PropertyKey id, NativeObject** holder,
                             Maybe<ShapeProperty>* shapeProp) {
   // Don't attach a setter stub for ops like JSOp::InitElem.
   MOZ_ASSERT(IsPropertySetOp(JSOp(*pc)));
@@ -4601,7 +4602,7 @@ AttachDecision SetPropIRGenerator::tryAttachAddSlotStub(HandleShape oldShape) {
 
   // The property must be the last added property of the object.
   Shape* newShape = holder->lastProperty();
-  MOZ_RELEASE_ASSERT(ShapeProperty(newShape) == shapeProp);
+  MOZ_RELEASE_ASSERT(newShape->property() == shapeProp);
 
   // Old shape should be parent of new shape. Object flag updates may make this
   // false even for simple data properties. It may be possible to support these
@@ -4924,7 +4925,7 @@ static bool IsArrayPrototypeOptimizable(JSContext* cx, ArrayObject* arr,
   *arrProto = proto;
 
   // The object must not have an own @@iterator property.
-  JS::PropertyKey iteratorKey = SYMBOL_TO_JSID(cx->wellKnownSymbols().iterator);
+  PropertyKey iteratorKey = SYMBOL_TO_JSID(cx->wellKnownSymbols().iterator);
   if (arr->lookupPure(iteratorKey)) {
     return false;
   }
@@ -11049,6 +11050,70 @@ AttachDecision BinaryArithIRGenerator::tryAttachStringInt32Arith() {
   return AttachDecision::Attach;
 }
 
+NewArrayIRGenerator::NewArrayIRGenerator(JSContext* cx, HandleScript script,
+                                         jsbytecode* pc, ICState::Mode mode,
+                                         bool isFirstStub, JSOp op,
+                                         HandleObject templateObj)
+    : IRGenerator(cx, script, pc, CacheKind::NewArray, mode, isFirstStub),
+#ifdef JS_CACHEIR_SPEW
+      op_(op),
+#endif
+      templateObject_(templateObj) {
+  MOZ_ASSERT(templateObject_);
+}
+
+void NewArrayIRGenerator::trackAttached(const char* name) {
+#ifdef JS_CACHEIR_SPEW
+  if (const CacheIRSpewer::Guard& sp = CacheIRSpewer::Guard(*this, name)) {
+    sp.opcodeProperty("op", op_);
+  }
+#endif
+}
+
+AttachDecision NewArrayIRGenerator::tryAttachArrayObject() {
+  ArrayObject* arrayObj = &templateObject_->as<ArrayObject>();
+
+  MOZ_ASSERT(arrayObj->numUsedFixedSlots() == 0);
+  MOZ_ASSERT(arrayObj->numDynamicSlots() == 0);
+  MOZ_ASSERT(!arrayObj->hasPrivate());
+  MOZ_ASSERT(!arrayObj->isSharedMemory());
+
+  // The macro assembler only supports creating arrays with fixed elements.
+  if (arrayObj->hasDynamicElements()) {
+    return AttachDecision::NoAction;
+  }
+
+  // Stub doesn't support metadata builder
+  if (cx_->realm()->hasAllocationMetadataBuilder()) {
+    return AttachDecision::NoAction;
+  }
+
+  writer.guardNoAllocationMetadataBuilder(
+      cx_->realm()->addressOfMetadataBuilder());
+
+  // Length input is not currently used.
+  mozilla::Unused << writer.setInputOperandId(0);
+
+  Shape* shape = arrayObj->lastProperty();
+  uint32_t length = arrayObj->length();
+
+  writer.newArrayObjectResult(length, shape);
+
+  writer.returnFromIC();
+
+  trackAttached("NewArrayObject");
+  return AttachDecision::Attach;
+}
+
+AttachDecision NewArrayIRGenerator::tryAttachStub() {
+  AutoAssertNoPendingException aanpe(cx_);
+
+  TRY_ATTACH(tryAttachArrayObject());
+
+  trackAttached(IRGenerator::NotAttached);
+  return AttachDecision::NoAction;
+}
+
 NewObjectIRGenerator::NewObjectIRGenerator(JSContext* cx, HandleScript script,
                                            jsbytecode* pc, ICState::Mode mode,
                                            bool isFirstStub, JSOp op,
@@ -11093,7 +11158,8 @@ AttachDecision NewObjectIRGenerator::tryAttachPlainObject() {
   gc::AllocKind allocKind = nativeObj->asTenured().getAllocKind();
   Shape* shape = nativeObj->lastProperty();
 
-  writer.guardNoAllocationMetadataBuilder();
+  writer.guardNoAllocationMetadataBuilder(
+      cx_->realm()->addressOfMetadataBuilder());
   writer.newPlainObjectResult(numFixedSlots, numDynamicSlots, allocKind, shape);
 
   writer.returnFromIC();
@@ -11102,38 +11168,10 @@ AttachDecision NewObjectIRGenerator::tryAttachPlainObject() {
   return AttachDecision::Attach;
 }
 
-AttachDecision NewObjectIRGenerator::tryAttachTemplateObject() {
-  if (templateObject_->as<NativeObject>().hasDynamicSlots()) {
-    return AttachDecision::NoAction;
-  }
-
-  // Stub doesn't support metadata builder
-  if (cx_->realm()->hasAllocationMetadataBuilder()) {
-    return AttachDecision::NoAction;
-  }
-
-  writer.guardNoAllocationMetadataBuilder();
-
-  // Bake in a monotonically increasing number to ensure we differentiate
-  // between different baseline stubs that otherwise might share stub code.
-  uint64_t id = cx_->runtime()->jitRuntime()->nextDisambiguationId();
-  uint32_t idHi = id >> 32;
-  uint32_t idLo = id & UINT32_MAX;
-  writer.loadNewObjectFromTemplateResult(templateObject_, idHi, idLo);
-
-  writer.returnFromIC();
-
-  trackAttached("NewObjectWithTemplate");
-  return AttachDecision::Attach;
-}
-
 AttachDecision NewObjectIRGenerator::tryAttachStub() {
   AutoAssertNoPendingException aanpe(cx_);
 
-  if (IsFuzzing()) {
-    TRY_ATTACH(tryAttachPlainObject());
-  }
-  TRY_ATTACH(tryAttachTemplateObject());
+  TRY_ATTACH(tryAttachPlainObject());
 
   trackAttached(IRGenerator::NotAttached);
   return AttachDecision::NoAction;

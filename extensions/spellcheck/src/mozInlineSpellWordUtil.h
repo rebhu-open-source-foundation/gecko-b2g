@@ -120,29 +120,6 @@ class MOZ_STACK_CLASS mozInlineSpellWordUtil {
   const nsINode* GetRootNode() const { return mRootNode; }
 
  private:
-  mozInlineSpellWordUtil(mozilla::dom::Document& aDocument,
-                         bool aIsContentEditableOrDesignMode, nsINode& aRootNode
-
-                         )
-      : mDocument(&aDocument),
-        mIsContentEditableOrDesignMode(aIsContentEditableOrDesignMode),
-        mRootNode(&aRootNode),
-        mSoftBegin(nullptr, 0),
-        mSoftEnd(nullptr, 0),
-        mNextWordIndex(-1),
-        mSoftTextValid(false) {}
-
-  // cached stuff for the editor
-  const RefPtr<mozilla::dom::Document> mDocument;
-  const bool mIsContentEditableOrDesignMode;
-
-  // range to check, see SetPosition and SetEnd
-  const nsINode* mRootNode;
-  NodeOffset mSoftBegin;
-  NodeOffset mSoftEnd;
-
-  // DOM text covering the soft range, with newlines added at block boundaries
-  nsString mSoftText;
   // A list of where we extracted text from, ordered by mSoftTextOffset. A given
   // DOM node appears at most once in this list.
   struct DOMTextMapping {
@@ -156,9 +133,53 @@ class MOZ_STACK_CLASS mozInlineSpellWordUtil {
           mSoftTextOffset(aSoftTextOffset),
           mLength(aLength) {}
   };
-  nsTArray<DOMTextMapping> mSoftTextDOMMapping;
 
-  // A list of the "real words" in mSoftText, ordered by mSoftTextOffset
+  struct SoftText {
+    void AdjustBeginAndBuildText(NodeOffset aBegin, NodeOffset aEnd,
+                                 const nsINode* aRootNode);
+
+    void Invalidate() { mIsValid = false; }
+
+    const NodeOffset& GetBegin() const { return mBegin; }
+    const NodeOffset& GetEnd() const { return mEnd; }
+
+    const nsTArray<DOMTextMapping>& GetDOMMapping() const {
+      return mDOMMapping;
+    }
+
+    const nsString& GetValue() const { return mValue; }
+
+    bool mIsValid = false;
+
+   private:
+    NodeOffset mBegin = NodeOffset(nullptr, 0);
+    NodeOffset mEnd = NodeOffset(nullptr, 0);
+
+    nsTArray<DOMTextMapping> mDOMMapping;
+
+    // DOM text covering the soft range, with newlines added at block boundaries
+    nsString mValue;
+  };
+
+  SoftText mSoftText;
+
+  mozInlineSpellWordUtil(mozilla::dom::Document& aDocument,
+                         bool aIsContentEditableOrDesignMode, nsINode& aRootNode
+
+                         )
+      : mDocument(&aDocument),
+        mIsContentEditableOrDesignMode(aIsContentEditableOrDesignMode),
+        mRootNode(&aRootNode),
+        mNextWordIndex(-1) {}
+
+  // cached stuff for the editor
+  const RefPtr<mozilla::dom::Document> mDocument;
+  const bool mIsContentEditableOrDesignMode;
+
+  // range to check, see SetPosition and SetEnd
+  const nsINode* mRootNode;
+
+  // A list of the "real words" in mSoftText.mValue, ordered by mSoftTextOffset
   struct RealWord {
     int32_t mSoftTextOffset;
     uint32_t mLength : 31;
@@ -180,17 +201,14 @@ class MOZ_STACK_CLASS mozInlineSpellWordUtil {
   RealWords mRealWords;
   int32_t mNextWordIndex;
 
-  bool mSoftTextValid;
-
-  void InvalidateWords() { mSoftTextValid = false; }
-  nsresult EnsureWords();
+  nsresult EnsureWords(NodeOffset aSoftBegin, NodeOffset aSoftEnd);
 
   int32_t MapDOMPositionToSoftTextOffset(NodeOffset aNodeOffset) const;
-  // Map an offset into mSoftText to a DOM position. Note that two DOM positions
-  // can map to the same mSoftText offset, e.g. given nodes A=aaaa and B=bbbb
-  // forming aaaabbbb, (A,4) and (B,0) give the same string offset. So,
-  // aHintBefore controls which position we return ... if aHint is eEnd
-  // then the position indicates the END of a range so we return (A,4).
+  // Map an offset into mSoftText.mValue to a DOM position. Note that two DOM
+  // positions can map to the same mSoftText.mValue offset, e.g. given nodes
+  // A=aaaa and B=bbbb forming aaaabbbb, (A,4) and (B,0) give the same string
+  // offset. So, aHintBefore controls which position we return ... if aHint is
+  // eEnd then the position indicates the END of a range so we return (A,4).
   // Otherwise the position indicates the START of a range so we return (B,0).
   enum DOMMapHint { HINT_BEGIN, HINT_END };
   NodeOffset MapSoftTextOffsetToDOMPosition(int32_t aSoftTextOffset,
@@ -207,9 +225,6 @@ class MOZ_STACK_CLASS mozInlineSpellWordUtil {
   // found).
   int32_t FindRealWordContaining(int32_t aSoftTextOffset, DOMMapHint aHint,
                                  bool aSearchForward) const;
-
-  // build mSoftText and mSoftTextDOMMapping and adjust mSoftBegin.
-  void AdjustSoftBeginAndBuildSoftText();
 
   mozilla::Result<RealWords, nsresult> BuildRealWords() const;
 

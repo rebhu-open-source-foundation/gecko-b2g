@@ -302,13 +302,13 @@ bool js::NativeObject::isNumFixedSlots(uint32_t nfixed) const {
 mozilla::Maybe<ShapeProperty> js::NativeObject::lookup(JSContext* cx, jsid id) {
   MOZ_ASSERT(is<NativeObject>());
   Shape* shape = Shape::search(cx, lastProperty(), id);
-  return shape ? mozilla::Some(ShapeProperty(shape)) : mozilla::Nothing();
+  return shape ? mozilla::Some(shape->property()) : mozilla::Nothing();
 }
 
 mozilla::Maybe<ShapeProperty> js::NativeObject::lookupPure(jsid id) {
   MOZ_ASSERT(is<NativeObject>());
   Shape* shape = Shape::searchNoHashify(lastProperty(), id);
-  return shape ? mozilla::Some(ShapeProperty(shape)) : mozilla::Nothing();
+  return shape ? mozilla::Some(shape->property()) : mozilla::Nothing();
 }
 
 bool NativeObject::ensureSlotsForDictionaryObject(JSContext* cx,
@@ -1142,12 +1142,11 @@ void NativeObject::freeSlot(JSContext* cx, uint32_t slot) {
 }
 
 /* static */
-Shape* NativeObject::addProperty(JSContext* cx, HandleNativeObject obj,
-                                 HandlePropertyName name, uint32_t slot,
-                                 unsigned attrs) {
-  MOZ_ASSERT(!(attrs & (JSPROP_GETTER | JSPROP_SETTER)));
+bool NativeObject::addProperty(JSContext* cx, HandleNativeObject obj,
+                               HandlePropertyName name, uint32_t slot,
+                               unsigned attrs, uint32_t* slotOut) {
   RootedId id(cx, NameToId(name));
-  return addProperty(cx, obj, id, slot, attrs);
+  return addProperty(cx, obj, id, slot, attrs, slotOut);
 }
 
 template <AllowGC allowGC>
@@ -1307,12 +1306,12 @@ static bool ChangeProperty(JSContext* cx, HandleNativeObject obj, HandleId id,
     }
   }
 
-  Shape* shape = NativeObject::putProperty(cx, obj, id, attrs);
-  if (!shape) {
+  uint32_t slot;
+  if (!NativeObject::putProperty(cx, obj, id, attrs, &slot)) {
     return false;
   }
 
-  obj->setSlot(shape->slot(), PrivateGCThingValue(gs));
+  obj->setSlot(slot, PrivateGCThingValue(gs));
   return true;
 }
 
@@ -1371,19 +1370,19 @@ static MOZ_ALWAYS_INLINE bool AddOrChangeProperty(
       if (!gs) {
         return false;
       }
-      Shape* shape = NativeObject::addProperty(cx, obj, id, SHAPE_INVALID_SLOT,
-                                               desc.attributes());
-      if (!shape) {
+      uint32_t slot;
+      if (!NativeObject::addProperty(cx, obj, id, SHAPE_INVALID_SLOT,
+                                     desc.attributes(), &slot)) {
         return false;
       }
-      obj->initSlot(shape->slot(), PrivateGCThingValue(gs));
+      obj->initSlot(slot, PrivateGCThingValue(gs));
     } else {
-      Shape* shape = NativeObject::addProperty(cx, obj, id, SHAPE_INVALID_SLOT,
-                                               desc.attributes());
-      if (!shape) {
+      uint32_t slot;
+      if (!NativeObject::addProperty(cx, obj, id, SHAPE_INVALID_SLOT,
+                                     desc.attributes(), &slot)) {
         return false;
       }
-      obj->initSlot(shape->slot(), desc.value());
+      obj->initSlot(slot, desc.value());
     }
   } else {
     if (desc.isAccessorDescriptor()) {
@@ -1392,11 +1391,11 @@ static MOZ_ALWAYS_INLINE bool AddOrChangeProperty(
         return false;
       }
     } else {
-      Shape* shape = NativeObject::putProperty(cx, obj, id, desc.attributes());
-      if (!shape) {
+      uint32_t slot;
+      if (!NativeObject::putProperty(cx, obj, id, desc.attributes(), &slot)) {
         return false;
       }
-      obj->setSlot(shape->slot(), desc.value());
+      obj->setSlot(slot, desc.value());
     }
   }
 
@@ -1435,12 +1434,12 @@ static MOZ_ALWAYS_INLINE bool AddDataProperty(JSContext* cx,
     return false;
   }
 
-  Shape* shape = NativeObject::addEnumerableDataProperty(cx, obj, id);
-  if (!shape) {
+  uint32_t slot;
+  if (!NativeObject::addEnumerableDataProperty(cx, obj, id, &slot)) {
     return false;
   }
 
-  obj->initSlot(shape->slot(), v);
+  obj->initSlot(slot, v);
 
   return CallAddPropertyHook(cx, obj, id, v);
 }
@@ -2000,8 +1999,9 @@ bool js::AddOrUpdateSparseElementHelper(JSContext* cx, HandleArrayObject obj,
   }
 
   // At this point we're updating a property: See SetExistingProperty
-  if (shape->writable() && shape->isDataProperty()) {
-    obj->setSlot(shape->slot(), v);
+  ShapeProperty prop = shape->property();
+  if (prop.writable() && prop.isDataProperty()) {
+    obj->setSlot(prop.slot(), v);
     return true;
   }
 
@@ -2300,16 +2300,15 @@ bool js::GetSparseElementHelper(JSContext* cx, HandleArrayObject obj,
   MOZ_ASSERT(INT_FITS_IN_JSID(int_id));
   RootedId id(cx, INT_TO_JSID(int_id));
 
-  Shape* rawShape = obj->lastProperty()->search(cx, id);
-  if (!rawShape) {
+  Shape* shape = obj->lastProperty()->search(cx, id);
+  if (!shape) {
     // Property not found, return directly.
     result.setUndefined();
     return true;
   }
 
   RootedValue receiver(cx, ObjectValue(*obj));
-  RootedShape shape(cx, rawShape);
-  return GetExistingProperty<CanGC>(cx, receiver, obj, id, ShapeProperty(shape),
+  return GetExistingProperty<CanGC>(cx, receiver, obj, id, shape->property(),
                                     result);
 }
 

@@ -2979,7 +2979,7 @@ void GetObjectSlotNameFunctor::operator()(JS::TracingContext* tcx, char* buf,
 
   uint32_t slot = uint32_t(tcx->index());
 
-  Maybe<JS::PropertyKey> key;
+  Maybe<PropertyKey> key;
   if (obj->is<NativeObject>()) {
     for (ShapePropertyIter<NoGC> iter(obj->shape()); !iter.done(); iter++) {
       if (iter->hasSlot() && iter->slot() == slot) {
@@ -3159,9 +3159,10 @@ JS_FRIEND_API void js::DumpId(jsid id, js::GenericPrinter& out) {
 
 static void DumpProperty(const NativeObject* obj, Shape& shape,
                          js::GenericPrinter& out) {
-  jsid id = shape.propid();
+  ShapePropertyWithKey prop = shape.propertyWithKey();
+  jsid id = prop.key();
   if (JSID_IS_ATOM(id)) {
-    JSID_TO_ATOM(id)->dumpCharsNoNewline(out);
+    id.toAtom()->dumpCharsNoNewline(out);
   } else if (JSID_IS_INT(id)) {
     out.printf("%d", JSID_TO_INT(id));
   } else if (JSID_IS_SYMBOL(id)) {
@@ -3169,8 +3170,6 @@ static void DumpProperty(const NativeObject* obj, Shape& shape,
   } else {
     out.printf("id %p", reinterpret_cast<void*>(JSID_BITS(id)));
   }
-
-  ShapeProperty prop = ShapeProperty(&shape);
 
   if (prop.isDataProperty()) {
     out.printf(": ");
@@ -3197,8 +3196,8 @@ static void DumpProperty(const NativeObject* obj, Shape& shape,
     out.printf(" <custom-data-prop>");
   }
 
-  if (shape.hasSlot()) {
-    out.printf(" slot %u", shape.slot());
+  if (prop.hasSlot()) {
+    out.printf(" slot %u", prop.slot());
   }
 
   out.printf(")\n");

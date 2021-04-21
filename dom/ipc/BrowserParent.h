@@ -387,7 +387,8 @@ class BrowserParent final : public PBrowserParent,
 
   mozilla::ipc::IPCResult RecvSetCursor(
       const nsCursor& aValue, const bool& aHasCustomCursor,
-      const nsCString& aUri, const uint32_t& aWidth, const uint32_t& aHeight,
+      const nsCString& aCursorData, const uint32_t& aWidth,
+      const uint32_t& aHeight, const float& aResolution,
       const uint32_t& aStride, const gfx::SurfaceFormat& aFormat,
       const uint32_t& aHotspotX, const uint32_t& aHotspotY, const bool& aForce);
 
@@ -954,9 +955,7 @@ class BrowserParent final : public PBrowserParent,
 
   // Cached cursor setting from BrowserChild.  When the cursor is over the
   // tab, it should take this appearance.
-  nsCursor mCursor;
-  nsCOMPtr<imgIContainer> mCustomCursor;
-  uint32_t mCustomCursorHotspotX, mCustomCursorHotspotY;
+  nsIWidget::Cursor mCursor;
 
   nsTArray<nsString> mVerifyDropLinks;
 

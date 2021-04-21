@@ -142,8 +142,7 @@ class nsWindow final : public nsBaseWidget {
   virtual LayoutDeviceIntRect GetClientBounds() override;
   virtual LayoutDeviceIntSize GetClientSize() override;
   virtual LayoutDeviceIntPoint GetClientOffset() override;
-  virtual void SetCursor(nsCursor aDefaultCursor, imgIContainer* aCursor,
-                         uint32_t aHotspotX, uint32_t aHotspotY) override;
+  virtual void SetCursor(const Cursor&) override;
   virtual void Invalidate(const LayoutDeviceIntRect& aRect) override;
   virtual void* GetNativeData(uint32_t aDataType) override;
   virtual nsresult SetTitle(const nsAString& aTitle) override;
@@ -463,8 +462,6 @@ class nsWindow final : public nsBaseWidget {
   bool mHandleTouchEvent;
   // true if this is a drag and drop feedback popup
   bool mIsDragPopup;
-  // Can we access X?
-  bool mIsX11Display;
 #ifdef MOZ_WAYLAND
   bool mNeedsCompositorResume;
   bool mCompositorInitiallyPaused;

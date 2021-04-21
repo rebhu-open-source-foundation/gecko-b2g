@@ -838,6 +838,7 @@ const gClickAndHoldListenersOnElement = {
         aEvent.altKey,
         aEvent.shiftKey,
         aEvent.metaKey,
+        0,
         null,
         aEvent.mozInputSource
       );
@@ -2108,10 +2109,6 @@ var gBrowserInit = {
           managedBookmarksPopup.setAttribute(
             "oncommand",
             "PlacesToolbarHelper.openManagedBookmark(event);"
-          );
-          managedBookmarksPopup.setAttribute(
-            "onclick",
-            "checkForMiddleClick(this, event);"
           );
           managedBookmarksPopup.setAttribute(
             "ondragover",

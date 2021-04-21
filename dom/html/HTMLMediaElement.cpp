@@ -7908,6 +7908,11 @@ bool HTMLMediaElement::ShouldStartMediaControlKeyListener() const {
     return false;
   }
 
+  if (mSrcStream) {
+    MEDIACONTROL_LOG("Not listening because media is real-time");
+    return false;
+  }
+
   if (IsBeingUsedInPictureInPictureMode()) {
     MEDIACONTROL_LOG("Start listener because of being used in PiP mode");
     return true;

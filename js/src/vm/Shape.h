@@ -135,8 +135,10 @@ class ShapeProperty {
   uint8_t attrs_;
 
  public:
-  inline explicit ShapeProperty(Shape* shape);
+  ShapeProperty(uint8_t attrs, uint32_t slot) : slot_(slot), attrs_(attrs) {}
 
+  // Note: this returns true only for plain data properties with a slot. Returns
+  // false for custom data properties. See JSPROP_CUSTOM_DATA_PROP.
   bool isDataProperty() const {
     return !(attrs_ &
              (JSPROP_GETTER | JSPROP_SETTER | JSPROP_CUSTOM_DATA_PROP));
@@ -174,12 +176,13 @@ class ShapeProperty {
 };
 
 class ShapePropertyWithKey : public ShapeProperty {
-  JS::PropertyKey key_;
+  PropertyKey key_;
 
  public:
-  explicit ShapePropertyWithKey(Shape* shape);
+  ShapePropertyWithKey(uint8_t attrs, uint32_t slot, PropertyKey key)
+      : ShapeProperty(attrs, slot), key_(key) {}
 
-  JS::PropertyKey key() const { return key_; }
+  PropertyKey key() const { return key_; }
 
   void trace(JSTracer* trc) {
     TraceRoot(trc, &key_, "ShapePropertyWithKey-key");
@@ -195,7 +198,7 @@ class WrappedPtrOperations<ShapePropertyWithKey, Wrapper> {
  public:
   bool isDataProperty() const { return value().isDataProperty(); }
   uint32_t slot() const { return value().slot(); }
-  JS::PropertyKey key() const { return value().key(); }
+  PropertyKey key() const { return value().key(); }
   uint8_t attributes() const { return value().attributes(); }
 };
 
@@ -858,7 +861,7 @@ static MOZ_ALWAYS_INLINE js::HashNumber HashId(jsid id) {
   // HashGeneric alone would work, but bits of atom and symbol addresses
   // could then be recovered from the hash code. See bug 1330769.
   if (MOZ_LIKELY(JSID_IS_ATOM(id))) {
-    return JSID_TO_ATOM(id)->hash();
+    return id.toAtom()->hash();
   }
   if (JSID_IS_SYMBOL(id)) {
     return JSID_TO_SYMBOL(id)->hash();
@@ -895,13 +898,14 @@ class Shape : public gc::CellWithTenuredGCPointer<gc::TenuredCell, BaseShape> {
   friend struct StackShape;
   friend class JS::ubi::Concrete<Shape>;
   friend class js::gc::RelocationOverlay;
+  friend class js::ShapeTable;
 
  public:
   // Base shape, stored in the cell header.
   BaseShape* base() const { return headerPtr(); }
 
  protected:
-  const GCPtr<JS::PropertyKey> propid_;
+  const GCPtr<PropertyKey> propid_;
 
   // Flags that are not modified after the Shape is created. Off-thread Ion
   // compilation can access the immutableFlags word, so we don't want any
@@ -1181,16 +1185,7 @@ class Shape : public gc::CellWithTenuredGCPointer<gc::TenuredCell, BaseShape> {
     return maybeSlot() == aslot && attrs == aattrs;
   }
 
-  // Note: this returns true only for plain data properties with a slot. Returns
-  // false for custom data properties. See JSPROP_CUSTOM_DATA_PROP.
-  static bool isDataProperty(unsigned attrs) {
-    return !(attrs & (JSPROP_GETTER | JSPROP_SETTER | JSPROP_CUSTOM_DATA_PROP));
-  }
-
-  bool isDataProperty() const {
-    MOZ_ASSERT(!isEmptyShape());
-    return isDataProperty(attrs);
-  }
+ private:
   uint32_t slot() const {
     MOZ_ASSERT(hasSlot());
     return maybeSlot();
@@ -1205,6 +1200,7 @@ class Shape : public gc::CellWithTenuredGCPointer<gc::TenuredCell, BaseShape> {
 
   bool isCustomDataProperty() const { return attrs & JSPROP_CUSTOM_DATA_PROP; }
 
+ public:
   bool isEmptyShape() const {
     MOZ_ASSERT_IF(JSID_IS_EMPTY(propid_), hasMissingSlot());
     return JSID_IS_EMPTY(propid_);
@@ -1245,6 +1241,7 @@ class Shape : public gc::CellWithTenuredGCPointer<gc::TenuredCell, BaseShape> {
     mutableFlags = (mutableFlags & ~LINEAR_SEARCHES_MASK) | (count + 1);
   }
 
+ private:
   const GCPtrId& propid() const {
     MOZ_ASSERT(!isEmptyShape());
     MOZ_ASSERT(!JSID_IS_VOID(propid_));
@@ -1259,24 +1256,20 @@ class Shape : public gc::CellWithTenuredGCPointer<gc::TenuredCell, BaseShape> {
     return propid();
   }
 
+ public:
+  ShapeProperty property() const {
+    MOZ_ASSERT(!isEmptyShape());
+    return ShapeProperty(attrs, maybeSlot());
+  }
+
+  ShapePropertyWithKey propertyWithKey() const {
+    return ShapePropertyWithKey(attrs, maybeSlot(), propid());
+  }
+
+ private:
   uint8_t attributes() const { return attrs; }
-  bool configurable() const { return (attrs & JSPROP_PERMANENT) == 0; }
-  bool enumerable() const { return (attrs & JSPROP_ENUMERATE) != 0; }
-  bool writable() const { return (attrs & JSPROP_READONLY) == 0; }
-  bool hasGetterValue() const { return attrs & JSPROP_GETTER; }
-  bool hasSetterValue() const { return attrs & JSPROP_SETTER; }
 
-  // Note: unlike isDataProperty, this returns true also for custom data
-  // properties. See JSPROP_CUSTOM_DATA_PROP.
-  bool isDataDescriptor() const {
-    return (attrs & (JSPROP_SETTER | JSPROP_GETTER)) == 0;
-  }
-  bool isAccessorDescriptor() const {
-    return (attrs & (JSPROP_SETTER | JSPROP_GETTER)) != 0;
-  }
-
-  bool isAccessorProperty() const { return isAccessorDescriptor(); }
-
+ public:
   uint32_t entryCount() {
     JS::AutoCheckCannotGC nogc;
     if (ShapeTable* table = maybeTable(nogc)) {
@@ -1524,10 +1517,6 @@ struct StackShape {
         attrs(shape->attrs),
         mutableFlags(shape->mutableFlags) {}
 
-  bool isDataProperty() const {
-    MOZ_ASSERT(!JSID_IS_EMPTY(propid));
-    return Shape::isDataProperty(attrs);
-  }
   bool hasMissingSlot() const { return maybeSlot() == SHAPE_INVALID_SLOT; }
 
   bool isCustomDataProperty() const { return attrs & JSPROP_CUSTOM_DATA_PROP; }
@@ -1561,7 +1550,6 @@ class WrappedPtrOperations<StackShape, Wrapper> {
   }
 
  public:
-  bool isDataProperty() const { return ss().isDataProperty(); }
   bool isCustomDataProperty() const { return ss().isCustomDataProperty(); }
   bool hasMissingSlot() const { return ss().hasMissingSlot(); }
   uint32_t slot() const { return ss().slot(); }
@@ -1661,12 +1649,6 @@ MOZ_ALWAYS_INLINE bool ShapeIC::search(jsid id, Shape** foundShape) {
   return false;
 }
 
-inline ShapeProperty::ShapeProperty(Shape* shape)
-    : slot_(shape->maybeSlot()), attrs_(shape->attributes()) {}
-
-inline ShapePropertyWithKey::ShapePropertyWithKey(Shape* shape)
-    : ShapeProperty(shape), key_(shape->propid()) {}
-
 using ShapePropertyVector = GCVector<ShapePropertyWithKey, 8>;
 
 // Iterator for iterating over a shape's properties. It can be used like this:
@@ -1675,6 +1657,9 @@ using ShapePropertyVector = GCVector<ShapePropertyWithKey, 8>;
 //     PropertyKey key = iter->key();
 //     if (iter->isDataProperty() && iter->enumerable()) { .. }
 //   }
+//
+// Properties are iterated in reverse order (i.e., iteration starts at the most
+// recently added property).
 template <AllowGC allowGC>
 class MOZ_RAII ShapePropertyIter {
  protected:
@@ -1685,10 +1670,12 @@ class MOZ_RAII ShapePropertyIter {
  public:
   ShapePropertyIter(JSContext* cx, Shape* shape) : cursor_(cx, shape) {
     static_assert(allowGC == CanGC);
+    MOZ_ASSERT(shape->getObjectClass()->isNativeObject());
   }
 
   explicit ShapePropertyIter(Shape* shape) : cursor_(nullptr, shape) {
     static_assert(allowGC == NoGC);
+    MOZ_ASSERT(shape->getObjectClass()->isNativeObject());
   }
 
   bool done() const { return cursor_->isEmptyShape(); }
@@ -1700,7 +1687,7 @@ class MOZ_RAII ShapePropertyIter {
 
   ShapePropertyWithKey get() const {
     MOZ_ASSERT(!done());
-    return ShapePropertyWithKey(cursor_);
+    return cursor_->propertyWithKey();
   }
 
   ShapePropertyWithKey operator*() const { return get(); }
