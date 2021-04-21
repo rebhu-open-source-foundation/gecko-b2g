@@ -56,7 +56,6 @@ class nsMenuX final : public nsMenuParentX,
                       public nsMenuItemIconX::Listener,
                       public nsMenuXObserver {
  public:
-  using MenuChild = mozilla::Variant<RefPtr<nsMenuX>, RefPtr<nsMenuItemX>>;
   using Observer = nsMenuXObserver;
 
   // aParent is optional.
@@ -78,6 +77,8 @@ class nsMenuX final : public nsMenuParentX,
   void OnMenuWillOpen(mozilla::dom::Element* aPopupElement) override;
   void OnMenuDidOpen(mozilla::dom::Element* aPopupElement) override;
   void OnMenuClosed(mozilla::dom::Element* aPopupElement) override;
+
+  bool IsVisible() const { return mVisible; }
 
   // Unregisters nsMenuX from the nsMenuGroupOwner, and nulls out the group owner pointer, on this
   // nsMenuX and also all nested nsMenuX and nsMenuItemX objects.
@@ -139,12 +140,8 @@ class nsMenuX final : public nsMenuParentX,
   void SetIconListener(nsMenuItemIconX::Listener* aListener) { mIconListener = aListener; }
   void ClearIconListener() { mIconListener = nullptr; }
 
-  // If aChild is one of our child menus, insert aChild's native menu item in our native menu at the
-  // right location.
-  void InsertChildNativeMenuItem(nsMenuX* aChild) override;
-
-  // Remove aChild's native menu item froum our native menu.
-  void RemoveChildNativeMenuItem(nsMenuX* aChild) override;
+  // nsMenuParentX
+  void MenuChildChangedVisibility(const MenuChild& aChild, bool aIsVisible) override;
 
   void Dump(uint32_t aIndent) const;
 
@@ -166,20 +163,27 @@ class nsMenuX final : public nsMenuParentX,
   nsresult SetEnabled(bool aIsEnabled);
   nsresult GetEnabled(bool* aIsEnabled);
   already_AddRefed<nsIContent> GetMenuPopupContent();
-  void AddMenuItem(RefPtr<nsMenuItemX>&& aMenuItem);
-  void AddMenu(RefPtr<nsMenuX>&& aMenu);
-  void LoadMenuItem(nsIContent* aMenuItemContent);
-  void LoadSubMenu(nsIContent* aMenuContent);
+  void WillInsertChild(const MenuChild& aChild);
+  void WillRemoveChild(const MenuChild& aChild);
+  void AddMenuChild(MenuChild&& aChild);
+  void InsertMenuChild(MenuChild&& aChild);
+  void RemoveMenuChild(const MenuChild& aChild);
+  mozilla::Maybe<MenuChild> CreateMenuChild(nsIContent* aContent);
+  RefPtr<nsMenuItemX> CreateMenuItem(nsIContent* aMenuItemContent);
   GeckoNSMenu* CreateMenuWithGeckoString(nsString& aMenuTitle);
-  void UnregisterCommands();
   void DidFirePopupShowing();
+
+  // Find the index at which aChild needs to be inserted into mMenuChildren such that mMenuChildren
+  // remains in correct content order, i.e. the order in mMenuChildren is the same as the order of
+  // the DOM children of our <menupopup>.
+  size_t FindInsertionIndex(const MenuChild& aChild);
 
   // Calculates the index at which aChild's NSMenuItem should be inserted into our NSMenu.
   // The order of NSMenuItems in the NSMenu is the same as the order of menu children in
   // mMenuChildren; the only difference is that mMenuChildren contains both visible and invisible
   // children, and the NSMenu only contains visible items. So the insertion index is equal to the
   // number of visible previous siblings of aChild in mMenuChildren.
-  NSInteger CalculateNativeInsertionPoint(nsMenuX* aChild);
+  NSInteger CalculateNativeInsertionPoint(const MenuChild& aChild);
 
   // Fires the popupshown event.
   void MenuOpenedAsync();
@@ -198,6 +202,12 @@ class nsMenuX final : public nsMenuParentX,
   // If mPendingAsyncMenuCloseRunnable is non-null, call MenuClosedAsync() to send out pending
   // popuphiding/popuphidden events.
   void FlushMenuClosedRunnable();
+
+  // Make sure the NSMenu contains at least one item, even if mVisibleItemsCount is zero.
+  // Otherwise it won't open.
+  void InsertPlaceholderIfNeeded();
+  // Remove the placeholder before adding an item to mNativeNSMenu.
+  void RemovePlaceholderIfPresent();
 
   nsCOMPtr<nsIContent> mContent;  // XUL <menu> or <menupopup>
 

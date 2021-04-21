@@ -4268,9 +4268,6 @@ pref("dom.audiochannel.mutedByDefault", false);
 
 pref("memory.report_concurrency", 10);
 
-// Add Mozilla AudioChannel APIs.
-pref("media.useAudioChannelAPI", false);
-
 pref("toolkit.pageThumbs.screenSizeDivisor", 7);
 pref("toolkit.pageThumbs.minWidth", 0);
 pref("toolkit.pageThumbs.minHeight", 0);

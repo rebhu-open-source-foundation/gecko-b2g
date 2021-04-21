@@ -375,7 +375,7 @@ class nsOuterWindowProxy : public MaybeCrossOriginObject<js::Wrapper> {
    */
   bool getOwnPropertyDescriptor(
       JSContext* cx, JS::Handle<JSObject*> proxy, JS::Handle<jsid> id,
-      JS::MutableHandle<JS::PropertyDescriptor> desc) const override;
+      JS::MutableHandle<Maybe<JS::PropertyDescriptor>> desc) const override;
 
   /*
    * Implementation of the same-origin case of
@@ -537,7 +537,7 @@ class nsOuterWindowProxy : public MaybeCrossOriginObject<js::Wrapper> {
   // a "print" method.
   static bool MaybeGetPDFJSPrintMethod(
       JSContext* cx, JS::Handle<JSObject*> proxy,
-      JS::MutableHandle<JS::PropertyDescriptor> desc);
+      JS::MutableHandle<Maybe<JS::PropertyDescriptor>> desc);
 
   // The actual "print" method we use for the PDFJS case.
   static bool PDFJSPrintMethod(JSContext* cx, unsigned argc, JS::Value* vp);
@@ -601,17 +601,18 @@ static bool IsNonConfigurableReadonlyPrimitiveGlobalProp(JSContext* cx,
 
 bool nsOuterWindowProxy::getOwnPropertyDescriptor(
     JSContext* cx, JS::Handle<JSObject*> proxy, JS::Handle<jsid> id,
-    JS::MutableHandle<JS::PropertyDescriptor> desc) const {
+    JS::MutableHandle<Maybe<JS::PropertyDescriptor>> desc) const {
   // First check for indexed access.  This is
   // https://html.spec.whatwg.org/multipage/window-object.html#windowproxy-getownproperty
   // step 2, mostly.
+  JS::Rooted<JS::Value> subframe(cx);
   bool found;
-  if (!GetSubframeWindow(cx, proxy, id, desc.value(), found)) {
+  if (!GetSubframeWindow(cx, proxy, id, &subframe, found)) {
     return false;
   }
   if (found) {
     // Step 2.4.
-    FillPropertyDescriptor(desc, proxy, true);
+    FillPropertyDescriptor(cx, desc, proxy, subframe, true);
     return true;
   }
 
@@ -649,8 +650,9 @@ bool nsOuterWindowProxy::getOwnPropertyDescriptor(
       }
 
 #ifndef RELEASE_OR_BETA  // To be turned on in bug 1496510.
-      if (!IsNonConfigurableReadonlyPrimitiveGlobalProp(cx, id)) {
-        desc.setConfigurable(true);
+      if (desc.isSome() &&
+          !IsNonConfigurableReadonlyPrimitiveGlobalProp(cx, id)) {
+        (*desc).setConfigurable(true);
       }
 #endif
     }
@@ -665,7 +667,7 @@ bool nsOuterWindowProxy::getOwnPropertyDescriptor(
   }
 
   // Step 5
-  if (desc.object()) {
+  if (desc.isSome()) {
     return true;
   }
 
@@ -677,7 +679,7 @@ bool nsOuterWindowProxy::getOwnPropertyDescriptor(
       return false;
     }
 
-    if (desc.object()) {
+    if (desc.isSome()) {
       return true;
     }
   }
@@ -694,7 +696,7 @@ bool nsOuterWindowProxy::getOwnPropertyDescriptor(
       if (!ToJSValue(cx, WindowProxyHolder(childDOMWin), &childValue)) {
         return false;
       }
-      FillPropertyDescriptor(desc, proxy, childValue,
+      FillPropertyDescriptor(cx, desc, proxy, childValue,
                              /* readonly = */ true,
                              /* enumerable = */ false);
       return true;
@@ -735,12 +737,12 @@ bool nsOuterWindowProxy::definePropertySameOrigin(
       return true;
     }
 
-    JS::Rooted<JS::PropertyDescriptor> existingDesc(cx);
+    JS::Rooted<Maybe<JS::PropertyDescriptor>> existingDesc(cx);
     ok = js::Wrapper::getOwnPropertyDescriptor(cx, proxy, id, &existingDesc);
     if (!ok) {
       return false;
     }
-    if (!existingDesc.object() || existingDesc.configurable()) {
+    if (existingDesc.isNothing() || existingDesc->configurable()) {
       // We have no existing property, or its descriptor is already configurable
       // (on the Window itself, where things really can be non-configurable).
       // So we failed for some other reason, which we should propagate out.
@@ -1108,8 +1110,9 @@ enum { PDFJS_SLOT_CALLEE = 0 };
 // static
 bool nsOuterWindowProxy::MaybeGetPDFJSPrintMethod(
     JSContext* cx, JS::Handle<JSObject*> proxy,
-    JS::MutableHandle<JS::PropertyDescriptor> desc) {
+    JS::MutableHandle<Maybe<JS::PropertyDescriptor>> desc) {
   MOZ_ASSERT(proxy);
+  MOZ_ASSERT(!desc.isSome());
 
   nsGlobalWindowOuter* outer = GetOuterWindow(proxy);
   nsGlobalWindowInner* inner =
@@ -1170,10 +1173,12 @@ bool nsOuterWindowProxy::MaybeGetPDFJSPrintMethod(
   js::SetFunctionNativeReserved(funObj, PDFJS_SLOT_CALLEE, targetFunc);
 
   JS::Rooted<JS::Value> funVal(cx, JS::ObjectValue(*funObj));
+  JS::Rooted<JS::PropertyDescriptor> pd(cx);
   // JSPROP_ENUMERATE because that's what it would have been in the same-origin
   // case without the PDF viewer messing with things.
-  desc.setDataDescriptor(funVal, JSPROP_ENUMERATE);
-  desc.object().set(proxy);
+  pd.setDataDescriptor(funVal, JSPROP_ENUMERATE);
+  pd.object().set(proxy);
+  desc.set(Some(pd.get()));
   return true;
 }
 
