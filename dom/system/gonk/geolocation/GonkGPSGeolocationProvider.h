@@ -164,7 +164,7 @@ class GonkGPSGeolocationProvider : public nsIGeolocationProvider,
                                       const nsAString& message) override {
     return NS_OK;
   }
-  NS_IMETHOD NotifySrvccState(uint32_t clientId, int32_t state) {
+  NS_IMETHOD NotifySrvccState(uint32_t clientId, int32_t state) override {
     return NS_OK;
   }
 #endif  // MOZ_B2G_RIL
