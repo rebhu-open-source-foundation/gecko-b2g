@@ -90,7 +90,7 @@ class nsGeolocationService final : public nsIGeolocationUpdate,
 
   // Find and startup a geolocation device (gps, nmea, etc.)
   MOZ_CAN_RUN_SCRIPT
-  nsresult StartDevice(nsIPrincipal* aPrincipal);
+  nsresult StartDevice();
 
   // Stop the started geolocation device (gps, nmea, etc.)
   void StopDevice();

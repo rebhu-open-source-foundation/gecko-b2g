@@ -106,8 +106,6 @@ class nsGeolocationRequest final : public ContentPermissionRequestBase,
   void StopTimeoutTimer();
   MOZ_CAN_RUN_SCRIPT
   void NotifyErrorAndShutdown(uint16_t);
-  using ContentPermissionRequestBase::GetPrincipal;
-  nsIPrincipal* GetPrincipal();
 
   bool IsWatch() { return mIsWatchPositionRequest; }
   int32_t WatchId() { return mWatchId; }
@@ -304,8 +302,7 @@ nsGeolocationRequest::Allow(JS::HandleValue aChoices) {
   }
 
   // Kick off the geo device, if it isn't already running
-  nsCOMPtr<nsIPrincipal> principal = GetPrincipal();
-  nsresult rv = gs->StartDevice(principal);
+  nsresult rv = gs->StartDevice();
 
   if (NS_FAILED(rv)) {
     // Location provider error
@@ -405,13 +402,6 @@ void nsGeolocationRequest::SendLocation(nsIDOMGeoPosition* aPosition) {
   }
   MOZ_ASSERT(mShutdown || mIsWatchPositionRequest,
              "non-shutdown getCurrentPosition request after callback!");
-}
-
-nsIPrincipal* nsGeolocationRequest::GetPrincipal() {
-  if (!mLocator) {
-    return nullptr;
-  }
-  return mLocator->GetPrincipal();
 }
 
 NS_IMETHODIMP
@@ -682,7 +672,7 @@ CachedPositionAndAccuracy nsGeolocationService::GetCachedPosition() {
   return mLastPosition;
 }
 
-nsresult nsGeolocationService::StartDevice(nsIPrincipal* aPrincipal) {
+nsresult nsGeolocationService::StartDevice() {
   if (!StaticPrefs::geo_enabled()) {
     return NS_ERROR_NOT_AVAILABLE;
   }
