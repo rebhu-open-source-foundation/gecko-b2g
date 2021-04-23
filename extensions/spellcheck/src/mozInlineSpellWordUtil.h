@@ -6,6 +6,8 @@
 #ifndef mozInlineSpellWordUtil_h
 #define mozInlineSpellWordUtil_h
 
+#include <utility>
+
 #include "mozilla/Attributes.h"
 #include "mozilla/Maybe.h"
 #include "mozilla/Result.h"
@@ -52,11 +54,12 @@ class NodeOffsetRange {
 
  public:
   NodeOffsetRange() {}
-  NodeOffsetRange(NodeOffset b, NodeOffset e) : mBegin(b), mEnd(e) {}
+  NodeOffsetRange(NodeOffset b, NodeOffset e)
+      : mBegin(std::move(b)), mEnd(std::move(e)) {}
 
-  NodeOffset Begin() const { return mBegin; }
+  const NodeOffset& Begin() const { return mBegin; }
 
-  NodeOffset End() const { return mEnd; }
+  const NodeOffset& End() const { return mEnd; }
 };
 
 /**
@@ -129,7 +132,7 @@ class MOZ_STACK_CLASS mozInlineSpellWordUtil {
 
     DOMTextMapping(NodeOffset aNodeOffset, int32_t aSoftTextOffset,
                    int32_t aLength)
-        : mNodeOffset(aNodeOffset),
+        : mNodeOffset(std::move(aNodeOffset)),
           mSoftTextOffset(aSoftTextOffset),
           mLength(aLength) {}
   };
@@ -203,7 +206,7 @@ class MOZ_STACK_CLASS mozInlineSpellWordUtil {
 
   nsresult EnsureWords(NodeOffset aSoftBegin, NodeOffset aSoftEnd);
 
-  int32_t MapDOMPositionToSoftTextOffset(NodeOffset aNodeOffset) const;
+  int32_t MapDOMPositionToSoftTextOffset(const NodeOffset& aNodeOffset) const;
   // Map an offset into mSoftText.mValue to a DOM position. Note that two DOM
   // positions can map to the same mSoftText.mValue offset, e.g. given nodes
   // A=aaaa and B=bbbb forming aaaabbbb, (A,4) and (B,0) give the same string

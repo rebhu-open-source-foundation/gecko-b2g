@@ -236,7 +236,8 @@ BrowserParent::BrowserParent(ContentParent* aManager, const TabId& aTabId,
       mHasLayers(false),
       mHasPresented(false),
       mIsReadyToHandleInputEvents(false),
-      mIsMouseEnterIntoWidgetEventSuppressed(false) {
+      mIsMouseEnterIntoWidgetEventSuppressed(false),
+      mLockedNativePointer(false) {
   MOZ_ASSERT(aManager);
   // When the input event queue is disabled, we don't need to handle the case
   // that some input events are dispatched before PBrowserConstructor.
@@ -600,6 +601,7 @@ void BrowserParent::RemoveWindowListeners() {
 }
 
 void BrowserParent::Deactivated() {
+  UnlockNativePointer();
   UnsetTopLevelWebFocus(this);
   UnsetLastMouseRemoteTarget(this);
   PointerLockManager::ReleaseLockedRemoteTarget(this);
@@ -1084,6 +1086,7 @@ void BrowserParent::UpdateDimensions(const nsIntRect& rect,
     mChromeOffset = chromeOffset;
 
     Unused << SendUpdateDimensions(GetDimensionInfo());
+    UpdateNativePointerLockCenter(widget);
   }
 }
 
@@ -1102,6 +1105,17 @@ DimensionInfo BrowserParent::GetDimensionInfo() {
   DimensionInfo di(unscaledRect, unscaledSize, mOrientation, mClientOffset,
                    mChromeOffset);
   return di;
+}
+
+void BrowserParent::UpdateNativePointerLockCenter(nsIWidget* aWidget) {
+  if (!mLockedNativePointer) {
+    return;
+  }
+  LayoutDeviceIntRect dims(
+      {0, 0},
+      ViewAs<LayoutDevicePixel>(
+          mDimensions, PixelCastJustification::LayoutDeviceIsScreenForTabDims));
+  aWidget->SetNativePointerLockCenter((dims + mChromeOffset).Center());
 }
 
 void BrowserParent::SizeModeChanged(const nsSizeMode& aSizeMode) {
@@ -1678,6 +1692,25 @@ mozilla::ipc::IPCResult BrowserParent::RecvDispatchKeyboardEvent(
   return IPC_OK();
 }
 
+mozilla::ipc::IPCResult BrowserParent::RecvDispatchTouchEvent(
+    const mozilla::WidgetTouchEvent& aEvent) {
+  nsCOMPtr<nsIWidget> widget = GetWidget();
+  if (!widget) {
+    return IPC_OK();
+  }
+
+  WidgetTouchEvent localEvent(aEvent);
+  localEvent.mWidget = widget;
+
+  for (uint32_t i = 0; i < localEvent.mTouches.Length(); i++) {
+    localEvent.mTouches[i]->mRefPoint =
+        TransformChildToParent(localEvent.mTouches[i]->mRefPoint);
+  }
+
+  widget->DispatchInputEvent(&localEvent);
+  return IPC_OK();
+}
+
 mozilla::ipc::IPCResult BrowserParent::RecvRequestNativeKeyBindings(
     const uint32_t& aType, const WidgetKeyboardEvent& aEvent,
     nsTArray<CommandInt>* aCommands) {
@@ -1902,6 +1935,30 @@ mozilla::ipc::IPCResult BrowserParent::RecvSynthesizeNativeTouchpadDoubleTap(
   if (widget) {
     widget->SynthesizeNativeTouchpadDoubleTap(aPoint, aModifierFlags);
   }
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult BrowserParent::RecvLockNativePointer() {
+  if (nsCOMPtr<nsIWidget> widget = GetWidget()) {
+    mLockedNativePointer = true;  // do before updating the center
+    UpdateNativePointerLockCenter(widget);
+    widget->LockNativePointer();
+  }
+  return IPC_OK();
+}
+
+void BrowserParent::UnlockNativePointer() {
+  if (!mLockedNativePointer) {
+    return;
+  }
+  if (nsCOMPtr<nsIWidget> widget = GetWidget()) {
+    widget->UnlockNativePointer();
+    mLockedNativePointer = false;
+  }
+}
+
+mozilla::ipc::IPCResult BrowserParent::RecvUnlockNativePointer() {
+  UnlockNativePointer();
   return IPC_OK();
 }
 

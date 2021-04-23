@@ -308,7 +308,7 @@ void nsWindow::DispatchTouchEventForAPZ(
   UserActivity();
 
   // Convert it to an event we can send to Gecko
-  WidgetTouchEvent event = aInput.ToWidgetTouchEvent(this);
+  WidgetTouchEvent event = aInput.ToWidgetEvent(this);
 
   // Dispatch the event into the gecko root process for "normal" flow.
   // The event might get sent to a child process,

@@ -412,6 +412,9 @@ nsIWidget::ContentAndAPZEventStatus PuppetWidget::DispatchInputEvent(
       Unused << mBrowserChild->SendDispatchKeyboardEvent(
           *aEvent->AsKeyboardEvent());
       break;
+    case eTouchEventClass:
+      Unused << mBrowserChild->SendDispatchTouchEvent(*aEvent->AsTouchEvent());
+      break;
     default:
       MOZ_ASSERT_UNREACHABLE("unsupported event type");
   }
@@ -540,6 +543,20 @@ nsresult PuppetWidget::SynthesizeNativeTouchpadDoubleTap(
   }
   mBrowserChild->SendSynthesizeNativeTouchpadDoubleTap(aPoint, aModifierFlags);
   return NS_OK;
+}
+
+void PuppetWidget::LockNativePointer() {
+  if (!mBrowserChild) {
+    return;
+  }
+  mBrowserChild->SendLockNativePointer();
+}
+
+void PuppetWidget::UnlockNativePointer() {
+  if (!mBrowserChild) {
+    return;
+  }
+  mBrowserChild->SendUnlockNativePointer();
 }
 
 void PuppetWidget::SetConfirmedTargetAPZC(

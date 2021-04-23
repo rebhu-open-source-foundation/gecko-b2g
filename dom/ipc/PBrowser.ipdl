@@ -535,6 +535,9 @@ parent:
     async SynthesizeNativeTouchpadDoubleTap(LayoutDeviceIntPoint aPoint,
                                             uint32_t aModifierFlags);
 
+    async LockNativePointer();
+    async UnlockNativePointer();
+
     async AccessKeyNotHandled(WidgetKeyboardEvent event);
 
     async RegisterProtocolHandler(nsString scheme, nsIURI handlerURI, nsString title,
@@ -652,6 +655,7 @@ parent:
     [Nested=inside_sync] sync DispatchWheelEvent(WidgetWheelEvent event);
     [Nested=inside_sync] sync DispatchMouseEvent(WidgetMouseEvent event);
     [Nested=inside_sync] sync DispatchKeyboardEvent(WidgetKeyboardEvent event);
+    [Nested=inside_sync] sync DispatchTouchEvent(WidgetTouchEvent event);
 
     async InvokeDragSession(IPCDataTransfer[] transfers, uint32_t action,
                             Shmem? visualData,

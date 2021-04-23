@@ -1083,10 +1083,10 @@ void nsBaseWidget::DispatchTouchInput(MultiTouchInput& aInput) {
       return;
     }
 
-    WidgetTouchEvent event = aInput.ToWidgetTouchEvent(this);
+    WidgetTouchEvent event = aInput.ToWidgetEvent(this);
     ProcessUntransformedAPZEvent(&event, result);
   } else {
-    WidgetTouchEvent event = aInput.ToWidgetTouchEvent(this);
+    WidgetTouchEvent event = aInput.ToWidgetEvent(this);
 
     nsEventStatus status;
     DispatchEvent(&event, status);
@@ -1157,6 +1157,15 @@ nsIWidget::ContentAndAPZEventStatus nsBaseWidget::DispatchInputEvent(
       RefPtr<Runnable> r =
           new DispatchInputOnControllerThread<MouseInput, WidgetMouseEvent>(
               *mouseEvent, mAPZC, this);
+      APZThreadUtils::RunOnControllerThread(std::move(r));
+      status.mContentStatus = nsEventStatus_eConsumeDoDefault;
+      return status;
+    }
+    if (WidgetTouchEvent* touchEvent = aEvent->AsTouchEvent()) {
+      RefPtr<Runnable> r =
+          new DispatchInputOnControllerThread<MultiTouchInput,
+                                              WidgetTouchEvent>(*touchEvent,
+                                                                mAPZC, this);
       APZThreadUtils::RunOnControllerThread(std::move(r));
       status.mContentStatus = nsEventStatus_eConsumeDoDefault;
       return status;
