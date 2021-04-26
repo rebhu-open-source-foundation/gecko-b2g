@@ -50,6 +50,7 @@ this.AlarmService = {
   init: function init() {
     DEBUG && debug("init()");
 
+    Services.obs.addObserver(this, "b2g-sw-registration-done");
     Services.obs.addObserver(this, "profile-change-teardown");
 
     this._currentTimezoneOffset = new Date().getTimezoneOffset();
@@ -110,7 +111,8 @@ this.AlarmService = {
     // Variable to save alarms waiting to be set.
     this._alarmQueue = [];
 
-    this._restoreAlarmsFromDb();
+    // Wait until `b2g-sw-registration-done` to restore alarms from DB,
+    // to make sure service workers are ready to catch fired alarms.
   },
 
   // Getter/setter to access the current alarm set in system.
@@ -636,6 +638,11 @@ this.AlarmService = {
     DEBUG && debug("observe(): " + aTopic);
 
     switch (aTopic) {
+      case "b2g-sw-registration-done":
+        Services.obs.removeObserver(this, "b2g-sw-registration-done");
+        DEBUG && debug("restore alarms from db.");
+        this._restoreAlarmsFromDb();
+        break;
       case "profile-change-teardown":
         this.uninit();
         break;
