@@ -194,9 +194,8 @@ void js::NativeObject::checkShapeConsistency() {
       while (shape->parent) {
         MOZ_ASSERT_IF(lastProperty() != shape, !shape->hasTable());
 
-        ShapeTable::Entry& entry =
-            table->search<MaybeAdding::NotAdding>(shape->propid(), nogc);
-        MOZ_ASSERT(entry.shape() == shape);
+        ShapeTable::Ptr p = table->search(shape->propid(), nogc);
+        MOZ_ASSERT(*p == shape);
         shape = shape->parent;
       }
     }
@@ -219,9 +218,8 @@ void js::NativeObject::checkShapeConsistency() {
       if (ShapeTable* table = shape->maybeTable(nogc)) {
         MOZ_ASSERT(shape->parent);
         for (Shape::Range<NoGC> r(shape); !r.empty(); r.popFront()) {
-          ShapeTable::Entry& entry =
-              table->search<MaybeAdding::NotAdding>(r.front().propid(), nogc);
-          MOZ_ASSERT(entry.shape() == &r.front());
+          ShapeTable::Ptr p = table->search(r.front().propid(), nogc);
+          MOZ_ASSERT(*p == &r.front());
         }
       }
       if (prev) {
@@ -1141,14 +1139,6 @@ void NativeObject::freeSlot(JSContext* cx, uint32_t slot) {
   setSlot(slot, UndefinedValue());
 }
 
-/* static */
-bool NativeObject::addProperty(JSContext* cx, HandleNativeObject obj,
-                               HandlePropertyName name, uint32_t slot,
-                               unsigned attrs, uint32_t* slotOut) {
-  RootedId id(cx, NameToId(name));
-  return addProperty(cx, obj, id, slot, attrs, slotOut);
-}
-
 template <AllowGC allowGC>
 bool js::NativeLookupOwnProperty(
     JSContext* cx, typename MaybeRooted<NativeObject*, allowGC>::HandleType obj,
@@ -1307,8 +1297,15 @@ static bool ChangeProperty(JSContext* cx, HandleNativeObject obj, HandleId id,
   }
 
   uint32_t slot;
-  if (!NativeObject::putProperty(cx, obj, id, attrs, &slot)) {
-    return false;
+  if (existing->isNativeProperty()) {
+    if (!NativeObject::changeProperty(cx, obj, id, attrs, &slot)) {
+      return false;
+    }
+  } else {
+    if (!NativeObject::addProperty(cx, obj, id, SHAPE_INVALID_SLOT, attrs,
+                                   &slot)) {
+      return false;
+    }
   }
 
   obj->setSlot(slot, PrivateGCThingValue(gs));
@@ -1361,8 +1358,6 @@ static MOZ_ALWAYS_INLINE bool AddOrChangeProperty(
     }
   }
 
-  // If we know this is a new property we can call addProperty instead of
-  // the slower putProperty.
   if constexpr (AddOrChange == IsAddOrChange::Add) {
     if (desc.isAccessorDescriptor()) {
       Rooted<GetterSetter*> gs(cx, GetterSetter::create(cx, desc.getterObject(),
@@ -1392,8 +1387,16 @@ static MOZ_ALWAYS_INLINE bool AddOrChangeProperty(
       }
     } else {
       uint32_t slot;
-      if (!NativeObject::putProperty(cx, obj, id, desc.attributes(), &slot)) {
-        return false;
+      if (existing->isNativeProperty()) {
+        if (!NativeObject::changeProperty(cx, obj, id, desc.attributes(),
+                                          &slot)) {
+          return false;
+        }
+      } else {
+        if (!NativeObject::addProperty(cx, obj, id, SHAPE_INVALID_SLOT,
+                                       desc.attributes(), &slot)) {
+          return false;
+        }
       }
       obj->setSlot(slot, desc.value());
     }
@@ -2911,7 +2914,7 @@ bool js::CopyDataPropertiesNative(JSContext* cx, HandlePlainObject target,
   *optimized = true;
 
   // If |target| contains no own properties, we can directly call
-  // addProperty instead of the slower putProperty.
+  // AddDataPropertyNonPrototype.
   const bool targetHadNoOwnProperties = target->empty();
 
   RootedId key(cx);

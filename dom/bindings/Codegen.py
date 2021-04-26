@@ -6131,14 +6131,13 @@ def getJSToNativeConversionInfo(
             for (size_t i = 0; i < ids.length(); ++i) {
               curId = ids[i];
 
-              JS::Rooted<JS::PropertyDescriptor> desc(cx);
+              JS::Rooted<mozilla::Maybe<JS::PropertyDescriptor>> desc(cx);
               if (!JS_GetOwnPropertyDescriptorById(cx, recordObj, curId,
                                                    &desc)) {
                 $*{exceptionCode}
               }
 
-              if (!desc.object() /* == undefined in spec terms */ ||
-                  !desc.enumerable()) {
+              if (desc.isNothing() || !desc->enumerable()) {
                 continue;
               }
 
