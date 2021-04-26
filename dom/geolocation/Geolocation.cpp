@@ -12,6 +12,7 @@
 #include "mozilla/dom/PermissionMessageUtils.h"
 #include "mozilla/dom/GeolocationPositionError.h"
 #include "mozilla/dom/GeolocationPositionErrorBinding.h"
+#include "mozilla/Hal.h"
 #include "mozilla/Preferences.h"
 #include "mozilla/Services.h"
 #include "mozilla/StaticPrefs_geo.h"
@@ -70,6 +71,7 @@ class nsIPrincipal;
 using mozilla::Unused;  // <snicker>
 using namespace mozilla;
 using namespace mozilla::dom;
+using namespace mozilla::hal;
 
 class nsGeolocationRequest final : public ContentPermissionRequestBase,
                                    public nsIGeolocationUpdate,
@@ -365,8 +367,8 @@ void nsGeolocationRequest::SendLocation(nsIDOMGeoPosition* aPosition) {
     nsCOMPtr<nsIDOMGeoPositionCoords> coords;
     aPosition->GetCoords(getter_AddRefs(coords));
     if (coords) {
-      wrapped = new mozilla::dom::GeolocationPosition(ToSupports(mLocator),
-                                                      aPosition);
+      wrapped = new mozilla::dom::GeolocationPosition(
+          ToSupports(static_cast<nsIGeolocationUpdate*>(mLocator)), aPosition);
     }
   }
 
@@ -623,11 +625,10 @@ nsGeolocationService::Observe(nsISupports* aSubject, const char* aTopic,
 
   if (!strcmp("timer-callback", aTopic)) {
     // decide if we can close down the service.
-    for (uint32_t i = 0; i < mGeolocators.Length(); i++)
-      if (mGeolocators[i]->HasActiveCallbacks()) {
-        SetDisconnectTimer();
-        return NS_OK;
-      }
+    if (HasActiveLocator()) {
+      SetDisconnectTimer();
+      return NS_OK;
+    }
 
     // okay to close up.
     StopDevice();
@@ -728,6 +729,26 @@ void nsGeolocationService::SetDisconnectTimer() {
                          nsITimer::TYPE_ONE_SHOT);
 }
 
+bool nsGeolocationService::HasActiveLocator() {
+  for (uint32_t i = 0; i < mGeolocators.Length(); i++) {
+    if (mGeolocators[i]->HasActiveCallbacks() &&
+        (mGeolocators[i]->IsVisible() || HasWakeLock())) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool nsGeolocationService::HasWakeLock() {
+  if (XRE_IsContentProcess()) {
+    WakeLockInformation info;
+    GetWakeLockInfo(u"gps"_ns, &info);
+    ContentChild* cpc = ContentChild::GetSingleton();
+    return info.lockingProcesses().Contains(cpc->GetID());
+  }
+  return true;
+}
+
 bool nsGeolocationService::HighAccuracyRequested() {
   for (uint32_t i = 0; i < mGeolocators.Length(); i++) {
     if (mGeolocators[i]->HighAccuracyRequested()) {
@@ -821,8 +842,9 @@ void nsGeolocationService::RemoveLocator(Geolocation* aLocator) {
 
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(Geolocation)
   NS_WRAPPERCACHE_INTERFACE_MAP_ENTRY
-  NS_INTERFACE_MAP_ENTRY(nsISupports)
+  NS_INTERFACE_MAP_ENTRY_AMBIGUOUS(nsISupports, nsIGeolocationUpdate)
   NS_INTERFACE_MAP_ENTRY(nsIGeolocationUpdate)
+  NS_INTERFACE_MAP_ENTRY(nsIDOMEventListener)
 NS_INTERFACE_MAP_END
 
 NS_IMPL_CYCLE_COLLECTING_ADDREF(Geolocation)
@@ -870,6 +892,14 @@ nsresult Geolocation::Init(nsPIDOMWindowInner* aContentDom) {
       return NS_ERROR_FAILURE;
     }
 
+    if (Preferences::GetBool("dom.wakelock.enabled", false) &&
+        XRE_IsContentProcess()) {
+      doc->AddSystemEventListener(u"visibilitychange"_ns,
+                                  /* listener */ this,
+                                  /* use capture */ true,
+                                  /* wants untrusted */ false);
+    }
+
     mPrincipal = doc->NodePrincipal();
     // Store the protocol to send via telemetry later.
     if (mPrincipal->SchemeIs("http")) {
@@ -890,10 +920,38 @@ nsresult Geolocation::Init(nsPIDOMWindowInner* aContentDom) {
   return NS_OK;
 }
 
+NS_IMETHODIMP Geolocation::HandleEvent(Event* aEvent) {
+  MOZ_ASSERT(XRE_IsContentProcess());
+
+  nsAutoString type;
+  aEvent->GetType(type);
+  if (type.EqualsLiteral("visibilitychange")) {
+    nsCOMPtr<Document> doc = do_QueryInterface(aEvent->GetTarget());
+    MOZ_ASSERT(doc);
+
+    if (!doc->Hidden() && mService->HasActiveLocator()) {
+      mService->StartDevice();
+    }
+  }
+
+  return NS_OK;
+}
+
 void Geolocation::Shutdown() {
   // Release all callbacks
   mPendingCallbacks.Clear();
   mWatchingCallbacks.Clear();
+
+  if (Preferences::GetBool("dom.wakelock.enabled", false) &&
+      XRE_IsContentProcess()) {
+    if (nsCOMPtr<nsPIDOMWindowInner> window = do_QueryReferent(mOwner)) {
+      nsCOMPtr<Document> doc = window->GetExtantDoc();
+      if (doc) {
+        doc->RemoveSystemEventListener(u"visibilitychange"_ns, this,
+                                       /* useCapture = */ true);
+      }
+    }
+  }
 
   if (mService) {
     mService->RemoveLocator(this);
@@ -911,6 +969,17 @@ nsPIDOMWindowInner* Geolocation::GetParentObject() const {
 
 bool Geolocation::HasActiveCallbacks() {
   return mPendingCallbacks.Length() || mWatchingCallbacks.Length();
+}
+
+bool Geolocation::IsVisible() {
+  if (XRE_IsContentProcess()) {
+    nsCOMPtr<nsPIDOMWindowInner> window = GetParentObject();
+    if (window) {
+      nsCOMPtr<Document> doc = window->GetExtantDoc();
+      return doc && !doc->Hidden();
+    }
+  }
+  return true;
 }
 
 bool Geolocation::HighAccuracyRequested() {

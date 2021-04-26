@@ -22,6 +22,7 @@
 
 #include "GeolocationPosition.h"
 #include "GeolocationCoordinates.h"
+#include "nsIDOMEventListener.h"
 #include "nsIDOMGeoPosition.h"
 #include "nsIDOMGeoPositionCallback.h"
 #include "nsIDOMGeoPositionErrorCallback.h"
@@ -98,6 +99,12 @@ class nsGeolocationService final : public nsIGeolocationUpdate,
   // create, or reinitalize the callback timer
   void SetDisconnectTimer();
 
+  // Return true if there is active locator
+  bool HasActiveLocator();
+
+  // Return true if it holds gps wakelock
+  bool HasWakeLock();
+
   // Update the accuracy and notify the provider if changed
   void UpdateAccuracy(bool aForceHigh = false);
   bool HighAccuracyRequested();
@@ -134,12 +141,16 @@ namespace dom {
 /**
  * Can return a geolocation info
  */
-class Geolocation final : public nsIGeolocationUpdate, public nsWrapperCache {
+class Geolocation final : public nsIGeolocationUpdate,
+                          public nsWrapperCache,
+                          public nsIDOMEventListener {
  public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
-  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(Geolocation)
+  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS_AMBIGUOUS(Geolocation,
+                                                         nsIGeolocationUpdate)
 
   NS_DECL_NSIGEOLOCATIONUPDATE
+  NS_DECL_NSIDOMEVENTLISTENER
 
   Geolocation();
 
@@ -170,6 +181,9 @@ class Geolocation final : public nsIGeolocationUpdate, public nsWrapperCache {
 
   // Returns true if any of the callbacks are repeating
   bool HasActiveCallbacks();
+
+  // Return true if it is in foreground
+  bool IsVisible();
 
   // Register an allowed request
   void NotifyAllowedRequest(nsGeolocationRequest* aRequest);
