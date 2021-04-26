@@ -76,7 +76,7 @@ Status NetdUnsolService::onInterfaceDnsServerInfo(
   char message[BUF_SIZE];
 
   SprintfLiteral(message, "DnsInfo servers %s %" PRId64 " %s", ifName.c_str(),
-                 lifetime, android::base::Join(servers, " ").c_str());
+                 lifetime, android::base::Join(servers, ",").c_str());
   NUS_DBG("%s", message);
   sendBroadcast(InterfaceDnsServersAdded, message);
   return Status::ok();
