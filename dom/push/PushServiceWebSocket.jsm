@@ -1740,6 +1740,7 @@ var PushServiceWebSocket = {
     // connection attempt and ping interval counters.
     if (this._currentState == STATE_READY) {
       this._retryFailCount = 0;
+      this._pingIntervalRetryTimes = {};
     }
 
     let doNotHandle = false;
