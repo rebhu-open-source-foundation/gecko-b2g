@@ -4023,11 +4023,6 @@ WifiWorker.prototype = {
   setWifiEnabled(msg) {
     const message = "WifiManager:setWifiEnabled:Return";
     let enabled = msg.data;
-    // No change.
-    if (enabled === WifiManager.enabled) {
-      this._sendMessage(message, true, true, msg);
-      return;
-    }
 
     // Store persist wifi state.
     Services.prefs.setBoolPref(PREFERENCE_WIFI_ENABLED, enabled);
