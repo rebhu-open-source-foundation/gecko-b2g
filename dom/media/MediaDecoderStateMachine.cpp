@@ -2826,11 +2826,11 @@ MediaSink* MediaDecoderStateMachine::CreateAudioSink() {
   }
 
   RefPtr<MediaDecoderStateMachine> self = this;
-  auto audioSinkCreator = [self]() {
+  auto audioSinkCreator = [self](const media::TimeUnit& aStartTime) {
     MOZ_ASSERT(self->OnTaskQueue());
     AudioSink* audioSink = new AudioSink(
-        self->mTaskQueue, self->mAudioQueue, self->GetMediaTime(),
-        self->Info().mAudio, self->mSinkDevice.Ref(), self->mAudioChannel);
+        self->mTaskQueue, self->mAudioQueue, aStartTime, self->Info().mAudio,
+        self->mSinkDevice.Ref(), self->mAudioChannel);
     self->mAudibleListener.DisconnectIfExists();
     self->mAudibleListener = audioSink->AudibleEvent().Connect(
         self->mTaskQueue, self.get(),
@@ -3483,10 +3483,12 @@ bool MediaDecoderStateMachine::HasLowBufferedData(const TimeUnit& aThreshold) {
   }
 
   if ((Duration() - endOfDecodedData) <= aThreshold) {
-    LOGV("HasLowBufferedData, Rest media time: %" PRId64 " <= Threshold: %" PRId64 "",
-         (Duration() - endOfDecodedData).ToMicroseconds(), aThreshold.ToMicroseconds());
-    // Our rest time is less than aThreshold. So we need to let it go or it never
-    // gets enough data to start playing. No point buffering.
+    LOGV("HasLowBufferedData, Rest media time: %" PRId64
+         " <= Threshold: %" PRId64 "",
+         (Duration() - endOfDecodedData).ToMicroseconds(),
+         aThreshold.ToMicroseconds());
+    // Our rest time is less than aThreshold. So we need to let it go or it
+    // never gets enough data to start playing. No point buffering.
     return false;
   }
 
@@ -3746,12 +3748,17 @@ void MediaDecoderStateMachine::UpdateOutputCaptured() {
 
   // Don't create a new media sink if we're still suspending media sink.
   if (!mIsMediaSinkSuspended) {
+    const bool wasPlaying = IsPlaying();
     // Stop and shut down the existing sink.
     StopMediaSink();
     mMediaSink->Shutdown();
 
     // Create a new sink according to whether output is captured.
     mMediaSink = CreateMediaSink();
+    if (wasPlaying) {
+      DebugOnly<nsresult> rv = StartMediaSink();
+      MOZ_ASSERT(NS_SUCCEEDED(rv));
+    }
   }
 
   // Don't buffer as much when audio is captured because we don't need to worry

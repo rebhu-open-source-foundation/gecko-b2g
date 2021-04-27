@@ -50,7 +50,7 @@
 #searchbar {
   min-height: var(--urlbar-min-height);
   text-shadow: none;
-  color: FieldText;
+  color: var(--toolbar-field-non-lwt-color, FieldText);
 }
 
 @media not (-moz-proton) {
@@ -203,7 +203,7 @@
   background-repeat: no-repeat;
   background-position: center;
   -moz-context-properties: fill, fill-opacity;
-  fill: var(--lwt-toolbarbutton-icon-fill, var(--toolbar-color));
+  fill: var(--toolbarbutton-icon-fill);
   fill-opacity: var(--toolbarbutton-icon-fill-opacity);
 }
 
@@ -388,9 +388,21 @@
 }
 } /*** END !proton ***/
 
+@media (-moz-proton) {
+#urlbar[searchmode] > #urlbar-input-container > #urlbar-search-mode-indicator {
+  display: inline-flex;
+}
+
+#urlbar[searchmode] > #urlbar-input-container > #urlbar-label-box {
+  display: none;
+}
+} /*** END proton ***/
+
+@media not (-moz-proton) {
 #urlbar[searchmode][breakout-extend] > #urlbar-input-container > #urlbar-search-mode-indicator {
   display: inline-flex;
 }
+} /*** END !proton ***/
 
 /* Use system colors for low/high contrast mode */
 @media (prefers-contrast) {
