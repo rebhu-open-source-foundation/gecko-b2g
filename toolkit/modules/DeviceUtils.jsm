@@ -241,9 +241,9 @@ this.DeviceUtils = {
         ? netInfoArray[1].shortName || netInfoArray[1].longName
         : undefined;
     let language =
-      Services.prefs.getPrefType("general.useragent.locale") ==
+      Services.prefs.getPrefType("intl.locale.requested") ==
       Ci.nsIPrefBranch.PREF_STRING
-        ? Services.prefs.getCharPref("general.useragent.locale")
+        ? Services.prefs.getCharPref("intl.locale.requested")
         : undefined;
 
     if (this.device_info_cache) {
