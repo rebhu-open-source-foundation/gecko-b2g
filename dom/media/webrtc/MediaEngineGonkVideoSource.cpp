@@ -693,12 +693,11 @@ static int ConvertYUVToI420(android_ycbcr& aSrcYUV, android_ycbcr& aDstYUV,
           aSrcWidth, aSrcHeight, static_cast<libyuv::RotationMode>(aRotation));
       // clang-format on
     case HAL_PIXEL_FORMAT_YV12:
-      // Call I420 rotate API with source U plane and V plane swapped.
       // clang-format off
       return libyuv::I420Rotate(
           static_cast<uint8_t*>(aSrcYUV.y),  static_cast<int>(aSrcYUV.ystride),
-          static_cast<uint8_t*>(aSrcYUV.cr), static_cast<int>(aSrcYUV.cstride),
           static_cast<uint8_t*>(aSrcYUV.cb), static_cast<int>(aSrcYUV.cstride),
+          static_cast<uint8_t*>(aSrcYUV.cr), static_cast<int>(aSrcYUV.cstride),
           static_cast<uint8_t*>(aDstYUV.y),  static_cast<int>(aDstYUV.ystride),
           static_cast<uint8_t*>(aDstYUV.cb), static_cast<int>(aDstYUV.cstride),
           static_cast<uint8_t*>(aDstYUV.cr), static_cast<int>(aDstYUV.cstride),
