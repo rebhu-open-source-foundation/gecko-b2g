@@ -508,7 +508,7 @@ menupopup::part(drop-indicator) {
   margin: 3px;
   border: none;
   border-radius: 2px;
-  background-image: url(chrome://browser/skin/stop.svg);
+  background-image: url(chrome://global/skin/icons/close.svg);
   background-color: transparent;
   background-repeat: no-repeat;
   background-position: center;
@@ -851,7 +851,7 @@ menupopup::part(drop-indicator) {
   flex: 1;
 }
 
-@media not (-moz-proton-doorhangers) {
+@media not (-moz-proton) {
 .webRTC-selectDevice-label {
   margin-top: 6px;
   font-weight: 600;
@@ -868,7 +868,7 @@ menupopup::part(drop-indicator) {
 }
 } /** END not Proton **/
 
-@media (-moz-proton-doorhangers) {
+@media (-moz-proton) {
 popupnotification {
   font-size: var(--panel-font-size);
 }

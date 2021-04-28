@@ -20,7 +20,7 @@
   --arrowpanel-color: var(--default-arrowpanel-color);
   --arrowpanel-border-color: var(--default-arrowpanel-border-color);
   --arrowpanel-border-radius: 8px;
-  --arrowpanel-padding: 1.25em;
+  --arrowpanel-padding: 16px;
 
   --arrowpanel-dimmed: color-mix(in srgb, currentColor 17%, transparent);
   --arrowpanel-dimmed-further: color-mix(in srgb, currentColor 30%, transparent);
@@ -33,7 +33,7 @@
   --toolbarbutton-icon-fill: currentColor;
 }
 
-@media not (-moz-proton-doorhangers) {
+@media not (-moz-proton) {
 :root {
   --popup-notification-body-width: 25em;
 }
@@ -161,7 +161,7 @@ xul|label[disabled="true"] {
 
 /* Panel footers */
 
-@media not (-moz-proton-doorhangers) {
+@media not (-moz-proton) {
 .panel-footer {
   background-color: var(--arrowpanel-dimmed);
 }

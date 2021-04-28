@@ -5438,6 +5438,12 @@ void PresShell::SetRenderingState(const RenderingState& aState) {
     }
   }
 
+  if (GetResolution() != aState.mResolution.valueOr(1.f)) {
+    if (nsIFrame* frame = GetRootFrame()) {
+      frame->SchedulePaint();
+    }
+  }
+
   mRenderingStateFlags = aState.mRenderingStateFlags;
   mResolution = aState.mResolution;
 }
