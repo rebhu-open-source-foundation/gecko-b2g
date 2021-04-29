@@ -675,6 +675,15 @@ MediaConduitErrorCode WebrtcVideoConduit::CreateSendStream() {
 
   mSendStreamConfig.encoder_settings.encoder = encoder.get();
 
+#ifdef MOZ_WIDGET_GONK
+  // Allow 100% encoding time utilization for HW encoders. This can avoid
+  // unnecessary image scaling down caused by incorrectly detecting CPU
+  // overusing on HW encoders.
+  if (encoder->SupportsNativeHandle()) {
+    mSendStreamConfig.encoder_settings.full_overuse_time = true;
+  }
+#endif
+
   MOZ_ASSERT(
       mSendStreamConfig.rtp.ssrcs.size() == mEncoderConfig.number_of_streams,
       "Each video substream must have a corresponding ssrc.");
