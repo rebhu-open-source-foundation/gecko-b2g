@@ -674,8 +674,13 @@ NS_IMPL_ISUPPORTS(VibrateWindowListener, nsIDOMEventListener)
 StaticRefPtr<VibrateWindowListener> gVibrateWindowListener;
 
 static bool MayVibrate(Document* doc) {
+  if (!doc || !doc->NodePrincipal()) {
+    return false;
+  }
+
   // Hidden documents cannot start or stop a vibration.
-  return (doc && !doc->Hidden());
+  // However, granted for doc with system principal (i.e. system app).
+  return !doc->Hidden() || doc->NodePrincipal()->IsSystemPrincipal();
 }
 
 NS_IMETHODIMP

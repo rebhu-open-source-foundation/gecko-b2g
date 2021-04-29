@@ -73,7 +73,9 @@ void AssertMainProcess() {
 bool WindowIsActive(nsPIDOMWindowInner* aWindow) {
   dom::Document* document = aWindow->GetDoc();
   NS_ENSURE_TRUE(document, false);
-  return !document->Hidden();
+  auto principal = document->NodePrincipal();
+  NS_ENSURE_TRUE(principal, false);
+  return !document->Hidden() || principal->IsSystemPrincipal();
 }
 
 StaticAutoPtr<WindowIdentifier::IDArrayType> gLastIDToVibrate;
