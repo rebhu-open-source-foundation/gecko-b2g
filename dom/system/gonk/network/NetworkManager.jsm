@@ -496,11 +496,13 @@ Nat464Xlat.prototype = {
     this.nat64Debug("Starting clatd");
     if (this.ifaceName == null) {
       this.nat64Debug("clatd: Can't start clatd without providing interface");
+      aCallback(false);
       return;
     }
 
     if (this.isStarted()) {
       this.nat64Debug("clatd: already started");
+      aCallback(true);
       return;
     }
 
@@ -532,6 +534,7 @@ Nat464Xlat.prototype = {
     let self = this;
     if (!this.isStarted()) {
       this.nat64Debug("clatd: already stopped");
+      aCallback(true);
       return;
     }
 
