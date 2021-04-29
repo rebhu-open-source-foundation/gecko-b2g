@@ -129,13 +129,8 @@ nsresult CameraControlWrapper::Start(webrtc::CaptureCapability aCapability) {
   }
   mHardwareState = kHardwareUninitialized;
 
-  ICameraControl::Configuration config;
-  config.mMode = ICameraControl::kPictureMode;
-  config.mPreviewSize.width = aCapability.width;
-  config.mPreviewSize.height = aCapability.height;
-  config.mPictureSize.width = aCapability.width;
-  config.mPictureSize.height = aCapability.height;
-  mCameraControl->Start(&config);
+  // Start camera without starting preview.
+  mCameraControl->Start();
 
   // Wait for hardware state change.
   while (mHardwareState == kHardwareUninitialized) {
@@ -158,6 +153,21 @@ nsresult CameraControlWrapper::Start(webrtc::CaptureCapability aCapability) {
       break;
     }
   }
+
+  auto width = aCapability.width;
+  auto height = aCapability.height;
+  if (mCameraAngle == 90 || mCameraAngle == 270) {
+    std::swap(width, height);
+  }
+
+  // Start preview.
+  ICameraControl::Configuration config;
+  config.mMode = ICameraControl::kPictureMode;
+  config.mPreviewSize.width = width;
+  config.mPreviewSize.height = height;
+  config.mPictureSize.width = width;
+  config.mPictureSize.height = height;
+  mCameraControl->Start(&config);
   return NS_OK;
 }
 
@@ -320,13 +330,15 @@ size_t MediaEngineGonkVideoSource::NumCapabilities() const {
   // TODO: Match with actual hardware or add code to query hardware.
 
   if (mHardcodedCapabilities.IsEmpty()) {
+    // Preview sizes supported by GF5:
     const struct {
       int width, height;
-    } hardcodes[] = {
-        {800, 1280}, {720, 1280}, {600, 1024}, {540, 960}, {480, 854},
-        {480, 800},  {320, 480},  {240, 320},  // sole mode supported by
-                                               // emulator on try
-    };
+    } hardcodes[] = {{1080, 1440}, {960, 1280}, {720, 1280}, {480, 1280},
+                     {400, 1280},  {480, 864},  {480, 800},  {432, 768},
+                     {480, 720},   {640, 640},  {480, 640},  {640, 480},
+                     {360, 640},   {432, 576},  {360, 480},  {320, 480},
+                     {288, 384},   {288, 352},  {240, 320},  {320, 240},
+                     {160, 240},   {144, 176},  {176, 144},  {120, 160}};
     const int framerates[] = {15, 30};
 
     for (auto& hardcode : hardcodes) {
@@ -335,13 +347,7 @@ size_t MediaEngineGonkVideoSource::NumCapabilities() const {
       c.height = hardcode.height;
       for (int framerate : framerates) {
         c.maxFPS = framerate;
-        mHardcodedCapabilities.AppendElement(c);  // portrait
-      }
-      c.width = hardcode.height;
-      c.height = hardcode.width;
-      for (int framerate : framerates) {
-        c.maxFPS = framerate;
-        mHardcodedCapabilities.AppendElement(c);  // landscape
+        mHardcodedCapabilities.AppendElement(c);
       }
     }
   }
