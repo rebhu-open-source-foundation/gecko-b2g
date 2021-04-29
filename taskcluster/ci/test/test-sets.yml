@@ -170,6 +170,7 @@ browsertime:
     - browsertime-benchmark
     - browsertime-benchmark-wasm
     - browsertime-tp6-profiling
+    - browsertime-custom
 
 browsertime-high-priority:
     - browsertime-benchmark
@@ -298,7 +299,6 @@ windows-qr-tests:
 
 windows7-qr-tests:
     - mochitest-browser-chrome
-    - mochitest-media
     - mochitest-webgl1-core
     - mochitest-webgl2-core
     - reftest
@@ -309,13 +309,13 @@ windows32-qr-tests:
     - mochitest-chrome-gpu
     - mochitest-plain
     - mochitest-plain-gpu
+    - mochitest-media
     - test-verify
 
 windows-7-tests:
     - cppunit
     - gtest
     - mochitest-browser-chrome
-    - mochitest-media
     - mochitest-webgpu
     - reftest
     - reftest-no-accel
@@ -333,6 +333,7 @@ windows32-tests:
     - mochitest-chrome-gpu
     - mochitest-plain
     - mochitest-plain-gpu
+    - mochitest-media
     - mochitest-remote
     - telemetry-tests-client
     - test-verify

@@ -658,7 +658,7 @@ class ZoomAnimation : public AsyncPanZoomAnimation {
     return true;
   }
 
-  virtual bool WantsRepaints() override { return false; }
+  virtual bool WantsRepaints() override { return true; }
 
  private:
   AsyncPanZoomController& mApzc;
@@ -5026,8 +5026,10 @@ void AsyncPanZoomController::NotifyLayersUpdated(
 
     // TODO: Rely entirely on |aScrollMetadata.IsResolutionUpdated()| to
     //       determine which branch to take, and drop the other conditions.
-    if (FuzzyEqualsAdditive(Metrics().GetCompositionBounds().Width(),
-                            aLayerMetrics.GetCompositionBounds().Width()) &&
+    if (FuzzyEqualsAdditive(
+            Metrics().GetCompositionBoundsWidthIgnoringScrollbars().value,
+            aLayerMetrics.GetCompositionBoundsWidthIgnoringScrollbars()
+                .value) &&
         Metrics().GetDevPixelsPerCSSPixel() ==
             aLayerMetrics.GetDevPixelsPerCSSPixel() &&
         !viewportSizeUpdated && !aScrollMetadata.IsResolutionUpdated()) {
@@ -5077,6 +5079,8 @@ void AsyncPanZoomController::NotifyLayersUpdated(
       Metrics().SetCompositionBounds(aLayerMetrics.GetCompositionBounds());
       needToReclampScroll = true;
     }
+    Metrics().SetCompositionBoundsWidthIgnoringScrollbars(
+        aLayerMetrics.GetCompositionBoundsWidthIgnoringScrollbars());
 
     if (Metrics().IsRootContent() &&
         Metrics().GetCompositionSizeWithoutDynamicToolbar() !=
@@ -5551,23 +5555,29 @@ void AsyncPanZoomController::ZoomToRect(const ZoomTarget& aZoomTarget,
                 (currentZoom == localMinZoom && targetZoom <= localMinZoom);
     }
 
+    FrameMetrics endZoomToMetrics = Metrics();
     if (zoomOut) {
-      CSSSize compositedSize = Metrics().CalculateCompositedSizeInCssPixels();
-      float y = scrollOffset.y;
-      float newHeight =
-          cssPageRect.Width() * (compositedSize.height / compositedSize.width);
-      float dh = compositedSize.height - newHeight;
+      // Set our zoom to the min zoom and then calculate what the after-zoom
+      // composited size is, and then calculate the new scroll offset so that we
+      // center what the old composited size displayed.
+      targetZoom = localMinZoom;
+      endZoomToMetrics.SetZoom(CSSToParentLayerScale2D(targetZoom));
 
-      rect = CSSRect(0.0f, y + dh / 2, cssPageRect.Width(), newHeight);
+      CSSSize sizeAfterZoom =
+          endZoomToMetrics.CalculateCompositedSizeInCssPixels();
+
+      CSSSize sizeBeforeZoom = Metrics().CalculateCompositedSizeInCssPixels();
+
+      rect = CSSRect(
+          scrollOffset.x + (sizeBeforeZoom.width - sizeAfterZoom.width) / 2,
+          scrollOffset.y + (sizeBeforeZoom.height - sizeAfterZoom.height) / 2,
+          sizeAfterZoom.Width(), sizeAfterZoom.Height());
+
       rect = rect.Intersect(cssPageRect);
-      targetZoom = CSSToParentLayerScale(
-          std::min(compositionBounds.Width() / rect.Width(),
-                   compositionBounds.Height() / rect.Height()));
     }
 
     targetZoom.scale =
         clamped(targetZoom.scale, localMinZoom.scale, localMaxZoom.scale);
-    FrameMetrics endZoomToMetrics = Metrics();
     if (aFlags & PAN_INTO_VIEW_ONLY) {
       targetZoom = currentZoom;
     } else if (aFlags & ONLY_ZOOM_TO_DEFAULT_SCALE) {
@@ -5631,23 +5641,23 @@ void AsyncPanZoomController::ZoomToRect(const ZoomTarget& aZoomTarget,
         *this, Metrics().GetVisualScrollOffset(), Metrics().GetZoom(),
         endZoomToMetrics.GetVisualScrollOffset(), endZoomToMetrics.GetZoom()));
 
-    // Schedule a repaint now, so the new displayport will be painted before the
-    // animation finishes.
+    FrameMetrics metricsToRequestRepaintWith = Metrics();
+
     ParentLayerPoint velocity(0, 0);
     ScreenMargin displayportMargins = CalculatePendingDisplayPort(
-        endZoomToMetrics, velocity, ZoomInProgress::Yes);
-    endZoomToMetrics.SetPaintRequestTime(TimeStamp::Now());
+        metricsToRequestRepaintWith, velocity, ZoomInProgress::Yes);
+    metricsToRequestRepaintWith.SetPaintRequestTime(TimeStamp::Now());
 
     RefPtr<GeckoContentController> controller = GetGeckoContentController();
     if (!controller) {
       return;
     }
     if (controller->IsRepaintThread()) {
-      RequestContentRepaint(endZoomToMetrics, velocity, displayportMargins,
-                            RepaintUpdateType::eUserAction);
+      RequestContentRepaint(metricsToRequestRepaintWith, velocity,
+                            displayportMargins, RepaintUpdateType::eUserAction);
     } else {
       // See comment on similar code in RequestContentRepaint
-      mExpectedGeckoMetrics.UpdateFrom(endZoomToMetrics);
+      mExpectedGeckoMetrics.UpdateFrom(metricsToRequestRepaintWith);
 
       // use a local var to resolve the function overload
       auto func = static_cast<void (AsyncPanZoomController::*)(
@@ -5657,7 +5667,7 @@ void AsyncPanZoomController::ZoomToRect(const ZoomTarget& aZoomTarget,
           NewRunnableMethod<FrameMetrics, ParentLayerPoint, ScreenMargin,
                             RepaintUpdateType>(
               "layers::AsyncPanZoomController::ZoomToRect", this, func,
-              endZoomToMetrics, velocity, displayportMargins,
+              metricsToRequestRepaintWith, velocity, displayportMargins,
               RepaintUpdateType::eUserAction));
     }
   }

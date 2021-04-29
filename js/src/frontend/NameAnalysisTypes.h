@@ -267,21 +267,23 @@ class NameLocation {
   // If the name is closed over and accessed via EnvironmentCoordinate, the
   // slot on the environment.
   //
-  // Otherwise LOCALNO_LIMIT/ENVCOORD_SLOT_LIMIT.
+  // Otherwise 0.
   uint32_t slot_ : ENVCOORD_SLOT_BITS;
 
   static_assert(LOCALNO_BITS == ENVCOORD_SLOT_BITS,
                 "Frame and environment slots must be same sized.");
 
   NameLocation(Kind kind, BindingKind bindingKind, uint8_t hops = UINT8_MAX,
-               uint32_t slot = ENVCOORD_SLOT_LIMIT)
+               uint32_t slot = 0)
       : kind_(kind), bindingKind_(bindingKind), hops_(hops), slot_(slot) {}
 
  public:
   // Default constructor for InlineMap.
   NameLocation() = default;
 
-  static NameLocation Dynamic() { return NameLocation(); }
+  static NameLocation Dynamic() {
+    return NameLocation(Kind::Dynamic, BindingKind::Import);
+  }
 
   static NameLocation Global(BindingKind bindKind) {
     MOZ_ASSERT(bindKind != BindingKind::FormalParameter);

@@ -399,7 +399,7 @@ panelmultiview[transitioning] > .panel-viewcontainer > .panel-viewstack > panelv
   max-width: @standaloneSubviewWidth@;
 }
 
-@media (-moz-proton) {
+@media (-moz-proton-doorhangers) {
 #BMB_bookmarksPopup::part(arrowscrollbox) {
   border: 0;
 }
@@ -414,7 +414,7 @@ panelmultiview[transitioning] > .panel-viewcontainer > .panel-viewstack > panelv
 }
 } /** END Proton **/
 
-@media not (-moz-proton) {
+@media not (-moz-proton-doorhangers) {
 #BMB_bookmarksPopup::part(arrowscrollbox) {
   padding: 0;
 }
@@ -900,7 +900,6 @@ toolbarbutton[constrain-size="true"][cui-areatype="menu-panel"] > .toolbarbutton
   }
 
   #appMenu-fxa-status2[fxastatus] > #appMenu-fxa-label2 {
-    padding-block: 16px;
     -moz-box-flex: 1;
   }
 
@@ -1816,7 +1815,7 @@ menuitem.panel-subview-footer@menuStateActive@,
   margin-inline-end: 3px;
 }
 
-@media not (-moz-proton) {
+@media not (-moz-proton-doorhangers) {
 #BMB_bookmarksPopup menupopup > .bookmarks-actions-menuseparator {
   /* Hide bottom separator as the styled footer includes a top border serving the same purpose */
   display: none;
@@ -2412,10 +2411,6 @@ panelview:not([mainview]) #PanelUI-whatsNew-title {
 #PanelUI-whatsNew checkbox:hover .checkbox-check {
   border-color: #0a84ff;
 }
-
-#PanelUI-whatsNew .checkbox-icon {
-  display: none;
-}
 } /*** END !proton ***/
 
 #PanelUI-whatsNew .whatsNew-message {
@@ -2472,7 +2467,7 @@ panelview:not([mainview]) #PanelUI-whatsNew-title {
   margin: 0 calc(-10px + var(--horizontal-padding)) var(--vertical-section-padding);
 }
 
-@media (-moz-proton) {
+@media (-moz-proton-doorhangers) {
 #protections-popup-message .whatsNew-message-body {
   margin-inline: 6px;
 }

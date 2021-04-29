@@ -13,9 +13,6 @@
 #identity-popup,
 #permission-popup,
 #protections-popup {
-%if defined(XP_MACOSX) || defined(XP_WIN)
-  font-size: 1.18em;
-%endif
   --popup-width: 30.81em;
   /* Set default fill for icons in the identity popup.
      Individual icons can override this. */
@@ -25,7 +22,15 @@
   --height-offset: 0px;
 }
 
-@media not (-moz-proton) {
+@media (-moz-proton-doorhangers) {
+#identity-popup,
+#permission-popup,
+#protections-popup {
+  font: menu;
+}
+}
+
+@media not (-moz-proton-doorhangers) {
 #identity-popup,
 #permission-popup,
 #protections-popup {
@@ -33,7 +38,7 @@
   font-size: 1.18em;
 %endif
 }
-} /** END not PROTON **/
+}
 
 #protections-popup {
   --protections-popup-switch-off-background: #f9f9fa;
@@ -187,7 +192,7 @@
   background-position: calc(100% - 1em) 1em;
 }
 
-@media not (-moz-proton) {
+@media not (-moz-proton-doorhangers) {
 #identity-popup-securityView .identity-popup-security-content {
   border-bottom: 1px solid var(--panel-separator-color);
 }
@@ -253,7 +258,7 @@
 }
 } /** END not PROTON **/
 
-@media not (-moz-proton) {
+@media not (-moz-proton-doorhangers) {
 .identity-popup-security-content,
 #permission-popup-permissions-content {
   padding-block: 1em;
@@ -346,7 +351,7 @@
   margin-top: 4px;
 }
 
-@media not (-moz-proton) {
+@media not (-moz-proton-doorhangers) {
 #permission-popup-mainView-panel-header,
 #identity-popup-mainView-panel-header {
   padding: var(--vertical-section-padding) 2px;
@@ -397,7 +402,7 @@
 
 /* SECURITY */
 
-@media not (-moz-proton) {
+@media not (-moz-proton-doorhangers) {
 .identity-popup-connection-secure {
   color: #058B00;
 }
@@ -477,7 +482,7 @@
   padding-top: 4px;
 }
 
-@media not (-moz-proton) {
+@media not (-moz-proton-doorhangers) {
 #identity-popup-securityView-body {
   /* icon indent + 16px icon width + 6px description margin
     (total of 12px margin with the native 6px description margin) */
@@ -490,7 +495,7 @@
 }
 } /** END not PROTON **/
 
-@media (-moz-proton) {
+@media (-moz-proton-doorhangers) {
 #identity-popup-multiView {
   height: -moz-fit-content;
 }
@@ -904,7 +909,7 @@ description#identity-popup-content-verifier,
   margin-inline-start: 8px;
 }
 
-@media not (-moz-proton) {
+@media not (-moz-proton-doorhangers) {
 .permission-popup-permission-icon {
   margin-inline-start: 3px;
 }
@@ -1054,7 +1059,7 @@ description#identity-popup-content-verifier,
   transition: padding .2s ease;
 }
 
-@media (-moz-proton) {
+@media (-moz-proton-doorhangers) {
 .protections-popup-tp-switch {
   min-width: 30px;
 }
@@ -1077,7 +1082,7 @@ description#identity-popup-content-verifier,
   padding-inline-start: 12px;
 }
 
-@media (-moz-proton) {
+@media (-moz-proton-doorhangers) {
 .protections-popup-tp-switch[enabled] {
   padding-inline-start: 16px;
 }
@@ -1208,7 +1213,7 @@ description#identity-popup-content-verifier,
   stroke: #ffbd4f;
 }
 
-@media not (-moz-proton) {
+@media not (-moz-proton-doorhangers) {
 #protections-popup-mainView-panel-header-section {
   color: white;
   background: radial-gradient(circle farthest-side at top right, #9059FF, #0250BB);
@@ -1272,7 +1277,7 @@ description#identity-popup-content-verifier,
 }
 }/** END not PROTON **/
 
-@media (-moz-proton) {
+@media (-moz-proton-doorhangers) {
 #protections-popup-mainView-panel-header {
   min-height: 43.5px;
 }

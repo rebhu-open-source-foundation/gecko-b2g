@@ -4723,7 +4723,8 @@ mozilla::ipc::IPCResult ContentChild::RecvFlushTabState(
 
 mozilla::ipc::IPCResult ContentChild::RecvGoBack(
     const MaybeDiscarded<BrowsingContext>& aContext,
-    const Maybe<int32_t>& aCancelContentJSEpoch, bool aRequireUserInteraction) {
+    const Maybe<int32_t>& aCancelContentJSEpoch, bool aRequireUserInteraction,
+    bool aUserActivation) {
   if (aContext.IsNullOrDiscarded()) {
     return IPC_OK();
   }
@@ -4733,7 +4734,7 @@ mozilla::ipc::IPCResult ContentChild::RecvGoBack(
     if (aCancelContentJSEpoch) {
       docShell->SetCancelContentJSEpoch(*aCancelContentJSEpoch);
     }
-    docShell->GoBack(aRequireUserInteraction);
+    docShell->GoBack(aRequireUserInteraction, aUserActivation);
 
     if (BrowserChild* browserChild = BrowserChild::GetFrom(docShell)) {
       browserChild->NotifyNavigationFinished();
@@ -4745,7 +4746,8 @@ mozilla::ipc::IPCResult ContentChild::RecvGoBack(
 
 mozilla::ipc::IPCResult ContentChild::RecvGoForward(
     const MaybeDiscarded<BrowsingContext>& aContext,
-    const Maybe<int32_t>& aCancelContentJSEpoch, bool aRequireUserInteraction) {
+    const Maybe<int32_t>& aCancelContentJSEpoch, bool aRequireUserInteraction,
+    bool aUserActivation) {
   if (aContext.IsNullOrDiscarded()) {
     return IPC_OK();
   }
@@ -4755,7 +4757,7 @@ mozilla::ipc::IPCResult ContentChild::RecvGoForward(
     if (aCancelContentJSEpoch) {
       docShell->SetCancelContentJSEpoch(*aCancelContentJSEpoch);
     }
-    docShell->GoForward(aRequireUserInteraction);
+    docShell->GoForward(aRequireUserInteraction, aUserActivation);
 
     if (BrowserChild* browserChild = BrowserChild::GetFrom(docShell)) {
       browserChild->NotifyNavigationFinished();
@@ -4767,7 +4769,7 @@ mozilla::ipc::IPCResult ContentChild::RecvGoForward(
 
 mozilla::ipc::IPCResult ContentChild::RecvGoToIndex(
     const MaybeDiscarded<BrowsingContext>& aContext, const int32_t& aIndex,
-    const Maybe<int32_t>& aCancelContentJSEpoch) {
+    const Maybe<int32_t>& aCancelContentJSEpoch, bool aUserActivation) {
   if (aContext.IsNullOrDiscarded()) {
     return IPC_OK();
   }
@@ -4777,7 +4779,7 @@ mozilla::ipc::IPCResult ContentChild::RecvGoToIndex(
     if (aCancelContentJSEpoch) {
       docShell->SetCancelContentJSEpoch(*aCancelContentJSEpoch);
     }
-    docShell->GotoIndex(aIndex);
+    docShell->GotoIndex(aIndex, aUserActivation);
 
     if (BrowserChild* browserChild = BrowserChild::GetFrom(docShell)) {
       browserChild->NotifyNavigationFinished();

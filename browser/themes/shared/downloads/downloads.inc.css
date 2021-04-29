@@ -26,7 +26,7 @@
   pointer-events: none;
 }
 
-@media (-moz-proton) {
+@media (-moz-proton-doorhangers) {
 #emptyDownloads {
   padding: 1.5em 0.62em 2.1em;
 }
@@ -42,13 +42,15 @@
   border-radius: 4px;
 }
 
-@itemFinished@[exists]:hover,
+@itemFinished@[exists]:hover:not(.downloadHoveringButton),
+button.downloadButton:hover,
 @item@[verdict]:hover,
 .downloadsPanelFooterButton:hover {
   background-color: var(--button-hover-bgcolor);
 }
 
 @itemFinished@[exists]:hover:active,
+button.downloadButton:hover:active,
 .downloadsPanelFooterButton[open="true"],
 @item@[verdict]:hover:active {
   background-color: var(--button-active-bgcolor);
@@ -127,10 +129,11 @@
 button.downloadButton {
   min-width: 32px;
   height: 32px;
+  border-radius: 4px;
 }
 }/** END Proton **/
 
-@media not (-moz-proton) {
+@media not (-moz-proton-doorhangers) {
 @item@ {
   height: var(--downloads-item-height);
   border-bottom: 1px solid var(--panel-separator-color);
@@ -224,7 +227,7 @@ button.downloadButton {
   padding-inline-end: 59px;
 }
 
-@media not (-moz-proton) {
+@media not (-moz-proton-doorhangers) {
 #downloadsHistory {
   padding-inline: 14px;
 }
