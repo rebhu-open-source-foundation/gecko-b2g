@@ -894,6 +894,10 @@ toolbarbutton[constrain-size="true"][cui-areatype="menu-panel"] > .toolbarbutton
     padding: 0;
   }
 
+  #appMenu-fxa-status2:not([fxastatus]) {
+    padding-block: 0 2px;
+  }
+
   #appMenu-fxa-status2[fxastatus] > #appMenu-fxa-label2 > vbox > #appMenu-header-description,
   #appMenu-fxa-text {
     font-weight: 600;
@@ -906,7 +910,7 @@ toolbarbutton[constrain-size="true"][cui-areatype="menu-panel"] > .toolbarbutton
   #appMenu-fxa-status2:not([fxastatus]) > #appMenu-fxa-label2 {
     padding: 6px 12px;
     background-color: var(--button-bgcolor);
-    font-size: 11px;
+    font-size: 0.8em;
     font-weight: 600;
   }
 
@@ -1489,7 +1493,15 @@ panelview .toolbarbutton-1,
 #appMenu-zoomReduce-button2 > .toolbarbutton-icon,
 #appMenu-zoomEnlarge-button2 > .toolbarbutton-icon {
   border-radius: 500px;
+}
+
+#appMenu-zoomReduce-button2 > .toolbarbutton-icon {
   padding: 2px;
+}
+
+#appMenu-zoomEnlarge-button2 > .toolbarbutton-icon {
+  padding-block: 0 1px;
+  padding-inline: 0 1px;
 }
 
 #appMenu-zoomReset-button2 > .toolbarbutton-text,
@@ -1498,7 +1510,7 @@ panelview .toolbarbutton-1,
 }
 
 #appMenu-fullscreen-button2 > .toolbarbutton-icon {
-  padding: 2px;
+  padding: 1px;
 }
 
 #appMenu-zoomReduce-button2 > .toolbarbutton-icon,
@@ -1834,7 +1846,7 @@ menuitem.panel-subview-footer@menuStateActive@,
 #protections-popup-multiView toolbarseparator,
 #identity-popup-mainView > toolbarseparator,
 #identity-popup-securityView > toolbarseparator,
-#editBookmarkSeparator,
+#editBookmarkPanel toolbarseparator,
 .cui-widget-panelview menuseparator,
 .cui-widget-panel toolbarseparator {
   appearance: none;

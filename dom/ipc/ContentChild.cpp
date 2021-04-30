@@ -49,7 +49,6 @@
 #include "mozilla/Unused.h"
 #include "mozilla/WebBrowserPersistDocumentChild.h"
 #include "mozilla/devtools/HeapSnapshotTempFileHelperChild.h"
-#include "mozilla/docshell/OfflineCacheUpdateChild.h"
 #include "mozilla/dom/AutoSuppressEventHandlingAndSuspend.h"
 #include "mozilla/dom/BlobImpl.h"
 #include "mozilla/dom/BrowserBridgeHost.h"
@@ -333,7 +332,6 @@
 extern mozilla::LazyLogModule gSHIPBFCacheLog;
 
 using namespace mozilla;
-using namespace mozilla::docshell;
 #ifdef MOZ_B2G_BT
 using namespace mozilla::dom::bluetooth;
 #endif

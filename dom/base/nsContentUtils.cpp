@@ -298,7 +298,6 @@
 #include "nsIObjectLoadingContent.h"
 #include "nsIObserver.h"
 #include "nsIObserverService.h"
-#include "nsIOfflineCacheUpdate.h"
 #include "nsIParser.h"
 #include "nsIParserUtils.h"
 #include "nsIPermissionManager.h"
@@ -1873,29 +1872,11 @@ void nsContentUtils::GetOfflineAppManifest(Document* aDocument, nsIURI** aURI) {
 }
 
 /* static */
-bool nsContentUtils::OfflineAppAllowed(nsIURI* aURI) {
-  nsCOMPtr<nsIOfflineCacheUpdateService> updateService =
-      components::OfflineCacheUpdate::Service();
-  if (!updateService) {
-    return false;
-  }
-
-  bool allowed;
-  nsresult rv = updateService->OfflineAppAllowedForURI(aURI, &allowed);
-  return NS_SUCCEEDED(rv) && allowed;
-}
+bool nsContentUtils::OfflineAppAllowed(nsIURI* aURI) { return false; }
 
 /* static */
 bool nsContentUtils::OfflineAppAllowed(nsIPrincipal* aPrincipal) {
-  nsCOMPtr<nsIOfflineCacheUpdateService> updateService =
-      components::OfflineCacheUpdate::Service();
-  if (!updateService) {
-    return false;
-  }
-
-  bool allowed;
-  nsresult rv = updateService->OfflineAppAllowed(aPrincipal, &allowed);
-  return NS_SUCCEEDED(rv) && allowed;
+  return false;
 }
 // Static
 bool nsContentUtils::IsErrorPage(nsIURI* aURI) {

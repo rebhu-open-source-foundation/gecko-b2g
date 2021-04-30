@@ -388,9 +388,12 @@ static void UpdateLastInputEventTime(void* aGdkEvent) {
 }
 
 void GetWindowOrigin(GdkWindow* aWindow, int* aX, int* aY) {
-  MOZ_RELEASE_ASSERT(aWindow);
+  *aX = 0;
+  *aY = 0;
 
-  gdk_window_get_origin(aWindow, aX, aY);
+  if (aWindow) {
+    gdk_window_get_origin(aWindow, aX, aY);
+  }
 
   // TODO(bug 1655924): gdk_window_get_origin is can block waiting for the x
   // server for a long time, we would like to use the implementation below
@@ -468,17 +471,20 @@ nsWindow::nsWindow()
       mBoundsAreValid(true),
       mPreferredPopupRectFlushed(false),
       mWaitingForMoveToRectCB(false),
-      mPendingSizeRect(LayoutDeviceIntRect(0, 0, 0, 0)),
+      mPendingSizeRect(LayoutDeviceIntRect(0, 0, 0, 0))
 #ifdef ACCESSIBILITY
-      mRootAccessible(nullptr),
+      ,
+      mRootAccessible(nullptr)
 #endif
 #ifdef MOZ_X11
+      ,
       mXDisplay(nullptr),
       mXWindow(X11None),
       mXVisual(nullptr),
-      mXDepth(0),
+      mXDepth(0)
 #endif
 #ifdef MOZ_WAYLAND
+      ,
       mLockedPointer(nullptr),
       mRelativePointer(nullptr)
 #endif
@@ -1550,7 +1556,7 @@ void nsWindow::NativeMoveResizeWaylandPopupCB(const GdkRectangle* aFinalSize,
     // The newBounds are in coordinates relative to the parent window/popup.
     // The NotifyWindowMoved requires the coordinates relative to the toplevel.
     // We use the gdk_window_get_origin to get correct coordinates.
-    gint x = 0, y = 0;
+    gint x, y;
     GetWindowOrigin(gtk_widget_get_window(GTK_WIDGET(mShell)), &x, &y);
     NotifyWindowMoved(GdkCoordToDevicePixels(x), GdkCoordToDevicePixels(y));
   }
@@ -2584,7 +2590,7 @@ void nsWindow::SetIcon(const nsAString& aIconSpec) {
 }
 
 LayoutDeviceIntPoint nsWindow::WidgetToScreenOffset() {
-  nsIntPoint origin(0, 0);
+  nsIntPoint origin;
   GetWindowOrigin(mGdkWindow, &origin.x, &origin.y);
 
   return GdkPointToDevicePixels({origin.x, origin.y});

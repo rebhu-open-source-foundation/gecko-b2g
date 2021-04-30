@@ -1151,7 +1151,7 @@ void BrowserParent::HandleAccessKey(const WidgetKeyboardEvent& aEvent,
 }
 
 void BrowserParent::Activate(uint64_t aActionId) {
-  LOGBROWSERFOCUS(("Activate %p", this));
+  LOGBROWSERFOCUS(("Activate %p actionid: %" PRIu64, this, aActionId));
   if (!mIsDestroyed) {
     SetTopLevelWebFocus(this);  // Intentionally inside "if"
     Unused << SendActivate(aActionId);
@@ -1159,7 +1159,7 @@ void BrowserParent::Activate(uint64_t aActionId) {
 }
 
 void BrowserParent::Deactivate(bool aWindowLowering, uint64_t aActionId) {
-  LOGBROWSERFOCUS(("Deactivate %p", this));
+  LOGBROWSERFOCUS(("Deactivate %p actionid: %" PRIu64, this, aActionId));
   if (!aWindowLowering) {
     UnsetTopLevelWebFocus(this);  // Intentionally outside the next "if"
   }
