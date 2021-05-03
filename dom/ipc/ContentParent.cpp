@@ -658,6 +658,16 @@ ScriptableCPInfo::GetMessageManager(nsISupports** aMessenger) {
   return NS_OK;
 }
 
+NS_IMETHODIMP
+ScriptableCPInfo::GetClosedTabCount(int32_t* aClosedTabCount) {
+  if (!mContentParent) {
+    return NS_ERROR_NOT_INITIALIZED;
+  }
+
+  *aClosedTabCount = mContentParent->ClosedTabCount();
+  return NS_OK;
+}
+
 ProcessID GetTelemetryProcessID(const nsACString& remoteType) {
   // OOP WebExtensions run in a content process.
   // For Telemetry though we want to break out collected data from the
@@ -2409,7 +2419,7 @@ void ContentParent::NotifyTabDestroying() {
   // another task to ensure the child process *really* shuts down,
   // even if the PBrowsers themselves never finish destroying.
   ++mNumDestroyingTabs;
-
+  ++mNumClosedTabs;
   /**
    * We intentionally skip this code on Android:
    * 1. Android has a fixed upper bound on the number of content processes, so
@@ -2839,6 +2849,7 @@ ContentParent::ContentParent(const nsACString& aRemoteType, int32_t aJSPluginID)
       mJSPluginID(aJSPluginID),
       mRemoteWorkerActorData("ContentParent::mRemoteWorkerActorData"),
       mNumDestroyingTabs(0),
+      mNumClosedTabs(0),
       mNumKeepaliveCalls(0),
       mLifecycleState(LifecycleState::LAUNCHING),
       mIsForBrowser(!mRemoteType.IsEmpty()),

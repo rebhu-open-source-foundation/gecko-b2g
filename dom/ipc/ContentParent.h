@@ -1559,6 +1559,8 @@ class ContentParent final
                                         ErrorResult& aRv) override;
   mozilla::ipc::IProtocol* AsNativeActor() override { return this; }
 
+  int32_t ClosedTabCount() { return mNumClosedTabs; }
+
  private:
   // Return an existing ContentParent if possible. Otherwise, `nullptr`.
   static already_AddRefed<ContentParent> GetUsedBrowserProcess(
@@ -1638,6 +1640,7 @@ class ContentParent final
   // sequence.  Precisely, how many BrowserParents have called
   // NotifyTabDestroying() but not called NotifyTabDestroyed().
   int32_t mNumDestroyingTabs;
+  int32_t mNumClosedTabs;
 
   uint32_t mNumKeepaliveCalls;
 

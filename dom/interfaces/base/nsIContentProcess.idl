@@ -30,6 +30,11 @@ interface nsIContentProcessInfo : nsISupports
    * as opposed to a frame message manager.
    */
   readonly attribute nsISupports messageManager;
+
+  /**
+   * Number of closed tabs in this content process.
+   */
+  readonly attribute int32_t closedTabCount;
 };
 
 [scriptable, uuid(83ffb063-5f65-4c45-ae07-3f553e0809bb)]
