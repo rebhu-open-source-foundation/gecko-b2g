@@ -130,7 +130,7 @@ variables:
   rules:
     - if: '$CI_MERGE_REQUEST_TITLE =~ /skip-lint|^WIP\:/'
       when: never
-    - when: on_success
+    - if: '$CI_MERGE_REQUEST_PROJECT_PATH == "KaiOS/gecko-dev"'
 
 .lint_base:
   # this image is based on the one used by taskcluster in mozilla ci,
@@ -155,7 +155,7 @@ variables:
     - './mach lint -l ${SPECIFIC_LINTERS// /" -l "} ${MACH_LINT_PARAMETERS} "${changed_files[@]}"'
 
 .build_desktop:
-  image: ${CI_REGISTRY}/re/kaios-build/next/desktop:1.49.0_5_2
+  image: ${CI_REGISTRY}/re/kaios-build/next/desktop:1.49.0_5_3
   tags:
     - gecko-dev
   variables:
@@ -174,7 +174,7 @@ variables:
     - sccache -s
 
 .build_emulator:
-  image: ${CI_REGISTRY}/re/kaios-build/next/daily:1.49.0_5_2
+  image: ${CI_REGISTRY}/re/kaios-build/next/daily:1.49.0_5_3
   tags:
     - gecko-dev
   variables:
@@ -199,7 +199,7 @@ variables:
     - sccache -s
 
 .build_arm:
-  image: ${CI_REGISTRY}/re/kaios-build/next/daily:1.49.0_5_2
+  image: ${CI_REGISTRY}/re/kaios-build/next/daily:1.49.0_5_3
   tags:
     - gecko-dev
   variables:
