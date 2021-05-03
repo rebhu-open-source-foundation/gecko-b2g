@@ -730,6 +730,7 @@ var WifiManager = (function() {
       }
     }
 
+    clearTimeout(delayScanId);
     delayScanId = setTimeout(manager.startDelayScan, delayScanInterval);
   };
 
@@ -1807,6 +1808,9 @@ var WifiManager = (function() {
           gNetworkService.setInterfaceConfig(
             { ifname: manager.ifname, link: "up" },
             function(ok) {
+              if (ok) {
+                manager.supplicantConnected();
+              }
               callback(ok);
             }
           );
@@ -4012,9 +4016,7 @@ WifiWorker.prototype = {
     }
 
     this._sendMessage(message, true, true, msg);
-    if (WifiManager.supplicantStarted) {
-      WifiManager.supplicantConnected();
-    } else {
+    if (!WifiManager.supplicantStarted) {
       this._clearPendingRequest();
     }
     this.requestDone();
@@ -4023,11 +4025,6 @@ WifiWorker.prototype = {
   setWifiEnabled(msg) {
     const message = "WifiManager:setWifiEnabled:Return";
     let enabled = msg.data;
-    // No change.
-    if (enabled === WifiManager.enabled) {
-      this._sendMessage(message, true, true, msg);
-      return;
-    }
 
     // Store persist wifi state.
     Services.prefs.setBoolPref(PREFERENCE_WIFI_ENABLED, enabled);
@@ -4842,11 +4839,7 @@ WifiWorker.prototype = {
       BinderServices.wifi.onWifiStateChanged(WifiConstants.WIFI_STATE_DISABLED);
     }
 
-    this.handleWifiEnabled(enabled, function(ok) {
-      if (ok && WifiManager.supplicantStarted) {
-        WifiManager.supplicantConnected();
-      }
-    });
+    this.handleWifiEnabled(enabled, function(ok) {});
   },
 
   updateOpenNetworkNotification() {
