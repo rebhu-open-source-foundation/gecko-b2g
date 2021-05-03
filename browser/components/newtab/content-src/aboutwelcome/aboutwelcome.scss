@@ -590,7 +590,7 @@ body {
     .secondary-cta.top {
       position: absolute;
       top: 10px;
-      inset-inline-end: 47px;
+      inset-inline-end: 20px;
       z-index: 2;
 
       button {
@@ -695,13 +695,6 @@ body {
       background-image: url('chrome://activity-stream/content/data/content/assets/noodle-C.svg');
     }
 
-    .yellow-circle {
-      width: 10px;
-      height: 10px;
-      background: #FFD567;
-      border-radius: 50%;
-    }
-
     .orange-L {
       background-image: url('chrome://activity-stream/content/data/content/assets/noodle-solid-L.svg');
       -moz-context-properties: fill;
@@ -727,14 +720,23 @@ body {
           flex-direction: column;
           justify-content: center;
 
+          .spacer-top {
+            flex: 2;
+          }
+
+          .spacer-bottom {
+            flex: 1;
+          }
+
           h1 {
             color: #FFF;
             font-weight: bold;
             font-size: 104px;
-            line-height: 92px;
+            line-height: 104px;
             margin: 0 6px;
             width: 517px;
             text-align: initial;
+            white-space: pre-wrap;
 
             @media (max-width: $break-point-widest) {
               width: 300px;
@@ -802,21 +804,6 @@ body {
       }
 
       // Position of noodles on first screen
-      .outline-L {
-        width: 87px;
-        height: 80px;
-        bottom: 94px;
-        inset-inline-end: 430px;
-
-        &:dir(rtl) {
-          transform: rotate(240deg);
-        }
-
-        @media (max-width: $proton-break-point-smallest) {
-          visibility: hidden;
-        }
-      }
-
       .solid-L {
         width: 1300px;
         height: 1050px;
@@ -853,14 +840,11 @@ body {
           transform: rotate(-207deg);
         }
       }
-
-      .yellow-circle {
-        bottom: 75px;
-        inset-inline-end: 540px;
-      }
     }
 
     .screen-1 {
+      background-color: rgba(21, 20, 26, 0.5);
+
       .section-main {
         z-index: 1;
         width: 504px;
@@ -913,6 +897,7 @@ body {
       .yellow-circle {
         width: 165px;
         height: 165px;
+        border-radius: 50%;
         transform: translate(230%, -5%);
         background: #FF7139;
 
@@ -935,6 +920,8 @@ body {
     }
 
     .screen-2 {
+      background-color: rgba(21, 20, 26, 0.5);
+
       .section-main {
         z-index: 1;
         width: 504px;
@@ -1000,6 +987,7 @@ body {
       .yellow-circle {
         width: 165px;
         height: 165px;
+        border-radius: 50%;
         transform: translate(160%, 130%);
         background: #FF7139;
 

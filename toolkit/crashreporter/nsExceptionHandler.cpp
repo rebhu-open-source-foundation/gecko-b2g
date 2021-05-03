@@ -1297,6 +1297,23 @@ static void WriteMainThreadRunnableName(AnnotationWriter& aWriter) {
 #endif
 }
 
+static void WriteOOMAllocationSize(AnnotationWriter& aWriter) {
+  // See bug 1683288 and bug 1682975#c7 for context
+  //
+  // We have two cases: either gOOMAllocationSize can be set from remote
+  // via CrashReporter::AnnotateOOMAllocationSize()
+  //
+  // BUT if gOOMAllocationSize is 0 we should try and fetch value from mozalloc
+  if (!gOOMAllocationSize) {
+    gOOMAllocationSize = mozalloc_get_oom_abort_size();
+  }
+
+  // This way we still are guarded by a gOOMAllocationSize=0
+  if (gOOMAllocationSize) {
+    aWriter.Write(Annotation::OOMAllocationSize, gOOMAllocationSize);
+  }
+}
+
 static void WriteMozCrashReason(AnnotationWriter& aWriter) {
   if (gMozCrashReason != nullptr) {
     aWriter.Write(Annotation::MozCrashReason, gMozCrashReason);
@@ -1365,9 +1382,7 @@ static void WriteAnnotationsForMainProcessCrash(PlatformWriter& pw,
 
   WriteMainThreadRunnableName(writer);
 
-  if (gOOMAllocationSize) {
-    writer.Write(Annotation::OOMAllocationSize, gOOMAllocationSize);
-  }
+  WriteOOMAllocationSize(writer);
 
   if (gTexturesSize) {
     writer.Write(Annotation::TextureUsage, gTexturesSize);
@@ -1678,13 +1693,11 @@ static void PrepareChildExceptionTimeAnnotations(
   apiData.OpenHandle(GetAnnotationTimeCrashFd());
   BinaryAnnotationWriter writer(apiData);
 
-  if (gOOMAllocationSize) {
-    writer.Write(Annotation::OOMAllocationSize, gOOMAllocationSize);
-  }
-
   WriteMozCrashReason(writer);
 
   WriteMainThreadRunnableName(writer);
+
+  WriteOOMAllocationSize(writer);
 
 #ifdef MOZ_PHC
   WritePHCAddrInfo(writer, addrInfo);
@@ -2188,8 +2201,6 @@ nsresult SetExceptionHandler(nsIFile* aXREDirectory, bool force /*=false*/) {
       &keyExistsAndHasValidFormat);
   if (keyExistsAndHasValidFormat) showOSCrashReporter = prefValue;
 #endif
-
-  mozalloc_set_oom_abort_handler(AnnotateOOMAllocationSize);
 
   oldTerminateHandler = std::set_terminate(&TerminateHandler);
 
@@ -3592,8 +3603,6 @@ bool SetRemoteExceptionHandler(const char* aCrashPipe,
       true,     // install signal handlers
       aCrashPipe);
 #endif
-
-  mozalloc_set_oom_abort_handler(AnnotateOOMAllocationSize);
 
   oldTerminateHandler = std::set_terminate(&TerminateHandler);
 

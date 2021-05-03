@@ -121,12 +121,12 @@
 #PanelUI-menu-button[badge-status="update-unsupported"] > .toolbarbutton-badge-stack > .toolbarbutton-badge {
   box-shadow: none;
   /* "!important" is necessary to override the rule in toolbarbutton.css */
-  margin: -7px 0 0 !important;
-  margin-inline-end: -4px !important;
+  margin: -5px 0 0 !important;
+  margin-inline-end: -3px !important;
   min-width: 12px;
   min-height: 12px;
   -moz-context-properties: fill;
-  background: url(chrome://browser/skin/update-circle-fill-12.svg) no-repeat center;
+  background: url(chrome://browser/skin/notification-fill-12.svg) no-repeat center;
   background-size: 12px;
 }
 
@@ -2852,16 +2852,14 @@ panelview:not([mainview]) #PanelUI-whatsNew-title {
 
 .PanelUI-profiler-button-primary {
   background-color: #0060DF;
-  /* The !important designation here is to overcome the specificity of the button.css
-     styles that are being applied on linux for hovers. */
-  color: #fff !important;
+  color: #fff;
 }
 
 .PanelUI-profiler-button-primary:hover {
   background-color: #003eaa;
 }
 
-.PanelUI-profiler-button-primary:active {
+.PanelUI-profiler-button-primary:active:hover {
   background-color: #002275;
 }
 
