@@ -403,7 +403,7 @@ class NetworkUtils final {
   void dumpParams(NetworkParams& aOptions, const char* aType);
   static bool composeIpv6TetherConf(const char* aInternalIface,
                                     const char* aNetworkPrefix,
-                                    uint32_t aDnsLength);
+                                    nsTArray<nsString>& aDnses);
   static bool getIpv6Prefix(const char* aIpv6Addr, char* aIpv6Prefix);
   void Shutdown();
   static void runNextQueuedCommandChain();

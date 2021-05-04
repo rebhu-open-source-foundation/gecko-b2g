@@ -1233,7 +1233,7 @@ void NetworkUtils::updateIpv6Tethering(CommandChain* aChain,
          gIpv6TetheringInterfaces[0].get(), ipv6Prefix.get());
 
   if (composeIpv6TetherConf(gIpv6TetheringInterfaces[0].get(), ipv6Prefix.get(),
-                            dnsLength)) {
+                            dnses)) {
     NU_DBG("radvd configured, start radvd");
     Property::Set("ctl.start", "radvd");
     gIpv6TetheringIfaceEnabled = true;
@@ -1284,27 +1284,27 @@ void NetworkUtils::removeIpv6LocalNetworkRoute(CommandChain* aChain,
 
 bool NetworkUtils::composeIpv6TetherConf(const char* aInternalIface,
                                          const char* aNetworkPrefix,
-                                         uint32_t aDnsLength) {
+                                         nsTArray<nsString>& aDnses) {
   int type;
-  char dnses_list[256] = {0};
-  char dns_prop_key[PROPERTY_VALUE_MAX] = {0};
-  char dns_buffer[PROPERTY_VALUE_MAX] = {0};
-  char dns_buffer2[PROPERTY_VALUE_MAX] = {0};
+  char dnsesList[256] = {0};
+  char dnsBuffer[64] = {0};
+  char dnsSpace[64] = {0};
   FILE* radvdFile;
   char buffer[512] = {0};
 
-  for (uint32_t i = 0; i < aDnsLength; i++) {
-    SprintfLiteral(dns_prop_key, "net.dns%d", i + 1);
-    Property::Get(dns_prop_key, dns_buffer, "8.8.8.8");
-    type = getIpType(dns_buffer);
+  for (uint32_t i = 0; i < aDnses.Length(); i++) {
+    NS_ConvertUTF16toUTF8 autoDns(aDnses[i]);
+    SprintfLiteral(dnsBuffer, "%s", autoDns.get());
+    type = getIpType(dnsBuffer);
     if (type == AF_INET6) {
-      snprintf(dns_buffer2, strlen(dns_buffer) + 2, " %s", dns_buffer);
-      strcat(dnses_list, dns_buffer2);
+      snprintf(dnsSpace, strlen(dnsBuffer) + 2, " %s", dnsBuffer);
+      strcat(dnsesList, dnsSpace);
     }
-    memset(&dns_buffer, 0, sizeof(dns_buffer));
+    memset(&dnsBuffer, 0, sizeof(dnsBuffer));
+    memset(&dnsSpace, 0, sizeof(dnsSpace));
   }
 
-  if (strlen(dnses_list) == 0) {
+  if (strlen(dnsesList) == 0) {
     NU_DBG("Do not enable Ipv6 Tethering since no Ipv6 DNS");
     return false;
   }
@@ -1330,7 +1330,7 @@ bool NetworkUtils::composeIpv6TetherConf(const char* aInternalIface,
                  "\t\tAdvRDNSSLifetime 3600;\n"
                  "\t};"
                  "\n};\n",
-                 aInternalIface, aNetworkPrefix, dnses_list);
+                 aInternalIface, aNetworkPrefix, dnsesList);
 
   if (!fwrite(buffer, sizeof(char), strlen(buffer), radvdFile)) {
     NU_DBG("Write %s fail", RADVD_CONF_FILE);
