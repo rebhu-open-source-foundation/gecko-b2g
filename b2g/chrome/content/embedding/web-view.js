@@ -41,6 +41,15 @@
     false
   );
 
+  function defaultUserAgent() {
+    if (window?.navigator?.userAgent) {
+      return window.navigator.userAgent;
+    }
+    return Cc["@mozilla.org/network/protocol;1?name=http"].getService(
+      Ci.nsIHttpProtocolHandler
+    ).userAgent;
+  }
+
   function updateLogStatus() {
     webViewLogEnabled = Services.prefs.getBoolPref(
       "webview.log.enabled",
@@ -484,6 +493,11 @@
         this.browser.addEventListener(name, this);
       });
 
+      let useragent = this.browser.getAttribute("useragent");
+      if (useragent) {
+        this.browser.browsingContext.customUserAgent = useragent;
+      }
+
       // TODO: figure out why we can't just set `observe()` as a class method.
       // Logic here is similar to the one used in GeckoView:
       // https://searchfox.org/mozilla-central/rev/82c04b9cad5b98bdf682bd477f2b1e3071b004ad/mobile/android/modules/geckoview/GeckoViewContent.jsm#202
@@ -826,6 +840,43 @@
     download(url) {
       this.log(`download ${url}`);
       this.browser?.webViewDownload(url);
+    }
+
+    set userAgent(value) {
+      if (!this.nodePrincipal.isSystemPrincipal) {
+        return;
+      }
+      this.log(`set userAgent`);
+      this.setAttribute("useragent", value);
+      // Update the User Agent with new value.
+      if (!this.browser) {
+        this.attrs.push({ name: "useragent", new_value: value });
+      } else {
+        this.browser.browsingContext.customUserAgent = value;
+      }
+    }
+
+    get userAgent() {
+      let default_useragent = defaultUserAgent();
+      return this.browser
+        ? this.browser.browsingContext.customUserAgent || default_useragent
+        : this.getAttribute("useragent") || null;
+    }
+
+    set userAgentExtensions(value) {
+      this.log(`set userAgentExtensions`);
+      this.setAttribute("useragentextensions", value);
+      // Update the User Agent with new token value.
+      let useragent = defaultUserAgent() + " " + value;
+      if (!this.browser) {
+        this.attrs.push({ name: "useragent", new_value: useragent });
+      } else {
+        this.browser.browsingContext.customUserAgent = useragent;
+      }
+    }
+
+    get userAgentExtensions() {
+      return this.getAttribute("useragentextensions") || null;
     }
   }
 

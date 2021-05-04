@@ -42,6 +42,8 @@ The <web-view> element supports the following attributes:
 - `fullZoom` : controls the overall zoom level of the page.
 - `textZoom` : controls the zoom level of the page's text.
 - `openWindowInfo` : setting this property is mandatory to fully create the web-view. A null value is valid.
+- `userAgent : string` : The User Agent used by the web-view. It mirrors the value of the useragent attribute, and can only be set by the system app.
+- `userAgentExtensions : string` : Custom extensions to be appended to the User Agent for the web-view. The final User Agent will be reflected in the `userAgent` property.
 
 ## Events
 
