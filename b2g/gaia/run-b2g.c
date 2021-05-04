@@ -21,6 +21,7 @@
 #define API_DAEMON "api-daemon/api-daemon"
 #define API_DAEMON_CONFIG "api-daemon/config.toml"
 #define DEVICE_CAPABILITY_CONFIG "DEVICE_CAPABILITY_CONFIG=./api-daemon/devicecapability.json"
+#define DEFAULT_SETTINGS "gaia/profile/settings.json"
 
 void error(char* msg) { fprintf(stderr, "ERROR: %s\n", msg); }
 
@@ -34,10 +35,6 @@ int main(int argc, char* argv[], char* envp[]) {
   // Add enternal environment path for desktop
   int length = 2;
   char* apidaemon_envp[length];
-
-  apidaemon_envp[0] = (char*)malloc(strlen(DEVICE_CAPABILITY_CONFIG) + 1);
-  sprintf(apidaemon_envp[0], "%s", DEVICE_CAPABILITY_CONFIG);
-  apidaemon_envp[1] = NULL;
 
   printf("Starting %s\n", B2G_NAME);
   cwd = realpath(dirname(argv[0]), NULL);
@@ -68,9 +65,17 @@ int main(int argc, char* argv[], char* envp[]) {
   sprintf(full_path, "%s/%s", cwd, B2G_NAME);
   sprintf(full_profile_path, "%s/%s", cwd, GAIA_PATH);
   printf("Running: %s --profile %s\n", full_path, full_profile_path);
-  printf("Running: %s %s", apidaemon_path, full_config_path);
+  printf("Running: %s %s\n", apidaemon_path, full_config_path);
   fflush(stdout);
   fflush(stderr);
+
+  apidaemon_envp[0] = (char*)malloc(strlen(DEVICE_CAPABILITY_CONFIG) + 1);
+  sprintf(apidaemon_envp[0], "%s", DEVICE_CAPABILITY_CONFIG);
+
+  apidaemon_envp[1] = (char*)malloc(strlen(DEFAULT_SETTINGS) + strlen(cwd) + 1);
+  sprintf(apidaemon_envp[1], "DEFAULT_SETTINGS=%s/%s",cwd, DEFAULT_SETTINGS);
+  apidaemon_envp[2] = NULL;
+
   if ((pid = fork()) == 0) {
     // When b2g process is terminated, PR_SET_PDEATHSIG will be sent to kill the api-daemon
     // process at the same time.
