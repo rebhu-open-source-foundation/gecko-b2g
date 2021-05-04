@@ -4401,5 +4401,9 @@ this.SIM_FILE_UPDATE = 0; // A file on SIM has been updated.
 this.SIM_INIT = 1; // SIM initialized. All files should be re-read.
 this.SIM_RESET = 2; // SIM reset. SIM power required, SIM may be locked a
 
+this.GEOMETRY_TYPE_UNKNOW = 0;
+this.GEOMETRY_TYPE_POLYGON = 1;
+this.GEOMETRY_TYPE_CIRCLE = 2;
+
 // Allow this file to be imported via Components.utils.import().
 this.EXPORTED_SYMBOLS = Object.keys(this);

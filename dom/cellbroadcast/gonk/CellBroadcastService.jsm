@@ -427,7 +427,7 @@ CellBroadcastService.prototype = {
     });
   },
 
-  _handleGeoFencingTrigger(aServiceId, aGeoTriggerMessage) {
+  async _handleGeoFencingTrigger(aServiceId, aGeoTriggerMessage) {
     let cbIdentifiers = aGeoTriggerMessage.cellBroadcastIdentifiers;
     let allBroadcastMessages = [];
 
@@ -445,7 +445,7 @@ CellBroadcastService.prototype = {
         )
       );
     for (let i = 0; i < cbIdentifiers.length; i++) {
-      findCellbroadcastMessage(cbIdentifiers[i]);
+      await findCellbroadcastMessage(cbIdentifiers[i]);
     }
 
     //handle TYPE_ACTIVE_ALERT_SHARE_WAC to share all geometries together

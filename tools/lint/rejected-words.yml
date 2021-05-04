@@ -157,6 +157,7 @@ avoid-blacklist-and-whitelist:
         - dom/serviceworkers/test/test_openWindow.html
         - dom/smil/SMILTimeValueSpec.cpp
         - dom/smil/SMILTimeValueSpec.h
+        - dom/system/gonk/radio/ril_consts.js
         - dom/tests/mochitest/dom-level0/idn_child.html
         - dom/tests/mochitest/dom-level0/test_setting_document.domain_idn.html
         - dom/tests/mochitest/whatwg/test_postMessage_origin.xhtml

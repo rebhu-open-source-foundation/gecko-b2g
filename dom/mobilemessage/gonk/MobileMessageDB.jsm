@@ -40,6 +40,10 @@ XPCOMUtils.defineLazyGetter(this, "RIL", function() {
   return obj;
 });
 
+XPCOMUtils.defineLazyGetter(this, "SIM", function() {
+  return ChromeUtils.import("resource://gre/modules/simIOHelper.js");
+});
+
 XPCOMUtils.defineLazyModuleGetter(
   this,
   "gPhoneNumberUtils",
@@ -3365,6 +3369,26 @@ MobileMessageDB.prototype = {
             aCallback.notify(Cr.NS_ERROR_FILE_NOT_FOUND, null, null);
             return;
           }
+          if (DEBUG) {
+            debug(
+              "Broadcast Message: " +
+                hash +
+                " founded " +
+                JSON.stringify(cellBroadcastRecord)
+            );
+          }
+          let geometries = [];
+          cellBroadcastRecord.geometries.forEach(geo => {
+            if (geo.type === RIL.GEOMETRY_TYPE_POLYGON) {
+              geometries.push(new SIM.Polygon(geo._vertices));
+            } else if (geo.type === RIL.GEOMETRY_TYPE_CIRCLE) {
+              geometries.push(new SIM.Circle(geo._center, geo._radius));
+            } else if (DEBUG) {
+              debug("Invalid geometry type: " + geo.type);
+            }
+          });
+          cellBroadcastRecord.geometries = geometries;
+
           aCallback.notify(Cr.NS_OK, cellBroadcastRecord, null);
         };
 

@@ -42,10 +42,6 @@ const GEO_FENCING_MAXIMUM_WAIT_TIME = 0x01;
 const GEO_FENCING_POLYGON = 0x02;
 const GEO_FENCING_CIRCLE = 0x03;
 
-const GEOMETRY_TYPE_UNKNOW = 0;
-const GEOMETRY_TYPE_POLYGON = 1;
-const GEOMETRY_TYPE_CIRCLE = 2;
-
 var RILQUIRKS_CALLSTATE_EXTRA_UINT32;
 var RILQUIRKS_REQUEST_USE_DIAL_EMERGENCY_CALL;
 var RILQUIRKS_SIM_APP_STATE_EXTRA_FIELDS;
@@ -133,7 +129,9 @@ Point.prototype = {
 };
 
 function Polygon(aLatLngs) {
-  this._vertices = aLatLngs;
+  this._vertices = [];
+  aLatLngs.forEach(latlng => {this._vertices.push(new LatLng(latlng.lat, latlng.lng));});
+  this.type = GEOMETRY_TYPE_POLYGON;
 
   // Find the point with smallest longitude as the mOrigin point.
   let idx = 0;
@@ -223,8 +221,9 @@ Polygon.prototype = {
 };
 
 function Circle(aCenter, aRadiusInMeters) {
-  this._center = aCenter;
+  this._center = new LatLng(aCenter.lat, aCenter.lng);
   this._radius = aRadiusInMeters;
+  this.type = GEOMETRY_TYPE_CIRCLE;
 }
 Circle.prototype = {
   __proto__: Geometry.prototype,
