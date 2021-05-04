@@ -787,6 +787,9 @@ NetworkManager.prototype = {
         break;
       case TOPIC_XPCOM_SHUTDOWN:
         Services.obs.removeObserver(this, TOPIC_XPCOM_SHUTDOWN);
+        Services.obs.removeObserver(this, TOPIC_NETD_INTERFACE_CHANGE);
+        Services.obs.removeObserver(this, TOPIC_NETD_INTERFACE_REMOVE);
+        Services.obs.removeObserver(this, TOPIC_NETD_NET64_PREFIX_EVENT);
         Services.prefs.removeObserver(PREF_MANAGE_OFFLINE_STATUS, this);
         Services.prefs.removeObserver(PREF_NETWORK_DEBUG_ENABLED, this);
         break;
