@@ -40,15 +40,14 @@
   rules:
     - if: '$CI_MERGE_REQUEST_TITLE =~ /skip-lint|^WIP\:/'
       when: never
-    - if: '$CI_MERGE_REQUEST_PROJECT_PATH == "KaiOS/gecko-dev"'
-      changes:
-        - "**/*.{js,jsm,jsx,xul,html,xhtml}"
-        # Run when eslint policies change.
-        - "**/.eslintignore"
-        - "**/*eslintrc*"
-        # The plugin implementing custom checks by moz.
-        - "tools/lint/eslint/eslint-plugin-mozilla/**"
-        - "tools/lint/eslint/eslint-plugin-spidermonkey-js/**"
+    - changes:
+      - "**/*.{js,jsm,jsx,xul,html,xhtml}"
+      # Run when eslint policies change.
+      - "**/.eslintignore"
+      - "**/*eslintrc*"
+      # The plugin implementing custom checks by moz.
+      - "tools/lint/eslint/eslint-plugin-mozilla/**"
+      - "tools/lint/eslint/eslint-plugin-spidermonkey-js/**"
   # cache node_modules as taskcluster does
   cache:
     key: "${CI_MERGE_REQUEST_TARGET_BRANCH_NAME}-eslint"
@@ -64,7 +63,7 @@
   rules:
     - if: '$CI_MERGE_REQUEST_TITLE =~ /skip-lint|^WIP\:/'
       when: never
-    - if: '$CI_MERGE_REQUEST_PROJECT_PATH == "KaiOS/gecko-dev"'
+    - when: on_success
 
 .lint_cpp:
   extends: .lint_base
@@ -75,9 +74,8 @@
   rules:
     - if: '$CI_MERGE_REQUEST_TITLE =~ /skip-lint|^WIP\:/'
       when: never
-    - if: '$CI_MERGE_REQUEST_PROJECT_PATH == "KaiOS/gecko-dev"'
-      changes:
-        - "**/*.{c,cpp,cc,h}"
+    - changes:
+      - "**/*.{c,cpp,cc,h}"
 
 .lint_python:
   extends: .lint_base
@@ -89,9 +87,8 @@
   rules:
     - if: '$CI_MERGE_REQUEST_TITLE =~ /skip-lint|^WIP\:/'
       when: never
-    - if: '$CI_MERGE_REQUEST_PROJECT_PATH == "KaiOS/gecko-dev"'
-      changes:
-        - "**/*.py"
+    - changes:
+      - "**/*.py"
 
 .lint_rs:
   extends: .lint_base
@@ -101,10 +98,9 @@
   rules:
     - if: '$CI_MERGE_REQUEST_TITLE =~ /skip-lint|^WIP\:/'
       when: never
-    - if: '$CI_MERGE_REQUEST_PROJECT_PATH == "KaiOS/gecko-dev"'
-      changes:
-        - "**/*.rs"
-        - "**/Cargo.toml"
+    - changes:
+      - "**/*.rs"
+      - "**/Cargo.toml"
 
 .lint_yml:
   extends: .lint_base
@@ -114,8 +110,7 @@
   rules:
     - if: '$CI_MERGE_REQUEST_TITLE =~ /skip-lint|^WIP\:/'
       when: never
-    - if: '$CI_MERGE_REQUEST_PROJECT_PATH == "KaiOS/gecko-dev"'
-      changes:
-        - '**/*.yml'
-        - '**/*.yaml'
-        - '**/.ymllint'
+    - changes:
+      - '**/*.yml'
+      - '**/*.yaml'
+      - '**/.ymllint'

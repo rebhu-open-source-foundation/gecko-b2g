@@ -8,7 +8,6 @@
 workflow:
   rules:
     - if: '$CI_MERGE_REQUEST_PROJECT_PATH == "KaiOS/gecko-dev"'
-    - if: '$CI_PROJECT_PATH == "KaiOS/gecko-dev" && $CI_COMMIT_BRANCH == "next"'
     - when: never
 
 include:
@@ -16,16 +15,9 @@ include:
   - '.gitlab/ci/lint.yml'
 
 default:
-  image: ${CI_REGISTRY}/re/kaios-build/next/daily:1.49.0_5_3
+  image: ${CI_REGISTRY}/re/kaios-build/next/daily:1.49.0_5_2
   tags:
     - hk-fantastic4
-
-# an anchor that eusures the priority for the longest build:arm to get served by runner
-.delayed_job: &delay_if_triggered_by_mr
-  rules:
-    - if: '$CI_MERGE_REQUEST_PROJECT_PATH == "KaiOS/gecko-dev"'
-      when: delayed
-      start_in: 10 seconds
 
 variables:
   # set GIT_DEPTH=1 to fetch current branch only
@@ -43,7 +35,6 @@ variables:
 stages:
   - lint
   - build
-  - deploy
 
 Check if rebased and validate commit messages:
   extends: .precautions_base
@@ -75,42 +66,19 @@ lint:yml:
 build:arm:
   extends: .build_arm
   stage: build
-  rules:
-    - if: '$CI_MERGE_REQUEST_PROJECT_PATH == "KaiOS/gecko-dev"'
 
 build:desktop:
   extends: .build_desktop
   stage: build
-  <<: *delay_if_triggered_by_mr
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "pipeline"'
+      when: never
+    - when: delayed
+      start_in: 10 seconds
 
 build:emulator:
   extends: .build_emulator
   stage: build
-  <<: *delay_if_triggered_by_mr
-
-production:desktop:
-  extends: .build_desktop
-  stage: deploy
-  variables:
-    B2G_DESKTOP_PROJECT_ID: 11099 # releng/ci-util/b2g-desktop
-  after_script:
-    - ./mach package
-    - base64 ${MOZ_OBJDIR}/dist/b2g*.tar.bz2 > b2g-desktop-b64
-    - |
-      cat <<-EOF >commit_message
-      ${CI_COMMIT_MESSAGE}
-
-      Source: ${CI_PROJECT_PATH}@${CI_COMMIT_SHORT_SHA}
-      EOF
-      cat commit_message
-    - |
-      curl --request POST --header "PRIVATE-TOKEN: ${B2G_DESKTOP_DEPLOY_KEY}" \
-        --form "branch=${CI_COMMIT_BRANCH}" \
-        --form "commit_message=$(cat commit_message)" \
-        --form "actions[][action]=update" \
-        --form "actions[][file_path]=b2g.linux-x86_64.tar.bz2" \
-        --form "actions[][content]=<./b2g-desktop-b64" \
-        --form "actions[][encoding]=base64" \
-        "${CI_API_V4_URL}/projects/${B2G_DESKTOP_PROJECT_ID}/repository/commits"
   rules:
-    - if: '$CI_PROJECT_PATH == "KaiOS/gecko-dev" && $CI_COMMIT_BRANCH == "next"'
+    - when: delayed
+      start_in: 10 seconds
