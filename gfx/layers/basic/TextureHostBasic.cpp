@@ -8,6 +8,9 @@
 #ifdef XP_MACOSX
 #  include "MacIOSurfaceTextureHostBasic.h"
 #endif
+#ifdef MOZ_WIDGET_GONK
+#  include "GrallocTextureHostBasic.h"
+#endif
 
 using namespace mozilla::gl;
 using namespace mozilla::gfx;
