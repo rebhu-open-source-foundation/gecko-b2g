@@ -3021,7 +3021,8 @@ APZCTreeManager::BuildOverscrollHandoffChain(
     // layout code that generates the handoff parents did something wrong.
     MOZ_ASSERT(apzc->GetScrollHandoffParentId() != apzc->GetGuid().mScrollId);
     RefPtr<AsyncPanZoomController> scrollParent = GetTargetAPZC(
-        apzc->GetGuid().mLayersId, apzc->GetScrollHandoffParentId());
+        ScrollableLayerGuid(apzc->GetGuid().mLayersId, 0,
+                            apzc->GetScrollHandoffParentId()));
     apzc = scrollParent.get();
   }
 
