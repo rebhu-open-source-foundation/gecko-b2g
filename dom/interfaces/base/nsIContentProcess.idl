@@ -32,9 +32,9 @@ interface nsIContentProcessInfo : nsISupports
   readonly attribute nsISupports messageManager;
 
   /**
-   * Number of closed tabs in this content process.
+   * The process is going to be shut down.
    */
-  readonly attribute int32_t closedTabCount;
+  readonly attribute boolean willShutDown;
 };
 
 [scriptable, uuid(83ffb063-5f65-4c45-ae07-3f553e0809bb)]

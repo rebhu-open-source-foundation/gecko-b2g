@@ -659,12 +659,12 @@ ScriptableCPInfo::GetMessageManager(nsISupports** aMessenger) {
 }
 
 NS_IMETHODIMP
-ScriptableCPInfo::GetClosedTabCount(int32_t* aClosedTabCount) {
+ScriptableCPInfo::GetWillShutDown(bool* aWillShutDown) {
   if (!mContentParent) {
     return NS_ERROR_NOT_INITIALIZED;
   }
 
-  *aClosedTabCount = mContentParent->ClosedTabCount();
+  *aWillShutDown = mContentParent->WillShutDown();
   return NS_OK;
 }
 
@@ -1712,6 +1712,7 @@ already_AddRefed<RemoteBrowser> ContentParent::CreateBrowser(
   if (NS_WARN_IF(!ok)) {
     return nullptr;
   }
+  constructorSender->MarkAsUsed();
 
   // Ensure that we're marked as the current BrowserParent on our
   // CanonicalBrowsingContext.
@@ -2434,7 +2435,7 @@ void ContentParent::NotifyTabDestroying() {
   // another task to ensure the child process *really* shuts down,
   // even if the PBrowsers themselves never finish destroying.
   ++mNumDestroyingTabs;
-  ++mNumClosedTabs;
+
   /**
    * We intentionally skip this code on Android:
    * 1. Android has a fixed upper bound on the number of content processes, so
@@ -2870,7 +2871,6 @@ ContentParent::ContentParent(const nsACString& aRemoteType, int32_t aJSPluginID)
       mJSPluginID(aJSPluginID),
       mRemoteWorkerActorData("ContentParent::mRemoteWorkerActorData"),
       mNumDestroyingTabs(0),
-      mNumClosedTabs(0),
       mNumKeepaliveCalls(0),
       mLifecycleState(LifecycleState::LAUNCHING),
       mIsForBrowser(!mRemoteType.IsEmpty()),
@@ -2881,6 +2881,7 @@ ContentParent::ContentParent(const nsACString& aRemoteType, int32_t aJSPluginID)
       mIsRemoteInputEventQueueEnabled(false),
       mIsInputPriorityEventEnabled(false),
       mIsInPool(false),
+      mIsUsed(false),
       mHangMonitorActor(nullptr) {
   MOZ_DIAGNOSTIC_ASSERT(!IsForJSPlugin(),
                         "XXX(nika): How are we creating a JSPlugin?");

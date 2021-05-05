@@ -1561,7 +1561,9 @@ class ContentParent final
                                         ErrorResult& aRv) override;
   mozilla::ipc::IProtocol* AsNativeActor() override { return this; }
 
-  int32_t ClosedTabCount() { return mNumClosedTabs; }
+  bool WillShutDown() {
+    return mIsUsed && ManagedPBrowserParent().Count() == 0;
+  }
 
  private:
   // Return an existing ContentParent if possible. Otherwise, `nullptr`.
@@ -1585,6 +1587,8 @@ class ContentParent final
    * process launch and the last content process launch.
    */
   static void DidLaunchSubprocess();
+
+  void MarkAsUsed() { mIsUsed = true; }
 
  private:
   // Released in ActorDealloc; deliberately not exposed to the CC.
@@ -1642,7 +1646,6 @@ class ContentParent final
   // sequence.  Precisely, how many BrowserParents have called
   // NotifyTabDestroying() but not called NotifyTabDestroyed().
   int32_t mNumDestroyingTabs;
-  int32_t mNumClosedTabs;
 
   uint32_t mNumKeepaliveCalls;
 
@@ -1678,6 +1681,7 @@ class ContentParent final
   uint8_t mIsInputPriorityEventEnabled : 1;
 
   uint8_t mIsInPool : 1;
+  uint8_t mIsUsed : 1;
 
   RefPtr<nsConsoleService> mConsoleService;
   nsConsoleService* GetConsoleService();
