@@ -30,41 +30,6 @@
 namespace js {
 
 /*
- * Every possible consumer of MagicValue(JS_OPTIMIZED_ARGUMENTS) (as determined
- * by ScriptAnalysis::needsArgsObj) must check for these magic values and, when
- * one is received, act as if the value were the function's ArgumentsObject.
- * Additionally, it is possible that, after 'arguments' was copied into a
- * temporary, the arguments object has been created a some other failed guard
- * that called JSScript::argumentsOptimizationFailed. In this case, it is
- * always valid (and necessary) to replace JS_OPTIMIZED_ARGUMENTS with the real
- * arguments object.
- */
-static inline bool IsOptimizedArguments(AbstractFramePtr frame,
-                                        MutableHandleValue vp) {
-  if (vp.isMagic(JS_OPTIMIZED_ARGUMENTS) && frame.script()->needsArgsObj()) {
-    vp.setObject(frame.argsObj());
-  }
-  return vp.isMagic(JS_OPTIMIZED_ARGUMENTS);
-}
-
-/*
- * One optimized consumer of MagicValue(JS_OPTIMIZED_ARGUMENTS) is f.apply.
- * However, this speculation must be guarded before calling 'apply' in case it
- * is not the builtin Function.prototype.apply.
- */
-static inline void GuardFunApplyArgumentsOptimization(JSContext* cx,
-                                                      AbstractFramePtr frame,
-                                                      CallArgs& args) {
-  if (args.length() == 2 && IsOptimizedArguments(frame, args[1])) {
-    if (!IsNativeFunction(args.calleev(), js::fun_apply)) {
-      RootedScript script(cx, frame.script());
-      JSScript::argumentsOptimizationFailed(cx, script);
-      args[1].setObject(frame.argsObj());
-    }
-  }
-}
-
-/*
  * Per ES6, lexical declarations may not be accessed in any fashion until they
  * are initialized (i.e., until the actual declaring statement is
  * executed). The various LEXICAL opcodes need to check if the slot is an
@@ -72,7 +37,7 @@ static inline void GuardFunApplyArgumentsOptimization(JSContext* cx,
  * JS_UNINITIALIZED_LEXICAL.
  */
 static inline bool IsUninitializedLexical(const Value& val) {
-  // Use whyMagic here because JS_OPTIMIZED_ARGUMENTS could flow into here.
+  // Use whyMagic here because JS_OPTIMIZED_OUT could flow into here.
   return val.isMagic() && val.whyMagic() == JS_UNINITIALIZED_LEXICAL;
 }
 
@@ -511,27 +476,6 @@ static MOZ_ALWAYS_INLINE bool GetPrimitiveElementOperation(
 
   cx->debugOnlyCheck(res);
   return true;
-}
-
-static MOZ_ALWAYS_INLINE bool MaybeGetElemOptimizedArguments(
-    JSContext* cx, AbstractFramePtr frame, MutableHandleValue lref,
-    HandleValue rref, MutableHandleValue res) {
-  if (IsOptimizedArguments(frame, lref)) {
-    if (rref.isInt32()) {
-      int32_t i = rref.toInt32();
-      if (i >= 0 && uint32_t(i) < frame.numActualArgs()) {
-        res.set(frame.unaliasedActual(i));
-        return true;
-      }
-    }
-
-    RootedScript script(cx, frame.script());
-    JSScript::argumentsOptimizationFailed(cx, script);
-
-    lref.set(ObjectValue(frame.argsObj()));
-  }
-
-  return false;
 }
 
 static MOZ_ALWAYS_INLINE bool GetElementOperationWithStackIndex(

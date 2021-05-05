@@ -9,7 +9,6 @@
 #include "nsArray.h"
 #include "nsCOMPtr.h"
 #include "nsIContentPermissionPrompt.h"
-#include "nsIDOMNavigatorUserMedia.h"
 #include "nsIStringEnumerator.h"
 #include "nsJSUtils.h"
 #include "nsQueryObject.h"

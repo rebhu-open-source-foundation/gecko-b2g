@@ -38,6 +38,11 @@ std::shared_ptr<mozilla::gl::EglDisplay> gEglDpy;
 #  endif
 #endif
 
+#if defined(MOZ_CODE_COVERAGE)
+#  include "prenv.h"
+#  include "mozilla/ipc/EnvironmentMap.h"
+#endif
+
 #include "base/command_line.h"
 #include "base/eintr_wrapper.h"
 #include "base/logging.h"
@@ -364,6 +369,18 @@ bool LaunchApp(const std::vector<std::string>& argv,
     argv_cstr[argv.size()] = NULL;
 
     SetCurrentProcessPrivileges();
+#ifdef MOZ_CODE_COVERAGE
+    const char* gcov_child_prefix = PR_GetEnv("GCOV_CHILD_PREFIX");
+    if (gcov_child_prefix) {
+      const pid_t child_pid = getpid();
+      nsAutoCString new_gcov_prefix(gcov_child_prefix);
+      new_gcov_prefix.Append(std::to_string((size_t)child_pid));
+      EnvironmentMap new_map = options.env_map;
+      new_map[ENVIRONMENT_LITERAL("GCOV_PREFIX")] =
+          ENVIRONMENT_STRING(new_gcov_prefix.get());
+      envp = BuildEnvironmentArray(new_map);
+    }
+#endif
 
     execve(argv_cstr[0], argv_cstr.get(), envp.get());
     // if we get here, we're in serious trouble and should complain loudly

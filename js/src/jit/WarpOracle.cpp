@@ -121,9 +121,7 @@ void WarpOracle::addScriptSnapshot(WarpScriptSnapshot* scriptSnapshot) {
 AbortReasonOr<WarpSnapshot*> WarpOracle::createSnapshot() {
 #ifdef JS_JITSPEW
   const char* mode;
-  if (mirGen().outerInfo().isAnalysis()) {
-    mode = "Analyzing";
-  } else if (outerScript_->hasIonScript()) {
+  if (outerScript_->hasIonScript()) {
     mode = "Recompiling";
   } else {
     mode = "Compiling";
@@ -333,18 +331,17 @@ AbortReasonOr<WarpScriptSnapshot*> WarpScriptOracle::createScriptSnapshot() {
     JSOp op = loc.getOp();
     uint32_t offset = loc.bytecodeToOffset(script_);
     switch (op) {
-      case JSOp::Arguments:
-        if (script_->needsArgsObj()) {
-          bool mapped = script_->hasMappedArgsObj();
-          ArgumentsObject* templateObj =
-              script_->realm()->maybeArgumentsTemplateObject(mapped);
-          if (!AddOpSnapshot<WarpArguments>(alloc_, opSnapshots, offset,
-                                            templateObj)) {
-            return abort(AbortReason::Alloc);
-          }
+      case JSOp::Arguments: {
+        MOZ_ASSERT(script_->needsArgsObj());
+        bool mapped = script_->hasMappedArgsObj();
+        ArgumentsObject* templateObj =
+            script_->realm()->maybeArgumentsTemplateObject(mapped);
+        if (!AddOpSnapshot<WarpArguments>(alloc_, opSnapshots, offset,
+                                          templateObj)) {
+          return abort(AbortReason::Alloc);
         }
         break;
-
+      }
       case JSOp::RegExp: {
         bool hasShared = loc.getRegExp(script_)->hasShared();
         if (!AddOpSnapshot<WarpRegExp>(alloc_, opSnapshots, offset,
@@ -504,23 +501,6 @@ AbortReasonOr<WarpScriptSnapshot*> WarpScriptOracle::createScriptSnapshot() {
         break;
       }
 
-      case JSOp::NewArray: {
-        const ICEntry& entry = getICEntry(loc);
-        auto* stub = entry.fallbackStub()->toNewArray_Fallback();
-        if (ArrayObject* templateObj = stub->templateObject()) {
-          // Only inline elements are supported without a VM call.
-          size_t numInlineElements =
-              gc::GetGCKindSlots(templateObj->asTenured().getAllocKind()) -
-              ObjectElements::VALUES_PER_HEADER;
-          bool useVMCall = loc.getNewArrayLength() > numInlineElements;
-          if (!AddOpSnapshot<WarpNewArray>(alloc_, opSnapshots, offset,
-                                           templateObj, useVMCall)) {
-            return abort(AbortReason::Alloc);
-          }
-        }
-        break;
-      }
-
       case JSOp::BindGName: {
         RootedGlobalObject global(cx_, &script_->global());
         RootedPropertyName name(cx_, loc.getPropertyName(script_));
@@ -601,6 +581,7 @@ AbortReasonOr<WarpScriptSnapshot*> WarpScriptOracle::createScriptSnapshot() {
       case JSOp::TypeofExpr:
       case JSOp::NewObject:
       case JSOp::NewInit:
+      case JSOp::NewArray:
         MOZ_TRY(maybeInlineIC(opSnapshots, loc));
         break;
 
@@ -727,16 +708,8 @@ AbortReasonOr<WarpScriptSnapshot*> WarpScriptOracle::createScriptSnapshot() {
       case JSOp::Yield:
       case JSOp::ResumeKind:
       case JSOp::ThrowMsg:
-        // Supported by WarpBuilder. Nothing to do.
-        break;
-
       case JSOp::Try:
-        if (info_->isAnalysis()) {
-          // Try-catch is not supported for the arguments analysis because
-          // |arguments| uses in the catch-block are not accounted for.
-          return abort(AbortReason::Disable,
-                       "try-catch not supported during analysis");
-        }
+        // Supported by WarpBuilder. Nothing to do.
         break;
 
         // Unsupported ops. Don't use a 'default' here, we want to trigger a
@@ -792,8 +765,8 @@ AbortReasonOr<Ok> WarpScriptOracle::maybeInlineIC(WarpOpSnapshotList& snapshots,
 
   MOZ_ASSERT(loc.opHasIC());
 
-  // Don't create snapshots for the arguments analysis or when testing ICs.
-  if (info_->isAnalysis() || JitOptions.forceInlineCaches) {
+  // Don't create snapshots when testing ICs.
+  if (JitOptions.forceInlineCaches) {
     return Ok();
   }
 
@@ -895,18 +868,6 @@ AbortReasonOr<Ok> WarpScriptOracle::maybeInlineIC(WarpOpSnapshotList& snapshots,
           return abort(AbortReason::Error);
         }
         break;
-      case CacheOp::GuardFrameHasNoArgumentsObject:
-        if (info_->needsArgsObj()) {
-          // The script used optimized-arguments at some point but not anymore.
-          // Don't transpile this stale Baseline IC stub.
-          [[maybe_unused]] unsigned line, column;
-          LineNumberAndColumn(script_, loc, &line, &column);
-          JitSpew(JitSpew_WarpTranspiler,
-                  "GuardFrameHasNoArgumentsObject with NeedsArgsObj @ %s:%u:%u",
-                  script_->filename(), line, column);
-          return Ok();
-        }
-        break;
       default:
         break;
     }
@@ -982,8 +943,8 @@ AbortReasonOr<bool> WarpScriptOracle::maybeInlineCall(
   jsbytecode* osrPc = nullptr;
   bool needsArgsObj = targetScript->needsArgsObj();
   CompileInfo* info = lifoAlloc->new_<CompileInfo>(
-      mirGen_.runtime, targetScript, targetFunction, osrPc,
-      info_->analysisMode(), needsArgsObj, inlineScriptTree);
+      mirGen_.runtime, targetScript, targetFunction, osrPc, needsArgsObj,
+      inlineScriptTree);
   if (!info) {
     return abort(AbortReason::Alloc);
   }

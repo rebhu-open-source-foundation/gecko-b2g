@@ -5,16 +5,16 @@
 @media not (prefers-contrast) {
   @media (-moz-proton) {
   :root:not(:-moz-lwtheme) {
-    --buttons-primary-button-bgcolor: rgb(0,97,224);
-    --buttons-primary-button-hover-bgcolor: rgb(2,80,187);
-    --buttons-primary-button-active-bgcolor: rgb(5,62,148);
-    --buttons-primary-button-color: rgb(251,251,254);
+    --button-primary-bgcolor: rgb(0,97,224);
+    --button-primary-hover-bgcolor: rgb(2,80,187);
+    --button-primary-active-bgcolor: rgb(5,62,148);
+    --button-primary-color: rgb(251,251,254);
     --button-bgcolor: rgb(240,240,244);
     --button-hover-bgcolor: rgb(224,224,230);
     --button-active-bgcolor: rgb(207,207,216);
     --button-color: rgb(21,20,26);
 
-    --focus-outline-color: var(--buttons-primary-button-bgcolor);
+    --focus-outline-color: var(--button-primary-bgcolor);
     --focus-outline-offset: 2px;
 
     --checkbox-border-color: rgb(143,143,157);
@@ -33,6 +33,8 @@
     --arrowpanel-dimmed: color-mix(in srgb, currentColor 12%, transparent);
     --arrowpanel-dimmed-further: color-mix(in srgb, currentColor 20%, transparent);
     --arrowpanel-dimmed-even-further: color-mix(in srgb, currentColor 27%, transparent);
+    --panel-disabled-color: color-mix(in srgb, currentColor 40%, transparent);
+    --panel-shortcut-color: rgb(91,91,102);
 
     --error-text-color: rgb(197,0,66);
 
@@ -44,6 +46,8 @@
     --tab-line-color: rgba(128,128,142,0.9);
     --tab-selected-bgcolor: rgb(255,255,255);
     --tabs-border-color: transparent;
+    --tab-icon-overlay-stroke: rgb(255,255,255);
+    --tab-icon-overlay-fill: rgb(91,91,102);
     --toolbar-color: rgb(21,20,26);
     --toolbar-non-lwt-bgcolor: #f9f9fb;
     --toolbar-non-lwt-textcolor: rgb(21, 20, 26);

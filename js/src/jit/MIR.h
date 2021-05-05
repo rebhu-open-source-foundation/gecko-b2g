@@ -89,8 +89,6 @@ static inline MIRType MIRTypeFromValue(const js::Value& vp) {
   }
   if (vp.isMagic()) {
     switch (vp.whyMagic()) {
-      case JS_OPTIMIZED_ARGUMENTS:
-        return MIRType::MagicOptimizedArguments;
       case JS_OPTIMIZED_OUT:
         return MIRType::MagicOptimizedOut;
       case JS_ELEMENTS_HOLE:
@@ -2138,6 +2136,40 @@ class MNewPlainObject : public MUnaryInstruction, public NoTypePolicy::Data {
   uint32_t numFixedSlots() const { return numFixedSlots_; }
   uint32_t numDynamicSlots() const { return numDynamicSlots_; }
   gc::AllocKind allocKind() const { return allocKind_; }
+  gc::InitialHeap initialHeap() const { return initialHeap_; }
+
+  [[nodiscard]] bool writeRecoverData(
+      CompactBufferWriter& writer) const override;
+  bool canRecoverOnBailout() const override { return true; }
+};
+
+class MNewArrayObject : public MUnaryInstruction, public NoTypePolicy::Data {
+ private:
+  uint32_t length_;
+  gc::InitialHeap initialHeap_;
+
+  MNewArrayObject(TempAllocator& alloc, MConstant* shapeConst, uint32_t length,
+                  gc::InitialHeap initialHeap)
+      : MUnaryInstruction(classOpcode, shapeConst),
+        length_(length),
+        initialHeap_(initialHeap) {
+    setResultType(MIRType::Object);
+    MOZ_ASSERT(shapeConst->toConstant()->type() == MIRType::Shape);
+    shapeConst->setEmittedAtUses();
+  }
+
+ public:
+  INSTRUCTION_HEADER(NewArrayObject)
+  TRIVIAL_NEW_WRAPPERS_WITH_ALLOC
+
+  static MNewArrayObject* New(TempAllocator& alloc, MConstant* shapeConst,
+                              uint32_t length, gc::InitialHeap initialHeap) {
+    return new (alloc) MNewArrayObject(alloc, shapeConst, length, initialHeap);
+  }
+
+  const Shape* shape() const { return getOperand(0)->toConstant()->toShape(); }
+
+  uint32_t length() const { return length_; }
   gc::InitialHeap initialHeap() const { return initialHeap_; }
 
   [[nodiscard]] bool writeRecoverData(
@@ -9244,36 +9276,6 @@ class MGuardValue : public MUnaryInstruction, public BoxInputsPolicy::Data {
     }
     return congruentIfOperandsEqual(ins);
   }
-  MDefinition* foldsTo(TempAllocator& alloc) override;
-  AliasSet getAliasSet() const override { return AliasSet::None(); }
-};
-
-// Guards the value is not MagicValue(JS_OPTIMIZED_ARGUMENTS). If this fails,
-// disable lazy arguments for the script.
-class MGuardNotOptimizedArguments : public MUnaryInstruction,
-                                    public BoxInputsPolicy::Data {
-  explicit MGuardNotOptimizedArguments(MDefinition* val)
-      : MUnaryInstruction(classOpcode, val) {
-    setGuard();
-    setResultType(MIRType::Value);
-    // Note: don't setMovable() to not deoptimize lazy arguments unnecessarily.
-
-    // If this instruction bails out, we will disable the optimization to
-    // prevent bailout loops.
-    setBailoutKind(BailoutKind::NotOptimizedArgumentsGuard);
-  }
-
- public:
-  INSTRUCTION_HEADER(GuardNotOptimizedArguments)
-  TRIVIAL_NEW_WRAPPERS
-  NAMED_OPERANDS((0, value))
-
-  bool congruentTo(const MDefinition* ins) const override {
-    return congruentIfOperandsEqual(ins);
-  }
-
-  static bool maybeIsOptimizedArguments(MDefinition* def);
-
   MDefinition* foldsTo(TempAllocator& alloc) override;
   AliasSet getAliasSet() const override { return AliasSet::None(); }
 };

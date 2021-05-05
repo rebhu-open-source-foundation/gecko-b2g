@@ -791,8 +791,8 @@ JS_PUBLIC_API JSObject* JS::GetRealmAsyncIteratorPrototype(JSContext* cx) {
   return GlobalObject::getOrCreateAsyncIteratorPrototype(cx, cx->global());
 }
 
-JS_PUBLIC_API JSObject* JS::GetRealmWeakMapKey(JSContext* cx) {
-  return GlobalObject::getOrCreateRealmWeakMapKey(cx, cx->global());
+JS_PUBLIC_API JSObject* JS::GetRealmKeyObject(JSContext* cx) {
+  return GlobalObject::getOrCreateRealmKeyObject(cx, cx->global());
 }
 
 JS_PUBLIC_API Realm* JS::GetFunctionRealm(JSContext* cx, HandleObject objArg) {

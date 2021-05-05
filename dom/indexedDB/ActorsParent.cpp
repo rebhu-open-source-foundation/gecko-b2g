@@ -834,10 +834,10 @@ CreateStorageConnection(nsIFile& aDBFile, nsIFile& aFMDirectory,
 
   AUTO_PROFILER_LABEL("CreateStorageConnection", DOM);
 
-  nsresult rv;
-  bool exists;
-
   if (IndexedDatabaseManager::InLowDiskSpaceMode()) {
+    nsresult rv;
+    bool exists;
+
     rv = aDBFile.Exists(&exists);
     if (NS_WARN_IF(NS_FAILED(rv))) {
       return Err(rv);

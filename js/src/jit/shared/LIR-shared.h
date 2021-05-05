@@ -434,6 +434,22 @@ class LNewPlainObject : public LInstructionHelper<1, 0, 3> {
   MNewPlainObject* mir() const { return mir_->toNewPlainObject(); }
 };
 
+class LNewArrayObject : public LInstructionHelper<1, 0, 2> {
+ public:
+  LIR_HEADER(NewArrayObject)
+
+  explicit LNewArrayObject(const LDefinition& temp0, const LDefinition& temp1)
+      : LInstructionHelper(classOpcode) {
+    setTemp(0, temp0);
+    setTemp(1, temp1);
+  }
+
+  const LDefinition* temp0() { return getTemp(0); }
+  const LDefinition* temp1() { return getTemp(1); }
+
+  MNewArrayObject* mir() const { return mir_->toNewArrayObject(); }
+};
+
 // Allocates a new NamedLambdaObject.
 //
 // This instruction generates two possible instruction sets:
@@ -8091,19 +8107,6 @@ class LGuardValue : public LInstructionHelper<0, BOX_PIECES, 0> {
   static const size_t Input = 0;
 
   MGuardValue* mir() { return mir_->toGuardValue(); }
-};
-
-class LGuardNotOptimizedArguments
-    : public LInstructionHelper<0, BOX_PIECES, 0> {
- public:
-  LIR_HEADER(GuardNotOptimizedArguments)
-
-  explicit LGuardNotOptimizedArguments(const LBoxAllocation& input)
-      : LInstructionHelper(classOpcode) {
-    setBoxOperand(Input, input);
-  }
-
-  static const size_t Input = 0;
 };
 
 class LGuardNullOrUndefined : public LInstructionHelper<0, BOX_PIECES, 0> {
