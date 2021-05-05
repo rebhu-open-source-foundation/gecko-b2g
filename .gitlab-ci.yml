@@ -8,6 +8,7 @@
 workflow:
   rules:
     - if: '$CI_MERGE_REQUEST_PROJECT_PATH == "KaiOS/gecko-dev"'
+    - if: '$CI_PROJECT_PATH == "KaiOS/gecko-dev" && $CI_COMMIT_BRANCH == "next"'
     - when: never
 
 include:
@@ -15,9 +16,16 @@ include:
   - '.gitlab/ci/lint.yml'
 
 default:
-  image: ${CI_REGISTRY}/re/kaios-build/next/daily:1.49.0_5_2
+  image: ${CI_REGISTRY}/re/kaios-build/next/daily:1.49.0_5_3
   tags:
     - hk-fantastic4
+
+# an anchor that eusures the priority for the longest build:arm to get served by runner
+.delayed_job: &delay_if_triggered_by_mr
+  rules:
+    - if: '$CI_MERGE_REQUEST_PROJECT_PATH == "KaiOS/gecko-dev"'
+      when: delayed
+      start_in: 10 seconds
 
 variables:
   # set GIT_DEPTH=1 to fetch current branch only
@@ -32,6 +40,7 @@ variables:
 stages:
   - lint
   - build
+  - deploy
 
 Check if rebased and validate commit messages:
   extends: .precautions_base
@@ -63,19 +72,57 @@ lint:yml:
 build:arm:
   extends: .build_arm
   stage: build
+  rules:
+    - if: '$CI_MERGE_REQUEST_PROJECT_PATH == "KaiOS/gecko-dev"'
 
 build:desktop:
   extends: .build_desktop
   stage: build
-  rules:
-    - if: '$CI_PIPELINE_SOURCE == "pipeline"'
-      when: never
-    - when: delayed
-      start_in: 10 seconds
+  <<: *delay_if_triggered_by_mr
 
 build:emulator:
   extends: .build_emulator
   stage: build
+  <<: *delay_if_triggered_by_mr
+
+production:desktop:
+  extends: .build_desktop
+  stage: deploy
+  variables:
+    GIT_CHECKOUT: 'true'
+    # releng/ci-util/b2g-desktop
+    B2G_DESKTOP_PROJECT_ID: 11099
+  # override the whole before_script since we don't need the typical preparartion of repository
+  before_script:
+    - '[[ -f /entrypoint.sh ]] && /entrypoint.sh'
+    - |
+      if ${CI_USE_MIRROR}; then
+        git clone ${LOCAL_GIT_MIRROR}/KaiOS/koost.git -b ${CI_COMMIT_BRANCH}
+        echo -e "machine ${CI_SERVER_HOST}\nlogin gitlab-ci-token\npassword ${CI_JOB_TOKEN}" > ~/.netrc
+        git -C koost fetch ${CI_SERVER_URL}/KaiOS/koost.git ${CI_COMMIT_BRANCH}
+        git -C koost checkout FETCH_HEAD -f -q
+      else
+        git clone ${CI_SERVER_URL}/KaiOS/koost.git -b ${CI_COMMIT_BRANCH} --depth 1
+      fi
+    - git -C koost log -1
+  after_script:
+    - ./mach package
+    - base64 ${MOZ_OBJDIR}/dist/b2g*.tar.bz2 > b2g-desktop-b64
+    - |
+      cat <<-EOF >commit_message
+      ${CI_COMMIT_MESSAGE}
+
+      Source: ${CI_PROJECT_PATH}@${CI_COMMIT_SHORT_SHA}
+      EOF
+      cat commit_message
+    - |
+      curl --request POST --header "PRIVATE-TOKEN: ${B2G_DESKTOP_DEPLOY_KEY}" \
+        --form "branch=${CI_COMMIT_BRANCH}" \
+        --form "commit_message=$(cat commit_message)" \
+        --form "actions[][action]=update" \
+        --form "actions[][file_path]=b2g.linux-x86_64.tar.bz2" \
+        --form "actions[][content]=<./b2g-desktop-b64" \
+        --form "actions[][encoding]=base64" \
+        "${CI_API_V4_URL}/projects/${B2G_DESKTOP_PROJECT_ID}/repository/commits"
   rules:
-    - when: delayed
-      start_in: 10 seconds
+    - if: '$CI_PROJECT_PATH == "KaiOS/gecko-dev" && $CI_COMMIT_BRANCH == "next"'

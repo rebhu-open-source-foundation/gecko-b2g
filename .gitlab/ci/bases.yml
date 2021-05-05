@@ -1,6 +1,7 @@
 variables:
   SCCACHE_REDIS_BASEURL: redis://10.81.70.108
 
+ # note that these setups merely support pipelines triggered by merge requests
 .global_setup: &global_setup
   # remove the replacement of remote url in case the container is stale
   - 'git config --global --remove-section url."${LOCAL_GIT_MIRROR}" || true'
@@ -66,12 +67,12 @@ variables:
     if [[ ${GIT_CLONE_PATH##*/} == koost ]]; then
       cd ${GIT_CLONE_PATH%/*}
       git init
-      git fetch ${CI_SERVER_URL}/KaiOS/gecko-dev.git next --no-tags --depth 1 -j${CPU_CORES:-8}
+      git fetch ${CI_SERVER_URL}/KaiOS/gecko-dev.git ${CI_MERGE_REQUEST_TARGET_BRANCH_NAME} --no-tags --depth 1 -j${CPU_CORES:-8}
       git checkout FETCH_HEAD
     else
       cd ${GIT_CLONE_PATH}
       if [[ ${CI_JOB_NAME%:*} == build ]]; then
-        git clone ${CI_SERVER_URL}/KaiOS/koost.git -b next --depth 1
+        git clone ${CI_SERVER_URL}/KaiOS/koost.git -b ${CI_MERGE_REQUEST_TARGET_BRANCH_NAME} --depth 1
         git -C koost log -1
       fi
     fi
@@ -117,7 +118,7 @@ variables:
   rules:
     - if: '$CI_MERGE_REQUEST_TITLE =~ /skip-lint|^WIP\:/'
       when: never
-    - when: on_success
+    - if: '$CI_MERGE_REQUEST_PROJECT_PATH == "KaiOS/gecko-dev"'
 
 .lint_base:
   # this image is based on the one used by taskcluster in mozilla ci,
@@ -142,7 +143,7 @@ variables:
     - './mach lint -l ${SPECIFIC_LINTERS// /" -l "} ${MACH_LINT_PARAMETERS} "${changed_files[@]}"'
 
 .build_desktop:
-  image: ${CI_REGISTRY}/re/kaios-build/next/desktop:1.49.0_5_2
+  image: ${CI_REGISTRY}/re/kaios-build/next/desktop:1.49.0_5_3
   tags:
     - gecko-dev
   variables:
@@ -161,7 +162,7 @@ variables:
     - sccache -s
 
 .build_emulator:
-  image: ${CI_REGISTRY}/re/kaios-build/next/daily:1.49.0_5_2
+  image: ${CI_REGISTRY}/re/kaios-build/next/daily:1.49.0_5_3
   tags:
     - gecko-dev
   variables:
@@ -186,7 +187,7 @@ variables:
     - sccache -s
 
 .build_arm:
-  image: ${CI_REGISTRY}/re/kaios-build/next/daily:1.49.0_5_2
+  image: ${CI_REGISTRY}/re/kaios-build/next/daily:1.49.0_5_3
   tags:
     - gecko-dev
   variables:
