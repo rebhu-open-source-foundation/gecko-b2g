@@ -211,7 +211,6 @@ this.SettingsPrefsSync = {
   delayedInit() {
     this.deviceInfoToSettings();
     this.setUpdateTrackingId();
-    this.managePrivacy();
     this.setupAccessibility();
     this.synchronizePrefs();
     this.setupLanguageSettingObserver();
@@ -323,19 +322,6 @@ this.SettingsPrefsSync = {
 
   setUpdateTrackingId() {
     try {
-      let dntEnabled = Services.prefs.getBoolPref(
-        "privacy.donottrackheader.enabled"
-      );
-
-      let dntValue = Services.prefs.getIntPref(
-        "privacy.donottrackheader.value",
-        0
-      );
-      // If the user specifically decides to disallow tracking (1), we just bail out.
-      if (dntEnabled && dntValue == 1) {
-        return;
-      }
-
       let trackingId =
         Services.prefs.getPrefType("app.update.custom") ==
           Ci.nsIPrefBranch.PREF_STRING &&
@@ -358,38 +344,6 @@ this.SettingsPrefsSync = {
     } catch (e) {
       dump("Error getting tracking ID " + e + "\n");
     }
-  },
-
-  // Observes the privacy.donottrackheader.value setting and sets app.update.custom.
-  // TODO: Add support for Tracking Protection.
-  managePrivacy() {
-    // Not using `self = this;` to not hold the whole object in the observer scope.
-    let setUpdateTrackingId = this.setUpdateTrackingId;
-
-    // The setting observer object.
-    let observer = {
-      observeSetting(info) {
-        if (info) {
-          let value = JSON.parse(info.value);
-
-          Services.prefs.setIntPref("privacy.donottrackheader.value", value);
-          // If the user specifically disallows tracking, we set the value of
-          // app.update.custom (update tracking ID) to an empty string.
-          if (value == 1) {
-            Services.prefs.setCharPref("app.update.custom", "");
-            return;
-          }
-          // Otherwise, we ensure that the update tracking ID exists.
-          setUpdateTrackingId();
-        }
-      },
-    };
-
-    this.addSettingsObserver(
-      "privacy.donottrackheader.value",
-      observer,
-      "Failed to add a setting observer for privacy.donottrackheader.value"
-    );
   },
 
   // Attach or detach AccessFu
