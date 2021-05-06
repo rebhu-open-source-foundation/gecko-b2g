@@ -34,7 +34,8 @@ class KeyboardEventGenerator final : public nsISupports, public nsWrapperCache {
   // virtual JSObject* WrapObject(JSContext* aCx) override;
   virtual JSObject* WrapObject(JSContext* aCx,
                                JS::Handle<JSObject*> aGivenProto) override;
-  void Generate(KeyboardEvent& aEvent, ErrorResult& aRv);
+  MOZ_CAN_RUN_SCRIPT_BOUNDARY void Generate(KeyboardEvent& aEvent,
+                                            ErrorResult& aRv);
 
  protected:
   ~KeyboardEventGenerator();

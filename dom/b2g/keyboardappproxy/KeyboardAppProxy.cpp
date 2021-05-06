@@ -160,7 +160,7 @@ KeyboardAppProxy::Deactivate() {
   return NS_OK;
 }
 
-NS_IMETHODIMP
+MOZ_CAN_RUN_SCRIPT_BOUNDARY NS_IMETHODIMP
 KeyboardAppProxy::ReplyKey(const nsACString& aEventType,
                            bool aDefaultPreventedStatus, uint64_t aGeneration) {
   MOZ_ASSERT(mEventQueue.GetSize() != 0, "queue should not be empty");
@@ -201,7 +201,7 @@ KeyboardAppProxy::ReplyKey(const nsACString& aEventType,
       return NS_OK;
     }
 
-    PresShell* presShell = doc->GetPresShell();
+    RefPtr<PresShell> presShell = doc->GetPresShell();
     if (!presShell) {
       LOG_IME(LogLevel::Debug, "KeyboardAppProxy::ReplyKey no presShell");
       return NS_OK;
