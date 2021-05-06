@@ -204,7 +204,7 @@ class WebViewHandler {
       "visibilitychange",
       "error",
     ].forEach(event_name => {
-      web_view.addEventListener(`mozbrowser${event_name}`, handler);
+      web_view.addEventListener(`${event_name}`, handler);
     });
   }
 
@@ -238,15 +238,15 @@ class WebViewHandler {
     let ui_update_needed = false;
 
     switch (event.type) {
-      case "mozbrowsertitlechange":
+      case "titlechange":
         this.state.title = detail.title;
         ui_update_needed = true;
         break;
-      case "mozbrowsersecuritychange":
+      case "securitychange":
         this.state.secure = detail.state;
         ui_update_needed = true;
         break;
-      case "mozbrowserlocationchange":
+      case "locationchange":
         // We don't reset the icon url until we get a new one.
         this.state.iconSize = 0;
         this.state.canGoBack = detail.canGoBack;
@@ -254,7 +254,7 @@ class WebViewHandler {
         this.state.url = detail.url;
         ui_update_needed = true;
         break;
-      case "mozbrowservisibilitychange":
+      case "visibilitychange":
         this.update_ui();
         break;
     }

@@ -45,7 +45,7 @@ The <web-view> element supports the following attributes:
 
 ## Events
 
-Each event type is prefixed with `mozbrowser` for historical compatibility reasons. All events are CustomEvents, with an event payload specific to each type.
+All events are CustomEvents, with an event payload specific to each type.
 
 - `close` : `{}`
 - `contextmenu` : `{ <depends on the element that was selected> }`

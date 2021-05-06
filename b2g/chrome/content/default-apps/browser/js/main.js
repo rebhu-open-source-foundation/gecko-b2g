@@ -34,7 +34,7 @@ document.addEventListener(
     });
 
     // Binding events
-    browser.addEventListener("mozbrowserlocationchange", aEvent => {
+    browser.addEventListener("locationchange", aEvent => {
       UpdateActionsUI(aEvent.detail);
     });
 

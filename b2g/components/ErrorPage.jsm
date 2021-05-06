@@ -189,15 +189,11 @@ var ErrorPage = {
         "ErrorPage:AddCertException",
         self._addCertException.bind(self)
       );
-      frameElement.removeEventListener(
-        "mozbrowsererror",
-        injectErrorPageScript,
-        true
-      );
+      frameElement.removeEventListener("error", injectErrorPageScript, true);
     };
 
     frameElement.addEventListener(
-      "mozbrowsererror",
+      "error",
       injectErrorPageScript,
       true // use capture
     );

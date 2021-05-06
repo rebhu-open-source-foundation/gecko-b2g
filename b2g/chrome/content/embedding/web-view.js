@@ -57,9 +57,6 @@
     { once: true }
   );
 
-  // Use a prefix to help with backward compatibility and ease UI porting.
-  const EVENT_PREFIX = "mozbrowser";
-
   // The progress listener attached to the webview, managing some events.
   function ProgressListener(webview) {
     this.webview = webview;
@@ -75,8 +72,8 @@
     },
 
     dispatchEvent(name, detail) {
-      this.log(`dispatching ${EVENT_PREFIX}${name}`);
-      let event = new CustomEvent(`${EVENT_PREFIX}${name}`, {
+      this.log(`dispatching ${name}`);
+      let event = new CustomEvent(`${name}`, {
         bubbles: true,
         detail,
       });
@@ -583,8 +580,8 @@
     }
 
     dispatchCustomEvent(name, detail) {
-      this.log(`dispatching ${EVENT_PREFIX}${name}`);
-      let event = new CustomEvent(`${EVENT_PREFIX}${name}`, {
+      this.log(`dispatching ${name}`);
+      let event = new CustomEvent(`${name}`, {
         bubbles: true,
         detail,
       });
@@ -621,7 +618,7 @@
           break;
         case "promptpermission": {
           // Receive "promptpermission" event from ContentPermissionPrompt.
-          // Dispatch "mozbrowserpromptpermission" event to system app,
+          // Dispatch "promptpermission" event to system app,
           // wait for the reply event from system app of event type requestId,
           // and dispatch back to ContentPermissionPrompt through this.browser.
           this.addEventListener(
