@@ -25,7 +25,8 @@
 #include <android/log.h>
 #include <limits>
 #include "mozilla/fallible.h"
-#include "mozilla/Preferences.h"
+#include "mozilla/StaticPrefs_network.h"
+#include "mozilla/StaticPrefs_dom.h"
 #include "nsPrintfCString.h"
 #include <errno.h>
 #include <string.h>
@@ -50,9 +51,6 @@
   __android_log_print(ANDROID_LOG_WARN, "NetworkUtils", ##args)
 #define ERROR(args...) \
   __android_log_print(ANDROID_LOG_ERROR, "NetworkUtils", ##args)
-
-#define PREF_NETWORK_DEBUG_ENABLED "network.debugging.enabled"
-#define PREF_IPV6_ADDR_GEN_MODE "dom.b2g_ipv6_addr_mode"
 
 namespace binder = android::binder;
 using android::IBinder;
@@ -1523,9 +1521,7 @@ NetworkUtils::NetworkUtils(MessageCallback aCallback)
   NU_DBG("Start Netd Service");
   setupNetd(true);
 
-  IPV6_ADDR_GEN_MODE = mozilla::Preferences::GetInt(
-      PREF_IPV6_ADDR_GEN_MODE, INetd::IPV6_ADDR_GEN_MODE_EUI64);
-
+  IPV6_ADDR_GEN_MODE = mozilla::StaticPrefs::dom_b2g_ipv6_addr_mode();
   updateDebug();
 
   gNetworkUtils = this;
@@ -2644,8 +2640,7 @@ void NetworkUtils::dumpParams(NetworkParams& aOptions, const char* aType) {
 }
 
 void NetworkUtils::updateDebug() {
-  ENABLE_NU_DEBUG =
-      mozilla::Preferences::GetBool(PREF_NETWORK_DEBUG_ENABLED, false);
+  ENABLE_NU_DEBUG = mozilla::StaticPrefs::network_debugging_enabled();
   if (gNetdUnsolService) {
     gNetdUnsolService->updateDebug(ENABLE_NU_DEBUG);
   }

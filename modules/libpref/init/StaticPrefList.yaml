@@ -3995,6 +3995,12 @@
   value: false
   mirror: always
 
+# Setup IPv6 addressing mode such as eui64/random/stable privacy.
+- name: dom.b2g_ipv6_addr_mode
+  type: int32_t
+  value: 0
+  mirror: always
+
 #---------------------------------------------------------------------------
 # Prefs starting with "editor"
 #---------------------------------------------------------------------------
@@ -9798,6 +9804,12 @@
 
 # Support http3 version1
 - name: network.http.http3.support_version1
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+# Enable network debugging log level.
+- name: network.debugging.enabled
   type: RelaxedAtomicBool
   value: false
   mirror: always
