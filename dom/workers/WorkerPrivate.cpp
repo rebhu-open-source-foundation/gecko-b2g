@@ -3456,7 +3456,6 @@ bool WorkerPrivate::IsOnCurrentThread() {
 }
 
 void WorkerPrivate::ScheduleDeletion(WorkerRanOrNot aRanOrNot) {
-  AssertIsOnParentThread();
   {
     MutexAutoLock lock(mMutex);
 
