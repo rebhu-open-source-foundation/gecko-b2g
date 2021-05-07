@@ -17,20 +17,19 @@
  * limitations under the License.
  */
 
-#include <stagefright/foundation/ADebug.h>
 #include "AudioOutput.h"
 
 #include "mozilla/Logging.h"
 
 namespace mozilla {
 
-extern LazyLogModule gAudioOffloadPlayerLog;
+extern LazyLogModule gMediaDecoderLog;
 #define AUDIO_OFFLOAD_LOG(type, msg) \
-  MOZ_LOG(gAudioOffloadPlayerLog, type, msg)
+  MOZ_LOG(gMediaDecoderLog, type, msg)
 
 using namespace android;
 
-AudioOutput::AudioOutput(int aSessionId, int aUid) :
+AudioOutput::AudioOutput(audio_session_t aSessionId, int aUid) :
   mCallbackCookie(nullptr),
   mCallback(nullptr),
   mCallbackData(nullptr),

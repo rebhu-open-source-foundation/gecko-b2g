@@ -27,6 +27,7 @@ UNIFIED_SOURCES += [
 ]
 
 SOURCES += [
+    "AudioOutput.cpp",
     "GonkMediaHTTPConnection.cpp",
     "GonkMediaHTTPService.cpp",
     "GonkOffloadPlayer.cpp",

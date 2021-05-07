@@ -1133,6 +1133,7 @@ if CONFIG['OS_TARGET'] == 'Android' or CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
         'linux/ashmem.h',
         'media/AudioEffect.h',
         'media/AudioSystem.h',
+        'media/AudioTrack.h',
         'media/ICrypto.h',
         'media/IMediaHTTPConnection.h',
         'media/IMediaHTTPService.h',

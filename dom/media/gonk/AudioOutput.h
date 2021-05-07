@@ -20,10 +20,10 @@
 #ifndef AUDIOOUTPUT_H_
 #define AUDIOOUTPUT_H_
 
-#include <stagefright/foundation/ABase.h>
+#include <media/AudioTrack.h>
 #include <utils/Mutex.h>
-#include <AudioTrack.h>
 
+#include "base/basictypes.h"
 #include "GonkAudioSink.h"
 
 namespace mozilla {
@@ -44,7 +44,7 @@ class AudioOutput : public GonkAudioSink
   class CallbackData;
 
 public:
-  AudioOutput(int aSessionId, int aUid);
+  AudioOutput(audio_session_t aSessionId, int aUid);
   virtual ~AudioOutput();
 
   ssize_t FrameSize() const override;
@@ -82,7 +82,7 @@ private:
   int mUid;
 
   // Session id given by Android::AudioSystem and used to create audio track
-  int mSessionId;
+  audio_session_t mSessionId;
 
   // CallbackData is what is passed to the AudioTrack as the "user" data.
   // We need to be able to target this to a different Output on the fly,

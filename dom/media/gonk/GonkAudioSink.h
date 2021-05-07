@@ -20,9 +20,10 @@
 #ifndef GONK_AUDIO_SINK_H_
 #define GONK_AUDIO_SINK_H_
 
-#include <utils/Errors.h>
-#include <utils/String8.h>
 #include <system/audio.h>
+#include <utils/Errors.h>
+#include <utils/RefBase.h>
+#include <utils/String8.h>
 
 #define DEFAULT_AUDIOSINK_BUFFERCOUNT 4
 #define DEFAULT_AUDIOSINK_BUFFERSIZE 1200
