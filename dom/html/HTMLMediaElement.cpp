@@ -6647,8 +6647,19 @@ void HTMLMediaElement::NotifyAudioChannelBlockingChanged() {
 }
 
 bool HTMLMediaElement::CanDecoderStartPlaying() const {
-  return !mSuspendedByInactiveDocOrDocshell && mAudioChannelWrapper &&
-         !mAudioChannelWrapper->IsStoppedOrSuspended();
+  if (mSuspendedByInactiveDocOrDocshell) {
+    return false;
+  }
+  // For video-only files, always allow playing.
+  if (mReadyState >= HAVE_METADATA && !HasAudio()) {
+    return true;
+  }
+  // For files with audio tracks, allow playing when AudioChannelAgent has
+  // started playing and is not suspended.
+  if (mAudioChannelWrapper && !mAudioChannelWrapper->IsStoppedOrSuspended()) {
+    return true;
+  }
+  return false;
 }
 
 void HTMLMediaElement::NotifyOwnerDocumentActivityChanged() {
