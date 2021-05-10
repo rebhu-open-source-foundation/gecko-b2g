@@ -34,34 +34,30 @@ namespace dom {
 
 class AlarmManagerImpl {
  public:
-  explicit AlarmManagerImpl(nsIGlobalObject* aOuterGlobal)
-      : mOuterGlobal(aOuterGlobal) {}
-  virtual nsresult Init() = 0;
-  virtual already_AddRefed<Promise> GetAll() = 0;
-  virtual already_AddRefed<Promise> Add(JSContext* aCx,
-                                        const AlarmOptions& aOptions) = 0;
+  AlarmManagerImpl() = default;
+  virtual nsresult Init(nsIGlobalObject* aGlobal) = 0;
+
+  virtual void GetAll(Promise* aPromise) = 0;
+  virtual void Add(Promise* aPromise, JSContext* aCx,
+                   const AlarmOptions& aOptions) = 0;
   virtual void Remove(long aId) = 0;
 
-  virtual bool CheckPermission() = 0;
   NS_INLINE_DECL_PURE_VIRTUAL_REFCOUNTING
 
  protected:
   nsCString mUrl;
-  nsCOMPtr<nsIGlobalObject> mOuterGlobal;
 };
 
 class AlarmManagerMain final : public AlarmManagerImpl {
  public:
   NS_INLINE_DECL_REFCOUNTING(AlarmManagerMain, override)
-  explicit AlarmManagerMain(nsIGlobalObject* aOuterGlobal);
-  virtual nsresult Init() override;
+  AlarmManagerMain() = default;
+  virtual nsresult Init(nsIGlobalObject* aGlobal) override;
 
-  virtual already_AddRefed<Promise> GetAll() override;
-  virtual already_AddRefed<Promise> Add(JSContext* aCx,
-                                        const AlarmOptions& aOptions) override;
+  virtual void GetAll(Promise* aPromise) override;
+  virtual void Add(Promise* aPromise, JSContext* aCx,
+                   const AlarmOptions& aOptions) override;
   virtual void Remove(long aId) override;
-
-  bool CheckPermission() override;
 
  private:
   ~AlarmManagerMain() = default;
@@ -85,7 +81,6 @@ class AlarmManager final : public nsISupports,
 
   explicit AlarmManager(nsIGlobalObject* aGlobal);
   nsresult Init();
-  bool CheckPermission();
 
   already_AddRefed<Promise> GetAll();
   already_AddRefed<Promise> Add(JSContext* aCx, const AlarmOptions& options);
@@ -99,9 +94,7 @@ class AlarmManager final : public nsISupports,
 
 namespace alarm {
 already_AddRefed<nsIAlarmProxy> CreateAlarmProxy();
-nsresult SetupUrlFromPrincipal(const nsCOMPtr<nsIPrincipal>& aPrincipal,
-                               nsCString& aUrl);
-bool DoCheckPermission(nsCString aUrl);
+nsresult Initialize(const nsCOMPtr<nsIPrincipal>& aPrincipal, nsCString& aUrl);
 }  // namespace alarm
 }  // namespace dom
 }  // namespace mozilla

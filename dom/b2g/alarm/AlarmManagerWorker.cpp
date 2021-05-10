@@ -78,7 +78,7 @@ class AlarmGetAllReturnedRunnable final : public WorkerRunnable,
     ErrorResult rv;
     Read(global, aCx, &result, rv);
     if (NS_WARN_IF(rv.Failed())) {
-      LOG("Read failed. rv:[%u]", rv.ErrorCodeAsInt());
+      LOG("Read failed. rv:[%x]", rv.ErrorCodeAsInt());
       promise->MaybeReject(NS_ERROR_DOM_OPERATION_ERR);
       mProxy->CleanUp();
       return false;
@@ -142,7 +142,7 @@ AlarmGetAllRunnableCallback::OnGetAll(nsresult aStatus, JS::HandleValue aResult,
   ErrorResult rv;
   r->Write(aCx, aResult, rv);
   if (NS_WARN_IF(rv.Failed())) {
-    LOG("Write failed. rv:[%u]", rv.ErrorCodeAsInt());
+    LOG("Write failed. rv:[%x]", rv.ErrorCodeAsInt());
   }
 
   MOZ_ALWAYS_TRUE(r->Dispatch());
@@ -226,7 +226,7 @@ class AlarmAddReturnedRunnable final : public WorkerRunnable,
     ErrorResult rv;
     Read(global, aCx, &result, rv);
     if (NS_WARN_IF(rv.Failed())) {
-      LOG("Read failed. rv:[%u]", rv.ErrorCodeAsInt());
+      LOG("Read failed. rv:[%x]", rv.ErrorCodeAsInt());
       promise->MaybeReject(NS_ERROR_UNEXPECTED);
       mProxy->CleanUp();
       return false;
@@ -290,7 +290,7 @@ AlarmAddRunnableCallback::OnAdd(nsresult aStatus, JS::HandleValue aResult,
   ErrorResult rv;
   r->Write(aCx, aResult, rv);
   if (NS_WARN_IF(rv.Failed())) {
-    LOG("Write failed. rv:[%u]", rv.ErrorCodeAsInt());
+    LOG("Write failed. rv:[%x]", rv.ErrorCodeAsInt());
   }
   MOZ_ALWAYS_TRUE(r->Dispatch());
 
@@ -299,33 +299,33 @@ AlarmAddRunnableCallback::OnAdd(nsresult aStatus, JS::HandleValue aResult,
 
 class AlarmAddRunnable final : public Runnable, public StructuredCloneHolder {
  public:
-  explicit AlarmAddRunnable(nsIGlobalObject* aOuterGlobal,
-                            PromiseWorkerProxy* aPromiseWorkerProxy,
+  explicit AlarmAddRunnable(PromiseWorkerProxy* aPromiseWorkerProxy,
                             const nsACString& aUrl)
       : Runnable("dom::AlarmAddRunnable"),
         StructuredCloneHolder(CloningSupported, TransferringSupported,
                               StructuredCloneScope::SameProcess),
-        mOuterGlobal(aOuterGlobal),
         mPromiseWorkerProxy(aPromiseWorkerProxy),
         mUrl(aUrl) {
-    LOG("AlarmAddRunnable constructor. aOuterGlobal:[%p] "
+    LOG("AlarmAddRunnable constructor."
         "aPromiseWorkerProxy:[%p] mUrl:[%s]",
-        aOuterGlobal, aPromiseWorkerProxy, mUrl.get());
+        aPromiseWorkerProxy, mUrl.get());
   }
   NS_IMETHOD
   Run() override {
     LOG("AlarmAddRunnable::Run");
     AssertIsOnMainThread();
-    if (NS_WARN_IF(!mOuterGlobal)) {
-      return NS_ERROR_ABORT;
-    }
 
     AutoSafeJSContext cx;
     ErrorResult rv;
     JS::RootedValue options(cx);
-    Read(mOuterGlobal, cx, &options, rv);
+    nsCOMPtr<nsIGlobalObject> global = xpc::CurrentNativeGlobal(cx);
+    if (NS_WARN_IF(!global)) {
+      LOG("!global");
+      return NS_ERROR_ABORT;
+    }
+    Read(global, cx, &options, rv);
     if (NS_WARN_IF(rv.Failed())) {
-      LOG("Read failed. rv:[%u]", rv.ErrorCodeAsInt());
+      LOG("Read failed. rv:[%x]", rv.ErrorCodeAsInt());
       return rv.StealNSResult();
     }
     JS_WrapValue(cx, &options);
@@ -345,7 +345,6 @@ class AlarmAddRunnable final : public Runnable, public StructuredCloneHolder {
 
  private:
   ~AlarmAddRunnable() = default;
-  RefPtr<nsIGlobalObject> mOuterGlobal;
   RefPtr<PromiseWorkerProxy> mPromiseWorkerProxy;
   nsCString mUrl;
 };
@@ -391,7 +390,7 @@ class AlarmInitRunnable final : public WorkerMainThreadRunnable {
 
   bool MainThreadRun() override {
     nsCOMPtr<nsIPrincipal> principal = mWorkerPrivate->GetPrincipal();
-    mRv = alarm::SetupUrlFromPrincipal(principal, mUrl);
+    mRv = alarm::Initialize(principal, mUrl);
     return true;
   }
 
@@ -402,37 +401,7 @@ class AlarmInitRunnable final : public WorkerMainThreadRunnable {
   ~AlarmInitRunnable() = default;
 };
 
-class AlarmCheckPermissionRunnable final : public WorkerMainThreadRunnable {
- public:
-  explicit AlarmCheckPermissionRunnable(const nsCString& aUrl)
-      : WorkerMainThreadRunnable(GetCurrentThreadWorkerPrivate(),
-                                 "dom::AlarmCheckPermissionRunnable"_ns),
-        mIsAllowed(false),
-        mUrl(aUrl) {
-    LOG("AlarmCheckPermissionRunnable constructor. mUrl:[%s]", mUrl.get());
-  }
-
-  bool MainThreadRun() override {
-    mIsAllowed = alarm::DoCheckPermission(mUrl);
-    return true;
-  }
-
-  bool mIsAllowed;
-
- private:
-  ~AlarmCheckPermissionRunnable() = default;
-  nsCString mUrl;
-};
-
-AlarmManagerWorker::AlarmManagerWorker(nsIGlobalObject* aOuterGlobal)
-    : AlarmManagerImpl(aOuterGlobal) {
-  LOG("AlarmManagerWorker constructor.");
-  if (NS_WARN_IF(NS_IsMainThread())) {
-    LOG("Error! AlarmManagerWorker should NOT be on main thread.");
-  }
-}
-
-nsresult AlarmManagerWorker::Init() {
+nsresult AlarmManagerWorker::Init(nsIGlobalObject* aGlobal) {
   LOG("AlarmManagerWorker::Init");
   if (NS_WARN_IF(NS_IsMainThread())) {
     LOG("Error! AlarmManagerWorker should NOT be on main thread.");
@@ -444,7 +413,7 @@ nsresult AlarmManagerWorker::Init() {
   ErrorResult rv;
   r->Dispatch(Canceling, rv);
   if (NS_WARN_IF(rv.Failed())) {
-    LOG("Dispatch failed. rv:[%u]", rv.ErrorCodeAsInt());
+    LOG("Dispatch failed. rv:[%x]", rv.ErrorCodeAsInt());
     return NS_ERROR_DOM_ABORT_ERR;
   }
 
@@ -452,100 +421,76 @@ nsresult AlarmManagerWorker::Init() {
   return r->mRv;
 }
 
-already_AddRefed<Promise> AlarmManagerWorker::GetAll() {
+void AlarmManagerWorker::GetAll(Promise* aPromise) {
   LOG("AlarmManagerWorker::GetAll mUrl:[%s]", mUrl.get());
-
-  if (NS_WARN_IF(!mOuterGlobal)) {
-    LOG("!mOuterGlobal");
-    return nullptr;
-  }
-
-  ErrorResult createPromiseErrorResult;
-  RefPtr<Promise> promise =
-      Promise::Create(mOuterGlobal, createPromiseErrorResult);
-  ENSURE_SUCCESS(createPromiseErrorResult, nullptr);
 
   WorkerPrivate* worker = GetCurrentThreadWorkerPrivate();
   if (NS_WARN_IF(!worker)) {
     LOG("!worker");
-    promise->MaybeReject(NS_ERROR_DOM_ABORT_ERR);
-    return promise.forget();
+    aPromise->MaybeReject(NS_ERROR_DOM_ABORT_ERR);
+    return;
   }
   worker->AssertIsOnWorkerThread();
 
   RefPtr<PromiseWorkerProxy> proxy =
-      PromiseWorkerProxy::Create(worker, promise);
+      PromiseWorkerProxy::Create(worker, aPromise);
   if (NS_WARN_IF(!proxy)) {
     LOG("!proxy");
-    promise->MaybeReject(NS_ERROR_DOM_ABORT_ERR);
-    return promise.forget();
+    aPromise->MaybeReject(NS_ERROR_DOM_ABORT_ERR);
+    return;
   }
 
   RefPtr<AlarmGetAllRunnable> r = new AlarmGetAllRunnable(proxy, mUrl);
   nsresult dispatchNSResult = NS_DispatchToMainThread(r);
   if (NS_WARN_IF(NS_FAILED(dispatchNSResult))) {
     LOG("NS_DispatchToMainThread failed. [%x]", uint(dispatchNSResult));
-    promise->MaybeReject(NS_ERROR_DOM_OPERATION_ERR);
-    return promise.forget();
+    aPromise->MaybeReject(NS_ERROR_DOM_OPERATION_ERR);
+    return;
   }
-
-  return promise.forget();
 }
 
-already_AddRefed<Promise> AlarmManagerWorker::Add(
-    JSContext* aCx, const AlarmOptions& aOptions) {
+void AlarmManagerWorker::Add(Promise* aPromise, JSContext* aCx,
+                             const AlarmOptions& aOptions) {
   LOG("AlarmManagerWorker::Add mUrl:[%s]", mUrl.get());
-
-  if (NS_WARN_IF(!mOuterGlobal)) {
-    LOG("!mOuterGlobal");
-    return nullptr;
-  }
-
-  ErrorResult createPromiseErrorResult;
-  RefPtr<Promise> promise =
-      Promise::Create(mOuterGlobal, createPromiseErrorResult);
-  ENSURE_SUCCESS(createPromiseErrorResult, nullptr);
 
   JS::RootedValue optionsValue(aCx);
   if (NS_WARN_IF(!ToJSValue(aCx, aOptions, &optionsValue))) {
     LOG("!ToJSValue");
-    promise->MaybeReject(NS_ERROR_DOM_OPERATION_ERR);
-    return promise.forget();
+    aPromise->MaybeReject(NS_ERROR_DOM_OPERATION_ERR);
+    return;
   }
 
   WorkerPrivate* worker = GetCurrentThreadWorkerPrivate();
   if (NS_WARN_IF(!worker)) {
     LOG("!worker");
-    promise->MaybeReject(NS_ERROR_DOM_ABORT_ERR);
-    return promise.forget();
+    aPromise->MaybeReject(NS_ERROR_DOM_ABORT_ERR);
+    return;
   }
   worker->AssertIsOnWorkerThread();
 
   RefPtr<PromiseWorkerProxy> proxy =
-      PromiseWorkerProxy::Create(worker, promise);
+      PromiseWorkerProxy::Create(worker, aPromise);
   if (!proxy) {
     LOG("!proxy");
-    promise->MaybeReject(NS_ERROR_DOM_ABORT_ERR);
-    return promise.forget();
+    aPromise->MaybeReject(NS_ERROR_DOM_ABORT_ERR);
+    return;
   }
 
   ErrorResult rv;
-  RefPtr<AlarmAddRunnable> r = new AlarmAddRunnable(mOuterGlobal, proxy, mUrl);
+  RefPtr<AlarmAddRunnable> r = new AlarmAddRunnable(proxy, mUrl);
   r->Write(aCx, optionsValue, rv);
   if (NS_WARN_IF(rv.Failed())) {
-    LOG("Write failed. rv:[%u]", rv.ErrorCodeAsInt());
-    promise->MaybeReject(NS_ERROR_DOM_OPERATION_ERR);
-    return promise.forget();
+    LOG("Write failed. rv:[%x]", rv.ErrorCodeAsInt());
+    aPromise->MaybeReject(NS_ERROR_DOM_OPERATION_ERR);
+    return;
   }
 
   nsresult dispatchNSResult = NS_DispatchToMainThread(r);
   if (NS_WARN_IF(NS_FAILED(dispatchNSResult))) {
     LOG("NS_DispatchToMainThread failed. [%x]", uint(dispatchNSResult));
-    promise->MaybeReject(NS_ERROR_DOM_OPERATION_ERR);
-    return promise.forget();
+    aPromise->MaybeReject(NS_ERROR_DOM_OPERATION_ERR);
+    return;
   }
-
-  return promise.forget();
 }
 
 void AlarmManagerWorker::Remove(long aId) {
@@ -556,19 +501,6 @@ void AlarmManagerWorker::Remove(long aId) {
   }
 
   return;
-}
-
-bool AlarmManagerWorker::CheckPermission() {
-  RefPtr<AlarmCheckPermissionRunnable> r =
-      new AlarmCheckPermissionRunnable(mUrl);
-
-  ErrorResult rv;
-  r->Dispatch(Canceling, rv);
-  if (rv.Failed()) {
-    return false;
-  }
-
-  return r->mIsAllowed;
 }
 
 }  // namespace dom
