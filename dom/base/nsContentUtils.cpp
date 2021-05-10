@@ -2179,7 +2179,10 @@ bool nsContentUtils::ShouldResistFingerprinting(const Document* aDoc) {
     return ShouldResistFingerprinting();
   }
   bool isChrome = nsContentUtils::IsChromeDoc(aDoc);
-  return !isChrome && ShouldResistFingerprinting();
+  if (isChrome) {
+    return false;
+  }
+  return ShouldResistFingerprinting(aDoc->GetChannel());
 }
 
 /* static */
@@ -2198,7 +2201,10 @@ bool nsContentUtils::ShouldResistFingerprinting(WorkerPrivate* aWorkerPrivate) {
     return ShouldResistFingerprinting();
   }
   bool isChrome = aWorkerPrivate->UsesSystemPrincipal();
-  return !isChrome && ShouldResistFingerprinting();
+  if (isChrome) {
+    return false;
+  }
+  return ShouldResistFingerprinting(aWorkerPrivate->GetDocument());
 }
 
 inline void LogDomainAndPrefList(const char* exemptedDomainsPrefName,
@@ -6998,7 +7004,7 @@ void nsContentUtils::FireMutationEventsForDirectParsing(
 }
 
 /* static */
-Document* nsContentUtils::GetRootDocument(Document* aDoc) {
+Document* nsContentUtils::GetInProcessSubtreeRootDocument(Document* aDoc) {
   if (!aDoc) {
     return nullptr;
   }
@@ -9763,6 +9769,19 @@ void nsContentUtils::AppendNativeAnonymousChildren(const nsIContent* aContent,
       aContent == aContent->OwnerDoc()->GetRootElement()) {
     AppendDocumentLevelNativeAnonymousContentTo(aContent->OwnerDoc(), aKids);
   }
+}
+
+bool nsContentUtils::IsImageAvailable(nsIContent* aLoadingNode, nsIURI* aURI,
+                                      nsIPrincipal* aDefaultTriggeringPrincipal,
+                                      CORSMode aCORSMode) {
+  nsCOMPtr<nsIPrincipal> triggeringPrincipal;
+  QueryTriggeringPrincipal(aLoadingNode, aDefaultTriggeringPrincipal,
+                           getter_AddRefs(triggeringPrincipal));
+  MOZ_ASSERT(triggeringPrincipal);
+
+  Document* doc = aLoadingNode->OwnerDoc();
+  imgLoader* imgLoader = GetImgLoaderForDocument(doc);
+  return imgLoader->IsImageAvailable(aURI, triggeringPrincipal, aCORSMode, doc);
 }
 
 /* static */

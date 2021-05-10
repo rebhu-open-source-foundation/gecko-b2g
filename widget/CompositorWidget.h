@@ -265,7 +265,7 @@ class CompositorWidget {
   virtual RefPtr<VsyncObserver> GetVsyncObserver() const;
 
   virtual WinCompositorWidget* AsWindows() { return nullptr; }
-  virtual GtkCompositorWidget* AsX11() { return nullptr; }
+  virtual GtkCompositorWidget* AsGTK() { return nullptr; }
   virtual AndroidCompositorWidget* AsAndroid() { return nullptr; }
   virtual GonkCompositorWidget* AsGonk() { return nullptr; }
 

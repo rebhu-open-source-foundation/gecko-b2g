@@ -522,11 +522,7 @@ bool ICScript::initICEntries(JSContext* cx, JSScript* script) {
         break;
       }
       case JSOp::Rest: {
-        ArrayObject* templateObject = NewTenuredDenseEmptyArray(cx);
-        if (!templateObject) {
-          return false;
-        }
-        auto* stub = alloc.newStub<ICRest_Fallback>(Kind::Rest, templateObject);
+        auto* stub = alloc.newStub<ICRest_Fallback>(Kind::Rest);
         if (!addIC(loc, stub)) {
           return false;
         }
@@ -602,16 +598,6 @@ void ICCacheIRStub::trace(JSTracer* trc) {
 void ICFallbackStub::trace(JSTracer* trc) {
   // Fallback stubs use runtime-wide trampoline code we don't need to trace.
   MOZ_ASSERT(usesTrampolineCode());
-
-  switch (kind()) {
-    case ICStub::Rest_Fallback: {
-      ICRest_Fallback* stub = toRest_Fallback();
-      TraceEdge(trc, &stub->templateObject(), "baseline-rest-template");
-      break;
-    }
-    default:
-      break;
-  }
 }
 
 static void MaybeTransition(JSContext* cx, BaselineFrame* frame,
@@ -2562,14 +2548,18 @@ bool FallbackICCodeCompiler::emit_Compare() {
 //
 
 bool DoNewArrayFallback(JSContext* cx, BaselineFrame* frame,
-                        ICNewArray_Fallback* stub, uint32_t length,
-                        MutableHandleValue res) {
+                        ICNewArray_Fallback* stub, MutableHandleValue res) {
   stub->incrementEnteredCount();
   MaybeNotifyWarp(frame->outerScript(), stub);
   FallbackICSpew(cx, stub, "NewArray");
 
   RootedScript script(cx, frame->script());
   jsbytecode* pc = stub->icEntry()->pc(script);
+
+  uint32_t length = GET_UINT32(pc);
+  MOZ_ASSERT(length <= INT32_MAX,
+             "the bytecode emitter must fail to compile code that would "
+             "produce a length exceeding int32_t range");
 
   RootedArrayObject array(cx, NewArrayOperation(cx, length));
   if (!array) {
@@ -2586,12 +2576,11 @@ bool DoNewArrayFallback(JSContext* cx, BaselineFrame* frame,
 bool FallbackICCodeCompiler::emit_NewArray() {
   EmitRestoreTailCallReg(masm);
 
-  masm.push(R0.scratchReg());  // length
   masm.push(ICStubReg);        // stub.
   masm.pushBaselineFramePtr(BaselineFrameReg, R0.scratchReg());
 
   using Fn = bool (*)(JSContext*, BaselineFrame*, ICNewArray_Fallback*,
-                      uint32_t, MutableHandleValue);
+                      MutableHandleValue);
   return tailCallVM<Fn, DoNewArrayFallback>(masm);
 }
 

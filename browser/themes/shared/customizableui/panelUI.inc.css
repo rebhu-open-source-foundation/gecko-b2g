@@ -400,6 +400,10 @@ panelmultiview[transitioning] > .panel-viewcontainer > .panel-viewstack > panelv
   border: 0;
 }
 
+#BMB_bookmarksPopup menupopup {
+  border-radius: var(--arrowpanel-border-radius);
+}
+
 #BMB_bookmarksPopup menupopup::part(arrowscrollbox) {
   padding: var(--panel-subview-body-padding);
   border: 0;
@@ -739,18 +743,13 @@ toolbarbutton[constrain-size="true"][cui-areatype="menu-panel"] > .toolbarbutton
 @media (-moz-proton) {
 .addon-banner-item,
 .panel-banner-item {
-  margin-inline: 8px;
+  margin: 0 8px 4px;
   padding: 8px;
   padding-inline-start: 0;
   min-height: unset;
   border-radius: 4px;
   -moz-box-align: start;
   font-weight: 600;
-}
-
-.addon-banner-item + .addon-banner-item,
-#appMenu-proton-addon-banners:not(:empty) + .panel-banner-item {
-  margin-block-start: 4px;
 }
 
 } /** END Proton **/
@@ -1386,6 +1385,10 @@ panelmultiview[mainViewId="PanelUI-fxa"] #PanelUI-remotetabs-syncnow {
 
 #customization-palette .toolbarbutton-text {
   display: none;
+}
+
+.subview-subheader {
+  display: -moz-box;
 }
 
 .subview-subheader,

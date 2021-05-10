@@ -1802,6 +1802,7 @@ bool BaselineCacheIRCompiler::init(CacheKind kind) {
       BaselineICAvailableGeneralRegs(numInputsInRegs);
 
   switch (kind) {
+    case CacheKind::NewArray:
     case CacheKind::NewObject:
     case CacheKind::GetIntrinsic:
       MOZ_ASSERT(numInputs == 0);
@@ -1813,7 +1814,6 @@ bool BaselineCacheIRCompiler::init(CacheKind kind) {
     case CacheKind::OptimizeSpreadCall:
     case CacheKind::ToBool:
     case CacheKind::UnaryArith:
-    case CacheKind::NewArray:
       MOZ_ASSERT(numInputs == 1);
       allocator.initInputLocation(0, R0);
       break;
@@ -1833,8 +1833,8 @@ bool BaselineCacheIRCompiler::init(CacheKind kind) {
     case CacheKind::GetElemSuper:
       MOZ_ASSERT(numInputs == 3);
       allocator.initInputLocation(0, BaselineFrameSlot(0));
-      allocator.initInputLocation(1, R0);
-      allocator.initInputLocation(2, R1);
+      allocator.initInputLocation(1, R1);
+      allocator.initInputLocation(2, R0);
       break;
     case CacheKind::SetElem:
       MOZ_ASSERT(numInputs == 3);

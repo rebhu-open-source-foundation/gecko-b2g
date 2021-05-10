@@ -521,6 +521,9 @@ class SandboxPolicyCommon : public SandboxPolicyBase {
 #endif
                 PR_SET_PTRACER),  // Debug-mode crash handling
                Allow())
+        .CASES((PR_CAPBSET_READ),  // libcap.so.2 loaded by libpulse.so.0
+                                   // queries for capabilities
+               Error(EINVAL))
         .Default(InvalidSyscall());
   }
 
