@@ -94,11 +94,8 @@ nsresult nsLookAndFeel::NativeGetColor(ColorID aID, ColorScheme,
       // still used
       aColor = BASE_SELECTED_COLOR;
       break;
-    case ColorID::TextSelectForegroundCustom:
-      aColor = NS_RGB(0x4d, 0x4d, 0x4d);
-      break;
     case ColorID::TextSelectForeground:
-      aColor = NS_DONT_CHANGE_COLOR;
+      aColor = NS_SAME_AS_FOREGROUND_COLOR;
       break;
     case ColorID::IMESelectedRawTextForeground:
     case ColorID::IMESelectedConvertedTextForeground:

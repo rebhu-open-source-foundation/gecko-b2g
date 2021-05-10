@@ -3117,7 +3117,7 @@ bool nsGlobalWindowInner::DoResolve(
     if (NS_WARN_IF(!shim)) {
       return false;
     }
-    FillPropertyDescriptor(aDesc, aObj, JS::ObjectValue(*shim),
+    FillPropertyDescriptor(aCx, aDesc, aObj, JS::ObjectValue(*shim),
                            /* readOnly = */ false);
     return true;
   }

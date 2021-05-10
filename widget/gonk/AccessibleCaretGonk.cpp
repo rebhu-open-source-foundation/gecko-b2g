@@ -143,7 +143,7 @@ void AccessibleCaretGonk::SetCaretElementStyle(const nsRect& aRect,
               nsISelectionController::SELECTION_ON)) {
     nscolor selectionBackgroundColor =
         style->GetVisitedDependentColor(&nsStyleBackground::mBackgroundColor);
-    if (selectionBackgroundColor != NS_DONT_CHANGE_COLOR) {
+    if (selectionBackgroundColor != NS_SAME_AS_FOREGROUND_COLOR) {
       // Set --caret-color to be the same as :selection { background: ... }
       styleStr.AppendPrintf("; --caret-color: rgba(%d, %d, %d, 1)",
                             NS_GET_R(selectionBackgroundColor),
