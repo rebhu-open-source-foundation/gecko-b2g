@@ -67,12 +67,12 @@ already_AddRefed<VirtualCursorProxy> VirtualCursorService::GetCursor(
     nsPIDOMWindowOuter* aWindow) {
   MOZ_ASSERT(NS_IsMainThread());
   RefPtr<VirtualCursorService> service = GetService();
-  RefPtr<VirtualCursorProxy> cursor;
   auto entry = service->mCursorMap.Lookup(aWindow);
   if (!entry) {
     return nullptr;
   }
-  return entry.Data().forget();
+  RefPtr<VirtualCursorProxy> cursor = entry.Data();
+  return cursor.forget();
 }
 
 /* static */
