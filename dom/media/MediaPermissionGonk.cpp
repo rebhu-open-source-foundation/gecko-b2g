@@ -109,7 +109,7 @@ class MediaPermissionRequest : public dom::ContentPermissionRequestBase {
  public:
   MediaPermissionRequest(nsPIDOMWindowInner* aWindow,
                          dom::GetUserMediaRequest* aRequest,
-                         nsTArray<nsCOMPtr<nsIMediaDevice>>& aDevices);
+                         nsTArray<RefPtr<nsIMediaDevice>>& aDevices);
 
   NS_IMETHOD GetTypes(nsIArray** aTypes) override;
   NS_IMETHOD Cancel() override;
@@ -130,7 +130,7 @@ class MediaPermissionRequest : public dom::ContentPermissionRequestBase {
 
 MediaPermissionRequest::MediaPermissionRequest(
     nsPIDOMWindowInner* aWindow, dom::GetUserMediaRequest* aRequest,
-    nsTArray<nsCOMPtr<nsIMediaDevice>>& aDevices)
+    nsTArray<RefPtr<nsIMediaDevice>>& aDevices)
     : dom::ContentPermissionRequestBase(aWindow->GetDoc()->NodePrincipal(),
                                         aWindow, ""_ns, "getusermedia"_ns),
       mRequest(aRequest) {
@@ -335,15 +335,8 @@ nsresult MediaPermissionManager::HandleRequest(
     return NS_ERROR_FAILURE;
   }
 
-  dom::MediaStreamConstraints constraints;
-  aRequest->GetConstraints(constraints);
-
-  nsTArray<nsCOMPtr<nsIMediaDevice>> devices;
-
-  RefPtr<MediaManager> MediaMgr = MediaManager::GetInstance();
-  nsresult rv = MediaMgr->GetUserMediaDevices(innerWindow, constraints, devices,
-                                              innerWindowID, callID);
-  NS_ENSURE_SUCCESS(rv, rv);
+  nsTArray<RefPtr<nsIMediaDevice>> devices;
+  aRequest->GetDevices(devices);
 
   // Trigger permission prompt UI
   auto req = MakeRefPtr<MediaPermissionRequest>(innerWindow, aRequest, devices);
