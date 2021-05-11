@@ -612,7 +612,12 @@ bool nsOuterWindowProxy::getOwnPropertyDescriptor(
   }
   if (found) {
     // Step 2.4.
-    FillPropertyDescriptor(cx, desc, proxy, subframe, true);
+
+    desc.set(Some(JS::PropertyDescriptor::Data(
+        subframe, {
+                      JS::PropertyAttribute::Configurable,
+                      JS::PropertyAttribute::Enumerable,
+                  })));
     return true;
   }
 
@@ -696,9 +701,8 @@ bool nsOuterWindowProxy::getOwnPropertyDescriptor(
       if (!ToJSValue(cx, WindowProxyHolder(childDOMWin), &childValue)) {
         return false;
       }
-      FillPropertyDescriptor(cx, desc, proxy, childValue,
-                             /* readonly = */ true,
-                             /* enumerable = */ false);
+      desc.set(Some(JS::PropertyDescriptor::Data(
+          childValue, {JS::PropertyAttribute::Configurable})));
       return true;
     }
   }
@@ -5104,11 +5108,6 @@ void nsGlobalWindowOuter::FocusOuter(CallerType aCallerType,
       NS_WARNING("Should not try to set the focus on a disabled window");
       return;
     }
-
-    // XXXndeakin not sure what this is for or if it should go somewhere else
-    nsCOMPtr<nsIEmbeddingSiteWindow> embeddingWin(
-        do_GetInterface(treeOwnerAsWin));
-    if (embeddingWin) embeddingWin->SetFocus();
   }
 
   if (!mDocShell) {

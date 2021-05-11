@@ -904,11 +904,11 @@ bool js::intrinsic_NewRegExpStringIterator(JSContext* cx, unsigned argc,
   return true;
 }
 
-static js::PropertyName* GetUnclonedSelfHostedFunctionName(JSFunction* fun) {
+static js::PropertyName* GetUnclonedSelfHostedCanonicalName(JSFunction* fun) {
   if (!fun->isExtended()) {
     return nullptr;
   }
-  Value name = fun->getExtendedSlot(ORIGINAL_FUNCTION_NAME_SLOT);
+  Value name = fun->getExtendedSlot(CANONICAL_FUNCTION_NAME_SLOT);
   if (!name.isString()) {
     return nullptr;
   }
@@ -943,42 +943,12 @@ bool js::IsExtendedUnclonedSelfHostedFunctionName(JSAtom* name) {
          ExtendedUnclonedSelfHostedFunctionNamePrefix;
 }
 
-static void SetUnclonedSelfHostedFunctionName(JSFunction* fun, JSAtom* name) {
-  fun->setExtendedSlot(ORIGINAL_FUNCTION_NAME_SLOT, StringValue(name));
+void js::SetUnclonedSelfHostedCanonicalName(JSFunction* fun, JSAtom* name) {
+  fun->setExtendedSlot(CANONICAL_FUNCTION_NAME_SLOT, StringValue(name));
 }
 
 static void SetClonedSelfHostedFunctionName(JSFunction* fun, JSAtom* name) {
   fun->setExtendedSlot(LAZY_FUNCTION_NAME_SLOT, StringValue(name));
-}
-
-static bool intrinsic_SetCanonicalName(JSContext* cx, unsigned argc,
-                                       Value* vp) {
-  CallArgs args = CallArgsFromVp(argc, vp);
-  MOZ_ASSERT(args.length() == 2);
-
-  RootedFunction fun(cx, &args[0].toObject().as<JSFunction>());
-  MOZ_ASSERT(fun->isSelfHostedBuiltin());
-  MOZ_ASSERT(fun->isExtended());
-  MOZ_ASSERT(IsExtendedUnclonedSelfHostedFunctionName(fun->explicitName()));
-  JSAtom* atom = AtomizeString(cx, args[1].toString());
-  if (!atom) {
-    return false;
-  }
-
-  // _SetCanonicalName can only be called on top-level function declarations.
-  MOZ_ASSERT(fun->kind() == FunctionFlags::NormalFunction);
-  MOZ_ASSERT(!fun->isLambda());
-
-  // It's an error to call _SetCanonicalName multiple times.
-  MOZ_ASSERT(!GetUnclonedSelfHostedFunctionName(fun));
-
-  // Set the lazy function name so we can later retrieve the script from the
-  // self-hosting global.
-  SetUnclonedSelfHostedFunctionName(fun, fun->explicitName());
-  fun->setAtom(atom);
-
-  args.rval().setUndefined();
-  return true;
 }
 
 static bool intrinsic_GeneratorObjectIsClosed(JSContext* cx, unsigned argc,
@@ -2299,8 +2269,6 @@ static const JSFunctionSpec intrinsic_functions[] = {
     JS_FN("CallArrayIteratorMethodIfWrapped",
           CallNonGenericSelfhostedMethod<Is<ArrayIteratorObject>>, 2, 0),
 
-    JS_FN("_SetCanonicalName", intrinsic_SetCanonicalName, 2, 0),
-
     JS_INLINABLE_FN("GuardToArrayIterator",
                     intrinsic_GuardToBuiltin<ArrayIteratorObject>, 1, 0,
                     IntrinsicGuardToArrayIterator),
@@ -3092,13 +3060,14 @@ static JSObject* CloneObject(JSContext* cx,
       // self-hosting compartment has to be stored on the clone. Re-lazification
       // is only possible if this isn't a function expression.
       if (clone && !selfHostedFunction->isLambda()) {
-        // If |_SetCanonicalName| was called on the function, the self-hosted
-        // name is stored in the extended slot.
-        JSAtom* name = GetUnclonedSelfHostedFunctionName(selfHostedFunction);
-        if (!name) {
-          name = selfHostedFunction->explicitName();
+        // If |_SetCanonicalName| was called on the function, the function name
+        // to use is stored in the extended slot.
+        if (JSAtom* name =
+                GetUnclonedSelfHostedCanonicalName(selfHostedFunction)) {
+          clone->as<JSFunction>().setAtom(name);
         }
-        SetClonedSelfHostedFunctionName(&clone->as<JSFunction>(), name);
+        SetClonedSelfHostedFunctionName(&clone->as<JSFunction>(),
+                                        selfHostedFunction->explicitName());
       }
     } else {
       clone = CloneSelfHostingIntrinsic(cx, selfHostedFunction);
@@ -3192,12 +3161,9 @@ bool JSRuntime::createLazySelfHostedFunctionClone(
     return false;
   }
 
-  if (!selfHostedFun->isClassConstructor() &&
-      !selfHostedFun->hasGuessedAtom() &&
-      selfHostedFun->explicitName() != selfHostedName) {
-    MOZ_ASSERT(GetUnclonedSelfHostedFunctionName(selfHostedFun) ==
-               selfHostedName);
-    funName = selfHostedFun->explicitName();
+  // If there is a a canonical name set, use that instead.
+  if (JSAtom* name = GetUnclonedSelfHostedCanonicalName(selfHostedFun)) {
+    funName = name;
   }
 
   RootedObject proto(cx);
@@ -3307,7 +3273,7 @@ void JSRuntime::assertSelfHostedFunctionHasCanonicalName(
 #ifdef DEBUG
   JSFunction* selfHostedFun = getUnclonedSelfHostedFunction(name);
   MOZ_ASSERT(selfHostedFun);
-  MOZ_ASSERT(GetUnclonedSelfHostedFunctionName(selfHostedFun) == name);
+  MOZ_ASSERT(GetUnclonedSelfHostedCanonicalName(selfHostedFun));
 #endif
 }
 

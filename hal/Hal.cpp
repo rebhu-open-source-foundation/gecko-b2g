@@ -701,10 +701,6 @@ void NotifySwitchChange(const SwitchEvent& aEvent) {
   observer.Broadcast(aEvent);
 }
 
-bool SetProcessPrioritySupported() {
-  RETURN_PROXY_IF_SANDBOXED(SetProcessPrioritySupported(), false);
-}
-
 static AlarmObserver* sAlarmObserver;
 
 bool RegisterTheOneAlarmObserver(AlarmObserver* aObserver) {

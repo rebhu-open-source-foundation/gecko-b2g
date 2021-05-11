@@ -446,12 +446,6 @@ void NotifySwitchStateFromInputDevice(hal::SwitchDevice aDevice,
                                       hal::SwitchState aState);
 
 /**
- * Return true if the current platform supports the setting of process
- * priority.
- */
-bool SetProcessPrioritySupported();
-
-/**
  * Register an observer that is notified when a programmed alarm
  * expires.
  *

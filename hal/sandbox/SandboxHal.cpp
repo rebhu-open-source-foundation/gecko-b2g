@@ -248,10 +248,6 @@ void SetProcessPriority(int aPid, ProcessPriority aPriority) {
   MOZ_CRASH("Only the main process may set processes' priorities.");
 }
 
-bool SetProcessPrioritySupported() {
-  MOZ_CRASH("Only the main process may call SetProcessPrioritySupported().");
-}
-
 bool IsHeadphoneEventFromInputDev() {
   MOZ_CRASH(
       "IsHeadphoneEventFromInputDev() cannot be called from sandboxed "
