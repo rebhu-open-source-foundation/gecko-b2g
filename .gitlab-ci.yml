@@ -28,9 +28,6 @@ variables:
   # since we can always get nearly the whole git history from mirror,
   # it's ok to `fetch` the incoming MR instead of re-cloning the repo.
   GIT_STRATEGY: fetch
-  # we don't need to checkout the whole working tree since we'd like to
-  # lint the modified files only.
-  GIT_CHECKOUT: 'false'
 
 stages:
   - lint
