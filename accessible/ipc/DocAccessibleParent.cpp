@@ -404,7 +404,7 @@ mozilla::ipc::IPCResult DocAccessibleParent::RecvVirtualCursorChangeEvent(
   RemoteAccessible* oldPosition = GetAccessible(aOldPositionID);
   RemoteAccessible* newPosition = GetAccessible(aNewPositionID);
 
-  if (!target) {
+  if (!target || !oldPosition || !newPosition) {
     NS_ERROR("no proxy for event!");
     return IPC_OK();
   }
