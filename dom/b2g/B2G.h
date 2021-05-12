@@ -49,10 +49,12 @@
 #endif
 #ifdef HAS_KOOST_MODULES
 #  include "mozilla/dom/AuthorizationManager.h"
-#  include "mozilla/dom/EngmodeManagerBinding.h"
-#ifdef ENABLE_RSU
-#  include "mozilla/dom/RemoteSimUnlock.h"
-#endif
+#  ifdef MOZ_WIDGET_GONK
+#    include "mozilla/dom/EngmodeManagerBinding.h"
+#  endif
+#  ifdef ENABLE_RSU
+#    include "mozilla/dom/RemoteSimUnlock.h"
+#  endif
 #endif
 
 #include "mozilla/dom/usb/UsbManager.h"
@@ -167,14 +169,15 @@ class B2G final : public DOMEventTargetHelper,
   AuthorizationManager* GetAuthorizationManager(ErrorResult& aRv);
   static bool HasAuthorizationManagerSupport(JSContext* /* unused */,
                                              JSObject* aGlobal);
+#  ifdef MOZ_WIDGET_GONK
   EngmodeManager* GetEngmodeManager(ErrorResult& aRv);
   static bool HasEngmodeManagerSupport(JSContext* /* unused */,
                                        JSObject* aGlobal);
-#ifdef ENABLE_RSU
+#  endif
+#  ifdef ENABLE_RSU
   RemoteSimUnlock* GetRsu(ErrorResult& aRv);
-  static bool HasRSUSupport(JSContext* /* unused */,
-                            JSObject* aGlobal);
-#endif
+  static bool HasRSUSupport(JSContext* /* unused */, JSObject* aGlobal);
+#  endif
 #endif
 
   UsbManager* GetUsbManager(ErrorResult& aRv);
@@ -265,10 +268,12 @@ class B2G final : public DOMEventTargetHelper,
 #endif
 #ifdef HAS_KOOST_MODULES
   RefPtr<AuthorizationManager> mAuthorizationManager;
+#  ifdef MOZ_WIDGET_GONK
   RefPtr<EngmodeManager> mEngmodeManager;
-#ifdef ENABLE_RSU
+#  endif
+#  ifdef ENABLE_RSU
   RefPtr<RemoteSimUnlock> mRSU;
-#endif
+#  endif
 #endif
   RefPtr<UsbManager> mUsbManager;
   RefPtr<PowerSupplyManager> mPowerSupplyManager;

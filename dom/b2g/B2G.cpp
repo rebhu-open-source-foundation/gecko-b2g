@@ -76,10 +76,12 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(B2G, DOMEventTargetHelper)
 #endif
 #ifdef HAS_KOOST_MODULES
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mAuthorizationManager)
+#  ifdef MOZ_WIDGET_GONK
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mEngmodeManager)
-#ifdef ENABLE_RSU
+#  endif
+#  ifdef ENABLE_RSU
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mRSU)
-#endif
+#  endif
 #endif
 
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mListeners)
@@ -751,8 +753,10 @@ AuthorizationManager* B2G::GetAuthorizationManager(ErrorResult& aRv) {
       return nullptr;
     }
 
-    // for worker thread, we check permission here instead of by webIDL visibility func
-    if (!NS_IsMainThread() && !CheckPermissionOnWorkerThread("cloud-authorization"_ns)) {
+    // for worker thread, we check permission here instead of by webIDL
+    // visibility func
+    if (!NS_IsMainThread() &&
+        !CheckPermissionOnWorkerThread("cloud-authorization"_ns)) {
       aRv.Throw(NS_ERROR_DOM_NOT_ALLOWED_ERR);
       return nullptr;
     }
@@ -776,6 +780,7 @@ bool B2G::HasAuthorizationManagerSupport(JSContext* /* unused */,
   }
 }
 
+#  ifdef MOZ_WIDGET_GONK
 EngmodeManager* B2G::GetEngmodeManager(ErrorResult& aRv) {
   if (!mEngmodeManager) {
     if (!mOwner) {
@@ -796,11 +801,9 @@ bool B2G::HasEngmodeManagerSupport(JSContext* /* unused */, JSObject* aGlobal) {
   nsCOMPtr<nsPIDOMWindowInner> innerWindow = xpc::WindowOrNull(aGlobal);
   return B2G::CheckPermission("engmode"_ns, innerWindow);
 }
-
-#ifdef ENABLE_RSU
-RemoteSimUnlock*
-B2G::GetRsu(ErrorResult& aRv)
-{
+#  endif
+#  ifdef ENABLE_RSU
+RemoteSimUnlock* B2G::GetRsu(ErrorResult& aRv) {
   if (mRSU) {
     return mRSU;
   }
@@ -816,13 +819,12 @@ B2G::GetRsu(ErrorResult& aRv)
 bool B2G::HasRSUSupport(JSContext* /* unused */, JSObject* aGlobal) {
   nsCOMPtr<nsPIDOMWindowInner> innerWindow = xpc::WindowOrNull(aGlobal);
   if (NS_IsMainThread()) {
-    return innerWindow ? CheckPermission("rsu"_ns, innerWindow)
-                       : false;
+    return innerWindow ? CheckPermission("rsu"_ns, innerWindow) : false;
   } else {
     return CheckPermissionOnWorkerThread("rsu"_ns);
   }
 }
-#endif
+#  endif
 #endif
 
 /* static */

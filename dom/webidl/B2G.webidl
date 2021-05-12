@@ -162,11 +162,13 @@ partial interface B2G {
   readonly attribute AuthorizationManager authorizationManager;
 };
 
+#ifdef MOZ_WIDGET_GONK
 [Exposed=Window]
 partial interface B2G {
   [Throws, Func="B2G::HasEngmodeManagerSupport"]
   readonly attribute EngmodeManager engmodeManager;
 };
+#endif
 #endif
 
 [Exposed=Window]
