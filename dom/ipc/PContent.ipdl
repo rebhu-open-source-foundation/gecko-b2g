@@ -483,6 +483,7 @@ struct JSWindowActorEventDecl
   bool systemGroup;
   bool allowUntrusted;
   bool? passive;
+  bool createActor;
 };
 
 struct JSWindowActorInfo

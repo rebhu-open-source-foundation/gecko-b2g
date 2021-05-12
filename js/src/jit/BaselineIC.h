@@ -119,144 +119,26 @@ void FallbackICSpew(JSContext* cx, ICFallbackStub* stub, const char* fmt, ...)
 #  define FallbackICSpew(...)
 #endif
 
-// An entry in the BaselineScript IC descriptor table. There's one ICEntry per
-// IC.
+// An entry in the ICScript IC table. There's one ICEntry per IC.
 class ICEntry {
   // A pointer to the first IC stub for this instruction.
   ICStub* firstStub_;
 
-  // The PC offset of this IC's bytecode op within the JSScript.
-  uint32_t pcOffset_;
-
-#ifdef MOZ_DIAGNOSTIC_ASSERT_ENABLED
-#  ifdef JS_64BIT
-  // On 64-bit architectures, we have 32 bits of alignment padding.
-  // We fill it with a magic value, and check that value when tracing.
-  static const uint32_t EXPECTED_TRACE_MAGIC = 0xdeaddead;
-  uint32_t traceMagic_ = EXPECTED_TRACE_MAGIC;
-#  endif
-#endif
-
  public:
-  ICEntry(ICStub* firstStub, uint32_t pcOffset)
-      : firstStub_(firstStub), pcOffset_(pcOffset) {}
+  explicit ICEntry(ICStub* firstStub) : firstStub_(firstStub) {}
 
   ICStub* firstStub() const {
     MOZ_ASSERT(firstStub_);
     return firstStub_;
   }
 
-  ICFallbackStub* fallbackStub() const;
-
   void setFirstStub(ICStub* stub) { firstStub_ = stub; }
-
-  uint32_t pcOffset() const { return pcOffset_; }
-  jsbytecode* pc(JSScript* script) const {
-    return script->offsetToPC(pcOffset());
-  }
 
   static constexpr size_t offsetOfFirstStub() {
     return offsetof(ICEntry, firstStub_);
   }
 
   void trace(JSTracer* trc);
-};
-
-// Constant iterator that traverses arbitrary chains of ICStubs.
-// No requirements are made of the ICStub used to construct this
-// iterator, aside from that the stub be part of a nullptr-terminated
-// chain.
-// The iterator is considered to be at its end once it has been
-// incremented _past_ the last stub.  Thus, if 'atEnd()' returns
-// true, the '*' and '->' operations are not valid.
-class ICStubConstIterator {
-  friend class ICStub;
-  friend class ICFallbackStub;
-
- private:
-  ICStub* currentStub_;
-
- public:
-  explicit ICStubConstIterator(ICStub* currentStub)
-      : currentStub_(currentStub) {}
-
-  bool operator==(const ICStubConstIterator& other) const {
-    return currentStub_ == other.currentStub_;
-  }
-  bool operator!=(const ICStubConstIterator& other) const {
-    return !(*this == other);
-  }
-
-  ICStubConstIterator& operator++();
-
-  ICStubConstIterator operator++(int) {
-    ICStubConstIterator oldThis(*this);
-    ++(*this);
-    return oldThis;
-  }
-
-  ICStub* operator*() const {
-    MOZ_ASSERT(currentStub_);
-    return currentStub_;
-  }
-
-  ICStub* operator->() const {
-    MOZ_ASSERT(currentStub_);
-    return currentStub_;
-  }
-
-  bool atEnd() const { return currentStub_ == nullptr; }
-};
-
-// Iterator that traverses "regular" IC chains that start at an ICEntry
-// and are terminated with an ICFallbackStub.
-//
-// The iterator is considered to be at its end once it is _at_ the
-// fallback stub.  Thus, unlike the ICStubConstIterator, operators
-// '*' and '->' are valid even if 'atEnd()' returns true - they
-// will act on the fallback stub.
-//
-// This iterator also allows unlinking of stubs being traversed.
-// Note that 'unlink' does not implicitly advance the iterator -
-// it must be advanced explicitly using '++'.
-class ICStubIterator {
-  friend class ICFallbackStub;
-
- private:
-  ICEntry* icEntry_;
-  ICFallbackStub* fallbackStub_;
-  ICCacheIRStub* previousStub_;
-  ICStub* currentStub_;
-  bool unlinked_;
-
-  explicit ICStubIterator(ICFallbackStub* fallbackStub, bool end = false);
-
- public:
-  bool operator==(const ICStubIterator& other) const {
-    // == should only ever be called on stubs from the same chain.
-    MOZ_ASSERT(icEntry_ == other.icEntry_);
-    MOZ_ASSERT(fallbackStub_ == other.fallbackStub_);
-    return currentStub_ == other.currentStub_;
-  }
-  bool operator!=(const ICStubIterator& other) const {
-    return !(*this == other);
-  }
-
-  ICStubIterator& operator++();
-
-  ICStubIterator operator++(int) {
-    ICStubIterator oldThis(*this);
-    ++(*this);
-    return oldThis;
-  }
-
-  ICStub* operator*() const { return currentStub_; }
-
-  ICStub* operator->() const { return currentStub_; }
-
-  bool atEnd() const { return currentStub_ == (ICStub*)fallbackStub_; }
-
-  void unlink(JSContext* cx);
 };
 
 //
@@ -321,8 +203,6 @@ class ICStub {
   inline void incrementEnteredCount() { enteredCount_++; }
   void resetEnteredCount() { enteredCount_ = 0; }
 
-  inline ICFallbackStub* getChainFallback();
-
   static constexpr size_t offsetOfStubCode() {
     return offsetof(ICStub, stubCode_);
   }
@@ -335,20 +215,15 @@ class ICFallbackStub final : public ICStub {
   friend class ICStubConstIterator;
 
  protected:
-  // Fallback stubs need these fields to easily add new stubs to
-  // the linked list of stubs for an IC.
-
-  // The IC entry in JitScript for this linked list of stubs.
-  ICEntry* icEntry_ = nullptr;
+  // The PC offset of this IC's bytecode op within the JSScript.
+  uint32_t pcOffset_;
 
   // The state of this IC.
   ICState state_{};
 
  public:
-  explicit ICFallbackStub(ICEntry* icEntry, TrampolinePtr stubCode)
-      : ICStub(stubCode.value, /* isFallback = */ true), icEntry_(icEntry) {}
-
-  inline ICEntry* icEntry() const { return icEntry_; }
+  explicit ICFallbackStub(uint32_t pcOffset, TrampolinePtr stubCode)
+      : ICStub(stubCode.value, /* isFallback = */ true), pcOffset_(pcOffset) {}
 
   inline size_t numOptimizedStubs() const { return state_.numOptimizedStubs(); }
 
@@ -356,16 +231,15 @@ class ICFallbackStub final : public ICStub {
 
   ICState& state() { return state_; }
 
-  // Add a new stub to the IC chain terminated by this fallback stub.
-  inline void addNewStub(ICCacheIRStub* stub);
-
-  ICStubConstIterator beginChainConst() const {
-    return ICStubConstIterator(icEntry_->firstStub());
+  uint32_t pcOffset() const { return pcOffset_; }
+  jsbytecode* pc(JSScript* script) const {
+    return script->offsetToPC(pcOffset_);
   }
 
-  ICStubIterator beginChain() { return ICStubIterator(this); }
+  // Add a new stub to the IC chain terminated by this fallback stub.
+  inline void addNewStub(ICEntry* icEntry, ICCacheIRStub* stub);
 
-  void discardStubs(JSContext* cx);
+  void discardStubs(JSContext* cx, ICEntry* icEntry);
 
   void clearUsedByTranspiler() { state_.clearUsedByTranspiler(); }
   void setUsedByTranspiler() { state_.setUsedByTranspiler(); }
@@ -379,7 +253,8 @@ class ICFallbackStub final : public ICStub {
 
   void trackNotAttached();
 
-  void unlinkStub(Zone* zone, ICCacheIRStub* prev, ICCacheIRStub* stub);
+  void unlinkStub(Zone* zone, ICEntry* icEntry, ICCacheIRStub* prev,
+                  ICCacheIRStub* stub);
 };
 
 class ICCacheIRStub final : public ICStub {
@@ -420,7 +295,7 @@ class ICCacheIRStub final : public ICStub {
 
 // Assert stub size is what we expect to catch regressions.
 #ifdef JS_64BIT
-static_assert(sizeof(ICFallbackStub) == 4 * sizeof(uintptr_t));
+static_assert(sizeof(ICFallbackStub) == 3 * sizeof(uintptr_t));
 static_assert(sizeof(ICCacheIRStub) == 4 * sizeof(uintptr_t));
 #else
 static_assert(sizeof(ICFallbackStub) == 5 * sizeof(uintptr_t));
@@ -431,19 +306,11 @@ inline ICStub* ICStub::maybeNext() const {
   return isFallback() ? nullptr : toCacheIRStub()->next();
 }
 
-inline void ICFallbackStub::addNewStub(ICCacheIRStub* stub) {
+inline void ICFallbackStub::addNewStub(ICEntry* icEntry, ICCacheIRStub* stub) {
   MOZ_ASSERT(stub->next() == nullptr);
-  stub->setNext(icEntry_->firstStub());
-  icEntry_->setFirstStub(stub);
+  stub->setNext(icEntry->firstStub());
+  icEntry->setFirstStub(stub);
   state_.trackAttached();
-}
-
-inline ICFallbackStub* ICStub::getChainFallback() {
-  ICStub* lastStub = this;
-  while (!lastStub->isFallback()) {
-    lastStub = lastStub->toCacheIRStub()->next();
-  }
-  return lastStub->toFallbackStub();
 }
 
 AllocatableGeneralRegisterSet BaselineICAvailableGeneralRegs(size_t numInputs);

@@ -8110,6 +8110,14 @@ NS_IMETHODIMP ContentParent::GetActor(const nsACString& aName, JSContext* aCx,
   return NS_OK;
 }
 
+NS_IMETHODIMP ContentParent::GetExistingActor(const nsACString& aName,
+                                              JSProcessActorParent** retval) {
+  RefPtr<JSProcessActorParent> actor =
+      JSActorManager::GetExistingActor(aName).downcast<JSProcessActorParent>();
+  actor.forget(retval);
+  return NS_OK;
+}
+
 already_AddRefed<JSActor> ContentParent::InitJSActor(
     JS::HandleObject aMaybeActor, const nsACString& aName, ErrorResult& aRv) {
   RefPtr<JSProcessActorParent> actor;

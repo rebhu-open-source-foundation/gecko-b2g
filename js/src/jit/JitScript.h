@@ -106,6 +106,17 @@ class alignas(uintptr_t) ICScript final : public TrailingArray {
     return fallbackStubs() + index;
   }
 
+  ICEntry* icEntryForStub(const ICFallbackStub* stub) {
+    size_t index = stub - fallbackStubs();
+    MOZ_ASSERT(index < numICEntries());
+    return &icEntry(index);
+  }
+  ICFallbackStub* fallbackStubForICEntry(const ICEntry* entry) {
+    size_t index = entry - icEntries();
+    MOZ_ASSERT(index < numICEntries());
+    return fallbackStub(index);
+  }
+
   InliningRoot* inliningRoot() const { return inliningRoot_; }
   uint32_t depth() const { return depth_; }
 
@@ -127,10 +138,6 @@ class alignas(uintptr_t) ICScript final : public TrailingArray {
   }
 
   ICEntry* interpreterICEntryFromPCOffset(uint32_t pcOffset);
-
-  ICEntry* maybeICEntryFromPCOffset(uint32_t pcOffset);
-  ICEntry* maybeICEntryFromPCOffset(uint32_t pcOffset,
-                                    ICEntry* prevLookedUpEntry);
 
   ICEntry& icEntryFromPCOffset(uint32_t pcOffset);
 
@@ -405,13 +412,19 @@ class alignas(uintptr_t) JitScript final : public TrailingArray {
 
   ICEntry& icEntry(size_t index) { return icScript_.icEntry(index); }
 
+  ICFallbackStub* fallbackStub(size_t index) {
+    return icScript_.fallbackStub(index);
+  }
+
+  ICEntry* icEntryForStub(const ICFallbackStub* stub) {
+    return icScript_.icEntryForStub(stub);
+  }
+  ICFallbackStub* fallbackStubForICEntry(const ICEntry* entry) {
+    return icScript_.fallbackStubForICEntry(entry);
+  }
+
   void trace(JSTracer* trc);
   void purgeOptimizedStubs(JSScript* script);
-
-  ICEntry* maybeICEntryFromPCOffset(uint32_t pcOffset,
-                                    ICEntry* prevLookedUpEntry) {
-    return icScript_.maybeICEntryFromPCOffset(pcOffset, prevLookedUpEntry);
-  }
 
   ICEntry& icEntryFromPCOffset(uint32_t pcOffset) {
     return icScript_.icEntryFromPCOffset(pcOffset);

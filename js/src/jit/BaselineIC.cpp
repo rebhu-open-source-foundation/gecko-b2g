@@ -172,7 +172,7 @@ AllocatableGeneralRegisterSet BaselineICAvailableGeneralRegs(size_t numInputs) {
 void FallbackICSpew(JSContext* cx, ICFallbackStub* stub, const char* fmt, ...) {
   if (JitSpewEnabled(JitSpew_BaselineICFallback)) {
     RootedScript script(cx, GetTopJitJSScript(cx));
-    jsbytecode* pc = stub->icEntry()->pc(script);
+    jsbytecode* pc = stub->pc(script);
 
     char fmtbuf[100];
     va_list args;
@@ -190,16 +190,7 @@ void FallbackICSpew(JSContext* cx, ICFallbackStub* stub, const char* fmt, ...) {
 }
 #endif  // JS_JITSPEW
 
-ICFallbackStub* ICEntry::fallbackStub() const {
-  return firstStub()->getChainFallback();
-}
-
 void ICEntry::trace(JSTracer* trc) {
-#ifdef JS_64BIT
-  // If we have filled our padding with a magic value, check it now.
-  MOZ_DIAGNOSTIC_ASSERT(traceMagic_ == EXPECTED_TRACE_MAGIC);
-#endif
-
   ICStub* stub = firstStub();
 
   // Trace CacheIR stubs.
@@ -385,53 +376,17 @@ void ICScript::initICEntries(JSContext* cx, JSScript* script) {
     BaselineICFallbackKind kind = BaselineICFallbackKind(tableValue);
     TrampolinePtr stubCode = fallbackCode.addr(kind);
 
-    // Initialize the ICEntry.
+    // Initialize the ICEntry and ICFallbackStub.
     uint32_t offset = loc.bytecodeToOffset(script);
     ICEntry& entryRef = this->icEntry(icEntryIndex);
     ICFallbackStub* stub = fallbackStub(icEntryIndex);
     icEntryIndex++;
-    new (&entryRef) ICEntry(stub, offset);
-    new (stub) ICFallbackStub(&entryRef, stubCode);
+    new (&entryRef) ICEntry(stub);
+    new (stub) ICFallbackStub(offset, stubCode);
   }
 
   // Assert all ICEntries have been initialized.
   MOZ_ASSERT(icEntryIndex == numICEntries());
-}
-
-ICStubConstIterator& ICStubConstIterator::operator++() {
-  MOZ_ASSERT(currentStub_ != nullptr);
-  currentStub_ = currentStub_->toCacheIRStub()->next();
-  return *this;
-}
-
-ICStubIterator::ICStubIterator(ICFallbackStub* fallbackStub, bool end)
-    : icEntry_(fallbackStub->icEntry()),
-      fallbackStub_(fallbackStub),
-      previousStub_(nullptr),
-      currentStub_(end ? fallbackStub : icEntry_->firstStub()),
-      unlinked_(false) {}
-
-ICStubIterator& ICStubIterator::operator++() {
-  MOZ_ASSERT(!currentStub_->isFallback());
-  if (!unlinked_) {
-    previousStub_ = currentStub_->toCacheIRStub();
-  }
-  currentStub_ = currentStub_->toCacheIRStub()->next();
-  unlinked_ = false;
-  return *this;
-}
-
-void ICStubIterator::unlink(JSContext* cx) {
-  MOZ_ASSERT(currentStub_ != fallbackStub_);
-  MOZ_ASSERT(currentStub_->maybeNext() != nullptr);
-  MOZ_ASSERT(!unlinked_);
-
-  fallbackStub_->unlinkStub(cx->zone(), previousStub_,
-                            currentStub_->toCacheIRStub());
-
-  // Mark the current iterator position as unlinked, so operator++ works
-  // properly.
-  unlinked_ = true;
 }
 
 bool ICCacheIRStub::makesGCCalls() const { return stubInfo()->makesGCCalls(); }
@@ -458,16 +413,16 @@ void ICCacheIRStub::trace(JSTracer* trc) {
 static void MaybeTransition(JSContext* cx, BaselineFrame* frame,
                             ICFallbackStub* stub) {
   if (stub->state().maybeTransition()) {
+    ICEntry* icEntry = frame->icScript()->icEntryForStub(stub);
 #ifdef JS_CACHEIR_SPEW
     if (cx->spewer().enabled(cx, frame->script(),
                              SpewChannel::CacheIRHealthReport)) {
       CacheIRHealth cih;
       RootedScript script(cx, frame->script());
-      cih.healthReportForIC(cx, stub->icEntry(), script,
-                            SpewContext::Transition);
+      cih.healthReportForIC(cx, icEntry, stub, script, SpewContext::Transition);
     }
 #endif
-    stub->discardStubs(cx);
+    stub->discardStubs(cx, icEntry);
   }
 }
 
@@ -481,7 +436,7 @@ static void TryAttachStub(const char* name, JSContext* cx, BaselineFrame* frame,
   if (stub->state().canAttachStub()) {
     RootedScript script(cx, frame->script());
     ICScript* icScript = frame->icScript();
-    jsbytecode* pc = stub->icEntry()->pc(script);
+    jsbytecode* pc = stub->pc(script);
     bool attached = false;
     IRGenerator gen(cx, script, pc, stub->state(), std::forward<Args>(args)...);
     switch (gen.tryAttachStub()) {
@@ -506,14 +461,14 @@ static void TryAttachStub(const char* name, JSContext* cx, BaselineFrame* frame,
   }
 }
 
-void ICFallbackStub::unlinkStub(Zone* zone, ICCacheIRStub* prev,
-                                ICCacheIRStub* stub) {
+void ICFallbackStub::unlinkStub(Zone* zone, ICEntry* icEntry,
+                                ICCacheIRStub* prev, ICCacheIRStub* stub) {
   if (prev) {
     MOZ_ASSERT(prev->next() == stub);
     prev->setNext(stub->next());
   } else {
-    MOZ_ASSERT(icEntry()->firstStub() == stub);
-    icEntry()->setFirstStub(stub->next());
+    MOZ_ASSERT(icEntry->firstStub() == stub);
+    icEntry->setFirstStub(stub->next());
   }
 
   state_.trackUnlinkedStub();
@@ -533,9 +488,12 @@ void ICFallbackStub::unlinkStub(Zone* zone, ICCacheIRStub* prev,
 #endif
 }
 
-void ICFallbackStub::discardStubs(JSContext* cx) {
-  for (ICStubIterator iter = beginChain(); !iter.atEnd(); iter++) {
-    iter.unlink(cx);
+void ICFallbackStub::discardStubs(JSContext* cx, ICEntry* icEntry) {
+  ICStub* stub = icEntry->firstStub();
+  while (stub != this) {
+    unlinkStub(cx->zone(), icEntry, /* prev = */ nullptr,
+               stub->toCacheIRStub());
+    stub = stub->toCacheIRStub()->next();
   }
 }
 
@@ -689,7 +647,7 @@ bool DoGetElemFallback(JSContext* cx, BaselineFrame* frame,
   FallbackICSpew(cx, stub, "GetElem");
 
 #ifdef DEBUG
-  jsbytecode* pc = stub->icEntry()->pc(frame->script());
+  jsbytecode* pc = stub->pc(frame->script());
   MOZ_ASSERT(JSOp(*pc) == JSOp::GetElem);
 #endif
 
@@ -711,7 +669,7 @@ bool DoGetElemSuperFallback(JSContext* cx, BaselineFrame* frame,
   MaybeNotifyWarp(frame->outerScript(), stub);
 
   RootedScript script(cx, frame->script());
-  jsbytecode* pc = stub->icEntry()->pc(frame->script());
+  jsbytecode* pc = stub->pc(frame->script());
 
   JSOp op = JSOp(*pc);
   FallbackICSpew(cx, stub, "GetElemSuper(%s)", CodeName(op));
@@ -809,7 +767,7 @@ bool DoSetElemFallback(JSContext* cx, BaselineFrame* frame,
 
   RootedScript script(cx, frame->script());
   RootedScript outerScript(cx, script);
-  jsbytecode* pc = stub->icEntry()->pc(script);
+  jsbytecode* pc = stub->pc(script);
   JSOp op = JSOp(*pc);
   FallbackICSpew(cx, stub, "SetElem(%s)", CodeName(JSOp(*pc)));
 
@@ -1065,7 +1023,7 @@ bool DoCheckPrivateFieldFallback(JSContext* cx, BaselineFrame* frame,
   MaybeNotifyWarp(frame->outerScript(), stub);
 
   RootedScript script(cx, frame->script());
-  jsbytecode* pc = stub->icEntry()->pc(script);
+  jsbytecode* pc = stub->pc(script);
 
   FallbackICSpew(cx, stub, "CheckPrivateField");
 
@@ -1113,7 +1071,7 @@ bool DoGetNameFallback(JSContext* cx, BaselineFrame* frame,
   MaybeNotifyWarp(frame->outerScript(), stub);
 
   RootedScript script(cx, frame->script());
-  jsbytecode* pc = stub->icEntry()->pc(script);
+  jsbytecode* pc = stub->pc(script);
   mozilla::DebugOnly<JSOp> op = JSOp(*pc);
   FallbackICSpew(cx, stub, "GetName(%s)", CodeName(JSOp(*pc)));
 
@@ -1162,7 +1120,7 @@ bool DoBindNameFallback(JSContext* cx, BaselineFrame* frame,
   stub->incrementEnteredCount();
   MaybeNotifyWarp(frame->outerScript(), stub);
 
-  jsbytecode* pc = stub->icEntry()->pc(frame->script());
+  jsbytecode* pc = stub->pc(frame->script());
   mozilla::DebugOnly<JSOp> op = JSOp(*pc);
   FallbackICSpew(cx, stub, "BindName(%s)", CodeName(JSOp(*pc)));
 
@@ -1206,7 +1164,7 @@ bool DoGetIntrinsicFallback(JSContext* cx, BaselineFrame* frame,
   MaybeNotifyWarp(frame->outerScript(), stub);
 
   RootedScript script(cx, frame->script());
-  jsbytecode* pc = stub->icEntry()->pc(script);
+  jsbytecode* pc = stub->pc(script);
   mozilla::DebugOnly<JSOp> op = JSOp(*pc);
   FallbackICSpew(cx, stub, "GetIntrinsic(%s)", CodeName(JSOp(*pc)));
 
@@ -1243,7 +1201,7 @@ bool DoGetPropFallback(JSContext* cx, BaselineFrame* frame,
   MaybeNotifyWarp(frame->outerScript(), stub);
 
   RootedScript script(cx, frame->script());
-  jsbytecode* pc = stub->icEntry()->pc(script);
+  jsbytecode* pc = stub->pc(script);
   JSOp op = JSOp(*pc);
   FallbackICSpew(cx, stub, "GetProp(%s)", CodeName(op));
 
@@ -1276,7 +1234,7 @@ bool DoGetPropSuperFallback(JSContext* cx, BaselineFrame* frame,
   MaybeNotifyWarp(frame->outerScript(), stub);
 
   RootedScript script(cx, frame->script());
-  jsbytecode* pc = stub->icEntry()->pc(script);
+  jsbytecode* pc = stub->pc(script);
   FallbackICSpew(cx, stub, "GetPropSuper(%s)", CodeName(JSOp(*pc)));
 
   MOZ_ASSERT(JSOp(*pc) == JSOp::GetPropSuper);
@@ -1369,7 +1327,7 @@ bool DoSetPropFallback(JSContext* cx, BaselineFrame* frame,
   MaybeNotifyWarp(frame->outerScript(), stub);
 
   RootedScript script(cx, frame->script());
-  jsbytecode* pc = stub->icEntry()->pc(script);
+  jsbytecode* pc = stub->pc(script);
   JSOp op = JSOp(*pc);
   FallbackICSpew(cx, stub, "SetProp(%s)", CodeName(op));
 
@@ -1551,7 +1509,7 @@ bool DoCallFallback(JSContext* cx, BaselineFrame* frame, ICFallbackStub* stub,
   MaybeNotifyWarp(frame->outerScript(), stub);
 
   RootedScript script(cx, frame->script());
-  jsbytecode* pc = stub->icEntry()->pc(script);
+  jsbytecode* pc = stub->pc(script);
   JSOp op = JSOp(*pc);
   FallbackICSpew(cx, stub, "Call(%s)", CodeName(op));
 
@@ -1641,7 +1599,7 @@ bool DoSpreadCallFallback(JSContext* cx, BaselineFrame* frame,
   MaybeNotifyWarp(frame->outerScript(), stub);
 
   RootedScript script(cx, frame->script());
-  jsbytecode* pc = stub->icEntry()->pc(script);
+  jsbytecode* pc = stub->pc(script);
   JSOp op = JSOp(*pc);
   bool constructing = (op == JSOp::SpreadNew || op == JSOp::SpreadSuperCall);
   FallbackICSpew(cx, stub, "SpreadCall(%s)", CodeName(op));
@@ -2100,7 +2058,7 @@ bool DoUnaryArithFallback(JSContext* cx, BaselineFrame* frame,
   MaybeNotifyWarp(frame->outerScript(), stub);
 
   RootedScript script(cx, frame->script());
-  jsbytecode* pc = stub->icEntry()->pc(script);
+  jsbytecode* pc = stub->pc(script);
   JSOp op = JSOp(*pc);
   FallbackICSpew(cx, stub, "UnaryArith(%s)", CodeName(op));
 
@@ -2185,7 +2143,7 @@ bool DoBinaryArithFallback(JSContext* cx, BaselineFrame* frame,
   MaybeNotifyWarp(frame->outerScript(), stub);
 
   RootedScript script(cx, frame->script());
-  jsbytecode* pc = stub->icEntry()->pc(script);
+  jsbytecode* pc = stub->pc(script);
   JSOp op = JSOp(*pc);
   FallbackICSpew(
       cx, stub, "CacheIRBinaryArith(%s,%d,%d)", CodeName(op),
@@ -2306,7 +2264,7 @@ bool DoCompareFallback(JSContext* cx, BaselineFrame* frame,
   MaybeNotifyWarp(frame->outerScript(), stub);
 
   RootedScript script(cx, frame->script());
-  jsbytecode* pc = stub->icEntry()->pc(script);
+  jsbytecode* pc = stub->pc(script);
   JSOp op = JSOp(*pc);
 
   FallbackICSpew(cx, stub, "Compare(%s)", CodeName(op));
@@ -2404,7 +2362,7 @@ bool DoNewArrayFallback(JSContext* cx, BaselineFrame* frame,
   FallbackICSpew(cx, stub, "NewArray");
 
   RootedScript script(cx, frame->script());
-  jsbytecode* pc = stub->icEntry()->pc(script);
+  jsbytecode* pc = stub->pc(script);
 
   uint32_t length = GET_UINT32(pc);
   MOZ_ASSERT(length <= INT32_MAX,
@@ -2444,7 +2402,7 @@ bool DoNewObjectFallback(JSContext* cx, BaselineFrame* frame,
   FallbackICSpew(cx, stub, "NewObject");
 
   RootedScript script(cx, frame->script());
-  jsbytecode* pc = stub->icEntry()->pc(script);
+  jsbytecode* pc = stub->pc(script);
 
   RootedObject obj(cx, NewObjectOperation(cx, script, pc));
   if (!obj) {

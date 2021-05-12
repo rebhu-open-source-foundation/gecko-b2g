@@ -9,6 +9,7 @@
 #endif
 
 #include "BrowserChild.h"
+#include "nsNSSComponent.h"
 #include "ContentChild.h"
 #include "GeckoProfiler.h"
 #include "HandlerServiceChild.h"
@@ -2910,7 +2911,7 @@ mozilla::ipc::IPCResult ContentChild::RecvRemoteType(
 }
 
 // A method to initialize anything we need during the preallocation phase
-void ContentChild::PreallocInit() {}
+void ContentChild::PreallocInit() { EnsureNSSInitializedChromeOrContent(); }
 
 // Call RemoteTypePrefix() on the result to remove URIs if you want to use this
 // for telemetry.
@@ -4848,6 +4849,14 @@ NS_IMETHODIMP ContentChild::GetActor(const nsACString& aName, JSContext* aCx,
   if (error.MaybeSetPendingException(aCx)) {
     return NS_ERROR_FAILURE;
   }
+  actor.forget(retval);
+  return NS_OK;
+}
+
+NS_IMETHODIMP ContentChild::GetExistingActor(const nsACString& aName,
+                                             JSProcessActorChild** retval) {
+  RefPtr<JSProcessActorChild> actor =
+      JSActorManager::GetExistingActor(aName).downcast<JSProcessActorChild>();
   actor.forget(retval);
   return NS_OK;
 }
