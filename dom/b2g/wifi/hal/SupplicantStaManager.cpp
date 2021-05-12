@@ -222,7 +222,6 @@ Result_t SupplicantStaManager::TearDownInterface() {
   mSupplicant = nullptr;
   mSupplicantStaIface = nullptr;
   mSupplicantStaIfaceCallback = nullptr;
-  mServiceManager = nullptr;
 
   return nsIWifiResult::SUCCESS;
 }
