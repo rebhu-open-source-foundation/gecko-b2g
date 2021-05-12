@@ -49,6 +49,14 @@ class MarionetteHelper {
     current.active = false;
     tab.active = true;
   }
+
+  addEventListener(eventName, handler) {
+    logger.info(`MarionetteHelper add event listener for ${eventName}`);
+  }
+
+  removeEventListener(eventName, handler) {
+    logger.info(`MarionetteHelper remove event listener for ${eventName}`);
+  }
 }
 
 this.MarionetteHelper = MarionetteHelper;
