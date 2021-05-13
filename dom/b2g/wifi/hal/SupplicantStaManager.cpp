@@ -653,12 +653,24 @@ Result_t SupplicantStaManager::ConnectToNetwork(ConfigurationOptions* aConfig) {
 
   if (!CompareConfiguration(existConfig, mDummyNetworkConfiguration) &&
       CompareConfiguration(existConfig, config)) {
-    WIFI_LOGD(LOG_TAG, "Same network, do not need to create a new one");
-
     staNetwork = GetCurrentNetwork();
     if (staNetwork == nullptr) {
       WIFI_LOGE(LOG_TAG, "Network is not available");
       return nsIWifiResult::ERROR_COMMAND_FAILED;
+    }
+    if (existConfig.mBssid.compare(config.mBssid)) {
+      WIFI_LOGD(LOG_TAG, "Network is already saved, but need to update BSSID.");
+      result = staNetwork->UpdateBssid(config.mBssid);
+      if (result != nsIWifiResult::SUCCESS) {
+        WIFI_LOGE(LOG_TAG, "Failed to update BSSID.");
+        return result;
+      }
+
+      // update configuration
+      ModifyConfigurationHash(ERASE_CONFIG, mDummyNetworkConfiguration);
+      ModifyConfigurationHash(ADD_CONFIG, config);
+    } else {
+      WIFI_LOGD(LOG_TAG, "Same network, do not need to create a new one");
     }
   } else {
     ModifyConfigurationHash(ERASE_CONFIG, mDummyNetworkConfiguration);
@@ -677,18 +689,18 @@ Result_t SupplicantStaManager::ConnectToNetwork(ConfigurationOptions* aConfig) {
       WIFI_LOGE(LOG_TAG, "Failed to create STA network");
       return nsIWifiResult::ERROR_INVALID_INTERFACE;
     }
-  }
 
-  // set network configuration into supplicant
-  result = staNetwork->SetConfiguration(config);
-  if (result != nsIWifiResult::SUCCESS) {
-    WIFI_LOGE(LOG_TAG, "Failed to set wifi configuration");
-    ModifyConfigurationHash(CLEAN_ALL, mDummyNetworkConfiguration);
-    mCurrentNetwork.clear();
-    return result;
+    // set network configuration into supplicant
+    result = staNetwork->SetConfiguration(config);
+    if (result != nsIWifiResult::SUCCESS) {
+      WIFI_LOGE(LOG_TAG, "Failed to set wifi configuration");
+      ModifyConfigurationHash(CLEAN_ALL, mDummyNetworkConfiguration);
+      mCurrentNetwork.clear();
+      return result;
+    }
+    ModifyConfigurationHash(ADD_CONFIG, config);
+    mCurrentNetwork.insert(std::make_pair(mInterfaceName, staNetwork));
   }
-  ModifyConfigurationHash(ADD_CONFIG, config);
-  mCurrentNetwork.insert(std::make_pair(mInterfaceName, staNetwork));
 
   // success, start to make connection
   staNetwork->SelectNetwork();
@@ -838,7 +850,7 @@ Result_t SupplicantStaManager::RoamToNetwork(ConfigurationOptions* aConfig) {
   android::sp<SupplicantStaNetwork> network =
       mCurrentNetwork.at(mInterfaceName);
 
-  Result_t result = network->SetRoamingBssid(config.mBssid);
+  Result_t result = network->UpdateBssid(config.mBssid);
 
   WIFI_LOGD(LOG_TAG, "Trying to roam to network %s[%s]", config.mSsid.c_str(),
             config.mBssid.c_str());
