@@ -519,20 +519,18 @@
               if (!browser || browser != self.browser) {
                 return;
               }
-              window.setTimeout(() => {
-                if (this._contentCrashed) {
-                  self.dispatchCustomEvent("error", {
-                    type: "fatal",
-                    reason: "content-crash",
-                  });
-                } else {
-                  self.dispatchCustomEvent("error", {
-                    type: "fatal",
-                    reason: "content-kill",
-                  });
-                }
-                self.updateDCSState(false);
-              }, 250);
+              if (this._contentCrashed) {
+                self.dispatchCustomEvent("error", {
+                  type: "fatal",
+                  reason: "content-crash",
+                });
+              } else {
+                self.dispatchCustomEvent("error", {
+                  type: "fatal",
+                  reason: "content-kill",
+                });
+              }
+              self.updateDCSState(false);
 
               if (self.visible) {
                 Services.virtualcursor.removeCursor();
