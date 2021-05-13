@@ -35,6 +35,13 @@
     }
   });
 
+  XPCOMUtils.defineLazyServiceGetter(
+    Services,
+    "virtualcursor",
+    "@mozilla.org/virtualcursor/service;1",
+    "nsIVirtualCursorService"
+  );
+
   // Enable logs when according to the pref value, and listen to changes.
   let webViewLogEnabled = Services.prefs.getBoolPref(
     "webview.log.enabled",
@@ -526,6 +533,10 @@
                 }
                 self.updateDCSState(false);
               }, 250);
+
+              if (self.visible) {
+                Services.virtualcursor.removeCursor();
+              }
               break;
             }
             case "ipc:content-shutdown": {

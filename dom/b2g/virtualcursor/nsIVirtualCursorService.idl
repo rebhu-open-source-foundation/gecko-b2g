@@ -23,4 +23,5 @@ interface nsIVirtualCursorService : nsISupports
    * The Service runs on chrome process only.
    */
   void init(in nsIDOMWindow window);
+  void removeCursor();
 };

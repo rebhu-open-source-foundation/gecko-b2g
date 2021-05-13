@@ -107,6 +107,11 @@ NS_IMETHODIMP VirtualCursorService::Init(nsIDOMWindow* aWindow) {
   return NS_OK;
 }
 
+NS_IMETHODIMP VirtualCursorService::RemoveCursor() {
+  CursorOut();
+  return NS_OK;
+}
+
 /* static */
 void VirtualCursorService::Shutdown() {
   if (!sSingleton) {
