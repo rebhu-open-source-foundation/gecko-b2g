@@ -8923,6 +8923,16 @@
     type: String
     value: "audio/mpeg"
     mirror: never
+
+-   name: media.gonk.video.max_video_decode_width
+    type: RelaxedAtomicUint32
+    value: 1920
+    mirror: always
+
+-   name: media.gonk.video.max_video_decode_height
+    type: RelaxedAtomicUint32
+    value: 1080
+    mirror: always
 #endif
 
 #---------------------------------------------------------------------------

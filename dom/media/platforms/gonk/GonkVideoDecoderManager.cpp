@@ -23,7 +23,7 @@
 #include "mozilla/layers/ImageBridgeChild.h"
 #include "mozilla/layers/TextureClient.h"
 #include "mozilla/layers/TextureClientRecycleAllocator.h"
-#include "mozilla/Preferences.h"
+#include "mozilla/StaticPrefs_media.h"
 #include "mozilla/ScopeExit.h"
 
 #define CODECCONFIG_TIMEOUT_US 40000LL
@@ -49,12 +49,6 @@ using namespace android;
 typedef android::MediaCodecProxy MediaCodecProxy;
 
 namespace mozilla {
-
-// The maximum height and width of the video on Gonk platform.
-// Used for sanitizing the memory allocation of video frame buffers.
-// The maximum resolution we target on KaiOS platform in FullHD(1080).
-static const uint32_t GONK_MAX_VIDEO_WIDTH = 1920;
-static const uint32_t GONK_MAX_VIDEO_HEIGHT = 1080;
 
 class GonkTextureClientAllocationHelper
     : public layers::ITextureClientAllocationHelper {
@@ -131,12 +125,9 @@ RefPtr<MediaDataDecoder::InitPromise> GonkVideoDecoderManager::Init() {
   mNeedsCopyBuffer = false;
 
   // Get maximum size preference from b2g.js
-  int32_t maxWidth =
-      Preferences::GetInt("gonk.video.max_video_decode_width", -1);
-  int32_t maxHeight =
-      Preferences::GetInt("gonk.video.max_video_decode_height", -1);
-  maxWidth = -1 == maxWidth ? GONK_MAX_VIDEO_WIDTH : maxWidth;
-  maxHeight = -1 == maxHeight ? GONK_MAX_VIDEO_HEIGHT : maxHeight;
+  int32_t maxWidth = StaticPrefs::media_gonk_video_max_video_decode_width();
+  int32_t maxHeight = StaticPrefs::media_gonk_video_max_video_decode_height();
+
   if (mConfig.mImage.width * mConfig.mImage.height > maxWidth * maxHeight) {
     LOGE("Video resolution exceeds hw codec capability");
     return InitPromise::CreateAndReject(NS_ERROR_DOM_MEDIA_FATAL_ERR, __func__);
