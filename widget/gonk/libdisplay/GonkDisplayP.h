@@ -45,6 +45,8 @@ public:
 
     virtual void SetExtEnabled(bool enabled);
 
+    virtual void SetDisplayVisibility(bool visibility);
+
     virtual void OnEnabled(OnEnabledCallbackType callback);
 
     virtual void* GetHWCDevice();

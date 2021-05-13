@@ -65,6 +65,8 @@ class MOZ_EXPORT GonkDisplay {
 
   virtual void SetExtEnabled(bool enabled) = 0;
 
+  virtual void SetDisplayVisibility(bool visibility) = 0;
+
   typedef void (*OnEnabledCallbackType)(bool enabled);
 
   virtual void OnEnabled(OnEnabledCallbackType callback) = 0;

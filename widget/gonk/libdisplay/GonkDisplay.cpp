@@ -420,6 +420,11 @@ HWC2::Error GonkDisplayP::SetHwcPowerMode(bool enabled) {
     return error;
 }
 
+void GonkDisplayP::SetDisplayVisibility(bool visibility) {
+  android::Mutex::Autolock lock(mPrimaryScreenLock);
+  mDispSurface->setVisibility(visibility);
+}
+
 void GonkDisplayP::OnEnabled(OnEnabledCallbackType callback) {
   mEnabledCallback = callback;
 }
@@ -552,7 +557,7 @@ void GonkDisplayP::NotifyBootAnimationStopped() {
   }
 
   // enable mDispSurface for updating DISPLAY_PRIMARY.
-  mDispSurface->setVisibility(true);
+  SetDisplayVisibility(true);
 
   if (mExtSTClient.get()) {
     Surface* surface = static_cast<Surface*>(mExtSTClient.get());

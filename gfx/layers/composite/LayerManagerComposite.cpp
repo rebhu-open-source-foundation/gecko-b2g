@@ -1676,7 +1676,6 @@ static void ComputeVisibleRegionForChildren(ContainerLayer* aContainer,
 }
 
 void HostLayer::RecomputeShadowVisibleRegionFromChildren() {
-  mShadowVisibleRegion.SetEmpty();
   ContainerLayer* container = GetLayer()->AsContainerLayer();
   MOZ_ASSERT(container);
   // Layers that extend a 3d context have a local visible region
@@ -1687,7 +1686,12 @@ void HostLayer::RecomputeShadowVisibleRegionFromChildren() {
       !GetLayer()->Extend3DContext(),
       "Can't compute visible region for layers that extend a 3d context");
   if (container && !GetLayer()->Extend3DContext()) {
-    ComputeVisibleRegionForChildren(container, mShadowVisibleRegion);
+    LayerIntRegion visible;
+    ComputeVisibleRegionForChildren(container, visible);
+
+    if (!visible.IsEmpty()) {
+      mShadowVisibleRegion = visible;
+    }
   }
 }
 

@@ -1081,6 +1081,14 @@ void BrowserParent::UpdateDimensions(const nsIntRect& rect,
                                           ? -GetChildProcessOffset()
                                           : LayoutDeviceIntPoint();
 
+  // Sync the change of orienation with dimension/rect, this is to ensure
+  // no single orienation/dimension/rect change takes effect.
+  if (mOrientation != orientation &&
+      (mDimensions == size || mRect.IsEqualEdges(rect))) {
+    NS_WARNING("Orientation/Dimension unsync, early return!");
+    return;
+  }
+
   if (!mUpdatedDimensions || mOrientation != orientation ||
       mDimensions != size || !mRect.IsEqualEdges(rect) ||
       clientOffset != mClientOffset || chromeOffset != mChromeOffset) {

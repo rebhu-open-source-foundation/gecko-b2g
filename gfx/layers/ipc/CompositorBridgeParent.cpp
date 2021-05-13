@@ -105,6 +105,9 @@
 #endif
 
 #include "LayerScope.h"
+#ifdef MOZ_WIDGET_GONK
+#include "libdisplay/GonkDisplay.h"
+#endif
 
 namespace mozilla {
 
@@ -906,6 +909,12 @@ void CompositorBridgeParent::CompositeToTarget(VsyncId aId, DrawTarget* aTarget,
       mForceCompositionTask->Cancel();
       mForceCompositionTask = nullptr;
     } else {
+      // Need to call DidComposite before we drop this composite request when
+      // ReadyForCompose() is false. This is to ensure that
+      // NotifyTransactionCompleted is being called to unlock the transaction
+      // launched by ClientLayerManager::ForwardTransaction.
+      TimeStamp end = TimeStamp::Now();
+      DidComposite(aId, start, end);
       return;
     }
   }
@@ -1131,6 +1140,7 @@ void CompositorBridgeParent::ShadowLayersUpdated(
     LayerTransactionParent* aLayerTree, const TransactionInfo& aInfo,
     bool aHitTestUpdate) {
   const TargetConfig& targetConfig = aInfo.targetConfig();
+  bool rotationChanged = false;
 
   ScheduleRotationOnCompositorThread(targetConfig, aInfo.isFirstPaint());
 
@@ -1140,10 +1150,22 @@ void CompositorBridgeParent::ShadowLayersUpdated(
   mLayerManager->UpdateRenderBounds(targetConfig.naturalBounds());
   mLayerManager->SetRegionToClear(targetConfig.clearRegion());
   if (mLayerManager->GetCompositor()) {
-    mLayerManager->GetCompositor()->SetScreenRotation(targetConfig.rotation());
+    if (mLayerManager->GetCompositor()->GetScreenRotation() !=
+        targetConfig.rotation()) {
+      rotationChanged = true;
+      mLayerManager->GetCompositor()->SetScreenRotation(targetConfig.rotation());
+    }
   }
 
   mCompositionManager->Updated(aInfo.isFirstPaint(), targetConfig);
+  if (rotationChanged) {
+  #ifdef MOZ_WIDGET_GONK
+    // Enable display when ShadowLayers orientation config has been synced
+    // and latched into AsyncCompositionManager.
+    GetGonkDisplay()->SetDisplayVisibility(true);
+  #endif
+  }
+
   Layer* root = aLayerTree->GetRoot();
   mLayerManager->SetRoot(root);
 
