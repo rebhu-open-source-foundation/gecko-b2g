@@ -28,8 +28,6 @@ default:
       start_in: 10 seconds
 
 variables:
-  # set GIT_DEPTH=1 to fetch current branch only
-  GIT_DEPTH: 1
   # GIT_CLONE_PATH would be overidden with "koost" if pipeline gets triggered from within koost
   # also, in order for sccache, perisitent path is preferred
   GIT_CLONE_PATH: ${CI_BUILDS_DIR}/kaios/gecko
