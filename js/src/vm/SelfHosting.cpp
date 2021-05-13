@@ -2429,7 +2429,7 @@ static const JSFunctionSpec intrinsic_functions[] = {
     JS_FN("intl_isDefaultTimeZone", intl_isDefaultTimeZone, 1, 0),
     JS_FN("intl_FormatDateTime", intl_FormatDateTime, 2, 0),
     JS_FN("intl_FormatDateTimeRange", intl_FormatDateTimeRange, 4, 0),
-    JS_FN("intl_FormatNumber", intl_FormatNumber, 2, 0),
+    JS_FN("intl_FormatNumber", intl_FormatNumber, 3, 0),
     JS_FN("intl_GetCalendarInfo", intl_GetCalendarInfo, 1, 0),
     JS_FN("intl_GetLocaleInfo", intl_GetLocaleInfo, 1, 0),
     JS_FN("intl_ComputeDisplayNames", intl_ComputeDisplayNames, 3, 0),
@@ -2619,7 +2619,9 @@ void js::FillSelfHostingCompileOptions(CompileOptions& options) {
   options.setSelfHostingMode(true);
   options.setForceFullParse();
   options.setForceStrictMode();
+  options.setDiscardSource();
   options.setIsRunOnce(true);
+  options.setNoScriptRval(true);
 }
 
 GlobalObject* JSRuntime::createSelfHostingGlobal(JSContext* cx) {
@@ -2631,7 +2633,6 @@ GlobalObject* JSRuntime::createSelfHostingGlobal(JSContext* cx) {
   // Debugging the selfHosted zone is not supported because CCWs are not
   // allowed in that zone.
   options.creationOptions().setInvisibleToDebugger(true);
-  options.behaviors().setDiscardSource(true);
 
   Realm* realm = NewRealm(cx, nullptr, options);
   if (!realm) {
@@ -2763,7 +2764,8 @@ static bool VerifyGlobalNames(JSContext* cx, Handle<GlobalObject*> shg) {
   return true;
 }
 
-bool JSRuntime::initSelfHosting(JSContext* cx) {
+bool JSRuntime::initSelfHosting(JSContext* cx, JS::SelfHostedCache xdrCache,
+                                JS::SelfHostedWriter xdrWriter) {
   MOZ_ASSERT(!selfHostingGlobal_);
 
   if (cx->runtime()->parentRuntime) {
@@ -2795,7 +2797,7 @@ bool JSRuntime::initSelfHosting(JSContext* cx) {
   // Try initializing from Stencil XDR.
   bool decodeOk = false;
   Rooted<frontend::CompilationGCOutput> output(cx);
-  if (selfHostedXDR.length() > 0) {
+  if (xdrCache.Length() > 0) {
     Rooted<frontend::CompilationInput> input(
         cx, frontend::CompilationInput(options));
     if (!input.get().initForSelfHostingGlobal(cx)) {
@@ -2803,8 +2805,7 @@ bool JSRuntime::initSelfHosting(JSContext* cx) {
     }
 
     frontend::CompilationStencil stencil(input.get().source);
-    if (!stencil.deserializeStencils(cx, input.get(), selfHostedXDR,
-                                     &decodeOk)) {
+    if (!stencil.deserializeStencils(cx, input.get(), xdrCache, &decodeOk)) {
       return false;
     }
 
@@ -2841,13 +2842,13 @@ bool JSRuntime::initSelfHosting(JSContext* cx) {
   }
 
   // Serialize the stencil to XDR.
-  if (selfHostedXDRWriter) {
+  if (xdrWriter) {
     JS::TranscodeBuffer xdrBuffer;
     if (!stencil->serializeStencils(cx, input.get(), xdrBuffer)) {
       return false;
     }
 
-    if (!selfHostedXDRWriter(cx, xdrBuffer)) {
+    if (!xdrWriter(cx, xdrBuffer)) {
       return false;
     }
   }

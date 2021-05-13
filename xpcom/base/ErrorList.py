@@ -932,14 +932,6 @@ with modules["SECURITY"]:
 
 
 # =======================================================================
-# 22: NS_ERROR_MODULE_DOM_XPATH
-# =======================================================================
-with modules["DOM_XPATH"]:
-    # DOM error codes from http://www.w3.org/TR/DOM-Level-3-XPath/
-    errors["NS_ERROR_DOM_INVALID_EXPRESSION_ERR"] = FAILURE(51)
-
-
-# =======================================================================
 # 24: NS_ERROR_MODULE_URILOADER
 # =======================================================================
 with modules["URILOADER"]:
@@ -1044,16 +1036,6 @@ with modules["IPC"]:
     errors["NS_ERROR_BRIDGE_OPEN_PARENT"] = FAILURE(3)
     # Bridging: failure trying to open the connection to the child
     errors["NS_ERROR_BRIDGE_OPEN_CHILD"] = FAILURE(4)
-
-
-# =======================================================================
-# 29: NS_ERROR_MODULE_SVG
-# =======================================================================
-with modules["SVG"]:
-    # SVG DOM error codes from http://www.w3.org/TR/SVG11/svgdom.html
-    errors["NS_ERROR_DOM_SVG_WRONG_TYPE_ERR"] = FAILURE(0)
-    # Yes, the spec says "INVERTABLE", not "INVERTIBLE"
-    errors["NS_ERROR_DOM_SVG_MATRIX_NOT_INVERTABLE"] = FAILURE(2)
 
 
 # =======================================================================
