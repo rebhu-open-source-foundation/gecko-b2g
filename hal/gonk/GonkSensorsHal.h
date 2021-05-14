@@ -8,10 +8,11 @@
 #include "base/thread.h"
 #include "HalSensor.h"
 
-#include "android/hardware/sensors/1.0/ISensors.h"
 #include "android/hardware/sensors/1.0/types.h"
+#include "android_sensors/ISensorsWrapper.h"
 
 using namespace mozilla::hal;
+using namespace android::SensorServiceUtil;
 namespace hidl_sensors = android::hardware::sensors::V1_0;
 using hidl_sensors::SensorFlagBits;
 
@@ -50,7 +51,7 @@ private:
   void StartPollingThread();
   SensorData CreateSensorData(const hidl_sensors::Event aEvent);
 
-  android::sp<hidl_sensors::ISensors> mSensors;
+  android::sp<ISensorsWrapper> mSensors;
   hidl_sensors::SensorInfo mSensorInfoList[NUM_SENSOR_TYPE];
   base::Thread* mPollingThread;
   SensorDataCallback mSensorDataCallback;

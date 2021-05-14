@@ -167,11 +167,13 @@ GonkSensorsHal::Init() {
   // TODO: evaluate a proper retrying times if it's not enough
   size_t retry = 2;
   while (retry-- > 0) {
-    mSensors = hidl_sensors::ISensors::getService();
-    if (mSensors == nullptr) {
+    android::sp<hidl_sensors::ISensors> sensors = hidl_sensors::ISensors::getService();
+    if (sensors == nullptr) {
       HAL_ERR("no sensors hidl service found");
       continue;
     }
+
+    mSensors = new SensorsWrapperV1_0(sensors);
 
     // poke hidl service to check if it is alive
     if (!mSensors->poll(0, [](auto, const auto &, const auto &) {}).isOk()) {
