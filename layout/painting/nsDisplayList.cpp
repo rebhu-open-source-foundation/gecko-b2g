@@ -3646,7 +3646,10 @@ AppendedBackgroundType nsDisplayBackgroundImage::AppendBackgroundItemsToTop(
   if ((drawBackgroundColor && color != NS_RGBA(0, 0, 0, 0)) ||
       aBuilder->IsForEventDelivery()) {
     if (aAutoBuildingDisplayList && !*aAutoBuildingDisplayList) {
-      aAutoBuildingDisplayList->emplace(aBuilder, aFrame);
+      nsPoint offset = aBuilder->GetCurrentFrame()->GetOffsetTo(aFrame);
+      aAutoBuildingDisplayList->emplace(aBuilder, aFrame,
+                                        aBuilder->GetVisibleRect() + offset,
+                                        aBuilder->GetDirtyRect() + offset);
     }
     Maybe<DisplayListClipState::AutoSaveRestore> clipState;
     nsRect bgColorRect = bgRect;
@@ -3726,7 +3729,10 @@ AppendedBackgroundType nsDisplayBackgroundImage::AppendBackgroundItemsToTop(
     }
 
     if (aAutoBuildingDisplayList && !*aAutoBuildingDisplayList) {
-      aAutoBuildingDisplayList->emplace(aBuilder, aFrame);
+      nsPoint offset = aBuilder->GetCurrentFrame()->GetOffsetTo(aFrame);
+      aAutoBuildingDisplayList->emplace(aBuilder, aFrame,
+                                        aBuilder->GetVisibleRect() + offset,
+                                        aBuilder->GetDirtyRect() + offset);
     }
 
     if (bg->mImage.mLayers[i].mBlendMode != StyleBlend::Normal) {
