@@ -2343,8 +2343,22 @@ NetworkManager.prototype = {
   },
 
   updateDNSProperty(activeNetworkDnses) {
-    libcutils.property_set("net.dns1", activeNetworkDnses[0] || "");
-    libcutils.property_set("net.dns2", activeNetworkDnses[1] || "");
+    let dnsPropPrefix = "net.dns";
+    let index = 1;
+    let dnsPropName = dnsPropPrefix + index;
+    let dnsPropVal = libcutils.property_get(dnsPropName);
+    while (dnsPropVal) {
+      libcutils.property_set(dnsPropName, "");
+      index++;
+      dnsPropName = dnsPropPrefix + index;
+      dnsPropVal = libcutils.property_get(dnsPropName);
+    }
+
+    for (let i = 0; i < activeNetworkDnses.length; i++) {
+      index = i + 1;
+      dnsPropName = dnsPropPrefix + index;
+      libcutils.property_set(dnsPropName, activeNetworkDnses[i]);
+    }
     let dnsChange = libcutils.property_get("net.dnschange", "0");
     libcutils.property_set(
       "net.dnschange",
