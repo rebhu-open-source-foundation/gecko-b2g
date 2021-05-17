@@ -1246,6 +1246,7 @@ pref("device.mvs", true);
 pref("voice-input.enabled", false);
 pref("voice-input.icon-url", "http://shared.localhost/style/voice-input/icons/voice-input.svg");
 pref("voice-input.supported-types", "text, search, url, tel, number, month, week");
+pref("voice-input.excluded-x-inputmodes", "native, plain, simplified, spell");
 
 pref("dom.storage.next_gen", false);
 

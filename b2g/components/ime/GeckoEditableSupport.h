@@ -84,7 +84,8 @@ class GeckoEditableSupport final : public TextEventDispatcherListener,
   // some cases (e.g. content removed)
   bool mIsFocused;
   bool mIsVoiceInputEnabled;
-  nsTArray<nsString> mVoiceInputSupportedTypes;
+  nsTArray<nsCString> mVoiceInputSupportedTypes;
+  nsTArray<nsCString> mVoiceInputExcludedXInputModes;
 };
 
 }  // namespace widget

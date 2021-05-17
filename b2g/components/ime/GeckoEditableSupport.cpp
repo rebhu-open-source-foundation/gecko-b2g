@@ -79,20 +79,26 @@ bool isPlainTextField(Element* aElement) {
 }
 
 bool isVoiceInputSupported(Element* aElement,
-                           nsTArray<nsString>& aSupportedTypes) {
+                           nsTArray<nsCString>& aExcludedXInputModes,
+                           nsTArray<nsCString>& aSupportedTypes) {
   if (!aElement) {
     return false;
   }
-  nsAutoString attributeValue;
-  aElement->GetAttribute(u"x-inputmode"_ns, attributeValue);
-  if (attributeValue.LowerCaseEqualsASCII("native") ||
-      attributeValue.LowerCaseEqualsASCII("plain") ||
-      attributeValue.LowerCaseEqualsASCII("spell")) {
-    return false;
+  nsAutoString attributeStringValue;
+  nsAutoCString attributeCStringValue;
+  aElement->GetAttribute(u"x-inputmode"_ns, attributeStringValue);
+  attributeCStringValue = NS_ConvertUTF16toUTF8(attributeStringValue);
+  for (uint32_t i = 0; i < aExcludedXInputModes.Length(); ++i) {
+    if (attributeCStringValue.Equals(aExcludedXInputModes[i],
+                                     nsCaseInsensitiveCStringComparator)) {
+      return false;
+    }
   }
-  aElement->GetAttribute(u"type"_ns, attributeValue);
+  aElement->GetAttribute(u"type"_ns, attributeStringValue);
+  attributeCStringValue = NS_ConvertUTF16toUTF8(attributeStringValue);
   for (uint32_t i = 0; i < aSupportedTypes.Length(); ++i) {
-    if (attributeValue.Equals(aSupportedTypes[i])) {
+    if (attributeCStringValue.Equals(aSupportedTypes[i],
+                                     nsCaseInsensitiveCStringComparator)) {
       return true;
     }
   }
@@ -545,8 +551,21 @@ GeckoEditableSupport::GeckoEditableSupport(nsPIDOMWindowOuter* aDOMWindow)
                                           voiceInputSupportedTypes))) {
     for (const auto& type :
          nsCharSeparatedTokenizer(voiceInputSupportedTypes, ',').ToRange()) {
-      IME_LOGD(" voice input supported type: %s", ToNewCString(type));
-      mVoiceInputSupportedTypes.AppendElement(type);
+      IME_LOGD(" voice input supported type: %s",
+               NS_ConvertUTF16toUTF8(type).get());
+      mVoiceInputSupportedTypes.AppendElement(
+          NS_ConvertUTF16toUTF8(type));
+    }
+  }
+  nsAutoString voiceInputExcludedXInputModes;
+  if (NS_SUCCEEDED(Preferences::GetString("voice-input.excluded-x-inputmodes",
+                                          voiceInputExcludedXInputModes))) {
+    for (const auto& mode :
+         nsCharSeparatedTokenizer(voiceInputExcludedXInputModes, ',')
+             .ToRange()) {
+      IME_LOGD(" voice input excluded-x-inputmodes: %s",
+               NS_ConvertUTF16toUTF8(mode).get());
+      mVoiceInputExcludedXInputModes.AppendElement(NS_ConvertUTF16toUTF8(mode));
     }
   }
 }
@@ -1492,14 +1511,15 @@ nsresult GeckoEditableSupport::GetInputContextBag(
   // inputMode
   activeElement->GetAttribute(u"x-inputmode"_ns, attributeValue);
   aInputContext->SetInputMode(attributeValue);
-  IME_LOGD("InputContext: inputMode:[%s]", ToNewCString(attributeValue));
+  IME_LOGD("InputContext: inputMode:[%s]",
+           NS_ConvertUTF16toUTF8(attributeValue).get());
 
   // voiceInputSupported
-  bool supported =
-      isVoiceInputSupported(activeElement, mVoiceInputSupportedTypes);
+  bool supported = isVoiceInputSupported(
+      activeElement, mVoiceInputExcludedXInputModes, mVoiceInputSupportedTypes);
   activeElement->SetAttribute(u"voice-input-supported"_ns,
-                               supported ? u"true"_ns : u"false"_ns,
-                               IgnoreErrors());
+                              supported ? u"true"_ns : u"false"_ns,
+                              IgnoreErrors());
   aInputContext->SetVoiceInputSupported(supported);
   IME_LOGD("InputContext: voiceInputSupported:[%s]",
            supported ? "true" : "false");
