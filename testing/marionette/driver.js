@@ -628,14 +628,6 @@ GeckoDriver.prototype.handleEvent = function({ target, type }) {
         );
 
         this.currentSession.contentBrowsingContext = target.browsingContext;
-
-        // Manually update the stored browsing context id.
-        // Switching to browserId instead of browsingContext.id would make
-        // this call unnecessary. See Bug 1681973.
-        windowManager.updateIdForBrowser(
-          this.curBrowser.contentBrowser,
-          target.browsingContext.id
-        );
       }
       break;
   }
@@ -1097,14 +1089,14 @@ GeckoDriver.prototype.refresh = async function() {
  *     Top-level browsing context has been discarded.
  */
 GeckoDriver.prototype.getWindowHandle = function() {
-  const browsingContext = assert.open(
+  assert.open(
     this.getBrowsingContext({
       context: Context.Content,
       top: true,
     })
   );
 
-  return browsingContext.id.toString();
+  return windowManager.getIdForBrowser(this.curBrowser.contentBrowser);
 };
 
 /**
@@ -1139,14 +1131,14 @@ GeckoDriver.prototype.getWindowHandles = function() {
  *     Internal browsing context reference not found
  */
 GeckoDriver.prototype.getChromeWindowHandle = function() {
-  const browsingContext = assert.open(
+  assert.open(
     this.getBrowsingContext({
       context: Context.Chrome,
       top: true,
     })
   );
 
-  return browsingContext.id.toString();
+  return windowManager.getIdForWindow(this.curBrowser.window);
 };
 
 /**
@@ -1322,7 +1314,7 @@ GeckoDriver.prototype.switchToWindow = async function(cmd) {
 
   const found = origin
     ? findWindowByOrigin(origin)
-    : windowManager.findWindowByHandle(parseInt(handle));
+    : windowManager.findWindowByHandle(handle);
 
   let selected = false;
   if (found) {
