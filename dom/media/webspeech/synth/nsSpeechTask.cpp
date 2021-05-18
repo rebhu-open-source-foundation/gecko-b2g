@@ -46,10 +46,20 @@ public:
     if (!mStarted) {
       mStarted = true;
       aGraph->DispatchToMainThreadStableState(NS_NewRunnableFunction(
-        "NotifyEnded startRunnable", [this]() { DoNotifyStarted(); }));
+        "NotifyEnded startRunnable",
+        [self = RefPtr<SynthStreamListener>(this)] {
+          if (self) {
+            self->DoNotifyStarted();
+          }
+        }));
     }
     aGraph->DispatchToMainThreadStableState(NS_NewRunnableFunction(
-      "NotifyEnded endRunnable", [this]() { DoNotifyFinished(); }));
+      "NotifyEnded endRunnable",
+      [self = RefPtr<SynthStreamListener>(this)] {
+        if (self) {
+          self->DoNotifyFinished();
+        }
+      }));
   }
 
   void NotifyRemoved(MediaTrackGraph* aGraph) override {
