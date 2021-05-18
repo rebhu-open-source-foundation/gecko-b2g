@@ -12,6 +12,7 @@
 #include "android_sensors/ISensorsWrapper.h"
 
 using namespace mozilla::hal;
+using namespace android::hardware::sensors;
 using namespace android::SensorServiceUtil;
 namespace hidl_sensors = android::hardware::sensors::V1_0;
 using hidl_sensors::SensorFlagBits;
@@ -48,6 +49,9 @@ private:
   ~GonkSensorsHal() {};
 
   void Init();
+  bool InitHidlService();
+  bool InitHidlServiceV1_0(android::sp<V1_0::ISensors> aServiceV1_0);
+  bool InitSensorsList();
   void StartPollingThread();
   SensorData CreateSensorData(const hidl_sensors::Event aEvent);
 

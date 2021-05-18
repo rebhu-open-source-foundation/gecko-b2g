@@ -163,40 +163,70 @@ GonkSensorsHal::StartPollingThread() {
 
 void
 GonkSensorsHal::Init() {
-  android::hardware::hidl_vec<hidl_sensors::SensorInfo> list;
+  // initialize sensors hidl service
+  if (!InitHidlService()) {
+    HAL_ERR("initialize sensors hidl service failed");
+    mSensors = nullptr;
+    return;
+  }
+
+  // initialize available sensors list
+  if (!InitSensorsList()) {
+    HAL_ERR("initialize sensors list failed");
+    mSensors = nullptr;
+    return;
+  }
+
+  // start a polling thread reading sensors events
+  StartPollingThread();
+
+  HAL_LOG("sensors init completed");
+}
+
+bool
+GonkSensorsHal::InitHidlService() {
+    android::sp<V1_0::ISensors> serviceV1_0 = V1_0::ISensors::getService();
+    if (serviceV1_0) {
+      HAL_LOG("sensors v1.0 hidl service is detected");
+      return InitHidlServiceV1_0(serviceV1_0);
+    }
+
+    HAL_ERR("no sensors hidl service is detected");
+    return false;
+}
+
+bool
+GonkSensorsHal::InitHidlServiceV1_0(android::sp<V1_0::ISensors> aServiceV1_0) {
+  mSensors = new SensorsWrapperV1_0(aServiceV1_0);
   // TODO: evaluate a proper retrying times if it's not enough
   size_t retry = 2;
   while (retry-- > 0) {
-    android::sp<hidl_sensors::ISensors> sensors = hidl_sensors::ISensors::getService();
-    if (sensors == nullptr) {
-      HAL_ERR("no sensors hidl service found");
-      continue;
-    }
-
-    mSensors = new SensorsWrapperV1_0(sensors);
-
     // poke hidl service to check if it is alive
-    if (!mSensors->poll(0, [](auto, const auto &, const auto &) {}).isOk()) {
+    if (mSensors->poll(0, [](auto, const auto &, const auto &) {}).isOk()) {
+      return true;
+    } else {
       HAL_ERR("poke sensors hidl service failed");
       // sensors hidl service will kill and restart itself when it detects
       // double connections are calling poll()
-      mSensors = nullptr;
       // TODO: add a proper delay waiting for service restarting
-      continue;
-    }
-
-    // obtain hidl sensors list
-    if (!mSensors->getSensorsList(
-      [&list](const auto &aList) { list = aList; }).isOk()) {
-      HAL_ERR("get sensors list failed");
-      mSensors = nullptr;
-      continue;
     }
   }
 
+  return false;
+}
+
+bool
+GonkSensorsHal::InitSensorsList() {
   if (mSensors == nullptr) {
-    HAL_ERR("Init finally failed");
-    return;
+    return false;
+  }
+
+  // obtain hidl sensors list
+  android::hardware::hidl_vec<hidl_sensors::SensorInfo> list;
+  if (!mSensors->getSensorsList(
+    [&list](const auto &aList) { list = aList; }).isOk()) {
+    HAL_ERR("get sensors list failed");
+    return false;
   }
 
   // setup the available sensors list and filter out unnecessary ones
@@ -242,10 +272,7 @@ GonkSensorsHal::Init() {
     }
   }
 
-  // start a polling thread reading sensors events
-  StartPollingThread();
-
-  HAL_LOG("sensors init completed");
+  return true;
 }
 
 bool
