@@ -126,6 +126,11 @@ this.GeckoDriver = function(server) {
   // used for modal dialogs or tab modal alerts
   this.dialog = null;
   this.dialogObserver = null;
+
+  // promise that resolves once we have loaded the system app.
+  this.b2gLoaded = new Promise(resolve => {
+    Services.obs.addObserver(resolve, "shell-ready");
+  });
 };
 
 /**
@@ -574,7 +579,7 @@ GeckoDriver.prototype.newSession = async function(cmd) {
 
   if (this.curBrowser.tab) {
     // B2G default focuses on system app when session is initialized.
-    if (this.appName == "b2g") {
+    if (AppInfo.isB2G) {
       this.switchToSystemWindow();
     } else {
       this.currentSession.contentBrowsingContext = this.curBrowser.contentBrowser.browsingContext;
@@ -1210,7 +1215,13 @@ GeckoDriver.prototype.getWindowRect = async function() {
  *     Not applicable to application.
  */
 GeckoDriver.prototype.setWindowRect = async function(cmd) {
-  assert.firefox();
+  if (AppInfo.isB2G) {
+    assert.b2g();
+    await this.switchToMarionetteWindow();
+  } else {
+    assert.firefox();
+  }
+
   assert.open(this.getBrowsingContext({ top: true }));
   await this._handleUserPrompts();
 
@@ -1256,13 +1267,29 @@ GeckoDriver.prototype.setWindowRect = async function(cmd) {
  */
 GeckoDriver.prototype.switchToSystemWindow = async function() {
   assert.b2g();
-  const found = this.findWindow(this.windows, { origin: "chrome://system" });
+  await this.b2gLoaded;
+  let systemAppUrl = Services.prefs.getCharPref("b2g.system_startup_url");
+  const found = windowManager.findWindowByOrigin(new URL(systemAppUrl).origin);
   if (found) {
     const focus = false;
     await this.setWindowHandle(found, focus);
     return this.curBrowser.contentBrowser.browsingContext.id;
   }
   throw new error.NoSuchWindowError(`Unable to locate system app window`);
+};
+
+GeckoDriver.prototype.switchToMarionetteWindow = async function() {
+  assert.b2g();
+  await this.b2gLoaded;
+
+  await this.curBrowser.openTab(true);
+  const found = windowManager.findMarionetteWindow();
+  if (found) {
+    const focus = false;
+    await this.setWindowHandle(found, focus);
+    return this.curBrowser.contentBrowser.browsingContext.id;
+  }
+  throw new error.NoSuchWindowError(`Unable to locate marionette window`);
 };
 
 /**
@@ -1285,7 +1312,7 @@ GeckoDriver.prototype.switchToSystemWindow = async function() {
  */
 GeckoDriver.prototype.switchToWindow = async function(cmd) {
   let focus = true;
-  if (this.appName !== "b2g" && typeof cmd.parameters.focus != "undefined") {
+  if (!AppInfo.isB2G && typeof cmd.parameters.focus != "undefined") {
     focus = assert.boolean(
       cmd.parameters.focus,
       pprint`Expected "focus" to be a boolean, got ${cmd.parameters.focus}`
@@ -1317,7 +1344,7 @@ GeckoDriver.prototype.switchToWindow = async function(cmd) {
   }
 
   const found = origin
-    ? findWindowByOrigin(origin)
+    ? windowManager.findWindowByOrigin(origin)
     : windowManager.findWindowByHandle(handle);
 
   let selected = false;

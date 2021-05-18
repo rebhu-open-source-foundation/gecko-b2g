@@ -6,14 +6,19 @@
 
 class WindowManager extends HTMLElement {
   constructor() {
-    console.log(`Creating WindowManager`);
+    // console.log(`Creating WindowManager`);
     super();
 
     // Hooks up webview state to the UI.
     // FIXME: Do something fancy instead??
     this.ui_updater = state => {
-      console.log(`Updating UI state with: ${JSON.stringify(state)}`);
-      document.getElementById("statusbar").update_state(state);
+      let statusbar = document.getElementById("statusbar");
+      if (!statusbar) {
+        return;
+      }
+  
+      // console.log(`Updating UI state with: ${JSON.stringify(state)}`);
+      statusbar.update_state(state);
 
       if (state.canGoBack) {
         document.getElementById("action-go-back").removeAttribute("disabled");
@@ -61,13 +66,13 @@ class WindowManager extends HTMLElement {
 
     let intersection_callback = (entries, observer) => {
       entries.forEach(entry => {
-        console.log(
-          `Intersection: isIntersecting=${
-            entry.isIntersecting
-          } target=${entry.target.getAttribute("id")} ratio=${
-            entry.intersectionRatio
-          }`
-        );
+        // console.log(
+        //   `Intersection: isIntersecting=${
+        //     entry.isIntersecting
+        //   } target=${entry.target.getAttribute("id")} ratio=${
+        //     entry.intersectionRatio
+        //   }`
+        // );
 
         // Change the active status of the webview based on its visibility in
         // the container.

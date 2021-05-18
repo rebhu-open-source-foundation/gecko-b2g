@@ -124,6 +124,15 @@ assert.mobile = function(msg = "") {
   )(AppInfo.isAndroid);
 };
 
+/**
+ * Asserts that the current application runs on b2g (Desktop or Device).
+ *
+ * @param {string=} msg
+ *     Custom error message.
+ *
+ * @throws {UnsupportedOperationError}
+ *     If current application is not running on Android.
+ */
 assert.b2g = function(msg = "") {
   msg = msg || "Only supported in B2G";
   assert.that(isB2G, msg, error.UnsupportedOperationError)();

@@ -147,9 +147,8 @@ browser.getTabBrowser = function(window) {
     // Thunderbird
   } else if (window.document.getElementById("tabmail")) {
     return window.document.getElementById("tabmail");
-
     // B2G
-  } else if (window.document.getElementById("systemapp")) {
+  } else if (AppInfo.isB2G) {
     return window.MarionetteHelper;
   }
 
@@ -314,11 +313,19 @@ browser.Context = class {
 
     let destroyed = new MessageManagerDestroyedPromise(this.messageManager);
     let tabClosed;
+    let promises;
 
     switch (AppInfo.name) {
       case "Firefox":
         tabClosed = waitForEvent(this.tab, "TabClose");
         this.tabBrowser.removeTab(this.tab);
+        promises = [destroyed, tabClosed];
+        break;
+
+      case "b2g":
+        this.tabBrowser.removeTab(this.tab);
+        // TODO: check why `destroyed` doesn't resolve.
+        promises = [];
         break;
 
       default:
@@ -327,7 +334,7 @@ browser.Context = class {
         );
     }
 
-    return Promise.all([destroyed, tabClosed]);
+    return Promise.all(promises);
   }
 
   /**
@@ -350,6 +357,19 @@ browser.Context = class {
           this.tabBrowser.selectedTab = this.tab;
         }
 
+        break;
+
+      case "b2g":
+        // Use the embedder api to create a new window.
+        this.window.browserDOMWindow.openURIInFrame(
+          Services.io.newURI("about:blank"), // url
+          null, // opener info
+          Ci.nsIBrowserDOMWindow.OPEN_NEWTAB,
+          0, // flags
+          null // name
+        );
+
+        tab = this.tabBrowser.selectedTab;
         break;
 
       default:
@@ -400,10 +420,7 @@ browser.Context = class {
     if (focus && this.tab != currentTab) {
       const tabSelected = waitForEvent(this.window, "TabSelect");
       this.tabBrowser.selectedTab = this.tab;
-      if (this.this.driver.appName !== "b2g") {
-        // TODO: add TabSelect event support on b2g.
-        await tabSelected;
-      }
+      await tabSelected;
     }
 
     return this.tab;

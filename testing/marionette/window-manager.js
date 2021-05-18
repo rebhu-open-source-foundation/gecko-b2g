@@ -122,7 +122,7 @@ class WindowManager {
    * @return {Object} A window properties object,
    *     @see :js:func:`GeckoDriver#getWindowProperties`
    */
-   findWindowByOrigin(origin) {
+  findWindowByOrigin(origin) {
     for (const win of this.windows) {
       // Check if the chrome window has a tab browser, and that it
       // contains a tab with the wanted origin.
@@ -130,9 +130,44 @@ class WindowManager {
       if (tabBrowser && tabBrowser.tabs) {
         for (let i = 0; i < tabBrowser.tabs.length; ++i) {
           let contentBrowser = browser.getBrowserForTab(tabBrowser.tabs[i]);
+          try {
+            let winOrigin = new URL(contentBrowser.src).origin;
+            if (origin == winOrigin) {
+              return this.getWindowProperties(win, { tabIndex: i });
+            }
+          } catch (e) {
+            // Ignore error, eg. when contentBrowser is not ready.
+          }
+        }
+      }
+    }
 
-          if (origin == new URL(contentBrowser.src).origin) {
-            return this.getWindowProperties(win, { tabIndex: i });
+    return null;
+  }
+
+  /**
+   * B2G specific function
+   * Find a marionette tab.
+   *
+   * @return {Object} A window properties object,
+   *     @see :js:func:`GeckoDriver#getWindowProperties`
+   */
+   findMarionetteWindow() {
+    const systemSrc = Services.prefs.getCharPref("b2g.system_startup_url");
+    for (const win of this.windows) {
+      // Check if the chrome window has a tab browser, and that it
+      // contains a tab with the wanted origin.
+      const tabBrowser = browser.getTabBrowser(win);
+      if (tabBrowser && tabBrowser.tabs) {
+        for (let i = 0; i < tabBrowser.tabs.length; ++i) {
+          let contentBrowser = browser.getBrowserForTab(tabBrowser.tabs[i]);
+          try {
+            // We don't want to report the system app itself, only "content" tabs.
+            if (systemSrc != contentBrowser.src) {
+              return this.getWindowProperties(win, { tabIndex: i });
+            }
+          } catch (e) {
+            // Ignore error, eg. when contentBrowser is not ready.
           }
         }
       }

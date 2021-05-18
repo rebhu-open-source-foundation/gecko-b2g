@@ -18,6 +18,11 @@ gaia-wm > main {
   scroll-behavior: smooth;
 }
 
+gaia-wm.marionette > main {
+  /* don't slow down tests by scrolling smoothly */
+  scroll-behavior: unset;
+}
+
 gaia-wm > main > web-view {
   scroll-snap-align: start;
   height: 100%;

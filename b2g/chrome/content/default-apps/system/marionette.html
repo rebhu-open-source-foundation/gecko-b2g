@@ -1,0 +1,24 @@
+<!-- This Source Code Form is subject to the terms of the Mozilla Public
+   - License, v. 2.0. If a copy of the MPL was not distributed with this
+   - file, You can obtain one at http://mozilla.org/MPL/2.0/. -->
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf8" />
+    <title>Marionette</title>
+
+    <link rel="stylesheet" href="style/index.css" type="text/css" />
+
+    <!-- embedding API provider -->
+    <script src="chrome://b2g/content/embedding/web-embedder.js"></script>
+
+    <!-- Our embedder implementation-->
+    <script src="js/embedding.js" type="module"></script>
+
+    <script src="js/marionette.js" type="module"></script>
+    <script src="js/window_manager.js" type="module"></script>
+  </head>
+  <body class="marionette">
+    <gaia-wm id="wm" class="marionette"></gaia-wm>
+  </body>
+</html>

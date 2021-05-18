@@ -22,6 +22,12 @@ body {
   font-family: sans-serif;
 }
 
+body.marionette {
+  background: salmon;
+  /* No status bar and navigation bar when running tests */
+  grid-template-rows: 1fr;
+}
+
 /* navigation footer */
 
 #navigation {

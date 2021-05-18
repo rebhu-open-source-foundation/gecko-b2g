@@ -476,7 +476,7 @@ class MachCommands(MachCommandBase):
     @Command(
         "web-platform-tests",
         category="testing",
-        conditions=[conditions.is_firefox_or_android],
+        conditions=[conditions.is_b2g_desktop or conditions.is_firefox_or_android],
         description="Run web-platform-tests.",
         parser=create_parser_wpt,
     )
@@ -519,7 +519,7 @@ class MachCommands(MachCommandBase):
     @Command(
         "wpt",
         category="testing",
-        conditions=[conditions.is_firefox_or_android],
+        conditions=[conditions.is_b2g_desktop or conditions.is_firefox_or_android],
         description="Run web-platform-tests.",
         parser=create_parser_wpt,
     )

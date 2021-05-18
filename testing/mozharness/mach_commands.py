@@ -213,7 +213,7 @@ class MozharnessCommands(MachCommandBase):
         "mozharness",
         category="testing",
         description="Run tests using mozharness.",
-        conditions=[conditions.is_firefox_or_android],
+        conditions=[conditions.is_b2g_desktop or conditions.is_firefox_or_android],
         parser=get_parser,
     )
     def mozharness(self, command_context, **kwargs):

@@ -159,6 +159,7 @@ WebViewChild.prototype = {
     // this value in the loadend event handler of the <web-view> element.
     let seenLoadStart = false;
     let seenLoadEnd = false;
+    let logfn = this.log;
     let progressListener = {
       QueryInterface: ChromeUtils.generateQI([
         Ci.nsIWebProgressListener,
@@ -177,7 +178,7 @@ WebViewChild.prototype = {
               .getComputedStyle(global.content.document.body)
               .getPropertyValue("background-color");
           } catch (e) {
-            WebViewChild.log(`Failed to get background-color property: ${e}`);
+            logfn(`Failed to get background-color property: ${e}`);
           }
           if (seenLoadStart && !seenLoadEnd) {
             global.sendAsyncMessage("WebView::backgroundcolor", {

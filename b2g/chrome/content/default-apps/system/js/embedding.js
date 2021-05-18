@@ -31,7 +31,7 @@
       throw Error("NOT IMPLEMENTED");
     },
 
-    openURIInFrame(aURI, aParams, aWhere, aFlags, aNextRemoteTabId, aName) {
+    openURIInFrame(aURI, aParams, aWhere, aFlags, aName) {
       // We currently ignore aNextRemoteTabId on mobile.  This needs to change
       // when Fennec starts to support e10s.  Assertions will fire if this code
       // isn't fixed by then.
@@ -48,30 +48,16 @@
         aParams,
         aWhere,
         aFlags,
-        aNextRemoteTabId,
         aName
       );
     },
 
     // Open a new tab in all cases.
-    createContentWindowInFrame(
-      aURI,
-      aParams,
-      aWhere,
-      aFlags,
-      aNextRemoteTabId,
-      aName
-    ) {
-      log(
-        `browserWindow::createContentWindowInFrame ${aURI} ${aParams.features} ${aNextRemoteTabId}`
-      );
+    createContentWindowInFrame(aURI, aParams, aWhere, aFlags, aName) {
+      log(`browserWindow::createContentWindowInFrame ${aURI} ${aParams}`);
 
       let wm = exports.wm;
-      let web_view = wm.open_frame(
-        aURI,
-        { activate: true },
-        aParams.openWindowInfo
-      );
+      let web_view = wm.open_frame(aURI, { activate: true }, aParams);
       return web_view;
     },
 
@@ -141,6 +127,6 @@
   // Force a Mobile User Agent string.
   Services.prefs.setCharPref(
     "general.useragent.override",
-    "Mozilla/5.0 (Mobile; rv:78.0) Gecko/20100101 Firefox/78.0 B2GOS/3.0"
+    "Mozilla/5.0 (Mobile; rv:90.0) Gecko/20100101 Firefox/90.0 B2GOS/3.0"
   );
 })(window);

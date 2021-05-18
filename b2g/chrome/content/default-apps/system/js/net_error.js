@@ -3,8 +3,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 function getErrorFromURI() {
-  let _error = {};
-  var uri = document.documentURI;
+  const uri = document.documentURI;
+  let _error = { uri };
 
   // Quick check to ensure it's the URI format we're expecting.
   if (!uri.startsWith("about:neterror?")) {
@@ -39,4 +39,5 @@ function getErrorFromURI() {
 }
 
 let node = document.getElementById("view");
-node.textContent = getErrorFromURI().e;
+let error = getErrorFromURI();
+node.textContent = `${error.e}: ${error.d}`;

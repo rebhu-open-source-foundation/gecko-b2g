@@ -164,6 +164,7 @@ variables:
     - sccache -z
     - ./mach build
     - sccache -s
+    - ./mach wpt testing/web-platform/tests/webdriver/tests/get_element_text/get.py --headless
 
 .build_emulator:
   image: ${CI_REGISTRY}/re/kaios-build/next/daily:1.49.0_5_3
