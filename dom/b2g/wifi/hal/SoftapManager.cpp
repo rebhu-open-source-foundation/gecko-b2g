@@ -167,7 +167,6 @@ Result_t SoftapManager::TearDownInterface() {
   }
 
   mHostapd = nullptr;
-  mServiceManager = nullptr;
   return nsIWifiResult::SUCCESS;
 }
 
@@ -252,7 +251,6 @@ Return<void> SoftapManager::onRegistration(const hidl_string& fqName,
   // start to initialize hostapd hidl interface.
   if (InitHostapdInterface() != nsIWifiResult::SUCCESS) {
     WIFI_LOGE(LOG_TAG, "Failed to initialize hostapd interface");
-    mServiceManager = nullptr;
     mHostapd = nullptr;
   }
   return Return<void>();

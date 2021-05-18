@@ -133,7 +133,6 @@ Result_t WifiHal::TearDownInterface(const wifiNameSpaceV1_0::IfaceType& aType) {
   }
 
   mWifi = nullptr;
-  mServiceManager = nullptr;
   return nsIWifiResult::SUCCESS;
 }
 
