@@ -824,6 +824,41 @@ void CursorSimulator::CheckScrollable(int32_t& aScrollableX,
           ("CursorSimulator::CheckScrollable: scroll:(%d,%d) max:(%d,%d)",
            scrollX, scrollY, scrollRangeMaxX, scrollRangeMaxY));
 
+  if (StaticPrefs::dom_meta_viewport_enabled()) {
+    RefPtr<Document> doc = mOuterWindow->GetExtantDoc();
+    PresShell* presShell = doc->GetPresShell();
+
+    // scrollHeight
+    int32_t scrollHeight = nsPresContext::AppUnitsToIntCSSPixels(
+        aScrollFrame->GetScrollRange().Height() +
+        aScrollFrame->GetScrollPortRect().Height());
+    // scrollWidth
+    int32_t scrollWidth = nsPresContext::AppUnitsToIntCSSPixels(
+        aScrollFrame->GetScrollRange().Width() +
+        aScrollFrame->GetScrollPortRect().Width());
+
+    // visualViewport.pageTop
+    int32_t pageTop =
+        nsPresContext::AppUnitsToIntCSSPixels(presShell->GetVisualViewportOffset().y);
+    // visualViewport.pageLeft
+    int32_t pageLeft =
+        nsPresContext::AppUnitsToIntCSSPixels(presShell->GetVisualViewportOffset().x);
+
+    // visualViewport.height
+    int32_t visualViewportHeight =
+        nsPresContext::AppUnitsToIntCSSPixels(presShell->GetVisualViewportSize().height);
+    // visualViewport.width
+    int32_t visualViewportWidth =
+        nsPresContext::AppUnitsToIntCSSPixels(presShell->GetVisualViewportSize().width);
+
+    if (scrollHeight > visualViewportHeight && scrollWidth > visualViewportHeight) {
+      scrollRangeMaxY = scrollHeight - visualViewportHeight;
+      scrollRangeMaxX = scrollWidth - visualViewportWidth;
+      scrollY = pageTop;
+      scrollX = pageLeft;
+    }
+  }
+
   if (aOffset.x > 0 && scrollRangeMaxX - scrollX > 0) {
     aScrollableX = scrollRangeMaxX - scrollX;
   } else if (aOffset.x < 0 && scrollX > 0) {
