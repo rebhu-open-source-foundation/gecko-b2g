@@ -544,7 +544,7 @@ static bool intrinsic_DefineDataProperty(JSContext* cx, unsigned argc,
   }
   RootedValue value(cx, args[2]);
 
-  unsigned attrs = 0;
+  JS::PropertyAttributes attrs;
   unsigned attributes = args[3].toInt32();
 
   MOZ_ASSERT(bool(attributes & ATTR_ENUMERABLE) !=
@@ -552,27 +552,26 @@ static bool intrinsic_DefineDataProperty(JSContext* cx, unsigned argc,
              "_DefineDataProperty must receive either ATTR_ENUMERABLE xor "
              "ATTR_NONENUMERABLE");
   if (attributes & ATTR_ENUMERABLE) {
-    attrs |= JSPROP_ENUMERATE;
+    attrs += JS::PropertyAttribute::Enumerable;
   }
 
   MOZ_ASSERT(bool(attributes & ATTR_CONFIGURABLE) !=
                  bool(attributes & ATTR_NONCONFIGURABLE),
              "_DefineDataProperty must receive either ATTR_CONFIGURABLE xor "
              "ATTR_NONCONFIGURABLE");
-  if (attributes & ATTR_NONCONFIGURABLE) {
-    attrs |= JSPROP_PERMANENT;
+  if (attributes & ATTR_CONFIGURABLE) {
+    attrs += JS::PropertyAttribute::Configurable;
   }
 
   MOZ_ASSERT(
       bool(attributes & ATTR_WRITABLE) != bool(attributes & ATTR_NONWRITABLE),
       "_DefineDataProperty must receive either ATTR_WRITABLE xor "
       "ATTR_NONWRITABLE");
-  if (attributes & ATTR_NONWRITABLE) {
-    attrs |= JSPROP_READONLY;
+  if (attributes & ATTR_WRITABLE) {
+    attrs += JS::PropertyAttribute::Writable;
   }
 
-  Rooted<PropertyDescriptor> desc(cx);
-  desc.setDataDescriptor(value, attrs);
+  Rooted<PropertyDescriptor> desc(cx, PropertyDescriptor::Data(value, attrs));
   if (!DefineProperty(cx, obj, id, desc)) {
     return false;
   }
@@ -597,59 +596,46 @@ static bool intrinsic_DefineProperty(JSContext* cx, unsigned argc, Value* vp) {
     return false;
   }
 
-  Rooted<PropertyDescriptor> desc(cx);
+  Rooted<PropertyDescriptor> desc(cx, PropertyDescriptor::Empty());
 
   unsigned attributes = args[2].toInt32();
-  unsigned attrs = 0;
-  if (attributes & ATTR_ENUMERABLE) {
-    attrs |= JSPROP_ENUMERATE;
-  } else if (!(attributes & ATTR_NONENUMERABLE)) {
-    attrs |= JSPROP_IGNORE_ENUMERATE;
+  if (attributes & (ATTR_ENUMERABLE | ATTR_NONENUMERABLE)) {
+    desc.setEnumerable(attributes & ATTR_ENUMERABLE);
   }
 
-  if (attributes & ATTR_NONCONFIGURABLE) {
-    attrs |= JSPROP_PERMANENT;
-  } else if (!(attributes & ATTR_CONFIGURABLE)) {
-    attrs |= JSPROP_IGNORE_PERMANENT;
+  if (attributes & (ATTR_CONFIGURABLE | ATTR_NONCONFIGURABLE)) {
+    desc.setConfigurable(attributes & ATTR_CONFIGURABLE);
   }
 
-  if (attributes & ATTR_NONWRITABLE) {
-    attrs |= JSPROP_READONLY;
-  } else if (!(attributes & ATTR_WRITABLE)) {
-    attrs |= JSPROP_IGNORE_READONLY;
+  if (attributes & (ATTR_WRITABLE | ATTR_NONWRITABLE)) {
+    desc.setWritable(attributes & ATTR_WRITABLE);
   }
 
   // When args[4] is |null|, the data descriptor has a value component.
   if ((attributes & DATA_DESCRIPTOR_KIND) && args[4].isNull()) {
-    desc.value().set(args[3]);
-  } else {
-    attrs |= JSPROP_IGNORE_VALUE;
+    desc.setValue(args[3]);
   }
 
   if (attributes & ACCESSOR_DESCRIPTOR_KIND) {
     Value getter = args[3];
-    MOZ_ASSERT(getter.isObject() || getter.isNullOrUndefined());
     if (getter.isObject()) {
       desc.setGetterObject(&getter.toObject());
-    }
-    if (!getter.isNull()) {
-      attrs |= JSPROP_GETTER;
+    } else if (getter.isUndefined()) {
+      desc.setGetterObject(nullptr);
+    } else {
+      MOZ_ASSERT(getter.isNull());
     }
 
     Value setter = args[4];
-    MOZ_ASSERT(setter.isObject() || setter.isNullOrUndefined());
     if (setter.isObject()) {
       desc.setSetterObject(&setter.toObject());
+    } else if (setter.isUndefined()) {
+      desc.setSetterObject(nullptr);
+    } else {
+      MOZ_ASSERT(setter.isNull());
     }
-    if (!setter.isNull()) {
-      attrs |= JSPROP_SETTER;
-    }
-
-    // By convention, these bits are not used on accessor descriptors.
-    attrs &= ~(JSPROP_IGNORE_READONLY | JSPROP_IGNORE_VALUE);
   }
 
-  desc.setAttributes(attrs);
   desc.assertValid();
 
   ObjectOpResult result;

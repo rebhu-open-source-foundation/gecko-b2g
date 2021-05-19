@@ -188,6 +188,10 @@ GeckoDriver.prototype.QueryInterface = ChromeUtils.generateQI([
  * during the session's lifetime.
  */
 GeckoDriver.prototype.handleModalDialog = function(action, dialog) {
+  if (!this.currentSession) {
+    return;
+  }
+
   if (action === modal.ACTION_OPENED) {
     this.dialog = new modal.Dialog(() => this.curBrowser, dialog);
     this.getActor().notifyDialogOpened();
@@ -236,16 +240,16 @@ GeckoDriver.prototype.getActor = function(options = {}) {
  *     otherwise the one from the currently selected frame. Defaults to false.
  *
  * @return {BrowsingContext}
- *     The browsing context.
+ *     The browsing context, or `null` if none is available
  */
 GeckoDriver.prototype.getBrowsingContext = function(options = {}) {
   const { context = this.context, parent = false, top = false } = options;
 
   let browsingContext = null;
   if (context === Context.Chrome) {
-    browsingContext = this.currentSession.chromeBrowsingContext;
+    browsingContext = this.currentSession?.chromeBrowsingContext;
   } else {
-    browsingContext = this.currentSession.contentBrowsingContext;
+    browsingContext = this.currentSession?.contentBrowsingContext;
   }
 
   if (browsingContext && parent) {
@@ -2280,11 +2284,6 @@ GeckoDriver.prototype.deleteSession = function() {
     return;
   }
 
-  clearElementIdCache();
-
-  unregisterCommandsActor();
-  unregisterEventsActor();
-
   for (let win of windowManager.windows) {
     this.unregisterListenersForWindow(win);
   }
@@ -2300,6 +2299,13 @@ GeckoDriver.prototype.deleteSession = function() {
   Services.obs.removeObserver(this, "browser-delayed-startup-finished");
 
   this.importedScripts.clear();
+
+  clearElementIdCache();
+
+  // Always unregister actors after all other observers
+  // and listeners have been removed.
+  unregisterCommandsActor();
+  unregisterEventsActor();
 
   this.currentSession.destroy();
   this.currentSession = null;

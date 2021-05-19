@@ -103,7 +103,6 @@ class DOMMediaStream : public DOMEventTargetHelper,
   NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(DOMMediaStream, DOMEventTargetHelper)
   NS_DECLARE_STATIC_IID_ACCESSOR(NS_DOMMEDIASTREAM_IID)
 
-  nsPIDOMWindowInner* GetParentObject() const { return mWindow; }
   virtual JSObject* WrapObject(JSContext* aCx,
                                JS::Handle<JSObject*> aGivenProto) override;
 
@@ -233,9 +232,6 @@ class DOMMediaStream : public DOMEventTargetHelper,
 
   // XXX Bug 1124630. Remove with CameraPreviewMediaStream.
   void CreateAndAddPlaybackStreamListener(MediaTrack*);
-
-  // We need this to track our parent object.
-  nsCOMPtr<nsPIDOMWindowInner> mWindow;
 
   // MediaStreamTracks contained by this DOMMediaStream.
   nsTArray<RefPtr<MediaStreamTrack>> mTracks;

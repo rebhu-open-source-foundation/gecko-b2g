@@ -1378,7 +1378,7 @@
 # Is support for CanvasRenderingContext2D's createConicGradient API enabled?
 - name: canvas.createConicGradient.enabled
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
 
 # Provide ability to turn on support for canvas mozGetAsFile API.
@@ -4822,6 +4822,15 @@
 - name: gfx.e10s.font-list.shared
   type: bool
   value: true
+  mirror: once
+
+- name: gfx.font-list-omt.enabled
+  type: bool
+#if defined(XP_MACOSX)
+  value: true
+#else
+  value: false
+#endif
   mirror: once
 
 # Whether to load fonts (e.g. Twemoji Mozilla) bundled with the application:
