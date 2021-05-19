@@ -68,6 +68,9 @@ struct ParamTraits<nsIMobileCallForwardingOptions*> {
 
     aParam->GetServiceClass(&pShort);
     WriteParam(aMsg, pShort);
+
+    // We release the ref here given that ipdl won't handle reference counting.
+    aParam->Release();
   }
 
   // Function to de-serialize a MobileCallForwardingOptions.
@@ -513,6 +516,9 @@ struct ParamTraits<nsIMobileSignalStrength*> {
 
     aParam->GetTdscdmaRscp(&pLong);
     WriteParam(aMsg, pLong);
+
+    // We release the ref here given that ipdl won't handle reference counting.
+    aParam->Release();
   }
 
   // Function to de-serialize a MobileDeviceIdentities.

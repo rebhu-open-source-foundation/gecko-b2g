@@ -5,50 +5,11 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "mozilla/dom/MobileSignalStrength.h"
-#include "mozilla/dom/MobileSignalStrengthBinding.h"
-#include "jsapi.h"
+#include "mozilla/dom/DOMMobileSignalStrength.h"
 
 using namespace mozilla::dom;
 
-NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(MobileSignalStrength, mWindow)
-
-NS_IMPL_CYCLE_COLLECTING_ADDREF(MobileSignalStrength)
-NS_IMPL_CYCLE_COLLECTING_RELEASE(MobileSignalStrength)
-
-NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(MobileSignalStrength)
-  NS_WRAPPERCACHE_INTERFACE_MAP_ENTRY
-  NS_INTERFACE_MAP_ENTRY(nsISupports)
-  NS_INTERFACE_MAP_ENTRY(nsIMobileSignalStrength)
-NS_INTERFACE_MAP_END
-
-MobileSignalStrength::MobileSignalStrength(nsPIDOMWindowInner* aWindow)
-    : mWindow(aWindow) {}
-
-MobileSignalStrength::MobileSignalStrength(
-    nsPIDOMWindowInner* aWindow, const int16_t& aLevel,
-    const int16_t& aGsmSignalStrength, const int16_t& aGsmSignalBitErrorRate,
-    const int16_t& aCdmaDbm, const int16_t& aCdmaEcio,
-    const int16_t& aCdmaEvdoDbm, const int16_t& aCdmaEvdoEcio,
-    const int16_t& aCdmaEvdoSNR, const int16_t& aLteSignalStrength,
-    const int32_t& aLteRsrp, const int32_t& aLteRsrq, const int32_t& aLteRssnr,
-    const int32_t& aLteCqi, const int32_t& aLteTimingAdvance,
-    const int32_t& aTdscdmaRscp)
-    : mWindow(aWindow),
-      mLevel(aLevel),
-      mGsmSignalStrength(aGsmSignalStrength),
-      mGsmSignalBitErrorRate(aGsmSignalBitErrorRate),
-      mCdmaDbm(aCdmaDbm),
-      mCdmaEcio(aCdmaEcio),
-      mCdmaEvdoDbm(aCdmaEvdoDbm),
-      mCdmaEvdoEcio(aCdmaEvdoEcio),
-      mCdmaEvdoSNR(aCdmaEvdoSNR),
-      mLteSignalStrength(aLteSignalStrength),
-      mLteRsrp(aLteRsrp),
-      mLteRsrq(aLteRsrq),
-      mLteRssnr(aLteRssnr),
-      mLteCqi(aLteCqi),
-      mLteTimingAdvance(aLteTimingAdvance),
-      mTdscdmaRscp(aTdscdmaRscp) {}
+NS_IMPL_ISUPPORTS(MobileSignalStrength, nsIMobileSignalStrength)
 
 MobileSignalStrength::MobileSignalStrength(
     const int16_t& aLevel, const int16_t& aGsmSignalStrength,
@@ -97,11 +58,6 @@ void MobileSignalStrength::Update(nsIMobileSignalStrength* aInfo) {
   aInfo->GetLteCqi(&mLteCqi);
   aInfo->GetLteTimingAdvance(&mLteTimingAdvance);
   aInfo->GetTdscdmaRscp(&mTdscdmaRscp);
-}
-
-JSObject* MobileSignalStrength::WrapObject(JSContext* aCx,
-                                           JS::Handle<JSObject*> aGivenProto) {
-  return MobileSignalStrength_Binding::Wrap(aCx, this, aGivenProto);
 }
 
 // nsIMobileSignalStrength

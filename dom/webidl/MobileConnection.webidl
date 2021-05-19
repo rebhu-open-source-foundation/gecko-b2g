@@ -158,7 +158,7 @@ interface MobileConnection : EventTarget
    * Signal strength information.
    */
   [Func="B2G::HasMobileConnectionSupport"]
-  readonly attribute MobileSignalStrength signalStrength;
+  readonly attribute DOMMobileSignalStrength signalStrength;
 
   /**
    * IMS registration handler.

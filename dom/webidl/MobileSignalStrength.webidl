@@ -5,7 +5,7 @@
 
 //[Pref="dom.mobileconnection.enabled",
  [Exposed=Window]
-interface MobileSignalStrength
+interface DOMMobileSignalStrength
 {
   /**
    * Level of signal bars.

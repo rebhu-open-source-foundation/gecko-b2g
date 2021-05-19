@@ -15,6 +15,7 @@ EXPORTS += [
 EXPORTS.mozilla.dom += [
     "DOMMobileConnectionDeviceIds.h",
     "DOMMobileNetworkInfo.h",
+    "DOMMobileSignalStrength.h",
     "ImsDeviceConfiguration.h",
     "ImsRegHandler.h",
     "MobileCellInfo.h",
@@ -52,6 +53,7 @@ UNIFIED_SOURCES += [
     "Assertions.cpp",
     "DOMMobileConnectionDeviceIds.cpp",
     "DOMMobileNetworkInfo.cpp",
+    "DOMMobileSignalStrength.cpp",
     "fallback/ImsRegService.cpp",
     "ImsDeviceConfiguration.cpp",
     "ImsRegCallback.cpp",

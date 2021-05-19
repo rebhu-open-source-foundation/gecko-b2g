@@ -46,7 +46,7 @@ void MobileConnectionChild::Init() {
 
   nsCOMPtr<nsIMobileSignalStrength> signalStrength =
       dont_AddRef(rawSignalStrength);
-  mSingalStrength = new MobileSignalStrength(nullptr);
+  mSingalStrength = new MobileSignalStrength();
   mSingalStrength->Update(signalStrength);
 
   nsCOMPtr<nsIMobileDeviceIdentities> deviceIdentities =
