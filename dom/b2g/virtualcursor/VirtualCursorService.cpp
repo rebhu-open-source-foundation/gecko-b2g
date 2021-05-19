@@ -107,8 +107,10 @@ NS_IMETHODIMP VirtualCursorService::Init(nsIDOMWindow* aWindow) {
   return NS_OK;
 }
 
-NS_IMETHODIMP VirtualCursorService::RemoveCursor() {
-  CursorOut();
+NS_IMETHODIMP VirtualCursorService::RemoveCursor(nsFrameLoader* aFrameLoader) {
+  if (mCurFrameLoader == aFrameLoader) {
+    CursorOut();
+  }
   return NS_OK;
 }
 
@@ -192,6 +194,7 @@ void VirtualCursorService::CursorMove() {
 void VirtualCursorService::CursorOut(bool aCheckActive) {
   MOZ_LOG(gVirtualCursorLog, LogLevel::Debug,
           ("VirtualCursorService::CursorOut"));
+  mCurFrameLoader = nullptr;
   SendCursorEvent(NS_LITERAL_STRING_FROM_CSTRING("mouseout"), 0, 0);
 }
 
@@ -202,6 +205,11 @@ void VirtualCursorService::ShowContextMenu() {
                                mCSSCursorPoint.x, mCSSCursorPoint.y, 2, 1, 0,
                                false, 0.0, 0, false, false, 0, 0, 6,
                                &preventDefault);
+}
+
+void VirtualCursorService::SetCurFrameLoader(nsFrameLoader* aFrameLoader) {
+  MOZ_RELEASE_ASSERT(!mCurFrameLoader || mCurFrameLoader == aFrameLoader);
+  mCurFrameLoader = aFrameLoader;
 }
 
 void VirtualCursorService::StartPanning() {

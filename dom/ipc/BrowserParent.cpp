@@ -4022,6 +4022,8 @@ mozilla::ipc::IPCResult BrowserParent::RecvIsWindowSupportingWebVR(
 mozilla::ipc::IPCResult BrowserParent::RecvUpdateCursorPos(
     const LayoutDeviceIntPoint& aPoint) {
   RefPtr<VirtualCursorService> service = VirtualCursorService::GetService();
+  RefPtr<nsFrameLoader> frameLoader = GetFrameLoader(false);
+  service->SetCurFrameLoader(frameLoader);
   service->UpdatePos(aPoint);
   return IPC_OK();
 }
@@ -4046,6 +4048,8 @@ mozilla::ipc::IPCResult BrowserParent::RecvCursorUp() {
 
 mozilla::ipc::IPCResult BrowserParent::RecvCursorMove() {
   RefPtr<VirtualCursorService> service = VirtualCursorService::GetService();
+  RefPtr<nsFrameLoader> frameLoader = GetFrameLoader(false);
+  service->SetCurFrameLoader(frameLoader);
   service->CursorMove();
   return IPC_OK();
 }

@@ -532,9 +532,7 @@
               }
               self.updateDCSState(false);
 
-              if (self.visible) {
-                Services.virtualcursor.removeCursor();
-              }
+              Services.virtualcursor.removeCursor(browser.frameLoader);
               break;
             }
             case "ipc:content-shutdown": {

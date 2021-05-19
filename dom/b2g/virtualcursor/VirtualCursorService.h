@@ -45,6 +45,7 @@ class VirtualCursorService final : public nsIVirtualCursor,
   virtual void CursorMove() override;
   virtual void CursorOut(bool aCheckActive = false) override;
   virtual void ShowContextMenu() override;
+  void SetCurFrameLoader(nsFrameLoader* aFrameLoader);
   void SendCursorEvent(const nsAString& aType, int32_t aButton,
                        int32_t aButtons);
 
@@ -60,6 +61,7 @@ class VirtualCursorService final : public nsIVirtualCursor,
   nsCOMPtr<nsIDOMWindowUtils> mWindowUtils;
   RefPtr<PanSimulator> mPanSimulator;
   CSSPoint mCSSCursorPoint;
+  RefPtr<nsFrameLoader> mCurFrameLoader;
 
   // A table to map outer window to the VirtualCursorProxy
   nsTHashMap<nsPtrHashKey<nsPIDOMWindowOuter>, RefPtr<VirtualCursorProxy>>
