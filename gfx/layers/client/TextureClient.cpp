@@ -334,7 +334,9 @@ static TextureType GetTextureType(gfx::SurfaceFormat aFormat,
 #endif
 
 #ifdef MOZ_WIDGET_GONK
-  return TextureType::GrallocBuffer;
+  if (gfxPlatform::WebRenderPrefEnabled()) {
+    return TextureType::GrallocBuffer;
+  }
 #endif
 
   return TextureType::Unknown;
@@ -418,6 +420,9 @@ TextureData* TextureData::Create(TextureForwarder* aAllocator,
 #ifdef MOZ_WIDGET_GONK
     case TextureType::GrallocBuffer:
       {
+        if (!gfxPlatform::WebRenderPrefEnabled()) {
+          return nullptr;
+        }
         TextureAllocationFlags allocFlags = aAllocFlags;
         if (aFormat == SurfaceFormat::R8G8B8X8 || aFormat == SurfaceFormat::B8G8R8X8) {
           // Skia doesn't support BGRX | RGBX, so ensure we clear the buffer for the proper
