@@ -78,6 +78,7 @@ variables:
     fi
 
 .precautions_base:
+  extends: .rules:skippable
   stage: .pre
   image: ${CI_REGISTRY}/kaios/gecko-dev/lint:3d9d58d5
   tags:
@@ -115,13 +116,9 @@ variables:
         fi
         echo "commit message of ${c} validated."
       done
-  rules:
-    - if: '$CI_MERGE_REQUEST_TITLE =~ /skip-lint|^WIP\:/'
-      when: never
-    - if: '$CI_MERGE_REQUEST_PROJECT_PATH == "KaiOS/gecko-dev"'
-    - if: '$CI_MERGE_REQUEST_PROJECT_PATH == "KaiOS/koost"'
 
 .lint_base:
+  stage: lint
   # this image is based on the one used by taskcluster in mozilla ci,
   # in combination with `clang-tidy` from our prebuilt mozbuild.tar.bz (v5).
   #
@@ -143,6 +140,8 @@ variables:
     - export MACH_USE_SYSTEM_PYTHON=${MACH_USE_SYSTEM_PYTHON-1}
     - './mach lint -l ${SPECIFIC_LINTERS// /" -l "} ${MACH_LINT_PARAMETERS} "${changed_files[@]}"'
 
+# it's worth noting that the following jobs don't directly extend ".build:rules" because
+# they're extended in other projects, e.g. re/kaios-build
 .build_desktop:
   image: ${CI_REGISTRY}/re/kaios-build/next/desktop:1.49.0_5_3
   tags:

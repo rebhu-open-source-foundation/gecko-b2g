@@ -1,0 +1,117 @@
+# with reference to and inspired by
+# https://gitlab.com/gitlab-org/gitlab/-/blob/master/.gitlab/ci/rules.gitlab-ci.yml
+
+##############
+# Conditions #
+##############
+.if-lint-can-be-skipped: &if-lint-can-be-skipped
+  if: '$CI_MERGE_REQUEST_TITLE =~ /skip-lint|^WIP\:/'
+
+.if-submitted-to-gecko: &if-submitted-to-gecko
+  if: $CI_MERGE_REQUEST_PROJECT_PATH == "KaiOS/gecko-dev"
+
+.if-submitted-to-koost: &if-submitted-to-koost
+  if: $CI_MERGE_REQUEST_PROJECT_PATH == "KaiOS/koost"
+
+####################
+# Changes patterns #
+####################
+.eslint-patterns: &eslint-patterns
+  - "**/*.{js,jsm,jsx,xul,html,xhtml}"
+  # Run when eslint policies change.
+  - "**/.eslintignore"
+  - "**/*eslintrc*"
+  # The plugin implementing custom checks by moz.
+  - "tools/lint/eslint/eslint-plugin-mozilla/**"
+  - "tools/lint/eslint/eslint-plugin-spidermonkey-js/**"
+
+.cpp-lint-patterns: &cpp-lint-patterns
+  - "**/*.{c,cpp,cc,h}"
+
+.pylint-patterns: &pylint-patterns
+  - "**/*.py"
+
+.rustfmt-patterns: &rustfmt-patterns
+  - "**/*.rs"
+  - "**/Cargo.toml"
+
+.yaml-lint-patterns: &yaml-lint-patterns
+  - '**/*.yml'
+  - '**/*.yaml'
+  - '**/.ymllint'
+
+##################
+#  common rules  #
+##################
+.rules:skippable:
+  rules:
+    - <<: *if-lint-can-be-skipped
+      when: never
+    - <<: *if-submitted-to-gecko
+    - <<: *if-submitted-to-koost
+
+.rules:unskippable:
+  rules:
+    - <<: *if-submitted-to-gecko
+    - <<: *if-submitted-to-koost
+
+################
+#  lint rules  #
+################
+.lint:rules:eslint:
+  rules:
+    - <<: *if-lint-can-be-skipped
+      when: never
+    - <<: *if-submitted-to-gecko
+      changes: *eslint-patterns
+    - <<: *if-submitted-to-koost
+      changes: *eslint-patterns
+
+.lint:rules:cpp:
+  rules:
+    - <<: *if-lint-can-be-skipped
+      when: never
+    - <<: *if-submitted-to-gecko
+      changes: *cpp-lint-patterns
+    - <<: *if-submitted-to-koost
+      changes: *cpp-lint-patterns
+
+.lint:rules:python:
+  rules:
+    - <<: *if-lint-can-be-skipped
+      when: never
+    - <<: *if-submitted-to-gecko
+      changes: *pylint-patterns
+    - <<: *if-submitted-to-koost
+      changes: *pylint-patterns
+
+.lint:rules:rs:
+  rules:
+    - <<: *if-lint-can-be-skipped
+      when: never
+    - <<: *if-submitted-to-gecko
+      changes: *rustfmt-patterns
+    - <<: *if-submitted-to-koost
+      changes: *rustfmt-patterns
+
+.lint:rules:yml:
+  rules:
+    - <<: *if-lint-can-be-skipped
+      when: never
+    - <<: *if-submitted-to-gecko
+      changes: *yaml-lint-patterns
+    - <<: *if-submitted-to-koost
+      changes: *yaml-lint-patterns
+
+#################
+#  build rules  #
+#################
+# a rule that eusures the priority for the longest build:arm to get served by runner
+.build:rules:delayed:
+  rules:
+    - <<: *if-submitted-to-gecko
+      when: delayed
+      start_in: 10 seconds
+    - <<: *if-submitted-to-koost
+      when: delayed
+      start_in: 10 seconds

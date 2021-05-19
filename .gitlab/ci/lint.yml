@@ -2,7 +2,9 @@
 # initiating the linters classified by file extension.
 # note that eslint needs some specific prerequisites.
 .lint_eslint:
-  extends: .lint_base
+  extends:
+    - .lint_base
+    - .lint:rules:eslint
   # lock this job to specific runner in order to ultilize cache
   tags:
     - gecko-eslint
@@ -37,18 +39,6 @@
         echo "move node_modules back to ${GIT_CLONE_PATH} in order for cache."
         mv ../node_modules ./
       fi
-  rules:
-    - if: '$CI_MERGE_REQUEST_TITLE =~ /skip-lint|^WIP\:/'
-      when: never
-    - if: '$CI_MERGE_REQUEST_PROJECT_PATH == "KaiOS/gecko-dev" || $CI_MERGE_REQUEST_PROJECT_PATH == "KaiOS/koost"'
-      changes:
-        - "**/*.{js,jsm,jsx,xul,html,xhtml}"
-        # Run when eslint policies change.
-        - "**/.eslintignore"
-        - "**/*eslintrc*"
-        # The plugin implementing custom checks by moz.
-        - "tools/lint/eslint/eslint-plugin-mozilla/**"
-        - "tools/lint/eslint/eslint-plugin-spidermonkey-js/**"
   # cache node_modules as taskcluster does
   cache:
     key: "${CI_MERGE_REQUEST_TARGET_BRANCH_NAME}-eslint"
@@ -57,65 +47,42 @@
     policy: pull-push
 
 .lint_common:
-  extends: .lint_base
-  stage: lint
+  extends:
+    - .lint_base
+    - .rules:skippable
   variables:
     SPECIFIC_LINTERS: "license rejected-words file-whitespace"
-  rules:
-    - if: '$CI_MERGE_REQUEST_TITLE =~ /skip-lint|^WIP\:/'
-      when: never
-    - if: '$CI_MERGE_REQUEST_PROJECT_PATH == "KaiOS/gecko-dev" || $CI_MERGE_REQUEST_PROJECT_PATH == "KaiOS/koost"'
 
 .lint_cpp:
-  extends: .lint_base
-  stage: lint
+  extends:
+    - .lint_base
+    - .lint:rules:cpp
   variables:
     PATHSPEC: '*.{c,cpp,cc,h}'
     SPECIFIC_LINTERS: "codespell mingw-capitalization clang-format cpp-virtual-final"
-  rules:
-    - if: '$CI_MERGE_REQUEST_TITLE =~ /skip-lint|^WIP\:/'
-      when: never
-    - if: '$CI_MERGE_REQUEST_PROJECT_PATH == "KaiOS/gecko-dev" || $CI_MERGE_REQUEST_PROJECT_PATH == "KaiOS/koost"'
-      changes:
-        - "**/*.{c,cpp,cc,h}"
 
 .lint_python:
-  extends: .lint_base
+  extends:
+    - .lint_base
+    - .lint:rules:python
   variables:
   # it's weird that '*.py' is not as recognizable as '*.{c,cpp,cc,h}' for git
   # hence glob is alternatively used here
     PATHSPEC: "'**/*.py'"
     SPECIFIC_LINTERS: "codespell flake8 black pylint"
-  rules:
-    - if: '$CI_MERGE_REQUEST_TITLE =~ /skip-lint|^WIP\:/'
-      when: never
-    - if: '$CI_MERGE_REQUEST_PROJECT_PATH == "KaiOS/gecko-dev" || $CI_MERGE_REQUEST_PROJECT_PATH == "KaiOS/koost"'
-      changes:
-        - "**/*.py"
 
 .lint_rs:
-  extends: .lint_base
+  extends:
+    - .lint_base
+    - .lint:rules:rs
   variables:
     PATHSPEC: '**/Cargo.toml **/*.rs'
     SPECIFIC_LINTERS: "file-perm rustfmt clippy"
-  rules:
-    - if: '$CI_MERGE_REQUEST_TITLE =~ /skip-lint|^WIP\:/'
-      when: never
-    - if: '$CI_MERGE_REQUEST_PROJECT_PATH == "KaiOS/gecko-dev" || $CI_MERGE_REQUEST_PROJECT_PATH == "KaiOS/koost"'
-      changes:
-        - "**/*.rs"
-        - "**/Cargo.toml"
 
 .lint_yml:
-  extends: .lint_base
+  extends:
+    - .lint_base
+    - .lint:rules:yml
   variables:
     PATHSPEC: "'*.yml' '*.yaml' ':(glob)**/.ymllint'"
     SPECIFIC_LINTERS: 'yaml'
-  rules:
-    - if: '$CI_MERGE_REQUEST_TITLE =~ /skip-lint|^WIP\:/'
-      when: never
-    - if: '$CI_MERGE_REQUEST_PROJECT_PATH == "KaiOS/gecko-dev" || $CI_MERGE_REQUEST_PROJECT_PATH == "KaiOS/koost"'
-      changes:
-        - '**/*.yml'
-        - '**/*.yaml'
-        - '**/.ymllint'

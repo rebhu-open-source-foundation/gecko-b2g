@@ -12,6 +12,7 @@ workflow:
     - when: never
 
 include:
+  - '.gitlab/ci/rules.yml'
   - '.gitlab/ci/bases.yml'
   - '.gitlab/ci/lint.yml'
 
@@ -19,13 +20,6 @@ default:
   image: ${CI_REGISTRY}/re/kaios-build/next/daily:1.49.0_5_3
   tags:
     - hk-fantastic4
-
-# an anchor that eusures the priority for the longest build:arm to get served by runner
-.delayed_job: &delay_if_triggered_by_mr
-  rules:
-    - if: '$CI_MERGE_REQUEST_PROJECT_PATH == "KaiOS/gecko-dev"'
-      when: delayed
-      start_in: 10 seconds
 
 variables:
   # GIT_CLONE_PATH would be overidden with "koost" if pipeline gets triggered from within koost
@@ -68,20 +62,22 @@ lint:yml:
   stage: lint
 
 build:arm:
-  extends: .build_arm
+  extends:
+    - .build_arm
+    - .rules:unskippable
   stage: build
-  rules:
-    - if: '$CI_MERGE_REQUEST_PROJECT_PATH == "KaiOS/gecko-dev"'
 
 build:desktop:
-  extends: .build_desktop
+  extends:
+    - .build_desktop
+    - .build:rules:delayed
   stage: build
-  <<: *delay_if_triggered_by_mr
 
 build:emulator:
-  extends: .build_emulator
+  extends:
+    - .build_emulator
+    - .build:rules:delayed
   stage: build
-  <<: *delay_if_triggered_by_mr
 
 production:desktop:
   extends: .build_desktop
