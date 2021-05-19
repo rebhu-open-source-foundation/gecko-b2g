@@ -40,7 +40,7 @@
   rules:
     - if: '$CI_MERGE_REQUEST_TITLE =~ /skip-lint|^WIP\:/'
       when: never
-    - if: '$CI_MERGE_REQUEST_PROJECT_PATH == "KaiOS/gecko-dev"'
+    - if: '$CI_MERGE_REQUEST_PROJECT_PATH == "KaiOS/gecko-dev" || $CI_MERGE_REQUEST_PROJECT_PATH == "KaiOS/koost"'
       changes:
         - "**/*.{js,jsm,jsx,xul,html,xhtml}"
         # Run when eslint policies change.
@@ -64,7 +64,7 @@
   rules:
     - if: '$CI_MERGE_REQUEST_TITLE =~ /skip-lint|^WIP\:/'
       when: never
-    - if: '$CI_MERGE_REQUEST_PROJECT_PATH == "KaiOS/gecko-dev"'
+    - if: '$CI_MERGE_REQUEST_PROJECT_PATH == "KaiOS/gecko-dev" || $CI_MERGE_REQUEST_PROJECT_PATH == "KaiOS/koost"'
 
 .lint_cpp:
   extends: .lint_base
@@ -75,7 +75,7 @@
   rules:
     - if: '$CI_MERGE_REQUEST_TITLE =~ /skip-lint|^WIP\:/'
       when: never
-    - if: '$CI_MERGE_REQUEST_PROJECT_PATH == "KaiOS/gecko-dev"'
+    - if: '$CI_MERGE_REQUEST_PROJECT_PATH == "KaiOS/gecko-dev" || $CI_MERGE_REQUEST_PROJECT_PATH == "KaiOS/koost"'
       changes:
         - "**/*.{c,cpp,cc,h}"
 
@@ -89,7 +89,7 @@
   rules:
     - if: '$CI_MERGE_REQUEST_TITLE =~ /skip-lint|^WIP\:/'
       when: never
-    - if: '$CI_MERGE_REQUEST_PROJECT_PATH == "KaiOS/gecko-dev"'
+    - if: '$CI_MERGE_REQUEST_PROJECT_PATH == "KaiOS/gecko-dev" || $CI_MERGE_REQUEST_PROJECT_PATH == "KaiOS/koost"'
       changes:
         - "**/*.py"
 
@@ -101,7 +101,7 @@
   rules:
     - if: '$CI_MERGE_REQUEST_TITLE =~ /skip-lint|^WIP\:/'
       when: never
-    - if: '$CI_MERGE_REQUEST_PROJECT_PATH == "KaiOS/gecko-dev"'
+    - if: '$CI_MERGE_REQUEST_PROJECT_PATH == "KaiOS/gecko-dev" || $CI_MERGE_REQUEST_PROJECT_PATH == "KaiOS/koost"'
       changes:
         - "**/*.rs"
         - "**/Cargo.toml"
@@ -114,7 +114,7 @@
   rules:
     - if: '$CI_MERGE_REQUEST_TITLE =~ /skip-lint|^WIP\:/'
       when: never
-    - if: '$CI_MERGE_REQUEST_PROJECT_PATH == "KaiOS/gecko-dev"'
+    - if: '$CI_MERGE_REQUEST_PROJECT_PATH == "KaiOS/gecko-dev" || $CI_MERGE_REQUEST_PROJECT_PATH == "KaiOS/koost"'
       changes:
         - '**/*.yml'
         - '**/*.yaml'

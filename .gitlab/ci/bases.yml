@@ -119,6 +119,7 @@ variables:
     - if: '$CI_MERGE_REQUEST_TITLE =~ /skip-lint|^WIP\:/'
       when: never
     - if: '$CI_MERGE_REQUEST_PROJECT_PATH == "KaiOS/gecko-dev"'
+    - if: '$CI_MERGE_REQUEST_PROJECT_PATH == "KaiOS/koost"'
 
 .lint_base:
   # this image is based on the one used by taskcluster in mozilla ci,
