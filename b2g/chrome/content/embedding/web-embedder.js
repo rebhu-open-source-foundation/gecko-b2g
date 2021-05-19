@@ -282,9 +282,11 @@ XPCOMUtils.defineLazyServiceGetter(
           // nsISidlConnectionObserver
           disconnected() {
             self.dispatchEvent(new CustomEvent("daemon-disconnected"));
+            Services.obs.notifyObservers(null, "api-daemon-disconnected");
           },
           reconnected() {
             self.dispatchEvent(new CustomEvent("daemon-reconnected"));
+            Services.obs.notifyObservers(null, "api-daemon-reconnected");
           },
         });
       } else {

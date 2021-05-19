@@ -127,10 +127,22 @@ this.GeckoBridge = {
     this.setPreferenceDelegate();
     this.setMobileManagerDelegate();
     this.setNetworkManagerDelegate();
+
+    Services.obs.addObserver(this, "api-daemon-reconnected");
   },
 
   observe(subject, topic, data) {
-    this.setPref(data);
+    log(`received observer notification: ${topic}`);
+
+    if (topic == "api-daemon-reconnected") {
+      // When reconnecting the daemon, we need to send the pref list
+      // again since it's not persisted.
+      kWatchedPrefs.forEach(pref => {
+        this.setPref(pref);
+      });
+    } else {
+      this.setPref(data);
+    }
   },
 
   generateLoggingCallback(delegate) {
