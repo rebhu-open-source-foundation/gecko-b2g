@@ -74,9 +74,7 @@ class Call {
 class BluetoothHfpManager : public BluetoothHfpManagerBase,
                             public BluetoothHandsfreeNotificationHandler,
                             public hal::BatteryObserver,
-                            public nsISettingsGetResponse,
-                            public nsISettingsObserver,
-                            public nsISidlDefaultResponse {
+                            public nsISettingsObserver {
   enum {
     MODE_HEADSET = 0x00,
     MODE_NARROWBAND_SPEECH = 0x01,
@@ -85,9 +83,7 @@ class BluetoothHfpManager : public BluetoothHfpManagerBase,
 
  public:
   BT_DECL_HFP_MGR_BASE
-  NS_DECL_NSISETTINGSGETRESPONSE
   NS_DECL_NSISETTINGSOBSERVER
-  NS_DECL_NSISIDLDEFAULTRESPONSE
 
   static const int MAX_NUM_CLIENTS;
 
@@ -114,6 +110,9 @@ class BluetoothHfpManager : public BluetoothHfpManagerBase,
                               bool aSend);
   void HandleIccInfoChanged(uint32_t aClientId);
   void HandleVoiceConnectionChanged(uint32_t aClientId);
+
+  // Handle the volume change of Bluetooth SCO (audio connection)
+  void HandleVolumeChanged(const nsAString& aVolume);
 
   // CDMA-specific functions
   void UpdateSecondNumber(const nsAString& aNumber);
@@ -194,8 +193,6 @@ class BluetoothHfpManager : public BluetoothHfpManagerBase,
   void Cleanup();
 
   void HandleShutdown();
-
-  void HandleVolumeChanged(const nsAString& aVolume);
 
   void Notify(const hal::BatteryInformation& aBatteryInfo) override;
 

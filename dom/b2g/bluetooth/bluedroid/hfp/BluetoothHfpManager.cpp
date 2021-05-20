@@ -37,6 +37,10 @@ using namespace mozilla;
 using namespace mozilla::ipc;
 USING_BLUETOOTH_NAMESPACE
 
+// Declared for using nsISettingsManager
+class SettingsGetResponse;
+class SidlResponse;
+
 namespace {
 StaticRefPtr<BluetoothHfpManager> sBluetoothHfpManager;
 static BluetoothHandsfreeInterface* sBluetoothHfpInterface = nullptr;
@@ -50,10 +54,56 @@ static int sWaitingForDialingInterval = 3000;  // unit: ms
 // The mechanism should be revised once we know the exact time at which
 // Dialer stops playing.
 static int sBusyToneInterval = 3700;  // unit: ms
+
+// StaticRefPtr used by nsISettingsManager::Get()
+// By design, the instance stays alive even when HFP is unregistered
+StaticRefPtr<SettingsGetResponse> sSettingsGetResponse;
+
+// StaticRefPtr used by nsISettingsManager::AddObserver()
+// By design, the instance stays alive even when HFP is unregistered
+StaticRefPtr<SidlResponse> sSidlResponse;
 }  // namespace
 
 bool BluetoothHfpManager::sInShutdown = false;
 const int BluetoothHfpManager::MAX_NUM_CLIENTS = 1;
+
+class SettingsGetResponse final : public nsISettingsGetResponse {
+ public:
+  NS_DECL_ISUPPORTS
+  NS_DECL_NSISETTINGSGETRESPONSE
+
+ protected:
+  ~SettingsGetResponse() = default;
+};
+NS_IMETHODIMP SettingsGetResponse::Resolve(nsISettingInfo* info) {
+  if (info && sBluetoothHfpManager) {
+    nsString value;
+    info->GetValue(value);
+    sBluetoothHfpManager->HandleVolumeChanged(value);
+  }
+  return NS_OK;
+}
+NS_IMETHODIMP SettingsGetResponse::Reject(
+    [[maybe_unused]] nsISettingError* aSettingError) {
+  BT_WARNING("Failed to get setting 'audio.volume.bt_sco'");
+  return NS_OK;
+}
+NS_IMPL_ISUPPORTS(SettingsGetResponse, nsISettingsGetResponse)
+
+class SidlResponse final : public nsISidlDefaultResponse {
+ public:
+  NS_DECL_ISUPPORTS
+  NS_DECL_NSISIDLDEFAULTRESPONSE
+
+ protected:
+  ~SidlResponse() = default;
+};
+NS_IMETHODIMP SidlResponse::Resolve() { return NS_OK; }
+NS_IMETHODIMP SidlResponse::Reject() {
+  BT_WARNING("Failed to observe setting 'audio.volume.bt_sco'");
+  return NS_ERROR_FAILURE;
+}
+NS_IMPL_ISUPPORTS(SidlResponse, nsISidlDefaultResponse)
 
 static bool IsValidDtmf(const char aChar) {
   // Valid DTMF: [*#0-9ABCD]
@@ -212,8 +262,14 @@ bool BluetoothHfpManager::Init() {
   nsCOMPtr<nsISettingsManager> settings =
       do_GetService("@mozilla.org/sidl-native/settings;1");
   if (settings) {
-    settings->Get(AUDIO_VOLUME_BT_SCO_ID, this);
-    settings->AddObserver(AUDIO_VOLUME_BT_SCO_ID, this, this);
+    if (!sSettingsGetResponse) {
+      sSettingsGetResponse = new SettingsGetResponse();
+    }
+    if (!sSidlResponse) {
+      sSidlResponse = new SidlResponse();
+    }
+    settings->Get(AUDIO_VOLUME_BT_SCO_ID, sSettingsGetResponse.get());
+    settings->AddObserver(AUDIO_VOLUME_BT_SCO_ID, this, sSidlResponse.get());
   }
 
   return true;
@@ -230,7 +286,7 @@ void BluetoothHfpManager::Uninit() {
   nsCOMPtr<nsISettingsManager> settings =
       do_GetService("@mozilla.org/sidl-native/settings;1");
   if (settings) {
-    settings->RemoveObserver(AUDIO_VOLUME_BT_SCO_ID, this, this);
+    settings->RemoveObserver(AUDIO_VOLUME_BT_SCO_ID, this, sSidlResponse.get());
   }
 
   nsCOMPtr<nsIObserverService> obs = services::GetObserverService();
@@ -717,7 +773,7 @@ void BluetoothHfpManager::HandleShutdown() {
   nsCOMPtr<nsISettingsManager> settings =
       do_GetService("@mozilla.org/sidl-native/settings;1");
   if (settings) {
-    settings->RemoveObserver(AUDIO_VOLUME_BT_SCO_ID, this, this);
+    settings->RemoveObserver(AUDIO_VOLUME_BT_SCO_ID, this, sSidlResponse.get());
   }
 }
 
@@ -1711,23 +1767,6 @@ void BluetoothHfpManager::KeyPressedNotification(
   }
 }
 
-// Implements nsISettingsGetResponse::Resolve
-NS_IMETHODIMP BluetoothHfpManager::Resolve(nsISettingInfo* info) {
-  if (info) {
-    nsString value;
-    info->GetValue(value);
-    HandleVolumeChanged(value);
-  }
-  return NS_OK;
-}
-
-// Implements nsISettingsGetResponse::Reject
-NS_IMETHODIMP BluetoothHfpManager::Reject([
-    [maybe_unused]] nsISettingError* error) {
-  BT_WARNING("Failed to get setting 'audio.volume.bt_sco'");
-  return NS_OK;
-}
-
 // Implements nsISettingsObserver::ObserveSetting
 NS_IMETHODIMP BluetoothHfpManager::ObserveSetting(nsISettingInfo* info) {
   if (info) {
@@ -1739,12 +1778,4 @@ NS_IMETHODIMP BluetoothHfpManager::ObserveSetting(nsISettingInfo* info) {
   return NS_OK;
 }
 
-// Implements nsISidlDefaultResponse
-NS_IMETHODIMP BluetoothHfpManager::Resolve() { return NS_OK; }
-NS_IMETHODIMP BluetoothHfpManager::Reject() {
-  BT_WARNING("Failed to observe setting 'audio.volume.bt_sco'");
-  return NS_OK;
-}
-
-NS_IMPL_ISUPPORTS(BluetoothHfpManager, nsIObserver, nsISettingsGetResponse,
-                  nsISettingsObserver, nsISidlDefaultResponse)
+NS_IMPL_ISUPPORTS(BluetoothHfpManager, nsIObserver, nsISettingsObserver)
