@@ -189,6 +189,7 @@ class BluetoothHfpManager : public BluetoothHfpManagerBase,
 
   BluetoothHfpManager();
   bool Init();
+  void Uninit();
 
   void Cleanup();
 

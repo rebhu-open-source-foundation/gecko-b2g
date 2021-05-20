@@ -219,6 +219,28 @@ bool BluetoothHfpManager::Init() {
   return true;
 }
 
+void BluetoothHfpManager::Uninit() {
+  if (!mListener->Listen(false)) {
+    BT_WARNING("Failed to stop listening RIL");
+  }
+  mListener = nullptr;
+
+  hal::UnregisterBatteryObserver(this);
+
+  nsCOMPtr<nsISettingsManager> settings =
+      do_GetService("@mozilla.org/sidl-native/settings;1");
+  if (settings) {
+    settings->RemoveObserver(AUDIO_VOLUME_BT_SCO_ID, this, this);
+  }
+
+  nsCOMPtr<nsIObserverService> obs = services::GetObserverService();
+  NS_ENSURE_TRUE_VOID(obs);
+
+  if (NS_FAILED(obs->RemoveObserver(this, NS_XPCOM_SHUTDOWN_OBSERVER_ID))) {
+    BT_WARNING("Failed to remove observers!");
+  }
+}
+
 class BluetoothHfpManager::RegisterModuleResultHandler final
     : public BluetoothSetupResultHandler {
  public:
@@ -343,21 +365,7 @@ void BluetoothHfpManager::InitHfpInterface(
       new RegisterModuleResultHandler(interface, aRes));
 }
 
-BluetoothHfpManager::~BluetoothHfpManager() {
-  if (!mListener->Listen(false)) {
-    BT_WARNING("Failed to stop listening RIL");
-  }
-  mListener = nullptr;
-
-  nsCOMPtr<nsIObserverService> obs = services::GetObserverService();
-  NS_ENSURE_TRUE_VOID(obs);
-
-  if (NS_FAILED(obs->RemoveObserver(this, NS_XPCOM_SHUTDOWN_OBSERVER_ID))) {
-    BT_WARNING("Failed to remove observers!");
-  }
-
-  hal::UnregisterBatteryObserver(this);
-}
+BluetoothHfpManager::~BluetoothHfpManager() {}
 
 class BluetoothHfpManager::UnregisterModuleResultHandler final
     : public BluetoothSetupResultHandler {
@@ -373,6 +381,8 @@ class BluetoothHfpManager::UnregisterModuleResultHandler final
 
     sBluetoothHfpInterface->SetNotificationHandler(nullptr);
     sBluetoothHfpInterface = nullptr;
+
+    sBluetoothHfpManager->Uninit();
     sBluetoothHfpManager = nullptr;
 
     if (mRes) {
@@ -385,6 +395,8 @@ class BluetoothHfpManager::UnregisterModuleResultHandler final
 
     sBluetoothHfpInterface->SetNotificationHandler(nullptr);
     sBluetoothHfpInterface = nullptr;
+
+    sBluetoothHfpManager->Uninit();
     sBluetoothHfpManager = nullptr;
 
     if (mRes) {
@@ -1734,4 +1746,5 @@ NS_IMETHODIMP BluetoothHfpManager::Reject() {
   return NS_OK;
 }
 
-NS_IMPL_ISUPPORTS(BluetoothHfpManager, nsIObserver)
+NS_IMPL_ISUPPORTS(BluetoothHfpManager, nsIObserver, nsISettingsGetResponse,
+                  nsISettingsObserver, nsISidlDefaultResponse)
