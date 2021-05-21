@@ -1,3 +1,5 @@
+include: '.gitlab/ci/rules.yml'
+
 variables:
   SCCACHE_REDIS_BASEURL: redis://10.81.70.108
 
@@ -68,14 +70,16 @@ variables:
       cd ${GIT_CLONE_PATH%/*}
       git init
       git fetch ${CI_SERVER_URL}/KaiOS/gecko-dev.git ${CI_MERGE_REQUEST_TARGET_BRANCH_NAME} --no-tags --depth 1 -j${CPU_CORES:-8}
-      git checkout FETCH_HEAD
+      git reset --hard FETCH_HEAD
     else
       cd ${GIT_CLONE_PATH}
       if [[ ${CI_JOB_NAME%:*} == build ]]; then
+        rm -rf koost
         git clone ${CI_SERVER_URL}/KaiOS/koost.git -b ${CI_MERGE_REQUEST_TARGET_BRANCH_NAME} --depth 1
         git -C koost log -1
       fi
     fi
+  - git clean -dfx
 
 .precautions_base:
   extends: .rules:skippable

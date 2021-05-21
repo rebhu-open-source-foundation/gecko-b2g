@@ -12,7 +12,6 @@ workflow:
     - when: never
 
 include:
-  - '.gitlab/ci/rules.yml'
   - '.gitlab/ci/bases.yml'
   - '.gitlab/ci/lint.yml'
 
