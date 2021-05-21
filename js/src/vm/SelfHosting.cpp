@@ -2784,6 +2784,10 @@ bool JSRuntime::initSelfHosting(JSContext* cx, JS::SelfHostedCache xdrCache,
   bool decodeOk = false;
   Rooted<frontend::CompilationGCOutput> output(cx);
   if (xdrCache.Length() > 0) {
+    // Allow the VM to directly use bytecode from the XDR buffer without
+    // copying it. The buffer must outlive all runtimes (including workers).
+    options.usePinnedBytecode = true;
+
     Rooted<frontend::CompilationInput> input(
         cx, frontend::CompilationInput(options));
     if (!input.get().initForSelfHostingGlobal(cx)) {
@@ -3021,14 +3025,11 @@ static JSObject* CloneObject(JSContext* cx,
   if (selfHostedObject->is<JSFunction>()) {
     RootedFunction selfHostedFunction(cx, &selfHostedObject->as<JSFunction>());
     if (selfHostedFunction->isInterpreted()) {
-      bool hasName = selfHostedFunction->explicitName() != nullptr;
-
       // Arrow functions use the first extended slot for their lexical |this|
       // value. And methods use the first extended slot for their home-object.
       // We only expect to see normal functions here.
       MOZ_ASSERT(selfHostedFunction->kind() == FunctionFlags::NormalFunction);
-      js::gc::AllocKind kind = hasName ? gc::AllocKind::FUNCTION_EXTENDED
-                                       : selfHostedFunction->getAllocKind();
+      MOZ_ASSERT(selfHostedFunction->isLambda() == false);
 
       Handle<GlobalObject*> global = cx->global();
       Rooted<GlobalLexicalEnvironmentObject*> globalLexical(
@@ -3042,19 +3043,22 @@ static JSObject* CloneObject(JSContext* cx,
       MOZ_ASSERT(
           !CanReuseScriptForClone(cx->realm(), selfHostedFunction, global));
       clone = CloneFunctionAndScript(cx, selfHostedFunction, globalLexical,
-                                     emptyGlobalScope, sourceObject, kind);
-      // To be able to re-lazify the cloned function, its name in the
-      // self-hosting compartment has to be stored on the clone. Re-lazification
-      // is only possible if this isn't a function expression.
-      if (clone && !selfHostedFunction->isLambda()) {
-        // If |_SetCanonicalName| was called on the function, the function name
-        // to use is stored in the extended slot.
-        if (JSAtom* name =
-                GetUnclonedSelfHostedCanonicalName(selfHostedFunction)) {
-          clone->as<JSFunction>().setAtom(name);
-        }
-        SetClonedSelfHostedFunctionName(&clone->as<JSFunction>(),
-                                        selfHostedFunction->explicitName());
+                                     emptyGlobalScope, sourceObject,
+                                     gc::AllocKind::FUNCTION_EXTENDED);
+      if (!clone) {
+        return nullptr;
+      }
+
+      // Save the original function name that we are cloning from. This allows
+      // the function to potentially be relazified in the future.
+      SetClonedSelfHostedFunctionName(&clone->as<JSFunction>(),
+                                      selfHostedFunction->explicitName());
+
+      // If |_SetCanonicalName| was called on the function, the function name to
+      // use is stored in the extended slot.
+      if (JSAtom* name =
+              GetUnclonedSelfHostedCanonicalName(selfHostedFunction)) {
+        clone->as<JSFunction>().setAtom(name);
       }
     } else {
       clone = CloneSelfHostingIntrinsic(cx, selfHostedFunction);

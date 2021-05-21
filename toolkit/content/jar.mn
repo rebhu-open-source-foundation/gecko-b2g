@@ -39,7 +39,6 @@ toolkit.jar:
    content/global/plugins.html
    content/global/plugins.css
    content/global/plugins.js
-   content/global/browser-child.js
 *   content/global/buildconfig.html
    content/global/buildconfig.css
    content/global/contentAreaUtils.js
@@ -65,6 +64,7 @@ toolkit.jar:
 #ifndef MOZ_FENNEC
    content/global/viewZoomOverlay.js
 #endif
+   content/global/webview-child.js
    content/global/widgets.css
    content/global/bindings/calendar.js         (widgets/calendar.js)
    content/global/bindings/datekeeper.js       (widgets/datekeeper.js)

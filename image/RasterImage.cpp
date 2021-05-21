@@ -710,6 +710,7 @@ void RasterImage::CollectSizeOfSurfaces(
     nsTArray<SurfaceMemoryCounter>& aCounters,
     MallocSizeOf aMallocSizeOf) const {
   SurfaceCache::CollectSizeOfSurfaces(ImageKey(this), aCounters, aMallocSizeOf);
+  ImageResource::CollectSizeOfSurfaces(aCounters, aMallocSizeOf);
 }
 
 bool RasterImage::SetMetadata(const ImageMetadata& aMetadata,

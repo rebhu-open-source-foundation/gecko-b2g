@@ -438,8 +438,6 @@ class CompositorOGL final : public Compositor {
   gfx::Point3D GetLineCoefficients(const gfx::Point& aPoint1,
                                    const gfx::Point& aPoint2);
 
-  void ActivateProgram(ShaderProgramOGL* aProg);
-
   void CleanupResources();
 
   void BindAndDrawQuads(ShaderProgramOGL* aProg, int aQuads,
@@ -536,8 +534,6 @@ class CompositorOGL final : public Compositor {
   gfx::IntSize mViewportSize;
 
   gfx::IntRegion mCurrentFrameInvalidRegion;
-
-  ShaderProgramOGL* mCurrentProgram;
 
   RefPtr<gfx::DataSourceSurface> mCursorSurfaceCache;
   RefPtr<DataTextureSource> mCursorTextureCache;

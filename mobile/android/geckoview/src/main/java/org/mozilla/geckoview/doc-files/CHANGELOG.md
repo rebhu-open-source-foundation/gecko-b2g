@@ -18,22 +18,18 @@ exclude: true
   support. See also [Web/API/Notification/silent][90.3] and
   [Web/API/Notification/vibrate][90.4].
   ([bug 1696145]({{bugzilla}}1696145))
-- ⚠️ Updated [`onContentPermissionRequest`][90.5] to use [`ContentPermission`][90.6]; added
-  [`setPermission`][90.7] to [`StorageController`][90.8] for modifying existing permissions, and
-  allowed Gecko to handle persisting permissions.
-- ⚠️ Added a deprecation schedule to most existing content blocking exception functionality;
-  other than [`addException`][90.9], content blocking exceptions should be treated as content
-  permissions going forward.
+- ⚠️ Deprecated [`GeckoRuntime.getProfileDir`][90.5], the API is being kept for
+  compatibility but it always returns null.
+- Added [`forceEnableAccessibility`][90.6] runtime setting to enable
+  accessibility during testing.
+  ([bug 1701269]({{bugzilla}}1701269))
 
 [90.1]: {{javadoc_uri}}/WebNotification.html#silent
 [90.2]: {{javadoc_uri}}/WebNotification.html#vibrate
 [90.3]: https://developer.mozilla.org/en-US/docs/Web/API/Notification/silent
 [90.4]: https://developer.mozilla.org/en-US/docs/Web/API/Notification/vibrate
-[90.5]: {{javadoc_uri}}/GeckoSession.PermissionDelegate.html#onContentPermissionRequest-org.mozilla.geckoview.GeckoSession-org.mozilla.geckoview.GeckoSession.PermissionDelegate.ContentPermission-
-[90.6]: {{javadoc_uri}}/GeckoSession.PermissionDelegate.ContentPermission.html
-[90.7]: {{javadoc_uri}}/StorageController.html#setPermission-org.mozilla.geckoview.GeckoSession.PermissionDelegate.ContentPermission-int-
-[90.8]: {{javadoc_uri}}/StorageController.html
-[90.9]: {{javadoc_uri}}/ContentBlockingController.html#addException-org.mozilla.geckoview.GeckoSession-
+[90.5]: {{javadoc_uri}}/GeckoRuntime.html#getProfileDir--
+[90.6]: {{javadoc_uri}}/GeckoRuntimeSettings.html#setForceEnableAccessibility-boolean-
 
 ## v89
 - Added [`ContentPermission`][89.1], which is used to report what permissions content
@@ -1001,4 +997,4 @@ to allow adding gecko profiler markers.
 [65.24]: {{javadoc_uri}}/CrashReporter.html#sendCrashReport-android.content.Context-android.os.Bundle-java.lang.String-
 [65.25]: {{javadoc_uri}}/GeckoResult.html
 
-[api-version]: f9fd740ab3de223374fbf896adb10cff49e8aef3
+[api-version]: 2d4d7d8da89dbf91c92ba946c33961487685a99c

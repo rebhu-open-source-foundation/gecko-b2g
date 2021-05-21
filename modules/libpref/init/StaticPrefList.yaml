@@ -8838,16 +8838,17 @@
 # effect and determine the timing to stop controlling media.
 - name: media.mediacontrol.stopcontrol.timer
   type: bool
-  value: false
+  value: true
   mirror: always
 
 # If media is being paused after a certain period, then we would think that
 # media doesn't need to be controlled anymore. Therefore, that media would stop
 # listening to the media control key events. The value of this pref is how long
-# media would stop listening to the event after it's paused.
+# media would stop listening to the event after it's paused. The default value
+# is set to 24 hrs (24*60*60*1000)
 - name: media.mediacontrol.stopcontrol.timer.ms
   type: RelaxedAtomicUint32
-  value: 60000
+  value: 86400000
   mirror: always
 
 # If this pref is on, we would stop controlling media after it reaches to the
@@ -10113,8 +10114,20 @@
   value: true
   mirror: always
 
+# Print via the parent process. This is only used when e10s is enabled.
+- name: print.print_via_parent
+  type: RelaxedAtomicBool
+  value: @IS_NOT_ANDROID@
+  mirror: always
+
 # Whether we allow the print progress dialog to show up.
 - name: print.show_print_progress
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
+# Whether we attempt to generate links in Save As PDF output.
+- name: print.save_as_pdf.links.enabled
   type: RelaxedAtomicBool
   value: true
   mirror: always
@@ -10494,6 +10507,26 @@
 - name: privacy.partition.network_state.connection_with_proxy
   type: bool
   value: false
+  mirror: always
+
+# The global switch to control the URL query sting stripping which strips query
+# parameters from loading URIs to prevent bounce (redirect) tracking.
+- name: privacy.query_stripping.enabled
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+# The list which contains query parameters that are needed to be stripped from
+# URIs. The query parameters are separated by a space.
+- name: privacy.query_stripping.strip_list
+  type: String
+  value: ""
+  mirror: never
+
+# This controls if we will do the query string stripping for redirects.
+- name: privacy.query_stripping.redirect
+  type: bool
+  value: true
   mirror: always
 
 #---------------------------------------------------------------------------
@@ -10897,6 +10930,12 @@
 #---------------------------------------------------------------------------
 
 - name: threads.medium_high_event_queue.enabled
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
+# If control tasks aren't enabled, they get medium high priority.
+- name: threads.control_event_queue.enabled
   type: RelaxedAtomicBool
   value: true
   mirror: always

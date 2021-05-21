@@ -2398,8 +2398,12 @@ bool js::DefineProperty(JSContext* cx, HandleObject obj, HandleId id,
 bool js::DefineAccessorProperty(JSContext* cx, HandleObject obj, HandleId id,
                                 HandleObject getter, HandleObject setter,
                                 unsigned attrs, ObjectOpResult& result) {
-  Rooted<PropertyDescriptor> desc(cx);
-  desc.initFields(UndefinedHandleValue, attrs, getter, setter);
+  Rooted<PropertyDescriptor> desc(
+      cx,
+      PropertyDescriptor::Accessor(
+          (attrs & JSPROP_GETTER) ? mozilla::Some(getter) : mozilla::Nothing(),
+          (attrs & JSPROP_SETTER) ? mozilla::Some(setter) : mozilla::Nothing(),
+          attrs & ~(JSPROP_GETTER | JSPROP_SETTER)));
 
   if (DefinePropertyOp op = obj->getOpsDefineProperty()) {
     MOZ_ASSERT(!cx->isHelperThreadContext());
@@ -2411,8 +2415,7 @@ bool js::DefineAccessorProperty(JSContext* cx, HandleObject obj, HandleId id,
 bool js::DefineDataProperty(JSContext* cx, HandleObject obj, HandleId id,
                             HandleValue value, unsigned attrs,
                             ObjectOpResult& result) {
-  Rooted<PropertyDescriptor> desc(cx);
-  desc.initFields(value, attrs, nullptr, nullptr);
+  Rooted<PropertyDescriptor> desc(cx, PropertyDescriptor::Data(value, attrs));
   if (DefinePropertyOp op = obj->getOpsDefineProperty()) {
     MOZ_ASSERT(!cx->isHelperThreadContext());
     return op(cx, obj, id, desc, result);

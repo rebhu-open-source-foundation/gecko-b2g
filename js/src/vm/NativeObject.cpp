@@ -1535,8 +1535,7 @@ bool js::NativeDefineProperty(JSContext* cx, HandleNativeObject obj,
       }
 
       MOZ_ASSERT(!cx->isHelperThreadContext());
-      return ArraySetLength(cx, arr, id, desc_.attributes(), desc_.value(),
-                            result);
+      return ArraySetLength(cx, arr, id, desc_, result);
     }
 
     // 9.4.2.1 step 3. Don't extend a fixed-length array.
@@ -1772,16 +1771,19 @@ bool js::NativeDefineProperty(JSContext* cx, HandleNativeObject obj,
 bool js::NativeDefineDataProperty(JSContext* cx, HandleNativeObject obj,
                                   HandleId id, HandleValue value,
                                   unsigned attrs, ObjectOpResult& result) {
-  Rooted<PropertyDescriptor> desc(cx);
-  desc.initFields(value, attrs, nullptr, nullptr);
+  Rooted<PropertyDescriptor> desc(cx, PropertyDescriptor::Data(value, attrs));
   return NativeDefineProperty(cx, obj, id, desc, result);
 }
 
 bool js::NativeDefineAccessorProperty(JSContext* cx, HandleNativeObject obj,
                                       HandleId id, HandleObject getter,
                                       HandleObject setter, unsigned attrs) {
-  Rooted<PropertyDescriptor> desc(cx);
-  desc.initFields(UndefinedHandleValue, attrs, getter, setter);
+  Rooted<PropertyDescriptor> desc(
+      cx,
+      PropertyDescriptor::Accessor(
+          (attrs & JSPROP_GETTER) ? mozilla::Some(getter) : mozilla::Nothing(),
+          (attrs & JSPROP_SETTER) ? mozilla::Some(setter) : mozilla::Nothing(),
+          attrs & ~(JSPROP_GETTER | JSPROP_SETTER)));
 
   ObjectOpResult result;
   if (!NativeDefineProperty(cx, obj, id, desc, result)) {
@@ -2456,10 +2458,16 @@ bool js::SetPropertyByDefining(JSContext* cx, HandleId id, HandleValue v,
   }
 
   // Steps 5.e.iii-iv. and 5.f.i. Define the new data property.
-  unsigned attrs = existing ? JSPROP_IGNORE_ENUMERATE | JSPROP_IGNORE_READONLY |
-                                  JSPROP_IGNORE_PERMANENT
-                            : JSPROP_ENUMERATE;
-  return DefineDataProperty(cx, receiver, id, v, attrs, result);
+  Rooted<PropertyDescriptor> desc(cx);
+  if (existing) {
+    desc = PropertyDescriptor::Empty();
+    desc.setValue(v);
+  } else {
+    desc = PropertyDescriptor::Data(v, {JS::PropertyAttribute::Configurable,
+                                        JS::PropertyAttribute::Enumerable,
+                                        JS::PropertyAttribute::Writable});
+  }
+  return DefineProperty(cx, receiver, id, desc, result);
 }
 
 // When setting |id| for |receiver| and |obj| has no property for id, continue

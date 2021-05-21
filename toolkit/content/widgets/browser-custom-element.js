@@ -1072,12 +1072,12 @@
           this.messageManager.addMessageListener(`WebView::${item}`, this);
         });
         this.webViewRequestId = 0;
-        // End WebView additions.
 
         this.messageManager.loadFrameScript(
-          "chrome://global/content/browser-child.js",
+          "chrome://global/content/webview-child.js",
           true
         );
+        // End WebView additions.
 
         if (!this.hasAttribute("disablehistory")) {
           Services.obs.addObserver(
