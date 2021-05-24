@@ -1424,9 +1424,11 @@ NetworkManager.prototype = {
               preNetworkInfo.type == Ci.nsINetworkInfo.NETWORK_TYPE_WIFI ||
               preNetworkInfo.type == Ci.nsINetworkInfo.NETWORK_TYPE_ETHERNET
             ) {
-              // Remove routing table in /proc/net/route
-              return this._resetRoutingTable(preNetworkInfo.name);
+              // Clean up interface address for multicast routing.
+              return this._clearInterfaceAddresses(preNetworkInfo.name);
             }
+          })
+          .then(() => {
             if (this.isNetworkTypeMobile(preNetworkInfo.type)) {
               return this._updateDefaultRoute(preNetworkInfo);
             }
@@ -2280,7 +2282,7 @@ NetworkManager.prototype = {
       // Setup default route for secondary route.
       let defaultRoute = {
         ip: isIPv6 ? IPV6_ADDRESS_ANY : IPV4_ADDRESS_ANY,
-        prefix: 0,
+        prefixLength: 0,
         gateway: gateways[i],
       };
 
@@ -2292,7 +2294,7 @@ NetworkManager.prototype = {
         // prefix and gateway address 'any'.
         let hostRoute = {
           ip: gateways[i],
-          prefix: IPV4_MAX_PREFIX_LENGTH,
+          prefixLength: IPV4_MAX_PREFIX_LENGTH,
           gateway: IPV4_ADDRESS_ANY,
         };
         promise = this._setSecondaryRoute(
@@ -2318,7 +2320,7 @@ NetworkManager.prototype = {
       // Remove both default route and host route.
       let defaultRoute = {
         ip: isIPv6 ? IPV6_ADDRESS_ANY : IPV4_ADDRESS_ANY,
-        prefix: 0,
+        prefixLength: 0,
         gateway: gateways[i],
       };
       if (isIPv6) {
@@ -2326,7 +2328,7 @@ NetworkManager.prototype = {
       } else {
         let hostRoute = {
           ip: gateways[i],
-          prefix: IPV4_MAX_PREFIX_LENGTH,
+          prefixLength: IPV4_MAX_PREFIX_LENGTH,
           gateway: IPV4_ADDRESS_ANY,
         };
         promise = this._setSecondaryRoute(
@@ -2676,11 +2678,11 @@ NetworkManager.prototype = {
     });
   },
 
-  _resetRoutingTable(aInterfaceName) {
+  _clearInterfaceAddresses(aInterfaceName) {
     return new Promise((aResolve, aReject) => {
-      gNetworkService.resetRoutingTable(aInterfaceName, aSuccess => {
+      gNetworkService.clearInterfaceAddresses(aInterfaceName, aSuccess => {
         if (!aSuccess) {
-          debug("resetRoutingTable failed");
+          debug("clearInterfaceAddresses failed");
         }
         // Always resolve.
         aResolve();

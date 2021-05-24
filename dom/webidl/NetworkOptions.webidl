@@ -10,12 +10,12 @@ dictionary NetworkCommandOptions
 {
   long id = 0;                        // opaque id.
   DOMString cmd = "";                 // the command name.
-  DOMString ifname;                   // for "removeNetworkRoute", "setDNS",
+  DOMString ifname;                   // for "clearInterfaceAddresses", "setDNS",
                                       //     "setDefaultRouteAndDNS", "removeDefaultRoute"
-                                      //     "addHostRoute", "removeHostRoute"
+                                      //     "addRoute", "removeRoute"
                                       //     "removeHostRoutes".
-  DOMString ip;                       // for "removeNetworkRoute", "setWifiTethering".
-  unsigned long prefixLength;         // for "removeNetworkRoute".
+  DOMString ip;                       // for "clearInterfaceAddresses", "setWifiTethering".
+  unsigned long prefixLength;         // for "clearInterfaceAddresses".
   DOMString domain;                   // for "setDNS"
   sequence<DOMString> dnses;          // for "setDNS", "setDefaultRouteAndDNS".
   DOMString gateway;                  // for "addSecondaryRoute", "removeSecondaryRoute".

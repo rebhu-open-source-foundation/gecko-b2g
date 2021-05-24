@@ -554,11 +554,11 @@ bool CommandResult::isPending() const { return mIsPending; }
 #define GET_CHAR(prop) NS_ConvertUTF16toUTF8(aChain->getParams().prop).get()
 #define GET_FIELD(prop) aChain->getParams().prop
 
-void NetworkUtils::clearAddrForInterface(CommandChain* aChain,
-                                         CommandCallback aCallback,
-                                         NetworkResultOptions& aResult) {
+void NetworkUtils::clearInterfaceAddr(CommandChain* aChain,
+                                      CommandCallback aCallback,
+                                      NetworkResultOptions& aResult) {
   Status status = gNetd->interfaceClearAddrs(std::string(GET_CHAR(mIfname)));
-  NU_DBG("clearAddrForInterface %s", status.isOk() ? "success" : "failed");
+  NU_DBG("clearInterfaceAddr %s", status.isOk() ? "success" : "failed");
   next(aChain, !status.isOk(), aResult);
 }
 
@@ -769,26 +769,22 @@ void NetworkUtils::setInterfaceDns(CommandChain* aChain,
 void NetworkUtils::addRouteToInterface(CommandChain* aChain,
                                        CommandCallback aCallback,
                                        NetworkResultOptions& aResult) {
-  nsCString gatewayOrEmpty;
-  nsCString ipOrSubnetIp = NS_ConvertUTF16toUTF8(GET_FIELD(mIp));
+  nsCString ipOrSubnetIp = getSubnetIp(NS_ConvertUTF16toUTF8(GET_FIELD(mIp)),
+                                       GET_FIELD(mPrefixLength));
   Status status;
   char destination[BUF_SIZE];
   char errorReason[BUF_SIZE];
+  const char* gatewayOrEmpty =
+      GET_FIELD(mGateway).IsEmpty()
+          ? android::String8(INetd::NEXTHOP_NONE()).string()
+          : NS_ConvertUTF16toUTF8(GET_FIELD(mGateway)).get();
 
-  if (GET_FIELD(mGateway).IsEmpty()) {
-    ipOrSubnetIp = getSubnetIp(ipOrSubnetIp, GET_FIELD(mPrefixLength));
-    snprintf(destination, BUF_SIZE - 1, "%s/%d", ipOrSubnetIp.get(),
-             GET_FIELD(mPrefixLength));
-    status = gNetd->networkAddRoute(GET_FIELD(mNetId), GET_CHAR(mIfname),
-                                    destination, gatewayOrEmpty.get());
-  } else {
-    snprintf(destination, BUF_SIZE - 1, "%s/%d", ipOrSubnetIp.get(),
-             GET_FIELD(mPrefixLength));
-    gatewayOrEmpty = NS_ConvertUTF16toUTF8(GET_FIELD(mGateway));
-    // TODO: uid might need to get from b2g.
-    status = gNetd->networkAddLegacyRoute(GET_FIELD(mNetId), GET_CHAR(mIfname),
-                                          destination, gatewayOrEmpty.get(), 0);
-  }
+  snprintf(destination, BUF_SIZE - 1, "%s/%d", ipOrSubnetIp.get(),
+           GET_FIELD(mPrefixLength));
+
+  status = gNetd->networkAddRoute(GET_FIELD(mNetId), GET_CHAR(mIfname),
+                                  destination, gatewayOrEmpty);
+
   if (!status.isOk() && status.serviceSpecificErrorCode() == EEXIST) {
     NU_DBG("addRouteToInterface failed, Ignore \"File exists\" error");
     aCallback(aChain, false, aResult);
@@ -807,27 +803,20 @@ void NetworkUtils::addRouteToInterface(CommandChain* aChain,
 void NetworkUtils::removeRouteFromInterface(CommandChain* aChain,
                                             CommandCallback aCallback,
                                             NetworkResultOptions& aResult) {
-  nsCString gatewayOrEmpty;
-  nsCString ipOrSubnetIp = NS_ConvertUTF16toUTF8(GET_FIELD(mIp));
+  nsCString ipOrSubnetIp = getSubnetIp(NS_ConvertUTF16toUTF8(GET_FIELD(mIp)),
+                                       GET_FIELD(mPrefixLength));
   Status status;
   char destination[BUF_SIZE];
   char errorReason[BUF_SIZE];
+  const char* gatewayOrEmpty =
+      GET_FIELD(mGateway).IsEmpty()
+          ? android::String8(INetd::NEXTHOP_NONE()).string()
+          : NS_ConvertUTF16toUTF8(GET_FIELD(mGateway)).get();
 
-  if (GET_FIELD(mGateway).IsEmpty()) {
-    ipOrSubnetIp = getSubnetIp(ipOrSubnetIp, GET_FIELD(mPrefixLength));
-    snprintf(destination, BUF_SIZE - 1, "%s/%d", ipOrSubnetIp.get(),
-             GET_FIELD(mPrefixLength));
-    status = gNetd->networkRemoveRoute(GET_FIELD(mNetId), GET_CHAR(mIfname),
-                                       destination, gatewayOrEmpty.get());
-  } else {
-    snprintf(destination, BUF_SIZE - 1, "%s/%d", ipOrSubnetIp.get(),
-             GET_FIELD(mPrefixLength));
-    gatewayOrEmpty = NS_ConvertUTF16toUTF8(GET_FIELD(mGateway));
-    // TODO: uid might need to get from b2g.
-    status =
-        gNetd->networkRemoveLegacyRoute(GET_FIELD(mNetId), GET_CHAR(mIfname),
-                                        destination, gatewayOrEmpty.get(), 0);
-  }
+  snprintf(destination, BUF_SIZE - 1, "%s/%d", ipOrSubnetIp.get(),
+           GET_FIELD(mPrefixLength));
+  status = gNetd->networkRemoveRoute(GET_FIELD(mNetId), GET_CHAR(mIfname),
+                                     destination, gatewayOrEmpty);
   NU_DBG("removeRouteFromInterface %s", status.isOk() ? "success" : "failed");
   if (!status.isOk()) {
     snprintf(errorReason, BUF_SIZE - 1, "removeRoute() failed : %d",
@@ -841,8 +830,8 @@ void NetworkUtils::addRouteToSecondaryTable(CommandChain* aChain,
                                             CommandCallback aCallback,
                                             NetworkResultOptions& aResult) {
   char destination[BUF_SIZE];
-  snprintf(destination, BUF_SIZE - 1, "%s/%s", GET_CHAR(mIp),
-           GET_CHAR(mPrefix));
+  snprintf(destination, BUF_SIZE - 1, "%s/%d", GET_CHAR(mIp),
+           GET_FIELD(mPrefixLength));
   Status status = gNetd->networkAddRoute(GET_FIELD(mNetId), GET_CHAR(mIfname),
                                          destination, GET_CHAR(mGateway));
   NU_DBG("addRouteToSecondaryTable %s", status.isOk() ? "success" : "failed");
@@ -853,8 +842,8 @@ void NetworkUtils::removeRouteFromSecondaryTable(
     CommandChain* aChain, CommandCallback aCallback,
     NetworkResultOptions& aResult) {
   char destination[BUF_SIZE];
-  snprintf(destination, BUF_SIZE - 1, "%s/%s", GET_CHAR(mIp),
-           GET_CHAR(mPrefix));
+  snprintf(destination, BUF_SIZE - 1, "%s/%d", GET_CHAR(mIp),
+           GET_FIELD(mPrefixLength));
   Status status = gNetd->networkRemoveRoute(
       GET_FIELD(mNetId), GET_CHAR(mIfname), destination, GET_CHAR(mGateway));
   NU_DBG("removeRouteFromSecondaryTable %s",
@@ -1559,15 +1548,15 @@ void NetworkUtils::ExecuteCommand(NetworkParams aOptions) {
 // For command 'testCommand', BUILD_ENTRY(testCommand) will generate
 // {"testCommand", NetworkUtils::testCommand}
 #define BUILD_ENTRY(c) {#c, &NetworkUtils::c}
-      BUILD_ENTRY(removeNetworkRoute),
+      BUILD_ENTRY(clearInterfaceAddresses),
       BUILD_ENTRY(setDNS),
       BUILD_ENTRY(getNetId),
       BUILD_ENTRY(createNetwork),
       BUILD_ENTRY(destroyNetwork),
       BUILD_ENTRY(setDefaultRoute),
       BUILD_ENTRY(removeDefaultRoute),
-      BUILD_ENTRY(addHostRoute),
-      BUILD_ENTRY(removeHostRoute),
+      BUILD_ENTRY(addRoute),
+      BUILD_ENTRY(removeRoute),
       BUILD_ENTRY(addSecondaryRoute),
       BUILD_ENTRY(removeSecondaryRoute),
       BUILD_ENTRY(setMtu),
@@ -1777,9 +1766,9 @@ CommandResult NetworkUtils::removeDefaultRoute(NetworkParams& aOptions) {
 }
 
 /**
- * Add host route for given network interface.
+ * Add route for given network interface.
  */
-CommandResult NetworkUtils::addHostRoute(NetworkParams& aOptions) {
+CommandResult NetworkUtils::addRoute(NetworkParams& aOptions) {
   static CommandFunc COMMAND_CHAIN[] = {
       addRouteToInterface,
       defaultAsyncSuccessHandler,
@@ -1801,9 +1790,9 @@ CommandResult NetworkUtils::addHostRoute(NetworkParams& aOptions) {
 }
 
 /**
- * Remove host route for given network interface.
+ * Remove route for given network interface.
  */
-CommandResult NetworkUtils::removeHostRoute(NetworkParams& aOptions) {
+CommandResult NetworkUtils::removeRoute(NetworkParams& aOptions) {
   static CommandFunc COMMAND_CHAIN[] = {
       removeRouteFromInterface,
       defaultAsyncSuccessHandler,
@@ -1824,9 +1813,9 @@ CommandResult NetworkUtils::removeHostRoute(NetworkParams& aOptions) {
   return CommandResult(CommandResult::Pending());
 }
 
-CommandResult NetworkUtils::removeNetworkRoute(NetworkParams& aOptions) {
+CommandResult NetworkUtils::clearInterfaceAddresses(NetworkParams& aOptions) {
   static CommandFunc COMMAND_CHAIN[] = {
-      clearAddrForInterface,
+      clearInterfaceAddr,
       defaultAsyncSuccessHandler,
   };
 
@@ -2160,8 +2149,8 @@ CommandResult NetworkUtils::startClatd(NetworkParams& aOptions) {
   }
 
   std::string clatAddress;
-  Status status =
-      gNetd->clatdStart(GET_CHAR(mIfname), GET_CHAR(mNat64Prefix), &clatAddress);
+  Status status = gNetd->clatdStart(GET_CHAR(mIfname), GET_CHAR(mNat64Prefix),
+                                    &clatAddress);
   result.mResult = status.isOk();
 
   if (result.mResult) {

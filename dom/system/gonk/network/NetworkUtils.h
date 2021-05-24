@@ -280,9 +280,9 @@ class NetworkUtils final {
   CommandResult setDefaultRoute(NetworkParams& aOptions);
   CommandResult removeDefaultRoute(NetworkParams& aOptions);
   CommandResult setDNS(NetworkParams& aOptions);
-  CommandResult addHostRoute(NetworkParams& aOptions);
-  CommandResult removeHostRoute(NetworkParams& aOptions);
-  CommandResult removeNetworkRoute(NetworkParams& aOptions);
+  CommandResult addRoute(NetworkParams& aOptions);
+  CommandResult removeRoute(NetworkParams& aOptions);
+  CommandResult clearInterfaceAddresses(NetworkParams& aOptions);
   CommandResult addSecondaryRoute(NetworkParams& aOptions);
   CommandResult removeSecondaryRoute(NetworkParams& aOptions);
   CommandResult setMtu(NetworkParams& aOptions);
@@ -331,7 +331,7 @@ class NetworkUtils final {
   CommandChain *aChain, CommandCallback aCallback, \
       mozilla::dom::NetworkResultOptions &aResult
   // static void enableNat(PARAMS);...
-  static void clearAddrForInterface(PARAMS);
+  static void clearInterfaceAddr(PARAMS);
   static void createNetwork(PARAMS);
   static void destroyNetwork(PARAMS);
   static void setIpv6Enabled(PARAMS);
