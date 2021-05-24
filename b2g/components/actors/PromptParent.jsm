@@ -37,8 +37,11 @@ class PromptParent extends JSWindowActorParent {
               evt.detail.returnValue === undefined
                 ? null
                 : evt.detail.returnValue;
-            evt.detail.ok =
-              evt.detail.promptType === "confirm" ? evt.detail.value : true;
+            evt.detail.ok = ["confirm", "confirmCheck"].includes(
+              evt.detail.promptType
+            )
+              ? evt.detail.value
+              : true;
             let ret = JSON.parse(JSON.stringify(evt.detail));
             this.log(
               `sendUnblockMsg evt.detail: ${JSON.stringify(evt.detail)}`
