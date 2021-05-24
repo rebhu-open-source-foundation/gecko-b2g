@@ -306,6 +306,7 @@ enum TelephonyCallDisconnectedReason {
   "DataLimitReached",
   "DataDisabled",
   "WifiLost",
+  "RetryOnImsWithoutRtt",
   "Unspecified",
 };
 
