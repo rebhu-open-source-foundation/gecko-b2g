@@ -4409,5 +4409,6 @@ this.GEOMETRY_TYPE_UNKNOW = 0;
 this.GEOMETRY_TYPE_POLYGON = 1;
 this.GEOMETRY_TYPE_CIRCLE = 2;
 
+this.GEO_FENCING_MAXIMUM_WAIT_TIME_NOT_SET = 255;
 // Allow this file to be imported via Components.utils.import().
 this.EXPORTED_SYMBOLS = Object.keys(this);

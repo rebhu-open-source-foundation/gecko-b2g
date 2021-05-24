@@ -28,6 +28,10 @@ XPCOMUtils.defineLazyGetter(this, "RIL_DEBUG", function() {
 const kSettingsCellBroadcastDisabled = "ril.cellbroadcast.disabled";
 const kSettingsCellBroadcastSearchList = "ril.cellbroadcast.searchlist";
 const kPrefAppCBConfigurationEnabled = "dom.app_cb_configuration";
+//Geo-Fencing Maximum wait time(second).
+const kPrefCellBroadcastMaxWaitTime = "dom.cellbroadcast.maximumWaitTime";
+
+const DEFAULT_MAXIMUM_WAIT_TIME = 30; // 30 seconds
 
 XPCOMUtils.defineLazyServiceGetter(
   this,
@@ -472,10 +476,21 @@ CellBroadcastService.prototype = {
     aBroadcastArea = aGeometryMessage.geometries
   ) {
     if (aGeometryMessage.maximumWaitingTimeSec > 0) {
+      let timeout = aGeometryMessage.maximumWaitingTimeSec * 1000;
+      if (
+        aGeometryMessage.maximumWaitingTimeSec ==
+        RIL.GEO_FENCING_MAXIMUM_WAIT_TIME_NOT_SET
+      ) {
+        timeout =
+          Services.prefs.getIntPref(
+            kPrefCellBroadcastMaxWaitTime,
+            DEFAULT_MAXIMUM_WAIT_TIME
+          ) * 1000;
+      }
       let options = {
         //TODO: check which accuracy we should use.
         enableHighAccuracy: false,
-        timeout: aGeometryMessage.maximumWaitingTimeSec * 1000,
+        timeout,
         maximumAge: 0,
       };
       let success = pos => {
