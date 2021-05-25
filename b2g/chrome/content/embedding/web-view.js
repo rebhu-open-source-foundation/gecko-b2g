@@ -512,6 +512,7 @@
       this.crashObserver = {
         observe(subject, topic, _data) {
           this._contentCrashed = false;
+          self._contentCrashedOrKilled = true;
           const browser = subject.ownerElement;
 
           switch (topic) {
@@ -587,7 +588,13 @@
       });
 
       this.updateDCSState(false);
-      this.browser.removeProgressListener(this.progressListener);
+      if (!this._contentCrashedOrKilled) {
+        // This line causes nsFrameLoader to create a new content
+        // process, or use a preallocated one, if the old content
+        // process is crashed or killed.  So, skip this line for the
+        // case of crashing.
+        this.browser.removeProgressListener(this.progressListener);
+      }
       this.progressListener = null;
 
       this.browser = null;
