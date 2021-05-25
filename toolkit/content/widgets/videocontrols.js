@@ -430,10 +430,6 @@ this.VideoControlsImplWidget = class {
           this.videocontrols.setAttribute("inDOMFullscreen", true);
         }
 
-        if (this.isAudioOnly) {
-          this.startFadeOut(this.clickToPlay, true);
-        }
-
         // If the first frame hasn't loaded, kick off a throbber fade-in.
         if (this.video.readyState >= this.video.HAVE_CURRENT_DATA) {
           this.firstFrameShown = true;
@@ -1401,8 +1397,12 @@ this.VideoControlsImplWidget = class {
       },
 
       onMouseMove(event) {
-        // Should always show the video controller when playing audio file
-        if (!this.isAudioOnly && !this.video.mozHasAudio) {
+        // Always show video controller when playing audio file
+        if (
+          (!this.isAudioOnly && !this.video.mozHasAudio) ||
+          this.isAudioOnly ||
+          !this.video.mozHasAudio
+        ) {
           return;
         }
 
