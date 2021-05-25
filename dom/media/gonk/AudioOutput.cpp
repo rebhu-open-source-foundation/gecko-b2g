@@ -24,66 +24,52 @@
 namespace mozilla {
 
 extern LazyLogModule gMediaDecoderLog;
-#define AUDIO_OFFLOAD_LOG(type, msg) \
-  MOZ_LOG(gMediaDecoderLog, type, msg)
+#define AUDIO_OFFLOAD_LOG(type, msg) MOZ_LOG(gMediaDecoderLog, type, msg)
 
 using namespace android;
 
-AudioOutput::AudioOutput(audio_session_t aSessionId, int aUid) :
-  mCallbackCookie(nullptr),
-  mCallback(nullptr),
-  mCallbackData(nullptr),
-  mUid(aUid),
-  mSessionId(aSessionId)
-{
-}
+AudioOutput::AudioOutput(audio_session_t aSessionId, int aUid)
+    : mCallbackCookie(nullptr),
+      mCallback(nullptr),
+      mCallbackData(nullptr),
+      mUid(aUid),
+      mSessionId(aSessionId) {}
 
-AudioOutput::~AudioOutput()
-{
-  Close();
-}
+AudioOutput::~AudioOutput() { Close(); }
 
-ssize_t AudioOutput::FrameSize() const
-{
+ssize_t AudioOutput::FrameSize() const {
   if (!mTrack.get()) {
     return NO_INIT;
   }
   return mTrack->frameSize();
 }
 
-status_t AudioOutput::GetPosition(uint32_t *aPosition) const
-{
+status_t AudioOutput::GetPosition(uint32_t* aPosition) const {
   if (!mTrack.get()) {
     return NO_INIT;
   }
   return mTrack->getPosition(aPosition);
 }
 
-status_t AudioOutput::SetVolume(float aVolume) const
-{
+status_t AudioOutput::SetVolume(float aVolume) const {
   if (!mTrack.get()) {
     return NO_INIT;
   }
   return mTrack->setVolume(aVolume);
 }
 
-status_t AudioOutput::SetParameters(const String8& aKeyValuePairs)
-{
+status_t AudioOutput::SetParameters(const String8& aKeyValuePairs) {
   if (!mTrack.get()) {
     return NO_INIT;
   }
   return mTrack->setParameters(aKeyValuePairs);
 }
 
-status_t AudioOutput::Open(uint32_t aSampleRate,
-                           int aChannelCount,
+status_t AudioOutput::Open(uint32_t aSampleRate, int aChannelCount,
                            audio_channel_mask_t aChannelMask,
-                           audio_format_t aFormat,
-                           AudioCallback aCb,
-                           void* aCookie,
-                           audio_output_flags_t aFlags,
-                           const audio_offload_info_t *aOffloadInfo)
-{
+                           audio_format_t aFormat, AudioCallback aCb,
+                           void* aCookie, audio_output_flags_t aFlags,
+                           const audio_offload_info_t* aOffloadInfo) {
   mCallback = aCb;
   mCallbackCookie = aCookie;
 
@@ -92,14 +78,16 @@ status_t AudioOutput::Open(uint32_t aSampleRate,
     return BAD_VALUE;
   }
 
-  AUDIO_OFFLOAD_LOG(LogLevel::Debug, ("open(%u, %d, 0x%x, 0x%x, %d 0x%x)",
-      aSampleRate, aChannelCount, aChannelMask, aFormat, mSessionId, aFlags));
+  AUDIO_OFFLOAD_LOG(LogLevel::Debug,
+                    ("open(%u, %d, 0x%x, 0x%x, %d 0x%x)", aSampleRate,
+                     aChannelCount, aChannelMask, aFormat, mSessionId, aFlags));
 
   if (aChannelMask == CHANNEL_MASK_USE_CHANNEL_ORDER) {
     aChannelMask = audio_channel_out_mask_from_count(aChannelCount);
     if (0 == aChannelMask) {
       AUDIO_OFFLOAD_LOG(LogLevel::Error, ("open() error, can\'t derive mask for"
-          " %d audio channels", aChannelCount));
+                                          " %d audio channels",
+                                          aChannelCount));
       return NO_INIT;
     }
   }
@@ -108,19 +96,11 @@ status_t AudioOutput::Open(uint32_t aSampleRate,
   CallbackData* newcbd = new CallbackData(this);
 
   t = new AudioTrack(
-      AUDIO_STREAM_MUSIC,
-      aSampleRate,
-      aFormat,
-      aChannelMask,
+      AUDIO_STREAM_MUSIC, aSampleRate, aFormat, aChannelMask,
       0,  // Offloaded tracks will get frame count from AudioFlinger
-      aFlags,
-      CallbackWrapper,
-      newcbd,
+      aFlags, CallbackWrapper, newcbd,
       0,  // notification frames
-      mSessionId,
-      AudioTrack::TRANSFER_CALLBACK,
-      aOffloadInfo,
-      mUid);
+      mSessionId, AudioTrack::TRANSFER_CALLBACK, aOffloadInfo, mUid);
 
   if ((!t.get()) || (t->initCheck() != NO_ERROR)) {
     AUDIO_OFFLOAD_LOG(LogLevel::Error, ("Unable to create audio track"));
@@ -135,8 +115,7 @@ status_t AudioOutput::Open(uint32_t aSampleRate,
   return NO_ERROR;
 }
 
-status_t AudioOutput::Start()
-{
+status_t AudioOutput::Start() {
   AUDIO_OFFLOAD_LOG(LogLevel::Debug, ("%s", __PRETTY_FUNCTION__));
   if (!mTrack.get()) {
     return NO_INIT;
@@ -145,30 +124,26 @@ status_t AudioOutput::Start()
   return mTrack->start();
 }
 
-void AudioOutput::Stop()
-{
+void AudioOutput::Stop() {
   AUDIO_OFFLOAD_LOG(LogLevel::Debug, ("%s", __PRETTY_FUNCTION__));
   if (mTrack.get()) {
     mTrack->stop();
   }
 }
 
-void AudioOutput::Flush()
-{
+void AudioOutput::Flush() {
   if (mTrack.get()) {
     mTrack->flush();
   }
 }
 
-void AudioOutput::Pause()
-{
+void AudioOutput::Pause() {
   if (mTrack.get()) {
     mTrack->pause();
   }
 }
 
-void AudioOutput::Close()
-{
+void AudioOutput::Close() {
   AUDIO_OFFLOAD_LOG(LogLevel::Debug, ("%s", __PRETTY_FUNCTION__));
   mTrack.clear();
 
@@ -177,12 +152,11 @@ void AudioOutput::Close()
 }
 
 // static
-void AudioOutput::CallbackWrapper(int aEvent, void* aCookie, void* aInfo)
-{
-  CallbackData* data = (CallbackData*) aCookie;
+void AudioOutput::CallbackWrapper(int aEvent, void* aCookie, void* aInfo) {
+  CallbackData* data = (CallbackData*)aCookie;
   data->Lock();
   AudioOutput* me = data->GetOutput();
-  AudioTrack::Buffer* buffer = (AudioTrack::Buffer*) aInfo;
+  AudioTrack::Buffer* buffer = (AudioTrack::Buffer*)aInfo;
   if (!me) {
     // no output set, likely because the track was scheduled to be reused
     // by another player, but the format turned out to be incompatible.
@@ -193,12 +167,11 @@ void AudioOutput::CallbackWrapper(int aEvent, void* aCookie, void* aInfo)
     return;
   }
 
-  switch(aEvent) {
-
+  switch (aEvent) {
     case AudioTrack::EVENT_MORE_DATA: {
-
-      size_t actualSize = (*me->mCallback)(me, buffer->raw, buffer->size,
-          me->mCallbackCookie, CB_EVENT_FILL_BUFFER);
+      size_t actualSize =
+          (*me->mCallback)(me, buffer->raw, buffer->size, me->mCallbackCookie,
+                           CB_EVENT_FILL_BUFFER);
 
       if (actualSize == 0 && buffer->size > 0) {
         // We've reached EOS but the audio track is not stopped yet,
@@ -211,24 +184,26 @@ void AudioOutput::CallbackWrapper(int aEvent, void* aCookie, void* aInfo)
     } break;
 
     case AudioTrack::EVENT_STREAM_END:
-      AUDIO_OFFLOAD_LOG(LogLevel::Debug, ("Callback wrapper: EVENT_STREAM_END"));
+      AUDIO_OFFLOAD_LOG(LogLevel::Debug,
+                        ("Callback wrapper: EVENT_STREAM_END"));
       (*me->mCallback)(me, nullptr /* buffer */, 0 /* size */,
-          me->mCallbackCookie, CB_EVENT_STREAM_END);
+                       me->mCallbackCookie, CB_EVENT_STREAM_END);
       break;
 
-    case AudioTrack::EVENT_NEW_IAUDIOTRACK :
+    case AudioTrack::EVENT_NEW_IAUDIOTRACK:
       AUDIO_OFFLOAD_LOG(LogLevel::Debug, ("Callback wrapper: EVENT_TEAR_DOWN"));
-      (*me->mCallback)(me,  nullptr /* buffer */, 0 /* size */,
-          me->mCallbackCookie, CB_EVENT_TEAR_DOWN);
+      (*me->mCallback)(me, nullptr /* buffer */, 0 /* size */,
+                       me->mCallbackCookie, CB_EVENT_TEAR_DOWN);
       break;
 
     default:
       AUDIO_OFFLOAD_LOG(LogLevel::Debug, ("received unknown event type: %d in"
-          " Callback wrapper!", aEvent));
+                                          " Callback wrapper!",
+                                          aEvent));
       break;
   }
 
   data->Unlock();
 }
 
-} // namespace mozilla
+}  // namespace mozilla

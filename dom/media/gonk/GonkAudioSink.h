@@ -40,41 +40,35 @@ namespace mozilla {
  * Stripped version of Android KK MediaPlayerBase::AudioSink class
  */
 
-class GonkAudioSink : public android::RefBase
-{
+class GonkAudioSink : public android::RefBase {
   typedef android::String8 String8;
   typedef android::status_t status_t;
 
-public:
+ public:
   enum cb_event_t {
-    CB_EVENT_FILL_BUFFER,   // Request to write more data to buffer.
-    CB_EVENT_STREAM_END,    // Sent after all the buffers queued in AF and HW
-                            // are played back (after stop is called)
-    CB_EVENT_TEAR_DOWN      // The AudioTrack was invalidated due to usecase
-                            // change. Need to re-evaluate offloading options
+    CB_EVENT_FILL_BUFFER,  // Request to write more data to buffer.
+    CB_EVENT_STREAM_END,   // Sent after all the buffers queued in AF and HW
+                           // are played back (after stop is called)
+    CB_EVENT_TEAR_DOWN     // The AudioTrack was invalidated due to usecase
+                           // change. Need to re-evaluate offloading options
   };
 
   // Callback returns the number of bytes actually written to the buffer.
-  typedef size_t (*AudioCallback)(GonkAudioSink* aAudioSink,
-                                  void* aBuffer,
-                                  size_t aSize,
-                                  void* aCookie,
+  typedef size_t (*AudioCallback)(GonkAudioSink* aAudioSink, void* aBuffer,
+                                  size_t aSize, void* aCookie,
                                   cb_event_t aEvent);
   virtual ~GonkAudioSink() {}
   virtual ssize_t FrameSize() const = 0;
   virtual status_t GetPosition(uint32_t* aPosition) const = 0;
   virtual status_t SetVolume(float aVolume) const = 0;
-  virtual status_t SetParameters(const String8& aKeyValuePairs)
-  {
+  virtual status_t SetParameters(const String8& aKeyValuePairs) {
     return android::NO_ERROR;
   }
 
-  virtual status_t Open(uint32_t aSampleRate,
-                        int aChannelCount,
+  virtual status_t Open(uint32_t aSampleRate, int aChannelCount,
                         audio_channel_mask_t aChannelMask,
-                        audio_format_t aFormat=AUDIO_FORMAT_PCM_16_BIT,
-                        AudioCallback aCb = nullptr,
-                        void* aCookie = nullptr,
+                        audio_format_t aFormat = AUDIO_FORMAT_PCM_16_BIT,
+                        AudioCallback aCb = nullptr, void* aCookie = nullptr,
                         audio_output_flags_t aFlags = AUDIO_OUTPUT_FLAG_NONE,
                         const audio_offload_info_t* aOffloadInfo = nullptr) = 0;
 
@@ -85,6 +79,6 @@ public:
   virtual void Close() = 0;
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
-#endif // GONK_AUDIO_SINK_H_
+#endif  // GONK_AUDIO_SINK_H_

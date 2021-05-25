@@ -34,8 +34,7 @@ namespace mozilla {
  * Android::AudioTrack
  * Similarly to ease handling offloaded tracks, part of AudioOutput is used here
  */
-class AudioOutput : public GonkAudioSink
-{
+class AudioOutput : public GonkAudioSink {
   typedef android::Mutex Mutex;
   typedef android::String8 String8;
   typedef android::status_t status_t;
@@ -43,7 +42,7 @@ class AudioOutput : public GonkAudioSink
 
   class CallbackData;
 
-public:
+ public:
   AudioOutput(audio_session_t aSessionId, int aUid);
   virtual ~AudioOutput();
 
@@ -55,12 +54,9 @@ public:
   // Creates an offloaded audio track with the given parameters
   // TODO: Try to recycle audio tracks instead of creating new audio tracks
   // every time
-  status_t Open(uint32_t aSampleRate,
-                int aChannelCount,
-                audio_channel_mask_t aChannelMask,
-                audio_format_t aFormat,
-                AudioCallback aCb,
-                void* aCookie,
+  status_t Open(uint32_t aSampleRate, int aChannelCount,
+                audio_channel_mask_t aChannelMask, audio_format_t aFormat,
+                AudioCallback aCb, void* aCookie,
                 audio_output_flags_t aFlags = AUDIO_OUTPUT_FLAG_NONE,
                 const audio_offload_info_t* aOffloadInfo = nullptr) override;
 
@@ -70,7 +66,7 @@ public:
   void Pause() override;
   void Close() override;
 
-private:
+ private:
   static void CallbackWrapper(int aEvent, void* aMe, void* aInfo);
 
   android::sp<AudioTrack> mTrack;
@@ -87,26 +83,23 @@ private:
   // CallbackData is what is passed to the AudioTrack as the "user" data.
   // We need to be able to target this to a different Output on the fly,
   // so we can't use the Output itself for this.
-  class CallbackData
-  {
-    public:
-      CallbackData(AudioOutput* aCookie)
-      {
-        mData = aCookie;
-      }
-      AudioOutput* GetOutput() { return mData;}
-      void SetOutput(AudioOutput* aNewcookie) { mData = aNewcookie; }
-      // Lock/Unlock are used by the callback before accessing the payload of
-      // this object
-      void Lock() { mLock.lock(); }
-      void Unlock() { mLock.unlock(); }
-    private:
-      AudioOutput* mData;
-      mutable Mutex mLock;
-      DISALLOW_EVIL_CONSTRUCTORS(CallbackData);
-  };
-}; // AudioOutput
+  class CallbackData {
+   public:
+    CallbackData(AudioOutput* aCookie) { mData = aCookie; }
+    AudioOutput* GetOutput() { return mData; }
+    void SetOutput(AudioOutput* aNewcookie) { mData = aNewcookie; }
+    // Lock/Unlock are used by the callback before accessing the payload of
+    // this object
+    void Lock() { mLock.lock(); }
+    void Unlock() { mLock.unlock(); }
 
-} // namespace mozilla
+   private:
+    AudioOutput* mData;
+    mutable Mutex mLock;
+    DISALLOW_EVIL_CONSTRUCTORS(CallbackData);
+  };
+};  // AudioOutput
+
+}  // namespace mozilla
 
 #endif /* AUDIOOUTPUT_H_ */
