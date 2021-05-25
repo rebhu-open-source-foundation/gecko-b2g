@@ -28,12 +28,14 @@ extern LazyLogModule gMediaDecoderLog;
 
 using namespace android;
 
-AudioOutput::AudioOutput(audio_session_t aSessionId, int aUid)
+AudioOutput::AudioOutput(audio_session_t aSessionId, int aUid,
+                         audio_stream_type_t aStreamType)
     : mCallbackCookie(nullptr),
       mCallback(nullptr),
       mCallbackData(nullptr),
       mUid(aUid),
-      mSessionId(aSessionId) {}
+      mSessionId(aSessionId),
+      mStreamType(aStreamType) {}
 
 AudioOutput::~AudioOutput() { Close(); }
 
@@ -51,11 +53,18 @@ status_t AudioOutput::GetPosition(uint32_t* aPosition) const {
   return mTrack->getPosition(aPosition);
 }
 
-status_t AudioOutput::SetVolume(float aVolume) const {
+status_t AudioOutput::SetVolume(float aVolume) {
   if (!mTrack.get()) {
     return NO_INIT;
   }
   return mTrack->setVolume(aVolume);
+}
+
+status_t AudioOutput::SetPlaybackRate(const AudioPlaybackRate& aRate) {
+  if (!mTrack.get()) {
+    return NO_INIT;
+  }
+  return mTrack->setPlaybackRate(aRate);
 }
 
 status_t AudioOutput::SetParameters(const String8& aKeyValuePairs) {
@@ -96,7 +105,7 @@ status_t AudioOutput::Open(uint32_t aSampleRate, int aChannelCount,
   CallbackData* newcbd = new CallbackData(this);
 
   t = new AudioTrack(
-      AUDIO_STREAM_MUSIC, aSampleRate, aFormat, aChannelMask,
+      mStreamType, aSampleRate, aFormat, aChannelMask,
       0,  // Offloaded tracks will get frame count from AudioFlinger
       aFlags, CallbackWrapper, newcbd,
       0,  // notification frames

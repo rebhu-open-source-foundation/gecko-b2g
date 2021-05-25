@@ -43,12 +43,14 @@ class AudioOutput : public GonkAudioSink {
   class CallbackData;
 
  public:
-  AudioOutput(audio_session_t aSessionId, int aUid);
+  AudioOutput(audio_session_t aSessionId, int aUid,
+              audio_stream_type_t aStreamType);
   virtual ~AudioOutput();
 
   ssize_t FrameSize() const override;
   status_t GetPosition(uint32_t* aPosition) const override;
-  status_t SetVolume(float aVolume) const override;
+  status_t SetVolume(float aVolume) override;
+  status_t SetPlaybackRate(const android::AudioPlaybackRate& aRate) override;
   status_t SetParameters(const String8& aKeyValuePairs) override;
 
   // Creates an offloaded audio track with the given parameters
@@ -79,6 +81,8 @@ class AudioOutput : public GonkAudioSink {
 
   // Session id given by Android::AudioSystem and used to create audio track
   audio_session_t mSessionId;
+
+  audio_stream_type_t mStreamType;
 
   // CallbackData is what is passed to the AudioTrack as the "user" data.
   // We need to be able to target this to a different Output on the fly,

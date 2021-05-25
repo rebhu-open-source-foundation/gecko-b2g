@@ -20,6 +20,7 @@
 #ifndef GONK_AUDIO_SINK_H_
 #define GONK_AUDIO_SINK_H_
 
+#include <media/AudioResamplerPublic.h>
 #include <system/audio.h>
 #include <utils/Errors.h>
 #include <utils/RefBase.h>
@@ -60,7 +61,8 @@ class GonkAudioSink : public android::RefBase {
   virtual ~GonkAudioSink() {}
   virtual ssize_t FrameSize() const = 0;
   virtual status_t GetPosition(uint32_t* aPosition) const = 0;
-  virtual status_t SetVolume(float aVolume) const = 0;
+  virtual status_t SetVolume(float aVolume) = 0;
+  virtual status_t SetPlaybackRate(const android::AudioPlaybackRate& aRate) = 0;
   virtual status_t SetParameters(const String8& aKeyValuePairs) {
     return android::NO_ERROR;
   }
