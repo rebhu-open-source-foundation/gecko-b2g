@@ -208,7 +208,6 @@ void VirtualCursorService::ShowContextMenu() {
 }
 
 void VirtualCursorService::SetCurFrameLoader(nsFrameLoader* aFrameLoader) {
-  MOZ_RELEASE_ASSERT(!mCurFrameLoader || mCurFrameLoader == aFrameLoader);
   mCurFrameLoader = aFrameLoader;
 }
 
