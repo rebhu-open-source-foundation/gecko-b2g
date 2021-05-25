@@ -175,8 +175,6 @@ const DEFAULT_HOTSPOT_SSID = "FirefoxHotspot";
 const DEFAULT_HOTSPOT_SECURITY_TYPE = "open";
 const DEFAULT_HOTSPOT_SECURITY_PASSWORD = "1234567890";
 const DEFAULT_HOTSPOT_HIDDEN = false;
-const DEFAULT_DNS1 = "8.8.8.8";
-const DEFAULT_DNS2 = "8.8.4.4";
 
 // Default value for USB tethering.
 const DEFAULT_USB_DHCPSERVER_STARTIP = "192.168.0.10";
@@ -4146,8 +4144,6 @@ WifiWorker.prototype = {
     check("wifiEndIp", DEFAULT_HOTSPOT_DHCPSERVER_ENDIP);
     check("usbStartIp", DEFAULT_USB_DHCPSERVER_STARTIP);
     check("usbEndIp", DEFAULT_USB_DHCPSERVER_ENDIP);
-    check("dns1", DEFAULT_DNS1);
-    check("dns2", DEFAULT_DNS2);
     check("channel", defaultChannel);
 
     return config;

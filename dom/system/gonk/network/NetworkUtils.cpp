@@ -71,6 +71,9 @@ static const int32_t SUCCESS = 0;
 
 static const char* TCP_BUFFER_DELIMIT = ",";
 
+static const char* DEFAULT_DNS_FORWARDER1 = "8.8.4.4";
+static const char* DEFAULT_DNS_FORWARDER2 = "8.8.8.8";
+
 // Default resolver parameters.
 static const uint32_t DNS_RESOLVER_DEFAULT_SAMPLE_VALIDITY_SECONDS = 1800;
 static const uint32_t DNS_RESOLVER_DEFAULT_SUCCESS_THRESHOLD_PERCENT = 25;
@@ -1070,11 +1073,17 @@ void NetworkUtils::setDnsForwarders(CommandChain* aChain,
                                     CommandCallback aCallback,
                                     NetworkResultOptions& aResult) {
   std::vector<std::string> tetherDnsAddrs;
-  if (!GET_FIELD(mDns1).IsEmpty()) {
-    tetherDnsAddrs.push_back(GET_CHAR(mDns1));
-  }
-  if (!GET_FIELD(mDns2).IsEmpty()) {
-    tetherDnsAddrs.push_back(GET_CHAR(mDns2));
+  nsTArray<nsString>& dnses = GET_FIELD(mDnses);
+  if (!dnses.Length()) {
+    tetherDnsAddrs.push_back(DEFAULT_DNS_FORWARDER1);
+    tetherDnsAddrs.push_back(DEFAULT_DNS_FORWARDER2);
+  } else {
+    NU_DBG("%s: list dnses:", __FUNCTION__);
+    for (uint32_t i = 0; i < dnses.Length(); i++) {
+      NS_ConvertUTF16toUTF8 dns(dnses[i]);
+      tetherDnsAddrs.push_back(dns.get());
+      NU_DBG("%s: %s", __FUNCTION__, dns.get());
+    }
   }
 
   Status status = gNetd->tetherDnsSet(GET_FIELD(mNetId), tetherDnsAddrs);
@@ -2400,22 +2409,7 @@ CommandResult NetworkUtils::getTetherStats(NetworkParams& aOptions) {
 CommandResult NetworkUtils::setUSBTethering(NetworkParams& aOptions) {
   bool enable = aOptions.mEnable;
   char ipv6Prefix[64] = {0};
-  IFProperties interfaceProperties;
-  getIFProperties(GET_CHAR(mExternalIfname), interfaceProperties);
   nsCString externalIface(GET_CHAR(mExternalIfname));
-
-  if (strcmp(interfaceProperties.dns1, "")) {
-    int type = getIpType(interfaceProperties.dns1);
-    if (type != AF_INET6) {
-      aOptions.mDns1 = NS_ConvertUTF8toUTF16(interfaceProperties.dns1);
-    }
-  }
-  if (strcmp(interfaceProperties.dns2, "")) {
-    int type = getIpType(interfaceProperties.dns2);
-    if (type != AF_INET6) {
-      aOptions.mDns2 = NS_ConvertUTF8toUTF16(interfaceProperties.dns2);
-    }
-  }
 
   NetIdManager::NetIdInfo netIdInfo;
   aOptions.mNetId = mNetIdManager.lookup(aOptions.mExternalIfname, &netIdInfo)
@@ -2452,22 +2446,7 @@ CommandResult NetworkUtils::setUSBTethering(NetworkParams& aOptions) {
 CommandResult NetworkUtils::setWifiTethering(NetworkParams& aOptions) {
   bool enable = aOptions.mEnable;
   char ipv6Prefix[64] = {0};
-  IFProperties interfaceProperties;
-  getIFProperties(GET_CHAR(mExternalIfname), interfaceProperties);
   nsCString externalIface(GET_CHAR(mExternalIfname));
-
-  if (strcmp(interfaceProperties.dns1, "")) {
-    int type = getIpType(interfaceProperties.dns1);
-    if (type != AF_INET6) {
-      aOptions.mDns1 = NS_ConvertUTF8toUTF16(interfaceProperties.dns1);
-    }
-  }
-  if (strcmp(interfaceProperties.dns2, "")) {
-    int type = getIpType(interfaceProperties.dns2);
-    if (type != AF_INET6) {
-      aOptions.mDns2 = NS_ConvertUTF8toUTF16(interfaceProperties.dns2);
-    }
-  }
 
   // Collect external interface Ipv6 prefix.
   if (!aOptions.mIpv6Ip.IsEmpty() &&
@@ -2506,23 +2485,7 @@ CommandResult NetworkUtils::setWifiTethering(NetworkParams& aOptions) {
  */
 CommandResult NetworkUtils::updateUpStream(NetworkParams& aOptions) {
   char ipv6Prefix[64] = {0};
-  IFProperties interfaceProperties;
-  getIFProperties(GET_CHAR(mCurExternalIfname), interfaceProperties);
   nsCString externalIface(GET_CHAR(mExternalIfname));
-
-  if (strcmp(interfaceProperties.dns1, "")) {
-    int type = getIpType(interfaceProperties.dns1);
-    if (type != AF_INET6) {
-      aOptions.mDns1 = NS_ConvertUTF8toUTF16(interfaceProperties.dns1);
-    }
-  }
-
-  if (strcmp(interfaceProperties.dns2, "")) {
-    int type = getIpType(interfaceProperties.dns2);
-    if (type != AF_INET6) {
-      aOptions.mDns2 = NS_ConvertUTF8toUTF16(interfaceProperties.dns2);
-    }
-  }
 
   NetIdManager::NetIdInfo netIdInfo;
   if (!mNetIdManager.lookup(aOptions.mCurExternalIfname, &netIdInfo)) {
@@ -2609,11 +2572,14 @@ void NetworkUtils::dumpParams(NetworkParams& aOptions, const char* aType) {
   NU_DBG("     wifiEndIp: %s", GET_CHAR(mWifiEndIp));
   NU_DBG("     usbStartIp: %s", GET_CHAR(mUsbStartIp));
   NU_DBG("     usbEndIp: %s", GET_CHAR(mUsbEndIp));
-  NU_DBG("     dnsserver1: %s", GET_CHAR(mDns1));
-  NU_DBG("     dnsserver2: %s", GET_CHAR(mDns2));
   NU_DBG("     internalIfname: %s", GET_CHAR(mInternalIfname));
   NU_DBG("     externalIfname: %s", GET_CHAR(mExternalIfname));
   NU_DBG("     netId: %d", GET_FIELD(mNetId));
+  nsTArray<nsString>& dnses = GET_FIELD(mDnses);
+  for (uint32_t i = 0; i < dnses.Length(); i++) {
+    NS_ConvertUTF16toUTF8 autoDns(dnses[i]);
+    NU_DBG("     dnsserver %d: %s", i + 1, autoDns.get());
+  }
 
   if (!strcmp(aType, "WIFI")) {
     NU_DBG("     wifictrlinterfacename: %s", GET_CHAR(mWifictrlinterfacename));
