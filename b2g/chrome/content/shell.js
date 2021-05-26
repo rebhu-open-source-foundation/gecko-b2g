@@ -291,15 +291,15 @@ document.addEventListener(
       }, 0);
     }, "web-embedder-created");
 
-    // Always initialize Marionette server in userdebug builds
-    if (libcutils.property_get("ro.build.type") == "userdebug") {
+    // Always initialize Marionette server in userdebug and desktop builds
+    if (!isGonk || libcutils.property_get("ro.build.type") == "userdebug") {
       Services.tm.idleDispatchToMainThread(() => {
         Services.obs.notifyObservers(null, "marionette-startup-requested");
       });
     }
 
-    // Use another way to initialize Marionette server in use builds
-    if (libcutils.property_get("ro.build.type") == "user") {
+    // Use another way to initialize Marionette server in user builds
+    if (isGonk && libcutils.property_get("ro.build.type") == "user") {
       if (MarionetteController) {
         MarionetteController.enableRunner();
       } else {
