@@ -81,13 +81,15 @@ function updateDebugFlag() {
 updateDebugFlag();
 
 //TODO: Find better place
-function LatLng(alat, alng) {
+function LatLng(alat, alng, aAccuracyInMeters = 0) {
   this.lat = alat;
   this.lng = alng;
+  this.accuracyInMeters = aAccuracyInMeters;
 }
 LatLng.prototype = {
   lat: 0,
   lng: 0,
+  accuracyInMeters: 0,
 
   toRadians(aDegree) {
     return aDegree * (Math.PI / 180);
@@ -109,7 +111,7 @@ LatLng.prototype = {
 function Geometry() {}
 Geometry.prototype = {
   type: GEOMETRY_TYPE_UNKNOW,
-  contains(aLatLng) {
+  contains(aLatLng, _aThresholdInMeters = 0) {
     if (DEBUG) {
       debug("Non-implemented geometry method");
     }
@@ -124,6 +126,50 @@ Point.prototype = {
   subtract(aPoint) {
     return new Point(this.x - aPoint.x, this.y - aPoint.y);
   },
+
+  distance(aPoint) {
+    return Math.sqrt(Math.pow(this.x - aPoint.x, 2) + Math.pow(this.y - aPoint.y, 2));
+  },
+
+  equals(aPoint) {
+    if (this == aPoint){
+      return true;
+    }
+    return (this.x == aPoint.x && this.y == aPoint.y);
+  },
+};
+
+function LineSegment(aPointA, aPointB) {
+  this.pointA = aPointA;
+  this.pointB = aPointB;
+}
+LineSegment.prototype = {
+  length() {
+    return this.pointA.distance(this.pointB);
+  },
+
+  distance(aPoint) {
+    if (this.pointA.equals(this.pointB)) {
+      return aPoint.distance(this.pointA);
+    }
+
+    let sub1 = aPoint.subtract(this.pointA);
+    let sub2 = this.pointB.subtract(this.pointA);
+    let dot = sub1.x * sub2.x + sub1.y * sub2.y;
+
+    let magnitude = dot / (Math.pow(this.length(), 2));
+
+    if (magnitude > 1.0) {
+      magnitude = 1.0;
+    } else if (magnitude < 0.0) {
+      magnitude = 0.0;
+    }
+
+    let projectX = this.pointA.x + ((this.pointB.x - this.pointA.x) * magnitude);
+    let projectY = this.pointA.y + ((this.pointB.y - this.pointA.y) * magnitude);
+
+    return aPoint.distance(new Point(projectX, projectY));
+    },
 };
 
 function Polygon(aLatLngs) {
@@ -173,12 +219,34 @@ Polygon.prototype = {
     return aPointA.x * aPointB.y - aPointA.y * aPointB.x;
   },
 
+  distance(aLatLng) {
+    let minDistance = Number.MAX_VALUE;
+    let verticeP = this._convertAndScaleLatLng(aLatLng);
+
+    let verticesLength = this._scaledVertices.length;
+
+    for (let i = 0; i < verticesLength; i++) {
+      let verticeA = this._scaledVertices[i];
+      let verticeB = this._scaledVertices[(i+1) % verticesLength];
+
+      let line = new LineSegment(verticeA, verticeB);
+      let distance = line.distance(verticeP);
+
+      minDistance = Math.min(distance, minDistance);
+    }
+      return minDistance;
+  },
+
   /**
    * Check if the given point is inside the polygon.
    * Winding Number Algorithm.
    * The winding number would be zero if the point inside the polygon.
    */
-  contains(aLatLng) {
+  contains(aLatLng, aThresholdInMeters = 0) {
+    if(aThresholdInMeters > 0) {
+      //TODO: Handle accuracy > threshold
+      return this.distance(aLatLng) <= aThresholdInMeters;
+    }
     let scaledPoint = this._convertAndScaleLatLng(aLatLng);
 
     let verticesLength = this._scaledVertices.length;
@@ -229,9 +297,11 @@ Circle.prototype = {
   _center: null,
   _radius: 0,
 
-  contains(aLatLng) {
-    return this._center.distance(aLatLng) <= this._radius;
+  contains(aLatLng, aThresholdInMeters = 0) {
+    //TODO: Handle accuracy > threshold
+    return this._center.distance(aLatLng) <= (this._radius + aThresholdInMeters);
   },
+
 };
 
 function Context(aRadioInterfcae) {

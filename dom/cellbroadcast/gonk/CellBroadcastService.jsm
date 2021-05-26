@@ -30,6 +30,9 @@ const kSettingsCellBroadcastSearchList = "ril.cellbroadcast.searchlist";
 const kPrefAppCBConfigurationEnabled = "dom.app_cb_configuration";
 //Geo-Fencing Maximum wait time(second).
 const kPrefCellBroadcastMaxWaitTime = "dom.cellbroadcast.maximumWaitTime";
+//GeoFencing Threshold in meters.
+const kPrefCellBroadcastGeoFencingThreshold =
+  "dom.cellbroadcast.geoFencingThreshold";
 
 const DEFAULT_MAXIMUM_WAIT_TIME = 30; // 30 seconds
 
@@ -416,8 +419,12 @@ CellBroadcastService.prototype = {
     aLatLng,
     aBroadcastArea
   ) {
+    let thresholdInMeters = Services.prefs.getIntPref(
+      kPrefCellBroadcastGeoFencingThreshold,
+      0
+    );
     aBroadcastArea.forEach(geo => {
-      if (geo.contains(aLatLng)) {
+      if (geo.contains(aLatLng, thresholdInMeters)) {
         if (DEBUG) {
           debug(
             "Location " +
@@ -494,7 +501,11 @@ CellBroadcastService.prototype = {
         maximumAge: 0,
       };
       let success = pos => {
-        let latLng = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        let latLng = {
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          accuracy: pos.accuracy,
+        };
         if (DEBUG) {
           debug(
             "getCurrentPosition successfully with LatLng: " +
