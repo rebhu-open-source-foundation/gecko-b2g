@@ -490,6 +490,18 @@ var PushServiceWebSocket = {
       this.credential = new PushCredential();
     }
 
+    // reset adaptive-set value if adaptive mode is disabled
+    if (!this._adaptiveEnabled) {
+      prefs.clearUserPref("pingInterval");
+      // mobile network
+      prefs.clearUserPref("adaptive.mobile");
+      prefs.clearUserPref("pingInterval.mobile");
+      prefs.clearUserPref("adaptive.lastGoodPingInterval.mobile");
+      // wifi network
+      prefs.clearUserPref("pingInterval.wifi");
+      prefs.clearUserPref("adaptive.lastGoodPingInterval.wifi");
+    }
+
     return Promise.resolve();
   },
 
