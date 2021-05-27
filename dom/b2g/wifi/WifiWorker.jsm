@@ -1467,16 +1467,31 @@ var WifiManager = (function() {
   manager.state = "UNINITIALIZED";
   manager.tetheringState = "UNINITIALIZED";
   manager.supplicantStarted = false;
-  manager.wpsStarted = false;
   manager.lastKnownCountryCode = null;
   manager.telephonyServiceId = 0;
-  manager.inObtainingIpState = false;
-  manager.lastDriverRoamAttempt = 0;
-  manager.loopDetectionCount = 0;
   manager.numRil = numRil;
-  manager.cachedScanResults = [];
-  manager.cachedScanTime = 0;
-  manager.targetNetworkId = WifiConstants.INVALID_NETWORK_ID;
+  initForEnabled();
+
+  // Call to init everytime when we need to setWifiEnabled
+  function initForEnabled() {
+    manager.wpsStarted = false;
+    manager.inObtainingIpState = false;
+    manager.lastNetwork = null;
+    manager.lastDriverRoamAttempt = 0;
+    manager.loopDetectionCount = 0;
+    manager.cachedScanResults = [];
+    manager.cachedScanTime = 0;
+    manager.targetNetworkId = WifiConstants.INVALID_NETWORK_ID;
+
+    autoRoaming = false;
+    pnoEnabled = false;
+    schedulePnoFailed = false;
+    lastTrafficStats = null;
+    dhcpInfo = null;
+    delayScanInterval = WifiConstants.WIFI_SCHEDULED_SCAN_INTERVAL;
+    fullBandConnectedTimeIntervalMilli =
+      WifiConstants.WIFI_ASSOCIATED_SCAN_INTERVAL;
+  }
 
   manager.__defineGetter__("enabled", function() {
     switch (manager.state) {
@@ -1770,6 +1785,7 @@ var WifiManager = (function() {
 
     if (enabled) {
       manager.state = "INITIALIZING";
+      initForEnabled();
       prepareForStartup(function() {
         wifiCommand.startWifi(function(result) {
           if (result.status != SUCCESS) {
