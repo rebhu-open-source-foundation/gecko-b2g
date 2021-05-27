@@ -109,20 +109,10 @@ class AudioManager final : public nsIAudioManager, public nsIObserver {
 
   bool mSwitchDone = true;
 
-#ifdef MOZ_B2G_BT
-  void UpdateBluetoothA2dpRouting();
-  void UpdateBluetoothScoRouting();
   bool mBluetoothA2dpEnabled = false;
-  bool mBluetoothScoEnabled = false;
+#ifdef MOZ_B2G_BT
   bool mA2dpSwitchDone = true;
-  // Allow BT audio by default, except:
-  // 1. Set to false when a headset is plugged in.
-  // 2. Set to true again when the headset is unplugged or a BT audio device is
-  //    connected.
-  bool mAllowBluetoothA2dp = true;
-  bool mAllowBluetoothSco = true;
 #endif
-
   nsTArray<UniquePtr<VolumeStreamState> > mStreamStates;
 
   RefPtr<mozilla::dom::WakeLock> mWakeLock;
