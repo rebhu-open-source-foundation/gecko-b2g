@@ -129,7 +129,12 @@ this.GeckoDriver = function(server) {
 
   // promise that resolves once we have loaded the system app.
   this.b2gLoaded = new Promise(resolve => {
-    Services.obs.addObserver(resolve, "shell-ready");
+    let win = Services.wm.getMostRecentWindow("navigator:browser");
+    if (win && win.shell.isReady) {
+      resolve();
+    } else {
+      Services.obs.addObserver(resolve, "shell-ready");
+    }
   });
 };
 

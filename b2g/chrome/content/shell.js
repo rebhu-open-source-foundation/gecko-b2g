@@ -287,6 +287,8 @@ document.addEventListener(
       // Notify the the shell is ready at the next event loop tick to
       // let the embedder user a chance to add event listeners.
       window.setTimeout(() => {
+        // Provide a sync accessor to the shell readiness.
+        shell.isReady = true;
         Services.obs.notifyObservers(window, "shell-ready");
       }, 0);
     }, "web-embedder-created");
