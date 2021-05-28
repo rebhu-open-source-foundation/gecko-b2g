@@ -75,8 +75,8 @@ DownloadManager.prototype = {
             // send them.
             let array = new this._window.Array();
             for (let id in aDownloads) {
-              let dom = createDownloadObject(this._window, aDownloads[id]);
-              array.push(this._prepareForContent(dom));
+              let dom = getOrCreateDownloadObject(this._window, aDownloads[id]);
+              array.push(dom);
             }
             aResolve(array);
           }.bind(this),
@@ -106,10 +106,10 @@ DownloadManager.prototype = {
 
         DownloadsIPC.remove(aDownload.id).then(
           function(aResult) {
-            let dom = createDownloadObject(this._window, aResult);
+            let dom = getOrCreateDownloadObject(this._window, aResult);
             // Change the state right away to not race against the update message.
             dom.wrappedJSObject.state = "finalized";
-            aResolve(this._prepareForContent(dom));
+            aResolve(this.dom);
           }.bind(this),
           function() {
             aReject("RemoveError");
@@ -173,8 +173,8 @@ DownloadManager.prototype = {
 
         DownloadsIPC.adoptDownload(jsonDownload).then(
           function(aResult) {
-            let domDownload = createDownloadObject(this._window, aResult);
-            aResolve(this._prepareForContent(domDownload));
+            let domDownload = getOrCreateDownloadObject(this._window, aResult);
+            aResolve(domDownload);
           }.bind(this),
           function(aResult) {
             // This will be one of: AdoptError (generic catch-all),
@@ -186,31 +186,13 @@ DownloadManager.prototype = {
     );
   },
 
-  /**
-   * Turns a chrome download object into a content accessible one.
-   * When we have __DOM_IMPL__ available we just use that, otherwise
-   * we run _create() with the wrapped js object.
-   */
-  _prepareForContent(aChromeObject) {
-    if (aChromeObject.__DOM_IMPL__) {
-      return aChromeObject.__DOM_IMPL__;
-    }
-    let res = this._window.DownloadObject._create(
-      this._window,
-      aChromeObject.wrappedJSObject
-    );
-    return res;
-  },
-
   receiveMessage(aMessage) {
     let data = aMessage.data;
     switch (aMessage.name) {
       case "Downloads:Added":
         DEBUG && debug("Adding " + uneval(data));
         let event = new this._window.DownloadEvent("downloadstart", {
-          download: this._prepareForContent(
-            createDownloadObject(this._window, data)
-          ),
+          download: getOrCreateDownloadObject(this._window, data),
         });
         this.__DOM_IMPL__.dispatchEvent(event);
         break;
@@ -253,7 +235,10 @@ var downloadsCache = {
         Ci.nsISupports
       );
       impl.wrappedJSObject._init(aWindow, aDownload);
-      downloads[aDownload.id] = impl;
+      downloads[aDownload.id] = aWindow.DownloadObject._create(
+        aWindow,
+        impl.wrappedJSObject
+      );
     }
     return downloads[aDownload.id];
   },
@@ -269,7 +254,7 @@ downloadsCache.init();
  * The DOM facade of a download object.
  */
 
-function createDownloadObject(aWindow, aDownload) {
+function getOrCreateDownloadObject(aWindow, aDownload) {
   return downloadsCache.get(aWindow, aDownload);
 }
 
