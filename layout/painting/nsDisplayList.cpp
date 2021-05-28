@@ -3448,7 +3448,8 @@ nsDisplayBackgroundImage::nsDisplayBackgroundImage(
       mLayer(aInitData.layer),
       mIsRasterImage(aInitData.isRasterImage),
       mShouldFixToViewport(aInitData.shouldFixToViewport),
-      mImageFlags(0) {
+      mImageFlags(0),
+      mOpacity(1.0f) {
   MOZ_COUNT_CTOR(nsDisplayBackgroundImage);
 #ifdef DEBUG
   if (mBackgroundStyle && mBackgroundStyle != mFrame->Style()) {
@@ -3682,9 +3683,12 @@ AppendedBackgroundType nsDisplayBackgroundImage::AppendBackgroundItemsToTop(
   // isolate blending to the background
   nsDisplayList bgItemList;
   // Even if we don't actually have a background color to paint, we may still
-  // need to create an item for hit testing.
+  // need to create an item for hit testing and we still need to create an item
+  // for background-color animations.
   if ((drawBackgroundColor && color != NS_RGBA(0, 0, 0, 0)) ||
-      aBuilder->IsForEventDelivery()) {
+      aBuilder->IsForEventDelivery() ||
+      EffectCompositor::HasAnimationsForCompositor(
+          aFrame, DisplayItemType::TYPE_BACKGROUND_COLOR)) {
     if (aAutoBuildingDisplayList && !*aAutoBuildingDisplayList) {
       nsPoint offset = aBuilder->GetCurrentFrame()->GetOffsetTo(aFrame);
       aAutoBuildingDisplayList->emplace(aBuilder, aFrame,
@@ -4054,6 +4058,8 @@ already_AddRefed<Layer> nsDisplayBackgroundImage::BuildLayer(
   RefPtr<ImageContainer> imageContainer = GetContainer(aManager, aBuilder);
   layer->SetContainer(imageContainer);
   ConfigureLayer(layer, aParameters);
+  // ConfigureLayer doesn't know about our opacity, so apply it to layer here.
+  layer->SetOpacity(mOpacity);
   return layer.forget();
 }
 
@@ -4084,7 +4090,7 @@ bool nsDisplayBackgroundImage::CreateWebRenderCommands(
   nsCSSRendering::PaintBGParams params =
       nsCSSRendering::PaintBGParams::ForSingleLayer(
           *StyleFrame()->PresContext(), GetPaintRect(), mBackgroundRect,
-          StyleFrame(), mImageFlags, mLayer, CompositionOp::OP_OVER);
+          StyleFrame(), mImageFlags, mLayer, CompositionOp::OP_OVER, mOpacity);
   params.bgClipRect = &mBounds;
   ImgDrawResult result =
       nsCSSRendering::BuildWebRenderDisplayItemsForStyleImageLayer(
@@ -4149,7 +4155,7 @@ nsRegion nsDisplayBackgroundImage::GetOpaqueRegion(
   nsRegion result;
   *aSnap = false;
 
-  if (!mBackgroundStyle) {
+  if (!mBackgroundStyle || mOpacity != 1.0f) {
     return result;
   }
 
@@ -4241,7 +4247,7 @@ void nsDisplayBackgroundImage::PaintInternal(nsDisplayListBuilder* aBuilder,
   nsCSSRendering::PaintBGParams params =
       nsCSSRendering::PaintBGParams::ForSingleLayer(
           *StyleFrame()->PresContext(), aBounds, mBackgroundRect, StyleFrame(),
-          mImageFlags, mLayer, CompositionOp::OP_OVER);
+          mImageFlags, mLayer, CompositionOp::OP_OVER, mOpacity);
   params.bgClipRect = aClipRect;
   ImgDrawResult result = nsCSSRendering::PaintStyleImageLayer(params, *aCtx);
 
@@ -4647,7 +4653,9 @@ LayerState nsDisplayBackgroundColor::GetLayerState(
 already_AddRefed<Layer> nsDisplayBackgroundColor::BuildLayer(
     nsDisplayListBuilder* aBuilder, LayerManager* aManager,
     const ContainerLayerParameters& aContainerParameters) {
-  if (mColor == sRGBColor()) {
+  if (mColor == sRGBColor() &&
+      !EffectCompositor::HasAnimationsForCompositor(
+          mFrame, DisplayItemType::TYPE_BACKGROUND_COLOR)) {
     return nullptr;
   }
 
@@ -4681,7 +4689,9 @@ bool nsDisplayBackgroundColor::CreateWebRenderCommands(
     const StackingContextHelper& aSc,
     mozilla::layers::RenderRootStateManager* aManager,
     nsDisplayListBuilder* aDisplayListBuilder) {
-  if (mColor == sRGBColor()) {
+  if (mColor == sRGBColor() &&
+      !EffectCompositor::HasAnimationsForCompositor(
+          mFrame, DisplayItemType::TYPE_BACKGROUND_COLOR)) {
     return true;
   }
 

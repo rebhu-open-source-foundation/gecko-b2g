@@ -154,12 +154,8 @@ class WebConsoleUI {
       // and may overload the Browser Console.
       await this._attachTargets();
 
-      this._commands = new ConsoleCommands({
-        devToolsClient: this.hud.currentTarget.client,
-        proxy: this.getProxy(),
-        hud: this.hud,
-        threadFront: this.hud.toolbox && this.hud.toolbox.threadFront,
-        currentTarget: this.hud.currentTarget,
+      this._consoleCommands = new ConsoleCommands({
+        commands: this.hud.commands,
       });
 
       await this.wrapper.init();
@@ -212,6 +208,7 @@ class WebConsoleUI {
         resourceCommand.TYPES.PLATFORM_MESSAGE,
         resourceCommand.TYPES.NETWORK_EVENT,
         resourceCommand.TYPES.NETWORK_EVENT_STACKTRACE,
+        resourceCommand.TYPES.CLONED_CONTENT_PROCESS_MESSAGE,
       ],
       {
         onAvailable: this._onResourceAvailable,

@@ -286,18 +286,14 @@ if (AppConstants.MOZ_CRASHREPORTER) {
   );
 }
 
-if ("@mozilla.org/remote/marionette;1" in Cc) {
+if (AppConstants.ENABLE_WEBDRIVER) {
   XPCOMUtils.defineLazyServiceGetter(
     this,
     "Marionette",
     "@mozilla.org/remote/marionette;1",
     "nsIMarionette"
   );
-} else {
-  this.Marionette = { running: false };
-}
 
-if (AppConstants.ENABLE_REMOTE_AGENT) {
   XPCOMUtils.defineLazyServiceGetter(
     this,
     "RemoteAgent",
@@ -305,6 +301,7 @@ if (AppConstants.ENABLE_REMOTE_AGENT) {
     "nsIRemoteAgent"
   );
 } else {
+  this.Marionette = { running: false };
   this.RemoteAgent = { listening: false };
 }
 
@@ -9416,6 +9413,7 @@ TabModalPromptBox.prototype = {
 // tab-modal prompts.
 var gDialogBox = {
   _dialog: null,
+  _nextOpenJumpsQueue: false,
   _queued: [],
 
   // Used to wait for a `close` event from the HTML
@@ -9436,12 +9434,21 @@ var gDialogBox = {
     return !!this._dialog;
   },
 
+  replaceDialogIfOpen() {
+    this._dialog?.close();
+    this._nextOpenJumpsQueue = true;
+  },
+
   async open(uri, args) {
+    // If we need to queue, some callers indicate they should go first.
+    const queueMethod = this._nextOpenJumpsQueue ? "unshift" : "push";
+    this._nextOpenJumpsQueue = false;
+
     // If we already have a dialog opened and are trying to open another,
     // queue the next one to be opened later.
     if (this.isOpen) {
       return new Promise((resolve, reject) => {
-        this._queued.push({ resolve, reject, uri, args });
+        this._queued[queueMethod]({ resolve, reject, uri, args });
       });
     }
 

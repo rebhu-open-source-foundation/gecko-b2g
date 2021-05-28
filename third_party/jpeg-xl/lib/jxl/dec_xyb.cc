@@ -1,16 +1,7 @@
-// Copyright (c) the JPEG XL Project
+// Copyright (c) the JPEG XL Project Authors. All rights reserved.
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
 
 #include "lib/jxl/dec_xyb.h"
 
@@ -222,12 +213,17 @@ ImageF UpsampleV2(const ImageF& src, ThreadPool* pool) {
  *  output:
  *   |o1 e1 o2 e2 o3 e3 o4 e4| =: (o, e)
  */
-ImageF UpsampleH2(const ImageF& src, ThreadPool* pool) {
+ImageF UpsampleH2(const ImageF& src, size_t output_xsize, ThreadPool* pool) {
   const size_t xsize = src.xsize();
   const size_t ysize = src.ysize();
   JXL_ASSERT(xsize != 0);
   JXL_ASSERT(ysize != 0);
-  ImageF dst(xsize * 2, ysize);
+  JXL_ASSERT(DivCeil(output_xsize, 2) == xsize);
+  // Extra pixel in output might cause the whole extra vector overhead; thus
+  // we request specific output size. Should be safe, because the last 2 values
+  // are processed in non-vectorized form, and the "Plane" row padding concerns
+  // only about the case when unaligned vector store is applied at last pixel.
+  ImageF dst(output_xsize, ysize);
 
   constexpr size_t kGroupArea = kGroupDim * kGroupDim;
   const size_t lines_per_group = DivCeil(kGroupArea, xsize);
@@ -306,8 +302,8 @@ ImageF UpsampleV2(const ImageF& src, ThreadPool* pool) {
 }
 
 HWY_EXPORT(UpsampleH2);
-ImageF UpsampleH2(const ImageF& src, ThreadPool* pool) {
-  return HWY_DYNAMIC_DISPATCH(UpsampleH2)(src, pool);
+ImageF UpsampleH2(const ImageF& src, size_t output_xsize, ThreadPool* pool) {
+  return HWY_DYNAMIC_DISPATCH(UpsampleH2)(src, output_xsize, pool);
 }
 
 HWY_EXPORT(HasFastXYBTosRGB8);

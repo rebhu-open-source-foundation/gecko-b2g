@@ -14,9 +14,7 @@
  * because the call might originate from a frame, and flushing the
  * notifications might cause that frame to be deleted.
  *
- * Using the WordUtil class to find words causes DOM notifications to be
- * flushed because it asks for style information. As a result, we post an event
- * and do all of the spellchecking in that event handler, which occurs later.
+ * We post an event and do all of the spellchecking in that event handler.
  * We store all DOM pointers in ranges because they are kept up-to-date with
  * DOM changes that may have happened while the event was on the queue.
  *
@@ -931,8 +929,8 @@ mozInlineSpellChecker::ReplaceWord(nsINode* aNode, int32_t aOffset,
 
   // Blink dispatches cancelable `beforeinput` event at collecting misspelled
   // word so that we should allow to dispatch cancelable event.
-  RefPtr<TextEditor> textEditor(mTextEditor);
-  DebugOnly<nsresult> rv = textEditor->ReplaceTextAsAction(
+  RefPtr<EditorBase> editorBase(mTextEditor);
+  DebugOnly<nsresult> rv = editorBase->ReplaceTextAsAction(
       newWord, range, TextEditor::AllowBeforeInputEventCancelable::Yes);
   NS_WARNING_ASSERTION(NS_SUCCEEDED(rv), "Failed to insert the new word");
   return NS_OK;
@@ -1399,7 +1397,7 @@ nsresult mozInlineSpellChecker::SpellCheckerSlice::Execute() {
   // see if the selection has any ranges, if not, then we can optimize checking
   // range inclusion later (we have no ranges when we are initially checking or
   // when there are no misspelled words yet).
-  int32_t originalRangeCount = mSpellCheckSelection.RangeCount();
+  const int32_t originalRangeCount = mSpellCheckSelection.RangeCount();
 
   // set the starting DOM position to be the beginning of our range
   if (nsresult rv = mWordUtil.SetPositionAndEnd(
@@ -1420,18 +1418,16 @@ nsresult mozInlineSpellChecker::SpellCheckerSlice::Execute() {
 
   nsTArray<nsString> normalizedWords;
   nsTArray<NodeOffsetRange> checkRanges;
-  nsAutoString wordText;
-  NodeOffsetRange wordNodeOffsetRange;
-  bool dontCheckWord;
+  mozInlineSpellWordUtil::Word word;
   static const size_t requestChunkSize =
       INLINESPELL_MAXIMUM_CHUNKED_WORDS_PER_TASK;
-  while (
-      mWordUtil.GetNextWord(wordText, &wordNodeOffsetRange, &dontCheckWord)) {
+
+  while (mWordUtil.GetNextWord(word)) {
     // get the range for the current word.
-    nsINode* beginNode = wordNodeOffsetRange.Begin().Node();
-    nsINode* endNode = wordNodeOffsetRange.End().Node();
-    int32_t beginOffset = wordNodeOffsetRange.Begin().Offset();
-    int32_t endOffset = wordNodeOffsetRange.End().Offset();
+    nsINode* const beginNode = word.mNodeOffsetRange.Begin().Node();
+    nsINode* const endNode = word.mNodeOffsetRange.End().Node();
+    const int32_t beginOffset = word.mNodeOffsetRange.Begin().Offset();
+    const int32_t endOffset = word.mNodeOffsetRange.End().Offset();
 
     // see if we've done enough words in this round and run out of time.
     if (wordsChecked >= INLINESPELL_MINIMUM_WORDS_BEFORE_TIMEOUT &&
@@ -1458,14 +1454,14 @@ nsresult mozInlineSpellChecker::SpellCheckerSlice::Execute() {
 
     MOZ_LOG(sInlineSpellCheckerLog, LogLevel::Debug,
             ("%s: got word \"%s\"%s", __FUNCTION__,
-             NS_ConvertUTF16toUTF8(wordText).get(),
-             dontCheckWord ? " (not checking)" : ""));
+             NS_ConvertUTF16toUTF8(word.mText).get(),
+             word.mSkipChecking ? " (not checking)" : ""));
 
-    ErrorResult erv;
     // see if there is a spellcheck range that already intersects the word
     // and remove it. We only need to remove old ranges, so don't bother if
     // there were no ranges when we started out.
     if (originalRangeCount > 0) {
+      ErrorResult erv;
       // likewise, if this word is inside new text, we won't bother testing
       if (!mStatus->GetCreatedRange() ||
           !mStatus->GetCreatedRange()->IsPointInRange(*beginNode, beginOffset,
@@ -1482,7 +1478,7 @@ nsresult mozInlineSpellChecker::SpellCheckerSlice::Execute() {
     }
 
     // some words are special and don't need checking
-    if (dontCheckWord) {
+    if (word.mSkipChecking) {
       continue;
     }
 
@@ -1503,9 +1499,9 @@ nsresult mozInlineSpellChecker::SpellCheckerSlice::Execute() {
     }
 
     // check spelling and add to selection if misspelled
-    mozInlineSpellWordUtil::NormalizeWord(wordText);
-    normalizedWords.AppendElement(wordText);
-    checkRanges.AppendElement(wordNodeOffsetRange);
+    mozInlineSpellWordUtil::NormalizeWord(word.mText);
+    normalizedWords.AppendElement(word.mText);
+    checkRanges.AppendElement(word.mNodeOffsetRange);
     wordsChecked++;
     if (normalizedWords.Length() >= requestChunkSize) {
       CheckWordsAndAddRangesForMisspellings(normalizedWords,

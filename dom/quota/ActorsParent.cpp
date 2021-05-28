@@ -77,6 +77,7 @@
 #include "mozilla/dom/indexedDB/ActorsParent.h"
 #include "mozilla/dom/ipc/IdType.h"
 #include "mozilla/dom/localstorage/ActorsParent.h"
+#include "mozilla/dom/QMResultInlines.h"
 #include "mozilla/dom/quota/CheckedUnsafePtr.h"
 #include "mozilla/dom/quota/Client.h"
 #include "mozilla/dom/quota/DirectoryLock.h"
@@ -2392,13 +2393,14 @@ Result<bool, nsresult> EnsureDirectory(nsIFile& aDirectory) {
   AssertIsOnIOThread();
 
   // Callers call this function without checking if the directory already
-  // exists (idempotent usage). QM_OR_ELSE_WARN is not used here since we want
-  // to ignore NS_ERROR_FILE_ALREADY_EXISTS completely.
+  // exists (idempotent usage). QM_OR_ELSE_WARN is not used here since we just
+  // want to log NS_ERROR_FILE_ALREADY_EXISTS result and not spam the reports.
   QM_TRY_INSPECT(
       const auto& exists,
-      MOZ_TO_RESULT_INVOKE(aDirectory, Create, nsIFile::DIRECTORY_TYPE, 0755)
-          .map([](Ok) { return false; })
-          .orElse(ErrToOkOrErr<NS_ERROR_FILE_ALREADY_EXISTS, true>));
+      QM_OR_ELSE_LOG(MOZ_TO_RESULT_INVOKE(aDirectory, Create,
+                                          nsIFile::DIRECTORY_TYPE, 0755)
+                         .map([](Ok) { return false; }),
+                     (ErrToOkOrErr<NS_ERROR_FILE_ALREADY_EXISTS, true>)));
 
   if (exists) {
     QM_TRY_INSPECT(const bool& isDirectory,
@@ -5822,20 +5824,22 @@ nsresult QuotaManager::MaybeCreateOrUpgradeStorage(
   return NS_OK;
 }
 
-nsresult QuotaManager::MaybeRemoveLocalStorageArchiveTmpFile() {
+Result<Ok, QMResult> QuotaManager::MaybeRemoveLocalStorageArchiveTmpFile() {
   AssertIsOnIOThread();
 
-  QM_TRY_INSPECT(const auto& lsArchiveTmpFile,
-                 GetLocalStorageArchiveTmpFile(*mStoragePath));
+  QM_TRY_INSPECT(
+      const auto& lsArchiveTmpFile,
+      GetLocalStorageArchiveTmpFile(*mStoragePath).mapErr(ToQMResult));
 
-  QM_TRY_INSPECT(const bool& exists,
-                 MOZ_TO_RESULT_INVOKE(lsArchiveTmpFile, Exists));
+  QM_TRY_INSPECT(
+      const bool& exists,
+      MOZ_TO_RESULT_INVOKE(lsArchiveTmpFile, Exists).mapErr(ToQMResult));
 
   if (exists) {
-    QM_TRY(lsArchiveTmpFile->Remove(false));
+    QM_TRY(ToQMResult(lsArchiveTmpFile->Remove(false)));
   }
 
-  return NS_OK;
+  return Ok{};
 }
 
 Result<Ok, nsresult> QuotaManager::MaybeCreateOrUpgradeLocalStorageArchive(
@@ -10556,10 +10560,10 @@ nsresult CreateOrUpgradeDirectoryMetadataHelper::MaybeUpgradeOriginDirectory(
     QM_TRY_INSPECT(const auto& idbDirectory,
                    CloneFileAndAppend(*aDirectory, idbDirectoryName));
 
-    // Usually we don't use QM_OR_ELSE_WARN with Create and
-    // NS_ERROR_FILE_ALREADY_EXISTS check, but normally the idb directory
-    // shouldn't exist during the upgrade and the upgrade normally runs only
-    // once.
+    // Usually we only use QM_OR_ELSE_LOG/QM_OR_ELSE_LOG_IF with Create and
+    // NS_ERROR_FILE_ALREADY_EXISTS check, but typically the idb directory
+    // shouldn't exist during the upgrade and the upgrade runs only once in
+    // most of the cases, so the use of QM_OR_ELSE_WARN is ok here.
     QM_TRY(QM_OR_ELSE_WARN(
         ToResult(idbDirectory->Create(nsIFile::DIRECTORY_TYPE, 0755)),
         ([&idbDirectory](const nsresult rv) -> Result<Ok, nsresult> {

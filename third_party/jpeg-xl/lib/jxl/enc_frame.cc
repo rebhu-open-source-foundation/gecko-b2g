@@ -1,16 +1,7 @@
-// Copyright (c) the JPEG XL Project
+// Copyright (c) the JPEG XL Project Authors. All rights reserved.
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
 
 #include "lib/jxl/enc_frame.h"
 
@@ -340,11 +331,13 @@ Status MakeFrameHeader(const CompressParams& cparams,
   // Resized frames.
   if (frame_info.frame_type != FrameType::kDCFrame) {
     frame_header->frame_origin = ib.origin;
-    frame_header->frame_size.xsize = ib.xsize();
-    frame_header->frame_size.ysize = ib.ysize();
+    size_t ups = 1;
+    if (cparams.already_downsampled) ups = cparams.resampling;
+    frame_header->frame_size.xsize = ib.xsize() * ups;
+    frame_header->frame_size.ysize = ib.ysize() * ups;
     if (ib.origin.x0 != 0 || ib.origin.y0 != 0 ||
-        ib.xsize() != frame_header->default_xsize() ||
-        ib.ysize() != frame_header->default_ysize()) {
+        frame_header->frame_size.xsize != frame_header->default_xsize() ||
+        frame_header->frame_size.ysize != frame_header->default_ysize()) {
       frame_header->custom_size_or_origin = true;
     }
   }
@@ -373,12 +366,12 @@ Status MakeFrameHeader(const CompressParams& cparams,
     }
     frame_header->blending_info.alpha_channel = index;
     frame_header->blending_info.mode =
-        ib.blend ? BlendMode::kBlend : BlendMode::kReplace;
+        ib.blend ? ib.blendmode : BlendMode::kReplace;
     // previous frames are saved with ID 1.
     frame_header->blending_info.source = 1;
     for (size_t i = 0; i < extra_channels.size(); i++) {
       frame_header->extra_channel_blending_info[i].alpha_channel = index;
-      BlendMode default_blend = BlendMode::kBlend;
+      BlendMode default_blend = ib.blendmode;
       if (extra_channels[i].type != ExtraChannel::kBlack && i != index) {
         // K needs to be blended, spot colors and other stuff gets added
         default_blend = BlendMode::kAdd;
@@ -1016,6 +1009,8 @@ Status EncodeFrame(const CompressParams& cparams_orig,
                    ThreadPool* pool, BitWriter* writer, AuxOut* aux_out) {
   ib.VerifyMetadata();
 
+  passes_enc_state->special_frames.clear();
+
   CompressParams cparams = cparams_orig;
   if (cparams.progressive_dc < 0) {
     if (cparams.progressive_dc != -1) {
@@ -1055,9 +1050,7 @@ Status EncodeFrame(const CompressParams& cparams_orig,
     cparams.modular_mode = false;
   }
 
-  const size_t xsize = ib.xsize();
-  const size_t ysize = ib.ysize();
-  if (xsize == 0 || ysize == 0) return JXL_FAILURE("Empty image");
+  if (ib.xsize() == 0 || ib.ysize() == 0) return JXL_FAILURE("Empty image");
 
   // Assert that this metadata is correctly set up for the compression params,
   // this should have been done by enc_file.cc
@@ -1184,7 +1177,7 @@ Status EncodeFrame(const CompressParams& cparams_orig,
       JXL_RETURN_IF_ERROR(lossy_frame_encoder.ComputeEncodingData(
           ib_or_linear, &opsin, pool, modular_frame_encoder.get(), writer,
           frame_header.get()));
-    } else if (frame_header->upsampling != 1) {
+    } else if (frame_header->upsampling != 1 && !cparams.already_downsampled) {
       // In VarDCT mode, LossyFrameHeuristics takes care of running downsampling
       // after noise, if necessary.
       DownsampleImage(&opsin, frame_header->upsampling);
@@ -1194,7 +1187,7 @@ Status EncodeFrame(const CompressParams& cparams_orig,
         &ib, &opsin, pool, modular_frame_encoder.get(), writer,
         frame_header.get()));
   }
-  if (cparams.ec_resampling != 1) {
+  if (cparams.ec_resampling != 1 && !cparams.already_downsampled) {
     extra_channels = &extra_channels_storage;
     for (size_t i = 0; i < ib.extra_channels().size(); i++) {
       extra_channels_storage.emplace_back(CopyImage(ib.extra_channels()[i]));

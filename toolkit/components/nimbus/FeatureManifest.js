@@ -55,6 +55,7 @@ const FeatureManifest = {
   },
   aboutwelcome: {
     description: "The about:welcome page",
+    isEarlyStartup: true,
     enabledFallbackPref: "browser.aboutwelcome.enabled",
     variables: {
       screens: {
@@ -63,7 +64,7 @@ const FeatureManifest = {
       },
       isProton: {
         type: "boolean",
-        fallbackPref: "browser.proton.enabled",
+        fallbackPref: "browser.aboutwelcome.protonDesign",
       },
       skipFocus: {
         type: "boolean",
@@ -76,6 +77,7 @@ const FeatureManifest = {
   },
   newtab: {
     description: "The about:newtab page",
+    isEarlyStartup: true,
     variables: {
       newNewtabExperienceEnabled: {
         type: "boolean",
@@ -102,6 +104,7 @@ const FeatureManifest = {
   },
   upgradeDialog: {
     description: "The dialog shown for major upgrades",
+    isEarlyStartup: true,
     enabledFallbackPref: "browser.startup.upgradeDialog.enabled",
   },
   privatebrowsing: {

@@ -1740,7 +1740,7 @@ void LIRGenerator::visitMul(MMul* ins) {
     // overflow, we can optimize to an LNegI.
     if (!ins->fallible() && rhs->isConstant() &&
         rhs->toConstant()->toInt32() == -1) {
-      defineReuseInput(new (alloc()) LNegI(useRegisterAtStart(lhs)), ins, 0);
+      lowerNegI(ins, lhs, 0);
     } else {
       lowerMulI(ins, lhs, rhs);
     }
@@ -5994,9 +5994,16 @@ void LIRGenerator::visitWasmSelect(MWasmSelect* ins) {
     return;
   }
 
+#if defined(JS_CODEGEN_ARM64)
+  // Same issue as above
+  auto* lir = new (alloc())
+      LWasmSelect(useRegisterAtStart(ins->trueExpr()),
+                  useRegister(ins->falseExpr()), useRegister(ins->condExpr()));
+#else
   auto* lir = new (alloc())
       LWasmSelect(useRegisterAtStart(ins->trueExpr()), useAny(ins->falseExpr()),
                   useRegister(ins->condExpr()));
+#endif
 
   defineReuseInput(lir, ins, LWasmSelect::TrueExprIndex);
 }

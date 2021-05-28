@@ -84,9 +84,9 @@ WINDOWS_WORKER_TYPES = {
         "virtual-with-gpu": "t-win7-32-gpu",
         "hardware": "t-win10-64-1803-hw",
     },
-    "windows7-32-mingwclang": {
-        "virtual": "t-win7-32",
-        "virtual-with-gpu": "t-win7-32-gpu",
+    "windows10-32-mingwclang": {
+        "virtual": "t-win10-64",
+        "virtual-with-gpu": "t-win10-64-gpu-s",
         "hardware": "t-win10-64-1803-hw",
     },
     "windows7-32-qr": {
@@ -1046,39 +1046,39 @@ def setup_browsertime(config, tasks):
         cd_fetches = {
             "android.*": [
                 "linux64-chromedriver-87",
-                "linux64-chromedriver-88",
                 "linux64-chromedriver-89",
                 "linux64-chromedriver-90",
+                "linux64-chromedriver-91",
             ],
             "linux.*": [
                 "linux64-chromedriver-87",
-                "linux64-chromedriver-88",
                 "linux64-chromedriver-89",
                 "linux64-chromedriver-90",
+                "linux64-chromedriver-91",
             ],
             "macosx.*": [
                 "mac64-chromedriver-87",
-                "mac64-chromedriver-88",
                 "mac64-chromedriver-89",
                 "mac64-chromedriver-90",
+                "mac64-chromedriver-91",
             ],
             "windows.*aarch64.*": [
                 "win32-chromedriver-87",
-                "win32-chromedriver-88",
                 "win32-chromedriver-89",
                 "win32-chromedriver-90",
+                "win32-chromedriver-91",
             ],
             "windows.*-32.*": [
                 "win32-chromedriver-87",
-                "win32-chromedriver-88",
                 "win32-chromedriver-89",
                 "win32-chromedriver-90",
+                "win32-chromedriver-91",
             ],
             "windows.*-64.*": [
                 "win32-chromedriver-87",
-                "win32-chromedriver-88",
                 "win32-chromedriver-89",
                 "win32-chromedriver-90",
+                "win32-chromedriver-91",
             ],
         }
 

@@ -1293,10 +1293,7 @@ ExtendableMessageEvent::ExtendableMessageEvent(EventTarget* aOwner)
   mozilla::HoldJSObjects(this);
 }
 
-ExtendableMessageEvent::~ExtendableMessageEvent() {
-  mData.setUndefined();
-  DropJSObjects(this);
-}
+ExtendableMessageEvent::~ExtendableMessageEvent() { DropJSObjects(this); }
 
 void ExtendableMessageEvent::GetData(JSContext* aCx,
                                      JS::MutableHandle<JS::Value> aData,

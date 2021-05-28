@@ -2331,11 +2331,36 @@ mozilla::ipc::IPCResult ContentChild::RecvRegisterChromeItem(
 
   return IPC_OK();
 }
-
 mozilla::ipc::IPCResult ContentChild::RecvClearStyleSheetCache(
-    const Maybe<RefPtr<nsIPrincipal>>& aForPrincipal) {
-  nsIPrincipal* prin = aForPrincipal ? aForPrincipal.value().get() : nullptr;
-  SharedStyleSheetCache::Clear(prin);
+    const Maybe<RefPtr<nsIPrincipal>>& aForPrincipal,
+    const Maybe<nsCString>& aBaseDomain) {
+  nsIPrincipal* principal =
+      aForPrincipal ? aForPrincipal.value().get() : nullptr;
+  const nsCString* baseDomain = aBaseDomain ? aBaseDomain.ptr() : nullptr;
+  SharedStyleSheetCache::Clear(principal, baseDomain);
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult ContentChild::RecvClearImageCacheFromPrincipal(
+    nsIPrincipal* aPrincipal) {
+  imgLoader* loader;
+  if (aPrincipal->OriginAttributesRef().mPrivateBrowsingId ==
+      nsIScriptSecurityManager::DEFAULT_PRIVATE_BROWSING_ID) {
+    loader = imgLoader::NormalLoader();
+  } else {
+    loader = imgLoader::PrivateBrowsingLoader();
+  }
+
+  loader->RemoveEntriesInternal(aPrincipal, nullptr);
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult ContentChild::RecvClearImageCacheFromBaseDomain(
+    const nsCString& aBaseDomain) {
+  imgLoader::NormalLoader()->RemoveEntriesInternal(nullptr, &aBaseDomain);
+  imgLoader::PrivateBrowsingLoader()->RemoveEntriesInternal(nullptr,
+                                                            &aBaseDomain);
+
   return IPC_OK();
 }
 
@@ -4069,6 +4094,15 @@ mozilla::ipc::IPCResult ContentChild::RecvRegisterBrowsingContextGroup(
     }
   }
 
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult ContentChild::RecvDestroyBrowsingContextGroup(
+    uint64_t aGroupId) {
+  if (RefPtr<BrowsingContextGroup> group =
+          BrowsingContextGroup::GetExisting(aGroupId)) {
+    group->ChildDestroy();
+  }
   return IPC_OK();
 }
 

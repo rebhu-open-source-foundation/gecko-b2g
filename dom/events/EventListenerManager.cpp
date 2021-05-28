@@ -1434,7 +1434,7 @@ void EventListenerManager::AddEventListener(
     }
 
     if (options.mSignal.WasPassed()) {
-      signal = options.mSignal.Value();
+      signal = &options.mSignal.Value();
     }
   }
 

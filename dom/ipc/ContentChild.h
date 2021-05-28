@@ -312,7 +312,13 @@ class ContentChild final : public PContentChild,
       const ChromeRegistryItem& item);
 
   mozilla::ipc::IPCResult RecvClearStyleSheetCache(
-      const Maybe<RefPtr<nsIPrincipal>>& aForPrincipal);
+      const Maybe<RefPtr<nsIPrincipal>>& aForPrincipal,
+      const Maybe<nsCString>& aBaseDomain);
+
+  mozilla::ipc::IPCResult RecvClearImageCacheFromPrincipal(
+      nsIPrincipal* aPrincipal);
+  mozilla::ipc::IPCResult RecvClearImageCacheFromBaseDomain(
+      const nsCString& aBaseDomain);
   mozilla::ipc::IPCResult RecvClearImageCache(const bool& privateLoader,
                                               const bool& chrome);
 
@@ -677,9 +683,6 @@ class ContentChild final : public PContentChild,
       const MaybeDiscarded<BrowsingContext>& aContext,
       const MediaControlAction& aAction);
 
-  void HoldBrowsingContextGroup(BrowsingContextGroup* aBCG);
-  void ReleaseBrowsingContextGroup(BrowsingContextGroup* aBCG);
-
   // See `BrowsingContext::mEpochs` for an explanation of this field.
   uint64_t GetBrowsingContextFieldEpoch() const {
     return mBrowsingContextFieldEpoch;
@@ -797,6 +800,7 @@ class ContentChild final : public PContentChild,
 
   mozilla::ipc::IPCResult RecvRegisterBrowsingContextGroup(
       uint64_t aGroupId, nsTArray<SyncedContextInitializer>&& aInits);
+  mozilla::ipc::IPCResult RecvDestroyBrowsingContextGroup(uint64_t aGroupId);
 
   mozilla::ipc::IPCResult RecvWindowClose(
       const MaybeDiscarded<BrowsingContext>& aContext, bool aTrustedCaller);

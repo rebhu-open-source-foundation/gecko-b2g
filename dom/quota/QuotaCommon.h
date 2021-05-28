@@ -23,6 +23,7 @@
 #include "mozilla/Result.h"
 #include "mozilla/ResultExtensions.h"
 #include "mozilla/ThreadLocal.h"
+#include "mozilla/dom/QMResult.h"
 #include "mozilla/ipc/ProtocolUtils.h"
 #include "nsCOMPtr.h"
 #include "nsDebug.h"
@@ -872,6 +873,22 @@ class NotNull;
     return orElseFunc(firstRes);                                               \
   })
 
+/**
+ * QM_OR_ELSE_LOG is like QM_OR_ELSE_WARN. The only difference is that
+ * failures are reported using the lowest severity which is currently ignored
+ * in LogError, so nothing goes to the console, browser console and telemetry.
+ * Since nothing goes to the telemetry, the macro can't signal the end of the
+ * underlying error stack or change the type of the error stack in the
+ * telemetry. For that reason, the expression shouldn't contain nested QM_TRY
+ * macro uses.
+ */
+#define QM_OR_ELSE_LOG(expr, orElseFunc)                                      \
+  (expr).orElse([&](const auto& firstRes) {                                   \
+    mozilla::dom::quota::QM_HANDLE_ERROR(#expr, firstRes,                     \
+                                         mozilla::dom::quota::Severity::Log); \
+    return orElseFunc(firstRes);                                              \
+  })
+
 // Telemetry probes to collect number of failure during the initialization.
 #ifdef NIGHTLY_BUILD
 #  define RECORD_IN_NIGHTLY(_recorder, _status) \
@@ -1060,6 +1077,10 @@ class MOZ_MUST_USE_TYPE GenericErrorResult<mozilla::ipc::IPCResult> {
     MOZ_ASSERT(!aErrorValue);
   }
 
+  GenericErrorResult(mozilla::ipc::IPCResult aErrorValue,
+                     const ErrorPropagationTag&)
+      : GenericErrorResult(aErrorValue) {}
+
   operator mozilla::ipc::IPCResult() const { return mErrorValue; }
 };
 
@@ -1202,11 +1223,23 @@ enum class Severity {
   Error,
   Warning,
   Note,
+  Log,
 };
 
-void LogError(const nsACString& aExpr, Maybe<nsresult> aRv,
+#if defined(EARLY_BETA_OR_EARLIER) || defined(DEBUG)
+#  ifdef QM_ERROR_STACKS_ENABLED
+using ResultType = Variant<QMResult, nsresult, Nothing>;
+
+void LogError(const nsACString& aExpr, const ResultType& aResult,
               const nsACString& aSourceFilePath, int32_t aSourceFileLine,
-              Severity aSeverity);
+              Severity aSeverity)
+#  else
+void LogError(const nsACString& aExpr, Maybe<nsresult> aResult,
+              const nsACString& aSourceFilePath, int32_t aSourceFileLine,
+              Severity aSeverity)
+#  endif
+    ;
+#endif
 
 #ifdef DEBUG
 Result<bool, nsresult> WarnIfFileIsUnknown(nsIFile& aFile,
@@ -1286,6 +1319,17 @@ template <typename T>
 MOZ_COLD void HandleError(const char* aExpr, const T& aRv,
                           const char* aSourceFilePath, int32_t aSourceFileLine,
                           const Severity aSeverity) {
+#  ifdef QM_ERROR_STACKS_ENABLED
+  if constexpr (std::is_same_v<T, QMResult> || std::is_same_v<T, nsresult>) {
+    mozilla::dom::quota::LogError(nsDependentCString(aExpr), ResultType(aRv),
+                                  nsDependentCString(aSourceFilePath),
+                                  aSourceFileLine, aSeverity);
+  } else {
+    mozilla::dom::quota::LogError(
+        nsDependentCString(aExpr), ResultType(Nothing{}),
+        nsDependentCString(aSourceFilePath), aSourceFileLine, aSeverity);
+  }
+#  else
   if constexpr (std::is_same_v<T, nsresult>) {
     mozilla::dom::quota::LogError(nsDependentCString(aExpr), Some(aRv),
                                   nsDependentCString(aSourceFilePath),
@@ -1295,6 +1339,7 @@ MOZ_COLD void HandleError(const char* aExpr, const T& aRv,
                                   nsDependentCString(aSourceFilePath),
                                   aSourceFileLine, aSeverity);
   }
+#  endif
 }
 #else
 template <typename T>

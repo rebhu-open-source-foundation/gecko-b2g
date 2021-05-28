@@ -88,6 +88,7 @@ const PINNED_FAVICON_PROPS_TO_MIGRATE = [
 const SECTION_ID = "topsites";
 const ROWS_PREF = "topSitesRows";
 const SHOW_SPONSORED_PREF = "showSponsoredTopSites";
+const MAX_NUM_SPONSORED = 2;
 
 // Search experiment stuff
 const FILTER_DEFAULT_SEARCH_PREF = "improvesearch.noDefaultSearchTile";
@@ -162,8 +163,15 @@ class ContileIntegration {
       }
 
       const body = await response.json();
-      if (Array.isArray(body)) {
-        this._sites = body;
+      if (body?.tiles && Array.isArray(body.tiles)) {
+        let { tiles } = body;
+        if (tiles.length > MAX_NUM_SPONSORED) {
+          Cu.reportError(
+            `Contile provided more links than permitted. (${tiles.length} received, limit is ${MAX_NUM_SPONSORED})`
+          );
+          tiles.length = MAX_NUM_SPONSORED;
+        }
+        this._sites = tiles;
         return true;
       }
     } catch (error) {
@@ -228,14 +236,15 @@ this.TopSitesFeed = class TopSitesFeed {
       case "browser-search-engine-modified":
         // We should update the current top sites if the search engine has been changed since
         // the search engine that gets filtered out of top sites has changed.
+        // We also need to drop search shortcuts when their engine gets removed / hidden.
         if (
           data === "engine-default" &&
           this.store.getState().Prefs.values[FILTER_DEFAULT_SEARCH_PREF]
         ) {
           delete this._currentSearchHostname;
           this._currentSearchHostname = getShortURLForCurrentSearch();
-          this.refresh({ broadcast: true });
         }
+        this.refresh({ broadcast: true });
         break;
       case "browser-region-updated":
         this._readDefaults();
@@ -694,6 +703,17 @@ this.TopSitesFeed = class TopSitesFeed {
       plainPinned.map(async link => {
         if (!link) {
           return link;
+        }
+
+        // Drop pinned search shortcuts when their engine has been removed / hidden.
+        if (link.searchTopSite) {
+          const searchProvider = getSearchProvider(shortURL(link));
+          if (
+            !searchProvider ||
+            !(await checkHasSearchEngine(searchProvider.keyword))
+          ) {
+            return null;
+          }
         }
 
         // Copy all properties from a frecent link and add more
@@ -1313,4 +1333,8 @@ this.TopSitesFeed = class TopSitesFeed {
 };
 
 this.DEFAULT_TOP_SITES = DEFAULT_TOP_SITES;
-const EXPORTED_SYMBOLS = ["TopSitesFeed", "DEFAULT_TOP_SITES"];
+const EXPORTED_SYMBOLS = [
+  "TopSitesFeed",
+  "DEFAULT_TOP_SITES",
+  "ContileIntegration",
+];

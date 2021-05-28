@@ -1,16 +1,7 @@
-// Copyright (c) the JPEG XL Project
+// Copyright (c) the JPEG XL Project Authors. All rights reserved.
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
 
 #ifndef LIB_JXL_MODULAR_TRANSFORM_PALETTE_H_
 #define LIB_JXL_MODULAR_TRANSFORM_PALETTE_H_
@@ -43,6 +34,10 @@ static constexpr int kLargeCubeOffset = kSmallCube * kSmallCube * kSmallCube;
 
 // Inclusive.
 static constexpr int kMinImplicitPaletteIndex = -(2 * 72 - 1);
+
+static constexpr pixel_type Scale(int value, int bit_depth, int denom) {
+  return (static_cast<pixel_type_w>(value) * ((1 << bit_depth) - 1)) / denom;
+}
 
 // The purpose of this function is solely to extend the interpretation of
 // palette indices to implicit values. If index < nb_deltas, indicating that the
@@ -96,8 +91,7 @@ static pixel_type GetPaletteValue(const pixel_type *const palette, int index,
       }
       index /= divisor;
     }
-    index %= kSmallCube;
-    return (index * ((1 << bit_depth) - 1)) / kSmallCube +
+    return Scale(index % kSmallCube, bit_depth, kSmallCube) +
            (1 << (std::max(0, bit_depth - 3)));
   } else if (palette_size + kLargeCubeOffset <= index) {
     if (c >= kCubePow) return 0;
@@ -111,8 +105,7 @@ static pixel_type GetPaletteValue(const pixel_type *const palette, int index,
       }
       index /= divisor;
     }
-    index %= kLargeCube;
-    return (index * ((1 << bit_depth) - 1)) / (kLargeCube - 1);
+    return Scale(index % kLargeCube, bit_depth, kLargeCube - 1);
   }
 
   return palette[c * onerow + static_cast<size_t>(index)];
@@ -232,7 +225,7 @@ static Status InvPalette(Image &input, uint32_t begin_c, uint32_t nb_colors,
   intptr_t onerow = input.channel[0].plane.PixelsPerRow();
   intptr_t onerow_image = input.channel[c0].plane.PixelsPerRow();
   const int bit_depth =
-      CeilLog2Nonzero(static_cast<unsigned>(input.maxval - input.minval + 1));
+      CeilLog2Nonzero(static_cast<unsigned>(input.maxval) - input.minval + 1);
 
   if (w == 0) {
     // Nothing to do.

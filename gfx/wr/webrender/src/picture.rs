@@ -1300,8 +1300,8 @@ impl Tile {
             CompositorKind::Draw { .. } => {
                 (frame_context.config.gpu_supports_render_target_partial_update, true)
             }
-            CompositorKind::Native { max_update_rects, .. } => {
-                (max_update_rects > 0, false)
+            CompositorKind::Native { capabilities, .. } => {
+                (capabilities.max_update_rects > 0, false)
             }
         };
 
@@ -2971,14 +2971,16 @@ impl TileCacheInstance {
         format: YuvFormat,
     ) -> bool {
         for &key in api_keys {
-            // TODO: See comment in setup_compositor_surfaces_rgb.
-            resource_cache.request_image(ImageRequest {
-                    key,
-                    rendering: image_rendering,
-                    tile: None,
-                },
-                gpu_cache,
-            );
+            if key != ImageKey::DUMMY {
+                // TODO: See comment in setup_compositor_surfaces_rgb.
+                resource_cache.request_image(ImageRequest {
+                        key,
+                        rendering: image_rendering,
+                        tile: None,
+                    },
+                    gpu_cache,
+                );
+            }
         }
 
         self.setup_compositor_surfaces_impl(
@@ -3485,9 +3487,11 @@ impl TileCacheInstance {
                     // - Have a valid, opaque image descriptor
                     // - Not use tiling (since they can fail to draw)
                     // - Not having any spacing / padding
+                    // - Have opaque alpha in the instance (flattened) color
                     if image_properties.descriptor.is_opaque() &&
                        image_properties.tiling.is_none() &&
-                       image_data.tile_spacing == LayoutSize::zero() {
+                       image_data.tile_spacing == LayoutSize::zero() &&
+                       image_data.color.a >= 1.0 {
                         backdrop_candidate = Some(BackdropInfo {
                             opaque_rect: pic_clip_rect,
                             kind: None,

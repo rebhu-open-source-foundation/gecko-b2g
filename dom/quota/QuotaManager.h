@@ -18,6 +18,7 @@
 #include "mozilla/RefPtr.h"
 #include "mozilla/Result.h"
 #include "mozilla/dom/Nullable.h"
+#include "mozilla/dom/QMResult.h"
 #include "mozilla/dom/ipc/IdType.h"
 #include "mozilla/dom/quota/CommonMetadata.h"
 #include "mozilla/dom/quota/InitializationTypes.h"
@@ -463,7 +464,7 @@ class QuotaManager final : public BackgroundThreadObject {
 
   nsresult MaybeCreateOrUpgradeStorage(mozIStorageConnection& aConnection);
 
-  nsresult MaybeRemoveLocalStorageArchiveTmpFile();
+  Result<Ok, QMResult> MaybeRemoveLocalStorageArchiveTmpFile();
 
   nsresult MaybeRemoveLocalStorageDataAndArchive(nsIFile& aLsArchiveFile);
 

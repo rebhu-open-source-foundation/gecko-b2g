@@ -40,6 +40,12 @@ test-assembler = "0.1.2"
 walkdir = "2.3.1"
 criterion = "0.3"
 
+[features]
+default = ["3gpp"]
+3gpp = []
+meta-xml = []
+unstable-api = []
+
 [[bench]]
 name = "avif_benchmark"
 harness = false

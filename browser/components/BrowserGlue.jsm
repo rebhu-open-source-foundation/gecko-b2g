@@ -50,6 +50,7 @@ XPCOMUtils.defineLazyModuleGetters(this, {
   FxAccounts: "resource://gre/modules/FxAccounts.jsm",
   HomePage: "resource:///modules/HomePage.jsm",
   Integration: "resource://gre/modules/Integration.jsm",
+  Interactions: "resource:///modules/Interactions.jsm",
   Log: "resource://gre/modules/Log.jsm",
   LoginBreaches: "resource:///modules/LoginBreaches.jsm",
   NetUtil: "resource://gre/modules/NetUtil.jsm",
@@ -1974,6 +1975,35 @@ BrowserGlue.prototype = {
     });
   },
 
+  // Set up a listener to enable/disable the translation extension
+  // based on its preference.
+  _monitorTranslationsPref() {
+    const PREF = "extensions.translations.disabled";
+    const ID = "firefox-translations@mozilla.org";
+    const _checkTranslationsPref = async () => {
+      let addon = await AddonManager.getAddonByID(ID);
+      let disabled = Services.prefs.getBoolPref(PREF, false);
+      if (!addon && disabled) {
+        // not installed, bail out early.
+        return;
+      }
+      if (!disabled) {
+        // first time install of addon and install on firefox update
+        addon =
+          (await AddonManager.maybeInstallBuiltinAddon(
+            ID,
+            "0.4.0",
+            "resource://builtin-addons/translations/"
+          )) || addon;
+        await addon.enable();
+      } else if (addon) {
+        await addon.disable();
+      }
+    };
+    Services.prefs.addObserver(PREF, _checkTranslationsPref);
+    _checkTranslationsPref();
+  },
+
   _monitorHTTPSOnlyPref() {
     const PREF_ENABLED = "dom.security.https_only_mode";
     const PREF_WAS_ENABLED = "dom.security.https_only_mode_ever_enabled";
@@ -2109,6 +2139,7 @@ BrowserGlue.prototype = {
     BrowserUsageTelemetry.init();
     SearchSERPTelemetry.init();
 
+    Interactions.init();
     ExtensionsUI.init();
 
     let signingRequired;
@@ -2170,6 +2201,9 @@ BrowserGlue.prototype = {
     this._monitorHTTPSOnlyPref();
     this._monitorIonPref();
     this._monitorIonStudies();
+    if (AppConstants.NIGHTLY_BUILD) {
+      this._monitorTranslationsPref();
+    }
 
     FirefoxMonitor.init();
   },
@@ -2402,15 +2436,6 @@ BrowserGlue.prototype = {
         },
       },
 
-      // request startup of Chromium remote debugging protocol
-      // (observer will only be notified when --remote-debugging-port is passed)
-      {
-        condition: AppConstants.ENABLE_REMOTE_AGENT,
-        task: () => {
-          Services.obs.notifyObservers(null, "remote-startup-requested");
-        },
-      },
-
       // Run TRR performance measurements for DoH.
       {
         task: () => {
@@ -2510,8 +2535,10 @@ BrowserGlue.prototype = {
         },
       },
 
-      // Marionette needs to be initialized as very last step
+      // WebDriver components (Remote Agent and Marionette) need to be
+      // initialized as very last step.
       {
+        condition: AppConstants.ENABLE_WEBDRIVER,
         task: () => {
           // Use idleDispatch a second time to run this after the per-window
           // idle tasks.
@@ -2520,11 +2547,15 @@ BrowserGlue.prototype = {
               null,
               "browser-startup-idle-tasks-finished"
             );
+
+            // Request startup of the Remote Agent (support for WebDriver BiDi
+            // and the partial Chrome DevTools protocol) before Marionette.
+            Services.obs.notifyObservers(null, "remote-startup-requested");
             Services.obs.notifyObservers(null, "marionette-startup-requested");
           });
         },
       },
-      // Do NOT add anything after marionette initialization.
+      // Do NOT add anything after WebDriver initialization.
     ];
 
     for (let task of idleTasks) {
@@ -2735,6 +2766,9 @@ BrowserGlue.prototype = {
     }
 
     let win = BrowserWindowTracker.getTopWindow();
+
+    // Our prompt for quitting is most important, so replace others.
+    win.gDialogBox.replaceDialogIfOpen();
 
     let warningMessage;
     // More than 1 window. Compose our own message.

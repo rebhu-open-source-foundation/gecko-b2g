@@ -312,7 +312,7 @@ pub enum ShaderColorMode {
     SubpixelWithBgColorPass1 = 4,
     SubpixelWithBgColorPass2 = 5,
     SubpixelDualSource = 6,
-    Bitmap = 7,
+    BitmapShadow = 7,
     ColorBitmap = 8,
     Image = 9,
     MultiplyDualSource = 10,
@@ -321,11 +321,12 @@ pub enum ShaderColorMode {
 impl From<GlyphFormat> for ShaderColorMode {
     fn from(format: GlyphFormat) -> ShaderColorMode {
         match format {
-            GlyphFormat::Alpha | GlyphFormat::TransformedAlpha => ShaderColorMode::Alpha,
+            GlyphFormat::Alpha |
+            GlyphFormat::TransformedAlpha |
+            GlyphFormat::Bitmap => ShaderColorMode::Alpha,
             GlyphFormat::Subpixel | GlyphFormat::TransformedSubpixel => {
                 panic!("Subpixel glyph formats must be handled separately.");
             }
-            GlyphFormat::Bitmap => ShaderColorMode::Bitmap,
             GlyphFormat::ColorBitmap => ShaderColorMode::ColorBitmap,
         }
     }
@@ -1104,11 +1105,10 @@ impl Renderer {
             CompositorConfig::Draw { max_partial_present_rects, draw_previous_partial_present_regions, .. } => {
                 CompositorKind::Draw { max_partial_present_rects, draw_previous_partial_present_regions }
             }
-            CompositorConfig::Native { ref compositor, max_update_rects, .. } => {
+            CompositorConfig::Native { ref compositor } => {
                 let capabilities = compositor.get_capabilities();
 
                 CompositorKind::Native {
-                    max_update_rects,
                     capabilities,
                 }
             }
@@ -1136,7 +1136,6 @@ impl Renderer {
         };
         info!("WR {:?}", config);
 
-        let device_pixel_ratio = options.device_pixel_ratio;
         let debug_flags = options.debug_flags;
         let size_of_op = options.size_of_op;
         let enclosing_size_of_op = options.enclosing_size_of_op;
@@ -1181,7 +1180,6 @@ impl Renderer {
 
             let mut scene_builder = SceneBuilderThread::new(
                 config,
-                device_pixel_ratio,
                 sb_font_instances,
                 make_size_of_ops(),
                 scene_builder_hooks,
@@ -1255,7 +1253,6 @@ impl Renderer {
                 api_rx,
                 result_tx,
                 rb_scene_tx,
-                device_pixel_ratio,
                 resource_cache,
                 backend_notifier,
                 backend_blob_handler,
@@ -5308,7 +5305,6 @@ bitflags! {
 }
 
 pub struct RendererOptions {
-    pub device_pixel_ratio: f32,
     pub resource_override_path: Option<PathBuf>,
     /// Whether to use shaders that have been optimized at build time.
     pub use_optimized_shaders: bool,
@@ -5395,7 +5391,6 @@ impl RendererOptions {
 impl Default for RendererOptions {
     fn default() -> Self {
         RendererOptions {
-            device_pixel_ratio: 1.0,
             resource_override_path: None,
             use_optimized_shaders: false,
             enable_aa: true,

@@ -1,16 +1,7 @@
-// Copyright (c) the JPEG XL Project
+// Copyright (c) the JPEG XL Project Authors. All rights reserved.
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
 
 #include "jxl/decode.h"
 
@@ -295,6 +286,7 @@ struct Sections {
   std::vector<char> section_received;
 };
 
+// NOLINTNEXTLINE(clang-analyzer-optin.performance.Padding)
 struct JxlDecoderStruct {
   JxlDecoderStruct() = default;
 
@@ -312,7 +304,9 @@ struct JxlDecoderStruct {
   // final box that uses size 0 to indicate the end.
   bool last_codestream_seen;
   bool got_basic_info;
-  bool got_all_headers;  // Codestream metadata headers
+  size_t header_except_icc_bits = 0;  // To skip everything before ICC.
+  bool got_all_headers;               // Codestream metadata headers
+  jxl::ICCReader icc_reader;
 
   // This means either we actually got the preview image, or determined we
   // cannot get it or there is none.
@@ -451,7 +445,9 @@ void JxlDecoderReset(JxlDecoder* dec) {
   dec->first_codestream_seen = false;
   dec->last_codestream_seen = false;
   dec->got_basic_info = false;
+  dec->header_except_icc_bits = 0;
   dec->got_all_headers = false;
+  dec->icc_reader.Reset();
   dec->got_preview_image = false;
   dec->last_frame_reached = false;
   dec->file_pos = 0;
@@ -656,20 +652,27 @@ JxlDecoderStatus JxlDecoderReadAllHeaders(JxlDecoder* dec, const uint8_t* in,
 
   Span<const uint8_t> span(in + pos, size - pos);
   auto reader = GetBitReader(span);
-  SizeHeader dummy_size_header;
-  JXL_API_RETURN_IF_ERROR(ReadBundle(span, reader.get(), &dummy_size_header));
 
-  // We already decoded the metadata to dec->metadata.m, no reason to
-  // overwrite it, use a dummy metadata instead.
-  ImageMetadata dummy_metadata;
-  JXL_API_RETURN_IF_ERROR(ReadBundle(span, reader.get(), &dummy_metadata));
+  if (dec->header_except_icc_bits != 0) {
+    // Headers were decoded already.
+    reader->SkipBits(dec->header_except_icc_bits);
+  } else {
+    SizeHeader dummy_size_header;
+    JXL_API_RETURN_IF_ERROR(ReadBundle(span, reader.get(), &dummy_size_header));
 
-  JXL_API_RETURN_IF_ERROR(
-      ReadBundle(span, reader.get(), &dec->metadata.transform_data));
+    // We already decoded the metadata to dec->metadata.m, no reason to
+    // overwrite it, use a dummy metadata instead.
+    ImageMetadata dummy_metadata;
+    JXL_API_RETURN_IF_ERROR(ReadBundle(span, reader.get(), &dummy_metadata));
+
+    JXL_API_RETURN_IF_ERROR(
+        ReadBundle(span, reader.get(), &dec->metadata.transform_data));
+  }
+
+  dec->header_except_icc_bits = reader->TotalBitsConsumed();
 
   if (dec->metadata.m.color_encoding.WantICC()) {
-    PaddedBytes icc;
-    jxl::Status status = ReadICC(reader.get(), &icc, memory_limit_base_);
+    jxl::Status status = dec->icc_reader.Init(reader.get(), memory_limit_base_);
     // Always check AllReadsWithinBounds, not all the C++ decoder implementation
     // handles reader out of bounds correctly  yet (e.g. context map). Not
     // checking AllReadsWithinBounds can cause reader->Close() to trigger an
@@ -677,6 +680,15 @@ JxlDecoderStatus JxlDecoderReadAllHeaders(JxlDecoder* dec, const uint8_t* in,
     if (!reader->AllReadsWithinBounds()) {
       return JXL_DEC_NEED_MORE_INPUT;
     }
+    if (!status) {
+      if (status.code() == StatusCode::kNotEnoughBytes) {
+        return JXL_DEC_NEED_MORE_INPUT;
+      }
+      // Other non-successful status is an error
+      return JXL_DEC_ERROR;
+    }
+    PaddedBytes icc;
+    status = dec->icc_reader.Process(reader.get(), &icc);
     if (!status) {
       if (status.code() == StatusCode::kNotEnoughBytes) {
         return JXL_DEC_NEED_MORE_INPUT;
@@ -763,6 +775,9 @@ JxlDecoderStatus ParseFrameHeader(JxlDecoder* dec,
                                   const uint8_t* in, size_t size, size_t pos,
                                   bool is_preview, size_t* frame_size,
                                   size_t* dc_size) {
+  if (pos >= size) {
+    return JXL_DEC_NEED_MORE_INPUT;
+  }
   Span<const uint8_t> span(in + pos, size - pos);
   auto reader = GetBitReader(span);
 
@@ -983,6 +998,9 @@ JxlDecoderStatus JxlDecoderProcessInternal(JxlDecoder* dec, const uint8_t* in,
 
     if (dec->frame_stage == FrameStage::kTOC) {
       size_t pos = dec->frame_start - dec->codestream_pos;
+      if (pos >= size) {
+        return JXL_DEC_NEED_MORE_INPUT;
+      }
       Span<const uint8_t> span(in + pos, size - pos);
       auto reader = GetBitReader(span);
 
@@ -1083,6 +1101,9 @@ JxlDecoderStatus JxlDecoderProcessInternal(JxlDecoder* dec, const uint8_t* in,
       }
 
       size_t pos = dec->frame_start - dec->codestream_pos;
+      if (pos >= size) {
+        return JXL_DEC_NEED_MORE_INPUT;
+      }
 
       bool get_dc = dec->is_last_of_still &&
                     (dec->frame_stage == FrameStage::kDC) && dec->dc_size != 0;
@@ -1944,10 +1965,16 @@ JxlDecoderStatus JxlDecoderFlushImage(JxlDecoder* dec) {
     return JXL_DEC_SUCCESS;
   }
 
+  // Temporarily shrink `dec->ib` to the actual size of the full image to call
+  // ConvertImageInternal.
+  size_t xsize = dec->ib->xsize();
+  size_t ysize = dec->ib->ysize();
+  dec->ib->ShrinkTo(dec->metadata.size.xsize(), dec->metadata.size.ysize());
   JxlDecoderStatus status = jxl::ConvertImageInternal(
       dec, *dec->ib, dec->image_out_format, dec->image_out_buffer,
       dec->image_out_size,
       /*out_callback=*/nullptr, /*out_opaque=*/nullptr);
+  dec->ib->ShrinkTo(xsize, ysize);
   if (status != JXL_DEC_SUCCESS) return status;
   return JXL_DEC_SUCCESS;
 }

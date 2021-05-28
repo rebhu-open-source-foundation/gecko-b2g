@@ -1101,6 +1101,12 @@
   value: @IS_NOT_MOZILLA_OFFICIAL@
   mirror: always
 
+# See bug 1710926
+- name: browser.download.improvements_to_download_panel
+  type: bool
+  value: false
+  mirror: always
+
 - name: browser.download.sanitize_non_media_extensions
   type: bool
   value: true
@@ -1133,6 +1139,16 @@
   type: uint32_t
   value: 2000
   mirror: always
+
+#ifdef XP_WIN
+  # Notify TabUnloader or send the memory pressure if the memory resource
+  # notification is signaled AND the available commit space is lower than
+  # this value.
+-   name: browser.low_commit_space_threshold_mb
+    type: RelaxedAtomicUint32
+    value: 200
+    mirror: always
+#endif
 
 # Render animations and videos as a solid color
 - name: browser.measurement.render_anims_and_video_solid
@@ -1244,7 +1260,7 @@
 
 # Minimal interval between two save operations in milliseconds (while the user is active).
 - name: browser.sessionstore.interval
-  type: uint32_t
+  type: RelaxedAtomicUint32
   value: 15000
   mirror: always
 
@@ -1252,7 +1268,7 @@
 # browser tabs that were not caused by a flush from the parent.
 # This is a testing flag and should not be used by end-users.
 - name: browser.sessionstore.debug.no_auto_updates
-  type: bool
+  type: RelaxedAtomicBool
   value: false
   mirror: always
 
@@ -3024,7 +3040,7 @@
 # request headers to be set.
 - name: dom.security.secFetch.enabled
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
 
 # This pref enables the featurePolicy header support.
@@ -5720,6 +5736,16 @@
 #endif
   mirror: always
 
+# How strict we are in accepting/rejecting AVIF inputs according to whether they
+# conform to the specification
+# 0 = Permissive: accept whatever we can simply, unambiguously interpret
+# 1 = Normal: reject violations of "shall" specification directives
+# 2 = Strict: reject violations of "should" specification directives
+- name: image.avif.compliance_strictness
+  type: RelaxedAtomicInt32
+  value: 1
+  mirror: always
+
 # Whether we use dav1d (true) or libaom (false) to decode AVIF image
 - name: image.avif.use-dav1d
   type: RelaxedAtomicBool
@@ -5745,7 +5771,7 @@
 # Whether the new encoding detector is enabled for the .jp TLD.
 - name: intl.charset.detector.ng.jp.enabled
   type: bool
-  value: false
+  value: true
   mirror: always
 
 # Whether the new encoding detector is enabled for the .in TLD.
@@ -5797,7 +5823,7 @@
   value: false
   mirror: always
 
-#ifdef XP_MACOSX
+#if defined(XP_MACOSX) || defined(MOZ_WIDGET_GTK)
 # Whether text input without keyboard press nor IME composition should cause a
 # set of composition events or not.  E.g., when you use Emoji picker on macOS,
 # it inserts an Emoji character directly.  If set to true, `compositionstart`,
@@ -6070,22 +6096,13 @@
 
 - name: javascript.options.wasm_optimizingjit
   type: bool
-#if defined(MOZ_AARCH64) && !defined(NIGHTLY_BUILD)
-  value: false
-#else
   value: true
-#endif
   mirror: always
 
-# SIMD is supported only on x86 and x64, with arm64 support imminent.
 #if defined(ENABLE_WASM_SIMD)
 -   name: javascript.options.wasm_simd
     type: bool
-#if defined(MOZ_AARCH64)
-    value: @IS_NIGHTLY_BUILD@
-#else
     value: true
-#endif
     mirror: always
 #endif  // defined(ENABLE_WASM_SIMD)
 
@@ -7531,6 +7548,13 @@
 - name: layout.lower_priority_refresh_driver_during_load
   type: bool
   value: true
+  mirror: always
+
+# If > 0, nsRefreshDriver will keep ticking this amount of milliseconds after
+# top level page load.
+- name: layout.keep_ticking_after_load_ms
+  type: uint32_t
+  value: 1000
   mirror: always
 
 # Is layout of CSS outline-style:auto enabled?
@@ -9115,6 +9139,12 @@
   value: true
   mirror: always
 
+# Whether to use new implementation of ParseReasm
+- name: network.auth.use_new_parse_realm
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
 # See the full list of values in nsICookieService.idl.
 - name: network.cookie.cookieBehavior
   type: RelaxedAtomicInt32
@@ -10528,6 +10558,12 @@
   type: bool
   value: true
   mirror: always
+
+# the list which contains sites where should exempt from query stripping
+- name: privacy.query_stripping.allow_list
+  type: String
+  value: ""
+  mirror: never
 
 #---------------------------------------------------------------------------
 # Prefs starting with "prompts."

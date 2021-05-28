@@ -4,7 +4,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "WebGPUChild.h"
+#include "js/Warnings.h"  // JS::WarnUTF8
 #include "mozilla/EnumTypeTraits.h"
+#include "mozilla/dom/ScriptSettings.h"
 #include "mozilla/dom/WebGPUBinding.h"
 #include "mozilla/dom/GPUUncapturedErrorEvent.h"
 #include "mozilla/webgpu/ValidationError.h"
@@ -17,6 +19,20 @@ namespace webgpu {
 NS_IMPL_CYCLE_COLLECTION(WebGPUChild)
 NS_IMPL_CYCLE_COLLECTION_ROOT_NATIVE(WebGPUChild, AddRef)
 NS_IMPL_CYCLE_COLLECTION_UNROOT_NATIVE(WebGPUChild, Release)
+
+void WebGPUChild::JsWarning(nsIGlobalObject* aGlobal,
+                            const nsACString& aMessage) {
+  const auto& flatString = PromiseFlatCString(aMessage);
+  if (aGlobal) {
+    dom::AutoJSAPI api;
+    if (api.Init(aGlobal)) {
+      JS::WarnUTF8(api.cx(), "%s", flatString.get());
+    }
+  } else {
+    printf_stderr("Validation error without device target: %s\n",
+                  flatString.get());
+  }
+}
 
 static ffi::WGPUCompareFunction ConvertCompareFunction(
     const dom::GPUCompareFunction& aCompare) {
@@ -135,6 +151,11 @@ static ffi::WGPUTextureFormat ConvertTextureFormat(
       MOZ_ASSERT_UNREACHABLE();
   }
   MOZ_CRASH("unexpected texture format enum");
+}
+
+void WebGPUChild::ConvertTextureFormatRef(const dom::GPUTextureFormat& aInput,
+                                          ffi::WGPUTextureFormat& aOutput) {
+  aOutput = ConvertTextureFormat(aInput);
 }
 
 static ffi::WGPUClient* initialize() {
@@ -376,6 +397,27 @@ RawId WebGPUChild::CommandEncoderFinish(
   // and a new command buffer ID is being created from it. Resolve the ID
   // type aliasing at the place that introduces it: `wgpu-core`.
   return aSelfId;
+}
+
+RawId WebGPUChild::RenderBundleEncoderFinish(
+    ffi::WGPURenderBundleEncoder& aEncoder, RawId aDeviceId,
+    const dom::GPURenderBundleDescriptor& aDesc) {
+  ffi::WGPURenderBundleDescriptor desc = {};
+  nsCString label;
+  if (aDesc.mLabel.WasPassed()) {
+    LossyCopyUTF16toASCII(aDesc.mLabel.Value(), label);
+    desc.label = label.get();
+  }
+
+  ipc::ByteBuf bb;
+  RawId id = ffi::wgpu_client_create_render_bundle(
+      mClient, &aEncoder, aDeviceId, &desc, ToFFI(&bb));
+
+  if (!SendDeviceAction(aDeviceId, std::move(bb))) {
+    MOZ_CRASH("IPC failure");
+  }
+
+  return id;
 }
 
 RawId WebGPUChild::DeviceCreateBindGroupLayout(
@@ -790,16 +832,14 @@ RawId WebGPUChild::DeviceCreateRenderPipeline(
 
 ipc::IPCResult WebGPUChild::RecvError(RawId aDeviceId,
                                       const nsACString& aMessage) {
-  if (!aDeviceId) {
-    // TODO: figure out how to report these kinds of errors
-    printf_stderr("Validation error without device target: %s\n",
-                  PromiseFlatCString(aMessage).get());
-  } else if (mDeviceMap.find(aDeviceId) == mDeviceMap.end()) {
-    printf_stderr("Validation error on a dropped device: %s\n",
-                  PromiseFlatCString(aMessage).get());
+  auto targetIter = mDeviceMap.find(aDeviceId);
+  if (!aDeviceId || targetIter == mDeviceMap.end()) {
+    JsWarning(nullptr, aMessage);
   } else {
-    auto* target = mDeviceMap[aDeviceId];
+    auto* target = targetIter->second;
     MOZ_ASSERT(target);
+    JsWarning(target->GetOwnerGlobal(), aMessage);
+
     dom::GPUUncapturedErrorEventInit init;
     init.mError.SetAsGPUValidationError() =
         new ValidationError(target, aMessage);

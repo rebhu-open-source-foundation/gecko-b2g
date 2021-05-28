@@ -324,7 +324,7 @@ bool JSXrayTraits::getOwnPropertyFromTargetIfSafe(
   }
 
   // Disallow accessor properties.
-  if (desc->hasGetterOrSetter()) {
+  if (desc->isAccessorDescriptor()) {
     JSAutoRealm ar(cx, wrapperGlobal);
     JS_MarkCrossZoneId(cx, id);
     return ReportWrapperDenial(cx, id, WrapperDenialForXray,
@@ -449,7 +449,6 @@ static bool TryResolvePropertyFromSpecs(
         RootedObject getterObj(cx, JS_GetFunctionObject(getterFun));
         RootedObject setterObj(cx);
         if (psMatch->u.accessors.setter.selfHosted.funname) {
-          MOZ_ASSERT(attrs & JSPROP_SETTER);
           JSFunction* setterFun = JS::GetSelfHostedFunction(
               cx, psMatch->u.accessors.setter.selfHosted.funname, id, 0);
           if (!setterFun) {
@@ -655,10 +654,10 @@ bool JSXrayTraits::resolveOwnProperty(
           return false;
         }
         if (desc.isSome()) {
-          bool valueMatchesType =
-              (isErrorIntProperty && desc->value().isInt32()) ||
-              (isErrorStringProperty && desc->value().isString());
-          if (desc->hasGetterOrSetter() || !valueMatchesType) {
+          // Make sure the property has the expected type.
+          if (!desc->isDataDescriptor() ||
+              (isErrorIntProperty && !desc->value().isInt32()) ||
+              (isErrorStringProperty && !desc->value().isString())) {
             desc.reset();
           }
         }
@@ -772,7 +771,7 @@ bool JSXrayTraits::defineProperty(
   bool isObjectOrArray = (key == JSProto_Object || key == JSProto_Array);
   if (isObjectOrArray && isInstance) {
     RootedObject target(cx, getTargetObject(wrapper));
-    if (desc.hasGetterOrSetter()) {
+    if (desc.isAccessorDescriptor()) {
       JS_ReportErrorASCII(cx,
                           "Not allowed to define accessor property on [Object] "
                           "or [Array] XrayWrapper");
@@ -787,7 +786,7 @@ bool JSXrayTraits::defineProperty(
       return false;
     }
     if (existingDesc.isSome()) {
-      if (existingDesc->hasGetterOrSetter()) {
+      if (existingDesc->isAccessorDescriptor()) {
         JS_ReportErrorASCII(cx,
                             "Not allowed to overwrite accessor property on "
                             "[Object] or [Array] XrayWrapper");
@@ -1610,7 +1609,7 @@ bool XrayTraits::resolveOwnProperty(
           {PropertyAttribute::Configurable, PropertyAttribute::Writable})));
     } else if (id == GetJSIDByIndex(cx, XPCJSContext::IDX_INFINITY)) {
       desc.set(Some(PropertyDescriptor::Data(
-        DoubleValue(PositiveInfinity<double>()), {})));
+          DoubleValue(PositiveInfinity<double>()), {})));
     } else if (id == GetJSIDByIndex(cx, XPCJSContext::IDX_NAN)) {
       desc.set(Some(PropertyDescriptor::Data(NaNValue(), {})));
     }

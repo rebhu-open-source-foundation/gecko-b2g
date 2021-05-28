@@ -1,16 +1,7 @@
-/* Copyright (c) the JPEG XL Project
+/* Copyright (c) the JPEG XL Project Authors. All rights reserved.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Use of this source code is governed by a BSD-style
+ * license that can be found in the LICENSE file.
  */
 
 /** @file decode.h
@@ -135,10 +126,14 @@ typedef enum {
    */
   JXL_DEC_ERROR = 1,
 
-  /** The decoder needs more input bytes to continue. In the next
-   * JxlDecoderProcessInput call, next_in and avail_in must point to more
-   * bytes to continue. If *avail_in is not 0, the new bytes must be appended to
-   * the *avail_in last previous bytes.
+  /** The decoder needs more input bytes to continue. Before the next
+   * JxlDecoderProcessInput call, more input data must be set, by calling
+   * JxlDecoderReleaseInput (if input was set previously) and then calling
+   * JxlDecoderSetInput. JxlDecoderReleaseInput returns how many bytes are
+   * not yet processed, before a next call to JxlDecoderProcessInput all
+   * unprocessed bytes must be provided again (the address need not match, but
+   * the contents must), and more bytes must be concatenated after the
+   * unprocessed bytes.
    */
   JXL_DEC_NEED_MORE_INPUT = 2,
 
@@ -195,8 +190,6 @@ typedef enum {
    * frame, decoded. This event can only happen if the image has a preview
    * frame encoded. This event occurs max once for the codestream and always
    * later than JXL_DEC_COLOR_ENCODING and before JXL_DEC_FRAME.
-   * This event is different than JXL_DEC_PREVIEW_HEADER because the latter only
-   * outputs the dimensions of the preview image.
    */
   JXL_DEC_PREVIEW_IMAGE = 0x200,
 
@@ -277,8 +270,8 @@ JxlDecoderSetParallelRunner(JxlDecoder* dec, JxlParallelRunner parallel_runner,
  * Returns a hint indicating how many more bytes the decoder is expected to
  * need to make JxlDecoderGetBasicInfo available after the next
  * JxlDecoderProcessInput call. This is a suggested large enough value for
- * the *avail_in parameter, but it is not guaranteed to be an upper bound nor
- * a lower bound.
+ * the amount of bytes to provide in the next JxlDecoderSetInput call, but it is
+ * not guaranteed to be an upper bound nor a lower bound.
  * Can be used before the first JxlDecoderProcessInput call, and is correct
  * the first time in most cases. If not, JxlDecoderSizeHintBasicInfo can be
  * called again to get an updated hint.

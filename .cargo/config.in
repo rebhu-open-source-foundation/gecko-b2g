@@ -20,12 +20,12 @@ rev = "5cea1c9a3d8ed3ed2d7bdd5be3285e7821400b7f"
 [source."https://github.com/mozilla/neqo"]
 git = "https://github.com/mozilla/neqo"
 replace-with = "vendored-sources"
-tag = "v0.4.24"
+tag = "v0.4.25"
 
 [source."https://github.com/mozilla/mp4parse-rust"]
 git = "https://github.com/mozilla/mp4parse-rust"
 replace-with = "vendored-sources"
-rev = "94c3b1f368c82aefcbf51967f6aa296a9ccceb69"
+rev = "dd967732ac836cc1ed5f1a7259d912c5d13e009b"
 
 [source."https://github.com/mozilla/cubeb-pulse-rs"]
 git = "https://github.com/mozilla/cubeb-pulse-rs"
@@ -115,7 +115,7 @@ rev = "be19a243b86e0bafb9937d661fc8eabb3e42b44e"
 [source."https://github.com/bytecodealliance/wasmtime"]
 git = "https://github.com/bytecodealliance/wasmtime"
 replace-with = "vendored-sources"
-rev = "6b77786a6e758e91da9484a1c80b6fa5f88e1b3d"
+rev = "824fa69756523f2b6d49029fe25de94130b1f144"
 
 [source."https://github.com/PLSysSec/rlbox_lucet_sandbox/"]
 git = "https://github.com/PLSysSec/rlbox_lucet_sandbox/"
