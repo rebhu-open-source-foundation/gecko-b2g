@@ -30,6 +30,7 @@ class GonkOffloadPlayer : public MediaOffloadPlayer,
  private:
   ~GonkOffloadPlayer() = default;
   virtual void InitInternal() override;
+  virtual void ShutdownInternal() override;
   virtual void ResetInternal() override;
   virtual void SeekInternal(const SeekTarget& aTarget, bool aVisible) override;
   virtual bool UpdateCurrentPosition() override;

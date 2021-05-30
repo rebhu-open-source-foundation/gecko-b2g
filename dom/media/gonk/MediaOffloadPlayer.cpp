@@ -117,7 +117,7 @@ RefPtr<ShutdownPromise> MediaOffloadPlayer::Shutdown() {
 
   mCurrentPositionTimer.Reset();
   mDormantTimer.Reset();
-  ResetInternal();
+  ShutdownInternal();
 
   // Disconnect canonicals and mirrors before shutting down our task queue.
   mPlayState.DisconnectIfConnected();

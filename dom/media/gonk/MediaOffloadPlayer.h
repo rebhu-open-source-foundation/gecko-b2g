@@ -155,6 +155,7 @@ class MediaOffloadPlayer : public DecoderDoctorLifeLogger<MediaOffloadPlayer> {
    * Methods implemented by derived classes.
    */
   virtual void InitInternal() = 0;
+  virtual void ShutdownInternal() = 0;
   virtual void ResetInternal() = 0;
   virtual void SeekInternal(const SeekTarget& aTarget, bool aVisible) = 0;
   // Return true to schedule next update.

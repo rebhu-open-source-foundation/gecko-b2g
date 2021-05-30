@@ -184,6 +184,8 @@ void GonkOffloadPlayer::InitInternal() {
   mMediaPlayer->prepareAsync();
 }
 
+void GonkOffloadPlayer::ShutdownInternal() { ResetInternal(); }
+
 void GonkOffloadPlayer::ResetInternal() {
   if (mNativeWindow) {
     mNativeWindow->setNewFrameCallback(nullptr);
