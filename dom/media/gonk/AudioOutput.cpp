@@ -183,10 +183,19 @@ void AudioOutput::CallbackWrapper(int aEvent, void* aCookie, void* aInfo) {
                            CB_EVENT_FILL_BUFFER);
 
       if (actualSize == 0 && buffer->size > 0) {
-        // We've reached EOS but the audio track is not stopped yet,
-        // keep playing silence.
-        memset(buffer->raw, 0, buffer->size);
-        actualSize = buffer->size;
+        // Log when no data is returned from the callback.
+        // (1) We may have no data (especially with network streaming sources).
+        // (2) We may have reached the EOS and the audio track is not stopped
+        //     yet.
+        // Note that AwesomePlayer/AudioPlayer will only return zero size when
+        // it reaches the EOS. NuPlayerRenderer will return zero when it doesn't
+        // have data (it doesn't block to fill).
+        //
+        // This is a benign busy-wait, with the next data request generated 10
+        // ms or more later; nevertheless for power reasons, we don't want to
+        // see too many of these.
+        AUDIO_OFFLOAD_LOG(LogLevel::Verbose,
+                          ("Callback wrapper: empty buffer returned"));
       }
 
       buffer->size = actualSize;

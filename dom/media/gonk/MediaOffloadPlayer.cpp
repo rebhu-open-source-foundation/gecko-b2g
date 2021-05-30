@@ -240,7 +240,7 @@ RefPtr<MediaDecoder::SeekPromise> MediaOffloadPlayer::InvokeSeek(
                      &MediaOffloadPlayer::HandleSeek, aTarget, true);
 }
 
-void MediaOffloadPlayer::FirePendingSeekIfExists() {
+bool MediaOffloadPlayer::FirePendingSeekIfExists() {
   MOZ_ASSERT(OnTaskQueue());
   MOZ_ASSERT(!mCurrentSeek.Exists());
 
@@ -251,7 +251,9 @@ void MediaOffloadPlayer::FirePendingSeekIfExists() {
     mCurrentSeek = std::move(mPendingSeek);
     mPendingSeek = SeekObject();
     SeekInternal(mCurrentSeek.mTarget.ref(), mCurrentSeek.mVisible);
+    return true;
   }
+  return false;
 }
 
 void MediaOffloadPlayer::DispatchSetPlaybackRate(double aPlaybackRate) {

@@ -95,7 +95,7 @@ class MediaOffloadPlayer : public DecoderDoctorLifeLogger<MediaOffloadPlayer> {
   /*
    * APIs from MediaFormatReader.
    */
-  void NotifyDataArrived() {}
+  virtual void NotifyDataArrived() {}
   RefPtr<SetCDMPromise> SetCDMProxy(CDMProxy* aProxy);
   void UpdateCompositor(already_AddRefed<layers::KnowsCompositor> aCompositor);
   void GetDebugInfo(dom::MediaFormatReaderDebugInfo& aInfo) {}
@@ -138,7 +138,7 @@ class MediaOffloadPlayer : public DecoderDoctorLifeLogger<MediaOffloadPlayer> {
   bool OnTaskQueue() const { return OwnerThread()->IsCurrentThreadIn(); }
   RefPtr<MediaDecoder::SeekPromise> HandleSeek(const SeekTarget& aTarget,
                                                bool aVisible);
-  void FirePendingSeekIfExists();
+  bool FirePendingSeekIfExists();
   bool Seeking() { return mCurrentSeek.Exists(); }
   void NotifySeeked(bool aSuccess);
   void UpdateCurrentPositionPeriodically();
