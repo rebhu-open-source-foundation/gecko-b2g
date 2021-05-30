@@ -115,7 +115,11 @@ GonkOffloadPlayer::GonkOffloadPlayer(MediaFormatReaderInit& aInit, nsIURI* aURI)
     : MediaOffloadPlayer(aInit),
       mURI(aURI),
       mSentFirstFrameLoadedEvent(false),
-      mPackedDisplaySize(0) {}
+      mPackedDisplaySize(0) {
+  // Release unused already_AddRefed.
+  RefPtr<layers::KnowsCompositor> knowsCompositor = aInit.mKnowsCompositor;
+  RefPtr<GMPCrashHelper> crashHelper = aInit.mCrashHelper;
+}
 
 void GonkOffloadPlayer::OnNewFrame() {
   RefPtr<TextureClient> buffer = mNativeWindow->getCurrentBuffer();
