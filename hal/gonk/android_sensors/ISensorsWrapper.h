@@ -18,16 +18,20 @@
 #define ANDROID_SENSORS_WRAPPER_H
 
 #include "android/hardware/sensors/1.0/ISensors.h"
+#include "android/hardware/sensors/2.0/ISensors.h"
+#include "android/hardware/sensors/2.0/ISensorsCallback.h"
 
 #include <utils/LightRefBase.h>
 
 namespace android {
 namespace SensorServiceUtil {
 
+using ::android::hardware::MQDescriptorSync;
 using ::android::hardware::Return;
 using ::android::hardware::sensors::V1_0::Event;
 using ::android::hardware::sensors::V1_0::ISensors;
 using ::android::hardware::sensors::V1_0::Result;
+using ::android::hardware::sensors::V2_0::ISensorsCallback;
 
 /*
  * The ISensorsWrapper interface includes all function from supported Sensors HAL versions. This
@@ -61,6 +65,15 @@ public:
         (void)maxCount;
         (void)_hidl_cb;
         return Return<void>();
+    }
+
+    virtual Return<Result> initialize(const MQDescriptorSync<Event>& eventQueueDesc,
+                                      const MQDescriptorSync<uint32_t>& wakeLockDesc,
+                                      const ::android::sp<ISensorsCallback>& callback) {
+        (void)eventQueueDesc;
+        (void)wakeLockDesc;
+        (void)callback;
+        return Result::INVALID_OPERATION;
     }
 };
 
@@ -103,6 +116,26 @@ public:
     Return<void> poll(int32_t maxCount,
                       hardware::sensors::V1_0::ISensors::poll_cb _hidl_cb) override {
         return mSensors->poll(maxCount, _hidl_cb);
+    }
+};
+
+class SensorsWrapperV2_0 : public SensorsWrapperBase<hardware::sensors::V2_0::ISensors> {
+public:
+    SensorsWrapperV2_0(sp<hardware::sensors::V2_0::ISensors> sensors)
+        : SensorsWrapperBase(sensors) { };
+
+    bool supportsPolling() const override {
+        return false;
+    }
+
+    bool supportsMessageQueues() const override {
+        return true;
+    }
+
+    Return<Result> initialize(const MQDescriptorSync<Event>& eventQueueDesc,
+                              const MQDescriptorSync<uint32_t>& wakeLockDesc,
+                              const ::android::sp<ISensorsCallback>& callback) override {
+        return mSensors->initialize(eventQueueDesc, wakeLockDesc, callback);
     }
 };
 

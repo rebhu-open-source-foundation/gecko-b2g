@@ -15,6 +15,11 @@ inline double radToDeg(double aRad) {
   return aRad * (180.0 / M_PI);
 }
 
+template<typename EnumType>
+constexpr typename std::underlying_type<EnumType>::type asBaseType(EnumType aValue) {
+  return static_cast<typename std::underlying_type<EnumType>::type>(aValue);
+}
+
 SensorType getSensorType(hidl_sensors::SensorType aHidlSensorType) {
   switch (aHidlSensorType) {
     case hidl_sensors::SensorType::ORIENTATION:
@@ -43,6 +48,17 @@ SensorType getSensorType(hidl_sensors::SensorType aHidlSensorType) {
 namespace mozilla {
 namespace hal_impl {
 
+
+struct SensorsCallback : public ISensorsCallback {
+  // TODO: to support dynamic sensors connection if there is requirement
+  Return<void> onDynamicSensorsConnected(const hidl_vec<hidl_sensors::SensorInfo> &aDynamicSensorsAdded) override {
+    return Void();
+  }
+
+  Return<void> onDynamicSensorsDisconnected(const hidl_vec<int32_t> &aDynamicSensorHandlesRemoved) override {
+    return Void();
+  }
+};
 
 class GonkSensorsHal::SensorDataNotifier : public Runnable {
 public:
@@ -129,28 +145,28 @@ GonkSensorsHal::StartPollingThread() {
     mPollingThread->message_loop()->PostTask(
       NS_NewRunnableFunction("GonkSensors::PollEvents", [this]() {
         do {
-          const int32_t numEventMax = 16;
+          size_t eventsRead = 0;
 
-          // poll sensors events from sensors hidl service
-          android::hardware::hidl_vec<hidl_sensors::Event> events;
-          if (!mSensors->poll(numEventMax,
-            [&events](auto result, const auto &aEvents, const auto &) {
-              if (result == hidl_sensors::Result::OK) {
-                events = aEvents;
-              }
-            }).isOk()) {
-            continue;
+          // reading from fmq is preferred than polling hal as it is based on shared memory
+          if (mSensors->supportsMessageQueues()) {
+            eventsRead = PollFmq();
+          } else if (mSensors->supportsPolling()) {
+            eventsRead = PollHal();
+          } else {
+            // can't reach here, it must support polling or fmq
+            HAL_ERR("sensors hal must support polling or fmq");
+            break;
           }
 
           // create sensor data and dispatch to main thread
-          const size_t count = events.size();
-          for (size_t i=0; i<count; i++) {
-            SensorData sensorData;
+          for (size_t i=0; i<eventsRead; i++) {
+            SensorData sensorData = CreateSensorData(mEventBuffer[i]);
 
-            sensorData = CreateSensorData(events[i]);
             if (sensorData.sensor() == SENSOR_UNKNOWN) {
               continue;
             }
+
+            // TODO: Bug 123480 to notify the count of wakeup events to wakelock queue
 
             NS_DispatchToMainThread(
               new SensorDataNotifier(sensorData, mSensorDataCallback));
@@ -159,6 +175,55 @@ GonkSensorsHal::StartPollingThread() {
       })
     );
   }
+}
+
+size_t
+GonkSensorsHal::PollHal() {
+  hidl_vec<hidl_sensors::Event> events;
+  size_t eventsRead = 0;
+
+  if (mSensors->poll(mEventBuffer.size(),
+    [&events](auto result, const auto &data, const auto &) {
+    if (result == hidl_sensors::Result::OK) {
+      events = data;
+    } else {
+      HAL_ERR("polling sensors event result failed");
+    }
+  }).isOk()) {
+    eventsRead = events.size();
+    for (size_t i=0; i<eventsRead; i++) {
+      mEventBuffer[i] = events[i];
+    }
+  } else {
+    HAL_ERR("polling sensors event failed");
+  }
+
+  return eventsRead;
+}
+
+size_t
+GonkSensorsHal::PollFmq() {
+  size_t eventsRead = 0;
+
+  size_t availableEvents = mEventQueue->availableToRead();
+  if (availableEvents == 0) {
+    uint32_t eventFlagState = 0;
+    mEventQueueFlag->wait(asBaseType(EventQueueFlagBits::READ_AND_PROCESS), &eventFlagState);
+    availableEvents = mEventQueue->availableToRead();
+  }
+
+  size_t eventsToRead = std::min(availableEvents, mEventBuffer.size());
+  if (eventsToRead > 0) {
+    if (mEventQueue->read(mEventBuffer.data(), eventsToRead)) {
+      mEventQueueFlag->wake(asBaseType(EventQueueFlagBits::EVENTS_READ));
+
+      eventsRead = eventsToRead;
+    } else {
+      HAL_ERR("reading sensors event fmq failed");
+    }
+  }
+
+  return eventsRead;
 }
 
 void
@@ -185,6 +250,11 @@ GonkSensorsHal::Init() {
 
 bool
 GonkSensorsHal::InitHidlService() {
+    android::sp<V2_0::ISensors> serviceV2_0 = V2_0::ISensors::getService();
+    if (serviceV2_0) {
+      return InitHidlServiceV2_0(serviceV2_0);
+    }
+
     android::sp<V1_0::ISensors> serviceV1_0 = V1_0::ISensors::getService();
     if (serviceV1_0) {
       HAL_LOG("sensors v1.0 hidl service is detected");
@@ -216,13 +286,39 @@ GonkSensorsHal::InitHidlServiceV1_0(android::sp<V1_0::ISensors> aServiceV1_0) {
 }
 
 bool
+GonkSensorsHal::InitHidlServiceV2_0(android::sp<V2_0::ISensors> aServiceV2_0) {
+  mSensors = new SensorsWrapperV2_0(aServiceV2_0);
+
+  mEventQueue = std::make_unique<EventMessageQueue>(MAX_EVENT_BUFFER_SIZE, true);
+  mWakeLockQueue = std::make_unique<WakeLockQueue>(MAX_EVENT_BUFFER_SIZE, true);
+
+  EventFlag::deleteEventFlag(&mEventQueueFlag);
+  EventFlag::createEventFlag(mEventQueue->getEventFlagWord(), &mEventQueueFlag);
+
+  if (mEventQueue == nullptr || mWakeLockQueue == nullptr || mEventQueueFlag == nullptr) {
+    HAL_ERR("create sensors event queue failed");
+    return false;
+  }
+
+  // TODO: Bug 123483 to handle return and status
+  if (!mSensors->initialize(*mEventQueue->getDesc(), *mWakeLockQueue->getDesc(), new SensorsCallback()).isOk()) {
+    HAL_ERR("sensors v2.0 hidl service initialize failed");
+    return false;
+  }
+
+  // TODO: Bug 123482 to handle the death of hidl server
+
+  return true;
+}
+
+bool
 GonkSensorsHal::InitSensorsList() {
   if (mSensors == nullptr) {
     return false;
   }
 
   // obtain hidl sensors list
-  android::hardware::hidl_vec<hidl_sensors::SensorInfo> list;
+  hidl_vec<hidl_sensors::SensorInfo> list;
   if (!mSensors->getSensorsList(
     [&list](const auto &aList) { list = aList; }).isOk()) {
     HAL_ERR("get sensors list failed");
