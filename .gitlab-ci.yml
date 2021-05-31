@@ -34,7 +34,7 @@ stages:
   - deploy
 
 Check if rebased and validate commit messages:
-  extends: .precautions_base
+  extends: .commit_validation
 
 lint:eslint:
   extends: .lint_eslint

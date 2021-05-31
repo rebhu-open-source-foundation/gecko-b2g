@@ -82,16 +82,21 @@ variables:
   - git clean -dfx
 
 .precautions_base:
-  extends: .rules:skippable
   stage: .pre
   image: ${CI_REGISTRY}/kaios/gecko-dev/lint:3d9d58d5
   tags:
     - gecko-lint
   variables:
     GIT_STRATEGY: none # save the time took by disk I/O since we don't need working tree in this stage
-    COMMIT_MESSAGE_PATTERN: '^(Bug|MozBug) [[:digit:]]+ \- '
   before_script:
     - *global_setup
+
+.commit_validation:
+  extends:
+    - .precautions_base
+    - .rules:unskippable
+  variables:
+    COMMIT_MESSAGE_PATTERN: '^(Bug|MozBug) [[:digit:]]+ \- '
   script:
     - |
       remote_head=$( \
@@ -121,6 +126,16 @@ variables:
         echo "commit message of ${c} validated."
       done
 
+.changed_files_validation:
+  image: ${CI_REGISTRY}/releng/ci-util/dockerhub-mirror/python:3.8.6
+  extends:
+    - .precautions_base
+    - .rules:unskippable
+  script:
+    # due to `GIT_STRATEGY: none`, this job has no working tree hence we need to explicitly checkout
+    - git checkout FETCH_HEAD -- ${CI_CONFIG_PATH} .gitlab/ci/changed_files_validation.py .gitlab/ci/scm/sidl_services
+    - ./.gitlab/ci/changed_files_validation.py "${changed_files[@]}"
+
 .lint_base:
   stage: lint
   # this image is based on the one used by taskcluster in mozilla ci,
@@ -133,7 +148,6 @@ variables:
   tags:
     - gecko-lint
   variables:
-    GIT_STRATEGY: fetch
     MACH_LINT_PARAMETERS: '-f unix -v'
   before_script:
     - *global_setup
