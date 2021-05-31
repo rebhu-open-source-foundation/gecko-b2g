@@ -33,7 +33,7 @@ NS_IMPL_CYCLE_COLLECTION_TRACE_END
 NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(BluetoothLeDeviceEvent, Event)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mDevice)
   tmp->mScanRecord = nullptr;
-  mozilla::DropJSObjects(this);
+  mozilla::DropJSObjects(tmp);
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(BluetoothLeDeviceEvent)

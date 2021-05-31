@@ -39,7 +39,7 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(BluetoothGattAttributeEvent,
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mCharacteristic)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mDescriptor)
   tmp->mValue = nullptr;
-  mozilla::DropJSObjects(this);
+  mozilla::DropJSObjects(tmp);
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(BluetoothGattAttributeEvent)
