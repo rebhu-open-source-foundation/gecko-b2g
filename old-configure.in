@@ -3042,6 +3042,14 @@ else
 fi
 AC_SUBST(B2G_CUSTOM_MODULE, C001)
 
+if test -d "$_topsrcdir/koost/C002" ; then
+  B2G_CUSTOM_MODULE=C002
+  AC_DEFINE(B2G_CUSTOM_MODULE, C002)
+else
+  B2G_CUSTOM_MODULE=
+fi
+AC_SUBST(B2G_CUSTOM_MODULE, C002)
+
 MOZ_CREATE_CONFIG_STATUS()
 
 rm -fr confdefs* $ac_clean_files
