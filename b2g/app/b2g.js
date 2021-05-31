@@ -441,6 +441,9 @@ pref("dom.ipc.browser_frames.oop_by_default", false);
 
 pref("dom.meta-viewport.enabled", true);
 
+// Enable the Visual Viewport API
+pref("dom.visualviewport.enabled", true);
+
 // SMS/MMS
 pref("dom.sms.enabled", true);
 
