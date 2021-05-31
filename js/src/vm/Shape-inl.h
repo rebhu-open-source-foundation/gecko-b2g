@@ -29,10 +29,6 @@ inline AutoKeepShapeCaches::~AutoKeepShapeCaches() {
   cx_->zone()->setKeepShapeCaches(prev_);
 }
 
-inline StackBaseShape::StackBaseShape(const JSClass* clasp, JS::Realm* realm,
-                                      TaggedProto proto)
-    : clasp(clasp), realm(realm), proto(proto) {}
-
 MOZ_ALWAYS_INLINE Shape* Shape::search(JSContext* cx, jsid id) {
   return search(cx, this, id);
 }
@@ -115,13 +111,6 @@ inline Shape* Shape::new_(JSContext* cx, Handle<StackShape> other,
   return new (shape) Shape(other, nfixed);
 }
 
-inline void Shape::updateBaseShapeAfterMovingGC() {
-  BaseShape* base = this->base();
-  if (IsForwarded(base)) {
-    unbarrieredSetHeaderPtr(Forwarded(base));
-  }
-}
-
 inline void Shape::setNextDictionaryShape(Shape* shape) {
   setDictionaryNextPtr(DictionaryShapeLink(shape));
 }
@@ -173,7 +162,7 @@ static inline JS::PropertyAttributes GetPropertyAttributes(
             JS::PropertyAttribute::Enumerable, JS::PropertyAttribute::Writable};
   }
 
-  return prop.shapeProperty().propAttributes();
+  return prop.propertyInfo().propAttributes();
 }
 
 /*
@@ -193,26 +182,6 @@ MOZ_ALWAYS_INLINE Shape* Shape::searchNoHashify(Shape* start, jsid id) {
   }
 
   return foundShape;
-}
-
-MOZ_ALWAYS_INLINE ObjectFlags GetObjectFlagsForNewProperty(
-    Shape* last, jsid id, ShapePropertyFlags propFlags, JSContext* cx) {
-  ObjectFlags flags = last->objectFlags();
-
-  uint32_t index;
-  if (IdIsIndex(id, &index)) {
-    flags.setFlag(ObjectFlag::Indexed);
-  } else if (JSID_IS_SYMBOL(id) && JSID_TO_SYMBOL(id)->isInterestingSymbol()) {
-    flags.setFlag(ObjectFlag::HasInterestingSymbol);
-  }
-
-  if ((!propFlags.isDataProperty() || !propFlags.writable()) &&
-      last->getObjectClass() == &PlainObject::class_ &&
-      !id.isAtom(cx->names().proto)) {
-    flags.setFlag(ObjectFlag::HasNonWritableOrAccessorPropExclProto);
-  }
-
-  return flags;
 }
 
 } /* namespace js */

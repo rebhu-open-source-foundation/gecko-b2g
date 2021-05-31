@@ -20,11 +20,10 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.hamcrest.Matchers.*
 import org.json.JSONArray
 import org.junit.Assert.fail
+import org.junit.Assume.assumeThat
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.Ignore
-import org.mozilla.geckoview.GeckoRuntimeSettings
-import org.mozilla.geckoview.GeckoSessionSettings
 
 @RunWith(AndroidJUnit4::class)
 @MediumTest
@@ -43,6 +42,9 @@ class PermissionDelegateTest : BaseSessionTest() {
     }
 
     @Test fun media() {
+        // TODO: needs bug 1700243
+        assumeThat(sessionRule.env.isIsolatedProcess, equalTo(false))
+
         assertInAutomationThat("Should have camera permission",
                 hasPermission(Manifest.permission.CAMERA), equalTo(true))
 

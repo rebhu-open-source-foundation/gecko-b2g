@@ -99,6 +99,24 @@ static bool IsDOMWordSeparator(char16_t ch) {
   return false;
 }
 
+bool NodeOffset::operator==(
+    const mozilla::RangeBoundary& aRangeBoundary) const {
+  if (aRangeBoundary.Container() != mNode) {
+    return false;
+  }
+
+  const Maybe<uint32_t> rangeBoundaryOffset =
+      aRangeBoundary.Offset(RangeBoundary::OffsetFilter::kValidOffsets);
+
+  MOZ_ASSERT(mOffset >= 0);
+  return rangeBoundaryOffset &&
+         (*rangeBoundaryOffset == static_cast<uint32_t>(mOffset));
+}
+
+bool NodeOffsetRange::operator==(const nsRange& aRange) const {
+  return mBegin == aRange.StartRef() && mEnd == aRange.EndRef();
+}
+
 // static
 Maybe<mozInlineSpellWordUtil> mozInlineSpellWordUtil::Create(
     const TextEditor& aTextEditor) {

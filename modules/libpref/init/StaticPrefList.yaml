@@ -9889,13 +9889,13 @@
 # available.
 - name: network.dns.upgrade_with_https_rr
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: @IS_EARLY_BETA_OR_EARLIER@
   mirror: always
 
 # Whether to use HTTPS RR as AltSvc
 - name: network.dns.use_https_rr_as_altsvc
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: @IS_EARLY_BETA_OR_EARLIER@
   mirror: always
 
 # Whether to check for NAT64 using the system resolver
@@ -9975,7 +9975,7 @@
 # Support http3 version1
 - name: network.http.http3.support_version1
   type: RelaxedAtomicBool
-  value: false
+  value: true
   mirror: always
 
 # Enable network debugging log level.

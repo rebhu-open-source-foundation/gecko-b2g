@@ -22,11 +22,13 @@
 #include "vm/JSAtom.h"
 #include "vm/JSContext.h"
 #include "vm/JSObject.h"
+#include "vm/ShapeZone.h"
 
 #include "vm/Caches-inl.h"
 #include "vm/JSContext-inl.h"
 #include "vm/JSObject-inl.h"
 #include "vm/NativeObject-inl.h"
+#include "vm/ObjectFlags-inl.h"
 #include "vm/Realm-inl.h"
 
 using namespace js;
@@ -273,9 +275,9 @@ Shape* Shape::replaceLastProperty(JSContext* cx, ObjectFlags objectFlags,
   child.setObjectFlags(objectFlags);
 
   if (proto != shape->proto()) {
-    Rooted<StackBaseShape> base(
-        cx, StackBaseShape(shape->getObjectClass(), shape->realm(), proto));
-    BaseShape* nbase = BaseShape::get(cx, base);
+    Rooted<TaggedProto> protoRoot(cx, proto);
+    BaseShape* nbase =
+        BaseShape::get(cx, shape->getObjectClass(), shape->realm(), protoRoot);
     if (!nbase) {
       return nullptr;
     }
@@ -519,8 +521,7 @@ NativeObject::maybeConvertToDictionaryForAdd(JSContext* cx,
   return toDictionaryMode(cx, obj);
 }
 
-static void AssertValidCustomDataProp(NativeObject* obj,
-                                      ShapePropertyFlags flags) {
+static void AssertValidCustomDataProp(NativeObject* obj, PropertyFlags flags) {
   // We only support custom data properties on ArrayObject and ArgumentsObject.
   // The mechanism is deprecated so we don't want to add new uses.
   MOZ_ASSERT(flags.isCustomDataProperty());
@@ -530,8 +531,7 @@ static void AssertValidCustomDataProp(NativeObject* obj,
 
 /* static */
 bool NativeObject::addCustomDataProperty(JSContext* cx, HandleNativeObject obj,
-                                         HandleId id,
-                                         ShapePropertyFlags flags) {
+                                         HandleId id, PropertyFlags flags) {
   MOZ_ASSERT(!JSID_IS_VOID(id));
   MOZ_ASSERT(!id.isPrivateName());
   MOZ_ASSERT(!obj->containsPure(id));
@@ -564,8 +564,8 @@ bool NativeObject::addCustomDataProperty(JSContext* cx, HandleNativeObject obj,
 
 /* static */
 bool NativeObject::addProperty(JSContext* cx, HandleNativeObject obj,
-                               HandleId id, uint32_t slot,
-                               ShapePropertyFlags flags, uint32_t* slotOut) {
+                               HandleId id, uint32_t slot, PropertyFlags flags,
+                               uint32_t* slotOut) {
   AutoCheckShapeConsistency check(obj);
   MOZ_ASSERT(!flags.isCustomDataProperty(),
              "Use addCustomDataProperty for custom data properties");
@@ -640,7 +640,7 @@ bool NativeObject::addEnumerableDataProperty(JSContext* cx,
 
   AutoCheckShapeConsistency check(obj);
 
-  constexpr ShapePropertyFlags flags = ShapePropertyFlags::defaultDataPropFlags;
+  constexpr PropertyFlags flags = PropertyFlags::defaultDataPropFlags;
   ObjectFlags objectFlags =
       GetObjectFlagsForNewProperty(obj->lastProperty(), id, flags, cx);
 
@@ -666,7 +666,7 @@ bool NativeObject::addEnumerableDataProperty(JSContext* cx,
       break;
     }
 
-    MOZ_ASSERT(child->property().isDataProperty());
+    MOZ_ASSERT(child->propertyInfo().isDataProperty());
 
     child = PropertyTreeReadBarrier(cx, lastProperty, child);
     if (!child) {
@@ -746,9 +746,9 @@ bool NativeObject::addEnumerableDataProperty(JSContext* cx,
  * Assert some invariants that should hold when changing properties. It's the
  * responsibility of the callers to ensure these hold.
  */
-static void AssertCanChangeFlags(Shape* shape, ShapePropertyFlags flags) {
+static void AssertCanChangeFlags(Shape* shape, PropertyFlags flags) {
 #ifdef DEBUG
-  ShapeProperty prop = shape->property();
+  PropertyInfo prop = shape->propertyInfo();
   if (prop.configurable()) {
     return;
   }
@@ -803,7 +803,7 @@ bool NativeObject::maybeToDictionaryModeForChange(JSContext* cx,
 
 /* static */
 bool NativeObject::changeProperty(JSContext* cx, HandleNativeObject obj,
-                                  HandleId id, ShapePropertyFlags flags,
+                                  HandleId id, PropertyFlags flags,
                                   uint32_t* slotOut) {
   MOZ_ASSERT(!JSID_IS_VOID(id));
 
@@ -825,7 +825,7 @@ bool NativeObject::changeProperty(JSContext* cx, HandleNativeObject obj,
   ObjectFlags objectFlags =
       GetObjectFlagsForNewProperty(obj->lastProperty(), id, flags, cx);
 
-  if (shape->property().isAccessorProperty()) {
+  if (shape->propertyInfo().isAccessorProperty()) {
     objectFlags.setFlag(ObjectFlag::HadGetterSetterChange);
   }
 
@@ -897,7 +897,7 @@ bool NativeObject::changeProperty(JSContext* cx, HandleNativeObject obj,
 bool NativeObject::changeCustomDataPropAttributes(JSContext* cx,
                                                   HandleNativeObject obj,
                                                   HandleId id,
-                                                  ShapePropertyFlags flags) {
+                                                  PropertyFlags flags) {
   MOZ_ASSERT(!JSID_IS_VOID(id));
 
   AutoCheckShapeConsistency check(obj);
@@ -1028,7 +1028,8 @@ bool NativeObject::removeProperty(JSContext* cx, HandleNativeObject obj,
   // object flag is set. This is necessary because the slot holding the
   // GetterSetter can be changed indirectly by removing the property and then
   // adding it back with a different GetterSetter value but the same shape.
-  if (shape->property().isAccessorProperty() && !obj->hadGetterSetterChange()) {
+  if (shape->propertyInfo().isAccessorProperty() &&
+      !obj->hadGetterSetterChange()) {
     if (!NativeObject::setHadGetterSetterChange(cx, obj)) {
       return false;
     }
@@ -1221,19 +1222,18 @@ bool JSObject::setProtoUnchecked(JSContext* cx, HandleObject obj,
   }
 
   if (obj->is<NativeObject>() && obj->as<NativeObject>().inDictionaryMode()) {
-    Rooted<StackBaseShape> base(
-        cx, StackBaseShape(obj->getClass(), obj->nonCCWRealm(), proto));
-    Rooted<BaseShape*> nbase(cx, BaseShape::get(cx, base));
+    HandleNativeObject nobj = obj.as<NativeObject>();
+    Rooted<BaseShape*> nbase(
+        cx, BaseShape::get(cx, nobj->getClass(), nobj->realm(), proto));
     if (!nbase) {
       return false;
     }
 
-    if (!NativeObject::generateOwnShape(cx, obj.as<NativeObject>())) {
+    if (!NativeObject::generateOwnShape(cx, nobj)) {
       return false;
     }
 
-    Shape* last = obj->as<NativeObject>().lastProperty();
-    last->setBase(nbase);
+    nobj->shape()->setBase(nbase);
     return true;
   }
 
@@ -1285,31 +1285,32 @@ Shape* Shape::setProto(JSContext* cx, TaggedProto proto, Shape* last) {
   return replaceLastProperty(cx, last->objectFlags(), proto, lastRoot);
 }
 
-inline BaseShape::BaseShape(const StackBaseShape& base)
-    : TenuredCellWithNonGCPointer(base.clasp),
-      realm_(base.realm),
-      proto_(base.proto) {
-  MOZ_ASSERT(JS::StringIsASCII(clasp()->name));
+BaseShape::BaseShape(const JSClass* clasp, JS::Realm* realm, TaggedProto proto)
+    : TenuredCellWithNonGCPointer(clasp), realm_(realm), proto_(proto) {
+  MOZ_ASSERT(JS::StringIsASCII(clasp->name));
 
-  MOZ_ASSERT_IF(proto().isObject(),
-                compartment() == proto().toObject()->compartment());
-  MOZ_ASSERT_IF(proto().isObject(), proto().toObject()->isUsedAsPrototype());
+  MOZ_ASSERT_IF(proto.isObject(),
+                compartment() == proto.toObject()->compartment());
+  MOZ_ASSERT_IF(proto.isObject(), proto.toObject()->isUsedAsPrototype());
 
   // Windows may not appear on prototype chains.
-  MOZ_ASSERT_IF(proto().isObject(), !IsWindow(proto().toObject()));
+  MOZ_ASSERT_IF(proto.isObject(), !IsWindow(proto.toObject()));
 
 #ifdef DEBUG
-  if (GlobalObject* global = realm()->unsafeUnbarrieredMaybeGlobal()) {
+  if (GlobalObject* global = realm->unsafeUnbarrieredMaybeGlobal()) {
     AssertTargetIsNotGray(global);
   }
 #endif
 }
 
 /* static */
-BaseShape* BaseShape::get(JSContext* cx, Handle<StackBaseShape> base) {
-  auto& table = cx->zone()->baseShapes();
+BaseShape* BaseShape::get(JSContext* cx, const JSClass* clasp, JS::Realm* realm,
+                          Handle<TaggedProto> proto) {
+  auto& table = cx->zone()->shapeZone().baseShapes;
 
-  auto p = MakeDependentAddPtr(cx, table, base.get());
+  using Lookup = BaseShapeHasher::Lookup;
+
+  auto p = MakeDependentAddPtr(cx, table, Lookup(clasp, realm, proto));
   if (p) {
     return *p;
   }
@@ -1318,10 +1319,9 @@ BaseShape* BaseShape::get(JSContext* cx, Handle<StackBaseShape> base) {
   if (!nbase) {
     return nullptr;
   }
+  new (nbase) BaseShape(clasp, realm, proto);
 
-  new (nbase) BaseShape(base);
-
-  if (!p.add(cx, table, nbase, nbase)) {
+  if (!p.add(cx, table, Lookup(clasp, realm, proto), nbase)) {
     return nullptr;
   }
 
@@ -1349,48 +1349,6 @@ bool Shape::canSkipMarkingShapeCache() {
   return count == cache.getTablePointer()->entryCount();
 }
 #endif
-
-#ifdef JSGC_HASH_TABLE_CHECKS
-
-void Zone::checkBaseShapeTableAfterMovingGC() {
-  for (auto r = baseShapes().all(); !r.empty(); r.popFront()) {
-    BaseShape* base = r.front().unbarrieredGet();
-    CheckGCThingAfterMovingGC(base);
-
-    BaseShapeSet::Ptr ptr = baseShapes().lookup(base);
-    MOZ_RELEASE_ASSERT(ptr.found() && &*ptr == &r.front());
-  }
-}
-
-#endif  // JSGC_HASH_TABLE_CHECKS
-
-inline InitialShapeEntry::InitialShapeEntry() : shape(nullptr) {}
-
-inline InitialShapeEntry::InitialShapeEntry(Shape* shape) : shape(shape) {}
-
-#ifdef JSGC_HASH_TABLE_CHECKS
-
-void Zone::checkInitialShapesTableAfterMovingGC() {
-  /*
-   * Assert that the postbarriers have worked and that nothing is left in
-   * initialShapes that points into the nursery, and that the hash table
-   * entries are discoverable.
-   */
-  for (auto r = initialShapes().all(); !r.empty(); r.popFront()) {
-    InitialShapeEntry entry = r.front();
-    Shape* shape = entry.shape.unbarrieredGet();
-
-    CheckGCThingAfterMovingGC(shape);
-
-    using Lookup = InitialShapeEntry::Lookup;
-    Lookup lookup(shape->getObjectClass(), shape->realm(), shape->proto(),
-                  shape->numFixedSlots(), shape->objectFlags());
-    InitialShapeSet::Ptr ptr = initialShapes().lookup(lookup);
-    MOZ_RELEASE_ASSERT(ptr.found() && &*ptr == &r.front());
-  }
-}
-
-#endif  // JSGC_HASH_TABLE_CHECKS
 
 Shape* EmptyShape::new_(JSContext* cx, Handle<BaseShape*> base,
                         ObjectFlags objectFlags, uint32_t nfixed) {
@@ -1666,7 +1624,7 @@ void Shape::dump(js::GenericPrinter& out) const {
 
   if (!propFlags.isEmpty()) {
     bool first = true;
-    auto dumpFlag = [&](ShapePropertyFlag flag, const char* name) {
+    auto dumpFlag = [&](PropertyFlag flag, const char* name) {
       if (!propFlags.hasFlag(flag)) {
         return;
       }
@@ -1677,11 +1635,11 @@ void Shape::dump(js::GenericPrinter& out) const {
       first = false;
     };
     out.putChar('(');
-    dumpFlag(ShapePropertyFlag::Enumerable, "enumerable");
-    dumpFlag(ShapePropertyFlag::Configurable, "configurable");
-    dumpFlag(ShapePropertyFlag::Writable, "writable");
-    dumpFlag(ShapePropertyFlag::AccessorProperty, "accessor");
-    dumpFlag(ShapePropertyFlag::CustomDataProperty, "custom-data");
+    dumpFlag(PropertyFlag::Enumerable, "enumerable");
+    dumpFlag(PropertyFlag::Configurable, "configurable");
+    dumpFlag(PropertyFlag::Writable, "writable");
+    dumpFlag(PropertyFlag::AccessorProperty, "accessor");
+    dumpFlag(PropertyFlag::CustomDataProperty, "custom-data");
     out.putChar(')');
   }
 
@@ -1755,18 +1713,17 @@ Shape* EmptyShape::getInitialShape(JSContext* cx, const JSClass* clasp,
     proto = TaggedProto(protoObj);
   }
 
-  auto& table = realm->zone()->initialShapes();
+  auto& table = realm->zone()->shapeZone().initialShapes;
 
-  using Lookup = InitialShapeEntry::Lookup;
-  auto protoPointer = MakeDependentAddPtr(
+  using Lookup = InitialShapeHasher::Lookup;
+  auto ptr = MakeDependentAddPtr(
       cx, table, Lookup(clasp, realm, proto, nfixed, objectFlags));
-  if (protoPointer) {
-    return protoPointer->shape;
+  if (ptr) {
+    return *ptr;
   }
 
   Rooted<TaggedProto> protoRoot(cx, proto);
-  Rooted<StackBaseShape> base(cx, StackBaseShape(clasp, realm, proto));
-  Rooted<BaseShape*> nbase(cx, BaseShape::get(cx, base));
+  Rooted<BaseShape*> nbase(cx, BaseShape::get(cx, clasp, realm, protoRoot));
   if (!nbase) {
     return nullptr;
   }
@@ -1777,7 +1734,7 @@ Shape* EmptyShape::getInitialShape(JSContext* cx, const JSClass* clasp,
   }
 
   Lookup lookup(clasp, realm, protoRoot, nfixed, objectFlags);
-  if (!protoPointer.add(cx, table, lookup, InitialShapeEntry(shape))) {
+  if (!ptr.add(cx, table, lookup, shape)) {
     return nullptr;
   }
 
@@ -1818,18 +1775,17 @@ void NewObjectCache::invalidateEntriesForShape(Shape* shape) {
 
 /* static */
 void EmptyShape::insertInitialShape(JSContext* cx, HandleShape shape) {
-  using Lookup = InitialShapeEntry::Lookup;
+  using Lookup = InitialShapeHasher::Lookup;
   Lookup lookup(shape->getObjectClass(), shape->realm(), shape->proto(),
                 shape->numFixedSlots(), shape->objectFlags());
 
-  InitialShapeSet::Ptr p = cx->zone()->initialShapes().lookup(lookup);
+  auto& table = cx->zone()->shapeZone().initialShapes;
+  InitialShapeSet::Ptr p = table.lookup(lookup);
   MOZ_ASSERT(p);
-
-  InitialShapeEntry& entry = const_cast<InitialShapeEntry&>(*p);
 
   // The metadata callback can end up causing redundant changes of the initial
   // shape.
-  if (entry.shape == shape) {
+  if (*p == shape) {
     return;
   }
 
@@ -1839,10 +1795,10 @@ void EmptyShape::insertInitialShape(JSContext* cx, HandleShape shape) {
   while (!nshape->isEmptyShape()) {
     nshape = nshape->previous();
   }
-  MOZ_ASSERT(nshape == entry.shape);
+  MOZ_ASSERT(nshape == *p);
 #endif
 
-  entry.shape = WeakHeapPtrShape(shape);
+  table.replaceKey(p, lookup, shape.get());
 
   /*
    * This affects the shape that will be produced by the various NewObject
@@ -1856,18 +1812,6 @@ void EmptyShape::insertInitialShape(JSContext* cx, HandleShape shape) {
    */
   if (!cx->isHelperThreadContext()) {
     cx->caches().newObjectCache.invalidateEntriesForShape(shape);
-  }
-}
-
-void Zone::fixupInitialShapeTable() {
-  for (InitialShapeSet::Enum e(initialShapes()); !e.empty(); e.popFront()) {
-    // The shape may have been moved, but we can update that in place.
-    Shape* shape = e.front().shape.unbarrieredGet();
-    if (IsForwarded(shape)) {
-      shape = Forwarded(shape);
-      e.mutableFront().shape.set(shape);
-    }
-    shape->updateBaseShapeAfterMovingGC();
   }
 }
 

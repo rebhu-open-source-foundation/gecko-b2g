@@ -22,7 +22,10 @@ job-defaults:
                 by-test-platform:
                     linux.*64.*-qr/debug: 1
                     default: 2
-            default: default
+            default:
+                by-test-platform:
+                    android-em-7.0-x86_64/debug-isolated-process: 3
+                    default: default
     mozharness:
         script:
             by-test-platform:
@@ -280,9 +283,8 @@ mochitest-devtools-chrome:
         by-variant:
             fission:
                 by-test-platform:
-                    linux.*64(-qr)?/debug: ['trunk']
-                    linux.*64-shippable(-qr)?/opt: ['trunk']
-                    windows10-64-shippable(-qr)?/opt: ['trunk']
+                    linux.*64(-shippable)?/(opt|debug): ['trunk']
+                    windows10-64(-shippable)?/(opt|debug): ['trunk']
                     default: []
             default:
                 by-test-platform:
@@ -344,7 +346,10 @@ mochitest-plain-gpu:
     tier:
         by-variant:
             fission: 2
-            default: default
+            default:
+                by-test-platform:
+                    android-em-7.0-x86_64/debug-isolated-process: 3
+                    default: default
     mozharness:
         mochitest-flavor: plain
         extra-options:
@@ -474,6 +479,7 @@ mochitest-media:
             default:
                 by-test-platform:
                     android-em.*: 1
+                    android-em-7.0-x86_64/debug-isolated-process: 3
                     windows10-aarch64.*: 2
                     android-hw.*: 1
                     macosx1100.*: 2

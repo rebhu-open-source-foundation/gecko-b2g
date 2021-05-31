@@ -2163,24 +2163,25 @@ bool DebuggerObject::getOwnPropertyDescriptor(
   if (desc_.isSome()) {
     Rooted<PropertyDescriptor> desc(cx, *desc_);
 
-    // Rewrap the debuggee values in desc for the debugger.
-    if (!dbg->wrapDebuggeeValue(cx, desc.value())) {
-      return false;
+    if (desc.hasValue()) {
+      // Rewrap the debuggee values in desc for the debugger.
+      if (!dbg->wrapDebuggeeValue(cx, desc.value())) {
+        return false;
+      }
     }
-
-    if (desc.hasGetterObject()) {
-      RootedValue get(cx, ObjectOrNullValue(desc.getterObject()));
+    if (desc.hasGetter()) {
+      RootedValue get(cx, ObjectOrNullValue(desc.getter()));
       if (!dbg->wrapDebuggeeValue(cx, &get)) {
         return false;
       }
-      desc.setGetterObject(get.toObjectOrNull());
+      desc.setGetter(get.toObjectOrNull());
     }
-    if (desc.hasSetterObject()) {
-      RootedValue set(cx, ObjectOrNullValue(desc.setterObject()));
+    if (desc.hasSetter()) {
+      RootedValue set(cx, ObjectOrNullValue(desc.setter()));
       if (!dbg->wrapDebuggeeValue(cx, &set)) {
         return false;
       }
-      desc.setSetterObject(set.toObjectOrNull());
+      desc.setSetter(set.toObjectOrNull());
     }
 
     desc_.set(mozilla::Some(desc.get()));
@@ -2472,11 +2473,11 @@ bool DebuggerObject::forceLexicalInitializationByName(
   result = false;
   if (prop.isFound()) {
     MOZ_ASSERT(prop.isNativeProperty());
-    ShapeProperty shapeProp = prop.shapeProperty();
-    Value v = globalLexical->as<NativeObject>().getSlot(shapeProp.slot());
-    if (shapeProp.isDataProperty() && v.isMagic() &&
+    PropertyInfo propInfo = prop.propertyInfo();
+    Value v = globalLexical->as<NativeObject>().getSlot(propInfo.slot());
+    if (propInfo.isDataProperty() && v.isMagic() &&
         v.whyMagic() == JS_UNINITIALIZED_LEXICAL) {
-      globalLexical->as<NativeObject>().setSlot(shapeProp.slot(),
+      globalLexical->as<NativeObject>().setSlot(propInfo.slot(),
                                                 UndefinedValue());
       result = true;
     }

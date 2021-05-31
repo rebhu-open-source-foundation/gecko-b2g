@@ -16,7 +16,6 @@
 #include "mozilla/TextUtils.h"
 #include "mozilla/ThreadLocal.h"
 #include "mozilla/Tuple.h"
-#include "mozilla/Unused.h"
 
 #include <algorithm>
 #include <cfloat>
@@ -103,7 +102,7 @@
 #include "vm/AsyncIteration.h"
 #include "vm/ErrorObject.h"
 #include "vm/GlobalObject.h"
-#include "vm/HelperThreadState.h"
+#include "vm/HelperThreads.h"
 #include "vm/Interpreter.h"
 #include "vm/Iteration.h"
 #include "vm/JSContext.h"
@@ -132,6 +131,7 @@
 #include "vm/JSContext-inl.h"
 #include "vm/JSObject-inl.h"
 #include "vm/NativeObject-inl.h"
+#include "vm/ObjectFlags-inl.h"
 #include "vm/StringType-inl.h"
 
 using namespace js;
@@ -2849,7 +2849,7 @@ static bool NewString(JSContext* cx, unsigned argc, Value* vp) {
           cx, buf.get(), len, &TestExternalStringCallbacks, &isExternal, heap);
     }
     if (dest && isExternal) {
-      mozilla::Unused << buf.release();  // Ownership was transferred.
+      (void)buf.release();  // Ownership was transferred.
     }
   } else {
     AutoStableStringChars stable(cx);
@@ -4572,7 +4572,7 @@ static bool HelperThreadCount(JSContext* cx, unsigned argc, Value* vp) {
   }
 
   if (CanUseExtraThreads()) {
-    args.rval().setInt32(HelperThreadState().threadCount);
+    args.rval().setInt32(GetHelperThreadCount());
   } else {
     args.rval().setInt32(0);
   }
@@ -4620,28 +4620,28 @@ class ShapeSnapshot {
 
   GCVector<HeapPtr<Value>, 8> slots_;
 
-  struct PropertyInfo {
+  struct PropertySnapshot {
     HeapPtr<Shape*> propShape;
     HeapPtr<PropertyKey> key;
-    ShapeProperty prop;
+    PropertyInfo prop;
 
-    explicit PropertyInfo(Shape* shape)
+    explicit PropertySnapshot(Shape* shape)
         : propShape(shape),
-          key(shape->propertyWithKey().key()),
-          prop(propShape->property()) {}
+          key(propShape->propertyInfoWithKey().key()),
+          prop(propShape->propertyInfo()) {}
     void trace(JSTracer* trc) {
       TraceEdge(trc, &propShape, "propShape");
       TraceEdge(trc, &key, "key");
     }
-    bool operator==(const PropertyInfo& other) const {
+    bool operator==(const PropertySnapshot& other) const {
       return propShape == other.propShape && key == other.key &&
              prop == other.prop;
     }
-    bool operator!=(const PropertyInfo& other) const {
+    bool operator!=(const PropertySnapshot& other) const {
       return !operator==(other);
     }
   };
-  GCVector<PropertyInfo, 8> properties_;
+  GCVector<PropertySnapshot, 8> properties_;
 
  public:
   explicit ShapeSnapshot(JSContext* cx) : slots_(cx), properties_(cx) {}
@@ -4728,7 +4728,7 @@ bool ShapeSnapshot::init(JSObject* obj) {
     // Snapshot property information.
     Shape* propShape = shape_;
     while (!propShape->isEmptyShape()) {
-      if (!properties_.append(PropertyInfo(propShape))) {
+      if (!properties_.append(PropertySnapshot(propShape))) {
         return false;
       }
       propShape = propShape->previous();
@@ -4755,21 +4755,21 @@ void ShapeSnapshot::checkSelf(JSContext* cx) const {
     MOZ_RELEASE_ASSERT(shape_->objectFlags() == objectFlags_);
   }
 
-  for (const PropertyInfo& propInfo : properties_) {
-    Shape* propShape = propInfo.propShape;
-    ShapeProperty prop = propInfo.prop;
+  for (const PropertySnapshot& propSnapshot : properties_) {
+    Shape* propShape = propSnapshot.propShape;
+    PropertyInfo prop = propSnapshot.prop;
 
     // Skip if the Shape no longer matches the snapshotted data. This can
     // only happen for non-configurable dictionary properties.
-    if (PropertyInfo(propShape) != propInfo) {
+    if (PropertySnapshot(propShape) != propSnapshot) {
       MOZ_RELEASE_ASSERT(propShape->inDictionary());
       MOZ_RELEASE_ASSERT(prop.configurable());
       continue;
     }
 
     // Ensure ObjectFlags depending on property information are set if needed.
-    ObjectFlags expectedFlags =
-        GetObjectFlagsForNewProperty(shape_, propInfo.key, prop.flags(), cx);
+    ObjectFlags expectedFlags = GetObjectFlagsForNewProperty(
+        shape_, propSnapshot.key, prop.flags(), cx);
     MOZ_RELEASE_ASSERT(expectedFlags == objectFlags_);
 
     // Accessors must have a PrivateGCThingValue(GetterSetter*) slot value.
@@ -4818,7 +4818,7 @@ void ShapeSnapshot::check(JSContext* cx, const ShapeSnapshot& later) const {
       MOZ_RELEASE_ASSERT(properties_[i] == later.properties_[i]);
       // Non-configurable accessor properties and non-configurable, non-writable
       // data properties shouldn't have had their slot mutated.
-      ShapeProperty prop = properties_[i].prop;
+      PropertyInfo prop = properties_[i].prop;
       if (!prop.configurable()) {
         if (prop.isAccessorProperty() ||
             (prop.isDataProperty() && !prop.writable())) {

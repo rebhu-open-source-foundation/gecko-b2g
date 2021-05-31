@@ -10,6 +10,7 @@
 
 #include "mozilla/Attributes.h"
 #include "mozilla/Maybe.h"
+#include "mozilla/RangeBoundary.h"
 #include "mozilla/Result.h"
 #include "mozilla/dom/Document.h"
 #include "nsCOMPtr.h"
@@ -41,6 +42,8 @@ struct NodeOffset {
     return mNode == aOther.mNode && mOffset == aOther.mOffset;
   }
 
+  bool operator==(const mozilla::RangeBoundary& aRangeBoundary) const;
+
   bool operator!=(const NodeOffset& aOther) const { return !(*this == aOther); }
 
   nsINode* Node() const { return mNode.get(); }
@@ -56,6 +59,8 @@ class NodeOffsetRange {
   NodeOffsetRange() {}
   NodeOffsetRange(NodeOffset b, NodeOffset e)
       : mBegin(std::move(b)), mEnd(std::move(e)) {}
+
+  bool operator==(const nsRange& aRange) const;
 
   const NodeOffset& Begin() const { return mBegin; }
 

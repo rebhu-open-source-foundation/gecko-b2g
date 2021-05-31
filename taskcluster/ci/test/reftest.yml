@@ -81,6 +81,7 @@ crashtest:
                     windows10-aarch64.*: 2
                     macosx1100.*: 2
                     android-hw-.*-qr/.*: 2
+                    android-em-7.0-x86_64/debug-isolated-process: 3
                     default: default
 
 crashtest-qr:
@@ -206,11 +207,16 @@ reftest:
                     windows10-aarch64.*: 2
                     android-hw-.*-qr/.*: 2
                     macosx1100.*: 2
+                    android-em-7.0-x86_64/debug-isolated-process: 3
                     default: default
 
 reftest-qr:
     description: "Reftest webrender run"
     treeherder-symbol: R(R)
+    variants:
+        by-test-platform:
+            android-hw-p2-8-0-android-aarch64-qr/debug: ['webrender-sw']
+            default: []
     chunks: 2
     e10s: true
     run-on-projects:
