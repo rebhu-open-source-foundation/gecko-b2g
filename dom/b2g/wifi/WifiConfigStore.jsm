@@ -48,7 +48,10 @@ this.WifiConfigStore = (function() {
       let sstream = Cc["@mozilla.org/scriptableinputstream;1"].createInstance(
         Ci.nsIScriptableInputStream
       );
-
+      let converter = Cc[
+        "@mozilla.org/intl/scriptableunicodeconverter"
+      ].createInstance(Ci.nsIScriptableUnicodeConverter);
+      converter.charset = "UTF-8";
       const RO = 0x01;
       const READ_OTHERS = 4;
 
@@ -57,7 +60,7 @@ this.WifiConfigStore = (function() {
       let data = sstream.read(sstream.available());
       sstream.close();
       fstream.close();
-      configuration = JSON.parse(data);
+      configuration = JSON.parse(converter.ConvertToUnicode(data));
     } else {
       configuration = null;
     }
