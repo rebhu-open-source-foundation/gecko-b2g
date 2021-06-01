@@ -4477,8 +4477,10 @@ WifiWorker.prototype = {
         self._sendMessage(message, false, "Unable to remove the network", msg);
         return;
       }
-      WifiManager.removeNetworks(function() {});
-      WifiManager.disconnect(function() {});
+      if (configured.netId == wifiInfo.networkId) {
+        WifiManager.removeNetworks(function() {});
+        WifiManager.disconnect(function() {});
+      }
       self._sendMessage(message, true, true, msg);
     });
   },
