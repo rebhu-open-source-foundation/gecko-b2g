@@ -91,6 +91,7 @@
 #include "prenv.h"
 
 #include "mozilla/WidgetTraceEvent.h"
+#include "nsContentUtils.h"
 #include "nsISupportsPrimitives.h"
 #include "nsITheme.h"
 #include "nsIObserverService.h"
@@ -214,7 +215,6 @@
 #include "mozilla/layers/APZInputBridge.h"
 #include "mozilla/layers/InputAPZContext.h"
 #include "mozilla/layers/KnowsCompositor.h"
-#include "mozilla/layers/ScrollInputMethods.h"
 #include "InputData.h"
 
 #include "mozilla/TaskController.h"
@@ -7250,9 +7250,6 @@ bool nsWindow::OnGesture(WPARAM wParam, LPARAM lParam) {
     bool endFeedback = true;
 
     if (mGesture.PanDeltaToPixelScroll(wheelEvent)) {
-      mozilla::Telemetry::Accumulate(
-          mozilla::Telemetry::SCROLL_INPUT_METHODS,
-          (uint32_t)ScrollInputMethod::MainThreadTouch);
       DispatchEvent(&wheelEvent, status);
     }
 
@@ -8557,7 +8554,8 @@ bool nsWindow::WidgetTypeSupportsAcceleration() {
 }
 
 bool nsWindow::DispatchTouchEventFromWMPointer(
-    UINT msg, LPARAM aLParam, const WinPointerInfo& aPointerInfo) {
+    UINT msg, LPARAM aLParam, const WinPointerInfo& aPointerInfo,
+    mozilla::MouseButton aButton) {
   MultiTouchInput::MultiTouchType touchType;
   switch (msg) {
     case WM_POINTERDOWN:
@@ -8596,6 +8594,8 @@ bool nsWindow::DispatchTouchEventFromWMPointer(
   touchInput.mTimeStamp =
       GetMessageTimeStamp(static_cast<long>(touchInput.mTime));
   touchInput.mTouches.AppendElement(touchData);
+  touchInput.mButton = aButton;
+  touchInput.mButtons = aPointerInfo.mButtons;
 
   // POINTER_INFO.dwKeyStates can't be used as it only supports Shift and Ctrl
   ModifierKeyState modifierKeyState;
@@ -8603,6 +8603,17 @@ bool nsWindow::DispatchTouchEventFromWMPointer(
 
   DispatchTouchInput(touchInput, MouseEvent_Binding::MOZ_SOURCE_PEN);
   return true;
+}
+
+static MouseButton PenFlagsToMouseButton(PEN_FLAGS aPenFlags) {
+  // Theoretically flags can be set together but they do not
+  if (aPenFlags & PEN_FLAG_BARREL) {
+    return MouseButton::eSecondary;
+  }
+  if (aPenFlags & PEN_FLAG_ERASER) {
+    return MouseButton::eEraser;
+  }
+  return MouseButton::ePrimary;
 }
 
 bool nsWindow::OnPointerEvents(UINT msg, WPARAM aWParam, LPARAM aLParam) {
@@ -8618,6 +8629,13 @@ bool nsWindow::OnPointerEvents(UINT msg, WPARAM aWParam, LPARAM aLParam) {
     // Don't consume the Windows WM_POINTER* messages
     return false;
   }
+
+  uint32_t pointerId = mPointerEvents.GetPointerId(aWParam);
+  POINTER_PEN_INFO penInfo{};
+  if (!mPointerEvents.GetPointerPenInfo(pointerId, &penInfo)) {
+    return false;
+  }
+
   // When dispatching mouse events with pen, there may be some
   // WM_POINTERUPDATE messages between WM_POINTERDOWN and WM_POINTERUP with
   // small movements. Those events will reset sLastMousePoint and reset
@@ -8641,8 +8659,7 @@ bool nsWindow::OnPointerEvents(UINT msg, WPARAM aWParam, LPARAM aLParam) {
       sLastPointerDownPoint.x = eventPoint.x;
       sLastPointerDownPoint.y = eventPoint.y;
       message = eMouseDown;
-      button = IS_POINTER_SECONDBUTTON_WPARAM(aWParam) ? MouseButton::eSecondary
-                                                       : MouseButton::ePrimary;
+      button = PenFlagsToMouseButton(penInfo.penFlags);
       sLastPenDownButton = button;
       sPointerDown = true;
     } break;
@@ -8681,23 +8698,19 @@ bool nsWindow::OnPointerEvents(UINT msg, WPARAM aWParam, LPARAM aLParam) {
     default:
       return false;
   }
-  uint32_t pointerId = mPointerEvents.GetPointerId(aWParam);
-  POINTER_PEN_INFO penInfo{};
-  mPointerEvents.GetPointerPenInfo(pointerId, &penInfo);
 
   // Windows defines the pen pressure is normalized to a range between 0 and
   // 1024. Convert it to float.
   float pressure = penInfo.pressure ? (float)penInfo.pressure / 1024 : 0;
-  int16_t buttons = sPointerDown ? button == MouseButton::ePrimary
-                                       ? MouseButtonsFlag::ePrimaryFlag
-                                       : MouseButtonsFlag::eSecondaryFlag
-                                 : MouseButtonsFlag::eNoButtons;
+  int16_t buttons = sPointerDown
+                        ? nsContentUtils::GetButtonsFlagForButton(button)
+                        : MouseButtonsFlag::eNoButtons;
   WinPointerInfo pointerInfo(pointerId, penInfo.tiltX, penInfo.tiltY, pressure,
                              buttons);
   pointerInfo.twist = penInfo.rotation;
 
   if (StaticPrefs::dom_w3c_pointer_events_scroll_by_pen_enabled() &&
-      DispatchTouchEventFromWMPointer(msg, aLParam, pointerInfo)) {
+      DispatchTouchEventFromWMPointer(msg, aLParam, pointerInfo, button)) {
     return true;
   }
 

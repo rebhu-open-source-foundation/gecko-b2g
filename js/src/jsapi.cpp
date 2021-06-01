@@ -87,7 +87,6 @@
 #include "vm/ErrorObject.h"
 #include "vm/ErrorReporting.h"
 #include "vm/HelperThreads.h"
-#include "vm/Instrumentation.h"
 #include "vm/Interpreter.h"
 #include "vm/Iteration.h"
 #include "vm/JSAtom.h"
@@ -3528,11 +3527,6 @@ JS::CompileOptions::CompileOptions(JSContext* cx) : ReadOnlyCompileOptions() {
   // behaviours. These can still be set manually on the options though.
   if (cx->realm()) {
     discardSource = cx->realm()->behaviors().discardSource();
-
-    // If instrumentation is enabled in the realm, the compiler should insert
-    // the requested kinds of instrumentation into all scripts.
-    instrumentationKinds =
-        RealmInstrumentation::getInstrumentationKinds(cx->global());
   }
 }
 

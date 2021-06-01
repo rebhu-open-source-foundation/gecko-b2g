@@ -13923,16 +13923,6 @@
     "releaseChannelCollection": "opt-out",
     "description": "Graphics Crash Reason (...)"
   },
-  "SCROLL_INPUT_METHODS": {
-    "record_in_processes": ["main", "content", "gpu"],
-    "products": ["firefox"],
-    "alert_emails": ["botond@mozilla.com"],
-    "bug_numbers": [1670003, 1672576],
-    "expires_in_version": "89",
-    "kind": "enumerated",
-    "n_values": 64,
-    "description": "Count of scroll actions triggered by different input methods. See gfx/layers/apz/util/ScrollInputMethods.h for a list of possible values and their meanings."
-  },
   "WEBFONT_DOWNLOAD_TIME": {
     "record_in_processes": ["main", "content"],
     "products": ["firefox", "fennec"],
@@ -16665,6 +16655,28 @@
     "bug_numbers": [1689987],
     "alert_emails": ["necko@mozilla.com", "kershaw@mozilla.com"],
     "description": "HTTP subitem channel: ODoH lookup time (ms)"
+  },
+  "HTTP_PRELOAD_IMAGE_STARTREQUEST_DELAY": {
+    "record_in_processes": ["content"],
+    "products": ["firefox"],
+    "expires_in_version": "96",
+    "kind": "exponential",
+    "high": 5000,
+    "n_buckets": 50,
+    "bug_numbers": [1713489],
+    "alert_emails": ["necko@mozilla.com", "mwoodrow@mozilla.com"],
+    "description": "Time spent waiting on the main-thread to be available to process OnStartRequest, for image preload requests"
+  },
+  "DOCUMENT_PRELOAD_IMAGE_ASYNCOPEN_DELAY": {
+    "record_in_processes": ["content"],
+    "products": ["firefox"],
+    "expires_in_version": "96",
+    "kind": "exponential",
+    "high": 5000,
+    "n_buckets": 50,
+    "bug_numbers": [1713489],
+    "alert_emails": ["necko@mozilla.com", "mwoodrow@mozilla.com"],
+    "description": "Time spent waiting on the main-thread to be available to run AsyncOpen, for image preload requests"
   },
   "OPAQUE_RESPONSE_BLOCKING_TIME_MS" : {
     "record_in_processes": ["main"],

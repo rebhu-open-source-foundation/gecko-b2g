@@ -340,6 +340,8 @@ struct ParamTraits<mozilla::WidgetTouchEvent> {
   static void Write(Message* aMsg, const paramType& aParam) {
     WriteParam(aMsg, static_cast<const mozilla::WidgetInputEvent&>(aParam));
     WriteParam(aMsg, aParam.mInputSource);
+    WriteParam(aMsg, aParam.mButton);
+    WriteParam(aMsg, aParam.mButtons);
     // Sigh, Touch bites us again!  We want to be able to do
     //   WriteParam(aMsg, aParam.mTouches);
     const paramType::TouchArray& touches = aParam.mTouches;
@@ -363,6 +365,8 @@ struct ParamTraits<mozilla::WidgetTouchEvent> {
     if (!ReadParam(aMsg, aIter,
                    static_cast<mozilla::WidgetInputEvent*>(aResult)) ||
         !ReadParam(aMsg, aIter, &aResult->mInputSource) ||
+        !ReadParam(aMsg, aIter, &aResult->mButton) ||
+        !ReadParam(aMsg, aIter, &aResult->mButtons) ||
         !ReadParam(aMsg, aIter, &numTouches)) {
       return false;
     }
@@ -1168,7 +1172,7 @@ struct ParamTraits<mozilla::MultiTouchInput::MultiTouchType>
 
 template <>
 struct ParamTraits<mozilla::MultiTouchInput> {
-  typedef mozilla::MultiTouchInput paramType;
+  using paramType = mozilla::MultiTouchInput;
 
   static void Write(Message* aMsg, const paramType& aParam) {
     WriteParam(aMsg, static_cast<const mozilla::InputData&>(aParam));
@@ -1176,6 +1180,8 @@ struct ParamTraits<mozilla::MultiTouchInput> {
     WriteParam(aMsg, aParam.mTouches);
     WriteParam(aMsg, aParam.mHandledByAPZ);
     WriteParam(aMsg, aParam.mScreenOffset);
+    WriteParam(aMsg, aParam.mButton);
+    WriteParam(aMsg, aParam.mButtons);
   }
 
   static bool Read(const Message* aMsg, PickleIterator* aIter,
@@ -1184,7 +1190,9 @@ struct ParamTraits<mozilla::MultiTouchInput> {
            ReadParam(aMsg, aIter, &aResult->mType) &&
            ReadParam(aMsg, aIter, &aResult->mTouches) &&
            ReadParam(aMsg, aIter, &aResult->mHandledByAPZ) &&
-           ReadParam(aMsg, aIter, &aResult->mScreenOffset);
+           ReadParam(aMsg, aIter, &aResult->mScreenOffset) &&
+           ReadParam(aMsg, aIter, &aResult->mButton) &&
+           ReadParam(aMsg, aIter, &aResult->mButtons);
   }
 };
 

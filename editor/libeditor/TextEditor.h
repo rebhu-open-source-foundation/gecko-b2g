@@ -523,31 +523,6 @@ class TextEditor : public EditorBase, public nsITimerCallback, public nsINamed {
   bool IsSafeToInsertData(const Document* aSourceDoc) const;
 
   /**
-   * GetAndInitDocEncoder() returns a document encoder instance for aFormatType
-   * after initializing it.  The result may be cached for saving recreation
-   * cost.
-   *
-   * @param aFormatType             MIME type like "text/plain".
-   * @param aDocumentEncoderFlags   Flags of nsIDocumentEncoder.
-   * @param aCharset                Encoding of the document.
-   */
-  already_AddRefed<nsIDocumentEncoder> GetAndInitDocEncoder(
-      const nsAString& aFormatType, uint32_t aDocumentEncoderFlags,
-      const nsACString& aCharset) const;
-
-  /**
-   * ComputeValueInternal() computes string value of this editor for given
-   * format.  This may be too expensive if it's in hot path.
-   *
-   * @param aFormatType             MIME type like "text/plain".
-   * @param aDocumentEncoderFlags   Flags of nsIDocumentEncoder.
-   * @param aCharset                Encoding of the document.
-   */
-  nsresult ComputeValueInternal(const nsAString& aFormatType,
-                                uint32_t aDocumentEncoderFlags,
-                                nsAString& aOutputString) const;
-
-  /**
    * Factored methods for handling insertion of data from transferables
    * (drag&drop or clipboard).
    */
@@ -555,13 +530,6 @@ class TextEditor : public EditorBase, public nsITimerCallback, public nsINamed {
 
   [[nodiscard]] MOZ_CAN_RUN_SCRIPT nsresult
   InsertTextFromTransferable(nsITransferable* transferable);
-
-  /**
-   * Shared outputstring; returns whether selection is collapsed and resulting
-   * string.
-   */
-  nsresult SharedOutputString(uint32_t aFlags, bool* aIsCollapsed,
-                              nsAString& aResult) const;
 
   bool IsCopyToClipboardAllowedInternal() const final;
 
@@ -580,13 +548,9 @@ class TextEditor : public EditorBase, public nsITimerCallback, public nsINamed {
                                                      bool aForceStartMasking);
 
  protected:
-  mutable nsCOMPtr<nsIDocumentEncoder> mCachedDocumentEncoder;
-
   // Timer to mask unmasked characters automatically.  Used only when it's
   // a password field.
   nsCOMPtr<nsITimer> mMaskTimer;
-
-  mutable nsString mCachedDocumentEncoderType;
 
   int32_t mMaxTextLength;
 

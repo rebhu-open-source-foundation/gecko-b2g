@@ -8208,6 +8208,8 @@ int16_t nsContentUtils::GetButtonsFlagForButton(int32_t aButton) {
       return MouseButtonsFlag::e4thFlag;
     case 4:
       return MouseButtonsFlag::e5thFlag;
+    case MouseButton::eEraser:
+      return MouseButtonsFlag::eEraserFlag;
     default:
       NS_ERROR("Button not known.");
       return 0;

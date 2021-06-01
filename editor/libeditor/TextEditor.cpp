@@ -43,7 +43,6 @@
 #include "nsGkAtoms.h"
 #include "nsIClipboard.h"
 #include "nsIContent.h"
-#include "nsIDocumentEncoder.h"
 #include "nsINode.h"
 #include "nsIPrincipal.h"
 #include "nsISelectionController.h"
@@ -95,12 +94,10 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(TextEditor, EditorBase)
   if (tmp->mMaskTimer) {
     tmp->mMaskTimer->Cancel();
   }
-  NS_IMPL_CYCLE_COLLECTION_UNLINK(mCachedDocumentEncoder)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mMaskTimer)
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(TextEditor, EditorBase)
-  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mCachedDocumentEncoder)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mMaskTimer)
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
@@ -480,77 +477,6 @@ bool TextEditor::IsCopyToClipboardAllowedInternal() const {
   return mUnmaskedStart <= selectionStart && UnmaskedEnd() >= selectionEnd;
 }
 
-already_AddRefed<nsIDocumentEncoder> TextEditor::GetAndInitDocEncoder(
-    const nsAString& aFormatType, uint32_t aDocumentEncoderFlags,
-    const nsACString& aCharset) const {
-  MOZ_ASSERT(IsEditActionDataAvailable());
-
-  nsCOMPtr<nsIDocumentEncoder> docEncoder;
-  if (!mCachedDocumentEncoder ||
-      !mCachedDocumentEncoderType.Equals(aFormatType)) {
-    nsAutoCString formatType;
-    LossyAppendUTF16toASCII(aFormatType, formatType);
-    docEncoder = do_createDocumentEncoder(PromiseFlatCString(formatType).get());
-    if (NS_WARN_IF(!docEncoder)) {
-      return nullptr;
-    }
-    mCachedDocumentEncoder = docEncoder;
-    mCachedDocumentEncoderType = aFormatType;
-  } else {
-    docEncoder = mCachedDocumentEncoder;
-  }
-
-  RefPtr<Document> doc = GetDocument();
-  NS_ASSERTION(doc, "Need a document");
-
-  nsresult rv = docEncoder->NativeInit(
-      doc, aFormatType,
-      aDocumentEncoderFlags | nsIDocumentEncoder::RequiresReinitAfterOutput);
-  if (NS_FAILED(rv)) {
-    NS_WARNING("nsIDocumentEncoder::NativeInit() failed");
-    return nullptr;
-  }
-
-  if (!aCharset.IsEmpty() && !aCharset.EqualsLiteral("null")) {
-    DebugOnly<nsresult> rvIgnored = docEncoder->SetCharset(aCharset);
-    NS_WARNING_ASSERTION(
-        NS_SUCCEEDED(rvIgnored),
-        "nsIDocumentEncoder::SetCharset() failed, but ignored");
-  }
-
-  const int32_t wrapWidth = std::max(WrapWidth(), 0);
-  DebugOnly<nsresult> rvIgnored = docEncoder->SetWrapColumn(wrapWidth);
-  NS_WARNING_ASSERTION(
-      NS_SUCCEEDED(rvIgnored),
-      "nsIDocumentEncoder::SetWrapColumn() failed, but ignored");
-
-  // Set the selection, if appropriate.
-  // We do this either if the OutputSelectionOnly flag is set,
-  // in which case we use our existing selection ...
-  if (aDocumentEncoderFlags & nsIDocumentEncoder::OutputSelectionOnly) {
-    if (NS_FAILED(docEncoder->SetSelection(&SelectionRef()))) {
-      NS_WARNING("nsIDocumentEncoder::SetSelection() failed");
-      return nullptr;
-    }
-  }
-  // ... or if the root element is not a body,
-  // in which case we set the selection to encompass the root.
-  else {
-    dom::Element* rootElement = GetRoot();
-    if (NS_WARN_IF(!rootElement)) {
-      return nullptr;
-    }
-    if (!rootElement->IsHTMLElement(nsGkAtoms::body)) {
-      if (NS_FAILED(docEncoder->SetContainerNode(rootElement))) {
-        NS_WARNING("nsIDocumentEncoder::SetContainerNode() failed");
-        return nullptr;
-      }
-    }
-  }
-
-  return docEncoder.forget();
-}
-
 NS_IMETHODIMP TextEditor::OutputToString(const nsAString& aFormatType,
                                          uint32_t aDocumentEncoderFlags,
                                          nsAString& aOutputString) {
@@ -562,53 +488,9 @@ NS_IMETHODIMP TextEditor::OutputToString(const nsAString& aFormatType,
   nsresult rv =
       ComputeValueInternal(aFormatType, aDocumentEncoderFlags, aOutputString);
   NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
-                       "TextEditor::ComputeValueInternal() failed");
+                       "EditorBase::ComputeValueInternal() failed");
   // This is low level API for XUL application.  So, we should return raw
   // error code here.
-  return rv;
-}
-
-nsresult TextEditor::ComputeValueInternal(const nsAString& aFormatType,
-                                          uint32_t aDocumentEncoderFlags,
-                                          nsAString& aOutputString) const {
-  MOZ_ASSERT(IsEditActionDataAvailable());
-
-  // First, let's try to get the value simply only from text node if the
-  // caller wants plaintext value.
-  if (aFormatType.LowerCaseEqualsLiteral("text/plain")) {
-    // If it's necessary to check selection range or the editor wraps hard,
-    // we need some complicated handling.  In such case, we need to use the
-    // expensive path.
-    // XXX Anything else what we cannot return the text node data simply?
-    if (!(aDocumentEncoderFlags & (nsIDocumentEncoder::OutputSelectionOnly |
-                                   nsIDocumentEncoder::OutputWrap))) {
-      EditActionResult result =
-          ComputeValueFromTextNodeAndPaddingBRElement(aOutputString);
-      if (result.Failed() || result.Canceled() || result.Handled()) {
-        NS_WARNING_ASSERTION(
-            result.Succeeded(),
-            "TextEditor::ComputeValueFromTextNodeAndPaddingBRElement() failed");
-        return result.Rv();
-      }
-    }
-  }
-
-  nsAutoCString charset;
-  nsresult rv = GetDocumentCharsetInternal(charset);
-  if (NS_FAILED(rv) || charset.IsEmpty()) {
-    charset.AssignLiteral("windows-1252");
-  }
-
-  nsCOMPtr<nsIDocumentEncoder> encoder =
-      GetAndInitDocEncoder(aFormatType, aDocumentEncoderFlags, charset);
-  if (!encoder) {
-    NS_WARNING("TextEditor::GetAndInitDocEncoder() failed");
-    return NS_ERROR_FAILURE;
-  }
-
-  rv = encoder->EncodeToString(aOutputString);
-  NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
-                       "nsIDocumentEncoder::EncodeToString() failed");
   return rv;
 }
 
@@ -744,22 +626,6 @@ nsresult TextEditor::InsertWithQuotationsAsSubAction(
   rv = InsertTextAsSubAction(quotedStuff);
   NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
                        "EditorBase::InsertTextAsSubAction() failed");
-  return rv;
-}
-
-nsresult TextEditor::SharedOutputString(uint32_t aFlags, bool* aIsCollapsed,
-                                        nsAString& aResult) const {
-  MOZ_ASSERT(IsEditActionDataAvailable());
-
-  *aIsCollapsed = SelectionRef().IsCollapsed();
-
-  if (!*aIsCollapsed) {
-    aFlags |= nsIDocumentEncoder::OutputSelectionOnly;
-  }
-  // If the selection isn't collapsed, we'll use the whole document.
-  nsresult rv = ComputeValueInternal(u"text/plain"_ns, aFlags, aResult);
-  NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
-                       "TextEditor::ComputeValueInternal(text/plain) failed");
   return rv;
 }
 
