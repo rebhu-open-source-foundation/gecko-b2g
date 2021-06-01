@@ -44,7 +44,10 @@ class BluetoothDaemonAvrcpModule {
     OPCODE_GET_ELEMENT_ATTR_NTF = 0x89,
     OPCODE_REGISTER_NOTIFICATION_NTF = 0x8a,
     OPCODE_VOLUME_CHANGE_NTF = 0x8b,
-    OPCODE_PASSTHROUGH_CMD_NTF = 0x8c
+    OPCODE_PASSTHROUGH_CMD_NTF = 0x8c,
+    OPCODE_SET_ADDRESSED_PLAYER_NTF = 0x8d,
+    OPCODE_SET_BROWSED_PLAYER_NTF = 0x8e,  // TODO: Support browsed player
+    OPCODE_GET_FOLDER_ITEMS_NTF = 0x8f,
   };
 
   virtual nsresult Send(DaemonSocketPDU* aPDU,
@@ -217,11 +220,22 @@ class BluetoothDaemonAvrcpModule {
       NotificationHandlerWrapper, void, uint8_t, uint8_t, uint8_t, uint8_t>
       PassthroughCmdNotification;
 
+  typedef mozilla::ipc::DaemonNotificationRunnable1<NotificationHandlerWrapper,
+                                                    void, uint16_t>
+      SetAddressedPlayerNotification;
+
+  typedef mozilla::ipc::DaemonNotificationRunnable5<
+      NotificationHandlerWrapper, void, uint8_t, uint32_t, uint32_t, uint8_t,
+      UniquePtr<uint32_t[]>, uint8_t, uint32_t, uint32_t, uint8_t,
+      const uint32_t*>
+      GetFolderItemsNotification;
+
   class GetElementAttrInitOp;
   class GetPlayerAppAttrsTextInitOp;
   class GetPlayerAppValueInitOp;
   class GetPlayerAppValuesTextInitOp;
   class RemoteFeatureInitOp;
+  class GetFolderItemsInitOp;
 
   void RemoteFeatureNtf(const DaemonSocketPDUHeader& aHeader,
                         DaemonSocketPDU& aPDU);
@@ -257,6 +271,12 @@ class BluetoothDaemonAvrcpModule {
                        DaemonSocketPDU& aPDU);
 
   void PassthroughCmdNtf(const DaemonSocketPDUHeader& aHeader,
+                         DaemonSocketPDU& aPDU);
+
+  void SetAddressedPlayerNtf(const DaemonSocketPDUHeader& aHeader,
+                             DaemonSocketPDU& aPDU);
+
+  void GetFolderItemsNtf(const DaemonSocketPDUHeader& aHeader,
                          DaemonSocketPDU& aPDU);
 
   void HandleNtf(const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,

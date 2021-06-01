@@ -645,6 +645,61 @@ void BluetoothDaemonAvrcpModule::PassthroughCmdNtf(
       UnpackPDUInitOp(aPDU));
 }
 
+void BluetoothDaemonAvrcpModule::SetAddressedPlayerNtf(
+    const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU) {
+  SetAddressedPlayerNotification::Dispatch(
+      &BluetoothAvrcpNotificationHandler::SetAddressedPlayerNotification,
+      UnpackPDUInitOp(aPDU));
+}
+
+// Init operator class for GetFolderItemsNotification
+class BluetoothDaemonAvrcpModule::GetFolderItemsInitOp final
+    : private PDUInitOp {
+ public:
+  explicit GetFolderItemsInitOp(DaemonSocketPDU& aPDU) : PDUInitOp(aPDU) {}
+
+  nsresult operator()(uint8_t& aArg1, uint32_t& aArg2, uint32_t& aArg3,
+                      uint8_t& aArg4, UniquePtr<uint32_t[]>& aArg5) const {
+    DaemonSocketPDU& pdu = GetPDU();
+
+    /* Read scope */
+    nsresult rv = UnpackPDU(pdu, aArg1);
+    if (NS_FAILED(rv)) {
+      return rv;
+    }
+    /* Read start item */
+    rv = UnpackPDU(pdu, aArg2);
+    if (NS_FAILED(rv)) {
+      return rv;
+    }
+    /* Read end item */
+    rv = UnpackPDU(pdu, aArg3);
+    if (NS_FAILED(rv)) {
+      return rv;
+    }
+    /* Read number of attribute ids */
+    rv = UnpackPDU(pdu, aArg4);
+    if (NS_FAILED(rv)) {
+      return rv;
+    }
+
+    /* Read attribute ids */
+    rv = UnpackPDU(pdu, UnpackArray<uint32_t>(aArg5, aArg4));
+    if (NS_FAILED(rv)) {
+      return rv;
+    }
+    WarnAboutTrailingData();
+    return NS_OK;
+  }
+};
+
+void BluetoothDaemonAvrcpModule::GetFolderItemsNtf(
+    const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU) {
+  GetFolderItemsNotification::Dispatch(
+      &BluetoothAvrcpNotificationHandler::GetFolderItemsNotification,
+      GetFolderItemsInitOp(aPDU));
+}
+
 void BluetoothDaemonAvrcpModule::HandleNtf(const DaemonSocketPDUHeader& aHeader,
                                            DaemonSocketPDU& aPDU,
                                            DaemonSocketResultHandler* aRes) {
@@ -661,7 +716,11 @@ void BluetoothDaemonAvrcpModule::HandleNtf(const DaemonSocketPDUHeader& aHeader,
       [8] = &BluetoothDaemonAvrcpModule::GetElementAttrNtf,
       [9] = &BluetoothDaemonAvrcpModule::RegisterNotificationNtf,
       [10] = &BluetoothDaemonAvrcpModule::VolumeChangeNtf,
-      [11] = &BluetoothDaemonAvrcpModule::PassthroughCmdNtf};
+      [11] = &BluetoothDaemonAvrcpModule::PassthroughCmdNtf,
+      [12] = &BluetoothDaemonAvrcpModule::SetAddressedPlayerNtf,
+      [13] = nullptr,
+      [14] = &BluetoothDaemonAvrcpModule::GetFolderItemsNtf,
+  };
 
   MOZ_ASSERT(!NS_IsMainThread());
 

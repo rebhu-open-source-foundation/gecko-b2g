@@ -881,6 +881,18 @@ void BluetoothAvrcpManager::PassthroughCmdNotification(uint8_t aId,
   BroadcastSystemMessage(type, BluetoothValue(name));
 }
 
+void BluetoothAvrcpManager::SetAddressedPlayerNotification(uint16_t aPlayerId) {
+  MOZ_ASSERT(NS_IsMainThread());
+  // TODO: Support AVRCP 1.5
+}
+
+void BluetoothAvrcpManager::GetFolderItemsNotification(
+    uint8_t aScope, uint32_t aStartItem, uint32_t aEndItem, uint8_t aNumAttr,
+    const uint32_t* aAttrIds) {
+  MOZ_ASSERT(NS_IsMainThread());
+  // TODO: Support AVRCP 1.5
+}
+
 bool BluetoothAvrcpManager::ReplyToConnectionRequest(bool aAccept) {
   MOZ_ASSERT(false,
              "BluetoothAvrcpManager hasn't implemented this function yet.");
