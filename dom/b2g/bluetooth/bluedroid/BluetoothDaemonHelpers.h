@@ -233,6 +233,9 @@ nsresult PackPDU(BluetoothAvrcpPlayerAttribute aIn, DaemonSocketPDU& aPDU);
 
 nsresult PackPDU(BluetoothAvrcpStatus aIn, DaemonSocketPDU& aPDU);
 
+nsresult PackPDU(const nsTArray<BluetoothAvrcpItemPlayer>& aIn,
+                 DaemonSocketPDU& aPDU);
+
 nsresult PackPDU(const BluetoothConfigurationParameter& aIn,
                  DaemonSocketPDU& aPDU);
 

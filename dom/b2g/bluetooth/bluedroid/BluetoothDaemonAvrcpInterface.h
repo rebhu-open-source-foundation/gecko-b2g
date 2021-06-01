@@ -33,6 +33,10 @@ class BluetoothDaemonAvrcpModule {
     OPCODE_SET_PLAYER_APP_VALUE_RSP = 0x08,
     OPCODE_REGISTER_NOTIFICATION_RSP = 0x09,
     OPCODE_SET_VOLUME = 0x0a,
+    OPCODE_SET_ADDRESSED_PLAYER_RSP = 0x0b,
+    OPCODE_SET_BROWSED_PLAYER_RSP = 0x0c,  // TODO: Support browsed player
+    OPCODE_GET_FOLDER_ITEMS_LIST_RSP = 0x0d,
+
     OPCODE_REMOTE_FEATURES_NTF = 0x81,
     OPCODE_GET_PLAY_STATUS_NTF = 0x82,
     OPCODE_LIST_PLAYER_APP_ATTR_NTF = 0x83,
@@ -97,6 +101,14 @@ class BluetoothDaemonAvrcpModule {
 
   nsresult SetVolumeCmd(uint8_t aVolume, BluetoothAvrcpResultHandler* aRes);
 
+  nsresult SetAddressedPlayerRspCmd(BluetoothAvrcpStatus aRspStatus,
+                                    BluetoothAvrcpResultHandler* aRes);
+
+  nsresult GetFolderItemsListRspCmd(
+      BluetoothAvrcpStatus aRspStatus, uint16_t aUidCounter, uint8_t aNumItems,
+      const nsTArray<BluetoothAvrcpItemPlayer>& aPlayers,
+      BluetoothAvrcpResultHandler* aRes);
+
  protected:
   void HandleSvc(const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
                  DaemonSocketResultHandler* aRes);
@@ -153,6 +165,14 @@ class BluetoothDaemonAvrcpModule {
 
   void SetVolumeRsp(const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
                     BluetoothAvrcpResultHandler* aRes);
+
+  void SetAddressedPlayerRspRsp(const DaemonSocketPDUHeader& aHeader,
+                                DaemonSocketPDU& aPDU,
+                                BluetoothAvrcpResultHandler* aRes);
+
+  void GetFolderItemsListRspRsp(const DaemonSocketPDUHeader& aHeader,
+                                DaemonSocketPDU& aPDU,
+                                BluetoothAvrcpResultHandler* aRes);
 
   void HandleRsp(const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
                  DaemonSocketResultHandler* aRes);
@@ -332,6 +352,15 @@ class BluetoothDaemonAvrcpInterface final : public BluetoothAvrcpInterface {
                                BluetoothAvrcpResultHandler* aRes) override;
 
   void SetVolume(uint8_t aVolume, BluetoothAvrcpResultHandler* aRes) override;
+
+  void SetAddressedPlayerRsp(BluetoothAvrcpStatus aRspStatus,
+                             BluetoothAvrcpResultHandler* aRes) override;
+
+  // TODO: Support AVRCP_ITEM_FOLDER and AVRCP_ITEM_MEDIA
+  void GetFolderItemsListRsp(BluetoothAvrcpStatus aRspStatus,
+                             uint16_t aUidCounter, uint8_t aNumItems,
+                             const nsTArray<BluetoothAvrcpItemPlayer>& aPlayers,
+                             BluetoothAvrcpResultHandler* aRes) override;
 
  private:
   void DispatchError(BluetoothAvrcpResultHandler* aRes,

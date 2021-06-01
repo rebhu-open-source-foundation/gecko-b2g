@@ -469,6 +469,10 @@ void BluetoothAvrcpResultHandler::RegisterNotificationRsp() {}
 
 void BluetoothAvrcpResultHandler::SetVolume() {}
 
+void BluetoothAvrcpResultHandler::SetAddressedPlayerRsp() {}
+
+void BluetoothAvrcpResultHandler::GetFolderItemsListRsp() {}
+
 // Interface
 //
 

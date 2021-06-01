@@ -665,6 +665,9 @@ class BluetoothAvrcpResultHandler
 
   virtual void SetVolume();
 
+  virtual void SetAddressedPlayerRsp();
+  virtual void GetFolderItemsListRsp();
+
  protected:
   virtual ~BluetoothAvrcpResultHandler() {}
 };
@@ -711,6 +714,14 @@ class BluetoothAvrcpInterface {
 
   virtual void SetVolume(uint8_t aVolume,
                          BluetoothAvrcpResultHandler* aRes) = 0;
+
+  virtual void SetAddressedPlayerRsp(BluetoothAvrcpStatus aRspStatus,
+                                     BluetoothAvrcpResultHandler* aRes) = 0;
+
+  virtual void GetFolderItemsListRsp(
+      BluetoothAvrcpStatus aRspStatus, uint16_t aUidCounter, uint8_t aNumItems,
+      const nsTArray<BluetoothAvrcpItemPlayer>& aPlayers,
+      BluetoothAvrcpResultHandler* aRes) = 0;
 
  protected:
   BluetoothAvrcpInterface();

@@ -1013,6 +1013,7 @@ enum ControlPlayStatus {
 };
 
 enum { AVRCP_UID_SIZE = 8 };
+enum { AVRCP_FEATURE_BIT_MASK_SIZE = 16 };
 
 enum BluetoothAvrcpMediaAttribute {
   AVRCP_MEDIA_ATTRIBUTE_TITLE = 0x01,
@@ -1045,11 +1046,30 @@ enum BluetoothAvrcpPlayerShuffleValue {
 };
 
 enum BluetoothAvrcpStatus {
-  AVRCP_STATUS_BAD_COMMAND,
-  AVRCP_STATUS_BAD_PARAMETER,
-  AVRCP_STATUS_NOT_FOUND,
-  AVRCP_STATUS_INTERNAL_ERROR,
-  AVRCP_STATUS_SUCCESS
+  AVRCP_STATUS_BAD_COMMAND = 0x00,    // Invalid command
+  AVRCP_STATUS_BAD_PARAMETER = 0x01,  // Invalid parameter
+  AVRCP_STATUS_NOT_FOUND = 0x02,  // Specified parameter is wrong or not found
+  AVRCP_STATUS_INTERNAL_ERROR = 0x03,  // Internal Error
+  AVRCP_STATUS_SUCCESS = 0x04,         // Operation Success
+  AVRCP_STATUS_UID_CHANGED = 0x05,     // UIDs changed
+  AVRCP_STATUS_RESERVED = 0x06,        // Reserved
+  AVRCP_STATUS_INV_DIRN = 0x07,        // Invalid direction
+  AVRCP_STATUS_INV_DIRECTORY = 0x08,   // Invalid directory
+  AVRCP_STATUS_INV_ITEM = 0x09,        // Invalid Ite
+
+  AVRCP_STATUS_INV_SCOPE = 0x0a,       // Invalid scope
+  AVRCP_STATUS_INV_RANGE = 0x0b,       // Invalid range
+  AVRCP_STATUS_DIRECTORY = 0x0c,       // UID is a directory
+  AVRCP_STATUS_MEDIA_IN_USE = 0x0d,    // Media in use
+  AVRCP_STATUS_PLAY_LIST_FULL = 0x0e,  // Playing list full
+  AVRCP_STATUS_SRCH_NOT_SPRTD = 0x0f,  // Search not supported
+  AVRCP_STATUS_SRCH_IN_PROG = 0x10,    // Search in progress
+  AVRCP_STATUS_INV_PLAYER = 0x11,      // Invalid player
+  AVRCP_STATUS_PLAY_NOT_BROW = 0x12,   // Player not browsable
+  AVRCP_STATUS_PLAY_NOT_ADDR = 0x13,   // Player not addressed
+  AVRCP_STATUS_INV_RESULTS = 0x14,     // Invalid results
+  AVRCP_STATUS_NO_AVBL_PLAY = 0x15,    // No available players
+  AVRCP_STATUS_ADDR_PLAY_CHGD = 0x16,  // Addressed player changed
 };
 
 enum BluetoothAvrcpEvent {
@@ -1070,6 +1090,12 @@ enum BluetoothAvrcpRemoteFeatureBits {
   AVRCP_REMOTE_FEATURE_BROWSE = 0x04
 };
 
+enum BluetoothAvrcpItemType {
+  AVRCP_ITEM_PLAYER = 0x01,
+  AVRCP_ITEM_FOLDER = 0x02,
+  AVRCP_ITEM_MEDIA = 0x03,
+};
+
 struct BluetoothAvrcpElementAttribute {
   uint32_t mId;
   nsString mValue;
@@ -1088,6 +1114,16 @@ struct BluetoothAvrcpPlayerSettings {
   uint8_t mNumAttr;
   uint8_t mIds[256];
   uint8_t mValues[256];
+};
+
+struct BluetoothAvrcpItemPlayer {
+  uint16_t mPlayerId;
+  uint8_t mMajorType;
+  uint32_t mSubType;
+  uint8_t mPlayStatus;
+  uint8_t mFeatures[AVRCP_FEATURE_BIT_MASK_SIZE];
+  uint16_t mCharsetId;
+  nsString mName;
 };
 
 enum BluetoothAttRole { ATT_SERVER_ROLE, ATT_CLIENT_ROLE };

@@ -1085,6 +1085,59 @@ nsresult PackPDU(const BluetoothAvrcpEventParamPair& aIn,
   return rv;
 }
 
+nsresult PackPDU(const nsTArray<BluetoothAvrcpItemPlayer>& aIn,
+                 DaemonSocketPDU& aPDU) {
+  size_t len = aIn.Length();
+
+  const uint8_t type = AVRCP_ITEM_PLAYER;
+  nsresult rv;
+  for (size_t i = 0; i < len; ++i) {
+    rv = PackPDU(type, aPDU);
+    if (NS_FAILED(rv)) {
+      return rv;
+    }
+    rv = PackPDU(aIn[i].mPlayerId, aPDU);
+    if (NS_FAILED(rv)) {
+      return rv;
+    }
+    rv = PackPDU(aIn[i].mMajorType, aPDU);
+    if (NS_FAILED(rv)) {
+      return rv;
+    }
+    rv = PackPDU(aIn[i].mSubType, aPDU);
+    if (NS_FAILED(rv)) {
+      return rv;
+    }
+    rv = PackPDU(aIn[i].mPlayStatus, aPDU);
+    if (NS_FAILED(rv)) {
+      return rv;
+    }
+
+    for (int j = 0; j < AVRCP_FEATURE_BIT_MASK_SIZE; ++j) {
+      rv = PackPDU(aIn[i].mFeatures[j], aPDU);
+      if (NS_FAILED(rv)) {
+        return rv;
+      }
+    }
+
+    rv = PackPDU(aIn[i].mCharsetId, aPDU);
+    if (NS_FAILED(rv)) {
+      return rv;
+    }
+
+    NS_ConvertUTF16toUTF8 stringUTF8(aIn[i].mName);
+    rv = PackPDU(
+        PackConversion<size_t, uint16_t>(stringUTF8.Length()),
+        PackArray<uint8_t>(reinterpret_cast<const uint8_t*>(stringUTF8.get()),
+                           stringUTF8.Length()),
+        aPDU);
+    if (NS_FAILED(rv)) {
+      return rv;
+    }
+  }
+  return NS_OK;
+}
+
 nsresult PackPDU(BluetoothSdpType aIn, DaemonSocketPDU& aPDU) {
   return PackPDU(PackConversion<BluetoothSdpType, int32_t>(aIn), aPDU);
 }

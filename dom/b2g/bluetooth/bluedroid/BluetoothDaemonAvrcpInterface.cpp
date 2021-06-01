@@ -272,6 +272,50 @@ nsresult BluetoothDaemonAvrcpModule::SetVolumeCmd(
   return NS_OK;
 }
 
+nsresult BluetoothDaemonAvrcpModule::SetAddressedPlayerRspCmd(
+    BluetoothAvrcpStatus aRspStatus, BluetoothAvrcpResultHandler* aRes) {
+  MOZ_ASSERT(NS_IsMainThread());
+
+  UniquePtr<DaemonSocketPDU> pdu =
+      MakeUnique<DaemonSocketPDU>(SERVICE_ID, OPCODE_SET_ADDRESSED_PLAYER_RSP,
+                                  4);  // aRspStatus
+
+  nsresult rv = PackPDU(static_cast<int>(aRspStatus), *pdu);
+  if (NS_FAILED(rv)) {
+    return rv;
+  }
+  rv = Send(pdu.get(), aRes);
+  if (NS_FAILED(rv)) {
+    return rv;
+  }
+  Unused << pdu.release();
+  return NS_OK;
+}
+
+nsresult BluetoothDaemonAvrcpModule::GetFolderItemsListRspCmd(
+    BluetoothAvrcpStatus aRspStatus, uint16_t aUidCounter, uint8_t aNumItems,
+    const nsTArray<BluetoothAvrcpItemPlayer>& aPlayers,
+    BluetoothAvrcpResultHandler* aRes) {
+  MOZ_ASSERT(NS_IsMainThread());
+
+  UniquePtr<DaemonSocketPDU> pdu =
+      MakeUnique<DaemonSocketPDU>(SERVICE_ID, OPCODE_GET_FOLDER_ITEMS_LIST_RSP,
+                                  0);  // Dynamically allocated
+
+  nsresult rv = PackPDU(static_cast<int>(aRspStatus), aUidCounter, aNumItems,
+                        aPlayers, *pdu);
+  if (NS_FAILED(rv)) {
+    return rv;
+  }
+
+  rv = Send(pdu.get(), aRes);
+  if (NS_FAILED(rv)) {
+    return rv;
+  }
+  Unused << pdu.release();
+  return NS_OK;
+}
+
 // Responses
 //
 
@@ -360,6 +404,22 @@ void BluetoothDaemonAvrcpModule::SetVolumeRsp(
                            UnpackPDUInitOp(aPDU));
 }
 
+void BluetoothDaemonAvrcpModule::SetAddressedPlayerRspRsp(
+    const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
+    BluetoothAvrcpResultHandler* aRes) {
+  ResultRunnable::Dispatch(aRes,
+                           &BluetoothAvrcpResultHandler::SetAddressedPlayerRsp,
+                           UnpackPDUInitOp(aPDU));
+}
+
+void BluetoothDaemonAvrcpModule::GetFolderItemsListRspRsp(
+    const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
+    BluetoothAvrcpResultHandler* aRes) {
+  ResultRunnable::Dispatch(aRes,
+                           &BluetoothAvrcpResultHandler::GetFolderItemsListRsp,
+                           UnpackPDUInitOp(aPDU));
+}
+
 void BluetoothDaemonAvrcpModule::HandleRsp(const DaemonSocketPDUHeader& aHeader,
                                            DaemonSocketPDU& aPDU,
                                            DaemonSocketResultHandler* aRes) {
@@ -385,7 +445,12 @@ void BluetoothDaemonAvrcpModule::HandleRsp(const DaemonSocketPDUHeader& aHeader,
           &BluetoothDaemonAvrcpModule::SetPlayerAppValueRspRsp,
       [OPCODE_REGISTER_NOTIFICATION_RSP] =
           &BluetoothDaemonAvrcpModule::RegisterNotificationRspRsp,
-      [OPCODE_SET_VOLUME] = &BluetoothDaemonAvrcpModule::SetVolumeRsp};
+      [OPCODE_SET_VOLUME] = &BluetoothDaemonAvrcpModule::SetVolumeRsp,
+      [OPCODE_SET_ADDRESSED_PLAYER_RSP] =
+          &BluetoothDaemonAvrcpModule::SetAddressedPlayerRspRsp,
+      [OPCODE_GET_FOLDER_ITEMS_LIST_RSP] =
+          &BluetoothDaemonAvrcpModule::GetFolderItemsListRspRsp,
+  };
 
   MOZ_ASSERT(!NS_IsMainThread());  // I/O thread
 
@@ -859,6 +924,29 @@ void BluetoothDaemonAvrcpInterface::SetVolume(
   MOZ_ASSERT(mModule);
 
   nsresult rv = mModule->SetVolumeCmd(aVolume, aRes);
+  if (NS_FAILED(rv)) {
+    DispatchError(aRes, rv);
+  }
+}
+
+void BluetoothDaemonAvrcpInterface::SetAddressedPlayerRsp(
+    BluetoothAvrcpStatus aRspStatus, BluetoothAvrcpResultHandler* aRes) {
+  MOZ_ASSERT(mModule);
+
+  nsresult rv = mModule->SetAddressedPlayerRspCmd(aRspStatus, aRes);
+  if (NS_FAILED(rv)) {
+    DispatchError(aRes, rv);
+  }
+}
+
+void BluetoothDaemonAvrcpInterface::GetFolderItemsListRsp(
+    BluetoothAvrcpStatus aRspStatus, uint16_t aUidCounter, uint8_t aNumItems,
+    const nsTArray<BluetoothAvrcpItemPlayer>& aPlayers,
+    BluetoothAvrcpResultHandler* aRes) {
+  MOZ_ASSERT(mModule);
+
+  nsresult rv = mModule->GetFolderItemsListRspCmd(aRspStatus, aUidCounter,
+                                                  aNumItems, aPlayers, aRes);
   if (NS_FAILED(rv)) {
     DispatchError(aRes, rv);
   }
