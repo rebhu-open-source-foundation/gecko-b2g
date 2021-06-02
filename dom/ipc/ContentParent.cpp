@@ -6945,7 +6945,8 @@ mozilla::ipc::IPCResult ContentParent::RecvBHRThreadHang(
 
 mozilla::ipc::IPCResult ContentParent::RecvAddCertException(
     const nsACString& aSerializedCert, uint32_t aFlags,
-    const nsACString& aHostName, int32_t aPort, bool aIsTemporary,
+    const nsACString& aHostName, int32_t aPort,
+    const OriginAttributes& aOriginAttributes, bool aIsTemporary,
     AddCertExceptionResolver&& aResolver) {
   nsCOMPtr<nsISupports> certObj;
   nsresult rv = NS_DeserializeObject(aSerializedCert, getter_AddRefs(certObj));
@@ -6959,8 +6960,8 @@ mozilla::ipc::IPCResult ContentParent::RecvAddCertException(
       if (!overrideService) {
         rv = NS_ERROR_FAILURE;
       } else {
-        rv = overrideService->RememberValidityOverride(aHostName, aPort, cert,
-                                                       aFlags, aIsTemporary);
+        rv = overrideService->RememberValidityOverride(
+            aHostName, aPort, aOriginAttributes, cert, aFlags, aIsTemporary);
       }
     }
   }

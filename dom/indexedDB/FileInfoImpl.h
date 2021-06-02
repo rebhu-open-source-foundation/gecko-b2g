@@ -4,10 +4,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef mozilla_dom_indexeddb_fileinfotimpl_h__
-#define mozilla_dom_indexeddb_fileinfotimpl_h__
+#ifndef DOM_INDEXEDDB_FILEINFOIMPL_H_
+#define DOM_INDEXEDDB_FILEINFOIMPL_H_
 
-#include "FileInfoT.h"
+#include "FileInfo.h"
 
 #include "mozilla/dom/quota/QuotaCommon.h"
 #include "mozilla/Mutex.h"
@@ -18,38 +18,37 @@ namespace dom {
 namespace indexedDB {
 
 template <typename FileManager>
-FileInfoT<FileManager>::FileInfoT(
-    const typename FileManager::FileManagerGuard& aGuard,
+FileInfo<FileManager>::FileInfo(
+    const typename FileManager::FileInfoManagerGuard& aGuard,
     SafeRefPtr<FileManager> aFileManager, const int64_t aFileId,
     const nsrefcnt aInitialDBRefCnt)
-    : mFileId(aFileId),
+    : FileInfoBase{aFileId},
       mDBRefCnt(aInitialDBRefCnt),
       mFileManager(std::move(aFileManager)) {
-  MOZ_ASSERT(mFileId > 0);
   MOZ_ASSERT(mFileManager);
 }
 
 template <typename FileManager>
-void FileInfoT<FileManager>::AddRef() {
-  AutoLock lock(FileManager::Mutex());
+void FileInfo<FileManager>::AddRef() {
+  AutoLockType lock(FileManager::Mutex());
 
   LockedAddRef();
 }
 
 template <typename FileManager>
-void FileInfoT<FileManager>::Release(const bool aSyncDeleteFile) {
+void FileInfo<FileManager>::Release(const bool aSyncDeleteFile) {
   UpdateReferences(mRefCnt, -1, aSyncDeleteFile);
 }
 
 template <typename FileManager>
-void FileInfoT<FileManager>::UpdateDBRefs(int32_t aDelta) {
+void FileInfo<FileManager>::UpdateDBRefs(int32_t aDelta) {
   UpdateReferences(mDBRefCnt, aDelta);
 }
 
 template <typename FileManager>
-void FileInfoT<FileManager>::GetReferences(int32_t* const aRefCnt,
-                                           int32_t* const aDBRefCnt) {
-  AutoLock lock(FileManager::Mutex());
+void FileInfo<FileManager>::GetReferences(int32_t* const aRefCnt,
+                                          int32_t* const aDBRefCnt) {
+  AutoLockType lock(FileManager::Mutex());
 
   if (aRefCnt) {
     *aRefCnt = mRefCnt;
@@ -61,22 +60,17 @@ void FileInfoT<FileManager>::GetReferences(int32_t* const aRefCnt,
 }
 
 template <typename FileManager>
-FileManager& FileInfoT<FileManager>::Manager() const {
+FileManager& FileInfo<FileManager>::Manager() const {
   return *mFileManager;
 }
 
 template <typename FileManager>
-int64_t FileInfoT<FileManager>::Id() const {
-  return mFileId;
-}
-
-template <typename FileManager>
-void FileInfoT<FileManager>::UpdateReferences(ThreadSafeAutoRefCnt& aRefCount,
-                                              const int32_t aDelta,
-                                              const bool aSyncDeleteFile) {
+void FileInfo<FileManager>::UpdateReferences(ThreadSafeAutoRefCnt& aRefCount,
+                                             const int32_t aDelta,
+                                             const bool aSyncDeleteFile) {
   bool needsCleanup;
   {
-    AutoLock lock(FileManager::Mutex());
+    AutoLockType lock(FileManager::Mutex());
 
     aRefCount = aRefCount + aDelta;
 
@@ -105,15 +99,15 @@ void FileInfoT<FileManager>::UpdateReferences(ThreadSafeAutoRefCnt& aRefCount,
 }
 
 template <typename FileManager>
-void FileInfoT<FileManager>::LockedAddRef() {
+void FileInfo<FileManager>::LockedAddRef() {
   FileManager::Mutex().AssertCurrentThreadOwns();
 
   ++mRefCnt;
 }
 
 template <typename FileManager>
-bool FileInfoT<FileManager>::LockedClearDBRefs(
-    const typename FileManager::FileManagerGuard&) {
+bool FileInfo<FileManager>::LockedClearDBRefs(
+    const typename FileManager::FileInfoManagerGuard&) {
   FileManager::Mutex().AssertCurrentThreadOwns();
 
   mDBRefCnt = 0;
@@ -133,12 +127,12 @@ bool FileInfoT<FileManager>::LockedClearDBRefs(
 }
 
 template <typename FileManager>
-void FileInfoT<FileManager>::Cleanup() {
+void FileInfo<FileManager>::Cleanup() {
   QM_WARNONLY_TRY(mFileManager->AsyncDeleteFile(Id()));
 }
 
 template <typename FileManager>
-nsCOMPtr<nsIFile> FileInfoT<FileManager>::GetFileForFileInfo() const {
+nsCOMPtr<nsIFile> FileInfo<FileManager>::GetFileForFileInfo() const {
   const nsCOMPtr<nsIFile> directory = Manager().GetDirectory();
   if (NS_WARN_IF(!directory)) {
     return nullptr;
@@ -156,4 +150,4 @@ nsCOMPtr<nsIFile> FileInfoT<FileManager>::GetFileForFileInfo() const {
 }  // namespace dom
 }  // namespace mozilla
 
-#endif  // mozilla_dom_indexeddb_fileinfotimpl_h__
+#endif  // DOM_INDEXEDDB_FILEINFOIMPL_H_

@@ -236,6 +236,8 @@ class Zone : public js::ZoneAllocator, public js::gc::GraphNodeBase<JS::Zone> {
   js::MainThreadData<unsigned> gcSweepGroupIndex;
 #endif
 
+  js::gc::PretenuringZone pretenuring;
+
  private:
   // Side map for storing unique ids for cells, independent of address.
   js::ZoneOrGCTaskData<js::gc::UniqueIdMap> uniqueIds_;
@@ -374,20 +376,19 @@ class Zone : public js::ZoneAllocator, public js::gc::GraphNodeBase<JS::Zone> {
 
   [[nodiscard]] bool findSweepGroupEdges(Zone* atomsZone);
 
-  enum ShouldDiscardBaselineCode : bool {
-    KeepBaselineCode = false,
-    DiscardBaselineCode
+  struct DiscardOptions {
+    DiscardOptions() {}
+    bool discardBaselineCode = true;
+    bool discardJitScripts = false;
+    bool resetNurseryAllocSites = false;
+    bool resetPretenuredAllocSites = false;
   };
 
-  enum ShouldDiscardJitScripts : bool {
-    KeepJitScripts = false,
-    DiscardJitScripts
-  };
+  void discardJitCode(JSFreeOp* fop,
+                      const DiscardOptions& options = DiscardOptions());
 
-  void discardJitCode(
-      JSFreeOp* fop,
-      ShouldDiscardBaselineCode discardBaselineCode = DiscardBaselineCode,
-      ShouldDiscardJitScripts discardJitScripts = KeepJitScripts);
+  void resetAllocSitesAndInvalidate(bool resetNurserySites,
+                                    bool resetPretenuredSites);
 
   void addSizeOfIncludingThis(
       mozilla::MallocSizeOf mallocSizeOf, JS::CodeSizes* code,
@@ -641,6 +642,13 @@ class Zone : public js::ZoneAllocator, public js::gc::GraphNodeBase<JS::Zone> {
   // Clear the kept-alive set.
   // See: https://tc39.es/proposal-weakrefs/#sec-clear-kept-objects
   void clearKeptObjects();
+
+  js::gc::AllocSite* unknownAllocSite() {
+    return &pretenuring.unknownAllocSite;
+  }
+  js::gc::AllocSite* optimizedAllocSite() {
+    return &pretenuring.optimizedAllocSite;
+  }
 
 #ifdef JSGC_HASH_TABLE_CHECKS
   void checkAllCrossCompartmentWrappersAfterMovingGC();

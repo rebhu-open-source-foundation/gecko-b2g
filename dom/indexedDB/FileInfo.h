@@ -4,8 +4,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef mozilla_dom_indexeddb_fileinfot_h__
-#define mozilla_dom_indexeddb_fileinfot_h__
+#ifndef DOM_INDEXEDDB_FILEINFO_H_
+#define DOM_INDEXEDDB_FILEINFO_H_
 
 #include "nsISupportsImpl.h"
 #include "nsCOMPtr.h"
@@ -15,15 +15,29 @@ namespace mozilla {
 namespace dom {
 namespace indexedDB {
 
-template <typename FileManager>
-class FileInfoT final {
+class FileInfoBase {
  public:
-  using AutoLock = typename FileManager::AutoLock;
   using IdType = int64_t;
 
-  FileInfoT(const typename FileManager::FileManagerGuard& aGuard,
-            SafeRefPtr<FileManager> aFileManager, const int64_t aFileId,
-            const nsrefcnt aInitialDBRefCnt = 0);
+  IdType Id() const { return mFileId; }
+
+ protected:
+  explicit FileInfoBase(const int64_t aFileId) : mFileId(aFileId) {
+    MOZ_ASSERT(mFileId > 0);
+  }
+
+ private:
+  const IdType mFileId;
+};
+
+template <typename FileManager>
+class FileInfo final : public FileInfoBase {
+ public:
+  using AutoLockType = typename FileManager::AutoLockType;
+
+  FileInfo(const typename FileManager::FileInfoManagerGuard& aGuard,
+           SafeRefPtr<FileManager> aFileManager, const int64_t aFileId,
+           const nsrefcnt aInitialDBRefCnt = 0);
 
   void AddRef();
   void Release(const bool aSyncDeleteFile = false);
@@ -34,20 +48,17 @@ class FileInfoT final {
 
   FileManager& Manager() const;
 
-  IdType Id() const;
-
   nsCOMPtr<nsIFile> GetFileForFileInfo() const;
 
   void LockedAddRef();
-  bool LockedClearDBRefs(const typename FileManager::FileManagerGuard& aGuard);
+  bool LockedClearDBRefs(
+      const typename FileManager::FileInfoManagerGuard& aGuard);
 
  private:
   void UpdateReferences(ThreadSafeAutoRefCnt& aRefCount, int32_t aDelta,
                         bool aSyncDeleteFile = false);
 
   void Cleanup();
-
-  const IdType mFileId;
 
   ThreadSafeAutoRefCnt mRefCnt;
   ThreadSafeAutoRefCnt mDBRefCnt;
@@ -59,4 +70,4 @@ class FileInfoT final {
 }  // namespace dom
 }  // namespace mozilla
 
-#endif  // mozilla_dom_indexeddb_fileinfot_h__
+#endif  // DOM_INDEXEDDB_FILEINFO_H_

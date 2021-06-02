@@ -1411,6 +1411,23 @@ NS_IMETHODIMP EditorBase::SetDocumentCharacterSet(
   return NS_ERROR_NOT_AVAILABLE;
 }
 
+NS_IMETHODIMP EditorBase::OutputToString(const nsAString& aFormatType,
+                                         uint32_t aDocumentEncoderFlags,
+                                         nsAString& aOutputString) {
+  AutoEditActionDataSetter editActionData(*this, EditAction::eNotEditing);
+  if (NS_WARN_IF(!editActionData.CanHandle())) {
+    return NS_ERROR_NOT_INITIALIZED;
+  }
+
+  nsresult rv =
+      ComputeValueInternal(aFormatType, aDocumentEncoderFlags, aOutputString);
+  NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
+                       "EditorBase::ComputeValueInternal() failed");
+  // This is low level API for XUL application.  So, we should return raw
+  // error code here.
+  return rv;
+}
+
 nsresult EditorBase::ComputeValueInternal(const nsAString& aFormatType,
                                           uint32_t aDocumentEncoderFlags,
                                           nsAString& aOutputString) const {
@@ -2367,13 +2384,6 @@ NS_IMETHODIMP EditorBase::RemoveDocumentStateListener(
   mDocStateListeners.RemoveElement(aListener);
 
   return NS_OK;
-}
-
-NS_IMETHODIMP EditorBase::OutputToString(const nsAString& aFormatType,
-                                         uint32_t aFlags,
-                                         nsAString& aOutputString) {
-  // these should be implemented by derived classes.
-  return NS_ERROR_NOT_IMPLEMENTED;
 }
 
 bool EditorBase::ArePreservingSelection() {
@@ -4667,7 +4677,28 @@ NS_IMETHODIMP EditorBase::RemoveAttributeOrEquivalent(
   return EditorBase::ToGenericNSResult(rv);
 }
 
+void EditorBase::HandleKeyPressEventInReadOnlyMode(
+    WidgetKeyboardEvent& aKeyboardEvent) const {
+  MOZ_ASSERT(IsReadonly());
+  MOZ_ASSERT(aKeyboardEvent.mMessage == eKeyPress);
+
+  switch (aKeyboardEvent.mKeyCode) {
+    case NS_VK_BACK:
+      // If it's a `Backspace` key, let's consume it because it may be mapped
+      // to "Back" of the history navigation.  So, it's possible that user
+      // tries to delete a character with `Backspace` even in the read-only
+      // editor.
+      aKeyboardEvent.PreventDefault();
+      break;
+  }
+  // XXX How about space key (page up and page down in browser navigation)?
+}
+
 nsresult EditorBase::HandleKeyPressEvent(WidgetKeyboardEvent* aKeyboardEvent) {
+  MOZ_ASSERT(!IsReadonly());
+  MOZ_ASSERT(aKeyboardEvent);
+  MOZ_ASSERT(aKeyboardEvent->mMessage == eKeyPress);
+
   // NOTE: When you change this method, you should also change:
   //   * editor/libeditor/tests/test_texteditor_keyevent_handling.html
   //   * editor/libeditor/tests/test_htmleditor_keyevent_handling.html
@@ -4675,30 +4706,65 @@ nsresult EditorBase::HandleKeyPressEvent(WidgetKeyboardEvent* aKeyboardEvent) {
   // And also when you add new key handling, you need to change the subclass's
   // HandleKeyPressEvent()'s switch statement.
 
-  if (NS_WARN_IF(!aKeyboardEvent)) {
-    return NS_ERROR_UNEXPECTED;
-  }
-  MOZ_ASSERT(aKeyboardEvent->mMessage == eKeyPress,
-             "HandleKeyPressEvent gets non-keypress event");
-
-  // if we are readonly or disabled, then do nothing.
-  if (IsReadonly()) {
-    // consume backspace for disabled and readonly textfields, to prevent
-    // back in history, which could be confusing to users
-    if (aKeyboardEvent->mKeyCode == NS_VK_BACK) {
-      aKeyboardEvent->PreventDefault();
-    }
-    return NS_OK;
-  }
-
   switch (aKeyboardEvent->mKeyCode) {
     case NS_VK_META:
     case NS_VK_WIN:
     case NS_VK_SHIFT:
     case NS_VK_CONTROL:
     case NS_VK_ALT:
-      aKeyboardEvent->PreventDefault();  // consumed
+      MOZ_ASSERT_UNREACHABLE(
+          "eKeyPress event shouldn't be fired for modifier keys");
+      return NS_ERROR_UNEXPECTED;
+
+    case NS_VK_BACK: {
+      if (aKeyboardEvent->IsControl() || aKeyboardEvent->IsAlt() ||
+          aKeyboardEvent->IsMeta() || aKeyboardEvent->IsOS()) {
+        return NS_OK;
+      }
+      DebugOnly<nsresult> rvIgnored =
+          DeleteSelectionAsAction(nsIEditor::ePrevious, nsIEditor::eStrip);
+      aKeyboardEvent->PreventDefault();
+      NS_WARNING_ASSERTION(
+          NS_SUCCEEDED(rvIgnored),
+          "EditorBase::DeleteSelectionAsAction() failed, but ignored");
       return NS_OK;
+    }
+    case NS_VK_DELETE: {
+      // on certain platforms (such as windows) the shift key
+      // modifies what delete does (cmd_cut in this case).
+      // bailing here to allow the keybindings to do the cut.
+      if (aKeyboardEvent->IsShift() || aKeyboardEvent->IsControl() ||
+          aKeyboardEvent->IsAlt() || aKeyboardEvent->IsMeta() ||
+          aKeyboardEvent->IsOS()) {
+        return NS_OK;
+      }
+      DebugOnly<nsresult> rvIgnored =
+          DeleteSelectionAsAction(nsIEditor::eNext, nsIEditor::eStrip);
+      aKeyboardEvent->PreventDefault();
+      NS_WARNING_ASSERTION(
+          NS_SUCCEEDED(rvIgnored),
+          "EditorBase::DeleteSelectionAsAction() failed, but ignored");
+      return NS_OK;
+    }
+    case NS_VK_TAB: {
+      MOZ_ASSERT_IF(IsHTMLEditor(), IsPlaintextEditor());
+      if (IsTabbable()) {
+        return NS_OK;  // let it be used for focus switching
+      }
+
+      if (aKeyboardEvent->IsShift() || aKeyboardEvent->IsControl() ||
+          aKeyboardEvent->IsAlt() || aKeyboardEvent->IsMeta() ||
+          aKeyboardEvent->IsOS()) {
+        return NS_OK;
+      }
+
+      // else we insert the tab straight through
+      aKeyboardEvent->PreventDefault();
+      nsresult rv = OnInputText(u"\t"_ns);
+      NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
+                           "EditorBase::OnInputText(\\t) failed");
+      return rv;
+    }
   }
   return NS_OK;
 }

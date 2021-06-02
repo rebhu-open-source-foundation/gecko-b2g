@@ -4,8 +4,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef mozilla_dom_indexeddb_filemanagerbase_h__
-#define mozilla_dom_indexeddb_filemanagerbase_h__
+#ifndef DOM_INDEXEDDB_FILEINFOMANAGER_H_
+#define DOM_INDEXEDDB_FILEINFOMANAGER_H_
 
 #include "mozilla/Attributes.h"
 #include "mozilla/Mutex.h"
@@ -13,40 +13,60 @@
 #include "nsTHashMap.h"
 #include "nsHashKeys.h"
 #include "nsISupportsImpl.h"
-#include "FileInfoT.h"
+#include "FileInfo.h"
 #include "FlippedOnce.h"
 
 namespace mozilla {
 namespace dom {
 namespace indexedDB {
 
-template <typename FileManager>
-class FileManagerBase {
+class FileInfoManagerBase {
  public:
-  using FileInfo = FileInfoT<FileManager>;
-  using MutexType = StaticMutex;
-  using AutoLock = mozilla::detail::BaseAutoLock<MutexType&>;
+  bool Invalidated() const { return mInvalidated; }
 
-  [[nodiscard]] SafeRefPtr<FileInfo> GetFileInfo(int64_t aId) const {
+ protected:
+  bool AssertValid() const {
+    if (NS_WARN_IF(Invalidated())) {
+      MOZ_ASSERT(false);
+      return false;
+    }
+
+    return true;
+  }
+
+  void Invalidate() { mInvalidated.Flip(); }
+
+ private:
+  FlippedOnce<false> mInvalidated;
+};
+
+template <typename FileManager>
+class FileInfoManager : public FileInfoManagerBase {
+ public:
+  using FileInfoType = FileInfo<FileManager>;
+  using MutexType = StaticMutex;
+  using AutoLockType = mozilla::detail::BaseAutoLock<MutexType&>;
+
+  [[nodiscard]] SafeRefPtr<FileInfoType> GetFileInfo(int64_t aId) const {
     return AcquireFileInfo([this, aId] { return mFileInfos.MaybeGet(aId); });
   }
 
-  [[nodiscard]] SafeRefPtr<FileInfo> CreateFileInfo() {
+  [[nodiscard]] SafeRefPtr<FileInfoType> CreateFileInfo() {
     return AcquireFileInfo([this] {
       const int64_t id = ++mLastFileId;
 
       auto fileInfo =
-          MakeNotNull<FileInfo*>(FileManagerGuard{},
-                                 SafeRefPtr{static_cast<FileManager*>(this),
-                                            AcquireStrongRefFromRawPtr{}},
-                                 id);
+          MakeNotNull<FileInfoType*>(FileInfoManagerGuard{},
+                                     SafeRefPtr{static_cast<FileManager*>(this),
+                                                AcquireStrongRefFromRawPtr{}},
+                                     id);
 
       mFileInfos.InsertOrUpdate(id, fileInfo);
       return Some(fileInfo);
     });
   }
 
-  void RemoveFileInfo(const int64_t aId, const AutoLock& aFileMutexLock) {
+  void RemoveFileInfo(const int64_t aId, const AutoLockType& aFileMutexLock) {
 #ifdef DEBUG
     aFileMutexLock.AssertOwns(FileManager::Mutex());
 #endif
@@ -54,24 +74,22 @@ class FileManagerBase {
   }
 
   nsresult Invalidate() {
-    AutoLock lock(FileManager::Mutex());
+    AutoLockType lock(FileManager::Mutex());
 
-    mInvalidated.Flip();
+    FileInfoManagerBase::Invalidate();
 
     mFileInfos.RemoveIf([](const auto& iter) {
-      FileInfo* info = iter.Data();
+      FileInfoType* info = iter.Data();
       MOZ_ASSERT(info);
 
-      return !info->LockedClearDBRefs(FileManagerGuard{});
+      return !info->LockedClearDBRefs(FileInfoManagerGuard{});
     });
 
     return NS_OK;
   }
 
-  bool Invalidated() const { return mInvalidated; }
-
-  class FileManagerGuard {
-    FileManagerGuard() = default;
+  class FileInfoManagerGuard {
+    FileInfoManagerGuard() = default;
   };
 
  private:
@@ -79,7 +97,7 @@ class FileManagerBase {
   // under the FileManager lock, acquires a strong reference to the returned
   // object under the lock, and returns the strong reference.
   template <typename FileInfoTableOp>
-  [[nodiscard]] SafeRefPtr<FileInfo> AcquireFileInfo(
+  [[nodiscard]] SafeRefPtr<FileInfoType> AcquireFileInfo(
       const FileInfoTableOp& aFileInfoTableOp) const {
     if (!AssertValid()) {
       // In release, the assertions are disabled.
@@ -88,8 +106,8 @@ class FileManagerBase {
 
     // We cannot simply change this to SafeRefPtr<FileInfo>, because
     // FileInfo::AddRef also acquires the FileManager::Mutex.
-    auto fileInfo = [&aFileInfoTableOp]() -> RefPtr<FileInfo> {
-      AutoLock lock(FileManager::Mutex());
+    auto fileInfo = [&aFileInfoTableOp]() -> RefPtr<FileInfoType> {
+      AutoLockType lock(FileManager::Mutex());
 
       const auto maybeFileInfo = aFileInfoTableOp();
       if (maybeFileInfo) {
@@ -105,31 +123,20 @@ class FileManagerBase {
   }
 
  protected:
-  bool AssertValid() const {
-    if (NS_WARN_IF(static_cast<const FileManager*>(this)->Invalidated())) {
-      MOZ_ASSERT(false);
-      return false;
-    }
-
-    return true;
-  }
-
 #ifdef DEBUG
-  ~FileManagerBase() { MOZ_ASSERT(mFileInfos.IsEmpty()); }
+  ~FileInfoManager() { MOZ_ASSERT(mFileInfos.IsEmpty()); }
 #else
-  ~FileManagerBase() = default;
+  ~FileInfoManager() = default;
 #endif
 
   // Access to the following fields must be protected by
   // FileManager::Mutex()
   int64_t mLastFileId = 0;
-  nsTHashMap<nsUint64HashKey, NotNull<FileInfo*>> mFileInfos;
-
-  FlippedOnce<false> mInvalidated;
+  nsTHashMap<nsUint64HashKey, NotNull<FileInfoType*>> mFileInfos;
 };
 
 }  // namespace indexedDB
 }  // namespace dom
 }  // namespace mozilla
 
-#endif  // mozilla_dom_indexeddb_filemanagerbase_h__
+#endif  // DOM_INDEXEDDB_FILEINFOMANAGER_H_

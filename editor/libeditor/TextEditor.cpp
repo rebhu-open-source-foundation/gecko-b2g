@@ -158,14 +158,15 @@ nsresult TextEditor::HandleKeyPressEvent(WidgetKeyboardEvent* aKeyboardEvent) {
   // And also when you add new key handling, you need to change the subclass's
   // HandleKeyPressEvent()'s switch statement.
 
-  if (IsReadonly()) {
-    // When we're not editable, the events handled on EditorBase.
-    return EditorBase::HandleKeyPressEvent(aKeyboardEvent);
-  }
-
   if (NS_WARN_IF(!aKeyboardEvent)) {
     return NS_ERROR_UNEXPECTED;
   }
+
+  if (IsReadonly()) {
+    HandleKeyPressEventInReadOnlyMode(*aKeyboardEvent);
+    return NS_OK;
+  }
+
   MOZ_ASSERT(aKeyboardEvent->mMessage == eKeyPress,
              "HandleKeyPressEvent gets non-keypress event");
 
@@ -175,54 +176,17 @@ nsresult TextEditor::HandleKeyPressEvent(WidgetKeyboardEvent* aKeyboardEvent) {
     case NS_VK_SHIFT:
     case NS_VK_CONTROL:
     case NS_VK_ALT:
-      // These keys are handled on EditorBase
-      return EditorBase::HandleKeyPressEvent(aKeyboardEvent);
-    case NS_VK_BACK: {
-      if (aKeyboardEvent->IsControl() || aKeyboardEvent->IsAlt() ||
-          aKeyboardEvent->IsMeta() || aKeyboardEvent->IsOS()) {
-        return NS_OK;
-      }
-      DebugOnly<nsresult> rvIgnored =
-          DeleteSelectionAsAction(nsIEditor::ePrevious, nsIEditor::eStrip);
+      // FYI: This shouldn't occur since modifier key shouldn't cause eKeyPress
+      //      event.
       aKeyboardEvent->PreventDefault();
-      NS_WARNING_ASSERTION(
-          NS_SUCCEEDED(rvIgnored),
-          "EditorBase::DeleteSelectionAsAction() failed, but ignored");
       return NS_OK;
-    }
-    case NS_VK_DELETE: {
-      // on certain platforms (such as windows) the shift key
-      // modifies what delete does (cmd_cut in this case).
-      // bailing here to allow the keybindings to do the cut.
-      if (aKeyboardEvent->IsShift() || aKeyboardEvent->IsControl() ||
-          aKeyboardEvent->IsAlt() || aKeyboardEvent->IsMeta() ||
-          aKeyboardEvent->IsOS()) {
-        return NS_OK;
-      }
-      DebugOnly<nsresult> rvIgnored =
-          DeleteSelectionAsAction(nsIEditor::eNext, nsIEditor::eStrip);
-      aKeyboardEvent->PreventDefault();
-      NS_WARNING_ASSERTION(
-          NS_SUCCEEDED(rvIgnored),
-          "EditorBase::DeleteSelectionAsAction() failed, but ignored");
-      return NS_OK;
-    }
+
+    case NS_VK_BACK:
+    case NS_VK_DELETE:
     case NS_VK_TAB: {
-      if (IsTabbable()) {
-        return NS_OK;  // let it be used for focus switching
-      }
-
-      if (aKeyboardEvent->IsShift() || aKeyboardEvent->IsControl() ||
-          aKeyboardEvent->IsAlt() || aKeyboardEvent->IsMeta() ||
-          aKeyboardEvent->IsOS()) {
-        return NS_OK;
-      }
-
-      // else we insert the tab straight through
-      aKeyboardEvent->PreventDefault();
-      nsresult rv = OnInputText(u"\t"_ns);
+      nsresult rv = EditorBase::HandleKeyPressEvent(aKeyboardEvent);
       NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
-                           "EditorBase::OnInputText(\\t) failed");
+                           "EditorBase::HandleKeyPressEvent() failed");
       return rv;
     }
     case NS_VK_RETURN: {
@@ -475,23 +439,6 @@ bool TextEditor::IsCopyToClipboardAllowedInternal() const {
   nsContentUtils::GetSelectionInTextControl(&SelectionRef(), mRootElement,
                                             selectionStart, selectionEnd);
   return mUnmaskedStart <= selectionStart && UnmaskedEnd() >= selectionEnd;
-}
-
-NS_IMETHODIMP TextEditor::OutputToString(const nsAString& aFormatType,
-                                         uint32_t aDocumentEncoderFlags,
-                                         nsAString& aOutputString) {
-  AutoEditActionDataSetter editActionData(*this, EditAction::eNotEditing);
-  if (NS_WARN_IF(!editActionData.CanHandle())) {
-    return NS_ERROR_NOT_INITIALIZED;
-  }
-
-  nsresult rv =
-      ComputeValueInternal(aFormatType, aDocumentEncoderFlags, aOutputString);
-  NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
-                       "EditorBase::ComputeValueInternal() failed");
-  // This is low level API for XUL application.  So, we should return raw
-  // error code here.
-  return rv;
 }
 
 nsresult TextEditor::PasteAsQuotationAsAction(int32_t aClipboardType,

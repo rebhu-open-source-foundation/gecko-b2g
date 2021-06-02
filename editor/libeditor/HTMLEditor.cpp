@@ -866,19 +866,15 @@ void HTMLEditor::PostHandleSelectionChangeCommand(Command aCommand) {
 nsresult HTMLEditor::HandleKeyPressEvent(WidgetKeyboardEvent* aKeyboardEvent) {
   // NOTE: When you change this method, you should also change:
   //   * editor/libeditor/tests/test_htmleditor_keyevent_handling.html
-
-  if (IsReadonly()) {
-    // When we're not editable, the events are handled on EditorBase, so, we can
-    // bypass TextEditor.
-    nsresult rv = EditorBase::HandleKeyPressEvent(aKeyboardEvent);
-    NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
-                         "EditorBase::HandleKeyPressEvent() failed");
-    return rv;
-  }
-
   if (NS_WARN_IF(!aKeyboardEvent)) {
     return NS_ERROR_UNEXPECTED;
   }
+
+  if (IsReadonly()) {
+    HandleKeyPressEventInReadOnlyMode(*aKeyboardEvent);
+    return NS_OK;
+  }
+
   MOZ_ASSERT(aKeyboardEvent->mMessage == eKeyPress,
              "HandleKeyPressEvent gets non-keypress event");
 
@@ -887,29 +883,26 @@ nsresult HTMLEditor::HandleKeyPressEvent(WidgetKeyboardEvent* aKeyboardEvent) {
     case NS_VK_WIN:
     case NS_VK_SHIFT:
     case NS_VK_CONTROL:
-    case NS_VK_ALT: {
-      // These keys are handled on EditorBase, so, we can bypass
-      // TextEditor.
+    case NS_VK_ALT:
+      // FYI: This shouldn't occur since modifier key shouldn't cause eKeyPress
+      //      event.
+      aKeyboardEvent->PreventDefault();
+      return NS_OK;
+
+    case NS_VK_BACK:
+    case NS_VK_DELETE: {
       nsresult rv = EditorBase::HandleKeyPressEvent(aKeyboardEvent);
       NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
                            "EditorBase::HandleKeyPressEvent() failed");
       return rv;
     }
-    case NS_VK_BACK:
-    case NS_VK_DELETE: {
-      // These keys are handled on TextEditor.
-      nsresult rv = TextEditor::HandleKeyPressEvent(aKeyboardEvent);
-      NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
-                           "TextEditor::HandleKeyPressEvent() failed");
-      return rv;
-    }
     case NS_VK_TAB: {
       if (IsPlaintextEditor()) {
         // If this works as plain text editor, e.g., mail editor for plain
-        // text, should be handled on TextEditor.
-        nsresult rv = TextEditor::HandleKeyPressEvent(aKeyboardEvent);
+        // text, should be handled with common logic with TextEditor.
+        nsresult rv = EditorBase::HandleKeyPressEvent(aKeyboardEvent);
         NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
-                             "TextEditor::HandleKeyPressEvent() failed");
+                             "EditorBase::HandleKeyPressEvent() failed");
         return rv;
       }
 
@@ -984,7 +977,7 @@ nsresult HTMLEditor::HandleKeyPressEvent(WidgetKeyboardEvent* aKeyboardEvent) {
       aKeyboardEvent->PreventDefault();
       nsresult rv = OnInputText(u"\t"_ns);
       NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
-                           "TextEditor::OnInputText(\\t) failed");
+                           "EditorBase::OnInputText(\\t) failed");
       return EditorBase::ToGenericNSResult(rv);
     }
     case NS_VK_RETURN:
@@ -1014,7 +1007,7 @@ nsresult HTMLEditor::HandleKeyPressEvent(WidgetKeyboardEvent* aKeyboardEvent) {
   aKeyboardEvent->PreventDefault();
   nsAutoString str(aKeyboardEvent->mCharCode);
   nsresult rv = OnInputText(str);
-  NS_WARNING_ASSERTION(NS_SUCCEEDED(rv), "TextEditor::OnInputText() failed");
+  NS_WARNING_ASSERTION(NS_SUCCEEDED(rv), "EditorBase::OnInputText() failed");
   return rv;
 }
 

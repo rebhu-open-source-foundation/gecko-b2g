@@ -534,7 +534,7 @@ UniquePtr<nsHttpResponseHead> nsHttpTransaction::TakeResponseHead() {
   MOZ_ASSERT(!mResponseHeadTaken, "TakeResponseHead called 2x");
 
   // Lock TakeResponseHead() against main thread
-  MutexAutoLock lock(*nsHttp::GetLock());
+  MutexAutoLock lock(mLock);
 
   mResponseHeadTaken = true;
 
@@ -552,7 +552,7 @@ UniquePtr<nsHttpHeaderArray> nsHttpTransaction::TakeResponseTrailers() {
   MOZ_ASSERT(!mResponseTrailersTaken, "TakeResponseTrailers called 2x");
 
   // Lock TakeResponseTrailers() against main thread
-  MutexAutoLock lock(*nsHttp::GetLock());
+  MutexAutoLock lock(mLock);
 
   mResponseTrailersTaken = true;
   return std::move(mForTakeResponseTrailers);
@@ -811,7 +811,7 @@ nsresult nsHttpTransaction::ReadSegments(nsAHttpSegmentReader* reader,
     nsCOMPtr<nsISupports> info;
     mConnection->GetSecurityInfo(getter_AddRefs(info));
     MutexAutoLock lock(mLock);
-    mSecurityInfo = std::move(info);
+    mSecurityInfo = info;
   }
 
   mDeferredSendProgress = false;
@@ -851,9 +851,9 @@ nsresult nsHttpTransaction::ReadSegments(nsAHttpSegmentReader* reader,
     if (asyncIn) {
       nsCOMPtr<nsIEventTarget> target;
       Unused << gHttpHandler->GetSocketThreadTarget(getter_AddRefs(target));
-      if (target)
+      if (target) {
         asyncIn->AsyncWait(this, 0, 0, target);
-      else {
+      } else {
         NS_ERROR("no socket thread event target");
         rv = NS_ERROR_UNEXPECTED;
       }
@@ -1867,8 +1867,9 @@ char* nsHttpTransaction::LocateHttpStart(char* buf, uint32_t len,
   static const char ICYHeader[] = "ICY ";
   static const uint32_t ICYHeaderLen = sizeof(ICYHeader) - 1;
 
-  if (aAllowPartialMatch && (len < HTTPHeaderLen))
+  if (aAllowPartialMatch && (len < HTTPHeaderLen)) {
     return (nsCRT::strncasecmp(buf, HTTPHeader, len) == 0) ? buf : nullptr;
+  }
 
   // mLineBuf can contain partial match from previous search
   if (!mLineBuf.IsEmpty()) {
@@ -2276,8 +2277,9 @@ nsresult nsHttpTransaction::HandleContentStart() {
             mConnection->DontReuse();
           }
         }
-      } else if (mContentLength == int64_t(-1))
+      } else if (mContentLength == int64_t(-1)) {
         LOG(("waiting for the server to close the connection.\n"));
+      }
     }
   }
 
@@ -2349,14 +2351,16 @@ nsresult nsHttpTransaction::HandleContent(char* buf, uint32_t count,
   // check for end-of-file
   if ((mContentRead == mContentLength) ||
       (mChunkedDecoder && mChunkedDecoder->ReachedEOF())) {
-    MutexAutoLock lock(*nsHttp::GetLock());
-    if (mChunkedDecoder) {
-      mForTakeResponseTrailers = mChunkedDecoder->TakeTrailers();
-    }
+    {
+      MutexAutoLock lock(mLock);
+      if (mChunkedDecoder) {
+        mForTakeResponseTrailers = mChunkedDecoder->TakeTrailers();
+      }
 
-    // the transaction is done with a complete response.
-    mTransactionDone = true;
-    mResponseIsComplete = true;
+      // the transaction is done with a complete response.
+      mTransactionDone = true;
+      mResponseIsComplete = true;
+    }
     ReleaseBlockingTransaction();
 
     if (TimingEnabled()) {
@@ -2625,7 +2629,7 @@ bool nsHttpTransaction::IsStickyAuthSchemeAt(nsACString const& auth) {
   return false;
 }
 
-const TimingStruct nsHttpTransaction::Timings() {
+TimingStruct nsHttpTransaction::Timings() {
   mozilla::MutexAutoLock lock(mLock);
   TimingStruct timings = mTimings;
   return timings;
@@ -2772,8 +2776,9 @@ void nsHttpTransaction::DeleteSelfOnConsumerThread() {
   } else {
     LOG(("proxying delete to consumer thread...\n"));
     nsCOMPtr<nsIRunnable> event = new DeleteHttpTransaction(this);
-    if (NS_FAILED(mConsumerTarget->Dispatch(event, NS_DISPATCH_NORMAL)))
+    if (NS_FAILED(mConsumerTarget->Dispatch(event, NS_DISPATCH_NORMAL))) {
       NS_WARNING("failed to dispatch nsHttpDeleteTransaction event");
+    }
   }
 }
 
@@ -2916,7 +2921,7 @@ nsresult nsHttpTransaction::Finish0RTT(bool aRestart,
     nsCOMPtr<nsISupports> info;
     mConnection->GetSecurityInfo(getter_AddRefs(info));
     MutexAutoLock lock(mLock);
-    mSecurityInfo = std::move(info);
+    mSecurityInfo = info;
   }
   return NS_OK;
 }
@@ -2936,7 +2941,7 @@ void nsHttpTransaction::SetHttpTrailers(nsCString& aTrailers) {
   UniquePtr<nsHttpHeaderArray> httpTrailers(new nsHttpHeaderArray());
   // Given it's usually null, use double-check locking for performance.
   if (mForTakeResponseTrailers) {
-    MutexAutoLock lock(*nsHttp::GetLock());
+    MutexAutoLock lock(mLock);
     if (mForTakeResponseTrailers) {
       // Copy the trailer. |TakeResponseTrailers| gets the original trailer
       // until the final swap.
@@ -2974,7 +2979,7 @@ void nsHttpTransaction::SetHttpTrailers(nsCString& aTrailers) {
     httpTrailers = nullptr;
   }
 
-  MutexAutoLock lock(*nsHttp::GetLock());
+  MutexAutoLock lock(mLock);
   std::swap(mForTakeResponseTrailers, httpTrailers);
 }
 

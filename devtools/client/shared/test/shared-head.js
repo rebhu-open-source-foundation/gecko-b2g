@@ -429,9 +429,16 @@ var removeTab = async function(tab) {
  */
 var refreshTab = async function(tab = gBrowser.selectedTab) {
   info("Refreshing tab.");
-  const finished = BrowserTestUtils.browserLoaded(gBrowser.selectedBrowser);
-  gBrowser.reloadTab(tab);
-  await finished;
+  // Use navigateTo if there is a toolbox opened, and wait for panels to update after reload.
+  // Otherwise only wait for the tab's document to be loaded.
+  const isKnownTab = TabDescriptorFactory.isKnownTab(tab);
+  if (isKnownTab) {
+    await navigateTo(tab.linkedBrowser.currentURI.spec);
+  } else {
+    const finished = BrowserTestUtils.browserLoaded(gBrowser.selectedBrowser);
+    gBrowser.reloadTab(tab);
+    await finished;
+  }
   info("Tab finished refreshing.");
 };
 
@@ -1546,4 +1553,94 @@ async function removeAttributeInBrowser(browser, selector, attribute) {
       content.document.querySelector(_selector).removeAttribute(_attribute);
     }
   );
+}
+
+/**
+ * Synthesize a mouse event on an element, after ensuring that it is visible
+ * in the viewport.
+ *
+ * @param {String|Array} selector: The node selector to get the node target for the event.
+ *        To target an element in a specific iframe, pass an array of CSS selectors
+ *        (e.g. ["iframe", ".el-in-iframe"])
+ * @param {number} x
+ * @param {number} y
+ * @param {object} options: Options that will be passed to BrowserTestUtils.synthesizeMouse
+ */
+async function safeSynthesizeMouseEventInContentPage(
+  selector,
+  x,
+  y,
+  options = {}
+) {
+  let context = gBrowser.selectedBrowser.browsingContext;
+
+  // If an array of selector is passed, we need to retrieve the context in which the node
+  // lives in.
+  if (Array.isArray(selector)) {
+    if (selector.length === 1) {
+      selector = selector[0];
+    } else {
+      context = await getBrowsingContextInFrames(
+        context,
+        // only pass the iframe path
+        selector.slice(0, -1)
+      );
+      // retrieve the last item of the selector, which should be the one for the node we want.
+      selector = selector.at(-1);
+    }
+  }
+
+  await scrollContentPageNodeIntoView(context, selector);
+  BrowserTestUtils.synthesizeMouse(selector, x, y, options, context);
+}
+
+/**
+ * Synthesize a mouse event at the center of an element, after ensuring that it is visible
+ * in the viewport.
+ *
+ * @param {String|Array} selector: The node selector to get the node target for the event.
+ *        To target an element in a specific iframe, pass an array of CSS selectors
+ *        (e.g. ["iframe", ".el-in-iframe"])
+ * @param {object} options: Options that will be passed to BrowserTestUtils.synthesizeMouse
+ */
+async function safeSynthesizeMouseEventAtCenterInContentPage(
+  selector,
+  options = {}
+) {
+  let context = gBrowser.selectedBrowser.browsingContext;
+
+  // If an array of selector is passed, we need to retrieve the context in which the node
+  // lives in.
+  if (Array.isArray(selector)) {
+    if (selector.length === 1) {
+      selector = selector[0];
+    } else {
+      context = await getBrowsingContextInFrames(
+        context,
+        // only pass the iframe path
+        selector.slice(0, -1)
+      );
+      // retrieve the last item of the selector, which should be the one for the node we want.
+      selector = selector.at(-1);
+    }
+  }
+
+  await scrollContentPageNodeIntoView(context, selector);
+  BrowserTestUtils.synthesizeMouseAtCenter(selector, options, context);
+}
+
+/**
+ * Scroll into view an element in the content page matching the passed selector
+ *
+ * @param {BrowsingContext} browsingContext: The browsing context the element lives in.
+ * @param {String} selector: The node selector to get the node to scroll into view
+ * @returns {Promise}
+ */
+function scrollContentPageNodeIntoView(browsingContext, selector) {
+  return SpecialPowers.spawn(browsingContext, [selector], function(
+    innerSelector
+  ) {
+    const node = content.wrappedJSObject.document.querySelector(innerSelector);
+    node.scrollIntoView();
+  });
 }

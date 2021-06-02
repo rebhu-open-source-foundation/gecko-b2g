@@ -161,10 +161,13 @@ void LIRGeneratorX86Shared::lowerForBitAndAndBranch(LBitAndAndBranch* baab,
   add(baab, mir);
 }
 
-void LIRGeneratorX86Shared::lowerNegI(MInstruction* ins, MDefinition* input,
-                                      int32_t inputNo) {
-  defineReuseInput(new (alloc()) LNegI(useRegisterAtStart(input)), ins,
-                   inputNo);
+void LIRGeneratorX86Shared::lowerNegI(MInstruction* ins, MDefinition* input) {
+  defineReuseInput(new (alloc()) LNegI(useRegisterAtStart(input)), ins, 0);
+}
+
+void LIRGeneratorX86Shared::lowerNegI64(MInstruction* ins, MDefinition* input) {
+  defineInt64ReuseInput(new (alloc()) LNegI64(useInt64RegisterAtStart(input)),
+                        ins, 0);
 }
 
 void LIRGeneratorX86Shared::lowerMulI(MMul* mul, MDefinition* lhs,
@@ -291,6 +294,20 @@ void LIRGenerator::visitWasmNeg(MWasmNeg* ins) {
     default:
       MOZ_CRASH();
   }
+}
+
+void LIRGeneratorX86Shared::lowerWasmSelectI(MWasmSelect* select) {
+  auto* lir = new (alloc())
+      LWasmSelect(useRegisterAtStart(select->trueExpr()),
+                  useAny(select->falseExpr()), useRegister(select->condExpr()));
+  defineReuseInput(lir, select, LWasmSelect::TrueExprIndex);
+}
+
+void LIRGeneratorX86Shared::lowerWasmSelectI64(MWasmSelect* select) {
+  auto* lir = new (alloc()) LWasmSelectI64(
+      useInt64RegisterAtStart(select->trueExpr()),
+      useInt64(select->falseExpr()), useRegister(select->condExpr()));
+  defineInt64ReuseInput(lir, select, LWasmSelectI64::TrueExprIndex);
 }
 
 void LIRGenerator::visitAsmJSLoadHeap(MAsmJSLoadHeap* ins) {
@@ -947,6 +964,28 @@ void LIRGenerator::visitWasmBinarySimd128(MWasmBinarySimd128* ins) {
 #endif
 }
 
+#ifdef ENABLE_WASM_SIMD
+bool MWasmBitselectSimd128::specializeConstantMaskAsShuffle(
+    int8_t shuffle[16]) {
+  // Optimization when control vector is a mask with all 0 or all 1 per lane.
+  // On x86, there is no bitselect, blend operations will be a win,
+  // e.g. via PBLENDVB or PBLENDW.
+  SimdConstant constant =
+      static_cast<MWasmFloatConstant*>(control())->toSimd128();
+  const SimdConstant::I8x16& bytes = constant.asInt8x16();
+  for (int8_t i = 0; i < 16; i++) {
+    if (bytes[i] == -1) {
+      shuffle[i] = i + 16;
+    } else if (bytes[i] == 0) {
+      shuffle[i] = i;
+    } else {
+      return false;
+    }
+  }
+  return true;
+}
+#endif
+
 bool MWasmBinarySimd128::specializeForConstantRhs() {
   // The order follows MacroAssembler.h, generally
   switch (simdOp()) {
@@ -1218,7 +1257,7 @@ void LIRGenerator::visitWasmShuffleSimd128(MWasmShuffleSimd128* ins) {
       LDefinition temp = LDefinition::BogusTemp();
       switch (*s.shuffleOp) {
         case LWasmShuffleSimd128::BLEND_8x16:
-          temp = tempSimd128();
+          temp = tempFixed(xmm0);
           break;
         default:
           break;
