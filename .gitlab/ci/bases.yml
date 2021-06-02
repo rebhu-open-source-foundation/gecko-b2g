@@ -197,7 +197,6 @@ variables:
     - gecko-dev
   variables:
     GONK_PRODUCT_NAME: msm8937_32go
-    GET_FRAMEBUFFER_FORMAT_FROM_HWC: 1
     PLATFORM_VERSION: 29
     TARGET_ARCH: arm
     TARGET_ARCH_VARIANT: armv8-a

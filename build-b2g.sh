@@ -41,13 +41,6 @@ fi
 
 export ANDROID_PLATFORM=android-${PLATFORM_VERSION}
 
-if [ -z ${GET_FRAMEBUFFER_FORMAT_FROM_HWC+x} ]; then
-    echo "GET_FRAMEBUFFER_FORMAT_FROM_HWC is not set"
-else
-    HWC_DEFINE="-DGET_FRAMEBUFFER_FORMAT_FROM_HWC"
-    echo "Setting -DGET_FRAMEBUFFER_FORMAT_FROM_HWC"
-fi
-
 # When user build, check if the JS shell is available. If not, download it
 # to make sure we can minify JS code when packaging.
 if [[ "$VARIANT" == "user" ]];then

@@ -13,7 +13,6 @@ Currently the setup is:
 
 ## Preparing a device build
 - Use a b2g checkout already built for your device.
-- Export GET_FRAMEBUFFER_FORMAT_FROM_HWC=1 from your shell.
 
 ## Get toolchain dependencies
 Run `./mach bootstrap` first and choose option 4 (GeckoView/Firefox for Android)
