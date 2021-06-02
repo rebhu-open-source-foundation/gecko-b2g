@@ -1103,12 +1103,6 @@ TetheringService.prototype = {
         }
 
         let callback = function() {
-          // Restart and refine USB tethering if subnet conflict with external interface
-          if (this.isTetherSubnetConflict()) {
-            this.refineTetherSubnet(true);
-            return;
-          }
-
           // Update external aNetworkInfo interface.
           debug("Update upstream interface to " + aNetworkInfo.name);
           if (wifiTetheringEnabled) {
@@ -1120,6 +1114,11 @@ TetheringService.prototype = {
             );
           }
           if (usbTetheringEnabled) {
+            // Restart and refine USB tethering if subnet conflict with external interface
+            if (this.isTetherSubnetConflict()) {
+              this.refineTetherSubnet(true);
+              return;
+            }
             gNetworkService.updateUpStream(
               TETHERING_TYPE_USB,
               previous[TETHERING_TYPE_USB],
