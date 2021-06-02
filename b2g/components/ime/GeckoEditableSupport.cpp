@@ -542,10 +542,6 @@ GeckoEditableSupport::GeckoEditableSupport(nsPIDOMWindowOuter* aDOMWindow)
                                           /* useCapture = */ true);
   }
   mIsVoiceInputEnabled = Preferences::GetBool("voice-input.enabled", false);
-  nsCOMPtr<nsIPrefBranch> prefs = do_GetService(NS_PREFSERVICE_CONTRACTID);
-  if (prefs) {
-    prefs->AddObserver("voice-input.enabled", this, false);
-  }
   nsAutoString voiceInputSupportedTypes;
   if (NS_SUCCEEDED(Preferences::GetString("voice-input.supported-types",
                                           voiceInputSupportedTypes))) {
@@ -553,8 +549,7 @@ GeckoEditableSupport::GeckoEditableSupport(nsPIDOMWindowOuter* aDOMWindow)
          nsCharSeparatedTokenizer(voiceInputSupportedTypes, ',').ToRange()) {
       IME_LOGD(" voice input supported type: %s",
                NS_ConvertUTF16toUTF8(type).get());
-      mVoiceInputSupportedTypes.AppendElement(
-          NS_ConvertUTF16toUTF8(type));
+      mVoiceInputSupportedTypes.AppendElement(NS_ConvertUTF16toUTF8(type));
     }
   }
   nsAutoString voiceInputExcludedXInputModes;
@@ -567,6 +562,11 @@ GeckoEditableSupport::GeckoEditableSupport(nsPIDOMWindowOuter* aDOMWindow)
                NS_ConvertUTF16toUTF8(mode).get());
       mVoiceInputExcludedXInputModes.AppendElement(NS_ConvertUTF16toUTF8(mode));
     }
+  }
+  nsCOMPtr<nsIPrefBranch> prefs = do_GetService(NS_PREFSERVICE_CONTRACTID);
+  if (prefs) {
+    prefs->AddObserver("voice-input.enabled", this, false);
+    prefs->AddObserver("voice-input.supported-types", this, false);
   }
 }
 
@@ -592,6 +592,17 @@ GeckoEditableSupport::Observe(nsISupports* aSubject, const char* aTopic,
                                              /* useCapture = */ true);
   } else if (!strcmp(aTopic, NS_PREFBRANCH_PREFCHANGE_TOPIC_ID)) {
     mIsVoiceInputEnabled = Preferences::GetBool("voice-input.enabled", false);
+    nsAutoString voiceInputSupportedTypes;
+    if (NS_SUCCEEDED(Preferences::GetString("voice-input.supported-types",
+                                            voiceInputSupportedTypes))) {
+      mVoiceInputSupportedTypes.Clear();
+      for (const auto& type :
+           nsCharSeparatedTokenizer(voiceInputSupportedTypes, ',').ToRange()) {
+        IME_LOGD(" changed voice input supported type: %s",
+                 NS_ConvertUTF16toUTF8(type).get());
+        mVoiceInputSupportedTypes.AppendElement(NS_ConvertUTF16toUTF8(type));
+      }
+    }
   }
 
   return NS_OK;

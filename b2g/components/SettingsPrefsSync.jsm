@@ -109,7 +109,15 @@ const kSettingsToObserve = {
     defaultValue: 0,
     valueMap: { small: 1, large: 2 },
   },
-  "voice-input.enabled": false,
+  "voice-input.enabled": {
+    resetToPref: true,
+  },
+  "voice-input.icon-url": {
+    resetToPref: true,
+  },
+  "voice-input.supported-types": {
+    resetToPref: true,
+  },
 };
 
 this.SettingsPrefsSync = {
