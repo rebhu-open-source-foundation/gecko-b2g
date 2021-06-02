@@ -82,3 +82,5 @@ All events are CustomEvents, with an event payload specific to each type.
 - `securitychange` : `{ state: string, mixedState: string, extendedValidation: boolean, mixedContent: boolean }`
 - `titlechange` : `{ title: string }`
 - `visibilitychange` : `{ visible: boolean }`
+- `httponmodifyrequest` : `{ uri: string, host: string }`
+  - dispatched when the <web-view> element starts loading a main document.

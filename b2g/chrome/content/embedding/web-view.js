@@ -557,6 +557,37 @@
       Services.obs.addObserver(this.crashObserver, "oop-frameloader-crashed");
       Services.obs.addObserver(this.crashObserver, "ipc:content-shutdown");
 
+      if (
+        Services.appinfo.processType == Services.appinfo.PROCESS_TYPE_DEFAULT
+      ) {
+        // http-on-modify-request only works in the parent process.
+        this.httpModifyRequest = {
+          observe(subject, topic, _data) {
+            if (topic !== "http-on-modify-request") {
+              // That should never happen.
+              console.error(`Unexpected topic in <web-view>: ${topic}`);
+              return;
+            }
+            let channel = subject.QueryInterface(Ci.nsIHttpChannel);
+            let frameElement =
+              channel.loadInfo.browsingContext?.topFrameElement;
+            if (
+              channel.isMainDocumentChannel &&
+              frameElement &&
+              self.browser == frameElement
+            ) {
+              self.dispatchCustomEvent("beforelocationchange", {
+                uri: channel.URI.spec,
+              });
+            }
+          },
+        };
+
+        Services.obs.addObserver(
+          this.httpModifyRequest,
+          "http-on-modify-request"
+        );
+      }
       // Set the src to load once we have setup all listeners to not miss progress events
       // like loadstart.
       src && this.browser.setAttribute("src", src);
@@ -604,6 +635,15 @@
         "oop-frameloader-crashed"
       );
       Services.obs.removeObserver(this.crashObserver, "ipc:content-shutdown");
+
+      if (
+        Services.appinfo.processType == Services.appinfo.PROCESS_TYPE_DEFAULT
+      ) {
+        Services.obs.removeObserver(
+          this.httpModifyRequest,
+          "http-on-modify-request"
+        );
+      }
       this._cleanedUp = true;
     }
 
