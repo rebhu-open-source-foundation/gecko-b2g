@@ -75,6 +75,13 @@ struct BluetoothAvrcpEventParamPair {
         size = (sizeof(mParam.mIds[0]) + sizeof(mParam.mValues[0])) *
                mParam.mNumAttr;
         break;
+      case AVRCP_EVENT_AVAL_PLAYER_CHANGE:
+        /* no data to pack */
+        size = 0;
+        break;
+      case AVRCP_EVENT_ADDR_PLAYER_CHANGE:
+        size = sizeof(mParam.mPlayerId) + sizeof(mParam.mUidCounter);
+        break;
       default:
         size = 0;
         break;

@@ -1073,12 +1073,17 @@ enum BluetoothAvrcpStatus {
 };
 
 enum BluetoothAvrcpEvent {
-  AVRCP_EVENT_PLAY_STATUS_CHANGED,
-  AVRCP_EVENT_TRACK_CHANGE,
-  AVRCP_EVENT_TRACK_REACHED_END,
-  AVRCP_EVENT_TRACK_REACHED_START,
-  AVRCP_EVENT_PLAY_POS_CHANGED,
-  AVRCP_EVENT_APP_SETTINGS_CHANGED
+  AVRCP_EVENT_PLAY_STATUS_CHANGED = 0x01,
+  AVRCP_EVENT_TRACK_CHANGE = 0x02,
+  AVRCP_EVENT_TRACK_REACHED_END = 0x03,
+  AVRCP_EVENT_TRACK_REACHED_START = 0x04,
+  AVRCP_EVENT_PLAY_POS_CHANGED = 0x05,
+  AVRCP_EVENT_APP_SETTINGS_CHANGED = 0x08,
+  AVRCP_EVENT_NOW_PLAYING_CONTENT_CHANGED = 0x09,
+  AVRCP_EVENT_AVAL_PLAYER_CHANGE = 0x0a,
+  AVRCP_EVENT_ADDR_PLAYER_CHANGE = 0x0b,
+  AVRCP_EVENT_UIDS_CHANGED = 0x0c,
+  AVRCP_EVENT_VOL_CHANGED = 0x0d,
 };
 
 enum BluetoothAvrcpNotification { AVRCP_NTF_INTERIM, AVRCP_NTF_CHANGED };
@@ -1096,6 +1101,13 @@ enum BluetoothAvrcpItemType {
   AVRCP_ITEM_MEDIA = 0x03,
 };
 
+enum BluetoothAvrcpFolderScope : uint8_t {
+  AVRCP_SCOPE_PLAYER_LIST = 0x00,  // Media Player List
+  AVRCP_SCOPE_FILE_SYSTEM = 0x01,  // Virtual File System
+  AVRCP_SCOPE_SEARCH = 0x02,       // Search
+  AVRCP_SCOPE_NOW_PLAYING = 0x03,  // Now Playing
+};
+
 struct BluetoothAvrcpElementAttribute {
   uint32_t mId;
   nsString mValue;
@@ -1108,6 +1120,8 @@ struct BluetoothAvrcpNotificationParam {
   uint8_t mNumAttr;
   uint8_t mIds[256];
   uint8_t mValues[256];
+  uint16_t mPlayerId;
+  uint16_t mUidCounter;
 };
 
 struct BluetoothAvrcpPlayerSettings {
@@ -1121,7 +1135,7 @@ struct BluetoothAvrcpItemPlayer {
   uint8_t mMajorType;
   uint32_t mSubType;
   uint8_t mPlayStatus;
-  uint8_t mFeatures[AVRCP_FEATURE_BIT_MASK_SIZE];
+  uint8_t mFeatures[AVRCP_FEATURE_BIT_MASK_SIZE] = {0};
   uint16_t mCharsetId;
   nsString mName;
 };

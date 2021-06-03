@@ -665,6 +665,17 @@ void BluetoothAvrcpManager::UpdateRegisterNotification(
       param.mIds[1] = AVRCP_PLAYER_ATTRIBUTE_SHUFFLE;
       param.mValues[1] = AVRCP_PLAYER_VAL_OFF_SHUFFLE;
       break;
+    case AVRCP_EVENT_AVAL_PLAYER_CHANGE:
+      // TODO: Support Multiple Players
+      break;
+    case AVRCP_EVENT_ADDR_PLAYER_CHANGE:
+      // Music player with id=0 is the only available player
+      param.mPlayerId = 0;
+
+      // AVRCP 1.5, 28 UID scheme
+      // always use UIDcounter=0 for database unaware players
+      param.mUidCounter = 0;
+      break;
     default:
       break;
   }
@@ -883,14 +894,90 @@ void BluetoothAvrcpManager::PassthroughCmdNotification(uint8_t aId,
 
 void BluetoothAvrcpManager::SetAddressedPlayerNotification(uint16_t aPlayerId) {
   MOZ_ASSERT(NS_IsMainThread());
-  // TODO: Support AVRCP 1.5
+
+  // Music player with id=0 is the only available player
+  if (aPlayerId == 0) {
+    sBtAvrcpInterface->SetAddressedPlayerRsp(AVRCP_STATUS_SUCCESS, nullptr);
+  } else {
+    sBtAvrcpInterface->SetAddressedPlayerRsp(AVRCP_STATUS_INV_PLAYER, nullptr);
+  }
 }
 
 void BluetoothAvrcpManager::GetFolderItemsNotification(
     uint8_t aScope, uint32_t aStartItem, uint32_t aEndItem, uint8_t aNumAttr,
     const uint32_t* aAttrIds) {
   MOZ_ASSERT(NS_IsMainThread());
-  // TODO: Support AVRCP 1.5
+
+  switch (aScope) {
+    case AVRCP_SCOPE_PLAYER_LIST: {
+      NS_ENSURE_TRUE_VOID(sBtAvrcpInterface);
+
+      nsTArray<BluetoothAvrcpItemPlayer> players;
+
+      if (aStartItem == 0) {
+        // Music player is the only available player
+        auto constructMusicPlayer = []() {
+          BluetoothAvrcpItemPlayer player;
+
+          // TODO: Support Multiple Players
+          player.mPlayerId = 0;
+
+          static const uint8_t kAudioType = 0x01;
+          player.mMajorType = kAudioType;
+          player.mSubType = 0x00;  // none
+
+          // Feature bitmask of Music player is 0000000000B701000400000000000000
+          const uint8_t kPlay = 1;                // bit 40
+          const uint8_t kStop = (1 << 1);         // bit 41
+          const uint8_t kPause = (1 << 2);        // bit 42
+          const uint8_t kRewind = (1 << 4);       // bit 44
+          const uint8_t kFastForward = (1 << 5);  // bit 45
+          const uint8_t kForward = (1 << 7);      // bit 47
+          player.mFeatures[5] =
+              kPlay | kStop | kPause | kRewind | kFastForward | kForward;
+
+          const uint8_t kBackward = 1;  // bit 48
+          player.mFeatures[6] = kBackward;
+
+          // UIDPersistency
+          const uint8_t kUidPersistency = (1 << 2);  // bit 66
+          player.mFeatures[8] = kUidPersistency;
+
+          // UTF-8, the character sets id 106 is defined by IANA
+          player.mCharsetId = 106;
+
+          player.mName.AssignLiteral("Music");
+
+          return player;
+        };
+        static BluetoothAvrcpItemPlayer musicPlayer = constructMusicPlayer();
+
+        // update play status
+        musicPlayer.mPlayStatus = static_cast<uint8_t>(mPlayStatus);
+
+        players.AppendElement(musicPlayer);
+
+        sBtAvrcpInterface->GetFolderItemsListRsp(AVRCP_STATUS_SUCCESS, 0, 1,
+                                                 players, nullptr);
+      } else {
+        sBtAvrcpInterface->GetFolderItemsListRsp(AVRCP_STATUS_INV_RANGE, 0, 0,
+                                                 players, nullptr);
+      }
+      break;
+    }
+
+    case AVRCP_SCOPE_FILE_SYSTEM:
+      BT_WARNING("AVRCP Browsing - Virtual Media Filesystem is unsupported");
+      break;
+    case AVRCP_SCOPE_SEARCH:
+      BT_WARNING("AVRCP Browsing - Search is unsupported");
+      break;
+    case AVRCP_SCOPE_NOW_PLAYING:
+      BT_WARNING("AVRCP Browsing - Now Playing is unsupported");
+      break;
+    default:
+      BT_WARNING("Unknown AVRCP browsing scope");
+  }
 }
 
 bool BluetoothAvrcpManager::ReplyToConnectionRequest(bool aAccept) {

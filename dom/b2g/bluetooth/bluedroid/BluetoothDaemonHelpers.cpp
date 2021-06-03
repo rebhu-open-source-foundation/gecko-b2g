@@ -115,7 +115,13 @@ nsresult Convert(uint8_t aIn, BluetoothAvrcpEvent& aOut) {
       [0x05] = AVRCP_EVENT_PLAY_POS_CHANGED,
       [0x06] = static_cast<BluetoothAvrcpEvent>(0),
       [0x07] = static_cast<BluetoothAvrcpEvent>(0),
-      [0x08] = AVRCP_EVENT_APP_SETTINGS_CHANGED};
+      [0x08] = AVRCP_EVENT_APP_SETTINGS_CHANGED,
+      [0x09] = AVRCP_EVENT_NOW_PLAYING_CONTENT_CHANGED,
+      [0x0a] = AVRCP_EVENT_AVAL_PLAYER_CHANGE,
+      [0x0b] = AVRCP_EVENT_ADDR_PLAYER_CHANGE,
+      [0x0c] = AVRCP_EVENT_UIDS_CHANGED,
+      [0x0d] = AVRCP_EVENT_VOL_CHANGED,
+  };
   if (MOZ_HAL_IPC_CONVERT_WARN_IF(!aIn, uint8_t, BluetoothAvrcpEvent) ||
       MOZ_HAL_IPC_CONVERT_WARN_IF(aIn == 0x06, uint8_t, BluetoothAvrcpEvent) ||
       MOZ_HAL_IPC_CONVERT_WARN_IF(aIn == 0x07, uint8_t, BluetoothAvrcpEvent) ||
@@ -527,12 +533,21 @@ nsresult Convert(const BluetoothAttributeHandle& aIn, uint16_t& aOut) {
 }
 
 nsresult Convert(BluetoothAvrcpEvent aIn, uint8_t& aOut) {
-  static const uint8_t sValue[] = {[AVRCP_EVENT_PLAY_STATUS_CHANGED] = 0x01,
-                                   [AVRCP_EVENT_TRACK_CHANGE] = 0x02,
-                                   [AVRCP_EVENT_TRACK_REACHED_END] = 0x03,
-                                   [AVRCP_EVENT_TRACK_REACHED_START] = 0x04,
-                                   [AVRCP_EVENT_PLAY_POS_CHANGED] = 0x05,
-                                   [AVRCP_EVENT_APP_SETTINGS_CHANGED] = 0x08};
+  static const uint8_t sValue[] = {
+      [AVRCP_EVENT_PLAY_STATUS_CHANGED] = 0x01,
+      [AVRCP_EVENT_TRACK_CHANGE] = 0x02,
+      [AVRCP_EVENT_TRACK_REACHED_END] = 0x03,
+      [AVRCP_EVENT_TRACK_REACHED_START] = 0x04,
+      [AVRCP_EVENT_PLAY_POS_CHANGED] = 0x05,
+      // 0x06, 0x07 doesn't exist
+      [AVRCP_EVENT_APP_SETTINGS_CHANGED] = 0x08,
+      [AVRCP_EVENT_NOW_PLAYING_CONTENT_CHANGED] = 0x09,
+      [AVRCP_EVENT_AVAL_PLAYER_CHANGE] = 0x0a,
+      [AVRCP_EVENT_ADDR_PLAYER_CHANGE] = 0x0b,
+      [AVRCP_EVENT_UIDS_CHANGED] = 0x0c,
+      [AVRCP_EVENT_VOL_CHANGED] = 0x0d,
+  };
+
   if (MOZ_HAL_IPC_CONVERT_WARN_IF(aIn >= MOZ_ARRAY_LENGTH(sValue),
                                   BluetoothAvrcpEvent, uint8_t)) {
     return NS_ERROR_ILLEGAL_VALUE;
@@ -1077,6 +1092,13 @@ nsresult PackPDU(const BluetoothAvrcpEventParamPair& aIn,
           PackPDU(BluetoothAvrcpAttributeValuePairs(
                       aIn.mParam.mIds, aIn.mParam.mValues, aIn.mParam.mNumAttr),
                   aPDU);
+      break;
+    case AVRCP_EVENT_AVAL_PLAYER_CHANGE:
+      /* no data to pack */
+      rv = NS_OK;
+      break;
+    case AVRCP_EVENT_ADDR_PLAYER_CHANGE:
+      rv = PackPDU(aIn.mParam.mPlayerId, aIn.mParam.mUidCounter, aPDU);
       break;
     default:
       rv = NS_ERROR_ILLEGAL_VALUE;
