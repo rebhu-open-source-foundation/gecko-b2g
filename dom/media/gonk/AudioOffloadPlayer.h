@@ -20,6 +20,7 @@ DDLoggedTypeDeclNameAndBase(AudioOffloadPlayer, MediaOffloadPlayer);
 class AudioOffloadPlayer : public MediaOffloadPlayer,
                            public DecoderDoctorLifeLogger<AudioOffloadPlayer> {
   using TimeUnit = media::TimeUnit;
+  using TimeIntervals = media::TimeIntervals;
 
  public:
   AudioOffloadPlayer(MediaFormatReaderInit& aInit,
@@ -47,24 +48,32 @@ class AudioOffloadPlayer : public MediaOffloadPlayer,
   virtual void PlaybackRateChanged() override { PlaybackSettingsChanged(); }
 
   void PlaybackSettingsChanged();
+  void ReaderBufferedUpdated() { mBuffered = mReaderBuffered; }
   void OpenAudioSink();
   void SendMetaDataToHal(audio_offload_info_t& aOffloadInfo);
   void MaybeStartDemuxing();
   void DemuxSamples();
+  void MaybeStartDecoding();
+  void DecodeAudio();
   void UpdateAudibleState();
   void Flush();
 
   void OnDemuxerInitDone(const MediaResult& aResult);
   void OnDemuxerInitFailed(const MediaResult& aError);
+  void OnReaderMetadataRead(MetadataHolder&& aMetadata);
+  void OnReaderMetadataNotRead(const MediaResult& aError);
   void OnDemuxCompleted(RefPtr<MediaTrackDemuxer::SamplesHolder> aSamples);
   void OnDemuxFailed(const MediaResult& aError);
-  void OnSamplePopped(const RefPtr<MediaRawData>& aSample);
+  void OnAudioDecoded(RefPtr<AudioData> aAudio);
+  void OnAudioNotDecoded(const MediaResult& aError);
+  void OnSamplePopped(const RefPtr<MediaData>& aSample);
 
   // Called on GonkAudioSink callback thread.
   size_t FillAudioBuffer(void* aData, size_t aSize);
   void NotifyEOSCallback();
   void NotifyAudioTearDown();
 
+  bool mIsOffloaded = true;
   bool mInitDone = false;
   bool mIsPlaying = false;
   bool mInputEOS = false;
@@ -74,15 +83,23 @@ class AudioOffloadPlayer : public MediaOffloadPlayer,
 
   RefPtr<MediaDataDemuxer> mDemuxer;
   RefPtr<MediaTrackDemuxer> mTrackDemuxer;
+  RefPtr<MediaFormatReader> mReader;
+  RefPtr<ReaderProxy> mReaderProxy;
+  WatchManager<AudioOffloadPlayer> mAudioWatchManager;
+  Mirror<TimeIntervals> mReaderBuffered;
   MediaEventListener mSamplePopListener;
 
   MozPromiseRequestHolder<MediaDataDemuxer::InitPromise> mDemuxerInitRequest;
   MozPromiseRequestHolder<MediaTrackDemuxer::SamplesPromise> mDemuxRequest;
   MozPromiseRequestHolder<MediaTrackDemuxer::SeekPromise> mDemuxerSeekRequest;
+  MozPromiseRequestHolder<MediaFormatReader::MetadataPromise> mMetadataRequest;
+  MozPromiseRequestHolder<MediaFormatReader::AudioDataPromise>
+      mAudioDataRequest;
+  MozPromiseRequestHolder<MediaFormatReader::SeekPromise> mReaderSeekRequest;
 
   Mutex mMutex;
   size_t mSampleOffset = 0;  // protected by mMutex
-  MediaQueue<MediaRawData> mSampleQueue;
+  MediaQueue<MediaData> mSampleQueue;
 
   audio_session_t mAudioSessionId;
   android::sp<GonkAudioSink> mAudioSink;

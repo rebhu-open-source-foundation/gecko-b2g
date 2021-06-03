@@ -9,6 +9,7 @@
 #include <binder/IPCThreadState.h>
 #include <media/AudioParameter.h>
 #include "AudioOutput.h"
+#include "DecoderTraits.h"
 #include "MP3Demuxer.h"
 #include "ReaderProxy.h"
 
@@ -49,10 +50,19 @@ static audio_stream_type_t ConvertToAudioStreamType(AudioChannel aChannel) {
 
 AudioOffloadPlayer::AudioOffloadPlayer(MediaFormatReaderInit& aInit,
                                        const MediaContainerType& aType)
-    : MediaOffloadPlayer(aInit), mMutex("AudioOffloadPlayer::mMutex") {
+    : MediaOffloadPlayer(aInit),
+      mAudioWatchManager(this, OwnerThread()),
+      mReaderBuffered(OwnerThread(), TimeIntervals(),
+                      "AudioOffloadPlayer::mReaderBuffered"),
+      mMutex("AudioOffloadPlayer::mMutex") {
   if (aType.Type().AsString() == "audio/mpeg"_ns) {
     mDemuxer = new MP3Demuxer(mResource);
+  } else {
+    mIsOffloaded = false;
   }
+
+  mReader = DecoderTraits::CreateReader(aType, aInit);
+  mReaderProxy = new ReaderProxy(OwnerThread(), mReader);
 
   mSamplePopListener = mSampleQueue.PopFrontEvent().Connect(
       OwnerThread(), this, &AudioOffloadPlayer::OnSamplePopped);
@@ -61,8 +71,9 @@ AudioOffloadPlayer::AudioOffloadPlayer(MediaFormatReaderInit& aInit,
 void AudioOffloadPlayer::InitInternal() {
   MOZ_ASSERT(OnTaskQueue());
 
-  if (mDemuxer) {
-    RefPtr<AudioOffloadPlayer> self = this;
+  RefPtr<AudioOffloadPlayer> self = this;
+  if (mIsOffloaded) {
+    MOZ_ASSERT(mDemuxer);
     LOG("AudioOffloadPlayer::InitInternal, initializing demuxer");
     mDemuxer->Init()
         ->Then(OwnerThread(), __func__, this,
@@ -70,8 +81,24 @@ void AudioOffloadPlayer::InitInternal() {
                &AudioOffloadPlayer::OnDemuxerInitFailed)
         ->Track(mDemuxerInitRequest);
   } else {
-    LOG("AudioOffloadPlayer::InitInternal, error no demuxer");
-    NotifyPlaybackError(MediaResult(NS_ERROR_DOM_MEDIA_DEMUXER_ERR, __func__));
+    LOG("AudioOffloadPlayer::InitInternal, initializing MediaFormatReader");
+    nsresult rv = mReaderProxy->Init();
+    if (NS_FAILED(rv)) {
+      LOG("AudioOffloadPlayer::InitInternal, error: 0x%x", rv);
+      NotifyPlaybackError(MediaResult(rv, __func__));
+      return;
+    }
+
+    mReaderBuffered.Connect(mReaderProxy->CanonicalBuffered());
+    mAudioWatchManager.Watch(mReaderBuffered,
+                             &AudioOffloadPlayer::ReaderBufferedUpdated);
+
+    mReaderProxy->SetCanonicalDuration(&mDuration);
+    mReaderProxy->ReadMetadata()
+        ->Then(OwnerThread(), __func__, this,
+               &AudioOffloadPlayer::OnReaderMetadataRead,
+               &AudioOffloadPlayer::OnReaderMetadataNotRead)
+        ->Track(mMetadataRequest);
   }
 }
 
@@ -106,10 +133,48 @@ void AudioOffloadPlayer::OnDemuxerInitFailed(const MediaResult& aError) {
   NotifyPlaybackError(aError);
 }
 
+void AudioOffloadPlayer::OnReaderMetadataRead(MetadataHolder&& aMetadata) {
+  MOZ_ASSERT(OnTaskQueue());
+  LOG("AudioOffloadPlayer::OnReaderMetadataRead");
+  mMetadataRequest.Complete();
+
+  mInfo = *aMetadata.mInfo;
+
+  if (mInfo.mMetadataDuration.isSome()) {
+    mDuration = mInfo.mMetadataDuration;
+  } else if (mInfo.mUnadjustedMetadataEndTime.isSome()) {
+    const TimeUnit unadjusted = mInfo.mUnadjustedMetadataEndTime.ref();
+    const TimeUnit adjustment = mInfo.mStartTime;
+    mInfo.mMetadataDuration.emplace(unadjusted - adjustment);
+    mDuration = mInfo.mMetadataDuration;
+  }
+
+  // If we don't know the duration by this point, we assume infinity, per spec.
+  if (mDuration.Ref().isNothing()) {
+    mDuration = Some(TimeUnit::FromInfinity());
+  }
+
+  NotifyMetadataLoaded(MakeUnique<MediaInfo>(mInfo),
+                       MakeUnique<MetadataTags>());
+
+  OpenAudioSink();
+}
+
+void AudioOffloadPlayer::OnReaderMetadataNotRead(const MediaResult& aError) {
+  MOZ_ASSERT(OnTaskQueue());
+  LOG("AudioOffloadPlayer::OnReaderMetadataNotRead, error: %s",
+      aError.ErrorName().get());
+  mMetadataRequest.Complete();
+  NotifyPlaybackError(aError);
+}
+
 void AudioOffloadPlayer::OpenAudioSink() {
   MOZ_ASSERT(OnTaskQueue());
   LOG("AudioOffloadPlayer::OpenAudioSink");
   auto streamType = ConvertToAudioStreamType(mAudioChannel);
+  auto sampleRate = mInfo.mAudio.mRate;
+  auto channels = mInfo.mAudio.mChannels;
+  auto channelMask = mInfo.mAudio.mChannelMap;
 
   mAudioSessionId = static_cast<audio_session_t>(
       AudioSystem::newAudioUniqueId(AUDIO_UNIQUE_ID_USE_SESSION));
@@ -117,59 +182,81 @@ void AudioOffloadPlayer::OpenAudioSink() {
   mAudioSink = new AudioOutput(
       mAudioSessionId, IPCThreadState::self()->getCallingUid(), streamType);
 
-  MOZ_ASSERT(mTrackDemuxer);
-  auto* trackDemuxer = static_cast<MP3TrackDemuxer*>(mTrackDemuxer.get());
-  auto sampleRate = mInfo.mAudio.mRate;
-  auto channels = mInfo.mAudio.mChannels;
-  auto channelMask = mInfo.mAudio.mChannelMap;
-  auto audioFormat = AUDIO_FORMAT_MP3;
-  auto duration = mInfo.mAudio.mDuration.ToSeconds();
-  auto bitrate = duration ? trackDemuxer->StreamLength() * 8 / duration : 0;
+  status_t err;
+  if (mIsOffloaded) {
+    MOZ_ASSERT(mTrackDemuxer);
+    auto* trackDemuxer = static_cast<MP3TrackDemuxer*>(mTrackDemuxer.get());
+    auto audioFormat = AUDIO_FORMAT_MP3;
+    auto duration = mInfo.mAudio.mDuration.ToSeconds();
+    auto bitrate = duration ? trackDemuxer->StreamLength() * 8 / duration : 0;
 
-  audio_offload_info_t offloadInfo = AUDIO_INFO_INITIALIZER;
-  offloadInfo.sample_rate = sampleRate;
-  offloadInfo.channel_mask = channelMask;
-  offloadInfo.format = audioFormat;
-  offloadInfo.stream_type = streamType;
-  offloadInfo.bit_rate = bitrate;
-  offloadInfo.duration_us = mInfo.mAudio.mDuration.ToMicroseconds();
-  offloadInfo.has_video = false;
-  offloadInfo.is_streaming = false;
-  offloadInfo.bit_width = mInfo.mAudio.mBitDepth;
-  // FIXME: hardcode offload_buffer_size to 0 cause Qualcomm libavenhancement
-  // is disabled and AVUtils::get()->getAudioMaxInputBufferSize() always returns
-  // 0. If libavenhancement is enabled again and we want to query the buffer
-  // size from it, we need to fill necessary metadata into an AMessage object
-  // before calling that API.
-  offloadInfo.offload_buffer_size = 0;
+    audio_offload_info_t offloadInfo = AUDIO_INFO_INITIALIZER;
+    offloadInfo.sample_rate = sampleRate;
+    offloadInfo.channel_mask = channelMask;
+    offloadInfo.format = audioFormat;
+    offloadInfo.stream_type = streamType;
+    offloadInfo.bit_rate = bitrate;
+    offloadInfo.duration_us = mInfo.mAudio.mDuration.ToMicroseconds();
+    offloadInfo.has_video = false;
+    offloadInfo.is_streaming = false;
+    offloadInfo.bit_width = mInfo.mAudio.mBitDepth;
+    // FIXME: hardcode offload_buffer_size to 0 cause Qualcomm libavenhancement
+    // is disabled and AVUtils::get()->getAudioMaxInputBufferSize() always
+    // returns 0. If libavenhancement is enabled again and we want to query the
+    // buffer size from it, we need to fill necessary metadata into an AMessage
+    // object before calling that API.
+    offloadInfo.offload_buffer_size = 0;
 
-  LOG("AudioOffloadPlayer::OpenAudioSink, offload info: sample_rate=%u, "
-      "channel_mask=0x%x, format=0x%x, stream_type=%d, bit_rate=%u, "
-      "duration_us=%lld, has_video=%d, is_streaming=%d, bit_width=%u, "
-      "offload_buffer_size=%u",
-      offloadInfo.sample_rate, offloadInfo.channel_mask, offloadInfo.format,
-      offloadInfo.stream_type, offloadInfo.bit_rate, offloadInfo.duration_us,
-      offloadInfo.has_video, offloadInfo.is_streaming, offloadInfo.bit_width,
-      offloadInfo.offload_buffer_size);
+    LOG("AudioOffloadPlayer::OpenAudioSink, offload info: sample_rate=%u, "
+        "channel_mask=0x%x, format=0x%x, stream_type=%d, bit_rate=%u, "
+        "duration_us=%lld, has_video=%d, is_streaming=%d, bit_width=%u, "
+        "offload_buffer_size=%u",
+        offloadInfo.sample_rate, offloadInfo.channel_mask, offloadInfo.format,
+        offloadInfo.stream_type, offloadInfo.bit_rate, offloadInfo.duration_us,
+        offloadInfo.has_video, offloadInfo.is_streaming, offloadInfo.bit_width,
+        offloadInfo.offload_buffer_size);
 
-  status_t err =
-      mAudioSink->Open(sampleRate, channels, channelMask, audioFormat,
-                       &AudioOffloadPlayer::AudioSinkCallback, this,
-                       AUDIO_OUTPUT_FLAG_COMPRESS_OFFLOAD, &offloadInfo);
+    err = mAudioSink->Open(sampleRate, channels, channelMask, audioFormat,
+                           &AudioOffloadPlayer::AudioSinkCallback, this,
+                           AUDIO_OUTPUT_FLAG_COMPRESS_OFFLOAD, &offloadInfo);
+    if (err == OK) {
+      SendMetaDataToHal(offloadInfo);
+    }
+  } else {
+#ifdef MOZ_SAMPLE_TYPE_S16
+    MOZ_ASSERT(AUDIO_OUTPUT_FORMAT == AUDIO_FORMAT_S16);
+    auto audioFormat = AUDIO_FORMAT_PCM_16_BIT;
+#else
+    MOZ_ASSERT(AUDIO_OUTPUT_FORMAT == AUDIO_FORMAT_FLOAT32);
+    auto audioFormat = AUDIO_FORMAT_PCM_FLOAT;
+#endif
+
+    err = mAudioSink->Open(sampleRate, channels, channelMask, audioFormat,
+                           &AudioOffloadPlayer::AudioSinkCallback, this,
+                           AUDIO_OUTPUT_FLAG_NONE, nullptr);
+  }
+
   if (err == OK) {
     LOG("AudioOffloadPlayer::OpenAudioSink, successful");
-    SendMetaDataToHal(offloadInfo);
-
     mInitDone = true;
     VolumeChanged();
     PlaybackSettingsChanged();
     if (!FirePendingSeekIfExists()) {
       MaybeStartDemuxing();
+      MaybeStartDecoding();
     }
   } else {
-    LOG("AudioOffloadPlayer::OpenAudioSink error");
-    NotifyPlaybackError(
-        MediaResult(NS_ERROR_DOM_MEDIA_MEDIASINK_ERR, __func__));
+    if (mIsOffloaded) {
+      LOG("AudioOffloadPlayer::OpenAudioSink, offloaded sink error, switching "
+          "to non offloaded sink");
+      mIsOffloaded = false;
+      ResetInternal();
+      InitInternal();
+    } else {
+      LOG("AudioOffloadPlayer::OpenAudioSink, non offloaded sink error");
+      NotifyPlaybackError(
+          MediaResult(NS_ERROR_DOM_MEDIA_MEDIASINK_ERR, __func__));
+    }
   }
 }
 
@@ -204,8 +291,14 @@ void AudioOffloadPlayer::ShutdownInternal() {
   LOG("AudioOffloadPlayer::ShutdownInternal");
 
   ResetInternal();
+  if (mReaderProxy) {
+    mReaderProxy->Shutdown();
+    mReaderProxy = nullptr;
+  }
+  mReader = nullptr;
   mDemuxer = nullptr;
   mSamplePopListener.Disconnect();
+  mAudioWatchManager.Shutdown();
 }
 
 void AudioOffloadPlayer::ResetInternal() {
@@ -227,15 +320,25 @@ void AudioOffloadPlayer::ResetInternal() {
     mTrackDemuxer->Reset();
     mTrackDemuxer = nullptr;
   }
+  if (mReaderProxy) {
+    mReaderProxy->ReleaseResources();
+  }
   mDemuxerInitRequest.DisconnectIfExists();
   mDemuxRequest.DisconnectIfExists();
   mDemuxerSeekRequest.DisconnectIfExists();
+  mMetadataRequest.DisconnectIfExists();
+  mAudioDataRequest.DisconnectIfExists();
+  mReaderSeekRequest.DisconnectIfExists();
+  mReaderBuffered.DisconnectIfConnected();
+  mAudioWatchManager.Unwatch(mReaderBuffered,
+                             &AudioOffloadPlayer::ReaderBufferedUpdated);
 }
 
 void AudioOffloadPlayer::SeekInternal(const SeekTarget& aTarget,
                                       bool aVisible) {
   MOZ_ASSERT(OnTaskQueue());
   MOZ_ASSERT(!mDemuxerSeekRequest.Exists());
+  MOZ_ASSERT(!mReaderSeekRequest.Exists());
   LOG("AudioOffloadPlayer::SeekInternal");
 
   if (aVisible) {
@@ -246,21 +349,39 @@ void AudioOffloadPlayer::SeekInternal(const SeekTarget& aTarget,
   Flush();
 
   RefPtr<AudioOffloadPlayer> self = this;
-  mTrackDemuxer->Seek(aTarget.GetTime())
-      ->Then(
-          OwnerThread(), __func__,
-          [this, self](const TimeUnit& aTime) {
-            mDemuxerSeekRequest.Complete();
-            mCurrentPosition = aTime;
-            MaybeStartDemuxing();
-            NotifySeeked(true);
-          },
-          [this, self](const MediaResult& aError) {
-            mDemuxerSeekRequest.Complete();
-            MaybeStartDemuxing();
-            NotifySeeked(false);
-          })
-      ->Track(mDemuxerSeekRequest);
+  if (mIsOffloaded) {
+    mTrackDemuxer->Seek(aTarget.GetTime())
+        ->Then(
+            OwnerThread(), __func__,
+            [this, self](const TimeUnit& aTime) {
+              mDemuxerSeekRequest.Complete();
+              mCurrentPosition = aTime;
+              MaybeStartDemuxing();
+              NotifySeeked(true);
+            },
+            [this, self](const MediaResult& aError) {
+              mDemuxerSeekRequest.Complete();
+              MaybeStartDemuxing();
+              NotifySeeked(false);
+            })
+        ->Track(mDemuxerSeekRequest);
+  } else {
+    mReaderProxy->Seek(aTarget)
+        ->Then(
+            OwnerThread(), __func__,
+            [this, self](const TimeUnit& aTime) {
+              mReaderSeekRequest.Complete();
+              mCurrentPosition = aTime;
+              MaybeStartDecoding();
+              NotifySeeked(true);
+            },
+            [this, self](const SeekRejectValue& aReject) {
+              mReaderSeekRequest.Complete();
+              MaybeStartDecoding();
+              NotifySeeked(false);
+            })
+        ->Track(mReaderSeekRequest);
+  }
 }
 
 void AudioOffloadPlayer::Flush() {
@@ -272,6 +393,9 @@ void AudioOffloadPlayer::Flush() {
     mAudioSink->Flush();
   }
 
+  if (mReaderProxy) {
+    mReaderProxy->ResetDecode(TrackInfo::kAudioTrack);
+  }
   {
     MutexAutoLock lock(mMutex);
     mSampleQueue.Reset();
@@ -280,6 +404,7 @@ void AudioOffloadPlayer::Flush() {
   mInputEOS = false;
   mNotifiedEOS = false;
   mDemuxRequest.DisconnectIfExists();
+  mAudioDataRequest.DisconnectIfExists();
   mStartPosition = TimeUnit::Invalid();
 
   if (mAudioSink && mIsPlaying) {
@@ -290,7 +415,7 @@ void AudioOffloadPlayer::Flush() {
 void AudioOffloadPlayer::MaybeStartDemuxing() {
   MOZ_ASSERT(OnTaskQueue());
 
-  if (!mInitDone) {
+  if (!mInitDone || !mIsOffloaded) {
     return;
   }
   if (mDemuxRequest.Exists() || mDemuxerSeekRequest.Exists()) {
@@ -330,7 +455,7 @@ void AudioOffloadPlayer::OnDemuxCompleted(
       NotifyNextFrameStatus(MediaDecoderOwner::NEXT_FRAME_AVAILABLE);
       mStartPosition = sample->mTime;
     }
-    mSampleQueue.Push(sample);
+    mSampleQueue.Push(sample.get());
   }
 
   LOGV("AudioOffloadPlayer::OnDemuxCompleted, have %.1f seconds in queue",
@@ -361,7 +486,88 @@ void AudioOffloadPlayer::OnDemuxFailed(const MediaResult& aError) {
   }
 }
 
-void AudioOffloadPlayer::OnSamplePopped(const RefPtr<MediaRawData>& aSample) {
+void AudioOffloadPlayer::MaybeStartDecoding() {
+  MOZ_ASSERT(OnTaskQueue());
+
+  if (!mInitDone || mIsOffloaded) {
+    return;
+  }
+  if (mAudioDataRequest.Exists() || mReaderSeekRequest.Exists()) {
+    return;
+  }
+  if (mSampleQueue.IsFinished() ||
+      mSampleQueue.Duration() > SAMPLE_QUEUE_LOWER_THRESHOLD_US) {
+    return;
+  }
+
+  LOG("AudioOffloadPlayer::MaybeStartDecoding, start decoding");
+  DecodeAudio();
+}
+
+void AudioOffloadPlayer::DecodeAudio() {
+  mReaderProxy->RequestAudioData()
+      ->Then(OwnerThread(), __func__, this, &AudioOffloadPlayer::OnAudioDecoded,
+             &AudioOffloadPlayer::OnAudioNotDecoded)
+      ->Track(mAudioDataRequest);
+}
+
+void AudioOffloadPlayer::OnAudioDecoded(RefPtr<AudioData> aAudio) {
+  MOZ_ASSERT(OnTaskQueue());
+  mAudioDataRequest.Complete();
+
+  if (!mSentFirstFrameLoadedEvent) {
+    mSentFirstFrameLoadedEvent = true;
+    NotifyFirstFrameLoaded(MakeUnique<MediaInfo>(mInfo));
+  }
+  // First sample after init/flush.
+  if (!mStartPosition.IsValid()) {
+    NotifyNextFrameStatus(MediaDecoderOwner::NEXT_FRAME_AVAILABLE);
+    mStartPosition = aAudio->mTime;
+  }
+
+  mSampleQueue.Push(aAudio.get());
+
+  LOGV("AudioOffloadPlayer::OnAudioDecoded, have %.1f seconds in queue",
+       static_cast<double>(mSampleQueue.Duration()) / 1000000);
+
+  // Pause decoding if we have enough data.
+  if (mSampleQueue.Duration() >= SAMPLE_QUEUE_UPPER_THRESHOLD_US) {
+    LOG("AudioOffloadPlayer::OnAudioDecoded, pause decoding");
+    return;
+  }
+
+  DecodeAudio();
+}
+
+void AudioOffloadPlayer::OnAudioNotDecoded(const MediaResult& aError) {
+  MOZ_ASSERT(OnTaskQueue());
+  mAudioDataRequest.Complete();
+
+  switch (aError.Code()) {
+    case NS_ERROR_DOM_MEDIA_END_OF_STREAM:
+      LOG("AudioOffloadPlayer::OnAudioNotDecoded, finish decoding due to EOS");
+      mSampleQueue.Finish();
+      mInputEOS = true;
+      break;
+    case NS_ERROR_DOM_MEDIA_CANCELED:
+      LOG("AudioOffloadPlayer::OnAudioNotDecoded, cancel decoding");
+      break;
+    case NS_ERROR_DOM_MEDIA_WAITING_FOR_DATA:
+      LOG("AudioOffloadPlayer::OnAudioNotDecoded, waiting for data");
+      // We currently don't support buffering state. Keep calling DecodeAudio.
+      DecodeAudio();
+      break;
+    default:
+      LOG("AudioOffloadPlayer::OnAudioNotDecoded, abort decoding due to error: "
+          "%s",
+          aError.ErrorName().get());
+      mSampleQueue.Finish();
+      NotifyPlaybackError(aError);
+      break;
+  }
+}
+
+void AudioOffloadPlayer::OnSamplePopped(const RefPtr<MediaData>& aSample) {
   MOZ_ASSERT(OnTaskQueue());
 
   if (mSampleQueue.AtEndOfStream()) {
@@ -369,9 +575,19 @@ void AudioOffloadPlayer::OnSamplePopped(const RefPtr<MediaRawData>& aSample) {
     // internal buffered data.
     LOG("AudioOffloadPlayer::OnSamplePopped, no more samples, stop sink");
     mAudioSink->Stop();
+    // As there is currently no EVENT_STREAM_END callback notification for
+    // non offloaded audio sinks, we need to post the EOS here.
+    if (!mIsOffloaded && mInputEOS && !mNotifiedEOS) {
+      LOG("AudioOffloadPlayer::OnSamplePopped, notifying EOS");
+      mNotifiedEOS = true;
+      NotifyNextFrameStatus(MediaDecoderOwner::NEXT_FRAME_UNAVAILABLE);
+      NotifyPlaybackEvent(MediaPlaybackEvent::PlaybackEnded);
+    }
     return;
   }
+
   MaybeStartDemuxing();
+  MaybeStartDecoding();
 }
 
 /* static */
@@ -403,6 +619,21 @@ size_t AudioOffloadPlayer::AudioSinkCallback(GonkAudioSink* aAudioSink,
   return 0;
 }
 
+static Span<const uint8_t> ToByteSpan(MediaData* aSample) {
+  switch (aSample->mType) {
+    case MediaData::Type::RAW_DATA:
+      // Calling |aSample->As<MediaRawData>()| causes compilation error under
+      // debug build, because upstream didn't define |sType| in |MediaRawData|.
+      // Hence use |static_cast| here.
+      return *static_cast<MediaRawData*>(aSample);
+    case MediaData::Type::AUDIO_DATA:
+      return AsBytes(aSample->As<AudioData>()->Data());
+    default:
+      MOZ_CRASH("not reached");
+      return Span<const uint8_t>();
+  }
+}
+
 static size_t CopySpan(Span<uint8_t>& aDst, const Span<const uint8_t>& aSrc) {
   size_t copy = std::min(aDst.Length(), aSrc.Length());
   std::copy_n(aSrc.cbegin(), copy, aDst.begin());
@@ -419,7 +650,7 @@ size_t AudioOffloadPlayer::FillAudioBuffer(void* aData, size_t aSize) {
       break;
     }
 
-    auto src = Span<const uint8_t>(*sample);
+    auto src = ToByteSpan(sample);
     auto copied = CopySpan(dst, src.From(mSampleOffset));
     dst = dst.From(copied);
 
@@ -484,9 +715,19 @@ void AudioOffloadPlayer::NotifyDataArrived() {
   MOZ_ASSERT(OnTaskQueue());
 
   if (mInitDone) {
-    mDemuxer->NotifyDataArrived();
-    mBuffered = mTrackDemuxer->GetBuffered();
-    MaybeStartDemuxing();
+    if (mIsOffloaded) {
+      mDemuxer->NotifyDataArrived();
+      mBuffered = mTrackDemuxer->GetBuffered();
+      MaybeStartDemuxing();
+    } else {
+      // ReaderProxy doesn't have this method, so directly call it on mReader.
+      nsresult rv = mReader->OwnerThread()->Dispatch(NewRunnableMethod(
+          "MediaFormatReader::NotifyDataArrived", mReader.get(),
+          &MediaFormatReader::NotifyDataArrived));
+      MOZ_DIAGNOSTIC_ASSERT(NS_SUCCEEDED(rv));
+      Unused << rv;
+      MaybeStartDecoding();
+    }
   }
 }
 

@@ -82,11 +82,6 @@ status_t AudioOutput::Open(uint32_t aSampleRate, int aChannelCount,
   mCallback = aCb;
   mCallbackCookie = aCookie;
 
-  if (((aFlags & AUDIO_OUTPUT_FLAG_COMPRESS_OFFLOAD) == 0) || !aCb ||
-      !aOffloadInfo) {
-    return BAD_VALUE;
-  }
-
   AUDIO_OFFLOAD_LOG(LogLevel::Debug,
                     ("open(%u, %d, 0x%x, 0x%x, %d 0x%x)", aSampleRate,
                      aChannelCount, aChannelMask, aFormat, mSessionId, aFlags));
