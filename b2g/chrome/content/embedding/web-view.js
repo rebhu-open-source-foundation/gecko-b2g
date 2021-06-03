@@ -932,6 +932,16 @@
     get userAgentExtensions() {
       return this.getAttribute("useragentextensions") || null;
     }
+
+    enterModalState() {
+      this.log(`EnterModalState`);
+      this.browser?.enterModalState();
+    }
+
+    leaveModalState() {
+      this.log(`LeaveModalState`);
+      this.browser?.leaveModalState();
+    }
   }
 
   webViewLogEnabled && console.log(`Setting up <web-view> custom element`);
