@@ -303,6 +303,8 @@ struct DocShellLoadStateInit
   LoadingSessionHistoryInfo? loadingSessionHistoryInfo;
 
   bool IsMetaRefresh;
+
+  nsIURI UnstrippedURI;
 };
 
 struct TimedChannelInfo

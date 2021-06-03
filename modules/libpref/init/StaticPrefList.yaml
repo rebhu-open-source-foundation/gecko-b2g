@@ -4122,12 +4122,6 @@
 # Prefs starting with "extensions."
 #---------------------------------------------------------------------------
 
-# Private browsing opt-in is only supported on Firefox desktop.
-- name: extensions.allowPrivateBrowsingByDefault
-  type: bool
-  value: false
-  mirror: always
-
 # Whether the background.service_worker in the extension manifest.json file
 # is enabled.
 - name: extensions.backgroundServiceWorker.enabled
@@ -9554,6 +9548,13 @@
 - name: network.proxy.reload_pac_delay
   type: RelaxedAtomicUint32
   value: 2000
+  mirror: always
+
+# When parsing "SOCKS" in PAC string, the default version of SOCKS that will be
+# used.
+- name: network.proxy.default_pac_script_socks_version
+  type: RelaxedAtomicUint32
+  value: 4
   mirror: always
 
 # Some requests during a page load are marked as "tail", mainly trackers, but not only.

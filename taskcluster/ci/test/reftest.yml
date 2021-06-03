@@ -45,8 +45,8 @@ crashtest:
     treeherder-symbol: R(C)
     variants:
         by-test-platform:
-            linux1804-64-qr/debug: ['webrender-sw', 'fission']
-            linux1804-64-asan-qr/opt: ['webrender-sw', 'fission']
+            linux1804-64-qr/debug: ['webrender-sw', 'fission', 'wayland']
+            linux1804-64-asan-qr/opt: ['webrender-sw', 'fission', 'wayland']
             windows10-64-qr/debug: ['webrender-sw', 'fission']
             macosx101.*64-qr/debug: ['webrender-sw', 'fission']
             android-em-7.0-x86_64-qr/debug: ['webrender-sw', 'fission']
@@ -68,6 +68,7 @@ crashtest:
             default:
                 by-test-platform:
                     windows10-aarch64/.*: ['mozilla-central', 'mozilla-beta', 'mozilla-release']
+                    android-em-7.0-x86_64/debug-isolated-process: []
                     default: built-projects
     max-run-time: 3600
     tier:
@@ -152,8 +153,8 @@ reftest:
             default: virtual-with-gpu
     variants:
         by-test-platform:
-            linux1804-64-qr/debug: ['webrender-sw', 'fission']
-            linux1804-64-asan-qr/opt: ['webrender-sw', 'fission']
+            linux1804-64-qr/debug: ['webrender-sw', 'fission', 'wayland']
+            linux1804-64-asan-qr/opt: ['webrender-sw', 'fission', 'wayland']
             windows10-64-qr/debug: ['webrender-sw', 'fission']
             macosx101.*64-qr/debug: ['webrender-sw', 'fission']
             android-em-7.0-x86_64-qr/debug: ['webrender-sw', 'fission']
@@ -181,6 +182,7 @@ reftest:
             default:
                 by-test-platform:
                     windows10-aarch64/.*: ['mozilla-central', 'mozilla-beta', 'mozilla-release']
+                    android-em-7.0-x86_64/debug-isolated-process: []
                     default: built-projects
     max-run-time:
         by-test-platform:
