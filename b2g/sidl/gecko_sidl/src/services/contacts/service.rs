@@ -70,7 +70,9 @@ sidl_callback_for_resolve_string_array!(
 
 type MatchesTask = (
     SidlCallTask<bool, (), nsIMatchesResponse>,
-    FilterByOption, FilterOption, String,
+    FilterByOption,
+    FilterOption,
+    String,
 );
 
 type FindBlockedNumbersTask = (
@@ -179,7 +181,11 @@ impl ContactsManagerImpl {
         debug!("ContactsManager::matches");
 
         let (task, filter_by_option, filter_option, value) = task;
-        let request = ContactsManagerFromClient::ContactsFactoryMatches(filter_by_option, filter_option, value);
+        let request = ContactsManagerFromClient::ContactsFactoryMatches(
+            filter_by_option,
+            filter_option,
+            value,
+        );
         self.sender
             .send_task(&request, MatchesTaskReceiver { task });
         Ok(())
@@ -242,9 +248,12 @@ impl ContactsManagerXpcom {
         });
 
         let obs = instance.coerce::<nsISidlConnectionObserver>();
-        transport.add_connection_observer(
-            ThreadPtrHolder::new(cstr!("nsISidlConnectionObserver"), RefPtr::new(obs)).unwrap(),
-        );
+        match ThreadPtrHolder::new(cstr!("nsISidlConnectionObserver"), RefPtr::new(obs)) {
+            Ok(obs) => {
+                transport.add_connection_observer(obs);
+            }
+            Err(err) => error!("Failed to create connection observer: {}", err),
+        }
 
         instance
     }
@@ -270,7 +279,7 @@ impl ContactsManagerXpcom {
             _ => return Err(NS_ERROR_INVALID_ARG),
         };
 
-        let filter =  match filter_option {
+        let filter = match filter_option {
             0 => FilterOption::Equals,
             1 => FilterOption::Contains,
             2 => FilterOption::Match,
@@ -279,9 +288,13 @@ impl ContactsManagerXpcom {
             _ => return Err(NS_ERROR_INVALID_ARG),
         };
 
-        let callback =
-            ThreadPtrHolder::new(cstr!("nsIMatchesResponse"), RefPtr::new(callback)).unwrap();
-        let task = (SidlCallTask::new(callback), filter_by, filter, value.to_string());
+        let callback = ThreadPtrHolder::new(cstr!("nsIMatchesResponse"), RefPtr::new(callback))?;
+        let task = (
+            SidlCallTask::new(callback),
+            filter_by,
+            filter,
+            value.to_string(),
+        );
 
         if !self.ensure_service() {
             self.queue_task(ContactsTask::Matches(task));
@@ -329,8 +342,7 @@ impl ContactsManagerXpcom {
         let callback = ThreadPtrHolder::new(
             cstr!("nsIFindBlockedNumbersResponse"),
             RefPtr::new(callback),
-        )
-        .unwrap();
+        )?;
         let task = (SidlCallTask::new(callback), (find_options));
 
         if !self.ensure_service() {

@@ -55,13 +55,16 @@ impl ResponseReceiver for CoreGetServiceReceiver {
     fn on_message(&mut self, message: BaseMessage) {
         match from_base_message(&message) {
             Ok(CoreResponse::GetService(response)) => {
-                let service_name = self.service_name.as_ref().unwrap();
-                if let GetServiceResponse::Success(service) = response {
-                    debug!("GetService success: id for {} is {}", service_name, service);
-                    self.delegate.on_success(service);
+                if let Some(service_name) = self.service_name.as_ref() {
+                    if let GetServiceResponse::Success(service) = response {
+                        debug!("GetService success: id for {} is {}", service_name, service);
+                        self.delegate.on_success(service);
+                    } else {
+                        error!("Failed to get service {}: {:?}", service_name, response);
+                        self.delegate.on_error();
+                    }
                 } else {
-                    error!("Failed to get service {}: {:?}", service_name, response);
-                    self.delegate.on_error();
+                    error!("Service name is not set yet!");
                 }
             }
             other => {
@@ -95,13 +98,16 @@ impl ResponseReceiver for CoreHasServiceReceiver {
     fn on_message(&mut self, message: BaseMessage) {
         match from_base_message(&message) {
             Ok(CoreResponse::HasService(response)) => {
-                let service_name = self.service_name.as_ref().unwrap();
-                if response.success {
-                    debug!("HasService {} is {}", service_name, response.success);
-                    self.delegate.on_success(response.success);
+                if let Some(service_name) = self.service_name.as_ref() {
+                    if response.success {
+                        debug!("HasService {} is {}", service_name, response.success);
+                        self.delegate.on_success(response.success);
+                    } else {
+                        error!("Failed to check has_service {}", service_name);
+                        self.delegate.on_error();
+                    }
                 } else {
-                    error!("Failed to check has_service {}", service_name);
-                    self.delegate.on_error();
+                    error!("Service name is not set yet!");
                 }
             }
             other => {

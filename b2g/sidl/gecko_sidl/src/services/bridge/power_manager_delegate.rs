@@ -332,28 +332,31 @@ impl Task for PowerManagerDelegateTask {
                 PowerManagerCommand::RequestWakelock(topic) => {
                     debug!("PowerManagerDelegateTask:: request wakelock {}", topic);
                     let wakelock_object_id = self.object_id_generator.lock().next_id();
-                    let payload;
+                    // Default value to please the compiler.
+                    let mut payload = GeckoBridgeFromClient::PowerManagerDelegateRequestWakelockError;
                     if let Ok(wakelock_ptr) = self.new_wakelock(topic) {
-                        let holder =
-                            ThreadPtrHolder::new(cstr!("nsIWakeLock"), wakelock_ptr).unwrap();
-                        let wakelock_session = WakeLockDelegate::new(
-                            holder,
-                            self.service_id,
-                            wakelock_object_id,
-                            &self.transport.clone(),
-                            topic.to_string(),
-                            self.wakelocks.clone(),
-                        );
-                        let client = Some(ClientObject::new::<WakeLockDelegate>(
-                            wakelock_session,
-                            &mut self.transport.clone(),
-                        ));
-                        self.wakelocks.lock().insert(wakelock_object_id, client);
-                        payload = GeckoBridgeFromClient::PowerManagerDelegateRequestWakelockSuccess(
-                            wakelock_object_id.into(),
-                        );
-                    } else {
-                        payload = GeckoBridgeFromClient::PowerManagerDelegateRequestWakelockError;
+                        if let Ok(holder) = ThreadPtrHolder::new(cstr!("nsIWakeLock"), wakelock_ptr)
+                        {
+                            let wakelock_session = WakeLockDelegate::new(
+                                holder,
+                                self.service_id,
+                                wakelock_object_id,
+                                &self.transport.clone(),
+                                topic.to_string(),
+                                self.wakelocks.clone(),
+                            );
+                            let client = Some(ClientObject::new::<WakeLockDelegate>(
+                                wakelock_session,
+                                &mut self.transport.clone(),
+                            ));
+                            self.wakelocks.lock().insert(wakelock_object_id, client);
+                            payload =
+                                GeckoBridgeFromClient::PowerManagerDelegateRequestWakelockSuccess(
+                                    wakelock_object_id.into(),
+                                );
+                        } else {
+                            error!("Failed to get ThreadPtrHolder for nsIWakeLock object");
+                        }
                     }
                     self.reply(payload, self.object_id);
                 }

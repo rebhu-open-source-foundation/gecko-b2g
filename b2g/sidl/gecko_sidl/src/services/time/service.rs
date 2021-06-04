@@ -365,13 +365,15 @@ impl TimeXpcom {
         });
 
         let obs = instance.coerce::<nsISidlConnectionObserver>();
-        transport.add_connection_observer(
-            ThreadPtrHolder::new(
-                cstr!("TimeXpcom::nsISidlConnectionObserver"),
-                RefPtr::new(obs),
-            )
-            .unwrap(),
-        );
+        match ThreadPtrHolder::new(
+            cstr!("TimeXpcom::nsISidlConnectionObserver"),
+            RefPtr::new(obs),
+        ) {
+            Ok(obs) => {
+                transport.add_connection_observer(obs);
+            }
+            Err(err) => error!("Failed to create connection observer: {}", err),
+        }
 
         instance
     }
@@ -391,11 +393,10 @@ impl TimeXpcom {
         debug!("TimeImpl::add_observer reason {}", reason);
 
         let key: usize = unsafe { std::mem::transmute(observer) };
-        let observer =
-            ThreadPtrHolder::new(cstr!("nsITimeObserver"), RefPtr::new(observer)).unwrap();
+        let observer = ThreadPtrHolder::new(cstr!("nsITimeObserver"), RefPtr::new(observer))?;
 
         let callback =
-            ThreadPtrHolder::new(cstr!("nsISidlDefaultResponse"), RefPtr::new(callback)).unwrap();
+            ThreadPtrHolder::new(cstr!("nsISidlDefaultResponse"), RefPtr::new(callback))?;
         let task = (SidlCallTask::new(callback), (reason, observer, key));
 
         if !self.ensure_service() {
@@ -424,7 +425,7 @@ impl TimeXpcom {
         let key: usize = unsafe { std::mem::transmute(observer) };
 
         let callback =
-            ThreadPtrHolder::new(cstr!("nsISidlDefaultResponse"), RefPtr::new(callback)).unwrap();
+            ThreadPtrHolder::new(cstr!("nsISidlDefaultResponse"), RefPtr::new(callback))?;
         let task = (SidlCallTask::new(callback), (reason, key));
 
         if !self.ensure_service() {
@@ -450,7 +451,7 @@ impl TimeXpcom {
         debug!("Time::set_timezone {}", timezone);
 
         let callback =
-            ThreadPtrHolder::new(cstr!("nsISidlDefaultResponse"), RefPtr::new(callback)).unwrap();
+            ThreadPtrHolder::new(cstr!("nsISidlDefaultResponse"), RefPtr::new(callback))?;
         let task = (SidlCallTask::new(callback), timezone.to_string());
 
         if !self.ensure_service() {
@@ -474,16 +475,13 @@ impl TimeXpcom {
         debug!("Time::set_time {}", time);
 
         let callback =
-            ThreadPtrHolder::new(cstr!("nsISidlDefaultResponse"), RefPtr::new(callback)).unwrap();
+            ThreadPtrHolder::new(cstr!("nsISidlDefaultResponse"), RefPtr::new(callback))?;
         let t = std::time::UNIX_EPOCH;
-        let duration = t.checked_add(std::time::Duration::from_millis(time));
+        let duration = t
+            .checked_add(std::time::Duration::from_millis(time))
+            .ok_or::<Result<(), nsresult>>(Err(NS_ERROR_INVALID_ARG))?;
 
-        if std::option::Option::is_none(&duration) {
-            error!("invalid time!!!");
-            return Err(NS_ERROR_INVALID_ARG);
-        }
-
-        let task = (SidlCallTask::new(callback), SystemTime(duration.unwrap()));
+        let task = (SidlCallTask::new(callback), SystemTime(duration));
 
         if !self.ensure_service() {
             self.queue_task(TimeTask::SetTime(task));
@@ -506,8 +504,7 @@ impl TimeXpcom {
         debug!("Time::get_elapsetime");
 
         let callback =
-            ThreadPtrHolder::new(cstr!("nsITimeGetElapsedRealTime"), RefPtr::new(callback))
-                .unwrap();
+            ThreadPtrHolder::new(cstr!("nsITimeGetElapsedRealTime"), RefPtr::new(callback))?;
         let task = SidlCallTask::new(callback);
 
         if !self.ensure_service() {

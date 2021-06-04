@@ -111,20 +111,24 @@ impl Task for ConnectionChangeTask {
             self.disconnected
         );
 
-        let result = unsafe {
-            if self.disconnected {
-                self.observer.get().unwrap().Disconnected()
+        if let Some(obs) = self.observer.get() {
+            let result = unsafe {
+                if self.disconnected {
+                    obs.Disconnected()
+                } else {
+                    obs.Reconnected()
+                }
+            };
+            if result != NS_OK {
+                error!(
+                    "Error notifying disconnected={} : {}",
+                    self.disconnected, result
+                );
             } else {
-                self.observer.get().unwrap().Reconnected()
+                debug!("Notified observer, disconnected={}", self.disconnected);
             }
-        };
-        if result != NS_OK {
-            error!(
-                "Error notifying disconnected={} : {}",
-                self.disconnected, result
-            );
         } else {
-            debug!("Notified observer, disconnected={}", self.disconnected);
+            error!("Failed to get nsISidlConnectionObserver object.");
         }
     }
 

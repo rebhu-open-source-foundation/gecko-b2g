@@ -124,7 +124,7 @@ macro_rules! impl_event_listener {
             key: usize,
         ) -> Result<(), nsresult> {
             let handler =
-                ThreadPtrHolder::new(cstr!("nsISidlEventListener"), RefPtr::new(handler)).unwrap();
+                ThreadPtrHolder::new(cstr!("nsISidlEventListener"), RefPtr::new(handler))?;
 
             self.event_manager
                 .lock()
@@ -179,7 +179,7 @@ macro_rules! xpcom_sidl_event_target {
                 );
                 self.pending_listeners.lock().push((
                     event,
-                    ThreadPtrHolder::new(cstr!("nsISidlEventListener"), RefPtr::new(handler)).unwrap(),
+                    ThreadPtrHolder::new(cstr!("nsISidlEventListener"), RefPtr::new(handler))?,
                     key,
                 ));
             }

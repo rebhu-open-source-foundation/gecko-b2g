@@ -566,9 +566,12 @@ impl GeckoBridgeXpcom {
         });
 
         let obs = instance.coerce::<nsISidlConnectionObserver>();
-        transport.add_connection_observer(
-            ThreadPtrHolder::new(cstr!("nsISidlConnectionObserver"), RefPtr::new(obs)).unwrap(),
-        );
+        match ThreadPtrHolder::new(cstr!("nsISidlConnectionObserver"), RefPtr::new(obs)) {
+            Ok(obs) => {
+                transport.add_connection_observer(obs);
+            }
+            Err(err) => error!("Failed to create connection observer: {}", err),
+        }
 
         instance
     }
@@ -585,10 +588,10 @@ impl GeckoBridgeXpcom {
         debug!("GeckoBridgeXpcom::set_apps_service_delegate");
 
         let delegate =
-            ThreadPtrHolder::new(cstr!("nsIAppsServiceDelegate"), RefPtr::new(delegate)).unwrap();
+            ThreadPtrHolder::new(cstr!("nsIAppsServiceDelegate"), RefPtr::new(delegate))?;
 
         let callback =
-            ThreadPtrHolder::new(cstr!("nsISidlDefaultResponse"), RefPtr::new(callback)).unwrap();
+            ThreadPtrHolder::new(cstr!("nsISidlDefaultResponse"), RefPtr::new(callback))?;
         let task = (SidlCallTask::new(callback), delegate);
 
         if !self.ensure_service() {
@@ -614,10 +617,10 @@ impl GeckoBridgeXpcom {
         debug!("GeckoBridgeXpcom::set_mobile_manager_delegate");
 
         let delegate =
-            ThreadPtrHolder::new(cstr!("nsIMobileManagerDelegate"), RefPtr::new(delegate)).unwrap();
+            ThreadPtrHolder::new(cstr!("nsIMobileManagerDelegate"), RefPtr::new(delegate))?;
 
         let callback =
-            ThreadPtrHolder::new(cstr!("nsISidlDefaultResponse"), RefPtr::new(callback)).unwrap();
+            ThreadPtrHolder::new(cstr!("nsISidlDefaultResponse"), RefPtr::new(callback))?;
         let task = (SidlCallTask::new(callback), delegate);
 
         if !self.ensure_service() {
@@ -643,11 +646,10 @@ impl GeckoBridgeXpcom {
         debug!("GeckoBridgeXpcom::set_network_manager_delegate");
 
         let delegate =
-            ThreadPtrHolder::new(cstr!("nsINetworkManagerDelegate"), RefPtr::new(delegate))
-                .unwrap();
+            ThreadPtrHolder::new(cstr!("nsINetworkManagerDelegate"), RefPtr::new(delegate))?;
 
         let callback =
-            ThreadPtrHolder::new(cstr!("nsISidlDefaultResponse"), RefPtr::new(callback)).unwrap();
+            ThreadPtrHolder::new(cstr!("nsISidlDefaultResponse"), RefPtr::new(callback))?;
         let task = (SidlCallTask::new(callback), delegate);
 
         if !self.ensure_service() {
@@ -673,10 +675,10 @@ impl GeckoBridgeXpcom {
         debug!("GeckoBridgeXpcom::set_power_manager_delegate");
 
         let delegate =
-            ThreadPtrHolder::new(cstr!("nsIPowerManagerDelegate"), RefPtr::new(delegate)).unwrap();
+            ThreadPtrHolder::new(cstr!("nsIPowerManagerDelegate"), RefPtr::new(delegate))?;
 
         let callback =
-            ThreadPtrHolder::new(cstr!("nsISidlDefaultResponse"), RefPtr::new(callback)).unwrap();
+            ThreadPtrHolder::new(cstr!("nsISidlDefaultResponse"), RefPtr::new(callback))?;
         let task = (SidlCallTask::new(callback), delegate);
 
         if !self.ensure_service() {
@@ -701,11 +703,10 @@ impl GeckoBridgeXpcom {
     ) -> Result<(), nsresult> {
         debug!("GeckoBridgeXpcom::set_preference_delegate");
 
-        let delegate =
-            ThreadPtrHolder::new(cstr!("nsIPreferenceDelegate"), RefPtr::new(delegate)).unwrap();
+        let delegate = ThreadPtrHolder::new(cstr!("nsIPreferenceDelegate"), RefPtr::new(delegate))?;
 
         let callback =
-            ThreadPtrHolder::new(cstr!("nsISidlDefaultResponse"), RefPtr::new(callback)).unwrap();
+            ThreadPtrHolder::new(cstr!("nsISidlDefaultResponse"), RefPtr::new(callback))?;
         let task = (SidlCallTask::new(callback), delegate);
 
         if !self.ensure_service() {
@@ -732,7 +733,7 @@ impl GeckoBridgeXpcom {
         debug!("GeckoBridgeXpcom::char_pref_changed");
 
         let callback =
-            ThreadPtrHolder::new(cstr!("nsISidlDefaultResponse"), RefPtr::new(callback)).unwrap();
+            ThreadPtrHolder::new(cstr!("nsISidlDefaultResponse"), RefPtr::new(callback))?;
         let task = (
             SidlCallTask::new(callback),
             (name.to_string(), value.to_string()),
@@ -762,7 +763,7 @@ impl GeckoBridgeXpcom {
         debug!("GeckoBridgeXpcom::int_pref_changed");
 
         let callback =
-            ThreadPtrHolder::new(cstr!("nsISidlDefaultResponse"), RefPtr::new(callback)).unwrap();
+            ThreadPtrHolder::new(cstr!("nsISidlDefaultResponse"), RefPtr::new(callback))?;
         let task = (SidlCallTask::new(callback), (name.to_string(), value));
 
         if !self.ensure_service() {
@@ -789,7 +790,7 @@ impl GeckoBridgeXpcom {
         debug!("GeckoBridgeXpcom::bool_pref_changed");
 
         let callback =
-            ThreadPtrHolder::new(cstr!("nsISidlDefaultResponse"), RefPtr::new(callback)).unwrap();
+            ThreadPtrHolder::new(cstr!("nsISidlDefaultResponse"), RefPtr::new(callback))?;
         let task = (SidlCallTask::new(callback), (name.to_string(), value));
 
         if !self.ensure_service() {
@@ -819,7 +820,7 @@ impl GeckoBridgeXpcom {
             .map(|item| item.to_string())
             .collect();
         let callback =
-            ThreadPtrHolder::new(cstr!("nsISidlDefaultResponse"), RefPtr::new(callback)).unwrap();
+            ThreadPtrHolder::new(cstr!("nsISidlDefaultResponse"), RefPtr::new(callback))?;
         let task = (
             SidlCallTask::new(callback),
             (token.to_string(), url.to_string(), permissions),
@@ -891,7 +892,7 @@ impl GeckoBridgeXpcom {
         }
 
         let callback =
-            ThreadPtrHolder::new(cstr!("nsISidlDefaultResponse"), RefPtr::new(callback)).unwrap();
+            ThreadPtrHolder::new(cstr!("nsISidlDefaultResponse"), RefPtr::new(callback))?;
         let task = (SidlCallTask::new(callback), contacts_info);
 
         if !self.ensure_service() {

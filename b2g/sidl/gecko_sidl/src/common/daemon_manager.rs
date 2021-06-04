@@ -40,10 +40,9 @@ impl DaemonManagerXpcom {
         self.observer
             .set(Some(transport.next_connection_observer_id()));
 
-        transport.add_connection_observer(
-            ThreadPtrHolder::new(cstr!("nsISidlConnectionObserver"), RefPtr::new(observer))
-                .unwrap(),
-        );
+        let obs = ThreadPtrHolder::new(cstr!("nsISidlConnectionObserver"), RefPtr::new(observer))?;
+        transport.add_connection_observer(obs);
+
         Ok(())
     }
 

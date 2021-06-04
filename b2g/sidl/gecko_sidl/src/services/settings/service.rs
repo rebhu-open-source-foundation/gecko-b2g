@@ -148,26 +148,25 @@ impl SessionObject for SettingsManagerImpl {
                 let listeners = event_manager
                     .handlers
                     .get(&(nsISettingsManager::CHANGE_EVENT as _));
-                let count = if let Some(listeners) = listeners {
-                    listeners.len()
+                if let Some(listeners) = listeners {
+                    debug!(
+                        "Received settings change for {}, will dispatch to {} listeners.",
+                        event_info.name,
+                        listeners.len()
+                    );
+                    for listener in listeners {
+                        // We are not on the calling thread, so dispatch a task.
+                        let mut task = SidlEventTask::new(listener.0.clone());
+                        task.set_value(event_info.clone());
+                        let _ = TaskRunnable::new("SidlEvent", Box::new(task.clone()))
+                            .and_then(|r| TaskRunnable::dispatch(r, task.thread()));
+                    }
                 } else {
-                    0
+                    debug!(
+                        "Received settings change for {}, no listeners.",
+                        event_info.name
+                    );
                 };
-                debug!(
-                    "Received event {:?}, will dispatch to {} listeners.",
-                    event_info, count
-                );
-                if count == 0 {
-                    return;
-                }
-
-                for listener in listeners.unwrap() {
-                    // We are not on the calling thread, so dispatch a task.
-                    let mut task = SidlEventTask::new(listener.0.clone());
-                    task.set_value(event_info.clone());
-                    let _ = TaskRunnable::new("SidlEvent", Box::new(task.clone()))
-                        .and_then(|r| TaskRunnable::dispatch(r, task.thread()));
-                }
             }
             Ok(other) => error!("Unexpected setting event: {:?}", other),
             Err(err) => error!("Failed to deserialize settings event: {}", err),
@@ -458,9 +457,12 @@ impl SettingsManagerXpcom {
         });
 
         let obs = instance.coerce::<nsISidlConnectionObserver>();
-        transport.add_connection_observer(
-            ThreadPtrHolder::new(cstr!("nsISidlConnectionObserver"), RefPtr::new(obs)).unwrap(),
-        );
+        match ThreadPtrHolder::new(cstr!("nsISidlConnectionObserver"), RefPtr::new(obs)) {
+            Ok(obs) => {
+                transport.add_connection_observer(obs);
+            }
+            Err(err) => error!("Failed to create connection observer: {}", err),
+        }
 
         instance
     }
@@ -475,7 +477,7 @@ impl SettingsManagerXpcom {
         debug!("SettingsManagerXpcom::clear");
 
         let callback =
-            ThreadPtrHolder::new(cstr!("nsISidlDefaultResponse"), RefPtr::new(callback)).unwrap();
+            ThreadPtrHolder::new(cstr!("nsISidlDefaultResponse"), RefPtr::new(callback))?;
         let task = SidlCallTask::new(callback);
 
         if !self.ensure_service() {
@@ -536,7 +538,7 @@ impl SettingsManagerXpcom {
         }
 
         let callback =
-            ThreadPtrHolder::new(cstr!("nsISidlDefaultResponse"), RefPtr::new(callback)).unwrap();
+            ThreadPtrHolder::new(cstr!("nsISidlDefaultResponse"), RefPtr::new(callback))?;
         let task = (SidlCallTask::new(callback), settings_info);
 
         if !self.ensure_service() {
@@ -559,7 +561,7 @@ impl SettingsManagerXpcom {
         debug!("SettingsManagerXpcom::get");
 
         let callback =
-            ThreadPtrHolder::new(cstr!("nsISettingsGetResponse"), RefPtr::new(callback)).unwrap();
+            ThreadPtrHolder::new(cstr!("nsISettingsGetResponse"), RefPtr::new(callback))?;
         let task = (SidlCallTask::new(callback), name.to_string());
 
         if !self.ensure_service() {
@@ -592,8 +594,7 @@ impl SettingsManagerXpcom {
             .collect();
 
         let callback =
-            ThreadPtrHolder::new(cstr!("nsISettingsGetBatchResponse"), RefPtr::new(callback))
-                .unwrap();
+            ThreadPtrHolder::new(cstr!("nsISettingsGetBatchResponse"), RefPtr::new(callback))?;
         let task = (SidlCallTask::new(callback), names);
 
         if !self.ensure_service() {
@@ -622,11 +623,10 @@ impl SettingsManagerXpcom {
         debug!("SettingsManagerXpcom::add_observer {}", name);
 
         let key: usize = unsafe { std::mem::transmute(observer) };
-        let observer =
-            ThreadPtrHolder::new(cstr!("nsISettingsObserver"), RefPtr::new(observer)).unwrap();
+        let observer = ThreadPtrHolder::new(cstr!("nsISettingsObserver"), RefPtr::new(observer))?;
 
         let callback =
-            ThreadPtrHolder::new(cstr!("nsISidlDefaultResponse"), RefPtr::new(callback)).unwrap();
+            ThreadPtrHolder::new(cstr!("nsISidlDefaultResponse"), RefPtr::new(callback))?;
         let task = (
             SidlCallTask::new(callback),
             (name.to_string(), observer, key),
@@ -658,7 +658,7 @@ impl SettingsManagerXpcom {
         let key: usize = unsafe { std::mem::transmute(observer) };
 
         let callback =
-            ThreadPtrHolder::new(cstr!("nsISidlDefaultResponse"), RefPtr::new(callback)).unwrap();
+            ThreadPtrHolder::new(cstr!("nsISidlDefaultResponse"), RefPtr::new(callback))?;
         let task = (SidlCallTask::new(callback), (name.to_string(), key));
 
         if !self.ensure_service() {
