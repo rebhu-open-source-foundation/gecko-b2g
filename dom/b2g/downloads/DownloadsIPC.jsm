@@ -140,7 +140,7 @@ this.DownloadsIPC = {
           if (!download.error) {
             this.downloadPromises[download.promiseId].resolve(download);
           } else {
-            this.downloadPromises[download.promiseId].reject(download);
+            this.downloadPromises[download.promiseId].reject(download.error);
           }
           delete this.downloadPromises[download.promiseId];
         }

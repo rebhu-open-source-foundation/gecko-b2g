@@ -287,18 +287,26 @@ DownloadObject.prototype = {
   pause() {
     DEBUG && debug("DownloadObject pause " + this.id);
     let id = this.id;
+    let self = this;
     // We need to wrap the Promise.jsm promise in a "real" DOM promise...
     return this.createPromise(function(aResolve, aReject) {
-      DownloadsIPC.pause(id).then(aResolve, aReject);
+      DownloadsIPC.pause(id).then(function(aResult) {
+        let domDownload = getOrCreateDownloadObject(self._window, aResult);
+        aResolve(domDownload);
+      }, aReject);
     });
   },
 
   resume() {
     DEBUG && debug("DownloadObject resume " + this.id);
     let id = this.id;
+    let self = this;
     // We need to wrap the Promise.jsm promise in a "real" DOM promise...
     return this.createPromise(function(aResolve, aReject) {
-      DownloadsIPC.resume(id).then(aResolve, aReject);
+      DownloadsIPC.resume(id).then(function(aResult) {
+        let domDownload = getOrCreateDownloadObject(self._window, aResult);
+        aResolve(domDownload);
+      }, aReject);
     });
   },
 
