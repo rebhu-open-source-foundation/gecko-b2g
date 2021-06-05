@@ -7,12 +7,12 @@
 use super::messages::*;
 use super::setting_info::SettingInfoXpcom;
 use crate::common::core::{BaseMessage, BaseMessageKind};
+use crate::common::sidl_task::{SidlRunnable, SidlTask};
 use crate::common::traits::TrackerId;
 use crate::common::uds_transport::{from_base_message, SessionObject, XpcomSessionObject};
 use bincode::Options;
 use log::{debug, error};
-use moz_task::{Task, TaskRunnable, ThreadPtrHandle};
-use nserror::nsresult;
+use moz_task::ThreadPtrHandle;
 use std::any::Any;
 use xpcom::interfaces::nsISettingsObserver;
 
@@ -47,8 +47,8 @@ impl SessionObject for ObserverWrapper {
                 xpcom: self.xpcom.clone(),
                 setting_info,
             };
-            let _ = TaskRunnable::new("ObserverWrapper", Box::new(task))
-                .and_then(|r| TaskRunnable::dispatch(r, self.xpcom.owning_thread()));
+            let _ = SidlRunnable::new("ObserverWrapper", Box::new(task))
+                .and_then(|r| SidlRunnable::dispatch(r, self.xpcom.owning_thread()));
             // Unconditionally Return a success response for now.
             let payload = SettingsManagerFromClient::SettingObserverCallbackSuccess;
 
@@ -89,7 +89,7 @@ struct ObserverTask {
     setting_info: SettingInfo,
 }
 
-impl Task for ObserverTask {
+impl SidlTask for ObserverTask {
     fn run(&self) {
         // Call the method on the initial thread.
         debug!("ObserverTask::run");
@@ -99,10 +99,5 @@ impl Task for ObserverTask {
                 object.ObserveSetting(setting.coerce());
             }
         }
-    }
-
-    fn done(&self) -> Result<(), nsresult> {
-        // We don't return a result to the calling thread, so nothing to do.
-        Ok(())
     }
 }

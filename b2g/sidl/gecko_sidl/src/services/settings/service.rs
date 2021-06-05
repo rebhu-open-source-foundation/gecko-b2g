@@ -19,7 +19,7 @@ use crate::services::settings::messages::*;
 use crate::services::settings::observer::*;
 use crate::settinginfo_as_isettinginfo;
 use log::{debug, error};
-use moz_task::{TaskRunnable, ThreadPtrHandle, ThreadPtrHolder};
+use moz_task::{ThreadPtrHandle, ThreadPtrHolder};
 use nserror::{nsresult, NS_ERROR_INVALID_ARG, NS_OK};
 use nsstring::*;
 use parking_lot::Mutex;
@@ -158,8 +158,8 @@ impl SessionObject for SettingsManagerImpl {
                         // We are not on the calling thread, so dispatch a task.
                         let mut task = SidlEventTask::new(listener.0.clone());
                         task.set_value(event_info.clone());
-                        let _ = TaskRunnable::new("SidlEvent", Box::new(task.clone()))
-                            .and_then(|r| TaskRunnable::dispatch(r, task.thread()));
+                        let _ = SidlRunnable::new("SidlEvent", Box::new(task.clone()))
+                            .and_then(|r| SidlRunnable::dispatch(r, task.thread()));
                     }
                 } else {
                     debug!(

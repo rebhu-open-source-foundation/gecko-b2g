@@ -6,13 +6,14 @@
 
 use super::messages::*;
 use crate::common::core::{BaseMessage, BaseMessageKind};
+use crate::common::sidl_task::{SidlRunnable, SidlTask};
 use crate::common::traits::TrackerId;
 use crate::common::uds_transport::UdsTransport;
 use crate::common::uds_transport::{from_base_message, SessionObject, XpcomSessionObject};
 use bincode::Options;
 use log::{debug, error};
-use moz_task::{Task, TaskRunnable, ThreadPtrHandle};
-use nserror::{nsresult, NS_OK};
+use moz_task::ThreadPtrHandle;
+use nserror::NS_OK;
 use nsstring::*;
 use std::any::Any;
 use xpcom::interfaces::nsIMobileManagerDelegate;
@@ -48,8 +49,8 @@ impl MobileManagerDelegate {
             object_id: self.object_id,
             request_id,
         };
-        let _ = TaskRunnable::new("MobileManagerDelegate", Box::new(task))
-            .and_then(|r| TaskRunnable::dispatch(r, self.xpcom.owning_thread()));
+        let _ = SidlRunnable::new("MobileManagerDelegate", Box::new(task))
+            .and_then(|r| SidlRunnable::dispatch(r, self.xpcom.owning_thread()));
     }
 }
 
@@ -115,7 +116,7 @@ impl MobileManagerDelegateTask {
     }
 }
 
-impl Task for MobileManagerDelegateTask {
+impl SidlTask for MobileManagerDelegateTask {
     fn run(&self) {
         // Call the method on the initial thread.
         debug!("MobileManagerDelegateTask::run");
@@ -155,10 +156,5 @@ impl Task for MobileManagerDelegateTask {
                 }
             }
         }
-    }
-
-    fn done(&self) -> Result<(), nsresult> {
-        // We don't return a result to the calling thread, so nothing to do.
-        Ok(())
     }
 }

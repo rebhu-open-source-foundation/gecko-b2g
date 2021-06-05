@@ -8,13 +8,14 @@ use super::messages::*;
 use super::service::ObjectIdGenerator;
 use crate::common::client_object::*;
 use crate::common::core::{BaseMessage, BaseMessageKind};
+use crate::common::sidl_task::{SidlRunnable, SidlTask};
 use crate::common::traits::{Shared, TrackerId};
 use crate::common::uds_transport::{
     from_base_message, SessionObject, UdsTransport, XpcomSessionObject,
 };
 use bincode::Options;
 use log::{debug, error};
-use moz_task::{Task, TaskRunnable, ThreadPtrHandle, ThreadPtrHolder};
+use moz_task::{ThreadPtrHandle, ThreadPtrHolder};
 use nserror::{nsresult, NS_ERROR_NOT_AVAILABLE, NS_OK};
 use nsstring::*;
 use std::any::Any;
@@ -65,8 +66,8 @@ impl WakeLockDelegate {
             topic: self.topic.clone(),
             wakelocks: self.wakelocks.clone(),
         };
-        let _ = TaskRunnable::new("WakeLockTask", Box::new(task))
-            .and_then(|r| TaskRunnable::dispatch(r, self.xpcom.owning_thread()));
+        let _ = SidlRunnable::new("WakeLockTask", Box::new(task))
+            .and_then(|r| SidlRunnable::dispatch(r, self.xpcom.owning_thread()));
     }
 }
 
@@ -142,7 +143,7 @@ impl WakeLockTask {
     }
 }
 
-impl Task for WakeLockTask {
+impl SidlTask for WakeLockTask {
     fn run(&self) {
         // Call the method on the initial thread.
         debug!("WakeLockTask::run");
@@ -167,11 +168,6 @@ impl Task for WakeLockTask {
                 self.wakelocks.lock().remove(&self.object_id);
             }
         }
-    }
-
-    fn done(&self) -> Result<(), nsresult> {
-        // We don't return a result to the calling thread, so nothing to do.
-        Ok(())
     }
 }
 
@@ -214,8 +210,8 @@ impl PowerManagerDelegate {
             wakelocks: self.wakelocks.clone(),
             request_id,
         };
-        let _ = TaskRunnable::new("PowerManagerDelegate", Box::new(task))
-            .and_then(|r| TaskRunnable::dispatch(r, self.xpcom.owning_thread()));
+        let _ = SidlRunnable::new("PowerManagerDelegate", Box::new(task))
+            .and_then(|r| SidlRunnable::dispatch(r, self.xpcom.owning_thread()));
     }
 }
 
@@ -315,7 +311,7 @@ impl PowerManagerDelegateTask {
     }
 }
 
-impl Task for PowerManagerDelegateTask {
+impl SidlTask for PowerManagerDelegateTask {
     fn run(&self) {
         // Call the method on the initial thread.
         debug!("PowerManagerDelegateTask::run");
@@ -333,7 +329,8 @@ impl Task for PowerManagerDelegateTask {
                     debug!("PowerManagerDelegateTask:: request wakelock {}", topic);
                     let wakelock_object_id = self.object_id_generator.lock().next_id();
                     // Default value to please the compiler.
-                    let mut payload = GeckoBridgeFromClient::PowerManagerDelegateRequestWakelockError;
+                    let mut payload =
+                        GeckoBridgeFromClient::PowerManagerDelegateRequestWakelockError;
                     if let Ok(wakelock_ptr) = self.new_wakelock(topic) {
                         if let Ok(holder) = ThreadPtrHolder::new(cstr!("nsIWakeLock"), wakelock_ptr)
                         {
@@ -362,10 +359,5 @@ impl Task for PowerManagerDelegateTask {
                 }
             }
         }
-    }
-
-    fn done(&self) -> Result<(), nsresult> {
-        // We don't return a result to the calling thread, so nothing to do.
-        Ok(())
     }
 }

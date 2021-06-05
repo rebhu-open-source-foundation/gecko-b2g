@@ -15,7 +15,7 @@ use crate::services::core::service::*;
 use crate::services::time::messages::*;
 use crate::services::time::observer::*;
 use log::{debug, error};
-use moz_task::{TaskRunnable, ThreadPtrHandle, ThreadPtrHolder};
+use moz_task::{ThreadPtrHandle, ThreadPtrHolder};
 use nserror::{nsresult, NS_ERROR_INVALID_ARG, NS_OK};
 use nsstring::*;
 use parking_lot::Mutex;

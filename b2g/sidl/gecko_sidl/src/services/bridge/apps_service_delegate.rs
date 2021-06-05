@@ -6,12 +6,12 @@
 
 use super::messages::*;
 use crate::common::core::{BaseMessage, BaseMessageKind};
+use crate::common::sidl_task::{SidlRunnable, SidlTask};
 use crate::common::traits::TrackerId;
 use crate::common::uds_transport::{from_base_message, SessionObject, XpcomSessionObject};
 use bincode::Options;
 use log::{debug, error};
-use moz_task::{Task, TaskRunnable, ThreadPtrHandle};
-use nserror::nsresult;
+use moz_task::ThreadPtrHandle;
 use nsstring::*;
 use std::any::Any;
 use xpcom::interfaces::nsIAppsServiceDelegate;
@@ -64,8 +64,8 @@ impl AppsServiceDelegate {
             command,
         };
 
-        let _ = TaskRunnable::new("AppsServiceDelegate", Box::new(task))
-            .and_then(|r| TaskRunnable::dispatch(r, self.xpcom.owning_thread()));
+        let _ = SidlRunnable::new("AppsServiceDelegate", Box::new(task))
+            .and_then(|r| SidlRunnable::dispatch(r, self.xpcom.owning_thread()));
 
         // Wrap the payload in a base message and send it.
         let message = BaseMessage {
@@ -177,7 +177,7 @@ struct AppsServiceDelegateTask {
     command: AppsServiceCommand,
 }
 
-impl Task for AppsServiceDelegateTask {
+impl SidlTask for AppsServiceDelegateTask {
     fn run(&self) {
         // Call the method on the initial thread.
         debug!("AppsServiceDelegateTask::run");
@@ -235,11 +235,5 @@ impl Task for AppsServiceDelegateTask {
                 }
             }
         }
-    }
-
-    fn done(&self) -> Result<(), nsresult> {
-        debug!("AppsServiceDelegateTask::Done");
-        // We don't return a result to the calling thread, so nothing to do.
-        Ok(())
     }
 }

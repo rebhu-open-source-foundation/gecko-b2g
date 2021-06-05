@@ -7,15 +7,66 @@ use crate::common::traits::{Shared, TrackerId};
 use crate::common::uds_transport::{ResponseReceiver, SessionObject, UdsResult, UdsTransport};
 use crate::services::core::service::CoreGetServiceReceiverDelegate;
 use log::{debug, error};
-use moz_task::{Task, ThreadPtrHandle};
-use nserror::nsresult;
+use moz_task::{DispatchOptions, ThreadPtrHandle};
+use nserror::{nsresult, NS_OK};
 use parking_lot::Mutex;
 use serde::Serialize;
 use std::sync::Arc;
 use xpcom::{
-    interfaces::{nsISidlEventListener, nsIThread},
-    XpCom,
+    interfaces::{nsIEventTarget, nsISidlEventListener, nsIThread},
+    RefPtr, XpCom,
 };
+
+/// A task represents an operation that asynchronously executes on a target
+/// thread.
+pub trait SidlTask {
+    fn run(&self);
+}
+
+/// The struct responsible for dispatching a Task by calling its run() method
+/// on the target thread.
+///
+/// This is a simplified version of moz_task::TaskRunnable that doesn't dispatch
+/// back to the calling thread since it's the Rust i/o thread that is not an xpcom
+/// event target.
+#[derive(xpcom)]
+#[xpimplements(nsIRunnable)]
+#[refcnt = "atomic"]
+pub struct InitSidlRunnable {
+    pub name: &'static str,
+    task: Box<dyn SidlTask + Send + Sync>,
+}
+
+impl SidlRunnable {
+    pub fn new(
+        name: &'static str,
+        task: Box<dyn SidlTask + Send + Sync>,
+    ) -> Result<RefPtr<SidlRunnable>, nsresult> {
+        Ok(SidlRunnable::allocate(InitSidlRunnable { name, task }))
+    }
+
+    /// Dispatches this task runnable to an event target with the default
+    /// options.
+    ///
+    /// Note that this is an associated function, not a method, because it takes
+    /// an owned reference to the runnable, and must be called like
+    /// `SidlRunnable::dispatch(runnable, target)` and *not*
+    /// `runnable.dispatch(target)`.
+    ///
+    /// This function leaks the runnable if dispatch fails.
+    #[inline]
+    pub fn dispatch(this: RefPtr<Self>, target: &nsIEventTarget) -> Result<(), nsresult> {
+        debug!("Dispatching {}", this.name);
+        unsafe { target.DispatchFromScript(this.coerce(), DispatchOptions::default().flags()) }
+            .to_result()
+    }
+
+    xpcom_method!(run => Run());
+    fn run(&self) -> Result<(), nsresult> {
+        self.task.run();
+        Ok(())
+    }
+}
 
 // SIDL call results always have a success and an error case.
 // This struct makes it possible to create tasks matching
@@ -72,7 +123,7 @@ where
     }
 }
 
-impl<S, E, I> Task for SidlCallTask<S, E, I>
+impl<S, E, I> SidlTask for SidlCallTask<S, E, I>
 where
     S: Clone,
     E: Clone,
@@ -90,11 +141,6 @@ where
         } else {
             error!("Failed to get callback");
         }
-    }
-
-    fn done(&self) -> Result<(), nsresult> {
-        // We don't return a result to the calling thread, so nothing to do.
-        Ok(())
     }
 }
 
@@ -196,14 +242,14 @@ macro_rules! task_receiver {
                     Ok($base::$succname) => {
                         debug!("{}", stringify!($succname));
                         self.task.set_value(Ok(()));
-                        let _ = TaskRunnable::new(stringify!($name), Box::new(self.task.clone()))
-                            .and_then(|r| TaskRunnable::dispatch(r, self.task.thread()));
+                        let _ = SidlRunnable::new(stringify!($name), Box::new(self.task.clone()))
+                            .and_then(|r| SidlRunnable::dispatch(r, self.task.thread()));
                     }
                     Ok($base::$errname) => {
                         debug!("{}", stringify!($errname));
                         self.task.set_value(Err(()));
-                        let _ = TaskRunnable::new(stringify!($name), Box::new(self.task.clone()))
-                            .and_then(|r| TaskRunnable::dispatch(r, self.task.thread()));
+                        let _ = SidlRunnable::new(stringify!($name), Box::new(self.task.clone()))
+                            .and_then(|r| SidlRunnable::dispatch(r, self.task.thread()));
                     }
                     other => {
                         error!("Unexpected {} message: {:?}", stringify!($name), other);
@@ -229,14 +275,14 @@ macro_rules! task_receiver_success {
                     Ok($base::$succname(value)) => {
                         debug!("{}", stringify!($succname));
                         self.task.set_value(Ok(value.into()));
-                        let _ = TaskRunnable::new(stringify!($name), Box::new(self.task.clone()))
-                            .and_then(|r| TaskRunnable::dispatch(r, self.task.thread()));
+                        let _ = SidlRunnable::new(stringify!($name), Box::new(self.task.clone()))
+                            .and_then(|r| SidlRunnable::dispatch(r, self.task.thread()));
                     }
                     Ok($base::$errname) => {
                         debug!("{}", stringify!($errname));
                         self.task.set_value(Err(()));
-                        let _ = TaskRunnable::new(stringify!($name), Box::new(self.task.clone()))
-                            .and_then(|r| TaskRunnable::dispatch(r, self.task.thread()));
+                        let _ = SidlRunnable::new(stringify!($name), Box::new(self.task.clone()))
+                            .and_then(|r| SidlRunnable::dispatch(r, self.task.thread()));
                     }
                     other => {
                         error!("Unexpected {} message: {:?}", stringify!($name), other);
@@ -262,14 +308,14 @@ macro_rules! task_receiver_success_error {
                     Ok($base::$succname(value)) => {
                         debug!("{}", stringify!($succname));
                         self.task.set_value(Ok(value.into()));
-                        let _ = TaskRunnable::new(stringify!($name), Box::new(self.task.clone()))
-                            .and_then(|r| TaskRunnable::dispatch(r, self.task.thread()));
+                        let _ = SidlRunnable::new(stringify!($name), Box::new(self.task.clone()))
+                            .and_then(|r| SidlRunnable::dispatch(r, self.task.thread()));
                     }
                     Ok($base::$errname(value)) => {
                         debug!("{}", stringify!($errname));
                         self.task.set_value(Err(value.into()));
-                        let _ = TaskRunnable::new(stringify!($name), Box::new(self.task.clone()))
-                            .and_then(|r| TaskRunnable::dispatch(r, self.task.thread()));
+                        let _ = SidlRunnable::new(stringify!($name), Box::new(self.task.clone()))
+                            .and_then(|r| SidlRunnable::dispatch(r, self.task.thread()));
                     }
                     other => {
                         error!("Unexpected {} message: {:?}", stringify!($name), other);
@@ -456,7 +502,7 @@ where
     }
 }
 
-impl<S, I> Task for SidlEventTask<S, I>
+impl<S, I> SidlTask for SidlEventTask<S, I>
 where
     S: Clone,
     I: XpCom + 'static + SidlEvent<Success = S>,
@@ -472,11 +518,6 @@ where
         } else {
             error!("Failed to get event handler");
         }
-    }
-
-    fn done(&self) -> Result<(), nsresult> {
-        // We don't return a result to the calling thread, so nothing to do.
-        Ok(())
     }
 }
 

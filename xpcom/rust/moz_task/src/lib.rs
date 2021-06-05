@@ -189,7 +189,7 @@ impl DispatchOptions {
 
     /// Returns the set of bitflags to pass to `DispatchFromScript`.
     #[inline]
-    fn flags(self) -> u32 {
+    pub fn flags(self) -> u32 {
         self.0
     }
 }
