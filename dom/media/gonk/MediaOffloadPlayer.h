@@ -21,7 +21,8 @@ class MediaOffloadPlayer : public DecoderDoctorLifeLogger<MediaOffloadPlayer> {
  public:
   typedef MediaDecoderOwner::NextFrameStatus NextFrameStatus;
 
-  static RefPtr<MediaOffloadPlayer> Create(MediaFormatReaderInit& aInit,
+  static RefPtr<MediaOffloadPlayer> Create(MediaDecoder* aDecoder,
+                                           MediaFormatReaderInit& aInit,
                                            nsIURI* aURI);
 
   /*
