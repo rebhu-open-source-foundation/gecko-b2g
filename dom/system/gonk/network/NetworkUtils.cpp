@@ -386,54 +386,12 @@ static void split(char* str, const char* sep, nsTArray<nsCString>& result) {
   }
 }
 
-/**
- * Helper function that implement join function.
- */
-static void join(nsTArray<nsCString>& array, const char* sep,
-                 const uint32_t maxlen, char* result) {
-#define CHECK_LENGTH(len, add, max) \
-  len += add;                       \
-  if (len > max - 1) return;
-
-  uint32_t len = 0;
-  uint32_t seplen = strlen(sep);
-
-  if (array.Length() > 0) {
-    CHECK_LENGTH(len, strlen(array[0].get()), maxlen)
-    strcpy(result, array[0].get());
-
-    for (uint32_t i = 1; i < array.Length(); i++) {
-      CHECK_LENGTH(len, seplen, maxlen)
-      strcat(result, sep);
-
-      CHECK_LENGTH(len, strlen(array[i].get()), maxlen)
-      strcat(result, array[i].get());
-    }
-  }
-
-#undef CHECK_LEN
-}
-
 [[maybe_unused]] static void convertUTF8toUTF16(nsTArray<nsCString>& narrow,
                                                 nsTArray<nsString>& wide,
                                                 uint32_t length) {
   for (uint32_t i = 0; i < length; i++) {
     wide.AppendElement(NS_ConvertUTF8toUTF16(narrow[i].get()));
   }
-}
-
-/**
- * Helper function to get network interface properties from the system property
- * table.
- */
-static void getIFProperties(const char* ifname, IFProperties& prop) {
-  char key[Property::KEY_MAX_LENGTH];
-  SprintfLiteral(key, "net.%s.gw", ifname);
-  Property::Get(key, prop.gateway, "");
-  SprintfLiteral(key, "net.%s.dns1", ifname);
-  Property::Get(key, prop.dns1, "");
-  SprintfLiteral(key, "net.%s.dns2", ifname);
-  Property::Get(key, prop.dns2, "");
 }
 
 static int getIpType(const char* aIp) {

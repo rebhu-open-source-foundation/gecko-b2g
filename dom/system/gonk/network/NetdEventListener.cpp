@@ -68,9 +68,10 @@ Status NetdEventListener::onDnsEvent(
     const std::string& hostname, const ::std::vector<std::string>& ipAddresses,
     int32_t ipAddressesCount, int32_t uid) {
   char message[BUF_SIZE];
-  SprintfLiteral(message, "%d %d %d %d %s %d %d %s", netId, eventType,
-                 returnCode, latencyMs, hostname.c_str(), uid, ipAddressesCount,
-                 android::base::Join(ipAddresses, " ").c_str());
+  SprintfLiteral(message, "%d %d %d %d %s %s %d %d", netId, eventType,
+                 returnCode, latencyMs, hostname.c_str(),
+                 android::base::Join(ipAddresses, ",").c_str(),
+                 ipAddressesCount, uid);
   NEL_DBG("%s %s", __FUNCTION__, message);
   sendBroadcast(DnsEvent, message);
   return Status::ok();
