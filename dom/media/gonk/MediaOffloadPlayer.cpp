@@ -209,11 +209,7 @@ RefPtr<MediaDecoder::SeekPromise> MediaOffloadPlayer::HandleSeek(
       aVisible ? "user" : "internal", aTarget.GetTime().ToSeconds(),
       aTarget.GetType());
 
-  // If user seeks to a new position, need to exit dormant and fire seek so the
-  // displayed image will be updated.
-  if (aVisible && mVideoFrameContainer) {
-    ExitDormant();
-  }
+  ExitDormant();
 
   // If we are currently seeking or we need to defer seeking, save the job in
   // mPendingSeek. If there is already a pending seek job, reject it and replace
@@ -315,9 +311,6 @@ void MediaOffloadPlayer::EnterDormant() {
   mInDormant = true;
   UpdateCurrentPosition();
   ResetInternal();
-  // This queues a seek job of the current position, and it will be fired when
-  // leaving dormant state.
-  HandleSeek(SeekTarget(mCurrentPosition, SeekTarget::Accurate), false);
 }
 
 void MediaOffloadPlayer::ExitDormant() {
@@ -325,6 +318,11 @@ void MediaOffloadPlayer::ExitDormant() {
   if (mInDormant) {
     LOG("MediaOffloadPlayer::ExitDormant, initializing internal player");
     mInDormant = false;
+    // If there is no pending seek job, set it to current position. It will be
+    // fired after init done.
+    if (!mPendingSeek.Exists()) {
+      HandleSeek(SeekTarget(mCurrentPosition, SeekTarget::Accurate), false);
+    }
     InitInternal();
   }
 }
