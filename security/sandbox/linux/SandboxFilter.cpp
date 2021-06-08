@@ -317,9 +317,11 @@ class SandboxPolicyCommon : public SandboxPolicyBase {
           mode, flags);
       return BlockedSyscallTrap(aArgs, nullptr);
     }
+#if !defined(ANDROID) // AT_EACCESS is not supported in bionic.
     if ((flags & ~AT_EACCESS) == 0) {
       return broker->Access(path, mode);
     }
+#endif
     return ConvertError(ENOSYS);
   }
 
