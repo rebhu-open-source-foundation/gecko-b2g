@@ -6,7 +6,7 @@ const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
-const { Log } = ChromeUtils.import("chrome://marionette/content/log.js");
+const { Log } = ChromeUtils.import("chrome://remote/content/marionette/log.js");
 XPCOMUtils.defineLazyGetter(this, "logger", Log.get);
 
 this.EXPORTED_SYMBOLS = ["MarionetteHelper"];
