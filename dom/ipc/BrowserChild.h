@@ -27,6 +27,7 @@
 #include "mozilla/Attributes.h"
 #include "mozilla/dom/TabContext.h"
 #include "mozilla/dom/CoalescedMouseData.h"
+#include "mozilla/dom/CoalescedTouchData.h"
 #include "mozilla/dom/CoalescedWheelData.h"
 #include "mozilla/dom/MessageManagerCallback.h"
 #include "mozilla/dom/VsyncChild.h"
@@ -302,13 +303,6 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
   mozilla::ipc::IPCResult RecvActivate(uint64_t aActionId);
 
   mozilla::ipc::IPCResult RecvDeactivate(uint64_t aActionId);
-
-  MOZ_CAN_RUN_SCRIPT_BOUNDARY
-  mozilla::ipc::IPCResult RecvMouseEvent(const nsString& aType, const float& aX,
-                                         const float& aY,
-                                         const int32_t& aButton,
-                                         const int32_t& aClickCount,
-                                         const int32_t& aModifiers);
 
   mozilla::ipc::IPCResult RecvRealMouseMoveEvent(
       const mozilla::WidgetMouseEvent& aEvent, const ScrollableLayerGuid& aGuid,
@@ -689,6 +683,8 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
   void FlushAllCoalescedMouseData();
   void ProcessPendingCoalescedMouseDataAndDispatchEvents();
 
+  void ProcessPendingColaescedTouchData();
+
   void HandleRealMouseButtonEvent(const WidgetMouseEvent& aEvent,
                                   const ScrollableLayerGuid& aGuid,
                                   const uint64_t& aInputBlockId);
@@ -787,12 +783,7 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
 
   void UpdateRepeatedKeyEventEndTime(const WidgetKeyboardEvent& aEvent);
 
-  bool MaybeCoalesceWheelEvent(const WidgetWheelEvent& aEvent,
-                               const ScrollableLayerGuid& aGuid,
-                               const uint64_t& aInputBlockId,
-                               bool* aIsNextWheelEvent);
-
-  void MaybeDispatchCoalescedWheelEvent();
+  void DispatchCoalescedWheelEvent();
 
   /**
    * Dispatch aEvent on aEvent.mWidget.
@@ -892,7 +883,10 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
   nsDeque<CoalescedMouseData> mToBeDispatchedMouseData;
 
   CoalescedWheelData mCoalescedWheelData;
+  CoalescedTouchData mCoalescedTouchData;
+
   RefPtr<CoalescedMouseMoveFlusher> mCoalescedMouseEventFlusher;
+  RefPtr<CoalescedTouchMoveFlusher> mCoalescedTouchMoveEventFlusher;
 
   AutoTArray<bool, NUMBER_OF_AUDIO_CHANNELS> mAudioChannelsActive;
 

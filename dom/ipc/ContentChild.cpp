@@ -43,6 +43,7 @@
 #include "mozilla/SharedStyleSheetCache.h"
 #include "mozilla/SimpleEnumerator.h"
 #include "mozilla/SpinEventLoopUntil.h"
+#include "mozilla/StaticPrefs_accessibility.h"
 #include "mozilla/StaticPrefs_dom.h"
 #include "mozilla/StaticPrefs_fission.h"
 #include "mozilla/StaticPrefs_media.h"
@@ -2791,7 +2792,8 @@ mozilla::ipc::IPCResult ContentChild::RecvActivateA11y(
   MOZ_ASSERT(aMainChromeTid != 0);
   mMainChromeTid = aMainChromeTid;
 
-  MOZ_ASSERT(aMsaaID != 0);
+  MOZ_ASSERT(StaticPrefs::accessibility_cache_enabled_AtStartup() ? !aMsaaID
+                                                                  : aMsaaID);
   mMsaaID = aMsaaID;
 #  endif  // XP_WIN
 
@@ -5053,6 +5055,13 @@ OpenBSDPledgePromises(const nsACString& aPath) {
 }
 
 void ExpandUnveilPath(nsAutoCString& path) {
+  // Expand $XDG_RUNTIME_DIR to the environment variable, or ~/.cache
+  nsCString xdgRuntimeDir(PR_GetEnv("XDG_RUNTIME_DIR"));
+  if (xdgRuntimeDir.IsEmpty()) {
+    xdgRuntimeDir = "~/.cache";
+  }
+  path.ReplaceSubstring("$XDG_RUNTIME_DIR", xdgRuntimeDir.get());
+
   // Expand $XDG_CONFIG_HOME to the environment variable, or ~/.config
   nsCString xdgConfigHome(PR_GetEnv("XDG_CONFIG_HOME"));
   if (xdgConfigHome.IsEmpty()) {
@@ -5182,7 +5191,7 @@ bool StartOpenBSDSandbox(GeckoProcessType type) {
       OpenBSDFindPledgeUnveilFilePath("unveil.main", unveilFile);
 
       // Ensure dconf dir exists before we veil the filesystem
-      nsAutoCString dConf("$XDG_CACHE_HOME/dconf");
+      nsAutoCString dConf("$XDG_RUNTIME_DIR/dconf");
       ExpandUnveilPath(dConf);
       MkdirP(dConf);
       break;

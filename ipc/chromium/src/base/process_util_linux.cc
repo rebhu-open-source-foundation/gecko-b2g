@@ -14,6 +14,9 @@
 #include "algorithm"
 
 #include "nsXULAppAPI.h"  // for XRE_GetProcessType
+#if defined(MOZ_CODE_COVERAGE)
+#  include "nsString.h"
+#endif
 
 #if defined(MOZ_ENABLE_FORKSERVER)
 #  include <stdlib.h>

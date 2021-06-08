@@ -4380,7 +4380,7 @@ impl Renderer {
                         if let CompositeTileSurface::Texture { surface: ResolvedSurfaceTexture::Native { id, .. } } = tile.surface {
                             let valid_rect = frame.composite_state.get_surface_rect(
                                 &tile.local_valid_rect,
-                                &tile.local_rect.origin,
+                                &tile.local_rect,
                                 tile.transform_index,
                             ).to_i32();
 

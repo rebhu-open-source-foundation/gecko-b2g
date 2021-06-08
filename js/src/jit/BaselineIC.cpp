@@ -393,6 +393,7 @@ bool ICSupportsPolymorphicTypeData(JSOp op) {
   BaselineICFallbackKind kind =
       BaselineICFallbackKind(FallbackKindTable.lookup(op));
   switch (kind) {
+    case BaselineICFallbackKind::ToBool:
     case BaselineICFallbackKind::TypeOf:
       return true;
     default:
@@ -619,8 +620,6 @@ bool DoToBoolFallback(JSContext* cx, BaselineFrame* frame, ICFallbackStub* stub,
   stub->incrementEnteredCount();
   MaybeNotifyWarp(frame->outerScript(), stub);
   FallbackICSpew(cx, stub, "ToBool");
-
-  MOZ_ASSERT(!arg.isBoolean());
 
   TryAttachStub<ToBoolIRGenerator>("ToBool", cx, frame, stub, arg);
 

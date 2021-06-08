@@ -217,6 +217,8 @@ class MOZ_RAII WarpCacheIRTranspiler : public WarpBuilderShared {
                                        OperandId rhsId,
                                        MCompare::CompareType compareType);
 
+  [[nodiscard]] bool emitTruthyResult(OperandId inputId);
+
   [[nodiscard]] bool emitNewIteratorResult(MNewIterator::Type type,
                                            uint32_t templateObjectOffset);
 
@@ -1810,13 +1812,13 @@ bool WarpCacheIRTranspiler::emitLoadTypedArrayElementExistsResult(
 
 bool WarpCacheIRTranspiler::emitLoadTypedArrayElementResult(
     ObjOperandId objId, IntPtrOperandId indexId, Scalar::Type elementType,
-    bool handleOOB, bool allowDoubleForUint32) {
+    bool handleOOB, bool forceDoubleForUint32) {
   MDefinition* obj = getOperand(objId);
   MDefinition* index = getOperand(indexId);
 
   if (handleOOB) {
     auto* load = MLoadTypedArrayElementHole::New(
-        alloc(), obj, index, elementType, allowDoubleForUint32);
+        alloc(), obj, index, elementType, forceDoubleForUint32);
     add(load);
 
     pushResult(load);
@@ -1833,7 +1835,7 @@ bool WarpCacheIRTranspiler::emitLoadTypedArrayElementResult(
 
   auto* load = MLoadUnboxedScalar::New(alloc(), elements, index, elementType);
   load->setResultType(
-      MIRTypeForArrayBufferViewRead(elementType, allowDoubleForUint32));
+      MIRTypeForArrayBufferViewRead(elementType, forceDoubleForUint32));
   add(load);
 
   pushResult(load);
@@ -2165,7 +2167,7 @@ void WarpCacheIRTranspiler::addDataViewData(MDefinition* obj, Scalar::Type type,
 bool WarpCacheIRTranspiler::emitLoadDataViewValueResult(
     ObjOperandId objId, IntPtrOperandId offsetId,
     BooleanOperandId littleEndianId, Scalar::Type elementType,
-    bool allowDoubleForUint32) {
+    bool forceDoubleForUint32) {
   MDefinition* obj = getOperand(objId);
   MDefinition* offset = getOperand(offsetId);
   MDefinition* littleEndian = getOperand(littleEndianId);
@@ -2185,7 +2187,7 @@ bool WarpCacheIRTranspiler::emitLoadDataViewValueResult(
   add(load);
 
   MIRType knownType =
-      MIRTypeForArrayBufferViewRead(elementType, allowDoubleForUint32);
+      MIRTypeForArrayBufferViewRead(elementType, forceDoubleForUint32);
   load->setResultType(knownType);
 
   pushResult(load);
@@ -2421,11 +2423,11 @@ bool WarpCacheIRTranspiler::emitInt32RightShiftResult(Int32OperandId lhsId,
 
 bool WarpCacheIRTranspiler::emitInt32URightShiftResult(Int32OperandId lhsId,
                                                        Int32OperandId rhsId,
-                                                       bool allowDouble) {
+                                                       bool forceDouble) {
   MDefinition* lhs = getOperand(lhsId);
   MDefinition* rhs = getOperand(rhsId);
 
-  MIRType specialization = allowDouble ? MIRType::Double : MIRType::Int32;
+  MIRType specialization = forceDouble ? MIRType::Double : MIRType::Int32;
   auto* ins = MUrsh::New(alloc(), lhs, rhs, specialization);
   add(ins);
 
@@ -3658,9 +3660,9 @@ bool WarpCacheIRTranspiler::emitAtomicsCompareExchangeResult(
   auto* elements = MArrayBufferViewElements::New(alloc(), obj);
   add(elements);
 
-  bool allowDoubleForUint32 = true;
+  bool forceDoubleForUint32 = true;
   MIRType knownType =
-      MIRTypeForArrayBufferViewRead(elementType, allowDoubleForUint32);
+      MIRTypeForArrayBufferViewRead(elementType, forceDoubleForUint32);
 
   auto* cas = MCompareExchangeTypedArrayElement::New(
       alloc(), elements, index, elementType, expected, replacement);
@@ -3686,9 +3688,9 @@ bool WarpCacheIRTranspiler::emitAtomicsExchangeResult(
   auto* elements = MArrayBufferViewElements::New(alloc(), obj);
   add(elements);
 
-  bool allowDoubleForUint32 = true;
+  bool forceDoubleForUint32 = true;
   MIRType knownType =
-      MIRTypeForArrayBufferViewRead(elementType, allowDoubleForUint32);
+      MIRTypeForArrayBufferViewRead(elementType, forceDoubleForUint32);
 
   auto* exchange = MAtomicExchangeTypedArrayElement::New(
       alloc(), elements, index, value, elementType);
@@ -3716,9 +3718,9 @@ bool WarpCacheIRTranspiler::emitAtomicsBinaryOp(ObjOperandId objId,
   auto* elements = MArrayBufferViewElements::New(alloc(), obj);
   add(elements);
 
-  bool allowDoubleForUint32 = true;
+  bool forceDoubleForUint32 = true;
   MIRType knownType =
-      MIRTypeForArrayBufferViewRead(elementType, allowDoubleForUint32);
+      MIRTypeForArrayBufferViewRead(elementType, forceDoubleForUint32);
 
   auto* binop = MAtomicTypedArrayElementBinop::New(
       alloc(), op, elements, index, elementType, value, forEffect);
@@ -3794,9 +3796,9 @@ bool WarpCacheIRTranspiler::emitAtomicsLoadResult(ObjOperandId objId,
   auto* elements = MArrayBufferViewElements::New(alloc(), obj);
   add(elements);
 
-  bool allowDoubleForUint32 = true;
+  bool forceDoubleForUint32 = true;
   MIRType knownType =
-      MIRTypeForArrayBufferViewRead(elementType, allowDoubleForUint32);
+      MIRTypeForArrayBufferViewRead(elementType, forceDoubleForUint32);
 
   auto* load = MLoadUnboxedScalar::New(alloc(), elements, index, elementType,
                                        DoesRequireMemoryBarrier);
@@ -3866,12 +3868,45 @@ bool WarpCacheIRTranspiler::emitBigIntAsUintNResult(Int32OperandId bitsId,
   return true;
 }
 
-bool WarpCacheIRTranspiler::emitLoadValueTruthyResult(ValOperandId inputId) {
+bool WarpCacheIRTranspiler::emitTruthyResult(OperandId inputId) {
   MDefinition* input = getOperand(inputId);
 
   auto* result = convertToBoolean(input);
 
   pushResult(result);
+  return true;
+}
+
+bool WarpCacheIRTranspiler::emitLoadInt32TruthyResult(ValOperandId inputId) {
+  return emitTruthyResult(inputId);
+}
+
+bool WarpCacheIRTranspiler::emitLoadDoubleTruthyResult(
+    NumberOperandId inputId) {
+  return emitTruthyResult(inputId);
+}
+
+bool WarpCacheIRTranspiler::emitLoadStringTruthyResult(
+    StringOperandId inputId) {
+  return emitTruthyResult(inputId);
+}
+
+bool WarpCacheIRTranspiler::emitLoadObjectTruthyResult(ObjOperandId inputId) {
+  return emitTruthyResult(inputId);
+}
+
+bool WarpCacheIRTranspiler::emitLoadBigIntTruthyResult(
+    BigIntOperandId inputId) {
+  return emitTruthyResult(inputId);
+}
+
+bool WarpCacheIRTranspiler::emitLoadValueTruthyResult(ValOperandId inputId) {
+  return emitTruthyResult(inputId);
+}
+
+bool WarpCacheIRTranspiler::emitLoadOperandResult(ValOperandId inputId) {
+  MDefinition* input = getOperand(inputId);
+  pushResult(input);
   return true;
 }
 

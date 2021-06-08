@@ -2498,9 +2498,9 @@ AttachDecision GetPropIRGenerator::tryAttachSparseElement(
   return AttachDecision::Attach;
 }
 
-// For Uint32Array we let the stub return a double only if the current result is
-// a double, to allow better codegen in Warp.
-static bool AllowDoubleForUint32Array(TypedArrayObject* tarr, uint64_t index) {
+// For Uint32Array we let the stub return an Int32 if we have not seen a
+// double, to allow better codegen in Warp while avoiding bailout loops.
+static bool ForceDoubleForUint32Array(TypedArrayObject* tarr, uint64_t index) {
   MOZ_ASSERT(index < tarr->length());
 
   if (tarr->type() != Scalar::Type::Uint32) {
@@ -2534,11 +2534,11 @@ AttachDecision GetPropIRGenerator::tryAttachTypedArrayElement(
   }
 
   // If the number is not representable as an integer the result will be
-  // |undefined| so we leave |allowDoubleForUint32| as false.
-  bool allowDoubleForUint32 = false;
+  // |undefined| so we leave |forceDoubleForUint32| as false.
+  bool forceDoubleForUint32 = false;
   if (!handleOOB) {
     uint64_t index = uint64_t(indexInt64);
-    allowDoubleForUint32 = AllowDoubleForUint32Array(tarr, index);
+    forceDoubleForUint32 = ForceDoubleForUint32Array(tarr, index);
   }
 
   writer.guardShapeForClass(objId, tarr->shape());
@@ -2547,7 +2547,7 @@ AttachDecision GetPropIRGenerator::tryAttachTypedArrayElement(
   IntPtrOperandId intPtrIndexId = guardToIntPtrIndex(idVal_, keyId, handleOOB);
 
   writer.loadTypedArrayElementResult(objId, intPtrIndexId, tarr->type(),
-                                     handleOOB, allowDoubleForUint32);
+                                     handleOOB, forceDoubleForUint32);
   writer.returnFromIC();
 
   trackAttached("TypedElement");
@@ -5327,13 +5327,13 @@ AttachDecision CallIRGenerator::tryAttachDataViewGet(HandleFunction callee,
     return AttachDecision::NoAction;
   }
 
-  // For getUint32 we let the stub return a double only if the current result is
-  // a double, to allow better codegen in Warp.
-  bool allowDoubleForUint32 = false;
+  // For getUint32 we let the stub return an Int32 if we have not seen a
+  // double, to allow better codegen in Warp while avoiding bailout loops.
+  bool forceDoubleForUint32 = false;
   if (type == Scalar::Uint32) {
     bool isLittleEndian = argc_ > 1 && args_[1].toBoolean();
     uint32_t res = dv->read<uint32_t>(offsetInt64, isLittleEndian);
-    allowDoubleForUint32 = res >= INT32_MAX;
+    forceDoubleForUint32 = res >= INT32_MAX;
   }
 
   // Initialize the input operand.
@@ -5364,7 +5364,7 @@ AttachDecision CallIRGenerator::tryAttachDataViewGet(HandleFunction callee,
   }
 
   writer.loadDataViewValueResult(objId, intPtrOffsetId, boolLittleEndianId,
-                                 type, allowDoubleForUint32);
+                                 type, forceDoubleForUint32);
   writer.returnFromIC();
 
   trackAttached("DataViewGet");
@@ -8554,7 +8554,8 @@ AttachDecision CallIRGenerator::tryAttachWasmCall(HandleFunction calleeFunc) {
   // If there are too many arguments, don't optimize (we won't be able to store
   // the arguments in the LIR node).
   static_assert(wasm::MaxArgsForJitInlineCall <= ArgumentKindArgIndexLimit);
-  if (sig.args().length() > wasm::MaxArgsForJitInlineCall) {
+  if (sig.args().length() > wasm::MaxArgsForJitInlineCall ||
+      argc_ > ArgumentKindArgIndexLimit) {
     return AttachDecision::NoAction;
   }
 
@@ -9985,7 +9986,9 @@ void ToBoolIRGenerator::trackAttached(const char* name) {
 
 AttachDecision ToBoolIRGenerator::tryAttachStub() {
   AutoAssertNoPendingException aanpe(cx_);
+  writer.setTypeData(TypeData(JSValueType(val_.type())));
 
+  TRY_ATTACH(tryAttachBool());
   TRY_ATTACH(tryAttachInt32());
   TRY_ATTACH(tryAttachNumber());
   TRY_ATTACH(tryAttachString());
@@ -9996,6 +9999,19 @@ AttachDecision ToBoolIRGenerator::tryAttachStub() {
 
   trackAttached(IRGenerator::NotAttached);
   return AttachDecision::NoAction;
+}
+
+AttachDecision ToBoolIRGenerator::tryAttachBool() {
+  if (!val_.isBoolean()) {
+    return AttachDecision::NoAction;
+  }
+
+  ValOperandId valId(writer.setInputOperandId(0));
+  writer.guardNonDoubleType(valId, ValueType::Boolean);
+  writer.loadOperandResult(valId);
+  writer.returnFromIC();
+  trackAttached("ToBoolBool");
+  return AttachDecision::Attach;
 }
 
 AttachDecision ToBoolIRGenerator::tryAttachInt32() {

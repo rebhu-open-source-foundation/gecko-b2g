@@ -99,6 +99,7 @@ class MediaTrack;
 class MediaTrackGraph;
 class MediaTrackGraphImpl;
 class MediaTrackListener;
+class NativeInputTrack;
 class ProcessedMediaTrack;
 class SourceMediaTrack;
 
@@ -108,6 +109,14 @@ class AudioDataListenerInterface {
   virtual ~AudioDataListenerInterface() = default;
 
  public:
+  // Information for the interleaved buffer coming from the audio callbacks
+  struct BufferInfo {
+    AudioDataValue* mBuffer = nullptr;
+    size_t mFrames = 0;
+    uint32_t mChannels = 0;
+    TrackRate mRate = 0;
+  };
+
   /* These are for cubeb audio input & output streams: */
   /**
    * Output data to speakers, for use as the "far-end" data for echo
@@ -115,8 +124,7 @@ class AudioDataListenerInterface {
    * chunks.
    */
   virtual void NotifyOutputData(MediaTrackGraphImpl* aGraph,
-                                AudioDataValue* aBuffer, size_t aFrames,
-                                TrackRate aRate, uint32_t aChannels) = 0;
+                                BufferInfo aInfo) = 0;
   /**
    * An AudioCallbackDriver with an input stream signaling that it has stopped
    * for any reason and the AudioDataListener will not be notified of input data
@@ -128,8 +136,7 @@ class AudioDataListenerInterface {
    * guaranteed to be in any particular size chunks.
    */
   virtual void NotifyInputData(MediaTrackGraphImpl* aGraph,
-                               const AudioDataValue* aBuffer, size_t aFrames,
-                               TrackRate aRate, uint32_t aChannels,
+                               const BufferInfo aInfo,
                                uint32_t aAlreadyBuffered) = 0;
 
   /**
@@ -399,6 +406,7 @@ class MediaTrack : public mozilla::LinkedListElement<MediaTrack> {
   virtual ForwardedInputTrack* AsForwardedInputTrack() { return nullptr; }
   virtual CrossGraphTransmitter* AsCrossGraphTransmitter() { return nullptr; }
   virtual CrossGraphReceiver* AsCrossGraphReceiver() { return nullptr; }
+  virtual NativeInputTrack* AsNativeInputTrack() { return nullptr; }
 
   // These Impl methods perform the core functionality of the control methods
   // above, on the media graph thread.

@@ -280,6 +280,13 @@
 # The apz prefs are explained in AsyncPanZoomController.cpp
 #---------------------------------------------------------------------------
 
+# amount we zoom in for a double tap gesture if we couldn't find any content
+# based rect to zoom to
+- name: apz.doubletapzoom.defaultzoomin
+  type: AtomicFloat
+  value: 1.2f
+  mirror: always
+
 - name: apz.scrollbarbuttonrepeat.enabled
   type: RelaxedAtomicBool
   value: true
@@ -989,14 +996,23 @@
 # 1 = always
 # 2 = never
 #
-# Default to 0 on windows, 1 elsewhere.
+# Default to 0 on windows and mac, 1 elsewhere.
 - name: browser.display.document_color_use
   type: RelaxedAtomicUint32
-#ifdef XP_WIN
+#if defined(XP_WIN) || defined(XP_MACOSX)
   value: 0
 #else
   value: 1
 #endif
+  mirror: always
+  rust: true
+
+# 0 = always native
+# 1 = never native
+# other = default
+- name: browser.display.windows.non_native_menus
+  type: RelaxedAtomicUint32
+  value: 2
   mirror: always
   rust: true
 
@@ -1197,19 +1213,7 @@
   mirror: always
   rust: true
 
-- name: browser.proton.contextmenus.enabled
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-  rust: true
-
 - name: browser.proton.modals.enabled
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-  rust: true
-
-- name: browser.proton.doorhangers.enabled
   type: RelaxedAtomicBool
   value: true
   mirror: always
@@ -2084,6 +2088,14 @@
 - name: dom.events.compress.touchmove
   type: bool
   value: true
+  mirror: always
+
+# In addition to the above IPC layer compresison, allow touchmove
+# events to be further coalesced in the child side after they
+# are sent.
+- name: dom.events.coalesce.touchmove
+  type: bool
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 # Whether to expose test interfaces of various sorts
@@ -3727,12 +3739,12 @@
   # mouse messages.
 -   name: dom.w3c_pointer_events.dispatch_by_pointer_messages
     type: bool
-    value: false
+    value: @IS_NIGHTLY_BUILD@
     mirror: always
 
 -   name: dom.w3c_pointer_events.scroll_by_pen.enabled
     type: bool
-    value: false
+    value: true
     mirror: always
 #endif
 
@@ -3745,7 +3757,7 @@
 # W3C pointer events draft.
 - name: dom.w3c_pointer_events.implicit_capture
   type: bool
-  value: @IS_EARLY_BETA_OR_EARLIER@
+  value: true
   mirror: always
 
 # In case Touch API is enabled, this pref controls whether to support
@@ -5390,7 +5402,7 @@
 # software backend
 - name: gfx.webrender.software.unaccelerated-widget.allow
   type: RelaxedAtomicBool
-  value: @IS_EARLY_BETA_OR_EARLIER@
+  value: true
   mirror: always
 
 # Whether to force widgets to don't support acceleration to use WebRender
@@ -5960,6 +5972,12 @@
 #ifdef NIGHTLY_BUILD
   # Experimental support for Iterator Helpers in JavaScript.
 -   name: javascript.options.experimental.iterator_helpers
+    type: bool
+    value: false
+    mirror: always
+
+# Experimental support for class static blocks in JavaScript.
+-   name: javascript.options.experimental.class_static_blocks
     type: bool
     value: false
     mirror: always
@@ -7016,6 +7034,13 @@
   type: bool
   value: false
   mirror: always
+
+# Is support for fit-content() enabled?
+- name: layout.css.fit-content-function.enabled
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+  rust: true
 
 # Is support for the font-display @font-face descriptor enabled?
 - name: layout.css.font-display.enabled
@@ -11651,22 +11676,6 @@
   value: false
   mirror: always
 
-# Whether system colors follow the document theme rather than the system on
-# chrome documents.
-- name: widget.system-colors-follow-theme
-  type: RelaxedAtomicBool
-#ifdef XP_MACOSX
-  value: true
-#else
-  # TODO(emilio): In order to enable this on GTK we need to teach
-  # nsNativeThemeGTK to draw non-system-themed widgets, which seems a bit hard,
-  # or alternatively do this only for documents which use the non-native theme.
-  #
-  # We also need to enable widget.gtk.alt-theme.dark.
-  value: false
-#endif
-  mirror: always
-
 - name: widget.window-transforms.disabled
   type: RelaxedAtomicBool
   value: false
@@ -11683,7 +11692,7 @@
   value: true
   mirror: always
 
-- name: widget.macos.respect-system-appearance
+- name: widget.macos.support-dark-appearance
   type: RelaxedAtomicBool
   value: false
   mirror: always
@@ -11698,9 +11707,8 @@
 # Whether we try to extract dark theme GTK colors.
 #
 # This has a startup performance cost (see bug 1709295), so until we need them
-# (that is, until we implement the color-scheme CSS property / meta tag / etc,
-# or we start following the firefox theme color scheme in our UI with
-# widget.system-colors-follow-theme) we keep this code pref'd off.
+# (that is, until we implement the color-scheme CSS property / meta tag / etc)
+# we keep this code pref'd off.
 - name: widget.gtk.alt-theme.dark
   type: bool
   value: false

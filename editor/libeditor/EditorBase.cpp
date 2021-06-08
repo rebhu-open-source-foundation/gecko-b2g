@@ -57,6 +57,7 @@
 #include "mozilla/StaticPrefs_editor.h"  // for StaticPrefs::editor_*
 #include "mozilla/StaticPrefs_layout.h"  // for StaticPrefs::layout_*
 #include "mozilla/TextComposition.h"     // for TextComposition
+#include "mozilla/TextControlElement.h"  // for TextControlElement
 #include "mozilla/TextInputListener.h"   // for TextInputListener
 #include "mozilla/TextServicesDocument.h"  // for TextServicesDocument
 #include "mozilla/TextEditor.h"
@@ -65,10 +66,12 @@
 #include "mozilla/Tuple.h"
 #include "mozilla/dom/AbstractRange.h"    // for AbstractRange
 #include "mozilla/dom/Attr.h"             // for Attr
+#include "mozilla/dom/BrowsingContext.h"  // for BrowsingContext
 #include "mozilla/dom/CharacterData.h"    // for CharacterData
 #include "mozilla/dom/DataTransfer.h"     // for DataTransfer
 #include "mozilla/dom/Document.h"         // for Document
 #include "mozilla/dom/DocumentInlines.h"  // for GetObservingPresShell
+#include "mozilla/dom/DragEvent.h"        // for DragEvent
 #include "mozilla/dom/Element.h"          // for Element, nsINode::AsElement
 #include "mozilla/dom/EventTarget.h"      // for EventTarget
 #include "mozilla/dom/HTMLBodyElement.h"
@@ -82,7 +85,6 @@
 #include "nsCaret.h"                  // for nsCaret
 #include "nsCaseTreatment.h"
 #include "nsCharTraits.h"              // for NS_IS_HIGH_SURROGATE, etc.
-#include "nsComponentManagerUtils.h"   // for do_CreateInstance
 #include "nsContentUtils.h"            // for nsContentUtils
 #include "nsCopySupport.h"             // for nsCopySupport
 #include "nsDOMString.h"               // for DOMStringIsNull
@@ -96,6 +98,7 @@
 #include "nsIContent.h"                // for nsIContent
 #include "nsIDocumentEncoder.h"        // for nsIDocumentEncoder
 #include "nsIDocumentStateListener.h"  // for nsIDocumentStateListener
+#include "nsIDocShell.h"               // for nsIDocShell
 #include "nsIEditActionListener.h"     // for nsIEditActionListener
 #include "nsIEditorObserver.h"         // for nsIEditorObserver
 #include "nsIFrame.h"                  // for nsIFrame
@@ -1435,23 +1438,28 @@ nsresult EditorBase::ComputeValueInternal(const nsAString& aFormatType,
 
   // First, let's try to get the value simply only from text node if the
   // caller wants plaintext value.
-  // NOTE: If it's neither <input type="text"> nor <textarea>, e.g., an HTML
-  // editor which is in plaintext mode (e.g., plaintext email composer on
-  // Thunderbird), it should be handled by the expensive path.
-  if (IsTextEditor() && aFormatType.LowerCaseEqualsLiteral("text/plain")) {
-    // If it's necessary to check selection range or the editor wraps hard,
-    // we need some complicated handling.  In such case, we need to use the
-    // expensive path.
-    // XXX Anything else what we cannot return the text node data simply?
-    if (!(aDocumentEncoderFlags & (nsIDocumentEncoder::OutputSelectionOnly |
-                                   nsIDocumentEncoder::OutputWrap))) {
+  if (aFormatType.LowerCaseEqualsLiteral("text/plain") &&
+      !(aDocumentEncoderFlags & (nsIDocumentEncoder::OutputSelectionOnly |
+                                 nsIDocumentEncoder::OutputWrap))) {
+    // Shortcut for empty editor case.
+    if (mPaddingBRElementForEmptyEditor) {
+      aOutputString.Truncate();
+      return NS_OK;
+    }
+    // NOTE: If it's neither <input type="text"> nor <textarea>, e.g., an HTML
+    // editor which is in plaintext mode (e.g., plaintext email composer on
+    // Thunderbird), it should be handled by the expensive path.
+    if (IsTextEditor()) {
+      // If it's necessary to check selection range or the editor wraps hard,
+      // we need some complicated handling.  In such case, we need to use the
+      // expensive path.
+      // XXX Anything else what we cannot return the text node data simply?
       EditActionResult result =
-          AsTextEditor()->ComputeValueFromTextNodeAndPaddingBRElement(
-              aOutputString);
+          AsTextEditor()->ComputeValueFromTextNodeAndBRElement(aOutputString);
       if (result.Failed() || result.Canceled() || result.Handled()) {
         NS_WARNING_ASSERTION(
             result.Succeeded(),
-            "TextEditor::ComputeValueFromTextNodeAndPaddingBRElement() failed");
+            "TextEditor::ComputeValueFromTextNodeAndBRElement() failed");
         return result.Rv();
       }
     }
@@ -1724,10 +1732,85 @@ bool EditorBase::IsCopyCommandEnabled() const {
 }
 
 NS_IMETHODIMP EditorBase::Paste(int32_t aClipboardType) {
-  nsresult rv =
-      MOZ_KnownLive(AsTextEditor())->PasteAsAction(aClipboardType, true);
-  NS_WARNING_ASSERTION(NS_SUCCEEDED(rv), "TextEditor::PasteAsAction() failed");
+  return NS_ERROR_NOT_IMPLEMENTED;
+}
+
+nsresult EditorBase::PrepareToInsertContent(
+    const EditorDOMPoint& aPointToInsert, bool aDoDeleteSelection) {
+  // TODO: Move this method to `EditorBase`.
+  MOZ_ASSERT(IsEditActionDataAvailable());
+
+  MOZ_ASSERT(aPointToInsert.IsSet());
+
+  EditorDOMPoint pointToInsert(aPointToInsert);
+  if (aDoDeleteSelection) {
+    AutoTrackDOMPoint tracker(RangeUpdaterRef(), &pointToInsert);
+    nsresult rv = DeleteSelectionAsSubAction(
+        nsIEditor::eNone,
+        IsTextEditor() ? nsIEditor::eNoStrip : nsIEditor::eStrip);
+    if (NS_FAILED(rv)) {
+      NS_WARNING("EditorBase::DeleteSelectionAsSubAction(eNone) failed");
+      return rv;
+    }
+  }
+
+  IgnoredErrorResult error;
+  SelectionRef().CollapseInLimiter(pointToInsert, error);
+  if (NS_WARN_IF(Destroyed())) {
+    return NS_ERROR_EDITOR_DESTROYED;
+  }
+  NS_WARNING_ASSERTION(!error.Failed(),
+                       "Selection::CollapseInLimiter() failed");
+  return error.StealNSResult();
+}
+
+nsresult EditorBase::InsertTextAt(const nsAString& aStringToInsert,
+                                  const EditorDOMPoint& aPointToInsert,
+                                  bool aDoDeleteSelection) {
+  MOZ_ASSERT(IsEditActionDataAvailable());
+  MOZ_ASSERT(aPointToInsert.IsSet());
+
+  nsresult rv = PrepareToInsertContent(aPointToInsert, aDoDeleteSelection);
+  if (NS_FAILED(rv)) {
+    NS_WARNING("EditorBase::PrepareToInsertContent() failed");
+    return rv;
+  }
+
+  rv = InsertTextAsSubAction(aStringToInsert);
+  NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
+                       "EditorBase::InsertTextAsSubAction() failed");
   return rv;
+}
+
+bool EditorBase::IsSafeToInsertData(const Document* aSourceDoc) const {
+  // Try to determine whether we should use a sanitizing fragment sink
+  bool isSafe = false;
+
+  RefPtr<Document> destdoc = GetDocument();
+  NS_ASSERTION(destdoc, "Where is our destination doc?");
+
+  nsIDocShell* docShell = nullptr;
+  if (RefPtr<BrowsingContext> bc = destdoc->GetBrowsingContext()) {
+    RefPtr<BrowsingContext> root = bc->Top();
+    MOZ_ASSERT(root, "root should not be null");
+
+    docShell = root->GetDocShell();
+  }
+
+  isSafe = docShell && docShell->GetAppType() == nsIDocShell::APP_TYPE_EDITOR;
+
+  if (!isSafe && aSourceDoc) {
+    nsIPrincipal* srcPrincipal = aSourceDoc->NodePrincipal();
+    nsIPrincipal* destPrincipal = destdoc->NodePrincipal();
+    NS_ASSERTION(srcPrincipal && destPrincipal,
+                 "How come we don't have a principal?");
+    DebugOnly<nsresult> rvIgnored =
+        srcPrincipal->Subsumes(destPrincipal, &isSafe);
+    NS_WARNING_ASSERTION(NS_SUCCEEDED(rvIgnored),
+                         "nsIPrincipal::Subsumes() failed, but ignored");
+  }
+
+  return isSafe;
 }
 
 NS_IMETHODIMP EditorBase::PasteTransferable(nsITransferable* aTransferable) {
@@ -4352,6 +4435,313 @@ nsresult EditorBase::DeleteSelectionAsSubAction(
   }
 
   return NS_OK;
+}
+
+nsresult EditorBase::HandleDropEvent(DragEvent* aDropEvent) {
+  if (NS_WARN_IF(!aDropEvent)) {
+    return NS_ERROR_INVALID_ARG;
+  }
+
+  DebugOnly<nsresult> rvIgnored = CommitComposition();
+  NS_WARNING_ASSERTION(NS_SUCCEEDED(rvIgnored),
+                       "EditorBase::CommitComposition() failed, but ignored");
+
+  AutoEditActionDataSetter editActionData(*this, EditAction::eDrop);
+  // We need to initialize data or dataTransfer later.  Therefore, we cannot
+  // dispatch "beforeinput" event until then.
+  if (NS_WARN_IF(!editActionData.CanHandle())) {
+    return NS_ERROR_NOT_INITIALIZED;
+  }
+
+  RefPtr<DataTransfer> dataTransfer = aDropEvent->GetDataTransfer();
+  if (NS_WARN_IF(!dataTransfer)) {
+    return NS_ERROR_FAILURE;
+  }
+
+  nsCOMPtr<nsIDragSession> dragSession = nsContentUtils::GetDragSession();
+  if (NS_WARN_IF(!dragSession)) {
+    return NS_ERROR_FAILURE;
+  }
+
+  nsCOMPtr<nsINode> sourceNode = dataTransfer->GetMozSourceNode();
+
+  RefPtr<Document> srcdoc;
+  if (sourceNode) {
+    srcdoc = sourceNode->OwnerDoc();
+  }
+
+  if (nsContentUtils::CheckForSubFrameDrop(
+          dragSession, aDropEvent->WidgetEventPtr()->AsDragEvent())) {
+    // Don't allow drags from subframe documents with different origins than
+    // the drop destination.
+    if (srcdoc && !IsSafeToInsertData(srcdoc)) {
+      return NS_OK;
+    }
+  }
+
+  // Current doc is destination
+  RefPtr<Document> document = GetDocument();
+  if (NS_WARN_IF(!document)) {
+    return NS_ERROR_NOT_INITIALIZED;
+  }
+
+  const uint32_t numItems = dataTransfer->MozItemCount();
+  if (NS_WARN_IF(!numItems)) {
+    return NS_ERROR_FAILURE;  // Nothing to drop?
+  }
+
+  // We have to figure out whether to delete and relocate caret only once
+  // Parent and offset are under the mouse cursor.
+  int32_t dropOffset = -1;
+  nsCOMPtr<nsIContent> dropParentContent =
+      aDropEvent->GetRangeParentContentAndOffset(&dropOffset);
+  EditorDOMPoint droppedAt(dropParentContent, dropOffset);
+  if (NS_WARN_IF(!droppedAt.IsSet()) ||
+      NS_WARN_IF(!droppedAt.GetContainerAsContent())) {
+    return NS_ERROR_FAILURE;
+  }
+
+  // Check if dropping into a selected range.  If so and the source comes from
+  // same document, jump through some hoops to determine if mouse is over
+  // selection (bail) and whether user wants to copy selection or delete it.
+  if (sourceNode && sourceNode->IsEditable() && srcdoc == document) {
+    bool isPointInSelection = EditorUtils::IsPointInSelection(
+        SelectionRef(), *droppedAt.GetContainer(), droppedAt.Offset());
+    if (isPointInSelection) {
+      // If source document and destination document is same and dropping
+      // into one of selected ranges, we don't need to do nothing.
+      // XXX If the source comes from outside of this editor, this check
+      //     means that we don't allow to drop the item in the selected
+      //     range.  However, the selection is hidden until the <input> or
+      //     <textarea> gets focus, therefore, this looks odd.
+      return NS_OK;
+    }
+  }
+
+  // Delete if user doesn't want to copy when user moves selected content
+  // to different place in same editor.
+  // XXX Do we need the check whether it's in same document or not?
+  RefPtr<EditorBase> editorToDeleteSelection;
+  if (sourceNode && sourceNode->IsEditable() && srcdoc == document) {
+    if ((dataTransfer->DropEffectInt() &
+         nsIDragService::DRAGDROP_ACTION_MOVE) &&
+        !(dataTransfer->DropEffectInt() &
+          nsIDragService::DRAGDROP_ACTION_COPY)) {
+      // If the source node is in native anonymous tree, it must be in
+      // <input> or <textarea> element.  If so, its TextEditor can remove it.
+      if (sourceNode->IsInNativeAnonymousSubtree()) {
+        if (RefPtr<TextControlElement> textControlElement =
+                TextControlElement::FromNodeOrNull(
+                    sourceNode->GetClosestNativeAnonymousSubtreeRootParent())) {
+          editorToDeleteSelection = textControlElement->GetTextEditor();
+        }
+      }
+      // Otherwise, must be the content is in HTMLEditor.
+      else if (IsHTMLEditor()) {
+        editorToDeleteSelection = this;
+      } else {
+        editorToDeleteSelection =
+            nsContentUtils::GetHTMLEditor(srcdoc->GetPresContext());
+      }
+    }
+    // If the found editor isn't modifiable, we should not try to delete
+    // selection.
+    if (editorToDeleteSelection && !editorToDeleteSelection->IsModifiable()) {
+      editorToDeleteSelection = nullptr;
+    }
+    // If the found editor has collapsed selection, we need to delete nothing
+    // in the editor.
+    if (editorToDeleteSelection) {
+      if (Selection* selection = editorToDeleteSelection->GetSelection()) {
+        if (selection->IsCollapsed()) {
+          editorToDeleteSelection = nullptr;
+        }
+      }
+    }
+  }
+
+  if (IsPlaintextEditor()) {
+    for (nsIContent* content = droppedAt.GetContainerAsContent(); content;
+         content = content->GetParent()) {
+      nsCOMPtr<nsIFormControl> formControl(do_QueryInterface(content));
+      if (formControl && !formControl->AllowDrop()) {
+        // Don't allow dropping into a form control that doesn't allow being
+        // dropped into.
+        return NS_OK;
+      }
+    }
+  }
+
+  // Combine any deletion and drop insertion into one transaction.
+  AutoPlaceholderBatch treatAsOneTransaction(*this,
+                                             ScrollSelectionIntoView::Yes);
+
+  // Don't dispatch "selectionchange" event until inserting all contents.
+  SelectionBatcher selectionBatcher(SelectionRef());
+
+  // Track dropped point with nsRange because we shouldn't insert the
+  // dropped content into different position even if some event listeners
+  // modify selection.  Note that Chrome's behavior is really odd.  So,
+  // we don't need to worry about web-compat about this.
+  IgnoredErrorResult ignoredError;
+  RefPtr<nsRange> rangeAtDropPoint =
+      nsRange::Create(droppedAt.ToRawRangeBoundary(),
+                      droppedAt.ToRawRangeBoundary(), ignoredError);
+  if (NS_WARN_IF(ignoredError.Failed()) ||
+      NS_WARN_IF(!rangeAtDropPoint->IsPositioned())) {
+    editActionData.Abort();
+    return NS_ERROR_FAILURE;
+  }
+
+  // Remove selected contents first here because we need to fire a pair of
+  // "beforeinput" and "input" for deletion and web apps can cancel only
+  // this deletion.  Note that callee may handle insertion asynchronously.
+  // Therefore, it is the best to remove selected content here.
+  if (editorToDeleteSelection) {
+    nsresult rv = editorToDeleteSelection->DeleteSelectionByDragAsAction(
+        mDispatchInputEvent);
+    if (NS_WARN_IF(Destroyed())) {
+      editActionData.Abort();
+      return NS_OK;
+    }
+    // Ignore the editor instance specific error if it's another editor.
+    if (this != editorToDeleteSelection &&
+        (rv == NS_ERROR_NOT_INITIALIZED || rv == NS_ERROR_EDITOR_DESTROYED)) {
+      rv = NS_OK;
+    }
+    // Don't cancel "insertFromDrop" even if "deleteByDrag" is canceled.
+    if (rv != NS_ERROR_EDITOR_ACTION_CANCELED && NS_FAILED(rv)) {
+      NS_WARNING("EditorBase::DeleteSelectionByDragAsAction() failed");
+      editActionData.Abort();
+      return EditorBase::ToGenericNSResult(rv);
+    }
+    if (NS_WARN_IF(!rangeAtDropPoint->IsPositioned()) ||
+        NS_WARN_IF(!rangeAtDropPoint->GetStartContainer()->IsContent())) {
+      editActionData.Abort();
+      return NS_ERROR_FAILURE;
+    }
+    droppedAt = rangeAtDropPoint->StartRef();
+    MOZ_ASSERT(droppedAt.IsSetAndValid());
+  }
+
+  // Before inserting dropping content, we need to move focus for compatibility
+  // with Chrome and firing "beforeinput" event on new editing host.
+  RefPtr<Element> focusedElement, newFocusedElement;
+  if (IsTextEditor()) {
+    newFocusedElement = GetExposedRoot();
+    focusedElement = IsActiveInDOMWindow() ? newFocusedElement : nullptr;
+  } else if (!AsHTMLEditor()->IsInDesignMode()) {
+    focusedElement = AsHTMLEditor()->GetActiveEditingHost();
+    if (focusedElement &&
+        droppedAt.GetContainerAsContent()->IsInclusiveDescendantOf(
+            focusedElement)) {
+      newFocusedElement = focusedElement;
+    } else {
+      newFocusedElement = droppedAt.GetContainerAsContent()->GetEditingHost();
+    }
+  }
+  // Move selection right now.  Note that this does not move focus because
+  // `Selection` moves focus with selection change only when the API caller is
+  // JS.  And also this does not notify selection listeners (nor
+  // "selectionchange") since we created SelectionBatcher above.
+  ErrorResult error;
+  SelectionRef().SetStartAndEnd(droppedAt.ToRawRangeBoundary(),
+                                droppedAt.ToRawRangeBoundary(), error);
+  if (error.Failed()) {
+    NS_WARNING("Selection::SetStartAndEnd() failed");
+    editActionData.Abort();
+    return error.StealNSResult();
+  }
+  if (NS_WARN_IF(Destroyed())) {
+    editActionData.Abort();
+    return NS_OK;
+  }
+  // Then, move focus if necessary.  This must cause dispatching "blur" event
+  // and "focus" event.
+  if (newFocusedElement && focusedElement != newFocusedElement) {
+    RefPtr<nsFocusManager> fm = nsFocusManager::GetFocusManager();
+    DebugOnly<nsresult> rvIgnored = fm->SetFocus(newFocusedElement, 0);
+    NS_WARNING_ASSERTION(NS_SUCCEEDED(rvIgnored),
+                         "nsFocusManager::SetFocus() failed to set focus "
+                         "to the element, but ignored");
+    if (NS_WARN_IF(Destroyed())) {
+      editActionData.Abort();
+      return NS_OK;
+    }
+    // "blur" or "focus" event listener may have changed the value.
+    // Let's keep using the original point.
+    if (NS_WARN_IF(!rangeAtDropPoint->IsPositioned()) ||
+        NS_WARN_IF(!rangeAtDropPoint->GetStartContainer()->IsContent())) {
+      return NS_ERROR_FAILURE;
+    }
+    droppedAt = rangeAtDropPoint->StartRef();
+    MOZ_ASSERT(droppedAt.IsSetAndValid());
+
+    // If focus is changed to different element and we're handling drop in
+    // contenteditable, we cannot handle it without focus.  So, we should give
+    // it up.
+    if (IsHTMLEditor() && !AsHTMLEditor()->IsInDesignMode() &&
+        NS_WARN_IF(newFocusedElement !=
+                   AsHTMLEditor()->GetActiveEditingHost())) {
+      editActionData.Abort();
+      return NS_OK;
+    }
+  }
+
+  nsresult rv = InsertDroppedDataTransferAsAction(editActionData, *dataTransfer,
+                                                  droppedAt, srcdoc);
+  if (rv == NS_ERROR_EDITOR_DESTROYED ||
+      rv == NS_ERROR_EDITOR_ACTION_CANCELED) {
+    return EditorBase::ToGenericNSResult(rv);
+  }
+  NS_WARNING_ASSERTION(
+      NS_SUCCEEDED(rv),
+      "EditorBase::InsertDroppedDataTransferAsAction() failed, but ignored");
+
+  rv = ScrollSelectionFocusIntoView();
+  NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
+                       "EditorBase::ScrollSelectionFocusIntoView() failed");
+  return rv;
+}
+
+nsresult EditorBase::DeleteSelectionByDragAsAction(bool aDispatchInputEvent) {
+  // TODO: Move this method to `EditorBase`.
+  AutoRestore<bool> saveDispatchInputEvent(mDispatchInputEvent);
+  mDispatchInputEvent = aDispatchInputEvent;
+  // Even if we're handling "deleteByDrag" in same editor as "insertFromDrop",
+  // we need to recreate edit action data here because
+  // `AutoEditActionDataSetter` needs to manage event state separately.
+  bool requestedByAnotherEditor = GetEditAction() != EditAction::eDrop;
+  AutoEditActionDataSetter editActionData(*this, EditAction::eDeleteByDrag);
+  MOZ_ASSERT(!SelectionRef().IsCollapsed());
+  nsresult rv = editActionData.CanHandleAndMaybeDispatchBeforeInputEvent();
+  if (NS_FAILED(rv)) {
+    NS_WARNING_ASSERTION(rv == NS_ERROR_EDITOR_ACTION_CANCELED,
+                         "CanHandleAndMaybeDispatchBeforeInputEvent() failed");
+    return rv;
+  }
+  // But keep using placeholder transaction for "insertFromDrop" if there is.
+  Maybe<AutoPlaceholderBatch> treatAsOneTransaction;
+  if (requestedByAnotherEditor) {
+    treatAsOneTransaction.emplace(*this, ScrollSelectionIntoView::Yes);
+  }
+
+  rv = DeleteSelectionAsSubAction(nsIEditor::eNone, IsTextEditor()
+                                                        ? nsIEditor::eNoStrip
+                                                        : nsIEditor::eStrip);
+  if (NS_FAILED(rv)) {
+    NS_WARNING("EditorBase::DeleteSelectionAsSubAction(eNone) failed");
+    return rv;
+  }
+
+  if (!mDispatchInputEvent) {
+    return NS_OK;
+  }
+
+  if (treatAsOneTransaction.isNothing()) {
+    DispatchInputEvent();
+  }
+  return NS_WARN_IF(Destroyed()) ? NS_ERROR_EDITOR_DESTROYED : NS_OK;
 }
 
 nsresult EditorBase::DeleteSelectionWithTransaction(

@@ -6,7 +6,7 @@ use api::{ColorF, YuvColorSpace, YuvFormat, ImageRendering, ExternalImageId, Ima
 use api::units::*;
 use api::ColorDepth;
 use crate::image_source::resolve_image;
-use euclid::{Rect, Point2D, Transform3D};
+use euclid::{Rect, Transform3D};
 use crate::gpu_cache::GpuCache;
 use crate::gpu_types::{ZBufferId, ZBufferIdGenerator};
 use crate::internal_types::TextureSource;
@@ -583,14 +583,20 @@ impl CompositeState {
     /// to the origin of a given point
     pub fn get_surface_rect<T>(
         &self,
-        local_rect: &Rect<f32, T>,
-        local_origin: &Point2D<f32, T>,
+        local_sub_rect: &Rect<f32, T>,
+        local_bounds: &Rect<f32, T>,
         transform_index: CompositorTransformIndex,
     ) -> DeviceRect {
         let transform = &self.transforms[transform_index.0];
-        let surface_origin = transform.local_to_surface.map_point(local_origin);
-        let surface_rect = transform.local_to_surface.map_rect(local_rect);
-        surface_rect.translate(-surface_origin.to_vector()).round().to_box2d()
+
+        let surface_bounds = transform.local_to_surface.map_rect(local_bounds);
+        let surface_rect = transform.local_to_surface.map_rect(local_sub_rect);
+
+        surface_rect
+            .translate(-surface_bounds.origin.to_vector())
+            .round_out()
+            .intersection(&surface_bounds.size.round().into())
+            .map_or(DeviceRect::zero(), |rect| rect.to_box2d())
     }
 
     /// Get the surface -> device compositor transform as a 4x4 matrix
@@ -1260,7 +1266,7 @@ impl Occluders {
 
         // Get the reference area we will compare against.
         let world_rect = world_rect.round().to_i32();
-        let ref_area = world_rect.size.width * world_rect.size.height;
+        let ref_area = world_rect.area();
 
         // Calculate the non-overlapping area of the valid occluders.
         let cover_area = self.area(z_id, &world_rect);
@@ -1293,10 +1299,10 @@ impl Occluders {
                 // Clip the source rect to the rectangle we care about, since we only
                 // want to record area for the tile we are comparing to.
                 if let Some(rect) = occluder.world_rect.intersection(clip_rect) {
-                    let x0 = rect.origin.x;
-                    let x1 = x0 + rect.size.width;
-                    self.events.push(OcclusionEvent::new(rect.origin.y, OcclusionEventKind::Begin, x0, x1));
-                    self.events.push(OcclusionEvent::new(rect.origin.y + rect.size.height, OcclusionEventKind::End, x0, x1));
+                    let x0 = rect.min.x;
+                    let x1 = x0 + rect.width();
+                    self.events.push(OcclusionEvent::new(rect.min.y, OcclusionEventKind::Begin, x0, x1));
+                    self.events.push(OcclusionEvent::new(rect.min.y + rect.height(), OcclusionEventKind::End, x0, x1));
                 }
             }
         }

@@ -499,7 +499,14 @@ async function navigateTo(uri, { isErrorPage = false } = {}) {
     },
     isErrorPage
   );
-  BrowserTestUtils.loadURI(browser, uri);
+
+  // if we're navigating to the same page we're already on, use reloadTab instead as the
+  // behavior slightly differs from loadURI (e.g. scroll position isn't keps with the latter).
+  if (uri === browser.currentURI.spec) {
+    gBrowser.reloadTab(gBrowser.selectedTab);
+  } else {
+    BrowserTestUtils.loadURI(browser, uri);
+  }
 
   info(`Waiting for page to be loaded…`);
   await onBrowserLoaded;
@@ -1498,61 +1505,6 @@ async function getBrowsingContextInFrames(browsingContext, selectors) {
   }
 
   return context;
-}
-
-/**
- * Get an attribute on a DOM Node living in the provided browser.
- *
- * @param {Browser|BrowsingContext} browser The browser or browsing context
- * @param {String} selector The node selector
- * @param {String} attribute The attribute name
- * @return {String} value The attribute value
- */
-async function getAttributeInBrowser(browser, selector, attribute) {
-  return SpecialPowers.spawn(
-    browser,
-    [selector, attribute],
-    (_selector, _attribute) => {
-      return content.document.querySelector(_selector).getAttribute(_attribute);
-    }
-  );
-}
-
-/**
- * Set an attribute on a DOM Node living in the provided browser.
- *
- * @param {Browser|BrowsingContext} browser The browser or browsing context
- * @param {String} selector The node selector
- * @param {String} attribute The attribute name
- * @param {String} value The attribute value
- */
-async function setAttributeInBrowser(browser, selector, attribute, value) {
-  return SpecialPowers.spawn(
-    browser,
-    [selector, attribute, value],
-    (_selector, _attribute, _value) => {
-      content.document
-        .querySelector(_selector)
-        .setAttribute(_attribute, _value);
-    }
-  );
-}
-
-/**
- * Remove an attribute from a DOM Node living in the provided browser.
- *
- * @param {Browser|BrowsingContext} browser The browser or browsing context
- * @param {String} selector The node selector
- * @param {String} attribute The attribute name
- */
-async function removeAttributeInBrowser(browser, selector, attribute) {
-  return SpecialPowers.spawn(
-    browser,
-    [selector, attribute],
-    (_selector, _attribute) => {
-      content.document.querySelector(_selector).removeAttribute(_attribute);
-    }
-  );
 }
 
 /**

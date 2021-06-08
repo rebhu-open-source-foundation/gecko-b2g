@@ -101,13 +101,6 @@ var testSpec = protocol.generateActorSpec({
       },
       response: {},
     },
-    waitForHighlighterEvent: {
-      request: {
-        event: Arg(0, "string"),
-        actorID: Arg(1, "string"),
-      },
-      response: {},
-    },
     waitForEventOnNode: {
       request: {
         eventName: Arg(0, "string"),
@@ -145,20 +138,6 @@ var testSpec = protocol.generateActorSpec({
         value: RetVal("boolean"),
       },
     },
-    loadAndWaitForCustomEvent: {
-      request: {
-        url: Arg(0, "string"),
-      },
-      response: {},
-    },
-    hasNode: {
-      request: {
-        selector: Arg(0, "string"),
-      },
-      response: {
-        value: RetVal("boolean"),
-      },
-    },
     getBoundingClientRect: {
       request: {
         selector: Arg(0, "string"),
@@ -166,10 +145,6 @@ var testSpec = protocol.generateActorSpec({
       response: {
         value: RetVal("json"),
       },
-    },
-    reload: {
-      request: {},
-      response: {},
     },
     reloadFrame: {
       request: {
@@ -187,7 +162,6 @@ var testSpec = protocol.generateActorSpec({
         value: RetVal("json"),
       },
     },
-    reflow: {},
     getNodeRect: {
       request: {
         selector: Arg(0, "string"),
@@ -200,14 +174,6 @@ var testSpec = protocol.generateActorSpec({
       request: {
         parentSelector: Arg(0, "string"),
         childNodeIndex: Arg(1, "number"),
-      },
-      response: {
-        value: RetVal("json"),
-      },
-    },
-    getNodeInfo: {
-      request: {
-        selector: Arg(0, "string"),
       },
       response: {
         value: RetVal("json"),
@@ -394,18 +360,6 @@ var TestActor = protocol.ActorClassWithSpec(testSpec, {
   },
 
   /**
-   * Subscribe to a given highlighter event and respond when the event is received.
-   * @param {String} event The name of the highlighter event to listen to
-   * @param {String} actorID The highlighter actor ID
-   */
-  waitForHighlighterEvent: function(event, actorID) {
-    const highlighter = this.conn.getActor(actorID);
-    const { _highlighter: h } = highlighter;
-
-    return h.once(event);
-  },
-
-  /**
    * Wait for a specific event on a node matching the provided selector.
    * @param {String} eventName The name of the event to listen to
    * @param {String} selector Optional:  css selector of the node which should
@@ -483,34 +437,6 @@ var TestActor = protocol.ActorClassWithSpec(testSpec, {
     return InspectorUtils.hasPseudoClassLock(node, pseudo);
   },
 
-  loadAndWaitForCustomEvent: function(url) {
-    return new Promise(resolve => {
-      // Wait for DOMWindowCreated first, as listening on the current outerwindow
-      // doesn't allow receiving test-page-processing-done.
-      this.targetActor.chromeEventHandler.addEventListener(
-        "DOMWindowCreated",
-        () => {
-          this.content.addEventListener("test-page-processing-done", resolve, {
-            once: true,
-          });
-        },
-        { once: true }
-      );
-
-      this.content.location = url;
-    });
-  },
-
-  hasNode: function(selector) {
-    try {
-      // _querySelector throws if the node doesn't exists
-      this._querySelector(selector);
-      return true;
-    } catch (e) {
-      return false;
-    }
-  },
-
   /**
    * Get the bounding rect for a given DOM node once.
    * @param {String} selector selector identifier to select the DOM node
@@ -530,13 +456,6 @@ var TestActor = protocol.ActorClassWithSpec(testSpec, {
       bottom: rect.bottom,
       left: rect.left,
     };
-  },
-
-  /**
-   * Reload the content window.
-   */
-  reload: function() {
-    this.content.location.reload();
   },
 
   /**
@@ -587,16 +506,6 @@ var TestActor = protocol.ActorClassWithSpec(testSpec, {
     });
   },
 
-  /**
-   * Forces the reflow and waits for the next repaint.
-   */
-  reflow: function() {
-    return new Promise(resolve => {
-      this.content.document.documentElement.offsetWidth;
-      this.content.requestAnimationFrame(resolve);
-    });
-  },
-
   async getNodeRect(selector) {
     const node = this._querySelector(selector);
     return getRect(this.content, node, this.content);
@@ -606,43 +515,6 @@ var TestActor = protocol.ActorClassWithSpec(testSpec, {
     const parentNode = this._querySelector(parentSelector);
     const node = parentNode.childNodes[childNodeIndex];
     return getAdjustedQuads(this.content, node)[0].bounds;
-  },
-
-  /**
-   * Get information about a DOM element, identified by a selector.
-   * @param {String} selector The CSS selector to get the node (can be an array
-   * of selectors to get elements in an iframe).
-   * @return {Object} data Null if selector didn't match any node, otherwise:
-   * - {String} tagName.
-   * - {String} namespaceURI.
-   * - {Number} numChildren The number of children in the element.
-   * - {Array} attributes An array of {name, value, namespaceURI} objects.
-   * - {String} outerHTML.
-   * - {String} innerHTML.
-   * - {String} textContent.
-   */
-  getNodeInfo: function(selector) {
-    const node = this._querySelector(selector);
-    let info = null;
-
-    if (node) {
-      info = {
-        tagName: node.tagName,
-        namespaceURI: node.namespaceURI,
-        numChildren: node.children.length,
-        numNodes: node.childNodes.length,
-        attributes: [...node.attributes].map(
-          ({ name, value, namespaceURI }) => {
-            return { name, value, namespaceURI };
-          }
-        ),
-        outerHTML: node.outerHTML,
-        innerHTML: node.innerHTML,
-        textContent: node.textContent,
-      };
-    }
-
-    return info;
   },
 
   /**
@@ -1081,10 +953,6 @@ class TestFront extends protocol.FrontClassWithSpec(testSpec) {
       p3: { x: +rGuide.x1 + 1, y: +bGuide.y1 + 1 },
       p4: { x: lGuide.x1, y: +bGuide.y1 + 1 },
     };
-  }
-
-  waitForHighlighterEvent(event) {
-    return super.waitForHighlighterEvent(event, this.highlighter.actorID);
   }
 
   /**

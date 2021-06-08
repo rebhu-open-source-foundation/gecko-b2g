@@ -24,6 +24,7 @@ import org.junit.Assume.assumeThat
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.Ignore
+import org.mozilla.geckoview.GeckoSessionSettings
 
 @RunWith(AndroidJUnit4::class)
 @MediumTest
