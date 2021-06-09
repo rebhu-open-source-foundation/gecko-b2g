@@ -39,17 +39,6 @@
 
 using namespace mozilla::widget;
 
-// taken from android/nsWidgetFactory.cpp. GfxInfo is a legacy kludge,
-// unfortunately for the time being we still have to implement it on all
-// platforms.
-#include "GfxInfo.h"
-namespace mozilla {
-namespace widget {
-// This constructor should really be shared with all platforms.
-NS_GENERIC_FACTORY_CONSTRUCTOR_INIT(GfxInfo, Init)
-}  // namespace widget
-}  // namespace mozilla
-
 NS_GENERIC_FACTORY_SINGLETON_CONSTRUCTOR(ScreenManager,
                                          ScreenManager::GetAddRefedSingleton)
 NS_GENERIC_FACTORY_CONSTRUCTOR(PuppetScreenManager)
@@ -67,7 +56,6 @@ NS_DEFINE_NAMED_CID(NS_SCREENMANAGER_CID);
 NS_DEFINE_NAMED_CID(NS_HTMLFORMATCONVERTER_CID);
 NS_DEFINE_NAMED_CID(NS_IDLE_SERVICE_CID);
 NS_DEFINE_NAMED_CID(NS_TRANSFERABLE_CID);
-NS_DEFINE_NAMED_CID(NS_GFXINFO_CID);
 NS_DEFINE_NAMED_CID(NS_CLIPBOARD_CID);
 NS_DEFINE_NAMED_CID(NS_CLIPBOARDHELPER_CID);
 
@@ -78,7 +66,6 @@ static const mozilla::Module::CIDEntry kWidgetCIDs[] = {
      nsHTMLFormatConverterConstructor},
     {&kNS_IDLE_SERVICE_CID, false, nullptr, nsIdleServiceGonkConstructor},
     {&kNS_TRANSFERABLE_CID, false, nullptr, nsTransferableConstructor},
-    {&kNS_GFXINFO_CID, false, nullptr, mozilla::widget::GfxInfoConstructor},
     {&kNS_CLIPBOARD_CID, false, nullptr, nsClipboardConstructor},
     {&kNS_CLIPBOARDHELPER_CID, false, nullptr, nsClipboardHelperConstructor},
     {nullptr}};
@@ -89,7 +76,6 @@ static const mozilla::Module::ContractIDEntry kWidgetContracts[] = {
     {"@mozilla.org/widget/htmlformatconverter;1", &kNS_HTMLFORMATCONVERTER_CID},
     {"@mozilla.org/widget/useridleservice;1", &kNS_IDLE_SERVICE_CID},
     {"@mozilla.org/widget/transferable;1", &kNS_TRANSFERABLE_CID},
-    {"@mozilla.org/gfx/info;1", &kNS_GFXINFO_CID},
     {"@mozilla.org/widget/clipboard;1", &kNS_CLIPBOARD_CID},
     {"@mozilla.org/widget/clipboardhelper;1", &kNS_CLIPBOARDHELPER_CID},
     {nullptr}};
