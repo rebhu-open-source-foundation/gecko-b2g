@@ -442,11 +442,11 @@ bin/libfreebl_32int64_3.so
 @RESPATH@/chrome/chrome@JAREXT@
 @RESPATH@/chrome/chrome.manifest
 @RESPATH@/components/B2GComponents.manifest
-#if defined(ENABLE_MARIONETTE) || !defined(MOZ_WIDGET_GONK)
-@RESPATH@/chrome/marionette@JAREXT@
-@RESPATH@/chrome/marionette.manifest
+#if defined(ENABLE_WEBDRIVER) || !defined(MOZ_WIDGET_GONK)
 @RESPATH@/components/marionette.manifest
 @RESPATH@/components/marionette.js
+@RESPATH@/chrome/remote@JAREXT@
+@RESPATH@/chrome/remote.manifest
 #endif
 @RESPATH@/components/AlertsService.js
 #ifdef MOZ_UPDATER
