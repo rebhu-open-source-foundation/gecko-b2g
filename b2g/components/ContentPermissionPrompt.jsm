@@ -17,6 +17,9 @@ const PROMPT_FOR_UNKNOWN = [
   "geolocation",
   "video-capture",
 ];
+const { defaultPermissions } = ChromeUtils.import(
+  "resource://gre/modules/PermissionsTable.jsm"
+);
 // Due to privary issue, permission requests like GetUserMedia should prompt
 // every time instead of providing session persistence.
 const PERMISSION_NO_SESSION = ["audio-capture", "video-capture"];
@@ -57,6 +60,20 @@ function buildDefaultChoices(typesInfo) {
 }
 
 /**
+ * Check if the requester has default permissions of installed app.
+ * @param principal: principal of the permission requester
+ */
+function hasDefaultPermissions(principal) {
+  return defaultPermissions.every(permission => {
+    let perm = Services.perms.testExactPermissionFromPrincipal(
+      principal,
+      permission
+    );
+    return perm == Ci.nsIPermissionManager.ALLOW_ACTION;
+  });
+}
+
+/**
  * Update the permissions to PermissionManager
  * @param typesInfo requested permissions and their properties
  * @param remember: permanently remember the decision or not
@@ -76,7 +93,7 @@ function rememberPermission(typesInfo, remember, granted, principal) {
   typesInfo.forEach(perm => {
     // Since only `installed apps` are listed in permission settings UI,
     // `installed apps` and `webpages` are handled differently.
-    if (principal.origin.endsWith(".localhost")) {
+    if (hasDefaultPermissions(principal)) {
       // For installed apps, set the permission permanently
       // only if `remember` is set to true
       if (remember) {
