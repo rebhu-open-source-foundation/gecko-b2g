@@ -579,6 +579,9 @@
               self.dispatchCustomEvent("beforelocationchange", {
                 uri: channel.URI.spec,
               });
+              if (self.userAgent) {
+                channel.setRequestHeader("User-Agent", self.userAgent, false);
+              }
             }
           },
         };
