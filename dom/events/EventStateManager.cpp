@@ -6,6 +6,7 @@
 
 #include "mozilla/AsyncEventDispatcher.h"
 #include "mozilla/Attributes.h"
+#include "mozilla/EditorBase.h"
 #include "mozilla/EventDispatcher.h"
 #include "mozilla/EventForwards.h"
 #include "mozilla/EventStateManager.h"
@@ -1778,7 +1779,7 @@ void EventStateManager::FireContextClick() {
       if (formCtrl) {
         allowedToDispatch =
             formCtrl->IsTextControl(/*aExcludePassword*/ false) ||
-            formCtrl->ControlType() == NS_FORM_INPUT_FILE;
+            formCtrl->ControlType() == FormControlType::InputFile;
       } else if (mGestureDownContent->IsAnyOfHTMLElements(
                      nsGkAtoms::embed, nsGkAtoms::object, nsGkAtoms::label)) {
         allowedToDispatch = false;
@@ -5323,7 +5324,7 @@ nsresult EventStateManager::DispatchClickEvents(
 
 nsresult EventStateManager::HandleMiddleClickPaste(
     PresShell* aPresShell, WidgetMouseEvent* aMouseEvent,
-    nsEventStatus* aStatus, TextEditor* aTextEditor) {
+    nsEventStatus* aStatus, EditorBase* aEditorBase) {
   MOZ_ASSERT(aPresShell);
   MOZ_ASSERT(aMouseEvent);
   MOZ_ASSERT((aMouseEvent->mMessage == eMouseAuxClick &&
@@ -5341,8 +5342,8 @@ nsresult EventStateManager::HandleMiddleClickPaste(
   aMouseEvent->mFlags.mMultipleActionsPrevented = true;
 
   RefPtr<Selection> selection;
-  if (aTextEditor) {
-    selection = aTextEditor->GetSelection();
+  if (aEditorBase) {
+    selection = aEditorBase->GetSelection();
     if (NS_WARN_IF(!selection)) {
       return NS_ERROR_FAILURE;
     }
@@ -5383,12 +5384,12 @@ nsresult EventStateManager::HandleMiddleClickPaste(
 
   // Although we've fired "paste" event, there is no editor to accept the
   // clipboard content.
-  if (!aTextEditor) {
+  if (!aEditorBase) {
     return NS_OK;
   }
 
   // Check if the editor is still the good target to paste.
-  if (aTextEditor->Destroyed() || aTextEditor->IsReadonly()) {
+  if (aEditorBase->Destroyed() || aEditorBase->IsReadonly()) {
     // XXX Should we consume the event when the editor is readonly and/or
     //     disabled?
     return NS_OK;
@@ -5403,7 +5404,7 @@ nsresult EventStateManager::HandleMiddleClickPaste(
   WidgetMouseEvent mouseEvent(*aMouseEvent);
   mouseEvent.mOriginalTarget = range->GetStartContainer();
   if (NS_WARN_IF(!mouseEvent.mOriginalTarget) ||
-      !aTextEditor->IsAcceptableInputEvent(&mouseEvent)) {
+      !aEditorBase->IsAcceptableInputEvent(&mouseEvent)) {
     return NS_OK;
   }
 
@@ -5411,10 +5412,10 @@ nsresult EventStateManager::HandleMiddleClickPaste(
   // quotation.  Otherwise, paste it as is.
   if (aMouseEvent->IsControl()) {
     DebugOnly<nsresult> rv =
-        aTextEditor->PasteAsQuotationAsAction(clipboardType, false);
+        aEditorBase->PasteAsQuotationAsAction(clipboardType, false);
     NS_WARNING_ASSERTION(NS_SUCCEEDED(rv), "Failed to paste as quotation");
   } else {
-    DebugOnly<nsresult> rv = aTextEditor->PasteAsAction(clipboardType, false);
+    DebugOnly<nsresult> rv = aEditorBase->PasteAsAction(clipboardType, false);
     NS_WARNING_ASSERTION(NS_SUCCEEDED(rv), "Failed to paste");
   }
   *aStatus = nsEventStatus_eConsumeNoDefault;
@@ -6004,7 +6005,7 @@ nsresult EventStateManager::DoContentCommandInsertTextEvent(
 
   // If there is no active editor in this process, we should treat the command
   // is disabled.
-  RefPtr<TextEditor> activeEditor =
+  RefPtr<EditorBase> activeEditor =
       nsContentUtils::GetActiveEditor(mPresContext);
   if (!activeEditor) {
     aEvent->mSucceeded = true;

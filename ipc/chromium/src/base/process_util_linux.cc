@@ -31,7 +31,7 @@
 
 #  include "mozilla/Unused.h"
 #  include "mozilla/ScopeExit.h"
-#  include "ProcessUtils.h"
+#  include "mozilla/ipc/ProcessUtils.h"
 
 using namespace mozilla::ipc;
 

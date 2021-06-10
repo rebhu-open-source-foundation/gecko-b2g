@@ -3892,7 +3892,7 @@ mozilla::ipc::IPCResult BrowserParent::RecvVisitURI(nsIURI* aURI,
 }
 
 mozilla::ipc::IPCResult BrowserParent::RecvQueryVisitedState(
-    const nsTArray<RefPtr<nsIURI>>&& aURIs) {
+    nsTArray<RefPtr<nsIURI>>&& aURIs) {
 #ifdef MOZ_ANDROID_HISTORY
   nsCOMPtr<IHistory> history = components::History::Service();
   if (NS_WARN_IF(!history)) {
@@ -3903,15 +3903,15 @@ mozilla::ipc::IPCResult BrowserParent::RecvQueryVisitedState(
     return IPC_OK();
   }
 
-  for (size_t i = 0; i < aURIs.Length(); ++i) {
-    if (!aURIs[i]) {
+  // FIXME(emilio): Is this check really needed?
+  for (nsIURI* uri : aURIs) {
+    if (!uri) {
       return IPC_FAIL(this, "Received null URI");
     }
   }
 
-  GeckoViewHistory* gvHistory = static_cast<GeckoViewHistory*>(history.get());
+  auto* gvHistory = static_cast<GeckoViewHistory*>(history.get());
   gvHistory->QueryVisitedState(widget, std::move(aURIs));
-
   return IPC_OK();
 #else
   return IPC_FAIL(this, "QueryVisitedState is Android-only");

@@ -111,21 +111,6 @@ def presentation(value, target):
 set_config("MOZ_PRESENTATION", presentation)
 set_define("MOZ_PRESENTATION", presentation)
 
-# SocialAPI Support
-# ==============================================================
-option("--enable-social", help="Enable Social Service (default disable)")
-
-
-@depends("--disable-social", target)
-def social(value, target):
-    enabled = bool(value)
-    if enabled:
-        return True
-
-
-set_config("MOZ_SOCIAL", social)
-set_define("MOZ_SOCIAL", social)
-
 # PrivateBrowsing Support
 # ==============================================================
 option("--disable-privatebrowsing", help="Disable Private Browsing (default enable)")
@@ -166,5 +151,8 @@ set_define("GPU_NODE_adreno", 1)
 set_define("GPU_NODE_imagination", 2)
 set_define("GPU_NODE_mali", 3)
 set_define("MOZ_SANDBOX_GPU_NODE", sandboxgpunode)
+
+# Enable 3gpp support in mp4parse C bindings.
+set_define("MP4PARSE_FEATURE_3GPP", 1)
 
 include("common.configure")

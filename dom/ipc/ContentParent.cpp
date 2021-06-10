@@ -14,7 +14,7 @@
 #include "base/shared_memory.h"
 
 #include "ContentParent.h"
-#include "ProcessUtils.h"
+#include "mozilla/ipc/ProcessUtils.h"
 #include "BrowserParent.h"
 
 #if defined(ANDROID) || defined(LINUX)
@@ -57,7 +57,7 @@
 #include "ProcessPriorityManager.h"
 #include "SandboxHal.h"
 #include "SourceSurfaceRawData.h"
-#include "URIUtils.h"
+#include "mozilla/ipc/URIUtils.h"
 #include "gfxPlatform.h"
 #include "gfxPlatformFontList.h"
 #include "mozilla/AutoRestore.h"
@@ -3256,26 +3256,6 @@ bool ContentParent::InitInternal(ProcessPriority aInitialPriority) {
     KillHard("SandboxInitFailed");
   }
 #endif
-
-  if (!ServiceWorkerParentInterceptEnabled()) {
-    RefPtr<ServiceWorkerRegistrar> swr = ServiceWorkerRegistrar::Get();
-    MOZ_ASSERT(swr);
-
-    nsTArray<ServiceWorkerRegistrationData> registrations;
-    swr->GetRegistrations(registrations);
-
-    // Send down to the content process the permissions for each of the
-    // registered service worker scopes.
-    for (auto& registration : registrations) {
-      auto principalOrErr = PrincipalInfoToPrincipal(registration.principal());
-      if (principalOrErr.isOk()) {
-        nsCOMPtr<nsIPrincipal> principal = principalOrErr.unwrap();
-        TransmitPermissionsForPrincipal(principal);
-      }
-    }
-
-    Unused << SendInitServiceWorkers(ServiceWorkerConfiguration(registrations));
-  }
 
   {
     nsTArray<BlobURLRegistrationData> registrations;

@@ -304,9 +304,9 @@
 #include "GMPServiceChild.h"
 #include "GfxInfoBase.h"
 #include "MMPrinter.h"
-#include "ProcessUtils.h"
-#include "URIUtils.h"
 #include "nsDeviceStorage.h"
+#include "mozilla/ipc/ProcessUtils.h"
+#include "mozilla/ipc/URIUtils.h"
 #include "VRManagerChild.h"
 #include "gfxPlatform.h"
 #include "gfxPlatformFontList.h"
@@ -2964,17 +2964,6 @@ void ContentChild::PreallocInit() {
 // Call RemoteTypePrefix() on the result to remove URIs if you want to use this
 // for telemetry.
 const nsACString& ContentChild::GetRemoteType() const { return mRemoteType; }
-
-mozilla::ipc::IPCResult ContentChild::RecvInitServiceWorkers(
-    const ServiceWorkerConfiguration& aConfig) {
-  RefPtr<ServiceWorkerManager> swm = ServiceWorkerManager::GetInstance();
-  if (!swm) {
-    // browser shutdown began
-    return IPC_OK();
-  }
-  swm->LoadRegistrations(aConfig.serviceWorkerRegistrations());
-  return IPC_OK();
-}
 
 mozilla::ipc::IPCResult ContentChild::RecvInitBlobURLs(
     nsTArray<BlobURLRegistrationData>&& aRegistrations) {

@@ -669,7 +669,7 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
   // Returns the portion of the visible rect of this remote document in the
   // top browser window coordinate system.  This is the result of being clipped
   // by all ancestor viewports.
-  mozilla::ScreenRect GetTopLevelViewportVisibleRectInBrowserCoords() const;
+  Maybe<ScreenRect> GetTopLevelViewportVisibleRectInBrowserCoords() const;
 
   // Similar to above GetTopLevelViewportVisibleRectInBrowserCoords(), but in
   // this out-of-process document's coordinate system.
@@ -930,6 +930,7 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
   int32_t mCancelContentJSEpoch;
 
   Maybe<LayoutDeviceToLayoutDeviceMatrix4x4> mChildToParentConversionMatrix;
+  // When mChildToParentConversionMatrix is Nothing() this value is invalid.
   ScreenRect mTopLevelViewportVisibleRectInBrowserCoords;
 
   bool mUpdateHitRegion;

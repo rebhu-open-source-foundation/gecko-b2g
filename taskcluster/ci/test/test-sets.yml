@@ -173,7 +173,6 @@ linux1804-tests:
     - mochitest-webgl2-ext
     - reftest
     - reftest-no-accel
-    - reftest-snapshot
     - telemetry-tests-client
     - test-verify
     - test-verify-gpu
@@ -183,6 +182,8 @@ linux1804-tests:
 linux1804-qr-tests:
     - cppunit
     - crashtest
+    - firefox-ui-functional-local
+    - firefox-ui-functional-remote
     - gtest
     # - jittest  # See comment in linux1804-ccov-tests set.
     - jsreftest
@@ -199,8 +200,15 @@ linux1804-qr-tests:
     - mochitest-webgl2-core
     - mochitest-webgl2-ext
     - reftest
+    - reftest-snapshot
     - test-verify
     - xpcshell
+
+linux1804-ccov-qr-tests:
+    - reftest-snapshot
+
+linux1804-devedition-qr-tests:
+    - reftest-snapshot
 
 linux1804-ccov-tests:
     # jittest run on regular linux builds is redundant with SM(p), so we omit it
@@ -212,6 +220,8 @@ linux1804-ccov-tests:
 linux-qr-smoketests:
     - cppunit
     - crashtest
+    - firefox-ui-functional-local
+    - firefox-ui-functional-remote
     - gtest
     - jsreftest
     - marionette
@@ -225,8 +235,8 @@ linux-qr-smoketests:
     - mochitest-webgl2-core
     - mochitest-webgl2-ext
     - reftest
+    - reftest-snapshot
     - test-verify
-    - web-platform-tests
     - xpcshell
 
 linux-talos-flex:

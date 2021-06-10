@@ -20,7 +20,7 @@ tag = "v0.4.25"
 [source."https://github.com/mozilla/mp4parse-rust"]
 git = "https://github.com/mozilla/mp4parse-rust"
 replace-with = "vendored-sources"
-rev = "dd967732ac836cc1ed5f1a7259d912c5d13e009b"
+rev = "1bb484e96ae724309e3346968e8ffd4c25e61616"
 
 [source."https://github.com/mozilla/cubeb-pulse-rs"]
 git = "https://github.com/mozilla/cubeb-pulse-rs"
@@ -105,12 +105,12 @@ rev = "824fa69756523f2b6d49029fe25de94130b1f144"
 [source."https://github.com/PLSysSec/rlbox_lucet_sandbox/"]
 git = "https://github.com/PLSysSec/rlbox_lucet_sandbox/"
 replace-with = "vendored-sources"
-rev = "f3cace4fb8b53db0849c62af4fa62bade5a620f7"
+rev = "5c8e79048d3ff6f434109e19d4aee4ff8624d3d7"
 
 [source."https://github.com/PLSysSec/lucet_sandbox_compiler"]
 git = "https://github.com/PLSysSec/lucet_sandbox_compiler"
 replace-with = "vendored-sources"
-rev = "cd07861d1c92147b35b538e6f94fde7d1986f9ad"
+rev = "d582d76bf0d17984501f3933688bf7a1eb5cf208"
 
 [source.crates-io]
 replace-with = "vendored-sources"
