@@ -114,6 +114,9 @@
       super();
 
       this.onPageHide = this.onPageHide.bind(this);
+      this.onDragOver = this.onDragOver.bind(this);
+      this.onDrop = this.onDrop.bind(this);
+      this.onDragStart = this.onDragStart.bind(this);
 
       this.isNavigating = false;
 
@@ -134,77 +137,15 @@
         return new LazyModules.PopupBlocker(this);
       });
 
-      this.addEventListener(
-        "dragover",
-        event => {
-          if (!this.droppedLinkHandler || event.defaultPrevented) {
-            return;
-          }
-
-          // For drags that appear to be internal text (for example, tab drags),
-          // set the dropEffect to 'none'. This prevents the drop even if some
-          // other listener cancelled the event.
-          var types = event.dataTransfer.types;
-          if (
-            types.includes("text/x-moz-text-internal") &&
-            !types.includes("text/plain")
-          ) {
-            event.dataTransfer.dropEffect = "none";
-            event.stopPropagation();
-            event.preventDefault();
-          }
-
-          // No need to handle "dragover" in e10s, since nsDocShellTreeOwner.cpp in the child process
-          // handles that case using "@mozilla.org/content/dropped-link-handler;1" service.
-          if (this.isRemoteBrowser) {
-            return;
-          }
-
-          let linkHandler = Services.droppedLinkHandler;
-          if (linkHandler.canDropLink(event, false)) {
-            event.preventDefault();
-          }
-        },
-        { mozSystemGroup: true }
-      );
-
-      this.addEventListener(
-        "drop",
-        event => {
-          // No need to handle "drop" in e10s, since nsDocShellTreeOwner.cpp in the child process
-          // handles that case using "@mozilla.org/content/dropped-link-handler;1" service.
-          if (
-            !this.droppedLinkHandler ||
-            event.defaultPrevented ||
-            this.isRemoteBrowser
-          ) {
-            return;
-          }
-
-          let linkHandler = Services.droppedLinkHandler;
-          try {
-            // Pass true to prevent the dropping of javascript:/data: URIs
-            var links = linkHandler.dropLinks(event, true);
-          } catch (ex) {
-            return;
-          }
-
-          if (links.length) {
-            let triggeringPrincipal = linkHandler.getTriggeringPrincipal(event);
-            this.droppedLinkHandler(event, links, triggeringPrincipal);
-          }
-        },
-        { mozSystemGroup: true }
-      );
-
-      this.addEventListener("dragstart", event => {
-        // If we're a remote browser dealing with a dragstart, stop it
-        // from propagating up, since our content process should be dealing
-        // with the mouse movement.
-        if (this.isRemoteBrowser) {
-          event.stopPropagation();
-        }
+      this.addEventListener("dragover", this.onDragOver, {
+        mozSystemGroup: true,
       });
+
+      this.addEventListener("drop", this.onDrop, {
+        mozSystemGroup: true,
+      });
+
+      this.addEventListener("dragstart", this.onDragStart);
     }
 
     resetFields() {
@@ -942,6 +883,70 @@
       }
     }
 
+    onDragOver(event) {
+      if (!this.droppedLinkHandler || event.defaultPrevented) {
+        return;
+      }
+
+      // For drags that appear to be internal text (for example, tab drags),
+      // set the dropEffect to 'none'. This prevents the drop even if some
+      // other listener cancelled the event.
+      var types = event.dataTransfer.types;
+      if (
+        types.includes("text/x-moz-text-internal") &&
+        !types.includes("text/plain")
+      ) {
+        event.dataTransfer.dropEffect = "none";
+        event.stopPropagation();
+        event.preventDefault();
+      }
+
+      // No need to handle "dragover" in e10s, since nsDocShellTreeOwner.cpp in the child process
+      // handles that case using "@mozilla.org/content/dropped-link-handler;1" service.
+      if (this.isRemoteBrowser) {
+        return;
+      }
+
+      let linkHandler = Services.droppedLinkHandler;
+      if (linkHandler.canDropLink(event, false)) {
+        event.preventDefault();
+      }
+    }
+
+    onDrop(event) {
+      // No need to handle "drop" in e10s, since nsDocShellTreeOwner.cpp in the child process
+      // handles that case using "@mozilla.org/content/dropped-link-handler;1" service.
+      if (
+        !this.droppedLinkHandler ||
+        event.defaultPrevented ||
+        this.isRemoteBrowser
+      ) {
+        return;
+      }
+
+      let linkHandler = Services.droppedLinkHandler;
+      try {
+        // Pass true to prevent the dropping of javascript:/data: URIs
+        var links = linkHandler.dropLinks(event, true);
+      } catch (ex) {
+        return;
+      }
+
+      if (links.length) {
+        let triggeringPrincipal = linkHandler.getTriggeringPrincipal(event);
+        this.droppedLinkHandler(event, links, triggeringPrincipal);
+      }
+    }
+
+    onDragStart(event) {
+      // If we're a remote browser dealing with a dragstart, stop it
+      // from propagating up, since our content process should be dealing
+      // with the mouse movement.
+      if (this.isRemoteBrowser) {
+        event.stopPropagation();
+      }
+    }
+
     audioPlaybackStarted() {
       if (this._audioMuted) {
         return;
@@ -1164,6 +1169,16 @@
       if (!this.isRemoteBrowser) {
         this.removeEventListener("pagehide", this.onPageHide, true);
       }
+
+      this.removeEventListener("dragover", this.onDragOver, {
+        mozSystemGroup: true,
+      });
+      this.removeEventListener("dragstart", this.onDragStart, {
+        mozSystemGroup: true,
+      });
+      this.removeEventListener("drop", this.onDrop, {
+        mozSystemGroup: true,
+      });
     }
 
     receiveMessage(aMessage) {
