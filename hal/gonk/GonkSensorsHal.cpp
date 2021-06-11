@@ -250,37 +250,44 @@ GonkSensorsHal::Init() {
 
 bool
 GonkSensorsHal::InitHidlService() {
-    android::sp<V2_0::ISensors> serviceV2_0 = V2_0::ISensors::getService();
-    if (serviceV2_0) {
-      return InitHidlServiceV2_0(serviceV2_0);
-    }
+  // TODO: consider to move out initialization stuff from main thread
+  android::sp<V2_0::ISensors> serviceV2_0 = V2_0::ISensors::getService();
+  if (serviceV2_0) {
+    HAL_LOG("sensors v2.0 hidl service is detected");
+    return InitHidlServiceV2_0(serviceV2_0);
+  }
 
-    android::sp<V1_0::ISensors> serviceV1_0 = V1_0::ISensors::getService();
-    if (serviceV1_0) {
-      HAL_LOG("sensors v1.0 hidl service is detected");
-      return InitHidlServiceV1_0(serviceV1_0);
-    }
+  android::sp<V1_0::ISensors> serviceV1_0 = V1_0::ISensors::getService();
+  if (serviceV1_0) {
+    HAL_LOG("sensors v1.0 hidl service is detected");
+    return InitHidlServiceV1_0(serviceV1_0);
+  }
 
-    HAL_ERR("no sensors hidl service is detected");
-    return false;
+  HAL_ERR("no sensors hidl service is detected");
+  return false;
 }
 
 bool
 GonkSensorsHal::InitHidlServiceV1_0(android::sp<V1_0::ISensors> aServiceV1_0) {
-  mSensors = new SensorsWrapperV1_0(aServiceV1_0);
-  // TODO: evaluate a proper retrying times if it's not enough
-  size_t retry = 2;
-  while (retry-- > 0) {
-    // poke hidl service to check if it is alive
+  size_t retry = 5;
+  do {
+    mSensors = new SensorsWrapperV1_0(aServiceV1_0);
+
+    // poke hidl service to check if it is alive, the hidl service will kill and restart
+    // itself if has lingering connection
     if (mSensors->poll(0, [](auto, const auto &, const auto &) {}).isOk()) {
       return true;
-    } else {
-      HAL_ERR("poke sensors hidl service failed");
-      // sensors hidl service will kill and restart itself when it detects
-      // double connections are calling poll()
-      // TODO: add a proper delay waiting for service restarting
     }
-  }
+
+    if (retry > 0) {
+      // sleep and wait for hidl service restarting
+      HAL_ERR("sleep and wait for sensors hidl service restarting");
+      usleep(50000);
+      aServiceV1_0 = V1_0::ISensors::getService();
+    }
+  } while (retry-- > 0);
+
+  HAL_ERR("sensors v1.0 hidl service initialize failed");
 
   return false;
 }
