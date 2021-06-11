@@ -5,7 +5,7 @@
 # Conditions #
 ##############
 .if-lint-can-be-skipped: &if-lint-can-be-skipped
-  if: '$CI_MERGE_REQUEST_TITLE =~ /skip-lint|^WIP\:/'
+  if: '$CI_MERGE_REQUEST_TITLE =~ /skip-lint|^WIP\:|upstream-merge/'
 
 .if-submitted-to-gecko: &if-submitted-to-gecko
   if: $CI_MERGE_REQUEST_PROJECT_PATH == "KaiOS/gecko-dev"

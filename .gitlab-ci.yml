@@ -33,7 +33,10 @@ stages:
   - build
   - deploy
 
-Check if rebased and validate commit messages:
+Check if MR is rebased:
+  extends: .rebase_validation
+
+Validate message format:
   extends: .commit_validation
 
 lint:eslint:
