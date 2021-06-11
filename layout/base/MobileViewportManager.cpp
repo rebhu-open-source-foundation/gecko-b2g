@@ -191,6 +191,8 @@ MobileViewportManager::Observe(nsISupports* aSubject, const char* aTopic,
 
 void MobileViewportManager::SetInitialViewport() {
   MVM_LOG("%p: setting initial viewport\n", this);
+  mRestoreResolution.reset();
+  mRestoreDisplaySize.reset();
   mIsFirstPaint = true;
   mPainted = true;
   RefreshViewportSize(false);
