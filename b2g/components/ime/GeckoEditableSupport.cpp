@@ -416,23 +416,6 @@ TextEventDispatcher* getTextEventDispatcherFromFocus() {
   return widget->GetTextEventDispatcher();
 }
 
-Element* getActiveElement() {
-  RefPtr<nsFocusManager> focusManager = nsFocusManager::GetFocusManager();
-  if (!focusManager) {
-    return nullptr;
-  }
-  RefPtr<Element> focusedElement = focusManager->GetFocusedElement();
-  if (!focusedElement) {
-    return nullptr;
-  }
-  nsCOMPtr<Document> doc = focusedElement->GetComposedDoc();
-  if (!doc) {
-    return nullptr;
-  }
-  RefPtr<Element> activeElement = doc->GetActiveElement();
-  return activeElement;
-}
-
 HandleFocusRequest CreateFocusRequestFromInputContext(
     nsIInputContext* aInputContext) {
   nsAutoString typeValue, inputTypeValue, valueValue, maxValue, minValue,
@@ -526,7 +509,7 @@ NS_IMPL_ISUPPORTS(GeckoEditableSupport, TextEventDispatcherListener,
                   nsISupportsWeakReference)
 
 GeckoEditableSupport::GeckoEditableSupport(nsPIDOMWindowOuter* aDOMWindow)
-    : mServiceChild(nullptr), mIsFocused(false), mIsVoiceInputEnabled(false) {
+    : mServiceChild(nullptr), mIsVoiceInputEnabled(false) {
   IME_LOGD("GeckoEditableSupport::Constructor[%p]", this);
   nsCOMPtr<nsIObserverService> obs = mozilla::services::GetObserverService();
   if (obs) {
@@ -614,6 +597,15 @@ GeckoEditableSupport::Observe(nsISupports* aSubject, const char* aTopic,
   return NS_OK;
 }
 
+Element* GeckoEditableSupport::GetActiveElement() {
+  RefPtr<Element> ele = do_QueryReferent(mFocusedTarget);
+  if (!ele) {
+    IME_LOGD("Cannot get valid composedTarget.");
+    return nullptr;
+  }
+  return ele;
+}
+
 NS_IMETHODIMP
 GeckoEditableSupport::HandleEvent(Event* aEvent) {
   if (!aEvent) {
@@ -658,13 +650,12 @@ GeckoEditableSupport::HandleEvent(Event* aEvent) {
   if (eventType.EqualsLiteral("focus")) {
     if (!isTargetEditable) {
       // Focusing on other non-editable element and the blur event is missing.
-      if (mIsFocused) {
+      if (mFocusedTarget) {
         HandleBlur();
       }
       return NS_OK;
     }
-
-    HandleFocus();
+    HandleFocus(ele);
     RefPtr<TextEventDispatcher> dispatcher = getTextEventDispatcherFromFocus();
     if (dispatcher) {
       nsresult result = dispatcher->BeginInputTransaction(this);
@@ -689,15 +680,15 @@ void GeckoEditableSupport::EnsureServiceChild() {
   }
 }
 
-void GeckoEditableSupport::HandleFocus() {
+void GeckoEditableSupport::HandleFocus(Element* aElement) {
+  mFocusedTarget = do_GetWeakReference(aElement);
   RefPtr<nsInputContext> inputContext = new nsInputContext();
   nsresult rv = GetInputContextBag(inputContext);
   if (NS_FAILED(rv)) {
+    // No valid inputContext, set mFocusedTarget to null.
+    mFocusedTarget = nullptr;
     return;
   }
-
-  MOZ_ASSERT(!mIsFocused);
-  mIsFocused = true;
 
   if (XRE_IsParentProcess()) {
     IME_LOGD("-- GeckoEditableSupport::HandleFocus in parent");
@@ -715,10 +706,10 @@ void GeckoEditableSupport::HandleFocus() {
 }
 
 void GeckoEditableSupport::HandleBlur() {
-  if (!mIsFocused) {
+  if (!mFocusedTarget) {
     return;
   }
-  mIsFocused = false;
+  mFocusedTarget = nullptr;
 
   if (XRE_IsParentProcess()) {
     // Call from parent process (or in-proces app).
@@ -742,7 +733,7 @@ void GeckoEditableSupport::HandleBlur() {
 void GeckoEditableSupport::HandleTextChanged() {
   nsresult rv = NS_ERROR_ABORT;
   nsAutoString text;
-  RefPtr<Element> activeElement = getActiveElement();
+  RefPtr<Element> activeElement = GetActiveElement();
   if (!activeElement) {
     return;
   }
@@ -1031,7 +1022,7 @@ GeckoEditableSupport::DeleteBackward(uint32_t aId,
 
   nsresult rv = NS_ERROR_ABORT;
   do {
-    Element* activeElement = getActiveElement();
+    Element* activeElement = GetActiveElement();
     if (!activeElement) {
       break;
     }
@@ -1057,7 +1048,7 @@ GeckoEditableSupport::SetSelectedOption(uint32_t aId,
   IME_LOGD("-- EditableSupport aOptionIndex:[%ld]", aOptionIndex);
   nsresult rv = NS_ERROR_ABORT;
   do {
-    Element* activeElement = getActiveElement();
+    Element* activeElement = GetActiveElement();
     if (!activeElement) {
       break;
     }
@@ -1112,7 +1103,7 @@ GeckoEditableSupport::SetSelectedOptions(
 
   nsresult rv = NS_ERROR_ABORT;
   do {
-    Element* activeElement = getActiveElement();
+    Element* activeElement = GetActiveElement();
     if (!activeElement) {
       break;
     }
@@ -1168,7 +1159,7 @@ GeckoEditableSupport::RemoveFocus(uint32_t aId,
   IME_LOGD("-- GeckoEditableSupport::RemoveFocus");
   nsresult rv = NS_ERROR_ABORT;
   do {
-    Element* activeElement = getActiveElement();
+    Element* activeElement = GetActiveElement();
     if (!activeElement) {
       break;
     }
@@ -1195,7 +1186,7 @@ GeckoEditableSupport::GetSelectionRange(uint32_t aId,
   nsresult rv = NS_ERROR_ABORT;
   int32_t start = 0, end = 0;
   do {
-    Element* activeElement = getActiveElement();
+    Element* activeElement = GetActiveElement();
     if (!activeElement) {
       break;
     }
@@ -1222,7 +1213,7 @@ GeckoEditableSupport::GetText(uint32_t aId,
   nsresult rv = NS_ERROR_ABORT;
   nsAutoString text;
   do {
-    Element* activeElement = getActiveElement();
+    Element* activeElement = GetActiveElement();
     if (!activeElement) {
       break;
     }
@@ -1275,7 +1266,7 @@ GeckoEditableSupport::SetValue(uint32_t aId,
       }
     }
 
-    Element* activeElement = getActiveElement();
+    Element* activeElement = GetActiveElement();
     if (!activeElement) {
       break;
     }
@@ -1337,7 +1328,7 @@ GeckoEditableSupport::ClearAll(uint32_t aId,
   IME_LOGD("-- GeckoEditableSupport::ClearAll");
   nsresult rv = NS_ERROR_ABORT;
   do {
-    Element* activeElement = getActiveElement();
+    Element* activeElement = GetActiveElement();
     if (!activeElement) {
       break;
     }
@@ -1394,7 +1385,7 @@ GeckoEditableSupport::ReplaceSurroundingText(
   nsresult rv = NS_ERROR_ABORT;
   int32_t start = 0, end = 0;
   do {
-    Element* activeElement = getActiveElement();
+    Element* activeElement = GetActiveElement();
     if (!activeElement) {
       break;
     }
@@ -1473,7 +1464,7 @@ GeckoEditableSupport::ReplaceSurroundingText(
 
 nsresult GeckoEditableSupport::GetInputContextBag(
     nsInputContext* aInputContext) {
-  Element* activeElement = getActiveElement();
+  Element* activeElement = GetActiveElement();
   if (!activeElement) {
     return NS_ERROR_FAILURE;
   }

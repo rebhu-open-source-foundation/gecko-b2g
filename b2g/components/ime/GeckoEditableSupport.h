@@ -14,9 +14,11 @@
 #include "mozilla/TextEventDispatcher.h"
 #include "mozilla/TextEventDispatcherListener.h"
 #include "mozilla/UniquePtr.h"
+#include "mozilla/WeakPtr.h"
 #include "nsIEditableSupport.h"
 #include "nsIDOMEventListener.h"
 #include "nsIObserver.h"
+#include "nsIWeakReferenceUtils.h"
 
 class nsWindow;
 class nsIGlobalObject;
@@ -64,10 +66,11 @@ class GeckoEditableSupport final : public TextEventDispatcherListener,
   WillDispatchKeyboardEvent(TextEventDispatcher* aTextEventDispatcher,
                             WidgetKeyboardEvent& aKeyboardEvent,
                             uint32_t aIndexOfKeypress, void* aData) override {}
+  dom::Element* GetActiveElement();
 
  protected:
   virtual ~GeckoEditableSupport();
-  void HandleFocus();
+  void HandleFocus(dom::Element* aElement);
   void HandleBlur();
   nsresult GetInputContextBag(dom::nsInputContext* aInputContext);
   void HandleTextChanged();
@@ -79,13 +82,10 @@ class GeckoEditableSupport final : public TextEventDispatcherListener,
   dom::InputMethodServiceChild* mServiceChild;
   nsCOMPtr<dom::EventTarget> mChromeEventHandler;
 
-  // We need this flag to remember whether we already send focus to IME. Can't
-  // fully rely on focus/blur event due to the blur event may be suppressed in
-  // some cases (e.g. content removed)
-  bool mIsFocused;
   bool mIsVoiceInputEnabled;
   nsTArray<nsCString> mVoiceInputSupportedTypes;
   nsTArray<nsCString> mVoiceInputExcludedXInputModes;
+  nsWeakPtr mFocusedTarget;
 };
 
 }  // namespace widget
