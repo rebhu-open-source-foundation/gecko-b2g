@@ -1,0 +1,18 @@
+# For the convenience of SCM bot, make this job independent in a single file.
+# It's worth noting that yaml anchor is discarded by PyYAML due to its
+# mechanism loading yml file.
+#
+# This job would be created and literally fail by exiting with non-zero
+# once the files addressed in `changes` are detected by runner.
+
+Check if MR contains changes of sidl services:
+  extends: .precautions_base
+  script:
+    - die "SIDL-related detected."
+  rules:
+    - if: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "v3.0"
+      changes:
+        - b2g/sidl/gecko_sidl/src/services/contacts/messages.rs
+        - b2g/sidl/gecko_sidl/src/services/time/messages.rs
+        - b2g/sidl/gecko_sidl/src/services/bridge/messages.rs
+        - b2g/sidl/gecko_sidl/src/services/settings/messages.rs
