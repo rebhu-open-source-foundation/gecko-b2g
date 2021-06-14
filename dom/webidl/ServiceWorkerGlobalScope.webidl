@@ -47,3 +47,7 @@ partial interface ServiceWorkerGlobalScope {
 partial interface ServiceWorkerGlobalScope {
   attribute EventHandler onsystemmessage;
 };
+
+// Mixin the WebExtensions API globals (the actual properties are only available to
+// extension service workers, locked behind a Func="extensions::ExtensionAPIAllowed" annotation).
+ServiceWorkerGlobalScope includes ExtensionGlobalsMixin;

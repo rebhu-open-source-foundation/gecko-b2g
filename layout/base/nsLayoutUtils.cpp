@@ -893,6 +893,40 @@ nsIFrame* nsLayoutUtils::GetMarkerFrame(const nsIContent* aContent) {
   return pseudo ? pseudo->GetPrimaryFrame() : nullptr;
 }
 
+#ifdef ACCESSIBILITY
+void nsLayoutUtils::GetMarkerSpokenText(const nsIContent* aContent,
+                                        nsAString& aText) {
+  MOZ_ASSERT(aContent && aContent->IsGeneratedContentContainerForMarker());
+
+  aText.Truncate();
+
+  nsIFrame* frame = aContent->GetPrimaryFrame();
+  if (!frame) {
+    return;
+  }
+
+  if (frame->StyleContent()->ContentCount() > 0) {
+    for (nsIFrame* child : frame->PrincipalChildList()) {
+      nsIFrame::RenderedText text = child->GetRenderedText();
+      aText += text.mString;
+    }
+    return;
+  }
+
+  if (!frame->StyleList()->mListStyleImage.IsNone()) {
+    // ::marker is an image, so use default bullet character.
+    static const char16_t kDiscMarkerString[] = {0x2022, ' ', 0};
+    aText.AssignLiteral(kDiscMarkerString);
+    return;
+  }
+
+  frame->PresContext()
+      ->FrameConstructor()
+      ->CounterManager()
+      ->GetSpokenCounterText(frame, aText);
+}
+#endif
+
 // static
 nsIFrame* nsLayoutUtils::GetClosestFrameOfType(nsIFrame* aFrame,
                                                LayoutFrameType aFrameType,
@@ -2534,7 +2568,7 @@ nsRect nsLayoutUtils::TransformFrameRectToAncestor(
     Maybe<Matrix4x4Flagged>* aMatrixCache /* = nullptr */,
     bool aStopAtStackingContextAndDisplayPortAndOOFFrame /* = false */,
     nsIFrame** aOutAncestor /* = nullptr */) {
-  MOZ_ASSERT(IsAncestorFrameCrossDoc(aAncestor.mFrame, aFrame),
+  MOZ_ASSERT(IsAncestorFrameCrossDocInProcess(aAncestor.mFrame, aFrame),
              "Fix the caller");
 
   SVGTextFrame* text = GetContainingSVGTextFrame(aFrame);
@@ -5097,6 +5131,9 @@ nscoord nsLayoutUtils::IntrinsicForAxis(
         }
 
         if (MOZ_UNLIKELY(aFlags & nsLayoutUtils::MIN_INTRINSIC_ISIZE) &&
+            // FIXME: Bug 1715681. Should we use eReplacedSizing instead
+            // because eReplaced is set on some other frames which are
+            // non-replaced elements, e.g. <select>?
             aFrame->IsFrameOfType(nsIFrame::eReplaced)) {
           // This is the 'min-width/height:auto' "transferred size" piece of:
           // https://drafts.csswg.org/css-flexbox-1/#min-size-auto
@@ -7518,9 +7555,7 @@ void nsLayoutUtils::AssertTreeOnlyEmptyNextInFlows(nsIFrame* aSubtreeRoot) {
                "frame tree not empty, but caller reported complete status");
 
   // Also assert that text frames map no text.
-  int32_t start, end;
-  nsresult rv = aSubtreeRoot->GetOffsets(start, end);
-  NS_ASSERTION(NS_SUCCEEDED(rv), "GetOffsets failed");
+  auto [start, end] = aSubtreeRoot->GetOffsets();
   // In some cases involving :first-letter, we'll partially unlink a
   // continuation in the middle of a continuation chain from its
   // previous and next continuations before destroying it, presumably so

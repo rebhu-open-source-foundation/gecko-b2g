@@ -302,6 +302,13 @@ this.AppConstants = Object.freeze({
   false,
 #endif
 
+  MOZ_WEBEXT_WEBIDL_ENABLED:
+#ifdef MOZ_WEBEXT_WEBIDL_ENABLED
+  true,
+#else
+  false,
+#endif
+
   MENUBAR_CAN_AUTOHIDE:
 #ifdef MENUBAR_CAN_AUTOHIDE
   true,
