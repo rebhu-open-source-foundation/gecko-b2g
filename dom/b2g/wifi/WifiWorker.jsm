@@ -131,7 +131,8 @@ const WIFIWORKER_CID = Components.ID("{a14e8977-d259-433a-a88d-58dd44657e5b}");
 const kFinalUiStartUpTopic = "final-ui-startup";
 const kXpcomShutdownChangedTopic = "xpcom-shutdown";
 const kScreenStateChangedTopic = "screen-state-changed";
-const kInterfaceAddressChangedTopic = "interface-address-change";
+const kInterfaceAddressUpdatedTopic = "interface-address-updated";
+const kInterfaceAddressRemovedTopic = "interface-address-removed";
 const kInterfaceDnsInfoTopic = "interface-dns-info";
 const kRouteChangedTopic = "route-change";
 const kPrefDefaultServiceId = "dom.telephony.defaultServiceId";
@@ -2504,7 +2505,8 @@ function WifiWorker() {
   Services.obs.addObserver(this, kFinalUiStartUpTopic);
   Services.obs.addObserver(this, kXpcomShutdownChangedTopic);
   Services.obs.addObserver(this, kScreenStateChangedTopic);
-  Services.obs.addObserver(this, kInterfaceAddressChangedTopic);
+  Services.obs.addObserver(this, kInterfaceAddressUpdatedTopic);
+  Services.obs.addObserver(this, kInterfaceAddressRemovedTopic);
   Services.obs.addObserver(this, kInterfaceDnsInfoTopic);
   Services.obs.addObserver(this, kRouteChangedTopic);
   Services.obs.addObserver(this, kCaptivePortalResult);
@@ -4887,7 +4889,8 @@ WifiWorker.prototype = {
     Services.obs.removeObserver(this, kFinalUiStartUpTopic);
     Services.obs.removeObserver(this, kXpcomShutdownChangedTopic);
     Services.obs.removeObserver(this, kScreenStateChangedTopic);
-    Services.obs.removeObserver(this, kInterfaceAddressChangedTopic);
+    Services.obs.removeObserver(this, kInterfaceAddressUpdatedTopic);
+    Services.obs.removeObserver(this, kInterfaceAddressRemovedTopic);
     Services.obs.removeObserver(this, kInterfaceDnsInfoTopic);
     Services.obs.removeObserver(this, kRouteChangedTopic);
     Services.obs.removeObserver(this, kCaptivePortalResult);
@@ -4997,78 +5000,67 @@ WifiWorker.prototype = {
         WifiManager.handleScreenStateChanged(enabled);
         break;
 
-      case kInterfaceAddressChangedTopic:
-        // Format: "Address updated <addr> <iface> <flags> <scope>"
-        //         "Address removed <addr> <iface> <flags> <scope>"
-        var token = data.split(" ");
-        if (token.length < 6) {
-          return;
-        }
-        var iface = token[3];
-        if (!iface.includes("wlan")) {
-          return;
-        }
-        var action = token[1];
-        var addr = token[2].split("/")[0];
-        var prefix = token[2].split("/")[1];
-        // We only handle IPv6 route advertisement address here.
-        if (!addr.includes(":")) {
-          return;
-        }
+      case kInterfaceAddressUpdatedTopic:
+      case kInterfaceAddressRemovedTopic:
+        {
+          // Format: "<addr> <iface> <flags> <scope>"
+          let token = data.split(" ");
+          if (token.length < 4) {
+            return;
+          }
+          let iface = token[1];
+          if (!iface.includes("wlan")) {
+            return;
+          }
+          let action =
+            topic == kInterfaceAddressUpdatedTopic ? "updated" : "removed";
+          let addrTokens = token[0].split("/");
+          let addr = addrTokens[0];
+          let prefix = addrTokens[1];
+          // We only handle IPv6 route advertisement address here.
+          if (!addr.includes(":")) {
+            return;
+          }
 
-        WifiNetworkInterface.updateConfig(action, {
-          ip: addr,
-          prefixLengths: prefix,
-        });
+          WifiNetworkInterface.updateConfig(action, {
+            ip: addr,
+            prefixLengths: prefix,
+          });
+        }
         break;
 
       case kInterfaceDnsInfoTopic:
-        // Format: "DnsInfo servers <interface> <lifetime> <servers>"
-        token = data.split(" ");
-        if (token.length !== 5) {
-          return;
+        {
+          // Format: "<interface> <lifetime> <servers>"
+          let token = data.split(" ");
+          if (token.length < 3) {
+            return;
+          }
+          let iface = token[0];
+          if (!iface.includes("wlan")) {
+            return;
+          }
+          let dnses = token[2].split(",");
+          WifiNetworkInterface.updateConfig("updated", { dnses });
         }
-        iface = token[2];
-        if (!iface.includes("wlan")) {
-          return;
-        }
-        var dnses = token[4].split(",");
-        WifiNetworkInterface.updateConfig("updated", { dnses });
         break;
 
       case kRouteChangedTopic:
-        // Format: "Route <updated|removed> <dst> [via <gateway] [dev <iface>]"
-        token = data.split(" ");
-        if (token.length < 7) {
-          return;
-        }
-        iface = null;
-        action = token[1];
-        var gateway = null;
-        var valid = true;
-        for (let i = 3; i + 1 < token.length; i += 2) {
-          if (token[i] == "dev") {
-            if (iface == null) {
-              iface = token[i + 1];
-            } else {
-              valid = false; // Duplicate interface.
-            }
-          } else if (token[i] == "via") {
-            if (gateway == null) {
-              gateway = token[i + 1];
-            } else {
-              valid = false; // Duplicate gateway.
-            }
-          } else {
-            valid = false; // Unknown syntax.
+        {
+          // Format: "<updated|removed> <route> <gateway> <iface>"
+          let token = data.split(" ");
+          if (token.length < 4) {
+            return;
           }
-        }
+          let action = token[0];
+          let gateway = token[2];
+          let iface = token[3];
+          if (gateway === "" || !iface.includes("wlan")) {
+            return;
+          }
 
-        if (!valid || !iface.includes("wlan")) {
-          return;
+          WifiNetworkInterface.updateConfig(action, { gateway });
         }
-
-        WifiNetworkInterface.updateConfig(action, { gateway });
         break;
 
       case kCaptivePortalResult:

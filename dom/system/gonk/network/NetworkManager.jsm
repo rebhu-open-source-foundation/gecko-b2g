@@ -734,45 +734,27 @@ NetworkManager.prototype = {
 
       case TOPIC_NETD_INTERFACE_CHANGE:
         {
-          // Format: "Iface linkstate <name> <up/down>"
+          // Format: "<name> <up/down>"
           let token = data.split(" ");
-          if (token.length < 3) {
+          if (token.length < 2) {
             return;
           }
 
           debug("TOPIC_NETD_INTERFACE_CHANGE token=" + JSON.stringify(token));
-          let status = token[1];
-          let iface = token[2];
-
-          if (status == "linkstate") {
-            if (token.length < 4) {
-              return;
-            }
-
-            let up = token[3] == "up";
-            if (iface.includes(CLAT_PREFIX) && up) {
-              this.interfaceLinkStateChanged(iface);
-            }
+          let iface = token[0];
+          let up = token[1] == "up";
+          if (up && iface.includes(CLAT_PREFIX)) {
+            this.interfaceLinkStateChanged(iface);
           }
         }
         break;
       case TOPIC_NETD_INTERFACE_REMOVE:
         {
-          // Format: "Iface removed <name>"
-          let token = data.split(" ");
-          if (token.length < 3) {
-            return;
-          }
-
-          debug("TOPIC_NETD_INTERFACE_REMOVE token=" + JSON.stringify(token));
-          let status = token[1];
-          let iface = token[2];
-
-          if (status == "removed") {
-            if (iface.includes(CLAT_PREFIX)) {
-              this.interfaceRemoved(iface);
-            }
-            break;
+          // Format: "<name>"
+          debug("TOPIC_NETD_INTERFACE_REMOVE token=" + JSON.stringify(data));
+          let iface = data;
+          if (iface.includes(CLAT_PREFIX)) {
+            this.interfaceRemoved(iface);
           }
         }
         break;

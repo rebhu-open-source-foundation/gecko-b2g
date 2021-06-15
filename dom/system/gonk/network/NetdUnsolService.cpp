@@ -47,8 +47,10 @@ void NetdUnsolService::sendBroadcast(UnsolEvent evt, char* reason) {
       result.mTopic = NS_ConvertUTF8toUTF16("interface-dns-info");
       break;
     case InterfaceAddressUpdated:
+      result.mTopic = NS_ConvertUTF8toUTF16("interface-address-updated");
+      break;
     case InterfaceAddressRemoved:
-      result.mTopic = NS_ConvertUTF8toUTF16("interface-address-change");
+      result.mTopic = NS_ConvertUTF8toUTF16("interface-address-removed");
       break;
     case InterfaceLinkStatusChanged:
       result.mTopic = NS_ConvertUTF8toUTF16("netd-interface-change");
@@ -81,9 +83,9 @@ Status NetdUnsolService::onInterfaceDnsServerInfo(
     const std::vector<std::string>& servers) {
   char message[BUF_SIZE];
 
-  SprintfLiteral(message, "DnsInfo servers %s %" PRId64 " %s", ifName.c_str(),
-                 lifetime, android::base::Join(servers, ",").c_str());
-  NUS_DBG("%s", message);
+  SprintfLiteral(message, "%s %" PRId64 " %s", ifName.c_str(), lifetime,
+                 android::base::Join(servers, ",").c_str());
+  NUS_DBG("%s %s", __FUNCTION__, message);
   sendBroadcast(InterfaceDnsServersAdded, message);
   return Status::ok();
 }
@@ -93,9 +95,9 @@ Status NetdUnsolService::onInterfaceAddressUpdated(const std::string& addr,
                                                    int flags, int scope) {
   char message[BUF_SIZE];
 
-  SprintfLiteral(message, "Address updated %s %s %d %d", addr.c_str(),
-                 ifName.c_str(), flags, scope);
-  NUS_DBG("%s", message);
+  SprintfLiteral(message, "%s %s %d %d", addr.c_str(), ifName.c_str(), flags,
+                 scope);
+  NUS_DBG("%s %s", __FUNCTION__, message);
   sendBroadcast(InterfaceAddressUpdated, message);
   return Status::ok();
 }
@@ -104,9 +106,9 @@ Status NetdUnsolService::onInterfaceAddressRemoved(const std::string& addr,
                                                    const std::string& ifName,
                                                    int flags, int scope) {
   char message[BUF_SIZE];
-  SprintfLiteral(message, "Address removed %s %s %d %d", addr.c_str(),
-                 ifName.c_str(), flags, scope);
-  NUS_DBG("%s", message);
+  SprintfLiteral(message, "%s %s %d %d", addr.c_str(), ifName.c_str(), flags,
+                 scope);
+  NUS_DBG("%s %s", __FUNCTION__, message);
   sendBroadcast(InterfaceAddressRemoved, message);
   return Status::ok();
 }
@@ -114,9 +116,8 @@ Status NetdUnsolService::onInterfaceAddressRemoved(const std::string& addr,
 Status NetdUnsolService::onInterfaceLinkStateChanged(const std::string& ifName,
                                                      bool status) {
   char message[BUF_SIZE];
-  SprintfLiteral(message, "Iface linkstate %s %s", ifName.c_str(),
-                 status ? "up" : "down");
-  NUS_DBG("%s", message);
+  SprintfLiteral(message, "%s %s", ifName.c_str(), status ? "up" : "down");
+  NUS_DBG("%s %s", __FUNCTION__, message);
   sendBroadcast(InterfaceLinkStatusChanged, message);
   return Status::ok();
 }
@@ -125,16 +126,9 @@ Status NetdUnsolService::onRouteChanged(bool updated, const std::string& route,
                                         const std::string& gateway,
                                         const std::string& ifName) {
   char message[BUF_SIZE];
-  if (gateway.empty()) {
-    SprintfLiteral(message, "Route %s %s dev %s",
-                   updated ? "updated" : "removed", route.c_str(),
-                   ifName.c_str());
-  } else {
-    SprintfLiteral(message, "Route %s %s via %s dev %s",
-                   updated ? "updated" : "removed", route.c_str(),
-                   gateway.c_str(), ifName.c_str());
-  }
-  NUS_DBG("%s", message);
+  SprintfLiteral(message, "%s %s %s %s", updated ? "updated" : "removed",
+                 route.c_str(), gateway.c_str(), ifName.c_str());
+  NUS_DBG("%s %s", __FUNCTION__, message);
   sendBroadcast(RouteChanged, message);
   return Status::ok();
 }
@@ -142,30 +136,29 @@ Status NetdUnsolService::onRouteChanged(bool updated, const std::string& route,
 Status NetdUnsolService::onQuotaLimitReached(const std::string& alertName,
                                              const std::string& ifName) {
   char message[BUF_SIZE];
-  SprintfLiteral(message, "limit alert %s %s", alertName.c_str(),
-                 ifName.c_str());
-  NUS_DBG("%s", message);
+  SprintfLiteral(message, "%s %s", alertName.c_str(), ifName.c_str());
+  NUS_DBG("%s %s", __FUNCTION__, message);
   sendBroadcast(QuotaLimitReached, message);
   return Status::ok();
 }
 
-// TODO: Implement notify if we need these.
 Status NetdUnsolService::onInterfaceAdded(const std::string& ifName) {
   char message[BUF_SIZE];
-  SprintfLiteral(message, "Iface added %s", ifName.c_str());
-  NUS_DBG("%s", message);
+  SprintfLiteral(message, "%s", ifName.c_str());
+  NUS_DBG("%s %s", __FUNCTION__, message);
   sendBroadcast(InterfaceAdded, message);
   return Status::ok();
 }
 
 Status NetdUnsolService::onInterfaceRemoved(const std::string& ifName) {
   char message[BUF_SIZE];
-  SprintfLiteral(message, "Iface removed %s", ifName.c_str());
-  NUS_DBG("%s", message);
+  SprintfLiteral(message, "%s", ifName.c_str());
+  NUS_DBG("%s %s", __FUNCTION__, message);
   sendBroadcast(InterfaceRemoved, message);
   return Status::ok();
 }
 
+// TODO: Implement notify if we need these.
 Status NetdUnsolService::onInterfaceClassActivityChanged(bool isActive,
                                                          int label,
                                                          int64_t timestamp,
