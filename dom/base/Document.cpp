@@ -10128,7 +10128,8 @@ nsViewportInfo Document::GetViewportInfo(const ScreenIntSize& aDisplaySize) {
 
         nsAutoString handheldFriendly;
         GetHeaderData(nsGkAtoms::handheldFriendly, handheldFriendly);
-        if (handheldFriendly.EqualsLiteral("true")) {
+        if (handheldFriendly.EqualsLiteral("true") ||
+            StaticPrefs::dom_hand_held_friendly_forceEnable()) {
           mViewportType = DisplayWidthHeight;
           return nsViewportInfo(aDisplaySize, defaultScale,
                                 nsViewportInfo::ZoomFlag::AllowZoom,

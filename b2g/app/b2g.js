@@ -1254,3 +1254,5 @@ pref("voice-input.excluded-x-inputmodes", "native, plain, simplified, spell");
 pref("dom.storage.next_gen", false);
 
 pref("dom.popup_allowed_events", "change click dblclick auxclick mouseup pointerup notificationclick reset submit touchend contextmenu keydown keyup");
+
+pref("dom.hand-held-friendly.forceEnable", true);

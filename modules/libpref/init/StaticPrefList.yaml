@@ -2188,6 +2188,12 @@
   value: false
   mirror: always
 
+# Whether to force enable handheldFriendly or not.
+- name: dom.hand-held-friendly.forceEnable
+  type: bool
+  value: false
+  mirror: always
+
 # W3C draft ImageCapture API
 - name: dom.imagecapture.enabled
   type: bool
