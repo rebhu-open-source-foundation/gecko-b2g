@@ -542,25 +542,25 @@ GeckoEditableSupport::GeckoEditableSupport(nsPIDOMWindowOuter* aDOMWindow)
                                           /* useCapture = */ true);
   }
   mIsVoiceInputEnabled = Preferences::GetBool("voice-input.enabled", false);
-  nsAutoString voiceInputSupportedTypes;
-  if (NS_SUCCEEDED(Preferences::GetString("voice-input.supported-types",
-                                          voiceInputSupportedTypes))) {
-    for (const auto& type :
-         nsCharSeparatedTokenizer(voiceInputSupportedTypes, ',').ToRange()) {
-      IME_LOGD(" voice input supported type: %s",
-               NS_ConvertUTF16toUTF8(type).get());
-      mVoiceInputSupportedTypes.AppendElement(NS_ConvertUTF16toUTF8(type));
+  nsAutoCString voiceInputSupportedTypes;
+  if (NS_SUCCEEDED(Preferences::GetCString("voice-input.supported-types",
+                                           voiceInputSupportedTypes))) {
+    for (const auto& token :
+         nsCCharSeparatedTokenizer(voiceInputSupportedTypes, ',').ToRange()) {
+      nsAutoCString type(token);
+      IME_LOGD(" voice input supported type: %s", type.get());
+      mVoiceInputSupportedTypes.AppendElement(type);
     }
   }
-  nsAutoString voiceInputExcludedXInputModes;
-  if (NS_SUCCEEDED(Preferences::GetString("voice-input.excluded-x-inputmodes",
-                                          voiceInputExcludedXInputModes))) {
-    for (const auto& mode :
-         nsCharSeparatedTokenizer(voiceInputExcludedXInputModes, ',')
+  nsAutoCString voiceInputExcludedXInputModes;
+  if (NS_SUCCEEDED(Preferences::GetCString("voice-input.excluded-x-inputmodes",
+                                           voiceInputExcludedXInputModes))) {
+    for (const auto& token :
+         nsCCharSeparatedTokenizer(voiceInputExcludedXInputModes, ',')
              .ToRange()) {
-      IME_LOGD(" voice input excluded-x-inputmodes: %s",
-               NS_ConvertUTF16toUTF8(mode).get());
-      mVoiceInputExcludedXInputModes.AppendElement(NS_ConvertUTF16toUTF8(mode));
+      nsAutoCString mode(token);
+      IME_LOGD(" voice input excluded-x-inputmodes: %s", mode.get());
+      mVoiceInputExcludedXInputModes.AppendElement(mode);
     }
   }
   nsCOMPtr<nsIPrefBranch> prefs = do_GetService(NS_PREFSERVICE_CONTRACTID);
@@ -591,16 +591,22 @@ GeckoEditableSupport::Observe(nsISupports* aSubject, const char* aTopic,
     mChromeEventHandler->RemoveEventListener(u"blur"_ns, this,
                                              /* useCapture = */ true);
   } else if (!strcmp(aTopic, NS_PREFBRANCH_PREFCHANGE_TOPIC_ID)) {
-    mIsVoiceInputEnabled = Preferences::GetBool("voice-input.enabled", false);
-    nsAutoString voiceInputSupportedTypes;
-    if (NS_SUCCEEDED(Preferences::GetString("voice-input.supported-types",
-                                            voiceInputSupportedTypes))) {
-      mVoiceInputSupportedTypes.Clear();
-      for (const auto& type :
-           nsCharSeparatedTokenizer(voiceInputSupportedTypes, ',').ToRange()) {
-        IME_LOGD(" changed voice input supported type: %s",
-                 NS_ConvertUTF16toUTF8(type).get());
-        mVoiceInputSupportedTypes.AppendElement(NS_ConvertUTF16toUTF8(type));
+    if (!nsCRT::strcmp(aData, u"voice-input.enabled")) {
+      mIsVoiceInputEnabled = Preferences::GetBool("voice-input.enabled", false);
+      IME_LOGD(" voice-input.enabled: %s",
+               mIsVoiceInputEnabled ? "true" : "false");
+    } else if (!nsCRT::strcmp(aData, u"voice-input.supported-types")) {
+      nsAutoCString voiceInputSupportedTypes;
+      if (NS_SUCCEEDED(Preferences::GetCString("voice-input.supported-types",
+                                               voiceInputSupportedTypes))) {
+        mVoiceInputSupportedTypes.Clear();
+        for (const auto& token :
+             nsCCharSeparatedTokenizer(voiceInputSupportedTypes, ',')
+                 .ToRange()) {
+          nsAutoCString type(token);
+          IME_LOGD(" voice input supported type: %s", type.get());
+          mVoiceInputSupportedTypes.AppendElement(type);
+        }
       }
     }
   }
