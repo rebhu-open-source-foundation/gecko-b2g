@@ -4942,10 +4942,7 @@ bool nsDisplayOutline::CreateWebRenderCommands(
 }
 
 bool nsDisplayOutline::HasRadius() const {
-  const auto& radius =
-      StaticPrefs::layout_css_outline_follows_border_radius_enabled()
-          ? mFrame->StyleBorder()->mBorderRadius
-          : mFrame->StyleOutline()->mOutlineRadius;
+  const auto& radius = mFrame->StyleBorder()->mBorderRadius;
   return !nsLayoutUtils::HasNonZeroCorner(radius);
 }
 

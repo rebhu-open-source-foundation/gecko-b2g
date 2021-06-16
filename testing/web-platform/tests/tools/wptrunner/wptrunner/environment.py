@@ -276,7 +276,7 @@ class TestEnvironment(object):
                     s.settimeout(0.1)
                     try:
                         s.connect((host, port))
-                    except socket.error:
+                    except OSError:
                         pending.append((host, port))
                     finally:
                         s.close()
