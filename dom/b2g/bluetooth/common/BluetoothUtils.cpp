@@ -922,6 +922,19 @@ void DispatchStatusChangedEvent(const nsAString& aType,
   bs->DistributeSignal(aType, KEY_ADAPTER, data);
 }
 
+void DispatchHfBatteryChangedEvent(const BluetoothAddress& aDeviceAddress,
+                                   int32_t aBatteryLevel) {
+  MOZ_ASSERT(NS_IsMainThread());
+
+  BluetoothService* bs = BluetoothService::Get();
+  NS_ENSURE_TRUE_VOID(bs);
+
+  nsTArray<BluetoothNamedValue> data;
+  AppendNamedValue(data, "BatteryLevel", aBatteryLevel);
+
+  bs->DistributeSignal(u"PropertyChanged"_ns, aDeviceAddress, data);
+}
+
 void AppendNamedValue(nsTArray<BluetoothNamedValue>& aArray, const char* aName,
                       const BluetoothValue& aValue) {
   nsString name;

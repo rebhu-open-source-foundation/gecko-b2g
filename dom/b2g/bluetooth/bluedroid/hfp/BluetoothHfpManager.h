@@ -114,6 +114,9 @@ class BluetoothHfpManager : public BluetoothHfpManagerBase,
   // Handle the volume change of Bluetooth SCO (audio connection)
   void HandleVolumeChanged(const nsAString& aVolume);
 
+  // Get the battery level of the remote handsfree device
+  int GetDeviceBatteryLevel() const { return mDeviceBatteryLevel; }
+
   // CDMA-specific functions
   void UpdateSecondNumber(const nsAString& aNumber);
   void AnswerWaitingCall();
@@ -241,6 +244,7 @@ class BluetoothHfpManager : public BluetoothHfpManagerBase,
   BluetoothAddress mDeviceAddress;
   nsString mMsisdn;
   nsString mOperatorName;
+  int mDeviceBatteryLevel = -1;
 
   nsTArray<Call> mCurrentCallArray;
   UniquePtr<BluetoothRilListener> mListener;

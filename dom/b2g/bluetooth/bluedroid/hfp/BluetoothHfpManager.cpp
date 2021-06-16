@@ -618,6 +618,12 @@ void BluetoothHfpManager::NotifyConnectionStateChanged(const nsAString& aType) {
 
       OnConnect(EmptyString());
     } else if (mConnectionState == HFP_CONNECTION_STATE_DISCONNECTED) {
+      // Reset battery level when it's disconnected
+      if (mDeviceBatteryLevel != -1) {
+        mDeviceBatteryLevel = -1;
+        DispatchHfBatteryChangedEvent(mDeviceAddress, -1);
+      }
+
       mDeviceAddress.Clear();
       if (mPrevConnectionState == HFP_CONNECTION_STATE_DISCONNECTED) {
         // Bug 979160: This implies the outgoing connection failure.
@@ -1782,6 +1788,15 @@ void BluetoothHfpManager::BievNotification(BluetoothHandsfreeHfIndType aType,
   MOZ_ASSERT(NS_IsMainThread());
 
   BT_LOGD("type: %d, value: %d", static_cast<int>(aType), aValue);
+
+  if (aType == HFP_HF_IND_BATTERY_LEVEL_STATUS) {
+    if (aValue >= 0 && aValue <= 100) {
+      mDeviceBatteryLevel = aValue;
+      DispatchHfBatteryChangedEvent(aBdAddr, mDeviceBatteryLevel);
+    } else {
+      BT_WARNING("The value of HF battery level is abnormal");
+    }
+  }
 }
 
 // Implements nsISettingsObserver::ObserveSetting

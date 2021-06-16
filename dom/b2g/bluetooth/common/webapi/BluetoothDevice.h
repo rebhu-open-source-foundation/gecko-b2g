@@ -11,6 +11,7 @@
 #include "mozilla/DOMEventTargetHelper.h"
 #include "mozilla/dom/BluetoothDeviceBinding.h"
 #include "mozilla/dom/bluetooth/BluetoothCommon.h"
+#include "mozilla/dom/Nullable.h"
 #include "nsString.h"
 #include "nsCOMPtr.h"
 
@@ -51,6 +52,11 @@ class BluetoothDevice final : public DOMEventTargetHelper,
   BluetoothDeviceType Type() const { return mType; }
 
   BluetoothGatt* GetGatt();
+
+  Nullable<uint8_t> GetBatteryLevel() const {
+    return mBatteryLevel == -1 ? Nullable<uint8_t>()
+                               : Nullable<uint8_t>(mBatteryLevel);
+  }
 
   /****************************************************************************
    * Event Handlers
@@ -182,6 +188,11 @@ class BluetoothDevice final : public DOMEventTargetHelper,
    * GATT client object to interact with the remote device.
    */
   RefPtr<BluetoothGatt> mGatt;
+
+  /**
+   * Battery level ranges from 0 to 100, -1 if unknown.
+   */
+  int32_t mBatteryLevel = -1;
 };
 
 END_BLUETOOTH_NAMESPACE

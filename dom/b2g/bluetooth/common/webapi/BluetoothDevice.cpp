@@ -177,6 +177,8 @@ void BluetoothDevice::SetPropertyByValue(const BluetoothNamedValue& aValue) {
     MOZ_ASSERT(value.type() == BluetoothValue::TArrayOfuint8_t);
     const nsTArray<uint8_t>& advData = value.get_ArrayOfuint8_t();
     UpdatePropertiesFromAdvData(advData);
+  } else if (name.EqualsLiteral("BatteryLevel")) {
+    mBatteryLevel = value.get_int32_t();
   } else {
     // "Rssi" is handled by BluetoothAdapter::HandleLeDeviceFound()
     BT_LOGD("Not handling device property: %s",
@@ -235,8 +237,7 @@ BluetoothDeviceAttribute BluetoothDevice::ConvertStringToDeviceAttribute(
   using namespace mozilla::dom::BluetoothDeviceAttributeValues;
 
   for (size_t index = 0; index < ArrayLength(strings) - 1; index++) {
-    if (aString.LowerCaseEqualsASCII(strings[index].value,
-                                     strings[index].length)) {
+    if (aString.EqualsIgnoreCase(strings[index].value, strings[index].length)) {
       return static_cast<BluetoothDeviceAttribute>(index);
     }
   }
@@ -272,6 +273,9 @@ bool BluetoothDevice::IsDeviceAttributeChanged(BluetoothDeviceAttribute aType,
       }
       return mUuids != sortedUuids;
     }
+    case BluetoothDeviceAttribute::BatteryLevel:
+      MOZ_ASSERT(aValue.type() == BluetoothValue::Tint32_t);
+      return mBatteryLevel != aValue.get_int32_t();
     default:
       BT_WARNING("Type %d is not handled", uint32_t(aType));
       return false;

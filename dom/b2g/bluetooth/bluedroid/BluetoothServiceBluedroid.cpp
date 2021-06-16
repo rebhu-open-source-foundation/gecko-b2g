@@ -1835,6 +1835,17 @@ void BluetoothServiceBluedroid::RemoteDevicePropertiesNotification(
     }
   }
 
+  // Append battery level if it's a HFP connected device
+  BluetoothHfpManager* hfp = BluetoothHfpManager::Get();
+  if (hfp) {
+    BluetoothAddress deviceAddress;
+    hfp->GetAddress(deviceAddress);
+    if (deviceAddress == aBdAddr) {
+      int batteryLevel = hfp->GetDeviceBatteryLevel();
+      AppendNamedValue(propertiesArray, "BatteryLevel", batteryLevel);
+    }
+  }
+
   // The order of operations below is
   //
   //  (1) modify global state (i.e., the variables starting with 's'),

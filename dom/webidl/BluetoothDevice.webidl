@@ -13,6 +13,9 @@ interface BluetoothDevice : EventTarget
   readonly attribute boolean                paired;
   readonly attribute BluetoothDeviceType    type;
 
+  // Battery level ranges from 0 to 100, null if unknown
+  readonly attribute octet?                 batteryLevel;
+
   /**
    * Retrieve the BluetoothGatt interface to interact with remote BLE devices.
    * This attribute is null if the device type is not dual or le.
@@ -60,5 +63,6 @@ enum BluetoothDeviceAttribute
   "cod",
   "name",
   "paired",
-  "uuids"
+  "uuids",
+  "batteryLevel"
 };

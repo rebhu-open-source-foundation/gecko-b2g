@@ -370,6 +370,9 @@ void DispatchStatusChangedEvent(const nsAString& aType,
                                 const BluetoothAddress& aDeviceAddress,
                                 bool aStatus);
 
+void DispatchHfBatteryChangedEvent(const BluetoothAddress& aDeviceAddress,
+                                   int32_t aBatteryLevel);
+
 //
 // BluetoothNamedValue manipulation
 //
