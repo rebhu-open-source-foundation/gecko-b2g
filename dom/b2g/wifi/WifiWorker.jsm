@@ -1859,6 +1859,15 @@ var WifiManager = (function() {
 
   manager.setWifiDisable = function(callback) {
     notify("registerimslistener", { register: false });
+
+    // To faster disable wifi, we should stop dhcp as soon as possible
+    // if it is obtaining ip.
+    if (manager.inObtainingIpState) {
+      netUtil.stopDhcp(manager.ifname, function() {
+        releaseWifiWakeLock();
+      });
+    }
+
     manager.state = "DISABLING";
     clearTimeout(delayScanId);
     delayScanId = null;
