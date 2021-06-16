@@ -1062,6 +1062,20 @@ void BluetoothDaemonHandsfreeModule::WbsNtf(
       UnpackPDUInitOp(aPDU));
 }
 
+void BluetoothDaemonHandsfreeModule::BindNtf(
+    const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU) {
+  BindNotification::Dispatch(
+      &BluetoothHandsfreeNotificationHandler::BindNotification,
+      UnknownAtInitOp(aPDU));  // Bind shares the same InitOp with UnknownAT
+}
+
+void BluetoothDaemonHandsfreeModule::BievNtf(
+    const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU) {
+  BievNotification::Dispatch(
+      &BluetoothHandsfreeNotificationHandler::BievNotification,
+      UnpackPDUInitOp(aPDU));
+}
+
 void BluetoothDaemonHandsfreeModule::HandleNtf(
     const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
     DaemonSocketResultHandler* aRes) {
@@ -1083,7 +1097,9 @@ void BluetoothDaemonHandsfreeModule::HandleNtf(
       [13] = &BluetoothDaemonHandsfreeModule::ClccNtf,
       [14] = &BluetoothDaemonHandsfreeModule::UnknownAtNtf,
       [15] = &BluetoothDaemonHandsfreeModule::KeyPressedNtf,
-      [16] = &BluetoothDaemonHandsfreeModule::WbsNtf};
+      [16] = &BluetoothDaemonHandsfreeModule::WbsNtf,
+      [17] = &BluetoothDaemonHandsfreeModule::BindNtf,
+      [18] = &BluetoothDaemonHandsfreeModule::BievNtf};
 
   MOZ_ASSERT(!NS_IsMainThread());
 

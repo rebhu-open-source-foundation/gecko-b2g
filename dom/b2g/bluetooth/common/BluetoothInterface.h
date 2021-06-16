@@ -431,6 +431,12 @@ class BluetoothHandsfreeNotificationHandler {
 
   virtual void KeyPressedNotification(const BluetoothAddress& aBdAddr);
 
+  virtual void BindNotification(const nsACString& aAtString,
+                                const BluetoothAddress& aBdAddr);
+
+  virtual void BievNotification(BluetoothHandsfreeHfIndType aId, int aValue,
+                                const BluetoothAddress& aBdAddr);
+
  protected:
   BluetoothHandsfreeNotificationHandler();
   virtual ~BluetoothHandsfreeNotificationHandler();

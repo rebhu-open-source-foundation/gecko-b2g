@@ -1767,6 +1767,21 @@ void BluetoothHfpManager::KeyPressedNotification(
   }
 }
 
+void BluetoothHfpManager::BindNotification(const nsACString& aAtString,
+                                           const BluetoothAddress& aBdAddress) {
+  MOZ_ASSERT(NS_IsMainThread());
+
+  BT_LOGD("[%s]", nsCString(aAtString).get());
+}
+
+void BluetoothHfpManager::BievNotification(BluetoothHandsfreeHfIndType aType,
+                                           int aValue,
+                                           const BluetoothAddress& aBdAddr) {
+  MOZ_ASSERT(NS_IsMainThread());
+
+  BT_LOGD("type: %d, value: %d", static_cast<int>(aType), aValue);
+}
+
 // Implements nsISettingsObserver::ObserveSetting
 NS_IMETHODIMP BluetoothHfpManager::ObserveSetting(nsISettingInfo* info) {
   if (info) {

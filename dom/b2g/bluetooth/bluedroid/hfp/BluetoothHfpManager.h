@@ -153,6 +153,10 @@ class BluetoothHfpManager : public BluetoothHfpManagerBase,
   void UnknownAtNotification(const nsACString& aAtString,
                              const BluetoothAddress& aBdAddress) override;
   void KeyPressedNotification(const BluetoothAddress& aBdAddress) override;
+  void BindNotification(const nsACString& aAtString,
+                        const BluetoothAddress& aBdAddress) override;
+  void BievNotification(BluetoothHandsfreeHfIndType aType, int aValue,
+                        const BluetoothAddress& aBdAddr) override;
 
  protected:
   virtual ~BluetoothHfpManager();

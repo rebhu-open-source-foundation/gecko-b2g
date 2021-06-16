@@ -964,6 +964,13 @@ enum BluetoothHandsfreeWbsConfig {
   HFP_WBS_YES   /* mSBC */
 };
 
+// HF Indicators HFP 1.7
+enum BluetoothHandsfreeHfIndType {
+  HFP_HF_IND_NONE,
+  HFP_HF_IND_ENHANCED_DRIVER_SAFETY,
+  HFP_HF_IND_BATTERY_LEVEL_STATUS,
+};
+
 class BluetoothSignal;
 
 class BluetoothSignalObserver : public mozilla::Observer<BluetoothSignal> {

@@ -132,6 +132,8 @@ nsresult Convert(uint8_t aIn, BluetoothHandsfreeVolumeType& aOut);
 
 nsresult Convert(uint8_t aIn, BluetoothHandsfreeWbsConfig& aOut);
 
+nsresult Convert(uint8_t aIn, BluetoothHandsfreeHfIndType& aOut);
+
 nsresult Convert(uint8_t aIn, BluetoothBondState& aOut);
 
 nsresult Convert(uint8_t aIn, BluetoothTypeOfDevice& aOut);
@@ -367,6 +369,8 @@ nsresult UnpackPDU(DaemonSocketPDU& aPDU,
 nsresult UnpackPDU(DaemonSocketPDU& aPDU, BluetoothHandsfreeNRECState& aOut);
 
 nsresult UnpackPDU(DaemonSocketPDU& aPDU, BluetoothHandsfreeWbsConfig& aOut);
+
+nsresult UnpackPDU(DaemonSocketPDU& aPDU, BluetoothHandsfreeHfIndType& aOut);
 
 nsresult UnpackPDU(DaemonSocketPDU& aPDU,
                    BluetoothHandsfreeVoiceRecognitionState& aOut);

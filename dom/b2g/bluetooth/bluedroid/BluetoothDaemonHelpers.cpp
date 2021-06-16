@@ -297,6 +297,19 @@ nsresult Convert(uint8_t aIn, BluetoothHandsfreeWbsConfig& aOut) {
   return NS_OK;
 }
 
+nsresult Convert(uint8_t aIn, BluetoothHandsfreeHfIndType& aOut) {
+  static const BluetoothHandsfreeHfIndType sHfIndType[] = {
+      [0x00] = HFP_HF_IND_NONE,
+      [0x01] = HFP_HF_IND_ENHANCED_DRIVER_SAFETY,
+      [0x02] = HFP_HF_IND_BATTERY_LEVEL_STATUS};
+  if (MOZ_HAL_IPC_CONVERT_WARN_IF(aIn >= MOZ_ARRAY_LENGTH(sHfIndType), uint8_t,
+                                  BluetoothHandsfreeHfIndType)) {
+    return NS_ERROR_ILLEGAL_VALUE;
+  }
+  aOut = sHfIndType[aIn];
+  return NS_OK;
+}
+
 nsresult Convert(uint8_t aIn, BluetoothTypeOfDevice& aOut) {
   return Convert((int32_t)aIn, aOut);
 }
@@ -1590,6 +1603,11 @@ nsresult UnpackPDU(DaemonSocketPDU& aPDU, BluetoothHandsfreeNRECState& aOut) {
 nsresult UnpackPDU(DaemonSocketPDU& aPDU, BluetoothHandsfreeWbsConfig& aOut) {
   return UnpackPDU(
       aPDU, UnpackConversion<uint8_t, BluetoothHandsfreeWbsConfig>(aOut));
+}
+
+nsresult UnpackPDU(DaemonSocketPDU& aPDU, BluetoothHandsfreeHfIndType& aOut) {
+  return UnpackPDU(
+      aPDU, UnpackConversion<uint8_t, BluetoothHandsfreeHfIndType>(aOut));
 }
 
 nsresult UnpackPDU(DaemonSocketPDU& aPDU,

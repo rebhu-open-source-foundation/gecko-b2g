@@ -307,6 +307,13 @@ void BluetoothHandsfreeNotificationHandler::UnknownAtNotification(
 void BluetoothHandsfreeNotificationHandler::KeyPressedNotification(
     const BluetoothAddress& aBdAddr) {}
 
+void BluetoothHandsfreeNotificationHandler::BindNotification(
+    const nsACString& aAtString, const BluetoothAddress& aBdAddr) {}
+
+void BluetoothHandsfreeNotificationHandler::BievNotification(
+    BluetoothHandsfreeHfIndType aId, int aValue,
+    const BluetoothAddress& aBdAddr) {}
+
 // Result handling
 //
 

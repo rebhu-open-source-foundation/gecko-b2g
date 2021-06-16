@@ -292,6 +292,17 @@ class BluetoothDaemonHandsfreeModule {
       BluetoothAddress, BluetoothHandsfreeWbsConfig, const BluetoothAddress&>
       WbsNotification;
 
+  typedef mozilla::ipc::DaemonNotificationRunnable2<
+      NotificationHandlerWrapper, void, nsCString, BluetoothAddress,
+      const nsACString&, const BluetoothAddress&>
+      BindNotification;
+
+  typedef mozilla::ipc::DaemonNotificationRunnable3<
+      NotificationHandlerWrapper, void, BluetoothHandsfreeHfIndType, int,
+      BluetoothAddress, BluetoothHandsfreeHfIndType, int,
+      const BluetoothAddress&>
+      BievNotification;
+
   class ConnectionStateInitOp;
   class VoiceRecognitionInitOp;
   class AnswerCallInitOp;
@@ -348,6 +359,10 @@ class BluetoothDaemonHandsfreeModule {
                      DaemonSocketPDU& aPDU);
 
   void WbsNtf(const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU);
+
+  void BindNtf(const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU);
+
+  void BievNtf(const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU);
 
   void HandleNtf(const DaemonSocketPDUHeader& aHeader, DaemonSocketPDU& aPDU,
                  DaemonSocketResultHandler* aRes);
