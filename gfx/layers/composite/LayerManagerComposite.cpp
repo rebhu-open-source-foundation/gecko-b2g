@@ -463,7 +463,12 @@ void LayerManagerComposite::PostProcessLayers(
       transform2d.PreservesAxisAlignedRectangles()) {
     Matrix inverse = transform2d;
     inverse.Invert();
-    AddTransformedRegionRoundIn(localOpaque, opaqueRegion, inverse);
+    bool roundIn = inverse.PreservesAxisAlignedRectangles()? true : false;
+    if (roundIn) {
+      AddTransformedRegionRoundIn(localOpaque, opaqueRegion, inverse);
+    } else {
+      AddTransformedRegion(localOpaque, opaqueRegion, inverse);
+    }
     canTransformOpaqueRegion = true;
   }
 
