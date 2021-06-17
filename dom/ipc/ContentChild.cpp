@@ -5211,6 +5211,11 @@ bool StartOpenBSDSandbox(GeckoProcessType type) {
       OpenBSDFindPledgeUnveilFilePath("unveil.socket", unveilFile);
       break;
 
+    case GeckoProcessType_RDD:
+      OpenBSDFindPledgeUnveilFilePath("pledge.rdd", pledgeFile);
+      OpenBSDFindPledgeUnveilFilePath("unveil.rdd", unveilFile);
+      break;
+
     default:
       MOZ_ASSERT(false, "unknown process type");
       return false;

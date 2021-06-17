@@ -3187,7 +3187,7 @@
 # is set to true then this pref has no effect)
 - name: dom.security.https_first_pbm
   type: RelaxedAtomicBool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 - name: dom.security.unexpected_system_load_telemetry_enabled
@@ -6250,7 +6250,7 @@
 # Whether to use the XPCOM thread pool for JS helper tasks.
 - name: javascript.options.external_thread_pool
   type: bool
-  value: false
+  value: true
   mirror: always
   do_not_use_directly: true
 
@@ -8185,6 +8185,8 @@
   value: true
 #elif defined(XP_LINUX) && !defined(ANDROID)
   value: true
+#elif defined(XP_OPENBSD)
+  value: true
 #else
   value: false
 #endif
@@ -8216,6 +8218,8 @@
   value: true
 #elif defined(XP_LINUX) && !defined(ANDROID)
   value: true
+#elif defined(XP_OPENBSD)
+  value: true
 #else
   value: false
 #endif
@@ -8244,6 +8248,8 @@
   value: true
 #elif defined(XP_LINUX) && !defined(ANDROID)
   value: true
+#elif defined(XP_OPENBSD)
+  value: true
 #else
   value: false
 #endif
@@ -8256,6 +8262,8 @@
 #elif defined(XP_MACOSX)
   value: true
 #elif defined(XP_LINUX) && !defined(ANDROID)
+  value: true
+#elif defined(XP_OPENBSD)
   value: true
 #else
   value: false
@@ -8270,6 +8278,8 @@
   value: true
 #elif defined(XP_LINUX) && !defined(ANDROID)
   value: true
+#elif defined(XP_OPENBSD)
+  value: true
 #else
   value: false
 #endif
@@ -8283,6 +8293,8 @@
   value: true
 #elif defined(XP_LINUX) && !defined(ANDROID)
   value: true
+#elif defined(XP_OPENBSD)
+  value: true
 #else
   value: false
 #endif
@@ -8295,6 +8307,8 @@
 #elif defined(XP_MACOSX)
   value: true
 #elif defined(XP_LINUX) && !defined(ANDROID)
+  value: true
+#elif defined(XP_OPENBSD)
   value: true
 #else
   value: false
@@ -9403,6 +9417,12 @@
 - name: network.http.sanitize-headers-in-logs
   type: RelaxedAtomicBool
   value: true
+  mirror: always
+
+# Whether or not we use Windows 10 for SSO to Microsoft sites.
+- name: network.http.windows10-sso.enabled
+  type: RelaxedAtomicBool
+  value: false
   mirror: always
 
 # If set to true, IOService.offline depends on IOService.connectivity.
