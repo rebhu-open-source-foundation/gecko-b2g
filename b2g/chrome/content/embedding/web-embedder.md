@@ -177,6 +177,8 @@ This delegate handle focus/blur from IME to inform system useful information.
   - `selectionStart`: unsigned long. The element's selectionStart attribute.
   - `selectionEnd`: unsigned long. The element's selectionEnd attribute.
   - `maxLength`: the element's maxlength attribute
+  - `imeGroup`: the `imegroup` attribute of the element to be focused.
+  - `lastImeGroup`: the `imegroup` attribute of the last focused element.
   - `activeEditable`: current active EditableSupport.
 
 ### EditableSupport

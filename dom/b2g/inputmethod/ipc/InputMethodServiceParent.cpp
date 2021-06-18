@@ -26,6 +26,8 @@ void CarryIntoInputContext(nsIEditableSupport* aEditableSupport,
   aInputContext->SetSelectionStart(aRequest.selectionStart());
   aInputContext->SetSelectionEnd(aRequest.selectionEnd());
   aInputContext->SetMaxLength(aRequest.maxLength());
+  aInputContext->SetImeGroup(aRequest.imeGroup());
+  aInputContext->SetLastImeGroup(aRequest.lastImeGroup());
 
   IME_LOGD("HandleFocusRequest: type:[%s]",
            NS_ConvertUTF16toUTF8(aRequest.type()).get());
@@ -50,6 +52,10 @@ void CarryIntoInputContext(nsIEditableSupport* aEditableSupport,
   IME_LOGD("HandleFocusRequest: selectionEnd:[%lu]", aRequest.selectionEnd());
   IME_LOGD("HandleFocusRequest: maxLength:[%s]",
            NS_ConvertUTF16toUTF8(aRequest.maxLength()).get());
+  IME_LOGD("HandleFocusRequest: imeGroup:[%s]",
+           NS_ConvertUTF16toUTF8(aRequest.imeGroup()).get());
+  IME_LOGD("HandleFocusRequest: lastImeGroup:[%s]",
+           NS_ConvertUTF16toUTF8(aRequest.lastImeGroup()).get());
 
   RefPtr<nsInputContextChoices> inputContextChoices =
       new nsInputContextChoices();
@@ -90,6 +96,17 @@ void CarryIntoInputContext(nsIEditableSupport* aEditableSupport,
   inputContextChoices->SetChoices(choices);
   aInputContext->SetInputContextChoices(inputContextChoices);
   aInputContext->SetEditableSupport(aEditableSupport);
+}
+
+void CarryIntoInputContext(const HandleBlurRequest& aRequest,
+                           nsInputContext* aInputContext) {
+  aInputContext->SetImeGroup(aRequest.imeGroup());
+  aInputContext->SetLastImeGroup(aRequest.lastImeGroup());
+
+  IME_LOGD("HandleFocusRequest: imeGroup:[%s]",
+           NS_ConvertUTF16toUTF8(aRequest.imeGroup()).get());
+  IME_LOGD("HandleFocusRequest: lastImeGroup:[%s]",
+           NS_ConvertUTF16toUTF8(aRequest.lastImeGroup()).get());
 }
 
 NS_IMPL_ISUPPORTS(InputMethodServiceParent, nsIEditableSupportListener,
@@ -134,7 +151,10 @@ IPCResult InputMethodServiceParent::RecvRequest(
     }
     case InputMethodRequest::THandleBlurRequest: {
       IME_LOGD("InputMethodServiceParent::RecvRequest:HandleBlurRequest");
-      service->HandleBlur(this);
+      const HandleBlurRequest& request = aRequest;
+      RefPtr<nsInputContext> inputContext = new nsInputContext();
+      CarryIntoInputContext(request, inputContext);
+      service->HandleBlur(this, static_cast<nsIInputContext*>(inputContext));
       break;
     }
     case InputMethodRequest::THandleTextChangedRequest: {
@@ -303,7 +323,8 @@ void InputMethodServiceParent::ActorDestroy(ActorDestroyReason why) {
   IME_LOGD("InputMethodServiceParent::ActorDestroy %p", this);
   RefPtr<InputMethodService> service = InputMethodService::GetInstance();
   if (service->GetRegisteredEditableSupport() == this) {
-    service->HandleBlur(this);
+    RefPtr<nsInputContext> inputContext = new nsInputContext();
+    service->HandleBlur(this, static_cast<nsIInputContext*>(inputContext));
   }
 }
 

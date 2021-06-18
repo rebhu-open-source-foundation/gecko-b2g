@@ -200,6 +200,14 @@ void nsInputContext::SetInputContextChoices(nsInputContextChoices* aChoices) {
   mChoices = aChoices;
 }
 
+void nsInputContext::SetImeGroup(const nsAString& aImeGroup) {
+  mImeGroup = aImeGroup;
+}
+
+void nsInputContext::SetLastImeGroup(const nsAString& aLastImeGroup) {
+  mLastImeGroup = aLastImeGroup;
+}
+
 void nsInputContext::SetMaxLength(const nsAString& aMaxLength) {
   mMaxLength = aMaxLength;
 }
@@ -285,6 +293,18 @@ nsInputContext::GetChoices(nsIInputContextChoices** aResult) {
 NS_IMETHODIMP
 nsInputContext::GetMaxLength(nsAString& aResult) {
   aResult.Assign(mMaxLength);
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsInputContext::GetImeGroup(nsAString& aResult) {
+  aResult.Assign(mImeGroup);
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsInputContext::GetLastImeGroup(nsAString& aResult) {
+  aResult.Assign(mLastImeGroup);
   return NS_OK;
 }
 

@@ -208,13 +208,14 @@ void InputMethodService::HandleFocus(nsIEditableSupport* aEditableSupport,
   }
 }
 
-void InputMethodService::HandleBlur(nsIEditableSupport* aEditableSupport) {
+void InputMethodService::HandleBlur(nsIEditableSupport* aEditableSupport,
+                                    nsIInputContext* aPropBag) {
   IME_LOGD("InputMethodService::HandleBlur");
   UnregisterEditableSupport(aEditableSupport);
   nsCOMPtr<nsIObserverService> obs = mozilla::services::GetObserverService();
   if (obs) {
     // Blur does not need input field information.
-    obs->NotifyObservers(nullptr, "inputmethod-contextchange", u"blur");
+    obs->NotifyObservers(aPropBag, "inputmethod-contextchange", u"blur");
   }
 }
 

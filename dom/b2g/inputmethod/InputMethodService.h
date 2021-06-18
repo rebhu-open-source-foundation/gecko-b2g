@@ -27,7 +27,9 @@ class InputMethodService final : public nsIEditableSupport {
 
   void HandleFocus(nsIEditableSupport* aEditableSupport,
                    nsIInputContext* aPropBag);
-  void HandleBlur(nsIEditableSupport* aEditableSupport);
+  void HandleBlur(nsIEditableSupport* aEditableSupport,
+                  nsIInputContext* aPropBag);
+
   void RegisterEditableSupport(nsIEditableSupport* aEditableSupport) {
     MOZ_ASSERT(!mEditableSupport);
     mEditableSupport = aEditableSupport;

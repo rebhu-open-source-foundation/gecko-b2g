@@ -419,7 +419,7 @@ TextEventDispatcher* getTextEventDispatcherFromFocus() {
 HandleFocusRequest CreateFocusRequestFromInputContext(
     nsIInputContext* aInputContext) {
   nsAutoString typeValue, inputTypeValue, valueValue, maxValue, minValue,
-      langValue, inputModeValue, nameValue, maxLength;
+      langValue, inputModeValue, nameValue, maxLength, imeGroup, lastImeGroup;
   uint32_t selectionStartValue, selectionEndValue;
   bool voiceInputSupportedValue;
 
@@ -437,6 +437,8 @@ HandleFocusRequest CreateFocusRequestFromInputContext(
   nsCOMPtr<nsIInputContextChoices> choices;
   aInputContext->GetChoices(getter_AddRefs(choices));
   aInputContext->GetMaxLength(maxLength);
+  aInputContext->GetImeGroup(imeGroup);
+  aInputContext->GetLastImeGroup(lastImeGroup);
   SelectionChoices selectionChoices;
   nsTArray<OptionDetailCollection> optionDetailArray;
   if (choices) {
@@ -500,13 +502,22 @@ HandleFocusRequest CreateFocusRequestFromInputContext(
       nsString(maxValue), nsString(minValue), nsString(langValue),
       nsString(inputModeValue), voiceInputSupportedValue, nsString(nameValue),
       selectionStartValue, selectionEndValue, selectionChoices,
-      nsString(maxLength));
+      nsString(maxLength), nsString(imeGroup), nsString(lastImeGroup));
+  return request;
+}
+
+HandleBlurRequest CreateBlurRequestFromInputContext(
+    nsIInputContext* aInputContext) {
+  nsAutoString imeGroup, lastImeGroup;
+  aInputContext->GetImeGroup(imeGroup);
+  aInputContext->GetLastImeGroup(lastImeGroup);
+  HandleBlurRequest request((nsString(imeGroup)), (nsString(lastImeGroup)));
   return request;
 }
 
 NS_IMPL_ISUPPORTS(GeckoEditableSupport, TextEventDispatcherListener,
                   nsIEditableSupport, nsIDOMEventListener, nsIObserver,
-                  nsISupportsWeakReference)
+                  nsISupportsWeakReference, nsIMutationObserver)
 
 GeckoEditableSupport::GeckoEditableSupport(nsPIDOMWindowOuter* aDOMWindow)
     : mServiceChild(nullptr), mIsVoiceInputEnabled(false) {
@@ -634,16 +645,16 @@ GeckoEditableSupport::HandleEvent(Event* aEvent) {
 
   nsCOMPtr<nsIContent> relatedTarget =
       do_QueryInterface(focusEvent->mRelatedTarget);
-  nsIContent* nonChromeTarget =
+  nsIContent* nonChromeRelatedTarget =
       relatedTarget ? relatedTarget->FindFirstNonChromeOnlyAccessContent()
-                    : relatedTarget.get();
+                    : nullptr;
 
   IME_LOGD(
       "GeckoEditableSupport::HandleEvent %s target %p editable %d related %p",
       NS_ConvertUTF16toUTF8(eventType).get(), node.get(), isTargetEditable,
-      nonChromeTarget);
+      nonChromeRelatedTarget);
 
-  if (node == nonChromeTarget) {
+  if (node == nonChromeRelatedTarget) {
     return NS_OK;
   }
 
@@ -651,7 +662,7 @@ GeckoEditableSupport::HandleEvent(Event* aEvent) {
     if (!isTargetEditable) {
       // Focusing on other non-editable element and the blur event is missing.
       if (mFocusedTarget) {
-        HandleBlur();
+        HandleBlur(ele);
       }
       return NS_OK;
     }
@@ -667,7 +678,8 @@ GeckoEditableSupport::HandleEvent(Event* aEvent) {
     if (!isTargetEditable) {
       return NS_OK;
     }
-    HandleBlur();
+    HandleBlur(nonChromeRelatedTarget ? nonChromeRelatedTarget->AsElement()
+                                      : nullptr);
   }
   return NS_OK;
 }
@@ -680,15 +692,17 @@ void GeckoEditableSupport::EnsureServiceChild() {
   }
 }
 
-void GeckoEditableSupport::HandleFocus(Element* aElement) {
-  mFocusedTarget = do_GetWeakReference(aElement);
+void GeckoEditableSupport::HandleFocus(Element* aFocusedElement) {
   RefPtr<nsInputContext> inputContext = new nsInputContext();
-  nsresult rv = GetInputContextBag(inputContext);
+  nsresult rv = GetFocusInputContextBag(inputContext, aFocusedElement);
   if (NS_FAILED(rv)) {
-    // No valid inputContext, set mFocusedTarget to null.
-    mFocusedTarget = nullptr;
     return;
   }
+  if (nsCOMPtr<Document> document = aFocusedElement->OwnerDoc()) {
+    document->AddMutationObserver(this);
+  }
+  mFocusedTarget = do_GetWeakReference(aFocusedElement);
+  inputContext->GetImeGroup(mLastImeGroup);
 
   if (XRE_IsParentProcess()) {
     IME_LOGD("-- GeckoEditableSupport::HandleFocus in parent");
@@ -705,21 +719,33 @@ void GeckoEditableSupport::HandleFocus(Element* aElement) {
   }
 }
 
-void GeckoEditableSupport::HandleBlur() {
+void GeckoEditableSupport::HandleBlur(Element* aRelatedElement) {
   if (!mFocusedTarget) {
     return;
+  }
+
+  RefPtr<nsInputContext> inputContext = new nsInputContext();
+  GetBlurInputContextBag(inputContext, aRelatedElement);
+  RefPtr<Element> ele = do_QueryReferent(mFocusedTarget);
+  if (ele) {
+    if (nsCOMPtr<Document> document = ele->OwnerDoc()) {
+      document->RemoveMutationObserver(this);
+    }
+  }
+  if (!aRelatedElement) {
+    // If bluring w/o next focused element, we have to clear mLastImeGroup.
+    mLastImeGroup = nsAutoString(u""_ns);
   }
   mFocusedTarget = nullptr;
 
   if (XRE_IsParentProcess()) {
     // Call from parent process (or in-proces app).
     RefPtr<InputMethodService> service = dom::InputMethodService::GetInstance();
-    service->HandleBlur(this);
+    service->HandleBlur(this, static_cast<nsIInputContext*>(inputContext));
   } else {
     EnsureServiceChild();
     mServiceChild->SetEditableSupport(this);
-    HandleBlurRequest request(ContentChild::GetSingleton()->GetID());
-    mServiceChild->SendRequest(request);
+    mServiceChild->SendRequest(CreateBlurRequestFromInputContext(inputContext));
     Unused << mServiceChild->Send__delete__(mServiceChild);
     mServiceChild = nullptr;
   }
@@ -787,9 +813,6 @@ GeckoEditableSupport::NotifyIME(TextEventDispatcher* aTextEventDispatcher,
     }
     case NOTIFY_IME_OF_FOCUS:
     case NOTIFY_IME_OF_BLUR: {
-      if (aNotification.mMessage == NOTIFY_IME_OF_BLUR) {
-        HandleBlur();
-      }
       if (!mIsVoiceInputEnabled) {
         break;
       }
@@ -1462,26 +1485,25 @@ GeckoEditableSupport::ReplaceSurroundingText(
   return rv;
 }
 
-nsresult GeckoEditableSupport::GetInputContextBag(
-    nsInputContext* aInputContext) {
-  Element* activeElement = GetActiveElement();
-  if (!activeElement) {
+nsresult GeckoEditableSupport::GetFocusInputContextBag(
+    nsInputContext* aInputContext, Element* aFocusedElement) {
+  if (!aFocusedElement) {
     return NS_ERROR_FAILURE;
   }
   RefPtr<HTMLInputElement> inputElement =
-      HTMLInputElement::FromNodeOrNull(activeElement);
+      HTMLInputElement::FromNodeOrNull(aFocusedElement);
   RefPtr<HTMLTextAreaElement> textArea =
-      HTMLTextAreaElement::FromNodeOrNull(activeElement);
+      HTMLTextAreaElement::FromNodeOrNull(aFocusedElement);
   nsAutoString attributeValue;
 
   // type
-  activeElement->GetTagName(attributeValue);
+  aFocusedElement->GetTagName(attributeValue);
   aInputContext->SetType(attributeValue);
   IME_LOGD("InputContext: type:[%s]",
            NS_ConvertUTF16toUTF8(attributeValue).get());
 
   // inputType
-  activeElement->GetAttribute(u"type"_ns, attributeValue);
+  aFocusedElement->GetAttribute(u"type"_ns, attributeValue);
   aInputContext->SetInputType(attributeValue);
   IME_LOGD("InputContext: inputType:[%s]",
            NS_ConvertUTF16toUTF8(attributeValue).get());
@@ -1499,66 +1521,74 @@ nsresult GeckoEditableSupport::GetInputContextBag(
            NS_ConvertUTF16toUTF8(attributeValue).get());
 
   // max Using string since if inputType is date then max could be string.
-  activeElement->GetAttribute(u"max"_ns, attributeValue);
+  aFocusedElement->GetAttribute(u"max"_ns, attributeValue);
   aInputContext->SetMax(attributeValue);
   IME_LOGD("InputContext: max:[%s]",
            NS_ConvertUTF16toUTF8(attributeValue).get());
 
   // min Same as max
-  activeElement->GetAttribute(u"min"_ns, attributeValue);
+  aFocusedElement->GetAttribute(u"min"_ns, attributeValue);
   aInputContext->SetMin(attributeValue);
   IME_LOGD("InputContext: min:[%s]",
            NS_ConvertUTF16toUTF8(attributeValue).get());
 
   // lang
-  activeElement->GetAttribute(u"lang"_ns, attributeValue);
+  aFocusedElement->GetAttribute(u"lang"_ns, attributeValue);
   aInputContext->SetLang(attributeValue);
   IME_LOGD("InputContext: lang:[%s]",
            NS_ConvertUTF16toUTF8(attributeValue).get());
 
   // inputMode
-  activeElement->GetAttribute(u"x-inputmode"_ns, attributeValue);
+  aFocusedElement->GetAttribute(u"x-inputmode"_ns, attributeValue);
   aInputContext->SetInputMode(attributeValue);
   IME_LOGD("InputContext: inputMode:[%s]",
            NS_ConvertUTF16toUTF8(attributeValue).get());
 
   // voiceInputSupported
-  bool supported = isVoiceInputSupported(
-      activeElement, mVoiceInputExcludedXInputModes, mVoiceInputSupportedTypes);
-  activeElement->SetAttribute(u"voice-input-supported"_ns,
-                              supported ? u"true"_ns : u"false"_ns,
-                              IgnoreErrors());
+  bool supported =
+      isVoiceInputSupported(aFocusedElement, mVoiceInputExcludedXInputModes,
+                            mVoiceInputSupportedTypes);
+  aFocusedElement->SetAttribute(u"voice-input-supported"_ns,
+                                supported ? u"true"_ns : u"false"_ns,
+                                IgnoreErrors());
   aInputContext->SetVoiceInputSupported(supported);
   IME_LOGD("InputContext: voiceInputSupported:[%s]",
            supported ? "true" : "false");
 
   // name
-  activeElement->GetAttribute(u"name"_ns, attributeValue);
+  aFocusedElement->GetAttribute(u"name"_ns, attributeValue);
   aInputContext->SetName(attributeValue);
   IME_LOGD("InputContext: name:[%s]",
            NS_ConvertUTF16toUTF8(attributeValue).get());
 
   // selectionStart
-  uint32_t start = getSelectionStart(activeElement);
+  uint32_t start = getSelectionStart(aFocusedElement);
   aInputContext->SetSelectionStart(start);
   IME_LOGD("InputContext: selectionStart:[%lu]", start);
 
   // selectionEnd
-  uint32_t end = getSelectionEnd(activeElement);
+  uint32_t end = getSelectionEnd(aFocusedElement);
   aInputContext->SetSelectionEnd(end);
   IME_LOGD("InputContext: selectionEnd:[%lu]", end);
 
   // maxLength
-  activeElement->GetAttribute(u"maxlength"_ns, attributeValue);
+  aFocusedElement->GetAttribute(u"maxlength"_ns, attributeValue);
   aInputContext->SetMaxLength(attributeValue);
   IME_LOGD("InputContext: maxlength:[%s]",
            NS_ConvertUTF16toUTF8(attributeValue).get());
 
+  aFocusedElement->GetAttribute(u"imegroup"_ns, attributeValue);
+  aInputContext->SetImeGroup(attributeValue);
+  aInputContext->SetLastImeGroup(mLastImeGroup);
+  IME_LOGD("InputContext: imegroup:[%s] lastimegroup:[%s]",
+           NS_ConvertUTF16toUTF8(attributeValue).get(),
+           NS_ConvertUTF16toUTF8(mLastImeGroup).get());
+
   // Treat contenteditable element as a special text area field
-  if (EditableUtils::isContentEditable(activeElement)) {
+  if (EditableUtils::isContentEditable(aFocusedElement)) {
     aInputContext->SetType(u"contenteditable"_ns);
     aInputContext->SetInputType(u"textarea"_ns);
-    nsresult rv = getContentEditableText(activeElement, attributeValue);
+    nsresult rv = getContentEditableText(aFocusedElement, attributeValue);
     if (rv != NS_OK) {
       return rv;
     }
@@ -1569,7 +1599,7 @@ nsresult GeckoEditableSupport::GetInputContextBag(
 
   // Choices
   RefPtr<HTMLSelectElement> selectElement =
-      HTMLSelectElement::FromNodeOrNull(activeElement);
+      HTMLSelectElement::FromNodeOrNull(aFocusedElement);
   if (!selectElement) {
     return NS_OK;
   }
@@ -1583,7 +1613,7 @@ nsresult GeckoEditableSupport::GetInputContextBag(
   inputContextChoices->SetMultiple(isMultiple);
   IME_LOGD("HTMLSelectElement: multiple:[%s]", isMultiple ? "true" : "false");
   nsCOMPtr<nsINodeList> children;
-  children = activeElement->ChildNodes();
+  children = aFocusedElement->ChildNodes();
   for (uint32_t i = 0; i < children->Length(); i++) {
     nsCOMPtr<nsINode> child = children->Item(i);
     RefPtr<HTMLOptGroupElement> optGroupElement =
@@ -1682,6 +1712,32 @@ nsresult GeckoEditableSupport::GetInputContextBag(
   aInputContext->SetInputContextChoices(inputContextChoices);
   aInputContext->SetEditableSupport(this);
   return NS_OK;
+}
+
+void GeckoEditableSupport::GetBlurInputContextBag(nsInputContext* aInputContext,
+                                                  Element* aFocusedElement) {
+  nsAutoString attributeValue(u""_ns);
+  if (aFocusedElement) {
+    aFocusedElement->GetAttribute(u"imegroup"_ns, attributeValue);
+  }
+  aInputContext->SetImeGroup(attributeValue);
+  aInputContext->SetLastImeGroup(mLastImeGroup);
+  IME_LOGD("InputContext: imegroup:[%s] lastimegroup:[%s]",
+           NS_ConvertUTF16toUTF8(attributeValue).get(),
+           NS_ConvertUTF16toUTF8(mLastImeGroup).get());
+}
+
+void GeckoEditableSupport::ContentRemoved(nsIContent* aChild,
+                                          nsIContent* aPreviousSibling) {
+  RefPtr<Element> ele = do_QueryReferent(mFocusedTarget);
+  if (ele && ele->IsInclusiveDescendantOf(aChild)) {
+    // When focusing on a content editable element and removing it from the DOM
+    // tree, we won't receive the blur event. We have to blur IME here. Can't
+    // handle it with NOTIFY_IME_OF_BLUR because it also is triggered when
+    // dispatching focus/blur events and we need the correct related target
+    // to fetch the 'imegroup' attribute.
+    HandleBlur(nullptr);
+  }
 }
 
 }  // namespace widget

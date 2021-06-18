@@ -95,6 +95,8 @@ class nsInputContext final : public nsIInputContext {
   void SetSelectionEnd(uint32_t aSelectionEnd);
   void SetInputContextChoices(nsInputContextChoices* aChoices);
   void SetMaxLength(const nsAString& aMaxLength);
+  void SetImeGroup(const nsAString& aImeGroup);
+  void SetLastImeGroup(const nsAString& aLastImeGroup);
   void SetEditableSupport(nsIEditableSupport* aEditableSupport);
 
  private:
@@ -113,6 +115,8 @@ class nsInputContext final : public nsIInputContext {
   uint32_t mSelectionEnd;
   RefPtr<nsInputContextChoices> mChoices;
   nsString mMaxLength;
+  nsString mImeGroup;
+  nsString mLastImeGroup;
   RefPtr<nsIEditableSupport> mEditableSupport;
 };
 

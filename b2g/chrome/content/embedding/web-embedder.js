@@ -394,6 +394,8 @@ XPCOMUtils.defineLazyServiceGetter(
             name: subject.name,
             choices: subject.choices,
             maxLength: subject.maxLength,
+            imeGroup: subject.imeGroup,
+            lastImeGroup: subject.lastImeGroup,
             activeEditable: new EditableSupport(subject.editableSupport),
           };
         }

@@ -19,6 +19,7 @@
 #include "nsIDOMEventListener.h"
 #include "nsIObserver.h"
 #include "nsIWeakReferenceUtils.h"
+#include "nsStubMutationObserver.h"
 
 class nsWindow;
 class nsIGlobalObject;
@@ -40,12 +41,14 @@ namespace widget {
 class GeckoEditableSupport final : public TextEventDispatcherListener,
                                    public nsIEditableSupport,
                                    public nsIDOMEventListener,
-                                   public nsIObserver {
+                                   public nsIObserver,
+                                   public nsStubMutationObserver {
  public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIEDITABLESUPPORT
   NS_DECL_NSIDOMEVENTLISTENER
   NS_DECL_NSIOBSERVER
+  NS_DECL_NSIMUTATIONOBSERVER_CONTENTREMOVED
 
   explicit GeckoEditableSupport(nsPIDOMWindowOuter* aDOMWindow);
 
@@ -70,9 +73,12 @@ class GeckoEditableSupport final : public TextEventDispatcherListener,
 
  protected:
   virtual ~GeckoEditableSupport();
-  void HandleFocus(dom::Element* aElement);
-  void HandleBlur();
-  nsresult GetInputContextBag(dom::nsInputContext* aInputContext);
+  void HandleFocus(dom::Element* aFocusedElement);
+  void HandleBlur(dom::Element* aRelatedElement);
+  nsresult GetFocusInputContextBag(dom::nsInputContext* aInputContext,
+                                   dom::Element* aFocusedElement);
+  void GetBlurInputContextBag(dom::nsInputContext* aInputContext,
+                              dom::Element* aFocusedElement);
   void HandleTextChanged();
 
  private:
@@ -83,6 +89,8 @@ class GeckoEditableSupport final : public TextEventDispatcherListener,
   nsCOMPtr<dom::EventTarget> mChromeEventHandler;
 
   bool mIsVoiceInputEnabled;
+  nsAutoString mLastImeGroup;
+
   nsTArray<nsCString> mVoiceInputSupportedTypes;
   nsTArray<nsCString> mVoiceInputExcludedXInputModes;
   nsWeakPtr mFocusedTarget;

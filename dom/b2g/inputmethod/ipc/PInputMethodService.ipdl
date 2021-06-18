@@ -119,10 +119,13 @@ struct HandleFocusRequest {
   uint32_t selectionEnd;
   SelectionChoices choices;
   nsString maxLength;
+  nsString imeGroup;
+  nsString lastImeGroup;
 };
 
 struct HandleBlurRequest {
-  uint64_t id;
+  nsString imeGroup;
+  nsString lastImeGroup;
 };
 
 struct SetCompositionResponse {
