@@ -1972,7 +1972,7 @@ var WifiManager = (function() {
     // If we got disconnected, kill the DHCP client and disable IPv6
     // in preparation for reconnection.
     gNetworkService.setIpv6Status(WifiManager.ifname, false, function() {});
-    gNetworkService.clearInterfaceAddresses(manager.ifname, function() {
+    gNetworkService.resetRoutingTable(manager.ifname, function() {
       netUtil.stopDhcp(manager.ifname, function() {
         callback();
       });

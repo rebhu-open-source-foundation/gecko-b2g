@@ -306,16 +306,17 @@ interface nsINetworkService : nsISupports
                        in nsIUsbTetheringCallback callback);
 
   /**
-   * Remove interface addresses.
+   * Reset routing table.
    *
    * @param interfaceName
-   *        The name of the network interface we want to remove addresses.
+   *        The name of the network interface we want to remove from the routing
+   *        table.
    *
    * @param callback
-   *        Callback to notify the result of remove interface addresses.
+   *        Callback to notify the result of resetting routing table.
    */
-  void clearInterfaceAddresses(in AString interfaceName,
-                               in nsINativeCommandCallback callback);
+  void resetRoutingTable(in AString interfaceName,
+                         in nsINativeCommandCallback callback);
 
   /**
    * Set DNS.
@@ -421,7 +422,7 @@ interface nsINetworkService : nsISupports
    * @param route
    *        The route info should have the following fields:
    *        .ip: destination ip address
-   *        .prefixLength: destination prefix length
+   *        .prefix: destination prefix
    *        .gateway: gateway ip address
    */
   void addSecondaryRoute(in AString interfaceName, in jsval route,
@@ -435,7 +436,7 @@ interface nsINetworkService : nsISupports
    * @param route
    *        The route info should have the following fields:
    *        .ip: destination ip address
-   *        .prefixLength: destination prefix length
+   *        .prefix: destination prefix
    *        .gateway: gateway ip address
    */
   void removeSecondaryRoute(in AString interfaceName, in jsval route,

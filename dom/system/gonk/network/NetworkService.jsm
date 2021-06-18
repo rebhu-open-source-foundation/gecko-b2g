@@ -438,9 +438,9 @@ NetworkService.prototype = {
     });
   },
 
-  clearInterfaceAddresses(aInterfaceName, aCallback) {
+  resetRoutingTable(aInterfaceName, aCallback) {
     let options = {
-      cmd: "clearInterfaceAddresses",
+      cmd: "removeNetworkRoute",
       ifname: aInterfaceName,
     };
 
@@ -595,10 +595,10 @@ NetworkService.prototype = {
 
     switch (aAction) {
       case Ci.nsINetworkService.MODIFY_ROUTE_ADD:
-        command = "addRoute";
+        command = "addHostRoute";
         break;
       case Ci.nsINetworkService.MODIFY_ROUTE_REMOVE:
-        command = "removeRoute";
+        command = "removeHostRoute";
         break;
       default:
         debug("Unknown action: " + aAction);
@@ -673,7 +673,7 @@ NetworkService.prototype = {
       cmd: "addSecondaryRoute",
       ifname: aInterfaceName,
       ip: aRoute.ip,
-      prefixLength: aRoute.prefixLength,
+      prefix: aRoute.prefix,
       gateway: aRoute.gateway,
     };
     this.controlMessage(options, function(aResult) {
@@ -687,7 +687,7 @@ NetworkService.prototype = {
       cmd: "removeSecondaryRoute",
       ifname: aInterfaceName,
       ip: aRoute.ip,
-      prefixLength: aRoute.prefixLength,
+      prefix: aRoute.prefix,
       gateway: aRoute.gateway,
     };
     this.controlMessage(options, function(aResult) {
