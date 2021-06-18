@@ -312,6 +312,13 @@ interface WifiManager : EventTarget {
   DOMRequest removePasspointConfig(DOMString fqdn);
 
   /**
+   * Returns the number of stations which connected to this soft AP.
+   * onsuccess: We have successfully gotten the number of stations.
+   * onerror: We were unable to get the number of stations.
+   */
+  DOMRequest getSoftapStations();
+
+  /**
    * Attribute to enable or disable open network notification.
    */
   attribute boolean openNetworkNotificationEnabled;

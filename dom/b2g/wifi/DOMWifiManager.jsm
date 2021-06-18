@@ -160,6 +160,8 @@ DOMWifiManager.prototype = {
       "WifiManager:getPasspointConfigs:Return:NO",
       "WifiManager:removePasspointConfig:Return:OK",
       "WifiManager:removePasspointConfig:Return:NO",
+      "WifiManager:getSoftapStations:Return:OK",
+      "WifiManager:getSoftapStations:Return:NO",
       "WifiManager:wifiDown",
       "WifiManager:wifiUp",
       "WifiManager:onconnecting",
@@ -400,6 +402,14 @@ DOMWifiManager.prototype = {
         break;
 
       case "WifiManager:removePasspointConfig:Return:NO":
+        Services.DOMRequest.fireError(request, msg.data);
+        break;
+
+      case "WifiManager:getSoftapStations:Return:OK":
+        Services.DOMRequest.fireSuccess(request, msg.data);
+        break;
+
+      case "WifiManager:getSoftapStations:Return:NO":
         Services.DOMRequest.fireError(request, msg.data);
         break;
 
@@ -724,6 +734,12 @@ DOMWifiManager.prototype = {
       fqdn,
       request
     );
+    return request;
+  },
+
+  getSoftapStations: function getSoftapStations() {
+    var request = this.createRequest();
+    this._sendMessageForRequest("WifiManager:getSoftapStations", null, request);
     return request;
   },
 

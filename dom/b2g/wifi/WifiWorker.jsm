@@ -1769,6 +1769,7 @@ var WifiManager = (function() {
   manager.disableNetwork = wifiCommand.disableNetwork;
   manager.getSupplicantNetwork = wifiCommand.getSupplicantNetwork;
   manager.requestAnqp = wifiCommand.requestAnqp;
+  manager.getSoftapStations = wifiCommand.getSoftapStations;
   manager.syncDebug = syncDebug;
 
   // Public interface of the wifi service.
@@ -2501,6 +2502,7 @@ function WifiWorker() {
     "WifiManager:removePasspointConfig",
     "WifiManager:setWifiEnabled",
     "WifiManager:setWifiTethering",
+    "WifiManager:getSoftapStations",
     "WifiManager:setOpenNetworkNotification",
     "child-process-shutdown",
   ];
@@ -3800,6 +3802,9 @@ WifiWorker.prototype = {
       case "WifiManager:setWifiTethering":
         this.setWifiTethering(msg);
         break;
+      case "WifiManager:getSoftapStations":
+        this.getSoftapStations(msg);
+        break;
       case "WifiManager:setOpenNetworkNotification":
         this.setOpenNetworkNotificationEnabled(msg);
         break;
@@ -4343,6 +4348,26 @@ WifiWorker.prototype = {
       }
       this.disconnectedByWifiTethering = false;
     }
+  },
+
+  getSoftapStations(msg) {
+    const message = "WifiManager:getSoftapStations:Return";
+
+    if (!WifiManager.isWifiTetheringEnabled(WifiManager.tetheringState)) {
+      this._sendMessage(message, false, "WifiTethering is disabled", msg);
+      return;
+    }
+
+    WifiManager.getSoftapStations(
+      function(result) {
+        if (result.status != SUCCESS) {
+          this._sendMessage(message, false, null, msg);
+          return;
+        }
+
+        this._sendMessage(message, true, result.numStations, msg);
+      }.bind(this)
+    );
   },
 
   associate(msg) {
