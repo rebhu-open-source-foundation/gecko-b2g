@@ -56,11 +56,9 @@ static int sWaitingForDialingInterval = 3000;  // unit: ms
 static int sBusyToneInterval = 3700;  // unit: ms
 
 // StaticRefPtr used by nsISettingsManager::Get()
-// By design, the instance stays alive even when HFP is unregistered
 StaticRefPtr<SettingsGetResponse> sSettingsGetResponse;
 
 // StaticRefPtr used by nsISettingsManager::AddObserver()
-// By design, the instance stays alive even when HFP is unregistered
 StaticRefPtr<SidlResponse> sSidlResponse;
 }  // namespace
 
@@ -285,9 +283,11 @@ void BluetoothHfpManager::Uninit() {
 
   nsCOMPtr<nsISettingsManager> settings =
       do_GetService("@mozilla.org/sidl-native/settings;1");
-  if (settings) {
+  if (settings && sSidlResponse) {
     settings->RemoveObserver(AUDIO_VOLUME_BT_SCO_ID, this, sSidlResponse.get());
   }
+  sSidlResponse = nullptr;
+  sSettingsGetResponse = nullptr;
 
   nsCOMPtr<nsIObserverService> obs = services::GetObserverService();
   NS_ENSURE_TRUE_VOID(obs);
@@ -772,9 +772,11 @@ void BluetoothHfpManager::HandleShutdown() {
 
   nsCOMPtr<nsISettingsManager> settings =
       do_GetService("@mozilla.org/sidl-native/settings;1");
-  if (settings) {
+  if (settings && sSidlResponse) {
     settings->RemoveObserver(AUDIO_VOLUME_BT_SCO_ID, this, sSidlResponse.get());
   }
+  sSidlResponse = nullptr;
+  sSettingsGetResponse = nullptr;
 }
 
 class BluetoothHfpManager::ClccResponseResultHandler final
