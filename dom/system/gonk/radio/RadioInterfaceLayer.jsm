@@ -7206,10 +7206,12 @@ RadioInterface.prototype = {
           "] > RIL_REQUEST_SEPARATE_CONNECTION"
       );
     }
-    this.rilworker.separateConnection(
-      message.rilMessageToken,
-      message.callIndex
-    );
+    this.telephonyRequestQueue.push("separateCall", () => {
+      this.rilworker.separateConnection(
+        message.rilMessageToken,
+        message.callIndex
+      );
+    });
   },
 
   processGetCurrentCalls(message) {
