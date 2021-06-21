@@ -14,7 +14,7 @@
 #include <string>
 #include <list>
 #include <vector>
-#include <map>
+#include <unordered_map>
 
 extern "C" {
 #include "dictionary_i.h"
@@ -440,7 +440,7 @@ class IMEConnect final : public nsISupports, public nsWrapperCache {
   static bool mHasPreciseCandidate;
 
   // maps key to letters
-  static map<ctunicode_t, vector<ctunicode_t>> mKeyLetters;
+  static unordered_map<ctunicode_t, vector<ctunicode_t>> mKeyLetters;
   static struct DictFile mDictFile;
 };
 

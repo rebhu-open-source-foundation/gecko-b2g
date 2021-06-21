@@ -31,7 +31,7 @@ vector<wchar_t> IMEConnect::mTypedKeycodes;
 vector<u16string> IMEConnect::mHistoryWords;
 bool IMEConnect::mHasPreciseCandidate;
 
-map<ctunicode_t, vector<ctunicode_t>> IMEConnect::mKeyLetters;
+unordered_map<ctunicode_t, vector<ctunicode_t>> IMEConnect::mKeyLetters;
 struct DictFile IMEConnect::mDictFile;
 
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(IMEConnect, mWindow)
