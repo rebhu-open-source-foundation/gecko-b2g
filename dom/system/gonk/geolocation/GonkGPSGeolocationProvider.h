@@ -86,9 +86,16 @@ class GonkGPSGeolocationProvider : public nsIGeolocationProvider,
   static nsString sSettingRilDataApn;
   // APN setting key, could either be "ril.supl.apn.sim1" or "ril.supl.apn.sim2"
   static nsString sSettingRilSuplApn;
-  // APN setting key, could either be "ril.suplEs.apn.sim1" or
-  // "ril.suplEs.apn.sim2"
+  // APN setting key, "ril.emergency.apn.sim1" or "..sim2"
   static nsString sSettingRilSuplEsApn;
+  // APN setting key, "ril.supl.protocol.sim1" or "..sim2"
+  static nsString sSettingRilSuplProtocol;
+  // APN setting key, "ril.emergency.protocol.sim1" or "..sim2"
+  static nsString sSettingRilSuplEsProtocol;
+  // APN setting key, "ril.supl.roaming_protocol.sim1" or "..sim2"
+  static nsString sSettingRilSuplRoamingProtocol;
+  // APN setting key, "ril.emergency.roaming_protocol.sim1" or "..sim2"
+  static nsString sSettingRilSuplEsRoamingProtocol;
   static nsCString sRilDataApn;
   static nsCString sRilSuplApn;
   static nsCString sRilSuplEsApn;
@@ -116,6 +123,9 @@ class GonkGPSGeolocationProvider : public nsIGeolocationProvider,
   void HandleAGpsDataConnection(nsISupports* aNetworkInfo);
   void RequestDataConnection(bool isEmergencySupl = false);
   void ReleaseDataConnection(bool isEmergencySupl = false);
+  static android::hardware::gnss::V2_0::IAGnss::ApnIpType GetApnIpType(
+      nsAString& protocol);
+  bool IsRoaming();
   void ListenTelephonyService(bool aStart);
   // Update network state to HAL either when the network state changed or when
   // the HAL want to know the state.
