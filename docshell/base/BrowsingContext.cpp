@@ -2640,7 +2640,8 @@ void BrowsingContext::DidSet(FieldIndex<IDX_HasMainMediaController>,
 auto BrowsingContext::CanSet(FieldIndex<IDX_AllowJavascript>, bool aValue,
                              ContentParent* aSource) -> CanSetResult {
   if (mozilla::SessionHistoryInParent()) {
-    return XRE_IsParentProcess() && !aSource ? CanSetResult::Allow : CanSetResult::Deny;
+    return XRE_IsParentProcess() && !aSource ? CanSetResult::Allow
+                                             : CanSetResult::Deny;
   }
 
   // Without Session History in Parent, session restore code still needs to set
@@ -2651,7 +2652,6 @@ auto BrowsingContext::CanSet(FieldIndex<IDX_AllowJavascript>, bool aValue,
 void BrowsingContext::DidSet(FieldIndex<IDX_AllowJavascript>, bool aOldValue) {
   RecomputeCanExecuteScripts();
 }
-
 
 void BrowsingContext::RecomputeCanExecuteScripts() {
   const bool old = mCanExecuteScripts;

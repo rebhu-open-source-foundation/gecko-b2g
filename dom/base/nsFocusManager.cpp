@@ -2627,8 +2627,7 @@ void nsFocusManager::Focus(
     if (GetFocusedBrowsingContext() == aWindow->GetBrowsingContext() &&
         !mFocusedElement && !focusInOtherContentProcess) {
       SendFocusOrBlurEvent(eFocus, presShell, doc,
-                           aWindow->GetCurrentInnerWindow(),
-                           aWindowRaised);
+                           aWindow->GetCurrentInnerWindow(), aWindowRaised);
     }
   }
 
@@ -2675,11 +2674,11 @@ void nsFocusManager::Focus(
       }
 
       if (!focusInOtherContentProcess) {
-        SendFocusOrBlurEvent(
-            eFocus, presShell, aElement->GetComposedDoc(), aElement,
-            aWindowRaised, isRefocus,
-            aBlurredElementInfo ? aBlurredElementInfo->mElement.get()
-                                : nullptr);
+        SendFocusOrBlurEvent(eFocus, presShell, aElement->GetComposedDoc(),
+                             aElement, aWindowRaised, isRefocus,
+                             aBlurredElementInfo
+                                 ? aBlurredElementInfo->mElement.get()
+                                 : nullptr);
       }
     } else {
       IMEStateManager::OnChangeFocus(presContext, nullptr,
@@ -2806,10 +2805,12 @@ void nsFocusManager::FireFocusInOrOutEvent(
       aCurrentFocusedWindow, aCurrentFocusedContent, aRelatedTarget));
 }
 
-void nsFocusManager::SendFocusOrBlurEvent(
-    EventMessage aEventMessage, PresShell* aPresShell, Document* aDocument,
-    nsISupports* aTarget, bool aWindowRaised,
-    bool aIsRefocus, EventTarget* aRelatedTarget) {
+void nsFocusManager::SendFocusOrBlurEvent(EventMessage aEventMessage,
+                                          PresShell* aPresShell,
+                                          Document* aDocument,
+                                          nsISupports* aTarget,
+                                          bool aWindowRaised, bool aIsRefocus,
+                                          EventTarget* aRelatedTarget) {
   NS_ASSERTION(aEventMessage == eFocus || aEventMessage == eBlur,
                "Wrong event type for SendFocusOrBlurEvent");
 

@@ -293,7 +293,7 @@ nsresult TextEditor::SetTextAsSubAction(const nsAString& aString) {
       !ignoredError.Failed(),
       "TextEditor::OnStartToHandleTopLevelEditSubAction() failed, but ignored");
 
-  if (IsPlaintextEditor() && !IsIMEComposing() && !IsUndoRedoEnabled() &&
+  if (!IsIMEComposing() && !IsUndoRedoEnabled() &&
       GetEditAction() != EditAction::eReplaceText && mMaxTextLength < 0) {
     EditActionResult result = SetTextWithoutTransaction(aString);
     if (result.Failed() || result.Canceled() || result.Handled()) {
@@ -309,34 +309,9 @@ nsresult TextEditor::SetTextAsSubAction(const nsAString& aString) {
     // shouldn't receive such selectionchange before the first mutation.
     AutoUpdateViewBatch preventSelectionChangeEvent(*this);
 
-    RefPtr<Element> rootElement = GetRoot();
-    if (NS_WARN_IF(!rootElement)) {
-      return NS_ERROR_FAILURE;
-    }
-
-    // We want to select trailing `<br>` element to remove all nodes to replace
-    // all, but TextEditor::SelectEntireDocument() doesn't select such `<br>`
-    // elements.
     // XXX We should make ReplaceSelectionAsSubAction() take range.  Then,
     //     we can saving the expensive cost of modifying `Selection` here.
-    nsresult rv;
-    if (IsEmpty()) {
-      rv = SelectionRef().CollapseInLimiter(rootElement, 0);
-      NS_WARNING_ASSERTION(
-          NS_SUCCEEDED(rv),
-          "Selection::CollapseInLimiter() failed, but ignored");
-    } else {
-      // XXX Oh, we shouldn't select padding `<br>` element for empty last
-      //     line here since we will need to recreate it in multiline
-      //     text editor.
-      ErrorResult error;
-      SelectionRef().SelectAllChildren(*rootElement, error);
-      NS_WARNING_ASSERTION(
-          !error.Failed(),
-          "Selection::SelectAllChildren() failed, but ignored");
-      rv = error.StealNSResult();
-    }
-    if (NS_SUCCEEDED(rv)) {
+    if (NS_SUCCEEDED(SelectEntireDocument())) {
       DebugOnly<nsresult> rvIgnored = ReplaceSelectionAsSubAction(aString);
       NS_WARNING_ASSERTION(
           NS_SUCCEEDED(rvIgnored),
@@ -354,10 +329,6 @@ already_AddRefed<Element> TextEditor::GetInputEventTargetElement() const {
 }
 
 bool TextEditor::IsEmpty() const {
-  if (mPaddingBRElementForEmptyEditor) {
-    return true;
-  }
-
   // Even if there is no padding <br> element for empty editor, we should be
   // detected as empty editor if all the children are text nodes and these
   // have no content.
@@ -366,10 +337,11 @@ bool TextEditor::IsEmpty() const {
     return true;  // Don't warn it, this is possible, e.g., 997805.html
   }
 
+  MOZ_ASSERT(anonymousDivElement->GetFirstChild() &&
+             anonymousDivElement->GetFirstChild()->IsText());
+
   // Only when there is non-empty text node, we are not empty.
-  return !anonymousDivElement->GetFirstChild() ||
-         !anonymousDivElement->GetFirstChild()->IsText() ||
-         !anonymousDivElement->GetFirstChild()->Length();
+  return !anonymousDivElement->GetFirstChild()->Length();
 }
 
 NS_IMETHODIMP TextEditor::GetTextLength(int32_t* aCount) {
@@ -567,12 +539,6 @@ nsresult TextEditor::InsertWithQuotationsAsSubAction(
   //     also in single line editor)?
   MaybeDoAutoPasswordMasking();
 
-  rv = EnsureNoPaddingBRElementForEmptyEditor();
-  if (NS_FAILED(rv)) {
-    NS_WARNING("EditorBase::EnsureNoPaddingBRElementForEmptyEditor() failed");
-    return rv;
-  }
-
   rv = InsertTextAsSubAction(quotedStuff);
   NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
                        "EditorBase::InsertTextAsSubAction() failed");
@@ -593,13 +559,7 @@ nsresult TextEditor::SelectEntireDocument() {
 
   RefPtr<Text> text =
       Text::FromNodeOrNull(anonymousDivElement->GetFirstChild());
-  if (!text) {
-    ErrorResult error;
-    SelectionRef().CollapseInLimiter(*anonymousDivElement, 0, error);
-    NS_WARNING_ASSERTION(!error.Failed(),
-                         "Selection::SetStartAndEndInLimiter() failed");
-    return error.StealNSResult();
-  }
+  MOZ_ASSERT(text);
 
   MOZ_TRY(SelectionRef().SetStartAndEndInLimiter(
       *text, 0, *text, text->TextDataLength(), eDirNext,
@@ -653,58 +613,6 @@ nsresult TextEditor::RemoveAttributeOrEquivalent(Element* aElement,
   return EditorBase::ToGenericNSResult(rv);
 }
 
-nsresult TextEditor::EnsurePaddingBRElementForEmptyEditor() {
-  MOZ_ASSERT(IsEditActionDataAvailable());
-
-  // If there is padding <br> element for empty editor, we have no work to do.
-  if (mPaddingBRElementForEmptyEditor) {
-    return NS_OK;
-  }
-
-  // Likewise, nothing to be done if we could never have inserted a trailing
-  // <br> element.
-  // XXX Why don't we use same path for <textarea> and <input>?
-  if (IsSingleLineEditor()) {
-    nsresult rv = MaybeCreatePaddingBRElementForEmptyEditor();
-    NS_WARNING_ASSERTION(
-        NS_SUCCEEDED(rv),
-        "EditorBase::MaybeCreatePaddingBRElementForEmptyEditor() failed");
-    return rv;
-  }
-
-  if (NS_WARN_IF(!mRootElement)) {
-    return NS_ERROR_FAILURE;
-  }
-
-  uint32_t childCount = mRootElement->GetChildCount();
-  if (childCount == 0) {
-    nsresult rv = MaybeCreatePaddingBRElementForEmptyEditor();
-    NS_WARNING_ASSERTION(
-        NS_SUCCEEDED(rv),
-        "EditorBase::MaybeCreatePaddingBRElementForEmptyEditor() failed");
-    return rv;
-  }
-
-  if (childCount > 1) {
-    return NS_OK;
-  }
-
-  RefPtr<HTMLBRElement> brElement =
-      HTMLBRElement::FromNodeOrNull(mRootElement->GetFirstChild());
-  if (!brElement ||
-      !EditorUtils::IsPaddingBRElementForEmptyLastLine(*brElement)) {
-    return NS_OK;
-  }
-
-  // Rather than deleting this node from the DOM tree we should instead
-  // morph this <br> element into the padding <br> element for editor.
-  mPaddingBRElementForEmptyEditor = std::move(brElement);
-  mPaddingBRElementForEmptyEditor->UnsetFlags(NS_PADDING_FOR_EMPTY_LAST_LINE);
-  mPaddingBRElementForEmptyEditor->SetFlags(NS_PADDING_FOR_EMPTY_EDITOR);
-
-  return NS_OK;
-}
-
 nsresult TextEditor::SetUnmaskRangeInternal(uint32_t aStart, uint32_t aLength,
                                             uint32_t aTimeout, bool aNotify,
                                             bool aForceStartMasking) {
@@ -733,7 +641,7 @@ nsresult TextEditor::SetUnmaskRangeInternal(uint32_t aStart, uint32_t aLength,
     return NS_ERROR_NOT_INITIALIZED;
   }
   Text* text = Text::FromNodeOrNull(rootElement->GetFirstChild());
-  if (!text) {
+  if (!text || !text->Length()) {
     // There is no anonymous text node in the editor.
     return aStart > 0 && aStart != UINT32_MAX ? NS_ERROR_INVALID_ARG : NS_OK;
   }

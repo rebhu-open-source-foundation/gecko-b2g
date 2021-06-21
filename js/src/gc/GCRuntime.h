@@ -266,6 +266,7 @@ class BarrierTracer final : public GenericTracer {
   js::BaseScript* onScriptEdge(js::BaseScript* script) override;
   BaseShape* onBaseShapeEdge(BaseShape* base) override;
   GetterSetter* onGetterSetterEdge(GetterSetter* gs) override;
+  PropMap* onPropMapEdge(PropMap* map) override;
   Scope* onScopeEdge(Scope* scope) override;
   RegExpShared* onRegExpSharedEdge(RegExpShared* shared) override;
   BigInt* onBigIntEdge(BigInt* bi) override;
@@ -737,7 +738,7 @@ class GCRuntime {
   void discardJITCodeForGC();
   void startBackgroundFreeAfterMinorGC();
   void relazifyFunctionsForShrinkingGC();
-  void purgeShapeCachesForShrinkingGC();
+  void purgePropMapTablesForShrinkingGC();
   void purgeSourceURLsForShrinkingGC();
   void traceRuntimeForMajorGC(JSTracer* trc, AutoGCSession& session);
   void traceRuntimeAtoms(JSTracer* trc, const AutoAccessAtomsZone& atomsAccess);
@@ -793,7 +794,7 @@ class GCRuntime {
   IncrementalProgress sweepAtomsTable(JSFreeOp* fop, SliceBudget& budget);
   IncrementalProgress sweepWeakCaches(JSFreeOp* fop, SliceBudget& budget);
   IncrementalProgress finalizeAllocKind(JSFreeOp* fop, SliceBudget& budget);
-  IncrementalProgress sweepShapeTree(JSFreeOp* fop, SliceBudget& budget);
+  IncrementalProgress sweepPropMapTree(JSFreeOp* fop, SliceBudget& budget);
   void endSweepPhase(bool lastGC);
   bool allCCVisibleZonesWereCollected();
   void sweepZones(JSFreeOp* fop, bool destroyingRuntime);
@@ -1302,7 +1303,7 @@ inline bool GCRuntime::hasIncrementalTwoSliceZealMode() {
          hasZealMode(ZealMode::YieldBeforeSweepingCaches) ||
          hasZealMode(ZealMode::YieldBeforeSweepingObjects) ||
          hasZealMode(ZealMode::YieldBeforeSweepingNonObjects) ||
-         hasZealMode(ZealMode::YieldBeforeSweepingShapeTrees) ||
+         hasZealMode(ZealMode::YieldBeforeSweepingPropMapTrees) ||
          hasZealMode(ZealMode::YieldWhileGrayMarking);
 }
 

@@ -86,6 +86,8 @@ NativeSurfaceWayland::NativeSurfaceWayland(
 }
 
 NativeSurfaceWayland::~NativeSurfaceWayland() {
+  MutexAutoLock lock(mMutex);
+  g_clear_pointer(&mCallback, wl_callback_destroy);
   g_clear_pointer(&mViewport, wp_viewport_destroy);
   g_clear_pointer(&mWlSubsurface, wl_subsurface_destroy);
   g_clear_pointer(&mWlSurface, wl_surface_destroy);
@@ -106,6 +108,20 @@ void NativeSurfaceWayland::CreateSubsurface(wl_surface* aParentSurface) {
 void NativeSurfaceWayland::ClearSubsurface() {
   g_clear_pointer(&mWlSubsurface, wl_subsurface_destroy);
   mPosition = IntPoint(0, 0);
+}
+
+void NativeSurfaceWayland::SetBufferTransformFlipped(bool aFlipped) {
+  if (aFlipped == mBufferTransformFlipped) {
+    return;
+  }
+
+  mBufferTransformFlipped = aFlipped;
+  if (mBufferTransformFlipped) {
+    wl_surface_set_buffer_transform(mWlSurface,
+                                    WL_OUTPUT_TRANSFORM_FLIPPED_180);
+  } else {
+    wl_surface_set_buffer_transform(mWlSurface, WL_OUTPUT_TRANSFORM_NORMAL);
+  }
 }
 
 void NativeSurfaceWayland::SetPosition(int aX, int aY) {
@@ -153,12 +169,11 @@ void NativeSurfaceWayland::RequestFrameCallback(
       [&](const auto& object) { return !object->IsActive(); });
 
   mCallbackMultiplexHelpers.AppendElement(aMultiplexHelper);
-  if (!mCallbackRequested) {
-    wl_callback* callback = wl_surface_frame(mWlSurface);
-    wl_callback_add_listener(callback, &sFrameListenerNativeSurfaceWayland,
+  if (!mCallback) {
+    mCallback = wl_surface_frame(mWlSurface);
+    wl_callback_add_listener(mCallback, &sFrameListenerNativeSurfaceWayland,
                              this);
     wl_surface_commit(mWlSurface);
-    mCallbackRequested = true;
   }
 }
 
@@ -166,8 +181,8 @@ void NativeSurfaceWayland::FrameCallbackHandler(wl_callback* aCallback,
                                                 uint32_t aTime) {
   MutexAutoLock lock(mMutex);
 
-  wl_callback_destroy(aCallback);
-  mCallbackRequested = false;
+  MOZ_RELEASE_ASSERT(aCallback == mCallback);
+  g_clear_pointer(&mCallback, wl_callback_destroy);
 
   for (const RefPtr<CallbackMultiplexHelper>& callbackMultiplexHelper :
        mCallbackMultiplexHelpers) {
@@ -240,6 +255,20 @@ void NativeSurfaceWaylandEGL::DestroyGLResources() {
     egl->mEgl->fDestroySurface(mEGLSurface);
     mEGLSurface = EGL_NO_SURFACE;
     g_clear_pointer(&mEGLWindow, wl_egl_window_destroy);
+  }
+}
+
+void NativeSurfaceWaylandEGL::SetBufferTransformFlipped(bool aFlipped) {
+  if (aFlipped == mBufferTransformFlipped) {
+    return;
+  }
+
+  mBufferTransformFlipped = aFlipped;
+  if (mBufferTransformFlipped) {
+    wl_surface_set_buffer_transform(mWlSurface, WL_OUTPUT_TRANSFORM_NORMAL);
+  } else {
+    wl_surface_set_buffer_transform(mWlSurface,
+                                    WL_OUTPUT_TRANSFORM_FLIPPED_180);
   }
 }
 

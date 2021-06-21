@@ -764,32 +764,6 @@ bool GlobalObject::initStandardClasses(JSContext* cx,
 }
 
 /**
- * Initializes a builtin constructor and its prototype without defining any
- * properties or functions on it.
- *
- * Used in self-hosting to install the few builtin constructors required by
- * self-hosted builtins.
- */
-static bool InitBareBuiltinCtor(JSContext* cx, Handle<GlobalObject*> global,
-                                JSProtoKey protoKey) {
-  MOZ_ASSERT(cx->runtime()->isSelfHostingGlobal(global));
-  const JSClass* clasp = ProtoKeyToClass(protoKey);
-  RootedObject proto(cx);
-  proto = clasp->specCreatePrototypeHook()(cx, protoKey);
-  if (!proto) {
-    return false;
-  }
-
-  RootedObject ctor(cx, clasp->specCreateConstructorHook()(cx, protoKey));
-  if (!ctor) {
-    return false;
-  }
-
-  return GlobalObject::initBuiltinConstructor(cx, global, protoKey, ctor,
-                                              proto);
-}
-
-/**
  * The self-hosting global only gets a small subset of all standard classes.
  * Even those are only created as bare constructors without any properties
  * or functions.
@@ -805,38 +779,7 @@ bool GlobalObject::initSelfHostingBuiltins(JSContext* cx,
     return false;
   }
 
-  struct SymbolAndName {
-    JS::SymbolCode code;
-    const char* name;
-  };
-
-  SymbolAndName wellKnownSymbols[] = {
-      {JS::SymbolCode::asyncIterator, "std_asyncIterator"},
-      {JS::SymbolCode::isConcatSpreadable, "std_isConcatSpreadable"},
-      {JS::SymbolCode::iterator, "std_iterator"},
-      {JS::SymbolCode::match, "std_match"},
-      {JS::SymbolCode::matchAll, "std_matchAll"},
-      {JS::SymbolCode::replace, "std_replace"},
-      {JS::SymbolCode::search, "std_search"},
-      {JS::SymbolCode::species, "std_species"},
-      {JS::SymbolCode::split, "std_split"},
-  };
-
-  RootedValue symVal(cx);
-  for (const auto& sym : wellKnownSymbols) {
-    symVal.setSymbol(cx->wellKnownSymbols().get(sym.code));
-    if (!JS_DefineProperty(cx, global, sym.name, symVal,
-                           JSPROP_PERMANENT | JSPROP_READONLY)) {
-      return false;
-    }
-  }
-
-  return InitBareBuiltinCtor(cx, global, JSProto_Array) &&
-         InitBareBuiltinCtor(cx, global, JSProto_TypedArray) &&
-         InitBareBuiltinCtor(cx, global, JSProto_Uint8Array) &&
-         InitBareBuiltinCtor(cx, global, JSProto_Int32Array) &&
-         InitBareBuiltinCtor(cx, global, JSProto_Symbol) &&
-         DefineFunctions(cx, global, builtins, AsIntrinsic);
+  return DefineFunctions(cx, global, builtins, AsIntrinsic);
 }
 
 /* static */
@@ -1120,22 +1063,11 @@ bool GlobalObject::addIntrinsicValue(JSContext* cx,
 
   constexpr PropertyFlags propFlags = {PropertyFlag::Configurable,
                                        PropertyFlag::Writable};
-
-  uint32_t slot = holder->slotSpan();
-  RootedShape last(cx, holder->lastProperty());
-  Rooted<BaseShape*> base(cx, last->base());
-  Rooted<StackShape> child(
-      cx, StackShape(base, last->objectFlags(), id, slot, propFlags));
-  Shape* shape = cx->zone()->propertyTree().getChild(cx, last, child);
-  if (!shape) {
+  uint32_t slot;
+  if (!NativeObject::addProperty(cx, holder, id, propFlags, &slot)) {
     return false;
   }
-
-  if (!holder->setLastProperty(cx, shape)) {
-    return false;
-  }
-
-  holder->setSlot(slot, value);
+  holder->initSlot(slot, value);
   return true;
 }
 

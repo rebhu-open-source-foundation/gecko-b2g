@@ -63,6 +63,7 @@ class NativeSurfaceWayland {
   void ClearSubsurface();
   bool HasSubsurface() { return !!mWlSubsurface; }
 
+  virtual void SetBufferTransformFlipped(bool aFlipped);
   void SetPosition(int aX, int aY);
   void SetViewportSourceRect(const Rect aSourceRect);
   void SetViewportDestinationSize(int aWidth, int aHeight);
@@ -84,12 +85,13 @@ class NativeSurfaceWayland {
 
   Mutex mMutex;
   RefPtr<nsWaylandDisplay> mWaylandDisplay;
+  wl_callback* mCallback = nullptr;
   wp_viewport* mViewport = nullptr;
+  bool mBufferTransformFlipped = false;
   IntPoint mPosition = IntPoint(0, 0);
   Rect mViewportSourceRect = Rect(-1, -1, -1, -1);
   IntSize mViewportDestinationSize = IntSize(-1, -1);
   nsTArray<RefPtr<CallbackMultiplexHelper>> mCallbackMultiplexHelpers;
-  bool mCallbackRequested = false;
 };
 
 class NativeSurfaceWaylandEGL final : public NativeSurfaceWayland {
@@ -98,6 +100,8 @@ class NativeSurfaceWaylandEGL final : public NativeSurfaceWayland {
   void Commit(const IntRegion& aInvalidRegion) override;
   void NotifySurfaceReady() override;
   void DestroyGLResources() override;
+
+  void SetBufferTransformFlipped(bool aFlipped) override;
 
  private:
   friend RefPtr<NativeSurfaceWayland> NativeSurfaceWayland::Create(

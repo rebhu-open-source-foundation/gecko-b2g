@@ -189,6 +189,7 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(HTMLEditor, EditorBase)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mTypeInState)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mComposerCommandsUpdater)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mChangedRangeForTopLevelEditSubAction)
+  NS_IMPL_CYCLE_COLLECTION_UNLINK(mPaddingBRElementForEmptyEditor)
   tmp->HideAnonymousEditingUIs();
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
@@ -196,6 +197,7 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(HTMLEditor, EditorBase)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mTypeInState)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mComposerCommandsUpdater)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mChangedRangeForTopLevelEditSubAction)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mPaddingBRElementForEmptyEditor)
 
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mTopLeftHandle)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mTopHandle)
@@ -276,7 +278,7 @@ nsresult HTMLEditor::Init(Document& aDoc, Element* aRoot,
   if (NS_WARN_IF(!document)) {
     return NS_ERROR_FAILURE;
   }
-  if (!IsPlaintextEditor() && !IsInteractionAllowed()) {
+  if (!IsInPlaintextMode() && !IsInteractionAllowed()) {
     mDisabledLinkHandling = true;
     mOldLinkHandlingEnabled = document->LinkHandlingEnabled();
     document->SetLinkHandlingEnabled(false);
@@ -356,6 +358,8 @@ void HTMLEditor::PreDestroy(bool aDestroyingFrames) {
     // PresShell is alive or already gone.
     HideAnonymousEditingUIs();
   }
+
+  mPaddingBRElementForEmptyEditor = nullptr;
 
   EditorBase::PreDestroy(aDestroyingFrames);
 }
@@ -897,7 +901,7 @@ nsresult HTMLEditor::HandleKeyPressEvent(WidgetKeyboardEvent* aKeyboardEvent) {
       return rv;
     }
     case NS_VK_TAB: {
-      if (IsPlaintextEditor()) {
+      if (IsInPlaintextMode()) {
         // If this works as plain text editor, e.g., mail editor for plain
         // text, should be handled with common logic with EditorBase.
         nsresult rv = EditorBase::HandleKeyPressEvent(aKeyboardEvent);
@@ -5123,7 +5127,7 @@ nsresult HTMLEditor::SetCSSBackgroundColorWithTransaction(
   CommitComposition();
 
   // XXX Shouldn't we do this before calling `CommitComposition()`?
-  if (IsPlaintextEditor()) {
+  if (IsInPlaintextMode()) {
     return NS_OK;
   }
 

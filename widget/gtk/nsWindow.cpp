@@ -462,6 +462,7 @@ nsWindow::nsWindow()
       mBoundsAreValid(true),
       mPopupTrackInHierarchy(false),
       mPopupTrackInHierarchyConfigured(false),
+      mHiddenPopupPositioned(false),
       mPopupPosition(),
       mPopupAnchored(false),
       mPopupContextMenu(false),
@@ -722,11 +723,9 @@ void nsWindow::Destroy() {
   // destroys the the gl context attached to it).
   DestroyCompositor();
 
-#ifdef MOZ_X11
   // Ensure any resources assigned to the window get cleaned up first
   // to avoid double-freeing.
   mSurfaceProvider.CleanupResources();
-#endif
 
   ClearCachedResources();
 
@@ -1203,8 +1202,8 @@ void nsWindow::Resize(double aWidth, double aHeight, bool aRepaint) {
 
 void nsWindow::Resize(double aX, double aY, double aWidth, double aHeight,
                       bool aRepaint) {
-  LOG(("nsWindow::Resize [%p] %f %f repaint %d\n", (void*)this, aWidth, aHeight,
-       aRepaint));
+  LOG(("nsWindow::Resize [%p] [%f,%f] -> [%f x %f] repaint %d\n", (void*)this,
+       aX, aY, aWidth, aHeight, aRepaint));
 
   double scale =
       BoundsUseDesktopPixels() ? GetDesktopToDeviceScale().scale : 1.0;
@@ -1239,6 +1238,7 @@ void nsWindow::Move(double aX, double aY) {
   // popup window.
   LOG(("  bounds %d %d\n", mBounds.y, mBounds.y));
   if (x == mBounds.x && y == mBounds.y && mWindowType != eWindowType_popup) {
+    LOG(("  position is the same, return\n"));
     return;
   }
 
@@ -1247,7 +1247,10 @@ void nsWindow::Move(double aX, double aY) {
   mBounds.x = x;
   mBounds.y = y;
 
-  if (!mCreated) return;
+  if (!mCreated) {
+    LOG(("  is not created, return.\n"));
+    return;
+  }
 
   if (IsWaylandPopup()) {
     int32_t p2a = AppUnitsPerCSSPixel() / gfxPlatformGtk::GetFontScaleFactor();
@@ -2122,9 +2125,12 @@ void nsWindow::WaylandPopupMove(bool aUseMoveToRect) {
   } else {
     p2a = AppUnitsPerCSSPixel() / gfxPlatformGtk::GetFontScaleFactor();
   }
+
+#ifdef MOZ_WAYLAND
   nsRect anchorRectAppUnits = popupFrame->GetAnchorRect();
   anchorRect = LayoutDeviceIntRect::FromUnknownRect(
       anchorRectAppUnits.ToNearestPixels(p2a));
+#endif
 
   // Anchor rect is in the toplevel coordinates but we need to transfer it to
   // the coordinates relative to the popup parent for the
@@ -2174,11 +2180,13 @@ void nsWindow::WaylandPopupMove(bool aUseMoveToRect) {
       rectAnchor = GDK_GRAVITY_SOUTH_EAST;
       menuAnchor = GDK_GRAVITY_NORTH_WEST;
     }
+#ifdef MOZ_WAYLAND
   } else {
     rectAnchor = PopupAlignmentToGdkGravity(popupFrame->GetPopupAnchor());
     menuAnchor = PopupAlignmentToGdkGravity(popupFrame->GetPopupAlignment());
     flipType = popupFrame->GetFlipType();
     position = popupFrame->GetAlignmentPosition();
+#endif
   }
 
   LOG_POPUP(("  parentRect gravity: %d anchor gravity: %d\n", rectAnchor,
@@ -2226,6 +2234,7 @@ void nsWindow::WaylandPopupMove(bool aUseMoveToRect) {
 
   // Inspired by nsMenuPopupFrame::AdjustPositionForAnchorAlign
   nsPoint cursorOffset(0, 0);
+#ifdef MOZ_WAYLAND
   // Offset is already computed to the tooltips
   if (hasAnchorRect && mPopupType != ePopupTypeTooltip) {
     nsMargin margin(0, 0, 0, 0);
@@ -2246,6 +2255,7 @@ void nsWindow::WaylandPopupMove(bool aUseMoveToRect) {
         break;
     }
   }
+#endif
 
   if (!g_signal_handler_find(gdkWindow, G_SIGNAL_MATCH_FUNC, 0, 0, nullptr,
                              FuncToGpointer(NativeMoveResizeCallback), this)) {
@@ -2285,6 +2295,12 @@ void nsWindow::NativeMove() {
   GdkPoint point = DevicePixelsToGdkPointRoundDown(mBounds.TopLeft());
 
   LOG(("nsWindow::NativeMove [%p] %d %d\n", (void*)this, point.x, point.y));
+
+  if (GdkIsX11Display() && IsPopup() &&
+      !gtk_widget_get_visible(GTK_WIDGET(mShell))) {
+    mHiddenPopupPositioned = true;
+    mPopupPosition = point;
+  }
 
   if (IsWaylandPopup()) {
     GdkRectangle size = DevicePixelsToGdkSizeRoundUp(mBounds.Size());
@@ -4801,6 +4817,10 @@ gboolean nsWindow::OnTouchEvent(GdkEventTouch* aEvent) {
   EventMessage msg;
   switch (aEvent->type) {
     case GDK_TOUCH_BEGIN:
+      // check to see if we should rollup
+      if (CheckForRollup(aEvent->x_root, aEvent->y_root, false, false)) {
+        return FALSE;
+      }
       msg = eTouchStart;
       break;
     case GDK_TOUCH_UPDATE:
@@ -5751,6 +5771,12 @@ void nsWindow::NativeMoveResize() {
   LOG(("nsWindow::NativeMoveResize [%p] %d,%d -> %d x %d\n", (void*)this,
        topLeft.x, topLeft.y, size.width, size.height));
 
+  if (GdkIsX11Display() && IsPopup() &&
+      !gtk_widget_get_visible(GTK_WIDGET(mShell))) {
+    mHiddenPopupPositioned = true;
+    mPopupPosition = topLeft;
+  }
+
   if (IsWaylandPopup()) {
     NativeMoveResizeWaylandPopup(&topLeft, &size);
   } else {
@@ -5911,6 +5937,11 @@ void nsWindow::NativeShow(bool aAction) {
     } else if (mGdkWindow) {
       LOG(("  calling gdk_window_show_unraised\n"));
       gdk_window_show_unraised(mGdkWindow);
+    }
+
+    if (mHiddenPopupPositioned && IsPopup() && mIsTopLevel) {
+      gtk_window_move(GTK_WINDOW(mShell), mPopupPosition.x, mPopupPosition.y);
+      mHiddenPopupPositioned = false;
     }
   } else {
     // There's a chance that when the popup will be shown again it might be

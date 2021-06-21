@@ -2105,15 +2105,19 @@ Matrix4x4Flagged nsLayoutUtils::GetTransformToAncestor(
   }
   ctm = aFrame.mFrame->GetTransformMatrix(aFrame.mViewportType, aAncestor,
                                           &parent, aFlags);
+  if (!aFrame.mFrame->Combines3DTransformWithAncestors()) {
+    ctm.ProjectTo2D();
+  }
   while (parent && parent != aAncestor.mFrame &&
          (!(aFlags & nsIFrame::STOP_AT_STACKING_CONTEXT_AND_DISPLAY_PORT) ||
           (!parent->IsStackingContext() &&
            !DisplayPortUtils::FrameHasDisplayPort(parent)))) {
-    if (!parent->Extend3DContext()) {
+    nsIFrame* cur = parent;
+    ctm = ctm * cur->GetTransformMatrix(aFrame.mViewportType, aAncestor,
+                                        &parent, aFlags);
+    if (!cur->Combines3DTransformWithAncestors()) {
       ctm.ProjectTo2D();
     }
-    ctm = ctm * parent->GetTransformMatrix(aFrame.mViewportType, aAncestor,
-                                           &parent, aFlags);
   }
   if (aOutAncestor) {
     *aOutAncestor = parent;
@@ -9738,12 +9742,10 @@ void nsLayoutUtils::ComputeSystemFont(nsFont* aSystemFont,
     return;
   }
   systemFontName.Trim("\"'");
-  aSystemFont->fontlist =
-      FontFamilyList(NS_ConvertUTF16toUTF8(systemFontName),
-                     StyleFontFamilyNameSyntax::Identifiers);
-  aSystemFont->fontlist.SetDefaultFontType(StyleGenericFontFamily::None);
+  NS_ConvertUTF16toUTF8 nameu8(systemFontName);
+  Servo_FontFamily_ForSystemFont(&nameu8, &aSystemFont->family);
   aSystemFont->style = fontStyle.style;
-  aSystemFont->systemFont = fontStyle.systemFont;
+  aSystemFont->family.is_system_font = fontStyle.systemFont;
   aSystemFont->weight = fontStyle.weight;
   aSystemFont->stretch = fontStyle.stretch;
   aSystemFont->size = Length::FromPixels(fontStyle.size);

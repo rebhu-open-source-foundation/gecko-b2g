@@ -550,8 +550,11 @@ class EditorBase : public nsIEditor,
     return SetFlags(kNewFlags);  // virtual call and may be expensive.
   }
 
-  bool IsPlaintextEditor() const {
-    return (mFlags & nsIEditor::eEditorPlaintextMask) != 0;
+  bool IsInPlaintextMode() const {
+    const bool isPlaintextMode =
+        (mFlags & nsIEditor::eEditorPlaintextMask) != 0;
+    MOZ_ASSERT_IF(IsTextEditor(), isPlaintextMode);
+    return isPlaintextMode;
   }
 
   bool IsSingleLineEditor() const {
@@ -1908,20 +1911,6 @@ class EditorBase : public nsIEditor,
                                                         uint32_t aLength);
 
   /**
-   * EnsureNoPaddingBRElementForEmptyEditor() removes padding <br> element
-   * for empty editor if there is.
-   */
-  [[nodiscard]] MOZ_CAN_RUN_SCRIPT nsresult
-  EnsureNoPaddingBRElementForEmptyEditor();
-
-  /**
-   * MaybeCreatePaddingBRElementForEmptyEditor() creates padding <br> element
-   * for empty editor if there is no children.
-   */
-  [[nodiscard]] MOZ_CAN_RUN_SCRIPT nsresult
-  MaybeCreatePaddingBRElementForEmptyEditor();
-
-  /**
    * MarkElementDirty() sets a special dirty attribute on the element.
    * Usually this will be called immediately after creating a new node.
    *
@@ -2239,6 +2228,8 @@ class EditorBase : public nsIEditor,
   MOZ_ALWAYS_INLINE EditorType GetEditorType() const {
     return mIsHTMLEditorClass ? EditorType::HTML : EditorType::Text;
   }
+
+  [[nodiscard]] MOZ_CAN_RUN_SCRIPT nsresult EnsureEmptyTextFirstChild();
 
   /**
    * InitEditorContentAndSelection() may insert a padding `<br>` element for
@@ -2818,10 +2809,6 @@ class EditorBase : public nsIEditor,
   RefPtr<TransactionManager> mTransactionManager;
   // Cached root node.
   RefPtr<Element> mRootElement;
-
-  // mPaddingBRElementForEmptyEditor should be used for placing caret
-  // at proper position when editor is empty.
-  RefPtr<dom::HTMLBRElement> mPaddingBRElementForEmptyEditor;
 
   // The form field as an event receiver.
   nsCOMPtr<dom::EventTarget> mEventTarget;
