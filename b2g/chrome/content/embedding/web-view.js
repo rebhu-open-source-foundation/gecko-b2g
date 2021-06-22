@@ -332,18 +332,19 @@
     ) {},
   };
 
-  const kRelayedEvents = [
+  const kRegisteredBrowserEvents = [
     "backgroundcolor",
     "close",
-    "contextmenu",
     "documentfirstpaint",
     "iconchange",
     "manifestchange",
     "metachange",
     "opensearch",
     "pagetitlechanged",
+    "processready",
     "promptpermission",
     "recordingstatus",
+    "visibilitychange",
     "resize",
     "scroll",
     "showmodalprompt",
@@ -485,20 +486,13 @@
       this.log(`setupBrowser remote=${this.browser.getAttribute("remote")}`);
       this.browser.openWindowInfo = this._openWindowInfo;
 
-      this.browser.addEventListener("processready", evt => {
-        evt.stopPropagation();
-        this._pid = parseInt(evt.target.getAttribute("processid")) || -1;
-        this.dispatchCustomEvent("processready", { processid: this._pid });
-        this.updateDCSState(true);
+      kRegisteredBrowserEvents.forEach(name => {
+        this.browser.addEventListener(name, this);
       });
 
       this.appendChild(this.browser);
       this.progressListener = new ProgressListener(this);
       this.browser.addProgressListener(this.progressListener);
-
-      kRelayedEvents.forEach(name => {
-        this.browser.addEventListener(name, this);
-      });
 
       let useragent = this.browser.getAttribute("useragent");
       if (useragent) {
@@ -617,7 +611,7 @@
     }
 
     cleanup() {
-      kRelayedEvents.forEach(name => {
+      kRegisteredBrowserEvents.forEach(name => {
         this.browser.removeEventListener(name, this);
       });
 
@@ -666,12 +660,9 @@
             title: this.browser.contentTitle,
           });
           break;
-        case "documentfirstpaint":
         case "close":
-          this.dispatchCustomEvent(event.type);
-          break;
-
         case "contextmenu":
+        case "documentfirstpaint":
         case "iconchange":
         case "manifestchange":
         case "metachange":
@@ -687,9 +678,15 @@
             event.detail.backgroundcolor
           );
           break;
+        case "processready": {
+          event.stopPropagation();
+          this._pid = parseInt(event.target.getAttribute("processid")) || -1;
+          this.dispatchCustomEvent("processready", { processid: this._pid });
+          this.updateDCSState(true);
+          break;
+        }
         case "promptpermission": {
           // Receive "promptpermission" event from ContentPermissionPrompt.
-          // Dispatch "promptpermission" event to system app,
           // wait for the reply event from system app of event type requestId,
           // and dispatch back to ContentPermissionPrompt through this.browser.
           this.addEventListener(
@@ -704,9 +701,14 @@
             },
             { once: true }
           );
-          this.dispatchCustomEvent(event.type, event.detail);
           break;
         }
+        case "visibilitychange":
+          // We dispatch this event with additional details when the web-view
+          // active status changes, so we need to prevent the default event
+          // from bubbling up.
+          event.stopPropagation();
+          break;
         default:
           this.error(`Unexpected event ${event.type}`);
       }
