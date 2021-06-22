@@ -174,6 +174,7 @@ LineSegment.prototype = {
 
 function Polygon(aLatLngs) {
   this._vertices = [];
+  this._scaledVertices = [];
   aLatLngs.forEach(latlng => {this._vertices.push(new LatLng(latlng.lat, latlng.lng));});
   this.type = GEOMETRY_TYPE_POLYGON;
 
@@ -219,18 +220,29 @@ Polygon.prototype = {
     return aPointA.x * aPointB.y - aPointA.y * aPointB.x;
   },
 
+  _convertToDistanceFromOrigin(aLatLng) {
+    let x = new LatLng(aLatLng.lat, _origin.lng).distance(new LatLng(_origin.lat, _origin.lng));
+    let y = new LatLng(_origin.lat, aLatLng.lng).distance(new LatLng(_origin.lat, _origin.lng));
+
+    x = aLatLng.lat > _origin.lat ? x : -x;
+    y = aLatLng.lng > _origin.lng ? y : -y;
+    return new Point(x,y);
+  },
+
   distance(aLatLng) {
     let minDistance = Number.MAX_VALUE;
-    let verticeP = this._convertAndScaleLatLng(aLatLng);
-
-    let verticesLength = this._scaledVertices.length;
+    let verticesLength = this._vertices.length;
 
     for (let i = 0; i < verticesLength; i++) {
-      let verticeA = this._scaledVertices[i];
-      let verticeB = this._scaledVertices[(i+1) % verticesLength];
+      let verticeA = this._vertices[i];
+      let verticeB = this._vertices[(i+1) % verticesLength];
 
-      let line = new LineSegment(verticeA, verticeB);
-      let distance = line.distance(verticeP);
+      let pointSA = _convertToDistanceFromOrigin(verticeA);
+      let pointSB = _convertToDistanceFromOrigin(verticeB);
+      let pointSP = _convertToDistanceFromOrigin(aLatLng);
+
+      let line = new LineSegment(pointSA, pointSB);
+      let distance = line.distance(pointSP);
 
       minDistance = Math.min(distance, minDistance);
     }

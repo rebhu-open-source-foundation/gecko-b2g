@@ -423,7 +423,7 @@ CellBroadcastService.prototype = {
       kPrefCellBroadcastGeoFencingThreshold,
       0
     );
-    aBroadcastArea.forEach(geo => {
+    for (let geo of aBroadcastArea) {
       if (geo.contains(aLatLng, thresholdInMeters)) {
         if (DEBUG) {
           debug(
@@ -434,8 +434,9 @@ CellBroadcastService.prototype = {
           );
         }
         this.broadcastGeometryMessage(aServiceId, aCellBroadcastMessage);
+        return;
       }
-    });
+    }
   },
 
   async _handleGeoFencingTrigger(aServiceId, aGeoTriggerMessage) {
