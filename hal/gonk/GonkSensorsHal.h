@@ -16,13 +16,14 @@
 using namespace mozilla::hal;
 using namespace android::hardware::sensors;
 using namespace android::SensorServiceUtil;
-namespace hidl_sensors = android::hardware::sensors::V1_0;
-using hidl_sensors::SensorFlagBits;
 using android::hardware::Void;
 using android::hardware::hidl_vec;
 using android::hardware::kSynchronizedReadWrite;
 using android::hardware::MessageQueue;
 using android::hardware::EventFlag;
+using android::hardware::sensors::V1_0::Event;
+using android::hardware::sensors::V1_0::SensorInfo;
+using android::hardware::sensors::V1_0::SensorFlagBits;
 using android::hardware::sensors::V2_0::EventQueueFlagBits;
 
 #define MAX_EVENT_BUFFER_SIZE 16
@@ -76,15 +77,15 @@ private:
   void StartPollingThread();
   size_t PollHal();
   size_t PollFmq();
-  SensorData CreateSensorData(const hidl_sensors::Event aEvent);
+  SensorData CreateSensorData(const Event aEvent);
 
   android::sp<ISensorsWrapper> mSensors;
-  hidl_sensors::SensorInfo mSensorInfoList[NUM_SENSOR_TYPE];
+  SensorInfo mSensorInfoList[NUM_SENSOR_TYPE];
   base::Thread* mPollingThread;
   SensorDataCallback mSensorDataCallback;
 
-  std::array<hidl_sensors::Event, MAX_EVENT_BUFFER_SIZE> mEventBuffer;
-  typedef MessageQueue<hidl_sensors::Event, kSynchronizedReadWrite> EventMessageQueue;
+  std::array<Event, MAX_EVENT_BUFFER_SIZE> mEventBuffer;
+  typedef MessageQueue<Event, kSynchronizedReadWrite> EventMessageQueue;
   std::unique_ptr<EventMessageQueue> mEventQueue;
   typedef MessageQueue<uint32_t, kSynchronizedReadWrite> WakeLockQueue;
   std::unique_ptr<WakeLockQueue> mWakeLockQueue;

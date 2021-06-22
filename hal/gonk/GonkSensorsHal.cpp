@@ -20,25 +20,26 @@ constexpr typename std::underlying_type<EnumType>::type asBaseType(EnumType aVal
   return static_cast<typename std::underlying_type<EnumType>::type>(aValue);
 }
 
-SensorType getSensorType(hidl_sensors::SensorType aHidlSensorType) {
+SensorType getSensorType(V1_0::SensorType aHidlSensorType) {
+  using V1_0::SensorType;
   switch (aHidlSensorType) {
-    case hidl_sensors::SensorType::ORIENTATION:
+    case SensorType::ORIENTATION:
       return SENSOR_ORIENTATION;
-    case hidl_sensors::SensorType::ACCELEROMETER:
+    case SensorType::ACCELEROMETER:
       return SENSOR_ACCELERATION;
-    case hidl_sensors::SensorType::PROXIMITY:
+    case SensorType::PROXIMITY:
       return SENSOR_PROXIMITY;
-    case hidl_sensors::SensorType::LIGHT:
+    case SensorType::LIGHT:
       return SENSOR_LIGHT;
-    case hidl_sensors::SensorType::GYROSCOPE:
+    case SensorType::GYROSCOPE:
       return SENSOR_GYROSCOPE;
-    case hidl_sensors::SensorType::LINEAR_ACCELERATION:
+    case SensorType::LINEAR_ACCELERATION:
       return SENSOR_LINEAR_ACCELERATION;
-    case hidl_sensors::SensorType::ROTATION_VECTOR:
+    case SensorType::ROTATION_VECTOR:
       return SENSOR_ROTATION_VECTOR;
-    case hidl_sensors::SensorType::GAME_ROTATION_VECTOR:
+    case SensorType::GAME_ROTATION_VECTOR:
       return SENSOR_GAME_ROTATION_VECTOR;
-    case hidl_sensors::SensorType::PRESSURE:
+    case SensorType::PRESSURE:
       return SENSOR_PRESSURE;
     default:
       return SENSOR_UNKNOWN;
@@ -51,7 +52,7 @@ namespace hal_impl {
 
 struct SensorsCallback : public ISensorsCallback {
   // TODO: to support dynamic sensors connection if there is requirement
-  Return<void> onDynamicSensorsConnected(const hidl_vec<hidl_sensors::SensorInfo> &aDynamicSensorsAdded) override {
+  Return<void> onDynamicSensorsConnected(const hidl_vec<SensorInfo> &aDynamicSensorsAdded) override {
     return Void();
   }
 
@@ -79,7 +80,7 @@ private:
 };
 
 SensorData
-GonkSensorsHal::CreateSensorData(const hidl_sensors::Event aEvent) {
+GonkSensorsHal::CreateSensorData(const Event aEvent) {
   AutoTArray<float, 4> values;
 
   SensorType sensorType = getSensorType(aEvent.sensorType);
@@ -179,12 +180,12 @@ GonkSensorsHal::StartPollingThread() {
 
 size_t
 GonkSensorsHal::PollHal() {
-  hidl_vec<hidl_sensors::Event> events;
+  hidl_vec<Event> events;
   size_t eventsRead = 0;
 
   if (mSensors->poll(mEventBuffer.size(),
     [&events](auto result, const auto &data, const auto &) {
-    if (result == hidl_sensors::Result::OK) {
+    if (result == V1_0::Result::OK) {
       events = data;
     } else {
       HAL_ERR("polling sensors event result failed");
@@ -325,7 +326,7 @@ GonkSensorsHal::InitSensorsList() {
   }
 
   // obtain hidl sensors list
-  hidl_vec<hidl_sensors::SensorInfo> list;
+  hidl_vec<SensorInfo> list;
   if (!mSensors->getSensorsList(
     [&list](const auto &aList) { list = aList; }).isOk()) {
     HAL_ERR("get sensors list failed");
@@ -335,7 +336,7 @@ GonkSensorsHal::InitSensorsList() {
   // setup the available sensors list and filter out unnecessary ones
   const size_t count = list.size();
   for (size_t i=0; i<count; i++) {
-    const hidl_sensors::SensorInfo sensorInfo = list[i];
+    const SensorInfo sensorInfo = list[i];
 
     SensorType sensorType = getSensorType(sensorInfo.type);
     SensorFlagBits mode = (SensorFlagBits)(sensorInfo.flags & SensorFlagBits::MASK_REPORTING_MODE);
