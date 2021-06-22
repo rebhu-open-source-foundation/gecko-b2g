@@ -5,12 +5,14 @@
 // This file is generated. Do not edit.
 // @generated
 
+#![allow(clippy::large_enum_variant)]
+
 #[allow(unused_imports)]
 use crate::common::{JsonValue, ObjectRef, SystemTime};
 use serde::{Deserialize, Serialize};
 
 pub static SERVICE_FINGERPRINT: &str =
-    "9f69c36e87a5b62281b68e5a0fa75f5d6f764a686862173c1dca72e07c715";
+    "986750e59d435c2c957b3853ebc9a2e035b076f910afbdc9979e20251fc981eb";
 
 #[derive(Clone, PartialEq, Deserialize, Serialize, Debug)]
 pub enum ChangeReason {
@@ -58,7 +60,7 @@ impl Copy for SortOption {}
 
 #[derive(Clone, Deserialize, Serialize, Debug)]
 pub struct Address {
-    pub atype: String,
+    pub atype: Option<String>,
     pub street_address: Option<String>,
     pub locality: Option<String>,
     pub region: Option<String>,
@@ -81,16 +83,16 @@ pub struct BlockedNumberFindOptions {
 
 #[derive(Clone, Deserialize, Serialize, Debug)]
 pub struct ContactField {
-    pub atype: String,
+    pub atype: Option<String>,
     pub value: String,
-    pub pref: bool,
+    pub pref: Option<bool>,
 }
 
 #[derive(Clone, Deserialize, Serialize, Debug)]
 pub struct ContactFindSortOptions {
     pub sort_by: SortOption,
     pub sort_order: Order,
-    pub sort_language: String,
+    pub sort_language: Option<String>,
     pub filter_value: String,
     pub filter_option: FilterOption,
     pub filter_by: Vec<FilterByOption>,
@@ -99,27 +101,27 @@ pub struct ContactFindSortOptions {
 
 #[derive(Clone, Deserialize, Serialize, Debug)]
 pub struct ContactInfo {
-    pub id: String,
-    pub published: SystemTime,
-    pub updated: SystemTime,
-    pub bday: SystemTime,
-    pub anniversary: SystemTime,
-    pub sex: String,
-    pub gender_identity: String,
-    pub ringtone: String,
-    pub photo_type: String,
-    pub photo_blob: Vec<u8>,
+    pub id: Option<String>,
+    pub published: Option<SystemTime>,
+    pub updated: Option<SystemTime>,
+    pub bday: Option<SystemTime>,
+    pub anniversary: Option<SystemTime>,
+    pub sex: Option<String>,
+    pub gender_identity: Option<String>,
+    pub ringtone: Option<String>,
+    pub photo_type: Option<String>,
+    pub photo_blob: Option<Vec<u8>>,
     pub addresses: Option<Vec<Address>>,
     pub email: Option<Vec<ContactField>>,
     pub url: Option<Vec<ContactField>>,
-    pub name: String,
+    pub name: Option<String>,
     pub tel: Option<Vec<ContactTelField>>,
     pub honorific_prefix: Option<Vec<String>>,
-    pub given_name: String,
-    pub phonetic_given_name: String,
+    pub given_name: Option<String>,
+    pub phonetic_given_name: Option<String>,
     pub additional_name: Option<Vec<String>>,
-    pub family_name: String,
-    pub phonetic_family_name: String,
+    pub family_name: Option<String>,
+    pub phonetic_family_name: Option<String>,
     pub honorific_suffix: Option<Vec<String>>,
     pub nickname: Option<Vec<String>>,
     pub category: Option<Vec<String>>,
@@ -134,15 +136,15 @@ pub struct ContactInfo {
 pub struct ContactSortOptions {
     pub sort_by: SortOption,
     pub sort_order: Order,
-    pub sort_language: String,
+    pub sort_language: Option<String>,
 }
 
 #[derive(Clone, Deserialize, Serialize, Debug)]
 pub struct ContactTelField {
-    pub atype: String,
+    pub atype: Option<String>,
     pub value: String,
-    pub pref: bool,
-    pub carrier: String,
+    pub pref: Option<bool>,
+    pub carrier: Option<String>,
 }
 
 #[derive(Clone, Deserialize, Serialize, Debug)]
