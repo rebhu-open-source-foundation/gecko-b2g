@@ -8,6 +8,7 @@ var EXPORTED_SYMBOLS = ["VoiceInputStyleChild"];
 
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
+const kPrefVoiceInputDebug = "voice-input.debug";
 const kPrefVoiceInputEnabled = "voice-input.enabled";
 const kPrefVoiceInputIconUrl = "voice-input.icon-url";
 
@@ -16,13 +17,19 @@ function prefObserver(subject, topic, data) {
     return;
   }
 
-  if (data === kPrefVoiceInputEnabled) {
+  if (data === kPrefVoiceInputDebug) {
+    this.debug = Services.prefs.getBoolPref(kPrefVoiceInputDebug, this.debug);
+    this.log(`pref change ${data} ${this.debug}`);
+    return;
+  } else if (data === kPrefVoiceInputEnabled) {
     this.enabled = Services.prefs.getBoolPref(
       kPrefVoiceInputEnabled,
       this.enabled
     );
+    this.log(`pref change ${data} ${this.enabled}`);
   } else if (data === kPrefVoiceInputIconUrl) {
     this.iconUrl = Services.prefs.getCharPref(kPrefVoiceInputIconUrl, "");
+    this.log(`pref change ${data} ${this.iconUrl}`);
   }
 
   // On switching from enabled to disabled, clear the existing voice input style.
@@ -43,16 +50,18 @@ function prefObserver(subject, topic, data) {
 class VoiceInputStyleChild extends JSWindowActorChild {
   constructor() {
     super();
+    this.debug = Services.prefs.getBoolPref(kPrefVoiceInputDebug, false);
     this.enabled = Services.prefs.getBoolPref(kPrefVoiceInputEnabled, false);
     this.iconUrl = Services.prefs.getCharPref(kPrefVoiceInputIconUrl, "");
     this.originalStyle = {};
 
+    Services.prefs.addObserver(kPrefVoiceInputDebug, prefObserver.bind(this));
     Services.prefs.addObserver(kPrefVoiceInputEnabled, prefObserver.bind(this));
     Services.prefs.addObserver(kPrefVoiceInputIconUrl, prefObserver.bind(this));
   }
 
   log(msg) {
-    console.log("VoiceInputStyleChild.jsm " + msg);
+    this.debug && console.log("VoiceInputStyleChild.jsm " + msg);
   }
 
   handleEvent(event) {
@@ -71,12 +80,13 @@ class VoiceInputStyleChild extends JSWindowActorChild {
       }
       case "input": {
         let element = event.target;
-        if (this.hasText(element) === undefined) {
+        let elementTextDetail = this.getElementTextDetail(element);
+        if (!elementTextDetail.hasTextAttribute) {
           this.log("element does not have value nor textContent property.");
-        } else if (this.hasText(element)) {
-          this.removeVoiceInputStyle(element);
-        } else {
+        } else if (elementTextDetail.isTextEmpty) {
           this.applyVoiceInputStyle(element);
+        } else {
+          this.removeVoiceInputStyle(element);
         }
         break;
       }
@@ -110,9 +120,10 @@ class VoiceInputStyleChild extends JSWindowActorChild {
     element.addEventListener("input", this);
 
     // Only apply icon if input field is empty.
-    if (this.hasText(element) === undefined) {
+    let elementTextDetail = this.getElementTextDetail(element);
+    if (!elementTextDetail.hasTextAttribute) {
       this.log("element does not have value nor textContent property.");
-    } else if (!this.hasText(element)) {
+    } else if (elementTextDetail.isTextEmpty) {
       this.applyVoiceInputStyle(element);
     }
   }
@@ -122,22 +133,21 @@ class VoiceInputStyleChild extends JSWindowActorChild {
     this.removeVoiceInputStyle(element);
   }
 
-  /**
-   * _hasText will return either true, false or undefined.
-   * element is expected to be a contentEditable <div> or <input> <textarea>,
-   * return undefined for unexpected case.
-   */
-  hasText(element) {
-    let text = undefined;
+  getElementTextDetail(element) {
+    let elementTextDetail = {
+      hasTextAttribute: false,
+      isTextEmpty: true,
+    };
     if (element.isContentEditable && element.textContent !== undefined) {
-      text = element.textContent;
-      this.log("element.textContent: " + text);
+      elementTextDetail.hasTextAttribute = true;
+      elementTextDetail.isTextEmpty = element.textContent.length === 0;
+      this.log("from element.textContent");
     } else if (element.value !== undefined) {
-      text = element.value;
-      this.log("element.value: " + text);
+      elementTextDetail.hasTextAttribute = true;
+      elementTextDetail.isTextEmpty = element.value.length === 0;
+      this.log("from element.value");
     }
-
-    return text === undefined ? undefined : text.length;
+    return elementTextDetail;
   }
 
   applyVoiceInputStyle(element) {
@@ -181,9 +191,8 @@ class VoiceInputStyleChild extends JSWindowActorChild {
 
   removeVoiceInputStyle(element) {
     if (!element.voiceInputStyleApplied) {
-      this.log(
-        "Warning! skip removing style on the element that is not applied."
-      );
+      // This is normal when two successive input events both have texts.
+      this.log("Skip removing style on the element that is not applied.");
       return;
     }
 
