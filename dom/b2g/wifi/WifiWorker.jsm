@@ -436,32 +436,39 @@ var WifiManager = (function() {
   var screenOn = true;
   function handleScreenStateChanged(enabled) {
     screenOn = enabled;
+    if (!manager.isWifiEnabled(manager.state)) {
+      return;
+    }
+
+    setSuspendOptimizationsMode(
+      POWER_MODE_SCREEN_STATE,
+      !screenOn,
+      function() {}
+    );
+
     if (screenOn) {
       fullBandConnectedTimeIntervalMilli =
         WifiConstants.WIFI_ASSOCIATED_SCAN_INTERVAL;
-      setSuspendOptimizationsMode(
-        POWER_MODE_SCREEN_STATE,
-        false,
-        function() {}
-      );
-
       enableBackgroundScan(false);
-      if (!manager.isHandShakeState(manager.state)) {
-        // Scan after 500ms
-        setTimeout(handleScanRequest, 500, true, function() {});
-      }
+      manager.startDelayScan();
+      notify("startconnectioninfotimer");
       // If screen on from a long time off, it should be better to reset traffic stats.
       // Otherwise, screen on from short time off, it is harmless.
       manager.lastTrafficStats = null;
     } else {
-      setSuspendOptimizationsMode(POWER_MODE_SCREEN_STATE, true, function() {});
       if (manager.isConnectState(manager.state)) {
         enableBackgroundScan(false);
       } else {
         enableBackgroundScan(true);
       }
+      manager.stopDelayScan();
+      notify("stopconnectioninfotimer");
     }
   }
+
+  manager.isScreenOn = function() {
+    return screenOn;
+  };
 
   // PNO (Preferred Network Offload):
   // device will search known networks if device disconnected and screen off.
@@ -674,6 +681,7 @@ var WifiManager = (function() {
   var lastFullBandConnectedTimeMilli = -1;
   manager.configurationChannels = new Map();
   manager.startDelayScan = function() {
+    clearTimeout(delayScanId);
     debug(
       "startDelayScan: manager.state=" + manager.state + " screenOn=" + screenOn
     );
@@ -734,8 +742,11 @@ var WifiManager = (function() {
       }
     }
 
-    clearTimeout(delayScanId);
     delayScanId = setTimeout(manager.startDelayScan, delayScanInterval);
+  };
+
+  manager.stopDelayScan = function() {
+    clearTimeout(delayScanId);
   };
 
   function syncSupplicantDebug(enable, callback) {
@@ -3207,7 +3218,11 @@ function WifiWorker() {
         WifiNetworkInterface.info.state ==
         Ci.nsINetworkInfo.NETWORK_STATE_DISCONNECTED
       ) {
-        if (numOpenNetworks > 0) {
+        // Notify open network only when SCREEN ON
+        // TODO: Will not count the number of times found open network while screen off.
+        //      Normally, it only do PNO scan and can not find open network while screen off.
+        //      But not sure problems else will be occured by this and maybe improve latter.
+        if (numOpenNetworks > 0 && WifiManager.isScreenOn()) {
           OpenNetworkNotifier.handleOpenNetworkFound();
         }
       }
@@ -3264,6 +3279,13 @@ function WifiWorker() {
 
   OpenNetworkNotifier.onopennetworknotification = function() {
     self._fireEvent("opennetwork", { availability: this.enabled });
+  };
+
+  WifiManager.onstartconnectioninfotimer = function() {
+    if (WifiManager.state != "COMPLETED") {
+      return;
+    }
+    self._startConnectionInfoTimer();
   };
 
   WifiManager.onstopconnectioninfotimer = function() {
