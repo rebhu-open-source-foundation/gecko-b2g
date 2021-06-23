@@ -3131,6 +3131,13 @@
   value: true
   mirror: always
 
+# Time limit, in milliseconds, before sending the http background
+# request for HTTPS-Only and HTTPS-First
+- name: dom.security.https_only_fire_http_request_background_timer_ms
+  type: RelaxedAtomicUint32
+  value: 3000
+  mirror: always
+
 # If true, tries to break upgrade downgrade cycles where https-only tries
 # to upgrad ethe connection, but the website tries to downgrade again.
 - name: dom.security.https_only_mode_break_upgrade_downgrade_endless_loop
@@ -3187,7 +3194,7 @@
 # is set to true then this pref has no effect)
 - name: dom.security.https_first_pbm
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
 
 - name: dom.security.unexpected_system_load_telemetry_enabled
@@ -3892,6 +3899,16 @@
   mirror: always
 
 - name: dom.window.content.untrusted.enabled
+  type: bool
+  value: @IS_NOT_EARLY_BETA_OR_EARLIER@
+  mirror: always
+
+- name: dom.window.clientinformation.enabled
+  type: bool
+  value: true
+  mirror: always
+
+- name: dom.window.sidebar.enabled
   type: bool
   value: @IS_NOT_EARLY_BETA_OR_EARLIER@
   mirror: always
@@ -7695,6 +7712,13 @@
   mirror: always
   rust: true
 
+# Is 'content:none' supported on (non-pseudo) elements?
+- name: layout.css.element-content-none.enabled
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+  rust: true
+
 # Whether frame visibility tracking is enabled globally.
 - name: layout.framevisibility.enabled
   type: bool
@@ -9099,7 +9123,7 @@
 
 - name: mousewheel.system_scroll_override.enabled
   type: RelaxedAtomicBool
-#ifdef XP_WIN
+#if defined(XP_WIN) || defined(MOZ_WIDGET_GTK)
   value: true
 #else
   value: false
@@ -9600,6 +9624,13 @@
   value: true
   mirror: always
 
+# When this pref is true, we copy the host name to a fresh string before
+# calling into getaddrinfo.
+- name: network.dns.copy_string_before_call
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
 # The proxy type. See nsIProtocolProxyService.idl
 #     PROXYCONFIG_DIRECT   = 0
 #     PROXYCONFIG_MANUAL   = 1
@@ -10034,6 +10065,14 @@
 - name: network.cache.frecency_array_check_enabled
   type: RelaxedAtomicBool
   value: @IS_EARLY_BETA_OR_EARLIER@
+  mirror: always
+
+# When this pref is true, AddStorageEntry will return an error if the
+# OPEN_READONLY flag is passed and no entry exists. If no regressions occur
+# this pref should be removed at some point in the future.
+- name: network.cache.bug1708673
+  type: RelaxedAtomicBool
+  value: true
   mirror: always
 
 #  This is used for a temporary workaround for a web-compat issue. If pref is

@@ -244,6 +244,9 @@ typedef OfflineResourceList ApplicationCache;
 
   // the user agent
   readonly attribute Navigator navigator;
+  [Pref="dom.window.clientinformation.enabled", BinaryName="Navigator"]
+  readonly attribute Navigator clientInformation;
+
 #ifdef HAVE_SIDEBAR
   [Replaceable, Throws] readonly attribute External external;
 #endif
@@ -573,7 +576,7 @@ partial interface Window {
 // Mozilla extension
 // Sidebar is deprecated and it will be removed in the next cycles. See bug 1640138.
 partial interface Window {
-  [Replaceable, Throws, UseCounter]
+  [Replaceable, Throws, UseCounter, Pref="dom.window.sidebar.enabled"]
   readonly attribute (External or WindowProxy) sidebar;
 };
 #endif

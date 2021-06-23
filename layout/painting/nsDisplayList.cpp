@@ -8297,13 +8297,14 @@ already_AddRefed<Layer> nsDisplayTransform::BuildLayer(
 }
 
 void nsDisplayTransform::Collect3DTransformLeaves(
-    nsTArray<nsDisplayTransform*>& aLeaves) {
+    nsDisplayListBuilder* aBuilder, nsTArray<nsDisplayTransform*>& aLeaves) {
   if (!IsParticipating3DContext() || IsLeafOf3DContext()) {
     aLeaves.AppendElement(this);
     return;
   }
 
-  for (nsDisplayItem* item : mChildren) {
+  FlattenedDisplayListIterator iter(aBuilder, &mChildren);
+  while (nsDisplayItem* item = iter.GetNextItem()) {
     if (item->GetType() == DisplayItemType::TYPE_PERSPECTIVE) {
       auto* perspective = static_cast<nsDisplayPerspective*>(item);
       if (!perspective->GetChildren()->GetTop()) {
@@ -8311,8 +8312,13 @@ void nsDisplayTransform::Collect3DTransformLeaves(
       }
       item = perspective->GetChildren()->GetTop();
     }
-    MOZ_RELEASE_ASSERT(item->GetType() == DisplayItemType::TYPE_TRANSFORM);
-    static_cast<nsDisplayTransform*>(item)->Collect3DTransformLeaves(aLeaves);
+    if (item->GetType() != DisplayItemType::TYPE_TRANSFORM) {
+      gfxCriticalError() << "Invalid child item within 3D transform of type: "
+                         << item->Name();
+      continue;
+    }
+    static_cast<nsDisplayTransform*>(item)->Collect3DTransformLeaves(aBuilder,
+                                                                     aLeaves);
   }
 }
 
@@ -8338,7 +8344,7 @@ void nsDisplayTransform::CollectSorted3DTransformLeaves(
   std::list<TransformPolygon> inputLayers;
 
   nsTArray<nsDisplayTransform*> leaves;
-  Collect3DTransformLeaves(leaves);
+  Collect3DTransformLeaves(aBuilder, leaves);
   for (nsDisplayTransform* item : leaves) {
     auto bounds = LayoutDeviceRect::FromAppUnits(
         item->mChildBounds, item->mFrame->PresContext()->AppUnitsPerDevPixel());

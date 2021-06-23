@@ -698,9 +698,8 @@ class nsGtkNativeInitRunnable : public Runnable {
   }
 };
 
-bool ContentChild::Init(MessageLoop* aIOLoop, base::ProcessId aParentPid,
-                        const char* aParentBuildID,
-                        UniquePtr<IPC::Channel> aChannel, uint64_t aChildID,
+bool ContentChild::Init(base::ProcessId aParentPid, const char* aParentBuildID,
+                        mozilla::ipc::ScopedPort aPort, uint64_t aChildID,
                         bool aIsForBrowser) {
 #ifdef MOZ_WIDGET_GTK
   // When running X11 only build we need to pass a display down
@@ -754,7 +753,7 @@ bool ContentChild::Init(MessageLoop* aIOLoop, base::ProcessId aParentPid,
     return false;
   }
 
-  if (!Open(std::move(aChannel), aParentPid, aIOLoop)) {
+  if (!Open(std::move(aPort), aParentPid)) {
     return false;
   }
   sSingleton = this;
@@ -1692,7 +1691,7 @@ mozilla::ipc::IPCResult ContentChild::RecvSetProcessSandbox(
 #if defined(MOZ_SANDBOX)
 
 #  ifdef MOZ_USING_WASM_SANDBOXING
-  mozilla::ipc::PreloadSandboxedDynamicLibraries();
+  mozilla::ipc::PreloadSandboxedDynamicLibrary();
 #  endif
 
   bool sandboxEnabled = true;

@@ -109,6 +109,23 @@ class WidgetShutdownObserver final : public nsIObserver {
   bool mRegistered;
 };
 
+// Helper class used for observing locales change.
+class LocalesChangedObserver final : public nsIObserver {
+  ~LocalesChangedObserver();
+
+ public:
+  explicit LocalesChangedObserver(nsBaseWidget* aWidget);
+
+  NS_DECL_ISUPPORTS
+  NS_DECL_NSIOBSERVER
+
+  void Register();
+  void Unregister();
+
+  nsBaseWidget* mWidget;
+  bool mRegistered;
+};
+
 /**
  * Common widget implementation used as base class for native
  * or crossplatform implementations of Widgets.
@@ -427,6 +444,8 @@ class nsBaseWidget : public nsIWidget, public nsSupportsWeakReference {
       mozilla::widget::GeckoEditableSupport* aListener){};
 #endif
 
+  virtual void LocalesChanged() {}
+
  protected:
   // These are methods for CompositorWidgetWrapper, and should only be
   // accessed from that class. Derived widgets can choose which methods to
@@ -690,6 +709,7 @@ class nsBaseWidget : public nsIWidget, public nsSupportsWeakReference {
   void RevokeTransactionIdAllocator();
 
   void FreeShutdownObserver();
+  void FreeLocalesChangedObserver();
 
   nsIWidgetListener* mWidgetListener;
   nsIWidgetListener* mAttachedWidgetListener;
@@ -706,6 +726,7 @@ class nsBaseWidget : public nsIWidget, public nsSupportsWeakReference {
   RefPtr<APZEventState> mAPZEventState;
   SetAllowedTouchBehaviorCallback mSetAllowedTouchBehaviorCallback;
   RefPtr<WidgetShutdownObserver> mShutdownObserver;
+  RefPtr<LocalesChangedObserver> mLocalesChangedObserver;
   RefPtr<TextEventDispatcher> mTextEventDispatcher;
   Cursor mCursor;
   nsBorderStyle mBorderStyle;
