@@ -91,8 +91,12 @@ GonkPermissionChecker::Run() {
   for (const auto& iter : browsers) {
     dom::BrowserParent* browserParent = static_cast<dom::BrowserParent*>(iter);
     // Get the document for security check
-    RefPtr<dom::Document> document =
-        browserParent->GetOwnerElement()->OwnerDoc();
+    auto element = browserParent->GetOwnerElement();
+    if (!element) {
+      continue;
+    }
+
+    RefPtr<dom::Document> document = element->OwnerDoc();
     NS_ENSURE_TRUE(document, NS_ERROR_FAILURE);
 
     PermissionDelegateHandler* permissionHandler =
