@@ -450,6 +450,9 @@ var WifiManager = (function() {
         // Scan after 500ms
         setTimeout(handleScanRequest, 500, true, function() {});
       }
+      // If screen on from a long time off, it should be better to reset traffic stats.
+      // Otherwise, screen on from short time off, it is harmless.
+      manager.lastTrafficStats = null;
     } else {
       setSuspendOptimizationsMode(POWER_MODE_SCREEN_STATE, true, function() {});
       if (manager.isConnectState(manager.state)) {
@@ -525,7 +528,7 @@ var WifiManager = (function() {
     });
   }
 
-  var lastTrafficStats = null;
+  manager.lastTrafficStats = null;
   function trafficHeavy(callback) {
     wifiCommand.getLinkLayerStats(function(result) {
       if (result.status != SUCCESS) {
@@ -538,6 +541,7 @@ var WifiManager = (function() {
       let trafficOverThreshold = false;
       let txSuccessRate = 0;
       let rxSuccessRate = 0;
+      let lastTrafficStats = manager.lastTrafficStats;
 
       if (lastTrafficStats != null) {
         let lastLinkLayerStats = lastTrafficStats.lastLinkLayerStats;
@@ -610,6 +614,7 @@ var WifiManager = (function() {
       lastTrafficStats.txSuccessRate = txSuccessRate;
       lastTrafficStats.rxSuccessRate = rxSuccessRate;
       lastTrafficStats.lastLinkLayerStats = linkLayerStats;
+      manager.lastTrafficStats = lastTrafficStats;
 
       callback(trafficOverThreshold);
     });
@@ -1483,11 +1488,11 @@ var WifiManager = (function() {
     manager.cachedScanResults = [];
     manager.cachedScanTime = 0;
     manager.targetNetworkId = WifiConstants.INVALID_NETWORK_ID;
+    manager.lastTrafficStats = null;
 
     autoRoaming = false;
     pnoEnabled = false;
     schedulePnoFailed = false;
-    lastTrafficStats = null;
     dhcpInfo = null;
     delayScanInterval = WifiConstants.WIFI_SCHEDULED_SCAN_INTERVAL;
     fullBandConnectedTimeIntervalMilli =
@@ -2930,6 +2935,8 @@ function WifiWorker() {
         self._ipAddress = "";
 
         WifiManager.connectionDropped(function() {});
+        // When disconnected, traffic stats should be reset.
+        WifiManager.lastTrafficStats = null;
 
         // wifi disconnected and reset open network notification.
         OpenNetworkNotifier.clearPendingNotification();
