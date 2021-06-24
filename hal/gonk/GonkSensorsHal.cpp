@@ -183,14 +183,16 @@ GonkSensorsHal::PollHal() {
   hidl_vec<Event> events;
   size_t eventsRead = 0;
 
-  if (mSensors->poll(mEventBuffer.size(),
+  auto ret = mSensors->poll(mEventBuffer.size(),
     [&events](auto result, const auto &data, const auto &) {
     if (result == V1_0::Result::OK) {
       events = data;
     } else {
       HAL_ERR("polling sensors event result failed");
     }
-  }).isOk()) {
+  });
+
+  if (ret.isOk()) {
     eventsRead = events.size();
     for (size_t i=0; i<eventsRead; i++) {
       mEventBuffer[i] = events[i];
@@ -276,7 +278,8 @@ GonkSensorsHal::InitHidlServiceV1_0(android::sp<V1_0::ISensors> aServiceV1_0) {
 
     // poke hidl service to check if it is alive, the hidl service will kill and restart
     // itself if has lingering connection
-    if (mSensors->poll(0, [](auto, const auto &, const auto &) {}).isOk()) {
+    auto ret = mSensors->poll(0, [](auto, const auto &, const auto &) {});
+    if (ret.isOk()) {
       return true;
     }
 
@@ -308,8 +311,8 @@ GonkSensorsHal::InitHidlServiceV2_0(android::sp<V2_0::ISensors> aServiceV2_0) {
     return false;
   }
 
-  // TODO: Bug 123483 to handle return and status
-  if (!mSensors->initialize(*mEventQueue->getDesc(), *mWakeLockQueue->getDesc(), new SensorsCallback()).isOk()) {
+  auto ret = mSensors->initialize(*mEventQueue->getDesc(), *mWakeLockQueue->getDesc(), new SensorsCallback());
+  if (!ret.isOk() || ret != V1_0::Result::OK) {
     HAL_ERR("sensors v2.0 hidl service initialize failed");
     return false;
   }
@@ -327,8 +330,9 @@ GonkSensorsHal::InitSensorsList() {
 
   // obtain hidl sensors list
   hidl_vec<SensorInfo> list;
-  if (!mSensors->getSensorsList(
-    [&list](const auto &aList) { list = aList; }).isOk()) {
+  auto ret = mSensors->getSensorsList(
+    [&list](const auto &aList) { list = aList; });
+  if (!ret.isOk()) {
     HAL_ERR("get sensors list failed");
     return false;
   }
@@ -428,13 +432,15 @@ GonkSensorsHal::ActivateSensor(const SensorType aSensorType) {
   }
 
   // config sampling period and reporting latency to specified sensor
-  if (!mSensors->batch(handle, samplingPeriodNs, kReportLatencyNs).isOk()) {
+  auto ret = mSensors->batch(handle, samplingPeriodNs, kReportLatencyNs);
+  if (!ret.isOk() || ret != V1_0::Result::OK) {
     HAL_ERR("sensors batch failed aSensorType=%d", aSensorType);
     return false;
   }
 
   // activate specified sensor
-  if (!mSensors->activate(handle, true).isOk()) {
+  ret = mSensors->activate(handle, true);
+  if (!ret.isOk() || ret != V1_0::Result::OK) {
     HAL_ERR("sensors activate failed aSensorType=%d", aSensorType);
     return false;
   }
@@ -457,7 +463,8 @@ GonkSensorsHal::DeactivateSensor(const SensorType aSensorType) {
   }
 
   // deactivate specified sensor
-  if (!mSensors->activate(handle, false).isOk()) {
+  auto ret = mSensors->activate(handle, false);
+  if (!ret.isOk() || ret != V1_0::Result::OK) {
     HAL_ERR("sensors deactivate failed aSensorType=%d", aSensorType);
     return false;
   }
