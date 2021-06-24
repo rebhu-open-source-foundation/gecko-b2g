@@ -1040,6 +1040,8 @@ class ContentChild final : public PContentChild,
 
   // See `BrowsingContext::mEpochs` for an explanation of this field.
   uint64_t mBrowsingContextFieldEpoch = 0;
+
+  hal::ProcessPriority mProcessPriority = hal::PROCESS_PRIORITY_UNKNOWN;
 };
 
 inline nsISupports* ToSupports(mozilla::dom::ContentChild* aContentChild) {

@@ -463,18 +463,6 @@ JS_PUBLIC_API bool IsObjectInContextCompartment(JSObject* obj,
 #define JSITER_SYMBOLSONLY 0x40 /* exclude string property keys */
 #define JSITER_FORAWAITOF 0x80  /* for-await-of */
 
-JS_PUBLIC_API void StartPCCountProfiling(JSContext* cx);
-
-JS_PUBLIC_API void StopPCCountProfiling(JSContext* cx);
-
-JS_PUBLIC_API void PurgePCCounts(JSContext* cx);
-
-JS_PUBLIC_API size_t GetPCCountScriptCount(JSContext* cx);
-
-JS_PUBLIC_API JSString* GetPCCountScriptSummary(JSContext* cx, size_t script);
-
-JS_PUBLIC_API JSString* GetPCCountScriptContents(JSContext* cx, size_t script);
-
 using DOMInstanceClassHasProtoAtDepth = bool (*)(const JSClass*, uint32_t,
                                                  uint32_t);
 struct JSDOMCallbacks {
@@ -581,16 +569,6 @@ static MOZ_ALWAYS_INLINE void SET_JITINFO(JSFunction* func,
   MOZ_ASSERT(!(fun->flags & js::JS_FUNCTION_INTERPRETED_BITS));
   fun->jitinfo = info;
 }
-
-// All strings stored in jsids are atomized, but are not necessarily property
-// names.
-static MOZ_ALWAYS_INLINE bool JSID_IS_ATOM(jsid id) { return id.isAtom(); }
-
-static MOZ_ALWAYS_INLINE bool JSID_IS_ATOM(jsid id, JSAtom* atom) {
-  return id.isAtom(atom);
-}
-
-static MOZ_ALWAYS_INLINE JSAtom* JSID_TO_ATOM(jsid id) { return id.toAtom(); }
 
 static_assert(sizeof(jsid) == sizeof(void*));
 

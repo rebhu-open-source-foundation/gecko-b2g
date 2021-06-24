@@ -3677,7 +3677,8 @@ bool PresShell::ScrollFrameRectIntoView(nsIFrame* aFrame, const nsRect& aRect,
     if (!parent && !(aScrollFlags & ScrollFlags::ScrollNoParentFrames)) {
       nsPoint extraOffset(0, 0);
       int32_t APD = container->PresContext()->AppUnitsPerDevPixel();
-      parent = nsLayoutUtils::GetCrossDocParentFrame(container, &extraOffset);
+      parent = nsLayoutUtils::GetCrossDocParentFrameInProcess(container,
+                                                              &extraOffset);
       if (parent) {
         int32_t parentAPD = parent->PresContext()->AppUnitsPerDevPixel();
         rect = rect.ScaleToOtherAppUnitsRoundOut(APD, parentAPD);
@@ -9153,7 +9154,9 @@ void PresShell::EventHandler::GetCurrentItemAndPositionForElement(
       extra = frame->GetSize().height;
       if (checkLineHeight) {
         nsIScrollableFrame* scrollFrame =
-            nsLayoutUtils::GetNearestScrollableFrame(frame);
+            nsLayoutUtils::GetNearestScrollableFrame(
+                frame, nsLayoutUtils::SCROLLABLE_INCLUDE_HIDDEN |
+                           nsLayoutUtils::SCROLLABLE_FIXEDPOS_FINDS_ROOT);
         if (scrollFrame) {
           nsSize scrollAmount = scrollFrame->GetLineScrollAmount();
           nsIFrame* f = do_QueryFrame(scrollFrame);
