@@ -9091,6 +9091,18 @@
     type: RelaxedAtomicUint32
     value: 1080
     mirror: always
+
+  # Limit the number of concurrent running video decoder to prevent OOM.
+-   name: media.gonk.video.max_video_decoder_number
+    type: RelaxedAtomicUint32
+    value: 4
+    mirror: always
+
+  # Limit the number of concurrent running video encoder to prevent OOM.
+-   name: media.gonk.video.max_video_encoder_number
+    type: RelaxedAtomicUint32
+    value: 1
+    mirror: always
 #endif
 
 #---------------------------------------------------------------------------

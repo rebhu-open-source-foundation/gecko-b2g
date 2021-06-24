@@ -58,8 +58,7 @@ class SimpleMediaBuffer : public RefBase {
 // MediaCodecReader.cpp. Another useage is to use configure(), Prepare(),
 // Input(), and Output(). It is used in GonkVideoDecoderManager.cpp which
 // doesn't need to handle the buffers for codec.
-class MediaCodecProxy : public RefBase,
-                        public mozilla::MediaSystemResourceReservationListener {
+class MediaCodecProxy : public RefBase {
  public:
   typedef mozilla::MozPromise<bool /* aIgnored */, bool /* aIgnored */,
                               /* IsExclusive = */ true>
@@ -165,10 +164,6 @@ class MediaCodecProxy : public RefBase,
  protected:
   virtual ~MediaCodecProxy();
 
-  // MediaResourceReservationListener
-  void ResourceReserved() override;
-  void ResourceReserveFailed() override;
-
  private:
   // Forbidden
   MediaCodecProxy() = delete;
@@ -189,14 +184,6 @@ class MediaCodecProxy : public RefBase,
   nsCString mCodecMime;
   bool mCodecEncoder;
   uint32_t mCodecFlags;
-
-  mozilla::MozPromiseHolder<CodecPromise> mCodecPromise;
-  // When mPromiseMonitor is held, mResourceClient's functions should not be
-  // called.
-  mozilla::Monitor mPromiseMonitor;
-
-  // Media Resource Management
-  RefPtr<mozilla::MediaSystemResourceClient> mResourceClient;
 
   // MediaCodec instance
   mutable RWLock mCodecLock;

@@ -91,15 +91,14 @@ MediaCodecProxy::MediaCodecProxy(sp<ALooper> aLooper, const char* aMime,
     : mCodecLooper(aLooper),
       mCodecMime(aMime),
       mCodecEncoder(aEncoder),
-      mCodecFlags(aFlags),
-      mPromiseMonitor("MediaCodecProxy::mPromiseMonitor") {
+      mCodecFlags(aFlags) {
   MOZ_ASSERT(mCodecLooper != nullptr, "ALooper should not be nullptr.");
 }
 
 MediaCodecProxy::~MediaCodecProxy() { ReleaseMediaCodec(); }
 
 bool MediaCodecProxy::AllocateAudioMediaCodec() {
-  if (mResourceClient || mCodec.get()) {
+  if (mCodec.get()) {
     return false;
   }
 
@@ -113,45 +112,22 @@ bool MediaCodecProxy::AllocateAudioMediaCodec() {
 
 RefPtr<MediaCodecProxy::CodecPromise>
 MediaCodecProxy::AsyncAllocateVideoMediaCodec() {
-  if (mResourceClient || mCodec.get()) {
+  if (mCodec.get()) {
     return CodecPromise::CreateAndReject(true, __func__);
   }
 
   if (strncasecmp(mCodecMime.get(), "video/", 6) != 0) {
     return CodecPromise::CreateAndReject(true, __func__);
   }
-  // request video codec
-  mozilla::MediaSystemResourceType type =
-      mCodecEncoder ? mozilla::MediaSystemResourceType::VIDEO_ENCODER
-                    : mozilla::MediaSystemResourceType::VIDEO_DECODER;
-  mResourceClient = new mozilla::MediaSystemResourceClient(type);
-  mResourceClient->SetListener(this);
 
-  // MediaCodecProxy::ResourceReserved() will return promise
-  // so make sure promise is set before acquire resource to avoid deadlock
-  // (if promise doesn't exist, can't reject or resolve. video will just hang
-  // there with black screen)
-  RefPtr<CodecPromise> p = nullptr;
-  {
-    mozilla::MonitorAutoLock lock(mPromiseMonitor);
-    p = mCodecPromise.Ensure(__func__);
+  // Create MediaCodec
+  if (!allocateCodec()) {
+    return CodecPromise::CreateAndReject(false, __func__);
   }
-
-  mResourceClient->Acquire();
-
-  return p;
+  return CodecPromise::CreateAndResolve(true, __func__);
 }
 
 void MediaCodecProxy::ReleaseMediaCodec() {
-  // At first, release mResourceClient's resource to prevent a conflict with
-  // mResourceClient's callback.
-  if (mResourceClient) {
-    mResourceClient->ReleaseResource();
-    mResourceClient = nullptr;
-  }
-
-  mozilla::MonitorAutoLock lock(mPromiseMonitor);
-  mCodecPromise.RejectIfExists(true, __func__);
   releaseCodec();
 }
 
@@ -459,25 +435,6 @@ status_t MediaCodecProxy::getCapability(uint32_t* aCapability) {
   *aCapability = capability;
 
   return OK;
-}
-
-// Called on ImageBridge thread
-void MediaCodecProxy::ResourceReserved() {
-  LOG("resourceReserved");
-  mozilla::MonitorAutoLock lock(mPromiseMonitor);
-  // Create MediaCodec
-  if (!allocateCodec()) {
-    mCodecPromise.RejectIfExists(true, __func__);
-    return;
-  }
-  mCodecPromise.ResolveIfExists(true, __func__);
-}
-
-// Called on ImageBridge thread
-void MediaCodecProxy::ResourceReserveFailed() {
-  LOGE("Resource Reserve Failed");
-  mozilla::MonitorAutoLock lock(mPromiseMonitor);
-  mCodecPromise.RejectIfExists(true, __func__);
 }
 
 bool MediaCodecProxy::Prepare() {

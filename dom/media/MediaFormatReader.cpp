@@ -21,6 +21,9 @@
 #include "mozilla/AbstractThread.h"
 #include "mozilla/CDMProxy.h"
 #include "mozilla/ClearOnShutdown.h"
+#ifdef MOZ_WIDGET_GONK
+#include "mozilla/media/MediaSystemResourceClient.h"
+#endif
 #include "mozilla/NotNull.h"
 #include "mozilla/Preferences.h"
 #include "mozilla/ProfilerLabels.h"
@@ -44,6 +47,15 @@ mozilla::LazyLogModule gMediaDemuxerLog("MediaDemuxer");
 #define LOGV(arg, ...)                                                   \
   DDMOZ_LOG(sFormatDecoderLog, mozilla::LogLevel::Verbose, "::%s: " arg, \
             __func__, ##__VA_ARGS__)
+
+#ifdef MOZ_WIDGET_GONK
+#define MFR_LOG(x, ...)                                      \
+  MOZ_LOG(sFormatDecoderLog, mozilla::LogLevel::Debug, \
+          ("%p " x, this, ##__VA_ARGS__))
+#define MFR_LOGE(x, ...)                                     \
+  MOZ_LOG(sFormatDecoderLog, mozilla::LogLevel::Error, \
+          ("%p " x, this, ##__VA_ARGS__))
+#endif
 
 #define NS_DispatchToMainThread(...) CompileError_UseAbstractMainThreadInstead
 
@@ -252,6 +264,14 @@ class MediaFormatReader::DecoderFactory {
     if (data.mDecoder) {
       mOwner->mShutdownPromisePool->ShutdownDecoder(data.mDecoder.forget());
     }
+#ifdef MOZ_WIDGET_GONK
+    if (data.mResourceClient) {
+      data.mResourceClient->ReleaseResource();
+      data.mResourceClient = nullptr;
+      MFR_LOG("Released %s decoder from SystemResourceManager.",
+              (data.mTrack ==  TrackInfo::kAudioTrack) ? "Audio" : "Video");
+    }
+#endif
     data.mStage = Stage::None;
     MOZ_ASSERT(!data.mToken);
   }
@@ -282,6 +302,10 @@ class MediaFormatReader::DecoderFactory {
     RefPtr<DecoderCancelled> mLiveToken;
     RefPtr<CreateDecoderPromise> mCreateDecoderPromise;
     MozPromiseRequestHolder<InitPromise> mInitRequest;
+#ifdef MOZ_WIDGET_GONK
+    // Media Resource Management
+    RefPtr<mozilla::MediaSystemResourceClient> mResourceClient;
+#endif
   } mAudio, mVideo;
 
   void RunStage(Data& aData);
@@ -364,8 +388,34 @@ void MediaFormatReader::DecoderFactory::DoCreateDecoder(Data& aData) {
         return mfr ? &mfr->OnTrackWaitingForKeyProducer() : nullptr;
       };
 
+#ifdef MOZ_WIDGET_GONK
+  // Check Media decoder resource before creating it.
+  // Currently we only limit the max number of video decoders.
+  bool codecReserved = true;
+  if (aData.mTrack == TrackInfo::kVideoTrack) {
+    if (!aData.mResourceClient){
+      aData.mResourceClient =
+        new mozilla::MediaSystemResourceClient(
+          mozilla::MediaSystemResourceType::VIDEO_DECODER);
+    }
+
+    if (!aData.mResourceClient->AcquireSyncNoWait()) {
+      MFR_LOGE("Cannot reserve video decoder from SystemResourceManager.");
+      p = PlatformDecoderModule::CreateDecoderPromise::CreateAndReject(
+        NS_ERROR_DOM_MEDIA_FATAL_ERR, __func__);
+      codecReserved = false;
+    } else {
+      MFR_LOG("Reserved video decoder from SystemResourceManager.");
+    }
+  }
+#endif
   switch (aData.mTrack) {
     case TrackInfo::kAudioTrack: {
+#ifdef MOZ_WIDGET_GONK
+      if (!codecReserved) {
+        break;
+      }
+#endif
       p = platform->CreateDecoder(
           {*ownerData.GetCurrentInfo()->GetAsAudioInfo(), mOwner->mCrashHelper,
            CreateDecoderParams::UseNullDecoder(ownerData.mIsNullDecode),
@@ -374,6 +424,11 @@ void MediaFormatReader::DecoderFactory::DoCreateDecoder(Data& aData) {
     }
 
     case TrackType::kVideoTrack: {
+#ifdef MOZ_WIDGET_GONK
+      if (!codecReserved) {
+        break;
+      }
+#endif
       // Decoders use the layers backend to decide if they can use hardware
       // decoding, so specify LAYERS_NONE if we want to forcibly disable it.
       using Option = CreateDecoderParams::Option;

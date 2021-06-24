@@ -46,7 +46,10 @@ MediaSystemResourceService::MediaSystemResourceService() : mDestroyed(false) {
 #ifdef MOZ_WIDGET_GONK
   // The maximum number of hardware resoureces available.
   // XXX need to hange to a dynamic way.
-  enum { VIDEO_DECODER_COUNT = 4, VIDEO_ENCODER_COUNT = 1 };
+  uint32_t const VIDEO_DECODER_COUNT =
+    Preferences::GetUint("media.gonk.video.max_video_decoder_number", 4);
+  uint32_t const VIDEO_ENCODER_COUNT =
+    Preferences::GetUint("media.gonk.video.max_video_encoder_number", 1);
 
   mResources.InsertOrUpdate(static_cast<uint32_t>(MediaSystemResourceType::VIDEO_DECODER),
                  MakeUnique<MediaSystemResource>(VIDEO_DECODER_COUNT));
