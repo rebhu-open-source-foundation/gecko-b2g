@@ -70,6 +70,7 @@ USING_BLUETOOTH_NAMESPACE
 static BluetoothInterface* sBtInterface;
 static BluetoothCoreInterface* sBtCoreInterface;
 static nsTArray<RefPtr<BluetoothProfileController>> sControllerArray;
+static StaticMutex sServiceRecordLock;
 
 class BluetoothServiceBluedroid::EnableResultHandler final
     : public BluetoothCoreResultHandler {
@@ -857,6 +858,10 @@ class BluetoothServiceBluedroid::GetRemoteServiceRecordResultHandler final
         mUuid(aUuid) {}
 
   void OnError(BluetoothStatus aStatus) override {
+    BT_WARNING("Failed to GetRemoteServiceRecord, status: %d", aStatus);
+
+    StaticMutexAutoLock lock(sServiceRecordLock);
+
     // Find call in array
 
     ssize_t i = FindRequest();
@@ -898,6 +903,8 @@ class BluetoothServiceBluedroid::GetRemoteServiceRecordResultHandler final
 nsresult BluetoothServiceBluedroid::GetServiceChannel(
     const BluetoothAddress& aDeviceAddress, const BluetoothUuid& aServiceUuid,
     BluetoothProfileManagerBase* aManager) {
+  StaticMutexAutoLock lock(sServiceRecordLock);
+
   mGetRemoteServiceRecordArray.AppendElement(
       GetRemoteServiceRecordRequest(aDeviceAddress, aServiceUuid, aManager));
 
@@ -1811,6 +1818,7 @@ void BluetoothServiceBluedroid::RemoteDevicePropertiesNotification(
                        static_cast<uint32_t>(p.mTypeOfDevice));
 
     } else if (p.mType == PROPERTY_SERVICE_RECORD) {
+      StaticMutexAutoLock lock(sServiceRecordLock);
       size_t i;
 
       // Find call in array
