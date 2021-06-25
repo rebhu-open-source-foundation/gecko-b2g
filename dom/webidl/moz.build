@@ -555,6 +555,7 @@ WEBIDL_FILES = [
     "EventTarget.webidl",
     "ExtendableEvent.webidl",
     "ExtendableMessageEvent.webidl",
+    "External.webidl",
     "ExternalAPI.webidl",
     "FailedCertSecurityInfo.webidl",
     "FakePluginTagInit.webidl",
@@ -1232,11 +1233,6 @@ if CONFIG["MOZ_WIDGET_TOOLKIT"] == "gonk":
         "WifiScanResultEvent.webidl",
         "WifiStationInfoEvent.webidl",
         "WifiStatusChangeEvent.webidl",
-    ]
-
-if CONFIG["MOZ_BUILD_APP"] in ["browser", "comm/mail", "mobile/android", "xulrunner", "b2g"]:
-    WEBIDL_FILES += [
-        "External.webidl",
     ]
 
 if CONFIG["ACCESSIBILITY"]:

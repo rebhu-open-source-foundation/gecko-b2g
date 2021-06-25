@@ -2441,6 +2441,10 @@ nsresult nsExternalAppHandler::CreateFailedTransfer() {
   // We won't pass the temp file to the transfer, so if we have one it needs to
   // get deleted now.
   if (mTempFile) {
+    if (mSaver) {
+      mSaver->Finish(NS_BINDING_ABORTED);
+      mSaver = nullptr;
+    }
     mTempFile->Remove(false);
   }
 

@@ -977,17 +977,6 @@ void Navigator::CheckProtocolHandlerAllowed(const nsAString& aScheme,
     return;
   }
 
-  // Check to make sure this isn't already handled internally (we don't
-  // want to let them take over, say "chrome"). In theory, the checks above
-  // should have already taken care of this.
-  nsCOMPtr<nsIExternalProtocolHandler> externalHandler =
-      do_QueryInterface(handler);
-  // We should never allow overriding a builtin protocol handler.
-  if (!externalHandler) {
-    raisePermissionDeniedScheme();
-    return;
-  }
-
   // check if we have prefs set saying not to add this.
   bool defaultExternal =
       Preferences::GetBool("network.protocol-handler.external-default");
@@ -996,6 +985,16 @@ void Navigator::CheckProtocolHandlerAllowed(const nsAString& aScheme,
   if (!Preferences::GetBool(specificPref.get(), defaultExternal)) {
     raisePermissionDeniedScheme();
     return;
+  }
+
+  // Check to make sure this isn't already handled internally (we don't
+  // want to let them take over, say "chrome"). In theory, the checks above
+  // should have already taken care of this.
+  nsCOMPtr<nsIExternalProtocolHandler> externalHandler =
+      do_QueryInterface(handler);
+  // We should never allow overriding a builtin protocol handler.
+  if (!externalHandler) {
+    raisePermissionDeniedScheme();
   }
 }
 
