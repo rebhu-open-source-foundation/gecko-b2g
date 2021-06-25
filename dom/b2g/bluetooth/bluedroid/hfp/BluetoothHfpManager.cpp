@@ -14,6 +14,7 @@
 #include "mozilla/dom/bluetooth/BluetoothTypes.h"
 #include "mozilla/Services.h"
 #include "mozilla/StaticPtr.h"
+#include "nsCharSeparatedTokenizer.h"  // for nsCCharSeparatedTokenizer
 #include "nsContentUtils.h"
 #include "nsIIccInfo.h"
 #include "nsIIccService.h"
@@ -1728,7 +1729,54 @@ void BluetoothHfpManager::UnknownAtNotification(
 
   BT_LOGR("[%s]", nsCString(aAtString).get());
 
+  // Directly handle AT+IPHONEACCEV without checking AT+XAPL
+  if (nsAutoCString(aAtString).Find("+IPHONEACCEV=") != kNotFound) {
+    if (HandleIphoneAccev(aAtString, aBdAddress)) {
+      SendResponse(HFP_AT_RESPONSE_OK);
+      return;
+    } else {
+      BT_WARNING("Failed to parse AT+IPHONEACCEV command");
+    }
+  }
+
   SendResponse(HFP_AT_RESPONSE_ERROR);
+}
+
+// Handle AT+IPHONEACCEV command. Currently, only battery level is used.
+bool BluetoothHfpManager::HandleIphoneAccev(
+    const nsACString& aAtString, const BluetoothAddress& aBdAddress) {
+  // Format:
+  //   +IPHONEACCEV=Number of key/value pairs,key1,val1,key2,val2,...
+  // Key/value pairs:
+  //   key: the type of change being reported:
+  //     - 1 = Battery Level
+  //     - 2 = Dock State
+  //   val: the value of the change:
+  //     - Battery Level: string value between '0' and '9'
+  //     - Dock State: 0 = undocked, 1 = docked
+  nsCCharSeparatedTokenizer exposeTokens(aAtString, ',');
+  if (!exposeTokens.hasMoreTokens()) {
+    return false;
+  }
+  // Skip the 1st token "+IPHONEACCEV="
+  exposeTokens.nextToken();
+
+  while (exposeTokens.hasMoreTokens()) {
+    const nsDependentCSubstring& key = exposeTokens.nextToken();
+    if (!exposeTokens.hasMoreTokens()) {
+      return false;
+    }
+    const nsDependentCSubstring& value = exposeTokens.nextToken();
+    if (key.EqualsLiteral("1")) {
+      if (value.Length() != 1 || value[0] < '0' || value[0] > '9') {
+        return false;
+      }
+      mDeviceBatteryLevel = (value[0] - '0') * 10;
+      DispatchHfBatteryChangedEvent(aBdAddress, mDeviceBatteryLevel);
+      return true;
+    }
+  }
+  return true;
 }
 
 void BluetoothHfpManager::KeyPressedNotification(

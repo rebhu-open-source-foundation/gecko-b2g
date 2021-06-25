@@ -117,6 +117,11 @@ class BluetoothHfpManager : public BluetoothHfpManagerBase,
   // Get the battery level of the remote handsfree device
   int GetDeviceBatteryLevel() const { return mDeviceBatteryLevel; }
 
+  // Handle AT+IPHONEACCEV of "Accessory Design Guidelines for Apple Devices"
+  // Return false if the format of aAtString is illegal
+  bool HandleIphoneAccev(const nsACString& aAtString,
+                         const BluetoothAddress& aBdAddress);
+
   // CDMA-specific functions
   void UpdateSecondNumber(const nsAString& aNumber);
   void AnswerWaitingCall();
