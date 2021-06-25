@@ -41,6 +41,9 @@
 #include "AudioThreadRegistry.h"
 #include "mozilla/StaticPrefs_media.h"
 
+#if defined (MOZ_WIDGET_GONK)
+#  include <media/AudioSystem.h>
+#endif
 #if defined(B2G_VOICE_PROCESSING)
 #  include <media/AudioEffect.h>
 #endif
@@ -336,6 +339,8 @@ bool InitPreferredSampleRate() {
   }
 #ifdef MOZ_WIDGET_ANDROID
   sPreferredSampleRate = AndroidGetAudioOutputSampleRate();
+#elif defined(MOZ_WIDGET_GONK)
+  sPreferredSampleRate = android::AudioSystem::getPrimaryOutputSamplingRate();
 #else
   cubeb* context = GetCubebContextUnlocked();
   if (!context) {
