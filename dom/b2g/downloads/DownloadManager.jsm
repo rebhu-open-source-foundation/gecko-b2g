@@ -179,7 +179,7 @@ DownloadManager.prototype = {
           function(aResult) {
             // This will be one of: AdoptError (generic catch-all),
             // AdoptNoSuchFile, AdoptFileIsDirectory
-            aReject(aResult.error);
+            aReject(aResult);
           }
         );
       }.bind(this)
