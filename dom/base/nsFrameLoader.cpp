@@ -3249,17 +3249,19 @@ void nsFrameLoader::RequestFinalTabStateFlush() {
     return;
   }
 
-  RefPtr<WindowGlobalParent> wgp =
-      context->Canonical()->GetCurrentWindowGlobal();
+  RefPtr<CanonicalBrowsingContext> canonical = context->Canonical();
+  RefPtr<WindowGlobalParent> wgp = canonical->GetCurrentWindowGlobal();
   RefPtr<Element> embedder = context->GetEmbedderElement();
 
   if (mSessionStoreListener) {
     context->FlushSessionStore();
     mSessionStoreListener->ForceFlushFromParent();
+
+    canonical->ClearPermanentKey();
     if (wgp) {
       wgp->NotifySessionStoreUpdatesComplete(embedder);
     }
-    // No async ipc call is involved in parent only case
+
     return;
   }
 
@@ -3272,11 +3274,15 @@ void nsFrameLoader::RequestFinalTabStateFlush() {
   });
 
   FlushPromise::All(GetCurrentSerialEventTarget(), flushPromises)
-      ->Then(GetCurrentSerialEventTarget(), __func__, [wgp, embedder]() {
-        if (wgp) {
-          wgp->NotifySessionStoreUpdatesComplete(embedder);
-        }
-      });
+      ->Then(GetCurrentSerialEventTarget(), __func__,
+             [canonical = RefPtr{canonical}, wgp, embedder]() {
+               if (canonical) {
+                 canonical->ClearPermanentKey();
+               }
+               if (wgp) {
+                 wgp->NotifySessionStoreUpdatesComplete(embedder);
+               }
+             });
 }
 
 void nsFrameLoader::RequestEpochUpdate(uint32_t aEpoch) {

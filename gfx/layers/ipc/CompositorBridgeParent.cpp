@@ -2121,7 +2121,6 @@ already_AddRefed<IAPZCTreeManager> CompositorBridgeParent::GetAPZCTreeManager(
   return apzctm.forget();
 }
 
-#if defined(MOZ_GECKO_PROFILER)
 static void InsertVsyncProfilerMarker(TimeStamp aVsyncTimestamp) {
   MOZ_ASSERT(CompositorThreadHolder::IsInCompositorThread());
   if (profiler_thread_is_being_profiled()) {
@@ -2144,19 +2143,16 @@ static void InsertVsyncProfilerMarker(TimeStamp aVsyncTimestamp) {
                         VsyncMarker{});
   }
 }
-#endif
 
 /*static */
 void CompositorBridgeParent::PostInsertVsyncProfilerMarker(
     TimeStamp aVsyncTimestamp) {
-#if defined(MOZ_GECKO_PROFILER)
   // Called in the vsync thread
   if (profiler_is_active() && CompositorThreadHolder::IsActive()) {
     CompositorThread()->Dispatch(
         NewRunnableFunction("InsertVsyncProfilerMarkerRunnable",
                             InsertVsyncProfilerMarker, aVsyncTimestamp));
   }
-#endif
 }
 
 widget::PCompositorWidgetParent*
@@ -2555,7 +2551,6 @@ int32_t RecordContentFrameTime(
   double latencyNorm = latencyMs / aVsyncRate.ToMilliseconds();
   int32_t fracLatencyNorm = lround(latencyNorm * 100.0);
 
-#ifdef MOZ_GECKO_PROFILER
   if (profiler_can_accept_markers()) {
     struct ContentFrameMarker {
       static constexpr Span<const char> MarkerTypeName() {
@@ -2575,7 +2570,6 @@ int32_t RecordContentFrameTime(
                         MarkerTiming::Interval(aTxnStart, aCompositeEnd),
                         ContentFrameMarker{});
   }
-#endif
 
   Telemetry::Accumulate(Telemetry::CONTENT_FRAME_TIME, fracLatencyNorm);
 

@@ -154,9 +154,9 @@ class ContentParent final
   static LogModule* GetLog();
 
   /**
-   * Create a subprocess suitable for use later as a content process.
+   * Create a ContentParent suitable for use later as a content process.
    */
-  static RefPtr<LaunchPromise> PreallocateProcess();
+  static already_AddRefed<ContentParent> MakePreallocProcess();
 
   /**
    * Start up the content-process machinery.  This might include
@@ -1536,6 +1536,9 @@ class ContentParent final
       const MaybeDiscardedBrowsingContext& aContainerContext,
       FeaturePolicy* aContainerFeaturePolicy);
 
+  mozilla::ipc::IPCResult RecvGetSystemIcon(nsIURI* aURI,
+                                            GetSystemIconResolver&& aResolver);
+
  public:
   void SendGetFilesResponseAndForget(const nsID& aID,
                                      const GetFilesResponseResult& aResult);
@@ -1570,7 +1573,7 @@ class ContentParent final
   // Return an existing ContentParent if possible. Otherwise, `nullptr`.
   static already_AddRefed<ContentParent> GetUsedBrowserProcess(
       const nsACString& aRemoteType, nsTArray<ContentParent*>& aContentParents,
-      uint32_t aMaxContentParents, bool aPreferUsed);
+      uint32_t aMaxContentParents, bool aPreferUsed, ProcessPriority aPriority);
 
   void AddToPool(nsTArray<ContentParent*>&);
   void RemoveFromPool(nsTArray<ContentParent*>&);
