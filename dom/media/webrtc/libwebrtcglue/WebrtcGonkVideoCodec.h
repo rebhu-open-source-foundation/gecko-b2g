@@ -2,8 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef WEBRTC_MEDIA_CODEC_WRAPPER_H_
-#define WEBRTC_MEDIA_CODEC_WRAPPER_H_
+#ifndef WEBRTC_GONK_VIDEO_CODEC_H_
+#define WEBRTC_GONK_VIDEO_CODEC_H_
 
 #include <media/stagefright/MediaCodec.h>
 
@@ -186,4 +186,4 @@ class WebrtcGonkVideoDecoder final
 
 }  // namespace mozilla
 
-#endif  // WEBRTC_MEDIA_CODEC_WRAPPER_H_
+#endif  // WEBRTC_GONK_VIDEO_CODEC_H_

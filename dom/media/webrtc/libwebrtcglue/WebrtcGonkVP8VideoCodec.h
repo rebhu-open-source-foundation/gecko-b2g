@@ -2,8 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef WEBRTC_OMX_VP8_VIDEO_CODEC_H_
-#define WEBRTC_OMX_VP8_VIDEO_CODEC_H_
+#ifndef WEBRTC_GONK_VP8_VIDEO_CODEC_H_
+#define WEBRTC_GONK_VP8_VIDEO_CODEC_H_
 
 #include <utils/RefBase.h>
 
@@ -48,4 +48,4 @@ class WebrtcGonkVP8VideoDecoder : public WebrtcVideoDecoder {
 
 }  // namespace mozilla
 
-#endif  // WEBRTC_OMX_VP8_VIDEO_CODEC_H_
+#endif  // WEBRTC_GONK_VP8_VIDEO_CODEC_H_
