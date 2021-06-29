@@ -58,6 +58,9 @@
 
 #ifdef MOZ_WIDGET_ANDROID
 #  include "mozilla/jni/Utils.h"
+#endif
+
+#if defined(MOZ_WIDGET_ANDROID) || defined(MOZ_WIDGET_GONK)
 #  include <dlfcn.h>
 #endif
 
@@ -1394,7 +1397,7 @@ void gfxFT2FontList::FindFonts() {
   }
   mFontNameCache->Init();
 
-#if defined(MOZ_WIDGET_ANDROID)
+#if defined(MOZ_WIDGET_ANDROID) || defined(MOZ_WIDGET_GONK)
   // Android API 29+ provides system font and font matcher API for native code.
   typedef void* (*_ASystemFontIterator_open)();
   typedef void* (*_ASystemFontIterator_next)(void*);
@@ -1411,7 +1414,11 @@ void gfxFT2FontList::FindFonts() {
   static bool firstTime = true;
 
   if (firstTime) {
+#if defined(MOZ_WIDGET_ANDROID)
     if (jni::GetAPIVersion() >= 29) {
+#else
+    {
+#endif
       void* handle = dlopen("libandroid.so", RTLD_LAZY | RTLD_LOCAL);
       MOZ_ASSERT(handle);
 
@@ -1450,6 +1457,9 @@ void gfxFT2FontList::FindFonts() {
       systemFontIterator_close(iter);
     } else {
       useSystemFontAPI = false;
+    }
+    if (!mFontNameCache->EntryCount()) {
+        useSystemFontAPI = false;
     }
   }
 
