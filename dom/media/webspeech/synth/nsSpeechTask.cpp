@@ -117,7 +117,18 @@ nsSpeechTask::nsSpeechTask(float aVolume, const nsAString& aText,
       mIsChrome(aIsChrome),
       mState(STATE_PENDING) {}
 
-nsSpeechTask::~nsSpeechTask() { LOG(LogLevel::Debug, ("~nsSpeechTask")); }
+nsSpeechTask::~nsSpeechTask() {
+  LOG(LogLevel::Debug, ("~nsSpeechTask"));
+  if (mStream) {
+    if (!mStream->IsDestroyed()) {
+      mStream->Destroy();
+    }
+
+    // This will finally destroyed by SynthStreamListener becasue
+    // MediaStream::Destroy() is async.
+    mStream = nullptr;
+  }
+}
 
 void nsSpeechTask::Init() { mInited = true; }
 
