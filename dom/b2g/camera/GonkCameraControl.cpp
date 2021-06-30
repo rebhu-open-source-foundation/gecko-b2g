@@ -199,6 +199,11 @@ nsresult nsGonkCameraControl::Initialize() {
   mParams.Set(CAMERA_PARAM_PREVIEWFORMAT, u"yuv420sp"_ns);
   // Turn off any normal pictures returned by the HDR scene mode
   mParams.Set(CAMERA_PARAM_SCENEMODE_HDR_RETURNNORMALPICTURE, false);
+  {
+    // Set default focus region into Camera HAL.
+    nsTArray<Region> defaultFocusAreas;
+    mParams.Set(CAMERA_PARAM_FOCUSAREAS, defaultFocusAreas);
+  }
   PushParametersImpl();
 
   // Grab any other settings we'll need later.
