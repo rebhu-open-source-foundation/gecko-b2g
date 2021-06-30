@@ -27,6 +27,15 @@ using android::hardware::sensors::V2_0::EventQueueFlagBits;
 
 #define MAX_EVENT_BUFFER_SIZE 16
 
+#ifdef PRODUCT_MANUFACTURER_MTK
+// mtk custom hal sends 128 events at most at a time in case data flooding. To avoid
+// fmq blocking, the buffer size is enlarged to 128 here specifically for mtk hal as
+// a temporary workaround before mtk fix it.
+// TODO: to remove this workaround once mtk fix the issue. Track it by Bug 124274.
+#undef MAX_EVENT_BUFFER_SIZE
+#define MAX_EVENT_BUFFER_SIZE 128
+#endif
+
 namespace mozilla {
 namespace hal_impl {
 
