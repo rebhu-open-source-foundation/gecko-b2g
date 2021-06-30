@@ -31,7 +31,7 @@ partial interface B2G {
 
 [Exposed=Window]
 partial interface B2G {
-  [Throws, Func="B2G::HasDownloadsPermission", Pref="dom.downloads.enabled"]
+  [Throws, Pref="dom.downloads.enabled"]
   readonly attribute DownloadManager downloadManager;
 };
 

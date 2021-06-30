@@ -36,19 +36,33 @@ const ipcMessages = [
 this.DownloadsIPC = {
   downloads: {},
 
-  init() {
-    DEBUG && debug("init");
+  init(aCallerOrigin, aGrantedForAll) {
+    DEBUG && debug(`init ${aCallerOrigin} ${aGrantedForAll} `);
     Services.obs.addObserver(this, "xpcom-shutdown");
     ipcMessages.forEach(aMessage => {
       Services.cpmm.addMessageListener(aMessage, this);
     });
 
+    this.callerOrigin = aCallerOrigin;
+    this.grantedForAll = aGrantedForAll;
     // We need to get the list of current downloads.
     this.ready = false;
     this.getListPromises = [];
     this.downloadPromises = {};
+    this.promiseId = 0;
     Services.cpmm.sendAsyncMessage("Downloads:GetList", {});
-    this._promiseId = 0;
+  },
+
+  isAccessible(aDownload) {
+    if (this.grantedForAll) {
+      return true;
+    }
+
+    if (aDownload.referrer && aDownload.referrer === this.callerOrigin) {
+      return true;
+    }
+
+    return false;
   },
 
   notifyChanges(aId) {
@@ -68,7 +82,11 @@ this.DownloadsIPC = {
   _updateDownloadsArray(aDownloads) {
     this.downloads = [];
     // We actually have an array of downloads.
+    let self = this;
     aDownloads.forEach(aDownload => {
+      if (!self.isAccessible(aDownload)) {
+        return;
+      }
       this.downloads[aDownload.id] = aDownload;
     });
   },
@@ -89,10 +107,16 @@ this.DownloadsIPC = {
         this.ready = true;
         break;
       case "Downloads:Added":
+        if (!this.isAccessible(download)) {
+          break;
+        }
         this.downloads[download.id] = download;
         this.notifyChanges(download.id);
         break;
       case "Downloads:Removed":
+        if (!this.isAccessible(download)) {
+          break;
+        }
         if (this.downloads[download.id]) {
           this.downloads[download.id] = download;
           this.notifyChanges(download.id);
@@ -100,6 +124,9 @@ this.DownloadsIPC = {
         }
         break;
       case "Downloads:Changed":
+        if (!this.isAccessible(download)) {
+          break;
+        }
         // Only update properties that actually changed.
         let cached = this.downloads[download.id];
         if (!cached) {
@@ -171,14 +198,17 @@ this.DownloadsIPC = {
     Services.cpmm.sendAsyncMessage("Downloads:ClearAllDone", {});
   },
 
-  promiseId() {
-    return this._promiseId++;
+  generatePromiseId() {
+    return this.promiseId++;
   },
 
   remove(aId) {
     DEBUG && debug("remove " + aId);
+    if (!this.downloads[aId]) {
+      return Promise.reject("InvalidDownload");
+    }
     let deferred = Promise.defer();
-    let pId = this.promiseId();
+    let pId = this.generatePromiseId();
     this.downloadPromises[pId] = deferred;
     Services.cpmm.sendAsyncMessage("Downloads:Remove", {
       id: aId,
@@ -189,8 +219,11 @@ this.DownloadsIPC = {
 
   pause(aId) {
     DEBUG && debug("pause " + aId);
+    if (!this.downloads[aId]) {
+      return Promise.reject("InvalidDownload");
+    }
     let deferred = Promise.defer();
-    let pId = this.promiseId();
+    let pId = this.generatePromiseId();
     this.downloadPromises[pId] = deferred;
     Services.cpmm.sendAsyncMessage("Downloads:Pause", {
       id: aId,
@@ -201,8 +234,11 @@ this.DownloadsIPC = {
 
   resume(aId) {
     DEBUG && debug("resume " + aId);
+    if (!this.downloads[aId]) {
+      return Promise.reject("InvalidDownload");
+    }
     let deferred = Promise.defer();
-    let pId = this.promiseId();
+    let pId = this.generatePromiseId();
     this.downloadPromises[pId] = deferred;
     Services.cpmm.sendAsyncMessage("Downloads:Resume", {
       id: aId,
@@ -214,7 +250,7 @@ this.DownloadsIPC = {
   adoptDownload(aJsonDownload) {
     DEBUG && debug("adoptDownload");
     let deferred = Promise.defer();
-    let pId = this.promiseId();
+    let pId = this.generatePromiseId();
     this.downloadPromises[pId] = deferred;
     Services.cpmm.sendAsyncMessage("Downloads:Adopt", {
       jsonDownload: aJsonDownload,
@@ -231,5 +267,3 @@ this.DownloadsIPC = {
     }
   },
 };
-
-DownloadsIPC.init();

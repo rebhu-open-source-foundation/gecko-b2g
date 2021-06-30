@@ -44,7 +44,19 @@ DownloadManager.prototype = {
 
   // nsIDOMGlobalPropertyInitializer implementation
   init(aWindow) {
-    DEBUG && debug("DownloadsManager init");
+    DEBUG && debug("init " + aWindow?.document?.nodePrincipal?.origin);
+
+    this.grantedForAll =
+      Services.perms.testExactPermissionFromPrincipal(
+        aWindow?.document?.nodePrincipal,
+        "downloads"
+      ) == Ci.nsIPermissionManager.ALLOW_ACTION;
+
+    DownloadsIPC.init(
+      aWindow?.document?.nodePrincipal?.origin,
+      this.grantedForAll
+    );
+
     this.initDOMRequestHelper(aWindow, [
       "Downloads:Added",
       "Downloads:Removed",
@@ -167,8 +179,8 @@ DownloadManager.prototype = {
           url: aAdoptDownloadDict.url,
           path: computedPath,
           contentType: aAdoptDownloadDict.contentType,
-          startTime: aAdoptDownloadDict.startTime.valueOf() || Date.now(),
-          sourceAppManifestURL: "",
+          startTime: aAdoptDownloadDict.startTime?.valueOf() || Date.now(),
+          referrer: Cu.getWebIDLCallerPrincipal().origin,
         };
 
         DownloadsIPC.adoptDownload(jsonDownload).then(
@@ -390,7 +402,7 @@ DownloadObject.prototype = {
       "state",
       "contentType",
       "startTime",
-      "sourceAppManifestURL",
+      "referrer",
     ];
     let changed = false;
     let changedProps = {};
@@ -516,7 +528,7 @@ DownloadObject.prototype = {
   },
 
   observe(aSubject, aTopic, aData) {
-    DEBUG && debug("DownloadObject observe " + aTopic);
+    DEBUG && debug(`DownloadObject ${this.id} observe ${aTopic}`);
     if (aTopic !== "downloads-state-change-" + this.id) {
       return;
     }

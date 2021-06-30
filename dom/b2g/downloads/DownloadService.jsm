@@ -107,16 +107,22 @@ var DownloadService = {
    * send to the DOM side.
    */
   jsonDownload(aDownload) {
+    let referrer = "";
+    if (
+      aDownload.source.referrerInfo &&
+      aDownload.source.referrerInfo.originalReferrer instanceof Ci.nsIURI
+    ) {
+      referrer = aDownload.source.referrerInfo.originalReferrer.prePath;
+    }
+
     let res = {
       totalBytes: aDownload.totalBytes,
       currentBytes: aDownload.currentBytes,
       url: aDownload.source.url,
+      referrer,
       path: aDownload.target.path,
       contentType: aDownload.contentType,
       startTime: aDownload.startTime.getTime(),
-      sourceAppManifestURL:
-        aDownload._unknownProperties &&
-        aDownload._unknownProperties.sourceAppManifestURL,
     };
 
     if (aDownload.error) {
@@ -308,8 +314,9 @@ var DownloadService = {
   adoptDownload(aData, aMm) {
     (async function() {
       let adoptJsonRep = aData.jsonDownload;
-      debug("adoptDownload " + adoptJsonRep?.path + " " + adoptJsonRep?.url);
-      DEBUG && debug(uneval(adoptJsonRep));
+      debug(
+        `adoptDownload ${adoptJsonRep?.path} ${adoptJsonRep?.url} ${adoptJsonRep?.referrer}`
+      );
 
       // Verify that the file exists on disk.  This will result in a rejection
       // if the file does not exist.  We will also use this information for the
@@ -322,6 +329,21 @@ var DownloadService = {
         throw new Error("AdoptFileIsDirectory");
       }
 
+      let referrerInfo = null;
+      if (adoptJsonRep.referrer) {
+        try {
+          referrerInfo = Cc["@mozilla.org/referrer-info;1"].createInstance(
+            Ci.nsIReferrerInfo
+          );
+          referrerInfo.init(
+            Ci.nsIReferrerInfo.NO_REFERRER,
+            false,
+            Services.io.newURI(adoptJsonRep.referrer)
+          );
+        } catch (e) {
+          debug(`convert referrer error: ${adoptJsonRep.referrer} ${e}`);
+        }
+      }
       // We need to create a Download instance to add to the list.  Create a
       // serialized representation and then from there the instance.
       let serializedRep = {
@@ -330,6 +352,7 @@ var DownloadService = {
           url: adoptJsonRep.url,
           // This is where isPrivate would go if adoption supported private
           // browsing.
+          referrerInfo,
         },
         target: {
           path: adoptJsonRep.path,
@@ -341,7 +364,6 @@ var DownloadService = {
         contentType: adoptJsonRep.contentType,
         // unknown properties added/used by the DownloadService
         currentBytes: fileInfo.size,
-        sourceAppManifestURL: adoptJsonRep.sourceAppManifestURL,
       };
 
       let download = await Downloads.createDownload(serializedRep);

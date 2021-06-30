@@ -79,5 +79,4 @@ navigator.b2g.downloadManager.addEventListener(
 ```
 
 ## Notes
-1. Currently only core apps with `downloads` permission are allowed to use Download API.
-2. For allowing normal pages to see and access download objects for which it is the referrer, see follow-up bug 112699.
+The functions above are all available to apps with `downloads` permission. As for apps or webpages without `downloads` permission, getDownloads() and `downloadstart` events are still available to access the download objects for which it is the referrer.

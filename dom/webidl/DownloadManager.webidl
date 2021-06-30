@@ -27,6 +27,7 @@ interface DownloadManager : EventTarget {
 
   // Removes one download from the downloads set. Returns a promise resolved
   // with the finalized download.
+  [Func="B2G::HasDownloadsPermission"]
   Promise<DownloadObject> remove(DownloadObject download);
 
   // Removes all completed downloads.  This kicks off an asynchronous process
@@ -35,6 +36,7 @@ interface DownloadManager : EventTarget {
   // that each existing download will have its onstatechange method invoked and
   // will have a new state of "finalized".  (After the download is finalized, no
   // further events will be generated on it.)
+  [Func="B2G::HasDownloadsPermission"]
   void clearAllDone();
 
   // Add completed downloads from applications that must perform the download
@@ -45,16 +47,16 @@ interface DownloadManager : EventTarget {
   // The adopted download will also be reported via the ondownloadstart event
   // handler.
   //
-  // Applications must currently be certified to use this, but it could be
-  // widened at a later time.
-  //
   // Note that "download" is not actually optional, but WebIDL requires that it
   // be marked as such because it is not followed by a required argument.  The
   // promise will be rejected if the dictionary is omitted or the specified
   // file does not exist on disk.
+  [Func="B2G::HasDownloadsPermission"]
   Promise<DownloadObject> adoptDownload(optional AdoptDownloadDict download = {});
 
-  // Fires when a new download starts.
+  // Fires when a new download starts. Apps with `downloads` permission can
+  // listen to this event for all downloads, while apps without `downloads`
+  // permission can only listen to the downloads for which it is the referrer.
   attribute EventHandler ondownloadstart;
 };
 
@@ -100,9 +102,9 @@ interface DownloadObject : EventTarget {
   // download (eg. in different windows) will have the same id.
   readonly attribute DOMString id;
 
-  // The manifestURL of the application that added this download. Only used for
-  // downloads added via the adoptDownload API call.
-  readonly attribute DOMString? sourceAppManifestURL;
+  // The URL of the referrer which initiated the download.
+  // Can be empty if the download source is not HTTP.
+  readonly attribute DOMString? referrer;
 
   // A DOM error object, that will be not null when a download is stopped
   // because something failed.
