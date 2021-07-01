@@ -26,8 +26,7 @@ public:
   explicit SynthStreamListener(nsSpeechTask* aSpeechTask,
                                MediaTrack* aStream) :
     mSpeechTask(aSpeechTask),
-    mStream(aStream),
-    mStarted(false) {}
+    mStream(aStream) {}
 
   void DoNotifyStarted() {
     if (mSpeechTask && !mStream->IsDestroyed()) {
@@ -43,16 +42,6 @@ public:
   }
 
   void NotifyEnded(MediaTrackGraph* aGraph) override {
-    if (!mStarted) {
-      mStarted = true;
-      aGraph->DispatchToMainThreadStableState(NS_NewRunnableFunction(
-        "NotifyEnded startRunnable",
-        [self = RefPtr<SynthStreamListener>(this)] {
-          if (self) {
-            self->DoNotifyStarted();
-          }
-        }));
-    }
     aGraph->DispatchToMainThreadStableState(NS_NewRunnableFunction(
       "NotifyEnded endRunnable",
       [self = RefPtr<SynthStreamListener>(this)] {
@@ -74,8 +63,6 @@ private:
   nsSpeechTask* mSpeechTask;
   // This is KungFuDeathGrip for MediaTrack
   RefPtr<MediaTrack> mStream;
-
-  bool mStarted;
 };
 
 // nsSpeechTask
@@ -159,11 +146,11 @@ nsSpeechTask::SetupAudioNative(nsISpeechTaskCallback* aCallback, uint32_t aRate)
   mStream = g1->CreateSourceTrack(MediaSegment::AUDIO);
 
   MOZ_ASSERT(mStream);
-
-  mStream->AddListener(new SynthStreamListener(this, mStream));
+  SynthStreamListener* listener = new SynthStreamListener(this, mStream);
+  mStream->AddListener(listener);
   mStream->AddAudioOutput(this);
   mStream->SetAudioOutputVolume(this, mVolume);
-
+  listener->DoNotifyStarted();
   mCallback = aCallback;
 
   return NS_OK;
