@@ -475,6 +475,12 @@ pref("dom.permissions.manager.enabled", true);
 
 // controls if we want camera support
 pref("device.camera.enabled", true);
+// Empirically, this is the value returned by hal::GetTotalSystemMemory()
+// when Flame's memory is limited to 512MiB. If the camera stack determines
+// it is running on a low memory platform, features that can be reliably
+// supported will be disabled. This threshold can be adjusted to suit other
+// platforms; and set to 0 to disable the low-memory check altogether.
+pref("camera.control.low_memory_thresholdMB", 404);
 pref("media.realtime_decoder.enabled", true);
 
 // TCPSocket

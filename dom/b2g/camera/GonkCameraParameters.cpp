@@ -18,9 +18,7 @@
 #include "CameraPreferences.h"
 #include "ICameraControl.h"
 #include "CameraCommon.h"
-// TODO: to support IsLowMemoryPlatform, need to solve base namespace amibiguous
-// issue
-//#include "mozilla/Hal.h"
+#include "mozilla/Hal.h"
 #include "nsTHashMap.h"
 #include "nsPrintfCString.h"
 
@@ -28,9 +26,6 @@ using namespace mozilla;
 using namespace android;
 
 /* static */ bool GonkCameraParameters::IsLowMemoryPlatform() {
-// TODO: to support IsLowMemoryPlatform, need to solve base namespace amibiguous
-// issue
-#if 0
   bool testIsLowMem = false;
   CameraPreferences::GetPref("camera.control.test.is_low_memory", testIsLowMem);
   if (testIsLowMem) {
@@ -50,7 +45,6 @@ using namespace android;
       return true;
     }
   }
-#endif
 
   return false;
 }
