@@ -876,7 +876,8 @@ bool nsDocShell::MaybeHandleSubframeHistory(
   nsCOMPtr<nsIDocShell> parentDS(do_QueryInterface(parentAsItem));
 
   if (!parentDS || parentDS == static_cast<nsIDocShell*>(this)) {
-    if (mBrowsingContext && mBrowsingContext->IsTop()) {
+    if (mBrowsingContext && (mBrowsingContext->IsTop() ||
+                             mBrowsingContext->IsTopContentOfNestedWebView())) {
       // This is the root docshell. If we got here while
       // executing an onLoad Handler,this load will not go
       // into session history.
@@ -1468,7 +1469,8 @@ bool nsDocShell::SetCurrentURI(nsIURI* aURI, nsIRequest* aRequest,
   // Don't fire onLocationChange when creating a subframe's initial about:blank
   // document, as this can happen when it's not safe for us to run script.
   if (aIsInitialAboutBlank && !mHasLoadedNonBlankURI &&
-      !mBrowsingContext->IsTop()) {
+      !mBrowsingContext->IsTop() &&
+      !mBrowsingContext->IsTopContentOfNestedWebView()) {
     MOZ_ASSERT(!aRequest && aLocationFlags == 0);
     return false;
   }
@@ -11441,7 +11443,8 @@ nsresult nsDocShell::AddToSessionHistory(
    * other vitalities.
    */
   if (LOAD_TYPE_HAS_FLAGS(mLoadType, LOAD_FLAGS_REPLACE_HISTORY) &&
-      !mBrowsingContext->IsTop()) {
+      !mBrowsingContext->IsTop() &&
+      !mBrowsingContext->IsTopContentOfNestedWebView()) {
     // This is a subframe
     entry = mOSHE;
     if (entry) {
@@ -11583,7 +11586,9 @@ nsresult nsDocShell::AddToSessionHistory(
                 resultPrincipalURI, loadReplace, referrerInfo, srcdoc,
                 srcdocEntry, baseURI, saveLayoutState, expired, userActivation);
 
-  if (mBrowsingContext->IsTop() && GetSessionHistory()) {
+  if ((mBrowsingContext->IsTop() ||
+       mBrowsingContext->IsTopContentOfNestedWebView()) &&
+      GetSessionHistory()) {
     bool shouldPersist = ShouldAddToSessionHistory(aURI, aChannel);
     Maybe<int32_t> previousEntryIndex;
     Maybe<int32_t> loadedEntryIndex;
@@ -11859,8 +11864,12 @@ already_AddRefed<nsISHEntry> nsDocShell::SetHistoryEntry(
 }
 
 already_AddRefed<ChildSHistory> nsDocShell::GetRootSessionHistory() {
-  RefPtr<ChildSHistory> childSHistory =
-      mBrowsingContext->Top()->GetChildSessionHistory();
+  RefPtr<ChildSHistory> childSHistory;
+  if (mBrowsingContext->IsTopContentOfNestedWebView()) {
+    childSHistory = mBrowsingContext->GetChildSessionHistory();
+  } else {
+    childSHistory = mBrowsingContext->Top()->GetChildSessionHistory();
+  }
   return childSHistory.forget();
 }
 

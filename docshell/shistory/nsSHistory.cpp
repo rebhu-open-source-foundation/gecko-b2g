@@ -743,7 +743,7 @@ nsSHistory::AddToRootSessionHistory(bool aCloneChildren, nsISHEntry* aOSHE,
                                     bool aShouldPersist,
                                     Maybe<int32_t>* aPreviousEntryIndex,
                                     Maybe<int32_t>* aLoadedEntryIndex) {
-  MOZ_ASSERT(aRootBC->IsTop());
+  MOZ_ASSERT(aRootBC->IsTop() || aRootBC->IsTopContentOfNestedWebView());
 
   nsresult rv = NS_OK;
 

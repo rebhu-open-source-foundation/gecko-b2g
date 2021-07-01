@@ -1022,7 +1022,9 @@ nsDocLoader::GetDOMWindow(mozIDOMWindowProxy** aResult) {
 NS_IMETHODIMP
 nsDocLoader::GetIsTopLevel(bool* aResult) {
   nsCOMPtr<nsIDocShell> docShell = do_QueryInterface(this);
-  *aResult = docShell && docShell->GetBrowsingContext()->IsTop();
+  *aResult = docShell &&
+             (docShell->GetBrowsingContext()->IsTop() ||
+              docShell->GetBrowsingContext()->IsTopContentOfNestedWebView());
   return NS_OK;
 }
 

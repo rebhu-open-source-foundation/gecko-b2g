@@ -60,6 +60,8 @@
 #include "mozilla/Unused.h"
 #include "mozilla/dom/AutoPrintEventDispatcher.h"
 #include "mozilla/dom/BrowserBridgeChild.h"
+#include "mozilla/dom/BrowserElementDictionariesBinding.h"
+#include "mozilla/dom/CustomEvent.h"
 #include "mozilla/dom/DataTransfer.h"
 #include "mozilla/dom/DocGroup.h"
 #include "mozilla/dom/Element.h"
@@ -890,6 +892,17 @@ BrowserChild::GetInterface(const nsIID& aIID, void** aSink) {
   return QueryInterface(aIID, aSink);
 }
 
+static already_AddRefed<Element> CreateBrowserElement(
+    Element* aOpenerFrameElement) {
+  Document* doc = aOpenerFrameElement->OwnerDoc();
+  RefPtr<NodeInfo> nodeInfo = doc->NodeInfoManager()->GetNodeInfo(
+      nsGkAtoms::browser, nullptr, kNameSpaceID_XUL, nsINode::ELEMENT_NODE);
+  RefPtr<Element> browserElement;
+  Unused << NS_NewXULElement(getter_AddRefs(browserElement), nodeInfo.forget(),
+                             dom::NOT_FROM_PARSER);
+  return browserElement.forget();
+}
+
 NS_IMETHODIMP
 BrowserChild::ProvideWindow(nsIOpenWindowInfo* aOpenWindowInfo,
                             uint32_t aChromeFlags, bool aCalledFromJS,
@@ -919,6 +932,81 @@ BrowserChild::ProvideWindow(nsIOpenWindowInfo* aOpenWindowInfo,
         nsPIDOMWindowOuter::From(win)->GetBrowsingContext());
     bc.forget(aReturn);
     return NS_OK;
+  } else if (openLocation == nsIBrowserDOMWindow::OPEN_NEWTAB) {
+    nsCOMPtr<nsIWebBrowser> browser = do_GetInterface(WebNavigation());
+    nsCOMPtr<mozIDOMWindowProxy> win;
+    MOZ_TRY(browser->GetContentDOMWindow(getter_AddRefs(win)));
+
+    nsCOMPtr<nsPIDOMWindowOuter> openerWindow = nsPIDOMWindowOuter::From(win);
+    nsCOMPtr<Element> openerFrameElement =
+        openerWindow->GetFrameElementInternal();
+
+    RefPtr<BrowsingContext> bc = parent;
+    while (bc) {
+      Element* element = bc->GetEmbedderElement();
+
+      if (element && element->IsXULElement(nsGkAtoms::browser)) {
+        // This is a request from a window of an embedder element on the
+        // content process. Create a new browser element and pass it with an
+        // 'openwindow' custom event to the nested web-view element so that
+        // 1) the parent document can get the newly created browser element
+        //    and assign it to a newly created web-view as a new tab.
+        // 2) we can return the correct browsing context here.
+        nsCOMPtr<Element> browserElement = CreateBrowserElement(element);
+        if (!browserElement) {
+          return NS_ERROR_ABORT;
+        }
+
+        nsAutoCString spec;
+        if (aURI) {
+          aURI->GetSpec(spec);
+        }
+        PresShell* presShell = element->OwnerDoc()->GetPresShell();
+        RefPtr<nsPresContext> presContext;
+        if (presShell) {
+          presContext = presShell->GetPresContext();
+        }
+        RefPtr<CustomEvent> event =
+            NS_NewDOMCustomEvent(element, presContext, nullptr);
+
+        OpenWindowEventDetail detail;
+        if (spec.IsEmpty()) {
+          detail.mUrl = u"about:blank"_ns;
+        } else {
+          detail.mUrl = NS_ConvertUTF8toUTF16(spec);
+        }
+        detail.mName = aName;
+        detail.mFeatures = NS_ConvertUTF8toUTF16(aFeatures);
+        detail.mFrameElement = browserElement;
+        AutoJSAPI jsapi;
+        bool success = jsapi.Init(event->GetParentObject());
+        if (!success) {
+          return NS_ERROR_ABORT;
+        }
+
+        JSContext* cx = jsapi.cx();
+        JS::Rooted<JS::Value> detailValue(cx);
+        if (!ToJSValue(cx, detail, &detailValue)) {
+          return NS_ERROR_ABORT;
+        }
+        event->InitCustomEvent(cx, u"openwindow"_ns, /* bubbles = */ true,
+                               /* cancelable = */ true, detailValue);
+        event->SetTrusted(true);
+        event->SetTarget(element);
+        element->DispatchEvent(*event, CallerType::System, IgnoreErrors());
+
+        browserElement->SetAttribute(u"src"_ns, NS_ConvertUTF8toUTF16(spec),
+                                     IgnoreErrors());
+
+        RefPtr<nsFrameLoaderOwner> flo = do_QueryObject(browserElement);
+        if (RefPtr<nsFrameLoader> fl = flo->GetFrameLoader()) {
+          RefPtr<BrowsingContext> newBc = fl->GetBrowsingContext();
+          newBc.forget(aReturn);
+        }
+        return NS_OK;
+      }
+      bc = bc->GetParent();
+    }
   }
 
   // Note that ProvideWindowCommon may return NS_ERROR_ABORT if the

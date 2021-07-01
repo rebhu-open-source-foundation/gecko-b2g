@@ -109,7 +109,7 @@
 
     onLocationChange(webProgress, request, location, flags) {
       // Only act on top-level changes.
-      if (!webProgress.isTopLevel && !this.webview.isCreatedByProxy) {
+      if (!webProgress.isTopLevel) {
         return;
       }
 
@@ -135,7 +135,7 @@
     // eslint-disable-next-line complexity
     onStateChange(webProgress, request, stateFlags, status) {
       // Only act on top-level changes.
-      if (!webProgress.isTopLevel && !this.webview.isCreatedByProxy) {
+      if (!webProgress.isTopLevel) {
         return;
       }
 
@@ -436,9 +436,13 @@
         return;
       }
       this.log(`creating xul:browser`);
-      // Creates a xul:browser with default attributes.
-      this.browser = document.createXULElement("browser");
 
+      // Creates a xul:browser with default attributes or reuse an existed one.
+      if (this._browser) {
+        this.browser = this._browser;
+      } else {
+        this.browser = document.createXULElement("browser");
+      }
       // For chrome, the Browser API is defined and extended the <browser> by
       // customElements.define("browser", MozBrowser) inbrowser-custom-element.js.
       // For content, it does not allow us to extend an existed tag, so we add the API back by ourself.
@@ -602,6 +606,14 @@
 
     get openWindowInfo() {
       return this._openWindowInfo;
+    }
+
+    set browserElement(val) {
+      if (this.browser) {
+        this.log(`too late to set browser element`);
+      } else {
+        this._browser = val;
+      }
     }
 
     disconnectedCallback() {

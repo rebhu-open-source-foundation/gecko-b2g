@@ -4,52 +4,167 @@
 
 "use strict";
 
+let tabs = [];
+let activatedTab = null;
+let commands = ["action-back", "action-forward", "action-go", "action-close"];
+
+function log(msg) {
+  console.log(`Default browser app: ${msg}`);
+}
+
+class BrowserTab {
+  constructor(document, url, browserElement) {
+    this.parentDocument = document;
+    this.webview = this.parentDocument.createElement("web-view");
+    this.webview.openWindowInfo = null;
+    if (browserElement) {
+      this.webview.browserElement = browserElement;
+    } else {
+      this.webview.setAttribute("id", "browser");
+      this.webview.setAttribute("src", url);
+    }
+    this.parentDocument.body.append(this.webview);
+    this.parentDocument
+      .getElementById("action-go")
+      .toggleAttribute("disabled", false);
+    this.parentDocument
+      .getElementById("action-close")
+      .toggleAttribute("disabled", false);
+    this.show();
+  }
+
+  show() {
+    if (activatedTab) {
+      activatedTab.hide();
+    }
+    this.webview.style.display = "block";
+
+    // Binding events
+    this.webview.addEventListener("locationchange", this.updateActionsUI);
+    this.webview.addEventListener("openwindow", this.openWindow);
+    this.parentDocument.getElementById("url").value = this.webview.src;
+    this.parentDocument
+      .getElementById("action-back")
+      .toggleAttribute("disabled", !this.webview.canGoBack);
+    this.parentDocument
+      .getElementById("action-forward")
+      .toggleAttribute("disabled", !this.webview.canGoForward);
+    activatedTab = this;
+  }
+
+  hide() {
+    if (activatedTab != this) {
+      return;
+    }
+    this.webview.style.display = "none";
+    this.webview.removeEventListener("locationchange", this.updateActionsUI);
+    this.webview.removeEventListener("openwindow", this.openWindow);
+    this.parentDocument.getElementById("url").value = "";
+    this.parentDocument
+      .getElementById("action-back")
+      .toggleAttribute("disabled", true);
+    this.parentDocument
+      .getElementById("action-forward")
+      .toggleAttribute("disabled", true);
+    activatedTab = null;
+  }
+
+  openWindow(aEvent) {
+    log("openWindow");
+    tabs.push(
+      new BrowserTab(
+        activatedTab.parentDocument,
+        null,
+        aEvent.detail.frameElement
+      )
+    );
+  }
+
+  updateActionsUI(aEvent) {
+    log(
+      "updateActionsUI " +
+        aEvent.detail.url +
+        " " +
+        aEvent.detail.canGoBack +
+        " " +
+        aEvent.detail.canGoForward
+    );
+    activatedTab.parentDocument
+      .getElementById("action-back")
+      .toggleAttribute("disabled", !aEvent.detail.canGoBack);
+    activatedTab.parentDocument
+      .getElementById("action-forward")
+      .toggleAttribute("disabled", !aEvent.detail.canGoForward);
+    activatedTab.parentDocument.getElementById("url").value = aEvent.detail.url;
+  }
+
+  go() {
+    log("go " + this.parentDocument.getElementById("url").value);
+    this.webview.src = this.parentDocument.getElementById("url").value;
+  }
+
+  remove() {
+    this.webview.remove();
+    this.parentDocument
+      .getElementById("action-go")
+      .toggleAttribute("disabled", !tabs.length);
+    this.parentDocument
+      .getElementById("action-close")
+      .toggleAttribute("disabled", !tabs.length);
+  }
+
+  goForward() {
+    this.webview.goForward();
+  }
+
+  goBack() {
+    this.webview.goBack();
+  }
+}
+
 document.addEventListener(
   "DOMContentLoaded",
   () => {
-    const startURL = "https://duckduckgo.com/";
-
-    let browser = document.createElement("web-view");
-    // Bug 109000, we must set the openWindowInfo.
-    browser.openWindowInfo = null;
-    browser.setAttribute("id", "browser");
-    browser.setAttribute("src", startURL);
-    //browser.setAttribute("remote", "true"); // do not work yet.
-
-    console.log("append browser");
-    document.body.append(browser);
-
-    browser.go = function() {
-      browser.src = document.getElementById("url").value;
+    const startURL =
+      "https://www.w3schools.com/jsref/tryit.asp?filename=tryjsref_win_open";
+    this.go = function() {
+      activatedTab.go();
     };
 
+    this.close = function() {
+      let closedTab = activatedTab;
+      const index = tabs.indexOf(closedTab);
+      if (index > -1) {
+        tabs.splice(index, 1);
+        closedTab.hide();
+        if (tabs.length) {
+          tabs[tabs.length - 1].show();
+        }
+        setTimeout(() => {
+          closedTab.remove();
+        }, 0);
+      }
+    };
+
+    this.forward = function() {
+      activatedTab.goForward();
+    };
+
+    this.back = function() {
+      activatedTab.goBack();
+    };
+
+    let openBtn = document.getElementById("action-open");
+    openBtn.addEventListener("click", () => {
+      tabs.push(new BrowserTab(document, startURL, null));
+    });
+
     // Binding Actions
-    ["action-back", "action-forward", "action-go"].forEach(id => {
+    commands.forEach(id => {
       let btn = document.getElementById(id);
-      let action = btn.dataset.cmd;
-
-      btn.addEventListener("click", () => {
-        browser[action]();
-      });
+      btn.toggleAttribute("disabled", true);
+      btn.addEventListener("click", this[btn.dataset.cmd]);
     });
-
-    // Binding events
-    browser.addEventListener("locationchange", aEvent => {
-      UpdateActionsUI(aEvent.detail);
-    });
-
-    // Init UI
-    UpdateActionsUI({ canGoBack: false, canGoForward: false, url: startURL });
-
-    function UpdateActionsUI({ canGoBack, canGoForward, url }) {
-      document
-        .getElementById("action-back")
-        .toggleAttribute("disabled", !canGoBack);
-      document
-        .getElementById("action-forward")
-        .toggleAttribute("disabled", !canGoForward);
-      document.getElementById("url").value = url;
-    }
   },
   { once: true }
 );

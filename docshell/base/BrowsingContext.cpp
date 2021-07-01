@@ -676,6 +676,8 @@ void BrowsingContext::SetEmbedderElement(Element* aEmbedder) {
     if (nsCOMPtr<nsPIDOMWindowInner> inner =
             do_QueryInterface(aEmbedder->GetOwnerGlobal())) {
       txn.SetEmbedderInnerWindowId(inner->WindowID());
+      txn.SetIsTopOfNestedWebView(!XRE_IsParentProcess() &&
+                                  aEmbedder->IsXULElement(nsGkAtoms::browser));
     }
     txn.SetFullscreenAllowedByOwner(OwnerAllowsFullscreen(*aEmbedder));
     if (XRE_IsParentProcess() && IsTopContent()) {
@@ -3299,7 +3301,7 @@ void BrowsingContext::GetHistoryID(JSContext* aCx,
 
 void BrowsingContext::InitSessionHistory() {
   MOZ_ASSERT(!IsDiscarded());
-  MOZ_ASSERT(IsTop());
+  MOZ_ASSERT(IsTop() || IsTopContentOfNestedWebView());
   MOZ_ASSERT(EverAttached());
 
   if (!GetHasSessionHistory()) {
@@ -3323,7 +3325,7 @@ ChildSHistory* BrowsingContext::GetChildSessionHistory() {
 }
 
 void BrowsingContext::CreateChildSHistory() {
-  MOZ_ASSERT(IsTop());
+  MOZ_ASSERT(IsTop() || IsTopContentOfNestedWebView());
   MOZ_ASSERT(GetHasSessionHistory());
   MOZ_DIAGNOSTIC_ASSERT(!mChildSessionHistory);
 

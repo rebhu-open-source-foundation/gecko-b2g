@@ -203,7 +203,8 @@ enum class ExplicitActiveStatus : uint8_t {
   FIELD(SessionStoreEpoch, uint32_t)                                          \
   /* Whether we can execute scripts in this BrowsingContext. Has no effect    \
    * unless scripts are also allowed in the parent WindowContext. */          \
-  FIELD(AllowJavascript, bool)
+  FIELD(AllowJavascript, bool)                                                \
+  FIELD(IsTopOfNestedWebView, bool)
 
 // BrowsingContext, in this context, is the cross process replicated
 // environment in which information about documents is stored. In
@@ -394,6 +395,9 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
   bool IsFrame() const { return !IsTop(); }
 
   bool IsTopContent() const { return IsContent() && IsTop(); }
+  bool IsTopContentOfNestedWebView() const {
+    return IsContent() && GetIsTopOfNestedWebView();
+  }
 
   bool IsInSubtreeOf(BrowsingContext* aContext);
 
