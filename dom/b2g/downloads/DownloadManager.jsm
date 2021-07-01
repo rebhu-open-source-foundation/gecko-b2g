@@ -119,9 +119,27 @@ DownloadManager.prototype = {
         DownloadsIPC.remove(aDownload.id).then(
           function(aResult) {
             let dom = getOrCreateDownloadObject(this._window, aResult);
-            // Change the state right away to not race against the update message.
-            dom.wrappedJSObject.state = "finalized";
-            aResolve(this.dom);
+            if (dom.state === "finalized") {
+              aResolve(dom);
+            } else {
+              debug(
+                `Resolve remove() with a new download object with "finalized" state. ${aResult.id} ${dom.state}`
+              );
+              // The state might be updated to "finalized" AFTER this remove
+              // function being resolved. If the race condition happens, update
+              // the state manually, since once a download becomes "finalized",
+              // it will not change anymore.
+              let impl = Cc["@mozilla.org/download/object;1"].createInstance(
+                Ci.nsISupports
+              );
+              impl.wrappedJSObject._init(this._window, dom);
+              impl.wrappedJSObject.state = "finalized";
+              let contentDownloadObject = this._window.DownloadObject._create(
+                this._window,
+                impl.wrappedJSObject
+              );
+              aResolve(contentDownloadObject);
+            }
           }.bind(this),
           function() {
             aReject("RemoveError");
