@@ -2907,6 +2907,10 @@ MOZ_ARG_ENABLE_BOOL(b2g-bt,
     MOZ_B2G_BT= )
 if test -n "$MOZ_B2G_BT"; then
     AC_DEFINE(MOZ_B2G_BT)
+    if test "$MOZ_WIDGET_TOOLKIT" = gonk; then
+        # Bluetooth daemon is the only Bluetooth backend on gonk
+        MOZ_B2G_BT_DAEMON=1
+    fi
 fi
 AC_SUBST(MOZ_B2G_BT)
 AC_SUBST(MOZ_B2G_BT_DAEMON)

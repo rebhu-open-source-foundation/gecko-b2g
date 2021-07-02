@@ -7,8 +7,8 @@
 #ifndef mozilla_dom_bluetooth_bluedroid_BluetoothDaemonHelpers_h
 #define mozilla_dom_bluetooth_bluedroid_BluetoothDaemonHelpers_h
 
-#include "BluetoothCommon.h"
 #include "mozilla/ArrayUtils.h"
+#include "mozilla/dom/bluetooth/BluetoothCommon.h"
 #include "mozilla/dom/bluetooth/BluetoothTypes.h"
 #include "mozilla/ipc/DaemonSocketPDU.h"
 #include "mozilla/ipc/DaemonSocketPDUHelpers.h"

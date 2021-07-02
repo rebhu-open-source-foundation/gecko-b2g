@@ -15,11 +15,9 @@ UNIFIED_SOURCES += [
     "common/BluetoothCommon.cpp",
     "common/BluetoothGattReplyRunnable.cpp",
     "common/BluetoothInterface.cpp",
-    "common/BluetoothProfileController.cpp",
     "common/BluetoothReplyRunnable.cpp",
     "common/BluetoothService.cpp",
     "common/BluetoothUtils.cpp",
-    "common/BluetoothUuidHelper.cpp",
     "common/ObexBase.cpp",
     "common/webapi/BluetoothAdapter.cpp",
     "common/webapi/BluetoothClassOfDevice.cpp",
@@ -46,6 +44,13 @@ UNIFIED_SOURCES += [
     "ipc/BluetoothRequestParent.cpp",
     "ipc/BluetoothServiceChildProcess.cpp",
 ]
+
+if CONFIG["MOZ_WIDGET_TOOLKIT"] == "gonk":
+    UNIFIED_SOURCES += [
+        "common/BluetoothProfileController.cpp",
+        "common/BluetoothUuidHelper.cpp",
+    ]
+
 LOCAL_INCLUDES += ["common", "common/webapi", "ipc"]
 
 #

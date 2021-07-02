@@ -34,7 +34,7 @@
 
 #if defined(MOZ_B2G_BT_DAEMON)
 #  include "BluetoothServiceBluedroid.h"
-#else
+#elif !defined(ENABLE_TESTS)
 #  error No backend
 #endif
 
