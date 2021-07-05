@@ -104,6 +104,11 @@ if CONFIG["MOZ_WIDGET_TOOLKIT"] == "gonk":
             ]
 
         DEFINES["MOZ_B2G_BT_DAEMON"] = True
+else:
+    if CONFIG["ENABLE_TESTS"]:
+        UNIFIED_SOURCES += [
+            "bluedroid/BluetoothDaemonHelpers.cpp",
+        ]
 
 #
 # Exported interfaces
@@ -157,3 +162,6 @@ IPDL_SOURCES += [
 include("/ipc/chromium/chromium-config.mozbuild")
 
 FINAL_LIBRARY = "xul"
+
+if CONFIG["ENABLE_TESTS"]:
+    TEST_DIRS += ["gtest"]
