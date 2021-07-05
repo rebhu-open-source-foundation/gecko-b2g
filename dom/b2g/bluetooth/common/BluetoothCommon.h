@@ -1255,15 +1255,6 @@ struct BluetoothGattId {
   }
 };
 
-struct BluetoothGattServiceId {
-  BluetoothGattId mId;
-  uint8_t mIsPrimary;
-
-  bool operator==(const BluetoothGattServiceId& aOther) const {
-    return mId == aOther.mId && mIsPrimary == aOther.mIsPrimary;
-  }
-};
-
 struct BluetoothGattCharAttribute {
   BluetoothGattId mId;
   BluetoothGattCharProp mProperties;

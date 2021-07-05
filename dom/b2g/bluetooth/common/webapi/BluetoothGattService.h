@@ -67,12 +67,6 @@ class BluetoothGattService final : public nsISupports, public nsWrapperCache {
    ***************************************************************************/
   const nsAString& GetAppUuid() const { return mAppUuid; }
 
-  // TODO: Remove this dummy function once GATT server has completed
-  const BluetoothGattServiceId& GetServiceId() const {
-    static BluetoothGattServiceId dummyId;
-    return dummyId;
-  }
-
   const BluetoothAttributeHandle& GetServiceHandle() const {
     return mServiceHandle;
   }

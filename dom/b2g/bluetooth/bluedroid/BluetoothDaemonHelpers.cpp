@@ -1412,14 +1412,6 @@ nsresult PackPDU(const BluetoothGattId& aIn, DaemonSocketPDU& aPDU) {
   return PackPDU(aIn.mInstanceId, aPDU);
 }
 
-nsresult PackPDU(const BluetoothGattServiceId& aIn, DaemonSocketPDU& aPDU) {
-  nsresult rv = PackPDU(aIn.mId, aPDU);
-  if (NS_FAILED(rv)) {
-    return rv;
-  }
-  return PackPDU(aIn.mIsPrimary, aPDU);
-}
-
 nsresult PackPDU(const nsTArray<BluetoothGattDbElement>& aIn,
                  DaemonSocketPDU& aPDU) {
   size_t len = aIn.Length();
@@ -1759,16 +1751,6 @@ nsresult UnpackPDU(DaemonSocketPDU& aPDU, BluetoothGattId& aOut) {
   }
   /* unpack instance id */
   return UnpackPDU(aPDU, aOut.mInstanceId);
-}
-
-nsresult UnpackPDU(DaemonSocketPDU& aPDU, BluetoothGattServiceId& aOut) {
-  /* unpack id */
-  nsresult rv = UnpackPDU(aPDU, aOut.mId);
-  if (NS_FAILED(rv)) {
-    return rv;
-  }
-  /* unpack isPrimary */
-  return UnpackPDU(aPDU, aOut.mIsPrimary);
 }
 
 nsresult UnpackPDU(DaemonSocketPDU& aPDU, BluetoothGattReadParam& aOut) {

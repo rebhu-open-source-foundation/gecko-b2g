@@ -184,26 +184,6 @@ struct ParamTraits<mozilla::dom::bluetooth::BluetoothGattId> {
 };
 
 template <>
-struct ParamTraits<mozilla::dom::bluetooth::BluetoothGattServiceId> {
-  typedef mozilla::dom::bluetooth::BluetoothGattServiceId paramType;
-
-  static void Write(Message* aMsg, const paramType& aParam) {
-    WriteParam(aMsg, aParam.mId);
-    WriteParam(aMsg, aParam.mIsPrimary);
-  }
-
-  static bool Read(const Message* aMsg, PickleIterator* aIter,
-                   paramType* aResult) {
-    if (!ReadParam(aMsg, aIter, &(aResult->mId)) ||
-        !ReadParam(aMsg, aIter, &(aResult->mIsPrimary))) {
-      return false;
-    }
-
-    return true;
-  }
-};
-
-template <>
 struct ParamTraits<mozilla::dom::bluetooth::BluetoothGattCharAttribute> {
   typedef mozilla::dom::bluetooth::BluetoothGattCharAttribute paramType;
 
