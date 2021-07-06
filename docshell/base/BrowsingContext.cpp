@@ -804,6 +804,10 @@ void BrowsingContext::Attach(bool aFromIPC, ContentParent* aOriginProcess) {
     obs->NotifyWhenScriptSafe(ToSupports(this), "browsing-context-attached",
                               nullptr);
   }
+
+  if (XRE_IsParentProcess()) {
+    Canonical()->CanonicalAttach();
+  }
 }
 
 void BrowsingContext::Detach(bool aFromIPC) {
@@ -1592,6 +1596,10 @@ NS_IMETHODIMP BrowsingContext::SetPrivateBrowsing(bool aPrivateBrowsing) {
     mPrivateBrowsingId = aPrivateBrowsing ? 1 : 0;
     if (IsContent()) {
       mOriginAttributes.SyncAttributesWithPrivateBrowsing(aPrivateBrowsing);
+    }
+
+    if (XRE_IsParentProcess()) {
+      Canonical()->AdjustPrivateBrowsingCount(aPrivateBrowsing);
     }
   }
   AssertOriginAttributesMatchPrivateBrowsing();

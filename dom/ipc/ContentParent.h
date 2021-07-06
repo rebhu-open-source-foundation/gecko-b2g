@@ -1214,8 +1214,6 @@ class ContentParent final
                                                    const nsCString& aReason);
 
  public:
-  mozilla::ipc::IPCResult RecvPrivateDocShellsExist(const bool& aExist);
-
   mozilla::ipc::IPCResult RecvCommitBrowsingContextTransaction(
       const MaybeDiscarded<BrowsingContext>& aContext,
       BrowsingContext::BaseTransaction&& aTransaction, uint64_t aEpoch);
