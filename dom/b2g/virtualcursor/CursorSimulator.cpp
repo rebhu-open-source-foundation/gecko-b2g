@@ -89,8 +89,16 @@ CursorSimulator::~CursorSimulator() {
 
 void CursorSimulator::UpdatePos() {
   double width, height;
-  mOuterWindow->GetInnerWidth(&width);
-  mOuterWindow->GetInnerHeight(&height);
+  if (StaticPrefs::dom_meta_viewport_enabled()) {
+    RefPtr<Document> doc = mOuterWindow->GetExtantDoc();
+    PresShell* presShell = doc->GetPresShell();
+    width = nsPresContext::AppUnitsToIntCSSPixels(presShell->GetVisualViewportSize().width);
+    height = nsPresContext::AppUnitsToIntCSSPixels(presShell->GetVisualViewportSize().height);
+  } else {
+    mOuterWindow->GetInnerWidth(&width);
+    mOuterWindow->GetInnerHeight(&height);
+  }
+
   CenterizeCursorIfNecessary();
 
   LayoutDeviceIntPoint windowDevSize;
@@ -353,8 +361,16 @@ nsresult CursorSimulator::HandleNavigationKey(WidgetKeyboardEvent* aKeyEvent) {
   CSSPoint offset(0, 0);
   // Update window size before caculating offset.
   double width, height;
-  mOuterWindow->GetInnerWidth(&width);
-  mOuterWindow->GetInnerHeight(&height);
+  if (StaticPrefs::dom_meta_viewport_enabled()) {
+    RefPtr<Document> doc = mOuterWindow->GetExtantDoc();
+    PresShell* presShell = doc->GetPresShell();
+    width = nsPresContext::AppUnitsToIntCSSPixels(presShell->GetVisualViewportSize().width);
+    height = nsPresContext::AppUnitsToIntCSSPixels(presShell->GetVisualViewportSize().height);
+  } else {
+    mOuterWindow->GetInnerWidth(&width);
+    mOuterWindow->GetInnerHeight(&height);
+  }
+
   CSSIntSize windowSize;
   windowSize.width = width;
   windowSize.height = height;
@@ -414,8 +430,16 @@ void CursorSimulator::CheckFullScreenElement() {
 
 void CursorSimulator::CenterizeCursorIfNecessary() {
   double width, height;
-  mOuterWindow->GetInnerWidth(&width);
-  mOuterWindow->GetInnerHeight(&height);
+  if (StaticPrefs::dom_meta_viewport_enabled()) {
+    RefPtr<Document> doc = mOuterWindow->GetExtantDoc();
+    PresShell* presShell = doc->GetPresShell();
+    width = nsPresContext::AppUnitsToIntCSSPixels(presShell->GetVisualViewportSize().width);
+    height = nsPresContext::AppUnitsToIntCSSPixels(presShell->GetVisualViewportSize().height);
+  } else {
+    mOuterWindow->GetInnerWidth(&width);
+    mOuterWindow->GetInnerHeight(&height);
+  }
+
   CSSIntSize windowSize;
   windowSize.width = width;
   windowSize.height = height;
@@ -453,8 +477,16 @@ nsresult CursorSimulator::Notify(nsITimer* aTimer) {
   CSSPoint offset(0, 0);
   // Update window size before caculating offset.
   double width, height;
-  mOuterWindow->GetInnerWidth(&width);
-  mOuterWindow->GetInnerHeight(&height);
+  if (StaticPrefs::dom_meta_viewport_enabled()) {
+    RefPtr<Document> doc = mOuterWindow->GetExtantDoc();
+    PresShell* presShell = doc->GetPresShell();
+    width = nsPresContext::AppUnitsToIntCSSPixels(presShell->GetVisualViewportSize().width);
+    height = nsPresContext::AppUnitsToIntCSSPixels(presShell->GetVisualViewportSize().height);
+  } else {
+    mOuterWindow->GetInnerWidth(&width);
+    mOuterWindow->GetInnerHeight(&height);
+  }
+
   CSSIntSize windowSize;
   windowSize.width = width;
   windowSize.height = height;
