@@ -223,10 +223,14 @@ NS_IMETHODIMP FMRadioService::Resolve() { return NS_OK; }
 NS_IMETHODIMP FMRadioService::Reject() { return NS_OK; }
 
 void FMRadioService::DisableFMRadio() {
-  if (mTuneThread) {
-    mTuneThread->Shutdown();
-    mTuneThread = nullptr;
-  }
+  // Due to an unknown reason, if we call mTuneThread->Shutdown() here it may
+  // cause crashes in LazyIdleThread::ShutdownThread(). Luckily we don't really
+  // need to shut down mTuneThread each time FM radio is disabled, because
+  // LazyIdleThread always shuts down its internal thread after the specified
+  // idle time, and by default it can automatically shuts itself down when
+  // observing "xpcom-shutdown-threads". Therefore it should be fine to keep
+  // mTuneThread alive until FMRadioService is destructed. See Bug 123131.
+
   // Fix Bug 796733. DisableFMRadio should be called before
   // SetFmRadioAudioEnabled to prevent the annoying beep sound.
   hal::DisableFMRadio();
