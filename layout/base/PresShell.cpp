@@ -3778,16 +3778,25 @@ void PresShell::ClearMouseCaptureOnView(nsView* aView) {
   AllowMouseCapture(false);
 }
 
-void PresShell::ClearMouseCapture(nsIFrame* aFrame) {
+void PresShell::ClearMouseCapture() {
   nsIContent* capturingContent = GetCapturingContent();
   if (!capturingContent) {
     AllowMouseCapture(false);
     return;
   }
 
-  // null frame argument means clear the capture
-  if (!aFrame) {
-    ReleaseCapturingContent();
+  ReleaseCapturingContent();
+  AllowMouseCapture(false);
+}
+
+void PresShell::ClearMouseCapture(nsIFrame* aFrame) {
+  MOZ_ASSERT(
+      aFrame && aFrame->GetParent() &&
+          aFrame->GetParent()->Type() == LayoutFrameType::Deck,
+      "This function should only be called with a child frame of <deck>");
+
+  nsIContent* capturingContent = GetCapturingContent();
+  if (!capturingContent) {
     AllowMouseCapture(false);
     return;
   }
@@ -3799,7 +3808,7 @@ void PresShell::ClearMouseCapture(nsIFrame* aFrame) {
     return;
   }
 
-  if (nsLayoutUtils::IsAncestorFrameCrossDoc(aFrame, capturingFrame)) {
+  if (nsLayoutUtils::IsAncestorFrameCrossDocInProcess(aFrame, capturingFrame)) {
     ReleaseCapturingContent();
     AllowMouseCapture(false);
   }
@@ -7823,7 +7832,7 @@ PresShell::EventHandler::ComputeRootFrameToHandleEventWithCapturingContent(
   // If the BrowsingContext is active, look for a scrolling container.
   BrowsingContext* bc = GetPresContext()->Document()->GetBrowsingContext();
   if (!bc || !bc->IsActive()) {
-    ClearMouseCapture(nullptr);
+    ClearMouseCapture();
     *aIsCapturingContentIgnored = true;
     return aRootFrameToHandleEvent;
   }
@@ -9855,7 +9864,7 @@ bool PresShell::ProcessReflowCommands(bool aInterruptible) {
 void PresShell::WindowSizeMoveDone() {
   if (mPresContext) {
     EventStateManager::ClearGlobalActiveContent(nullptr);
-    ClearMouseCapture(nullptr);
+    ClearMouseCapture();
   }
 }
 

@@ -3206,7 +3206,7 @@ void BrowserChild::MakeHidden() {
 }
 
 IPCResult BrowserChild::RecvPreserveLayers(bool aPreserve) {
-  mIsPreservingLayers = true;
+  mIsPreservingLayers = aPreserve;
 
   PresShellActivenessMaybeChanged();
 

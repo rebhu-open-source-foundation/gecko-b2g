@@ -802,6 +802,7 @@ bool AudioCallbackDriver::StartStream() {
 void AudioCallbackDriver::Stop() {
   TRACE();
   MOZ_ASSERT(OnCubebOperationThread());
+  cubeb_stream_register_device_changed_callback(mAudioStream, nullptr);
   if (cubeb_stream_stop(mAudioStream) != CUBEB_OK) {
     NS_WARNING("Could not stop cubeb stream for MTG.");
   }
@@ -824,8 +825,6 @@ void AudioCallbackDriver::Shutdown() {
   LOG(LogLevel::Debug,
       ("%p: Releasing audio driver off main thread (GraphDriver::Shutdown).",
        Graph()));
-
-  cubeb_stream_register_device_changed_callback(mAudioStream, nullptr);
 
   RefPtr<AsyncCubebTask> releaseEvent =
       new AsyncCubebTask(this, AsyncCubebOperation::SHUTDOWN);
