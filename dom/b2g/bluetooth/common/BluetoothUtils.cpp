@@ -12,6 +12,7 @@
 #include "mozilla/dom/BluetoothGattServerBinding.h"
 #include "mozilla/dom/ScriptSettings.h"
 #include "mozilla/dom/bluetooth/BluetoothTypes.h"
+#include "mozilla/Unused.h"
 #include "nsContentUtils.h"
 #include "nsISystemMessageService.h"
 #include "nsIUUIDGenerator.h"
@@ -866,7 +867,7 @@ void DispatchReplySuccess(BluetoothReplyRunnable* aRunnable,
   BluetoothReply* reply = new BluetoothReply(BluetoothReplySuccess(aValue));
 
   aRunnable->SetReply(reply);  // runnable will delete reply after Run()
-  NS_WARN_IF(NS_FAILED(NS_DispatchToMainThread(aRunnable)));
+  Unused << NS_WARN_IF(NS_FAILED(NS_DispatchToMainThread(aRunnable)));
 }
 
 void DispatchReplyError(BluetoothReplyRunnable* aRunnable,
@@ -879,7 +880,7 @@ void DispatchReplyError(BluetoothReplyRunnable* aRunnable,
       new BluetoothReply(BluetoothReplyError(STATUS_FAIL, nsString(aErrorStr)));
 
   aRunnable->SetReply(reply);
-  NS_WARN_IF(NS_FAILED(NS_DispatchToMainThread(aRunnable)));
+  Unused << NS_WARN_IF(NS_FAILED(NS_DispatchToMainThread(aRunnable)));
 }
 
 void DispatchReplyError(BluetoothReplyRunnable* aRunnable,
@@ -892,7 +893,7 @@ void DispatchReplyError(BluetoothReplyRunnable* aRunnable,
       new BluetoothReply(BluetoothReplyError(aStatus, EmptyString()));
 
   aRunnable->SetReply(reply);
-  NS_WARN_IF(NS_FAILED(NS_DispatchToMainThread(aRunnable)));
+  Unused << NS_WARN_IF(NS_FAILED(NS_DispatchToMainThread(aRunnable)));
 }
 
 void DispatchReplyError(BluetoothReplyRunnable* aRunnable,
@@ -904,7 +905,7 @@ void DispatchReplyError(BluetoothReplyRunnable* aRunnable,
       new BluetoothReply(BluetoothReplyError(aGattStatus, EmptyString()));
 
   aRunnable->SetReply(reply);
-  NS_WARN_IF(NS_FAILED(NS_DispatchToMainThread(aRunnable)));
+  Unused << NS_WARN_IF(NS_FAILED(NS_DispatchToMainThread(aRunnable)));
 }
 
 void DispatchStatusChangedEvent(const nsAString& aType,
