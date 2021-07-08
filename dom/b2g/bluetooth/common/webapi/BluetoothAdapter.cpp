@@ -8,6 +8,7 @@
 #include "BluetoothService.h"
 #include "BluetoothUtils.h"
 
+#include "mozilla/dom/Blob.h"
 #include "mozilla/dom/BluetoothAdapterBinding.h"
 #include "mozilla/dom/BluetoothAttributeEvent.h"
 #include "mozilla/dom/BluetoothMapConnectionReqEvent.h"

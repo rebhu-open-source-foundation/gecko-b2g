@@ -8,6 +8,7 @@
 #include "BluetoothReplyRunnable.h"
 #include "BluetoothService.h"
 
+#include "mozilla/dom/Blob.h"
 #include "mozilla/dom/BluetoothMapRequestHandleBinding.h"
 #include "mozilla/dom/ContentChild.h"
 #include "mozilla/dom/Promise.h"
