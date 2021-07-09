@@ -12,7 +12,7 @@ use crate::common::{JsonValue, ObjectRef, SystemTime};
 use serde::{Deserialize, Serialize};
 
 pub static SERVICE_FINGERPRINT: &str =
-    "986750e59d435c2c957b3853ebc9a2e035b076f910afbdc9979e20251fc981eb";
+    "e5f8aa2c9d393471e2421562517c3acd9526ebb32fdcb5265668ad8eacf2ff";
 
 #[derive(Clone, PartialEq, Deserialize, Serialize, Debug)]
 pub enum ChangeReason {
@@ -90,13 +90,13 @@ pub struct ContactField {
 
 #[derive(Clone, Deserialize, Serialize, Debug)]
 pub struct ContactFindSortOptions {
-    pub sort_by: SortOption,
-    pub sort_order: Order,
+    pub sort_by: Option<SortOption>,
+    pub sort_order: Option<Order>,
     pub sort_language: Option<String>,
     pub filter_value: String,
     pub filter_option: FilterOption,
     pub filter_by: Vec<FilterByOption>,
-    pub only_main_data: bool,
+    pub only_main_data: Option<bool>,
 }
 
 #[derive(Clone, Deserialize, Serialize, Debug)]

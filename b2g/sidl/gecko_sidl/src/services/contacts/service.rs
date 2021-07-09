@@ -11,7 +11,7 @@ use crate::services::core::service::*;
 
 use crate::services::contacts::messages::*;
 use log::{debug, error};
-use moz_task::{ThreadPtrHolder};
+use moz_task::ThreadPtrHolder;
 use nserror::{nsresult, NS_ERROR_INVALID_ARG, NS_OK};
 use nsstring::*;
 use parking_lot::Mutex;
