@@ -780,7 +780,7 @@ void nsSubDocumentFrame::Reflow(nsPresContext* aPresContext,
 
   FinishAndStoreOverflow(&aDesiredSize);
 
-  if (!aPresContext->IsPaginated() && !mPostedReflowCallback) {
+  if (!aPresContext->IsRootPaginatedDocument() && !mPostedReflowCallback) {
     PresShell()->PostReflowCallback(this);
     mPostedReflowCallback = true;
   }
@@ -936,6 +936,7 @@ static nsView* BeginSwapDocShellsForViews(nsView* aSibling);
 
 void nsSubDocumentFrame::DestroyFrom(nsIFrame* aDestructRoot,
                                      PostDestroyData& aPostDestroyData) {
+  PropagateIsUnderHiddenEmbedderElementToSubView(true);
   if (mPostedReflowCallback) {
     PresShell()->CancelReflowCallback(this);
     mPostedReflowCallback = false;
@@ -1466,7 +1467,6 @@ bool nsDisplayRemote::UpdateScrollData(
 
   if (aLayerData) {
     aLayerData->SetReferentId(mLayersId);
-    Matrix4x4 m = Matrix4x4::Translation(mOffset.x, mOffset.y, 0.0);
 
     // Apply the top level resolution if we are in the same process of the top
     // level document. We don't need to apply it in cases where we are in OOP
@@ -1477,9 +1477,10 @@ bool nsDisplayRemote::UpdateScrollData(
     if (inProcessRootContext &&
         inProcessRootContext->IsRootContentDocumentCrossProcess()) {
       float resolution = inProcessRootContext->PresShell()->GetResolution();
-      m.PostScale(resolution, resolution, 1.0);
+      aLayerData->SetResolution(resolution);
     }
 
+    Matrix4x4 m = Matrix4x4::Translation(mOffset.x, mOffset.y, 0.0);
     aLayerData->SetTransform(m);
     aLayerData->SetEventRegionsOverride(mEventRegionsOverride);
     aLayerData->SetRemoteDocumentSize(GetFrameSize(mFrame));

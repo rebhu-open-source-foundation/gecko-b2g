@@ -969,7 +969,8 @@ void nsContentSecurityUtils::AssertAboutPageHasCSP(Document* aDocument) {
 #ifdef MOZ_B2G
                  StringBeginsWith(aboutSpec, "about:neterror"_ns) ||
 #endif
-                 StringBeginsWith(aboutSpec, "about:devtools"_ns),
+                 StringBeginsWith(aboutSpec, "about:devtools"_ns) ||
+                 StringBeginsWith(aboutSpec, "about:pocket-saved"_ns),
              "about: page must not contain a CSP including a web scheme");
 
   if (aDocument->IsExtensionPage()) {

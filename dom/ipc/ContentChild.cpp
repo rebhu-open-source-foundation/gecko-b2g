@@ -143,9 +143,7 @@
 #  include "mozilla/layers/SharedBufferManagerChild.h"
 #endif
 
-#ifdef MOZ_GECKO_PROFILER
-#  include "ChildProfilerController.h"
-#endif
+#include "ChildProfilerController.h"
 
 #if defined(MOZ_SANDBOX)
 #  include "mozilla/SandboxSettings.h"
@@ -1529,9 +1527,7 @@ mozilla::ipc::IPCResult ContentChild::RecvInitGMPService(
 
 mozilla::ipc::IPCResult ContentChild::RecvInitProfiler(
     Endpoint<PProfilerChild>&& aEndpoint) {
-#ifdef MOZ_GECKO_PROFILER
   mProfilerController = ChildProfilerController::Create(std::move(aEndpoint));
-#endif
   return IPC_OK();
 }
 
@@ -3379,7 +3375,6 @@ void ContentChild::ShutdownInternal() {
 
   GetIPCChannel()->SetAbortOnError(false);
 
-#ifdef MOZ_GECKO_PROFILER
   if (mProfilerController) {
     const bool isProfiling = profiler_is_active();
     CrashReporter::AnnotateCrashReport(
@@ -3408,7 +3403,6 @@ void ContentChild::ShutdownInternal() {
                     ? "Profiling - SendShutdownProfile (failed)"_ns
                     : "Not profiling - SendShutdownProfile (failed)"_ns));
   }
-#endif
 
   // Start a timer that will insure we quickly exit after a reasonable
   // period of time. Prevents shutdown hangs after our connection to the
