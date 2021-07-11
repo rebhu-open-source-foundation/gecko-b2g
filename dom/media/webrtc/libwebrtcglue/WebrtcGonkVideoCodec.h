@@ -5,7 +5,10 @@
 #ifndef WEBRTC_GONK_VIDEO_CODEC_H_
 #define WEBRTC_GONK_VIDEO_CODEC_H_
 
+#include <media/stagefright/foundation/AHandler.h>
 #include <media/stagefright/MediaCodec.h>
+#include <utils/Mutex.h>
+#include <utils/RefBase.h>
 
 #include "common/browser_logging/CSFLog.h"
 #include "GonkNativeWindow.h"
@@ -185,5 +188,84 @@ class WebrtcGonkVideoDecoder final
 };
 
 }  // namespace mozilla
+
+namespace android {
+
+struct FrameInfo;
+
+class FrameInfoQueue {
+ public:
+  void SetOwner(void* aOwner, const char* aTag);
+
+  void Push(const sp<FrameInfo>& aFrameInfo);
+
+  sp<FrameInfo> Pop(int64_t aTimestampUs);
+
+ private:
+  Mutex mMutex;
+  void* mOwner;
+  std::string mTag;
+  std::deque<sp<FrameInfo>> mQueue;
+};
+
+// Generic decoder using stagefright.
+// It implements gonk native window callback to receive buffers from
+// MediaCodec::RenderOutputBufferAndRelease().
+class WebrtcGonkVideoDecoder final : public AHandler,
+                                     public GonkNativeWindowNewFrameCallback {
+ public:
+  class Callback {
+   public:
+    virtual void OnDecoded(webrtc::VideoFrame& aVideoFrame) = 0;
+  };
+
+  WebrtcGonkVideoDecoder();
+
+  status_t Init(Callback* aCallback, const char* aMime, int32_t aWidth,
+                int32_t aHeight);
+
+  status_t Release();
+
+  status_t Decode(const webrtc::EncodedImage& aEncoded, bool aIsCodecConfig,
+                  int64_t aRenderTimeMs);
+
+  // After MediaCodec::RenderOutputBufferAndRelease() returns a buffer back to
+  // native window for rendering, this function will called directly from
+  // GonkBufferQueueProducer::queueBuffer(), which is on ACodec looper thread.
+  virtual void OnNewFrame() override;
+
+ private:
+  enum {
+    kWhatCodecNotify = 'codc',
+    kWhatQueueInputData = 'qIDt',
+  };
+
+  virtual ~WebrtcGonkVideoDecoder();
+
+  virtual void onMessageReceived(const sp<AMessage>& aMsg) override;
+
+  void OnFillInputBuffers();
+
+  // Called on ACodec looper thread when MediaCodec renders a buffer into native
+  // window.
+  void OnOutputBufferQueued(ANativeWindowBuffer* aBuffer, int64_t aTimestampNs);
+
+  sp<Surface> InitBufferQueue();
+
+  Callback* mCallback = nullptr;
+  webrtc::TimestampUnwrapper mUnwrapper;
+
+  sp<ALooper> mDecoderLooper;
+  sp<ALooper> mCodecLooper;
+  sp<MediaCodec> mCodec;
+  sp<GonkNativeWindow> mNativeWindow;
+
+  std::deque<std::pair<sp<FrameInfo>, sp<ABuffer>>> mInputFrames;
+  std::deque<size_t> mInputBuffers;
+  FrameInfoQueue mFrameInfoQueue;
+  sp<FrameInfo> mDecodedFrameInfo;  // accessed on ACodec looper thread
+};
+
+}  // namespace android
 
 #endif  // WEBRTC_GONK_VIDEO_CODEC_H_
