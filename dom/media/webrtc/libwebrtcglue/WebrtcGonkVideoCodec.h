@@ -142,6 +142,60 @@ class FrameInfoQueue {
   std::deque<sp<FrameInfo>> mQueue;
 };
 
+class WebrtcGonkVideoEncoder final : public AHandler {
+ public:
+  class Callback {
+   public:
+    virtual void OnEncoded(webrtc::EncodedImage& aEncodedImage) = 0;
+  };
+
+  WebrtcGonkVideoEncoder();
+
+  status_t Init(Callback* aCallback, const char* aMime);
+
+  status_t Release();
+
+  status_t Configure(const sp<AMessage>& aFormat);
+
+  status_t Encode(const webrtc::VideoFrame& aInputImage);
+
+  status_t RequestIDRFrame();
+
+  status_t SetBitrate(int32_t aKbps);
+
+ private:
+  class FrameBufferGrip;
+
+  enum {
+    kWhatCodecNotify = 'codc',
+    kWhatConfigure = 'conf',
+    kWhatQueueInputData = 'qIDt',
+  };
+
+  ~WebrtcGonkVideoEncoder();
+
+  virtual void onMessageReceived(const sp<AMessage>& aMsg) override;
+
+  void OnConfigure(const sp<AMessage>& aFormat);
+
+  void OnFillInputBuffers();
+
+  void OnDrainOutputBuffer(size_t aIndex, size_t aOffset, size_t aSize,
+                           int64_t aTimeUs, int32_t aFlags);
+
+  Callback* mCallback = nullptr;
+  int32_t mColorFormat = 0;
+  bool mStarted = false;
+
+  sp<ALooper> mEncoderLooper;
+  sp<ALooper> mCodecLooper;
+  sp<MediaCodec> mCodec;
+
+  std::deque<std::pair<sp<FrameInfo>, sp<FrameBufferGrip>>> mInputFrames;
+  std::deque<size_t> mInputBuffers;
+  FrameInfoQueue mFrameInfoQueue;
+};
+
 // Generic decoder using stagefright.
 // It implements gonk native window callback to receive buffers from
 // MediaCodec::RenderOutputBufferAndRelease().
