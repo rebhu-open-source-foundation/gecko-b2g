@@ -21,17 +21,7 @@ using android::sp;
 namespace mozilla {
 
 // Encoder.
-WebrtcGonkH264VideoEncoder::WebrtcGonkH264VideoEncoder()
-    : mCallback(nullptr),
-      mWidth(0),
-      mHeight(0),
-      mFrameRate(0),
-      mBitRateKbps(0),
-#ifdef OMX_IDR_NEEDED_FOR_BITRATE
-      mBitRateAtLastIDR(0),
-#endif
-      mOMXConfigured(false),
-      mOMXReconfigure(false) {
+WebrtcGonkH264VideoEncoder::WebrtcGonkH264VideoEncoder() {
   mReservation = new OMXCodecReservation(true);
   CODEC_LOGD("WebrtcGonkH264VideoEncoder:%p constructed", this);
 }
@@ -329,8 +319,7 @@ int32_t WebrtcGonkH264VideoEncoder::SetRates(uint32_t aBitRateKbps,
 }
 
 // Decoder.
-WebrtcGonkH264VideoDecoder::WebrtcGonkH264VideoDecoder()
-    : mCodecConfigSubmitted(false) {
+WebrtcGonkH264VideoDecoder::WebrtcGonkH264VideoDecoder() {
   mReservation = new OMXCodecReservation(false);
   CODEC_LOGD("WebrtcGonkH264VideoDecoder:%p will be constructed", this);
 }

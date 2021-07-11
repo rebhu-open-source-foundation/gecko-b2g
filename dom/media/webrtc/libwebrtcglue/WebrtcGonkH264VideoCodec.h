@@ -57,17 +57,17 @@ class WebrtcGonkH264VideoEncoder
   android::sp<android::WebrtcGonkVideoEncoder> mEncoder;
   android::sp<android::OMXCodecReservation> mReservation;
 
-  webrtc::EncodedImageCallback* mCallback;
-  uint32_t mWidth;
-  uint32_t mHeight;
-  uint32_t mFrameRate;
-  uint32_t mBitRateKbps;
+  webrtc::EncodedImageCallback* mCallback = nullptr;
+  uint32_t mWidth = 0;
+  uint32_t mHeight = 0;
+  uint32_t mFrameRate = 0;
+  uint32_t mBitRateKbps = 0;
 #ifdef OMX_IDR_NEEDED_FOR_BITRATE
-  uint32_t mBitRateAtLastIDR;
+  uint32_t mBitRateAtLastIDR = 0;
   TimeStamp mLastIDRTime;
 #endif
-  bool mOMXConfigured;
-  bool mOMXReconfigure;
+  bool mOMXConfigured = false;
+  bool mOMXReconfigure = false;
 };
 
 class WebrtcGonkH264VideoDecoder
@@ -103,7 +103,7 @@ class WebrtcGonkH264VideoDecoder
   android::sp<android::WebrtcGonkVideoDecoder> mDecoder;
   android::sp<android::OMXCodecReservation> mReservation;
   webrtc::DecodedImageCallback* mCallback = nullptr;
-  bool mCodecConfigSubmitted;
+  bool mCodecConfigSubmitted = false;
 };
 
 }  // namespace mozilla
