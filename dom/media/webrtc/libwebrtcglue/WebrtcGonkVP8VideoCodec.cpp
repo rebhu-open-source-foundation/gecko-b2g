@@ -27,9 +27,10 @@ int32_t WebrtcGonkVP8VideoDecoder::InitDecode(
     return WEBRTC_VIDEO_CODEC_ERROR;
   }
 
-  mDecoder = new WebrtcGonkVideoDecoder(android::MEDIA_MIMETYPE_VIDEO_VP8);
-  if (mDecoder->ConfigureWithPicDimensions(
-          aCodecSettings->width, aCodecSettings->height) != android::OK) {
+  mDecoder = new android::WebrtcGonkVideoDecoder();
+  if (mDecoder->Init(this, android::MEDIA_MIMETYPE_VIDEO_VP8,
+                     aCodecSettings->width,
+                     aCodecSettings->height) != android::OK) {
     mDecoder = nullptr;
     CODEC_LOGE("WebrtcGonkVP8VideoDecoder:%p decoder not started", this);
     return WEBRTC_VIDEO_CODEC_ERROR;
@@ -48,7 +49,7 @@ int32_t WebrtcGonkVP8VideoDecoder::Decode(
     return WEBRTC_VIDEO_CODEC_ERROR;
   }
 
-  if (mDecoder->FillInput(aInputImage, false, aRenderTimeMs) != android::OK) {
+  if (mDecoder->Decode(aInputImage, false, aRenderTimeMs) != android::OK) {
     CODEC_LOGE("WebrtcGonkVP8VideoDecoder:%p error sending input data", this);
     return WEBRTC_VIDEO_CODEC_ERROR;
   }
@@ -59,15 +60,17 @@ int32_t WebrtcGonkVP8VideoDecoder::RegisterDecodeCompleteCallback(
     webrtc::DecodedImageCallback* aCallback) {
   CODEC_LOGD("WebrtcGonkVP8VideoDecoder:%p set callback:%p", this, aCallback);
   MOZ_ASSERT(aCallback);
-  MOZ_ASSERT(mDecoder);
-  mDecoder->SetDecodedCallback(aCallback);
+  mCallback = aCallback;
   return WEBRTC_VIDEO_CODEC_OK;
 }
 
 int32_t WebrtcGonkVP8VideoDecoder::Release() {
   CODEC_LOGD("WebrtcGonkVP8VideoDecoder:%p will be released", this);
 
-  mDecoder = nullptr;  // calls Stop()
+  if (mDecoder) {
+    mDecoder->Release();
+    mDecoder = nullptr;
+  }
   mReservation->ReleaseOMXCodec();
   return WEBRTC_VIDEO_CODEC_OK;
 }

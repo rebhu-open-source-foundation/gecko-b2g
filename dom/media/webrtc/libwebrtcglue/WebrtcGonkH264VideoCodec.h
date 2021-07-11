@@ -9,6 +9,7 @@
 
 #include "VideoConduit.h"
 #include "webrtc/modules/include/module_common_types_public.h"
+#include "WebrtcGonkVideoCodec.h"
 
 namespace android {
 class OMXCodecReservation;
@@ -17,7 +18,6 @@ class OMXVideoEncoder;
 
 namespace mozilla {
 
-class WebrtcGonkVideoDecoder;
 class CodecOutputDrain;
 
 #define OMX_IDR_NEEDED_FOR_BITRATE 0
@@ -72,7 +72,9 @@ class WebrtcGonkH264VideoEncoder : public WebrtcVideoEncoder {
   webrtc::TimestampUnwrapper mUnwrapper;
 };
 
-class WebrtcGonkH264VideoDecoder : public WebrtcVideoDecoder {
+class WebrtcGonkH264VideoDecoder
+    : public WebrtcVideoDecoder,
+      public android::WebrtcGonkVideoDecoder::Callback {
  public:
   WebrtcGonkH264VideoDecoder();
 
@@ -93,9 +95,16 @@ class WebrtcGonkH264VideoDecoder : public WebrtcVideoDecoder {
 
   virtual int32_t Release() override;
 
+  virtual void OnDecoded(webrtc::VideoFrame& aVideoFrame) override {
+    if (mCallback) {
+      mCallback->Decoded(aVideoFrame);
+    }
+  }
+
  private:
-  RefPtr<WebrtcGonkVideoDecoder> mDecoder;
+  android::sp<android::WebrtcGonkVideoDecoder> mDecoder;
   android::sp<android::OMXCodecReservation> mReservation;
+  webrtc::DecodedImageCallback* mCallback = nullptr;
   bool mCodecConfigSubmitted;
 };
 
