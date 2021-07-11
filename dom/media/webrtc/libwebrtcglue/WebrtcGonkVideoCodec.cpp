@@ -4,112 +4,24 @@
 
 #include "WebrtcGonkVideoCodec.h"
 
-// Android/Stagefright
 #include <binder/ProcessState.h>
 #include <gui/Surface.h>
 #include <media/MediaCodecBuffer.h>
 #include <media/stagefright/foundation/ABuffer.h>
 #include <media/stagefright/foundation/AMessage.h>
-#include <media/stagefright/MediaDefs.h>
-#include <media/stagefright/MediaErrors.h>
-#include <media/stagefright/MetaData.h>
 #include <mediadrm/ICrypto.h>
 #include <OMX_IVCommon.h>
-#include <utils/RefBase.h>
 
-// Gecko
 #include "GonkBufferQueueProducer.h"
 #include "GrallocImages.h"
 #include "libyuv.h"
-#include "mozilla/layers/TextureClient.h"
-#include "mozilla/Mutex.h"
-#include "nsThreadUtils.h"
-#include "webrtc/rtc_base/refcountedobject.h"
 #include "WebrtcImageBuffer.h"
-
-using namespace android;
-
-namespace mozilla {
 
 #if defined(PRODUCT_MANUFACTURER_MTK)
 #  define WEBRTC_OMX_MIN_DECODE_BUFFERS 4
 #else
 #  define WEBRTC_OMX_MIN_DECODE_BUFFERS 10
 #endif
-
-#define DEQUEUE_BUFFER_TIMEOUT_US (100 * 1000ll)  // 100ms.
-#define DRAIN_THREAD_TIMEOUT_US (1000 * 1000ll)   // 1s.
-
-void CodecOutputDrain::Start() {
-  CODEC_LOGD("CodecOutputDrain starting");
-  MonitorAutoLock lock(mMonitor);
-  if (mThread == nullptr) {
-    NS_NewNamedThread("OutputDrain", getter_AddRefs(mThread));
-  }
-  CODEC_LOGD("CodecOutputDrain started");
-  mEnding = false;
-  mThread->Dispatch(this, NS_DISPATCH_NORMAL);
-}
-
-void CodecOutputDrain::Stop() {
-  CODEC_LOGD("CodecOutputDrain stopping");
-  MonitorAutoLock lock(mMonitor);
-  mEnding = true;
-  lock.NotifyAll();  // In case Run() is waiting.
-
-  if (mThread != nullptr) {
-    MonitorAutoUnlock unlock(mMonitor);
-    NS_DispatchToMainThread(
-        NS_NewRunnableFunction("CodecOutputDrain::ShutdownThread",
-                               [thread = mThread]() { thread->Shutdown(); }));
-    mThread = nullptr;
-  }
-  CODEC_LOGD("CodecOutputDrain stopped");
-}
-
-void CodecOutputDrain::QueueInput(const EncodedFrame& aFrame) {
-  MonitorAutoLock lock(mMonitor);
-
-  MOZ_ASSERT(mThread);
-
-  mInputFrames.Push(aFrame);
-  // Notify Run() about queued input and it can start working.
-  lock.NotifyAll();
-}
-
-NS_IMETHODIMP
-CodecOutputDrain::Run() {
-  MonitorAutoLock lock(mMonitor);
-  if (mEnding) {
-    return NS_OK;
-  }
-  MOZ_ASSERT(mThread);
-
-  while (true) {
-    if (mInputFrames.Empty()) {
-      // Wait for new input.
-      lock.Wait();
-    }
-
-    if (mEnding) {
-      CODEC_LOGD("CodecOutputDrain Run() ending");
-      // Stop draining.
-      break;
-    }
-
-    MOZ_ASSERT(!mInputFrames.Empty());
-    {
-      // Release monitor while draining because it's blocking.
-      MonitorAutoUnlock unlock(mMonitor);
-      DrainOutput();
-    }
-  }
-
-  CODEC_LOGD("CodecOutputDrain Ended");
-  return NS_OK;
-}
-
-}  // namespace mozilla
 
 namespace android {
 

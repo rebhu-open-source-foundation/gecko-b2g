@@ -13,16 +13,15 @@
 
 namespace android {
 class OMXCodecReservation;
-class OMXVideoEncoder;
 }  // namespace android
 
 namespace mozilla {
 
-class CodecOutputDrain;
-
 #define OMX_IDR_NEEDED_FOR_BITRATE 0
 
-class WebrtcGonkH264VideoEncoder : public WebrtcVideoEncoder {
+class WebrtcGonkH264VideoEncoder
+    : public WebrtcVideoEncoder,
+      public android::WebrtcGonkVideoEncoder::Callback {
  public:
   WebrtcGonkH264VideoEncoder();
 
@@ -52,12 +51,13 @@ class WebrtcGonkH264VideoEncoder : public WebrtcVideoEncoder {
 
   virtual bool SupportsNativeHandle() const override { return true; }
 
+  virtual void OnEncoded(webrtc::EncodedImage& aEncodedImage) override;
+
  private:
-  UniquePtr<android::OMXVideoEncoder> mOMX;
+  android::sp<android::WebrtcGonkVideoEncoder> mEncoder;
   android::sp<android::OMXCodecReservation> mReservation;
 
   webrtc::EncodedImageCallback* mCallback;
-  RefPtr<CodecOutputDrain> mOutputDrain;
   uint32_t mWidth;
   uint32_t mHeight;
   uint32_t mFrameRate;
@@ -68,8 +68,6 @@ class WebrtcGonkH264VideoEncoder : public WebrtcVideoEncoder {
 #endif
   bool mOMXConfigured;
   bool mOMXReconfigure;
-  webrtc::EncodedImage mEncodedImage;
-  webrtc::TimestampUnwrapper mUnwrapper;
 };
 
 class WebrtcGonkH264VideoDecoder

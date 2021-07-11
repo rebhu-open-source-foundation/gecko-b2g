@@ -7,9 +7,7 @@
 #include <media/stagefright/foundation/ABuffer.h>
 #include <media/stagefright/foundation/AMessage.h>
 #include <media/stagefright/foundation/avc_utils.h>
-#include <media/stagefright/MediaCodec.h>
 #include <media/stagefright/MediaDefs.h>
-#include <media/stagefright/MediaErrors.h>
 #include <OMX_Component.h>
 
 #include "OMXCodecWrapper.h"
@@ -17,202 +15,14 @@
 #include "WebrtcGonkVideoCodec.h"
 
 using android::ABuffer;
-using android::MediaCodec;
 using android::OMXCodecReservation;
-using android::OMXCodecWrapper;
-using android::OMXVideoEncoder;
 using android::sp;
-
-#define DRAIN_THREAD_TIMEOUT_US (1000 * 1000ll)  // 1s.
 
 namespace mozilla {
 
-static const uint8_t kNALStartCode[] = {0x00, 0x00, 0x00, 0x01};
-enum {
-  kNALTypeIDR = 5,
-  kNALTypeSPS = 7,
-  kNALTypePPS = 8,
-};
-
-// Assumption: SPS is first paramset or is not present
-static bool IsParamSets(uint8_t* aData, size_t aSize) {
-  MOZ_ASSERT(aData && aSize > sizeof(kNALStartCode));
-  return (aData[sizeof(kNALStartCode)] & 0x1f) == kNALTypeSPS;
-}
-
-// get the length of any pre-pended SPS/PPS's
-static size_t ParamSetLength(uint8_t* aData, size_t aSize) {
-  const uint8_t* data = aData;
-  size_t size = aSize;
-  const uint8_t* nalStart = nullptr;
-  size_t nalSize = 0;
-  while (android::getNextNALUnit(&data, &size, &nalStart, &nalSize, true) ==
-         android::OK) {
-    if ((*nalStart & 0x1f) != kNALTypeSPS &&
-        (*nalStart & 0x1f) != kNALTypePPS) {
-      MOZ_ASSERT(nalStart - sizeof(kNALStartCode) >= aData);
-      return (nalStart - sizeof(kNALStartCode)) - aData;  // SPS/PPS/iframe
-    }
-  }
-  return aSize;  // it's only SPS/PPS
-}
-
-class EncOutputDrain : public CodecOutputDrain {
- public:
-  EncOutputDrain(OMXVideoEncoder* aOMX, webrtc::EncodedImageCallback* aCallback)
-      : CodecOutputDrain(),
-        mOMX(aOMX),
-        mCallback(aCallback),
-        mIsPrevFrameParamSets(false) {}
-
- protected:
-  virtual bool DrainOutput() override {
-    nsTArray<uint8_t> output;
-    int64_t timeUs = -1ll;
-    int flags = 0;
-    nsresult rv = mOMX->GetNextEncodedFrame(&output, &timeUs, &flags,
-                                            DRAIN_THREAD_TIMEOUT_US);
-    if (NS_WARN_IF(NS_FAILED(rv))) {
-      // Fail to get encoded frame. The corresponding input frame should be
-      // removed.
-      // We'll treat this like a skipped frame
-      return true;
-    }
-
-    if (output.Length() == 0) {
-      // No encoded data yet. Try later.
-      CODEC_LOGD("OMX: (encode no output available this time)");
-      return false;
-    }
-
-    // 8x10 v2.0 encoder doesn't set this reliably:
-    // bool isParamSets = (flags & MediaCodec::BUFFER_FLAG_CODECCONFIG);
-    // Assume that SPS/PPS will be at the start of any buffer
-    // Assume PPS will not be in a separate buffer - SPS/PPS or SPS/PPS/iframe
-    bool isParamSets = IsParamSets(output.Elements(), output.Length());
-    bool isIFrame = (flags & MediaCodec::BUFFER_FLAG_SYNCFRAME);
-    CODEC_LOGD("OMX: encoded frame (%d): time %lld, flags x%x", output.Length(),
-               timeUs, flags);
-    // Should not be parameter sets and I-frame at the same time.
-    // Except that it is possible, apparently, after an encoder re-config (bug
-    // 1063883) MOZ_ASSERT(!(isParamSets && isIFrame));
-
-    if (mCallback) {
-      // Implementation here assumes encoder output to be a buffer containing
-      // parameter sets(SPS + PPS) followed by a series of buffers, each for
-      // one input frame.
-      // TODO: handle output violating this assumpton in bug 997110.
-      webrtc::EncodedImage encoded(output.Elements(), output.Length(),
-                                   output.Capacity());
-      encoded._frameType = (isParamSets || isIFrame) ? webrtc::kVideoFrameKey
-                                                     : webrtc::kVideoFrameDelta;
-      EncodedFrame input_frame;
-      {
-        MonitorAutoLock lock(mMonitor);
-        input_frame = mInputFrames.Pop(timeUs);
-      }
-
-      encoded._encodedWidth = input_frame.mWidth;
-      encoded._encodedHeight = input_frame.mHeight;
-      encoded._timeStamp = input_frame.mTimestamp;
-      encoded.capture_time_ms_ = input_frame.mRenderTimeMs;
-      encoded._completeFrame = true;
-
-      CODEC_LOGD(
-          "Encoded frame: %d bytes, %dx%d, is_param %d, is_iframe %d, "
-          "timestamp %u, captureTimeMs %" PRIu64,
-          encoded._length, encoded._encodedWidth, encoded._encodedHeight,
-          isParamSets, isIFrame, encoded._timeStamp, encoded.capture_time_ms_);
-      // Prepend SPS/PPS to I-frames unless they were sent last time.
-      SendEncodedDataToCallback(
-          encoded, isIFrame && !mIsPrevFrameParamSets && !isParamSets);
-      // This will be true only for the frame following a paramset block!  So if
-      // we're working with a correct encoder that generates SPS/PPS then iframe
-      // always, we won't try to insert.  (also, don't set if we get
-      // SPS/PPS/iframe in one buffer)
-      mIsPrevFrameParamSets = isParamSets && !isIFrame;
-      if (isParamSets) {
-        // copy off the param sets for inserting later
-        mParamSets.Clear();
-        // since we may have SPS/PPS or SPS/PPS/iframe
-        size_t length = ParamSetLength(encoded._buffer, encoded._length);
-        MOZ_ASSERT(length > 0);
-        mParamSets.AppendElements(encoded._buffer, length);
-      }
-    }
-
-    return !isParamSets;  // not really needed anymore
-  }
-
- private:
-  // Send encoded data to callback.The data will be broken into individual NALUs
-  // if necessary and sent to callback one by one. This function can also insert
-  // SPS/PPS NALUs in front of input data if requested.
-  void SendEncodedDataToCallback(webrtc::EncodedImage& aEncodedImage,
-                                 bool aPrependParamSets) {
-    if (aPrependParamSets) {
-      webrtc::EncodedImage prepend(aEncodedImage);
-      // Insert current parameter sets in front of the input encoded data.
-      MOZ_ASSERT(mParamSets.Length() >
-                 sizeof(kNALStartCode));  // Start code + ...
-      prepend._length = mParamSets.Length();
-      prepend._buffer = mParamSets.Elements();
-      // Break into NALUs and send.
-      CODEC_LOGD(
-          "Prepending SPS/PPS: %d bytes, timestamp %u, captureTimeMs %" PRIu64,
-          prepend._length, prepend._timeStamp, prepend.capture_time_ms_);
-      SendEncodedDataToCallback(prepend, false);
-    }
-
-    struct nal_entry {
-      uint32_t offset;
-      uint32_t size;
-    };
-    AutoTArray<nal_entry, 1> nals;
-
-    // Break input encoded data into NALUs and send each one to callback.
-    const uint8_t* data = aEncodedImage._buffer;
-    size_t size = aEncodedImage._length;
-    const uint8_t* nalStart = nullptr;
-    size_t nalSize = 0;
-    while (android::getNextNALUnit(&data, &size, &nalStart, &nalSize, true) ==
-           android::OK) {
-      // XXX optimize by making buffer an offset
-      nal_entry nal = {((uint32_t)(nalStart - aEncodedImage._buffer)),
-                       (uint32_t)nalSize};
-      nals.AppendElement(nal);
-    }
-
-    size_t num_nals = nals.Length();
-    if (num_nals > 0) {
-      webrtc::RTPFragmentationHeader fragmentation;
-      fragmentation.VerifyAndAllocateFragmentationHeader(num_nals);
-      for (size_t i = 0; i < num_nals; i++) {
-        fragmentation.fragmentationOffset[i] = nals[i].offset;
-        fragmentation.fragmentationLength[i] = nals[i].size;
-      }
-      webrtc::EncodedImage unit(aEncodedImage);
-      unit._completeFrame = true;
-
-      webrtc::CodecSpecificInfo info;
-      info.codecType = webrtc::kVideoCodecH264;
-      info.codecSpecific.H264.packetization_mode =
-          webrtc::H264PacketizationMode::NonInterleaved;
-
-      mCallback->OnEncodedImage(unit, &info, &fragmentation);
-    }
-  }
-
-  OMXVideoEncoder* mOMX;
-  webrtc::EncodedImageCallback* mCallback;
-  bool mIsPrevFrameParamSets;
-  nsTArray<uint8_t> mParamSets;
-};
-
 // Encoder.
 WebrtcGonkH264VideoEncoder::WebrtcGonkH264VideoEncoder()
-    : mOMX(nullptr),
-      mCallback(nullptr),
+    : mCallback(nullptr),
       mWidth(0),
       mHeight(0),
       mFrameRate(0),
@@ -231,18 +41,15 @@ int32_t WebrtcGonkH264VideoEncoder::InitEncode(
     size_t aMaxPayloadSize) {
   CODEC_LOGD("WebrtcGonkH264VideoEncoder:%p init", this);
 
-  if (mOMX == nullptr) {
-    UniquePtr<OMXVideoEncoder> omx(OMXCodecWrapper::CreateAVCEncoder());
-    if (NS_WARN_IF(omx == nullptr)) {
-      return WEBRTC_VIDEO_CODEC_ERROR;
-    }
-    mOMX = std::move(omx);
-    CODEC_LOGD("WebrtcGonkH264VideoEncoder:%p OMX created", this);
+  if (!mReservation->ReserveOMXCodec()) {
+    CODEC_LOGD("WebrtcGonkH264VideoEncoder:%p encoder in use", this);
+    return WEBRTC_VIDEO_CODEC_ERROR;
   }
 
-  if (!mReservation->ReserveOMXCodec()) {
-    CODEC_LOGD("WebrtcGonkH264VideoEncoder:%p Encoder in use", this);
-    mOMX = nullptr;
+  mEncoder = new android::WebrtcGonkVideoEncoder();
+  if (mEncoder->Init(this, android::MEDIA_MIMETYPE_VIDEO_AVC) != android::OK) {
+    mEncoder = nullptr;
+    CODEC_LOGE("WebrtcGonkH264VideoEncoder:%p encoder not initialized", this);
     return WEBRTC_VIDEO_CODEC_ERROR;
   }
 
@@ -255,7 +62,7 @@ int32_t WebrtcGonkH264VideoEncoder::InitEncode(
   mBitRateKbps = aCodecSettings->startBitrate;
   // XXX handle maxpayloadsize (aka mode 0/1)
 
-  CODEC_LOGD("WebrtcGonkH264VideoEncoder:%p OMX Encoder reserved", this);
+  CODEC_LOGD("WebrtcGonkH264VideoEncoder:%p encoder initialized", this);
   return WEBRTC_VIDEO_CODEC_OK;
 }
 
@@ -263,10 +70,7 @@ int32_t WebrtcGonkH264VideoEncoder::Encode(
     const webrtc::VideoFrame& aInputImage,
     const webrtc::CodecSpecificInfo* aCodecSpecificInfo,
     const std::vector<webrtc::FrameType>* aFrameTypes) {
-  MOZ_ASSERT(mOMX != nullptr);
-  if (mOMX == nullptr) {
-    return WEBRTC_VIDEO_CODEC_ERROR;
-  }
+  MOZ_ASSERT(mEncoder);
 
   // Have to reconfigure for resolution or framerate changes :-(
   // ~220ms initial configure on 8x10, 50-100ms for re-configure it appears
@@ -326,11 +130,9 @@ int32_t WebrtcGonkH264VideoEncoder::Encode(
         "WebrtcGonkH264VideoEncoder:%p configuring encoder %dx%d @ %d fps, "
         "rate %d kbps",
         this, mWidth, mHeight, mFrameRate, mBitRateKbps);
-    nsresult rv =
-        mOMX->ConfigureDirect(format, OMXVideoEncoder::BlobFormat::AVC_NAL);
-    if (NS_WARN_IF(NS_FAILED(rv))) {
-      CODEC_LOGE("WebrtcGonkH264VideoEncoder:%p FAILED configuring encoder %d",
-                 this, int(rv));
+    if (mEncoder->Configure(format) != android::OK) {
+      CODEC_LOGE("WebrtcGonkH264VideoEncoder:%p FAILED configuring encoder",
+                 this);
       return WEBRTC_VIDEO_CODEC_ERROR;
     }
     mOMXConfigured = true;
@@ -342,7 +144,7 @@ int32_t WebrtcGonkH264VideoEncoder::Encode(
 
   if (aFrameTypes && aFrameTypes->size() &&
       ((*aFrameTypes)[0] == webrtc::kVideoFrameKey)) {
-    mOMX->RequestIDRFrame();
+    mEncoder->RequestIDRFrame();
 #ifdef OMX_IDR_NEEDED_FOR_BITRATE
     mLastIDRTime = TimeStamp::Now();
     mBitRateAtLastIDR = mBitRateKbps;
@@ -379,64 +181,18 @@ int32_t WebrtcGonkH264VideoEncoder::Encode(
           "idr %dms)",
           mBitRateAtLastIDR, mBitRateKbps, timeSinceLastIDR);
 
-      mOMX->RequestIDRFrame();
+      mEncoder->RequestIDRFrame();
       mLastIDRTime = now;
       mBitRateAtLastIDR = mBitRateKbps;
     }
 #endif
   }
 
-  RefPtr<layers::Image> img;
-  if (aInputImage.video_frame_buffer()->type() ==
-      webrtc::VideoFrameBuffer::Type::kNative) {
-    rtc::scoped_refptr<webrtc::VideoFrameBuffer> frameBuffer =
-        aInputImage.video_frame_buffer();
-    img = static_cast<ImageBuffer*>(frameBuffer.get())->GetNativeImage();
-  } else {
-    // Wrap I420VideoFrame input with PlanarYCbCrImage for OMXVideoEncoder.
-    rtc::scoped_refptr<webrtc::I420BufferInterface> buffer =
-        aInputImage.video_frame_buffer()->ToI420();
-    layers::PlanarYCbCrData yuvData;
-    yuvData.mYChannel = const_cast<uint8_t*>(buffer->DataY());
-    yuvData.mYSize = gfx::IntSize(buffer->width(), buffer->height());
-    yuvData.mYStride = buffer->StrideY();
-    MOZ_ASSERT(buffer->StrideU() == buffer->StrideV());
-    yuvData.mCbCrStride = buffer->StrideU();
-    yuvData.mCbChannel = const_cast<uint8_t*>(buffer->DataU());
-    yuvData.mCrChannel = const_cast<uint8_t*>(buffer->DataV());
-    yuvData.mCbCrSize =
-        gfx::IntSize(buffer->ChromaWidth(), buffer->ChromaHeight());
-    yuvData.mPicSize = yuvData.mYSize;
-    yuvData.mStereoMode = StereoMode::MONO;
-    img = new layers::RecyclingPlanarYCbCrImage(nullptr);
-    // AdoptData() doesn't need AllocateAndGetNewBuffer(); OMXVideoEncoder is ok
-    // with this
-    img->AsPlanarYCbCrImage()->AdoptData(yuvData);
+  if (mEncoder->Encode(aInputImage) != android::OK) {
+    CODEC_LOGE("WebrtcGonkH264VideoEncoder:%p error sending input data", this);
+    return WEBRTC_VIDEO_CODEC_ERROR;
   }
-
-  int64_t timestampUs = mUnwrapper.Unwrap(aInputImage.timestamp()) * 1000 / 90;
-
-  CODEC_LOGD("Encode frame: %dx%d, timestamp %u (%lld), renderTimeMs %" PRIu64,
-             aInputImage.width(), aInputImage.height(), aInputImage.timestamp(),
-             timestampUs, aInputImage.render_time_ms());
-
-  nsresult rv = mOMX->Encode(img.get(), aInputImage.width(),
-                             aInputImage.height(), timestampUs, 0);
-  if (rv == NS_OK) {
-    if (mOutputDrain == nullptr) {
-      mOutputDrain = new EncOutputDrain(mOMX.get(), mCallback);
-      mOutputDrain->Start();
-    }
-    EncodedFrame frame;
-    frame.mWidth = mWidth;
-    frame.mHeight = mHeight;
-    frame.mTimestamp = aInputImage.timestamp();
-    frame.mTimestampUs = timestampUs;
-    frame.mRenderTimeMs = aInputImage.render_time_ms();
-    mOutputDrain->QueueInput(frame);
-  }
-
-  return (rv == NS_OK) ? WEBRTC_VIDEO_CODEC_OK : WEBRTC_VIDEO_CODEC_ERROR;
+  return WEBRTC_VIDEO_CODEC_OK;
 }
 
 int32_t WebrtcGonkH264VideoEncoder::RegisterEncodeCompleteCallback(
@@ -444,25 +200,59 @@ int32_t WebrtcGonkH264VideoEncoder::RegisterEncodeCompleteCallback(
   CODEC_LOGD("WebrtcGonkH264VideoEncoder:%p set callback:%p", this, aCallback);
   MOZ_ASSERT(aCallback);
   mCallback = aCallback;
-
   return WEBRTC_VIDEO_CODEC_OK;
+}
+
+void WebrtcGonkH264VideoEncoder::OnEncoded(
+    webrtc::EncodedImage& aEncodedImage) {
+  struct nal_entry {
+    uint32_t offset;
+    uint32_t size;
+  };
+  AutoTArray<nal_entry, 1> nals;
+
+  // Break input encoded data into NALUs and send each one to callback.
+  const uint8_t* data = aEncodedImage._buffer;
+  size_t size = aEncodedImage._length;
+  const uint8_t* nalStart = nullptr;
+  size_t nalSize = 0;
+  while (android::getNextNALUnit(&data, &size, &nalStart, &nalSize, true) ==
+         android::OK) {
+    // XXX optimize by making buffer an offset
+    nal_entry nal = {((uint32_t)(nalStart - aEncodedImage._buffer)),
+                     (uint32_t)nalSize};
+    nals.AppendElement(nal);
+  }
+
+  size_t num_nals = nals.Length();
+  if (num_nals > 0) {
+    webrtc::RTPFragmentationHeader fragmentation;
+    fragmentation.VerifyAndAllocateFragmentationHeader(num_nals);
+    for (size_t i = 0; i < num_nals; i++) {
+      fragmentation.fragmentationOffset[i] = nals[i].offset;
+      fragmentation.fragmentationLength[i] = nals[i].size;
+    }
+    webrtc::EncodedImage unit(aEncodedImage);
+    unit._completeFrame = true;
+
+    webrtc::CodecSpecificInfo info;
+    info.codecType = webrtc::kVideoCodecH264;
+    info.codecSpecific.H264.packetization_mode =
+        webrtc::H264PacketizationMode::NonInterleaved;
+
+    mCallback->OnEncodedImage(unit, &info, &fragmentation);
+  }
 }
 
 int32_t WebrtcGonkH264VideoEncoder::Release() {
   CODEC_LOGD("WebrtcGonkH264VideoEncoder:%p will be released", this);
 
-  if (mOutputDrain != nullptr) {
-    mOutputDrain->Stop();
-    mOutputDrain = nullptr;
-  }
-  mOMXConfigured = false;
-  bool hadOMX = !!mOMX;
-  mOMX = nullptr;
-  if (hadOMX) {
+  if (mEncoder) {
+    mEncoder->Release();
+    mEncoder = nullptr;
     mReservation->ReleaseOMXCodec();
   }
-  CODEC_LOGD("WebrtcGonkH264VideoEncoder:%p released", this);
-
+  mOMXConfigured = false;
   return WEBRTC_VIDEO_CODEC_OK;
 }
 
@@ -491,10 +281,7 @@ int32_t WebrtcGonkH264VideoEncoder::SetRates(uint32_t aBitRateKbps,
   CODEC_LOGE(
       "WebrtcGonkH264VideoEncoder:%p set bitrate:%u, frame rate:%u (%u))", this,
       aBitRateKbps, aFrameRate, mFrameRate);
-  MOZ_ASSERT(mOMX != nullptr);
-  if (mOMX == nullptr) {
-    return WEBRTC_VIDEO_CODEC_UNINITIALIZED;
-  }
+  MOZ_ASSERT(mEncoder);
 
   // XXX Should use StageFright framerate change, perhaps only on major changes
   // of framerate.
@@ -535,9 +322,10 @@ int32_t WebrtcGonkH264VideoEncoder::SetRates(uint32_t aBitRateKbps,
 #endif
 
   mBitRateKbps = aBitRateKbps;
-  nsresult rv = mOMX->SetBitrate(mBitRateKbps);
-  NS_WARN_IF(NS_FAILED(rv));
-  return NS_FAILED(rv) ? WEBRTC_VIDEO_CODEC_OK : WEBRTC_VIDEO_CODEC_ERROR;
+  if (mEncoder->SetBitrate(mBitRateKbps) != android::OK) {
+    return WEBRTC_VIDEO_CODEC_ERROR;
+  }
+  return WEBRTC_VIDEO_CODEC_OK;
 }
 
 // Decoder.
