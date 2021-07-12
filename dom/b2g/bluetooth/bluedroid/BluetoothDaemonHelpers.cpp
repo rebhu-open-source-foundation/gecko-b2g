@@ -1208,7 +1208,7 @@ nsresult PackPDU(const BluetoothSdpRecord& aIn, DaemonSocketPDU& aPDU) {
   switch (aIn.mType) {
     case SDP_TYPE_MAP_MAS: {
       const BluetoothMasRecord* const masRecord =
-          (const BluetoothMasRecord* const) & aIn;
+          (const BluetoothMasRecord* const)&aIn;
 
       rv = PackPDU(masRecord->mSupportedFeatures, aPDU);
       if (NS_FAILED(rv)) {
@@ -1938,19 +1938,10 @@ nsresult UnpackPDU(DaemonSocketPDU& aPDU, BluetoothSdpRecord& aOut) {
   if (NS_FAILED(rv)) {
     return rv;
   }
-
-  uint16_t len;
-  rv = UnpackPDU(aPDU, len);
+  rv = UnpackPDU(aPDU, UnpackCString0(aOut.mServiceName));
   if (NS_FAILED(rv)) {
     return rv;
   }
-  const uint8_t* data = aPDU.Consume(len);
-  if (MOZ_HAL_IPC_UNPACK_WARN_IF(!data, BluetoothSdpRecord)) {
-    return NS_ERROR_ILLEGAL_VALUE;
-  }
-  aOut.mServiceName =
-      nsDependentCString(reinterpret_cast<const char*>(data), len);
-
   rv = UnpackPDU(aPDU, aOut.mRfcommChannelNumber);
   if (NS_FAILED(rv)) {
     return rv;

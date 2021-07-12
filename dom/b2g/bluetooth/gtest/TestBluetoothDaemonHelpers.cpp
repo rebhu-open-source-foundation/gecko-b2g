@@ -301,9 +301,11 @@ TEST_F(BluetoothDaemonHelpers, BluetoothSdpRecord) {
   EXPECT_EQ(r1.mRfcommChannelNumber, r2.mRfcommChannelNumber);
   EXPECT_EQ(r1.mL2capPsm, r2.mL2capPsm);
   EXPECT_EQ(r1.mProfileVersion, r2.mProfileVersion);
-  EXPECT_EQ(r1.mSupportedFeatures, r2.mSupportedFeatures);
-  EXPECT_EQ(r1.mSupportedContentTypes, r2.mSupportedContentTypes);
-  EXPECT_EQ(r1.mInstanceId, r2.mInstanceId);
+  if (r1.mType == SDP_TYPE_MAP_MAS) {
+    EXPECT_EQ(r1.mSupportedFeatures, r2.mSupportedFeatures);
+    EXPECT_EQ(r1.mSupportedContentTypes, r2.mSupportedContentTypes);
+    EXPECT_EQ(r1.mInstanceId, r2.mInstanceId);
+  }
   EXPECT_EQ(mPDU->GetSize(), 0u);
 }
 
