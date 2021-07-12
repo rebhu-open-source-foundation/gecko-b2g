@@ -43,24 +43,23 @@ static const nsLiteralCString tempDirPrefix("/tmp");
 
 // This constructor signals failure by setting mFileDesc and aClientFd to -1.
 SandboxBroker::SandboxBroker(UniquePtr<const Policy> aPolicy, int aChildPid,
-                             UniqueFileHandle& aClientFd)
+                             int& aClientFd)
     : mChildPid(aChildPid), mFileDesc(-1), mPolicy(std::move(aPolicy)) {
   int fds[2];
-  aClientFd.reset(nullptr);
   if (0 != socketpair(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC, 0, fds)) {
     SANDBOX_LOG_ERROR("SandboxBroker: socketpair failed: %s", strerror(errno));
     return;
   }
 
   mFileDesc = fds[0];
-  aClientFd = UniqueFileHandle(fds[1]);
+  aClientFd = fds[1];
 
   if (!PlatformThread::Create(0, this, &mThread)) {
     SANDBOX_LOG_ERROR("SandboxBroker: thread creation failed: %s",
                       strerror(errno));
     close(mFileDesc);
     mFileDesc = -1;
-    aClientFd.reset(nullptr);
+    aClientFd = -1;
   }
   nsCOMPtr<nsIFile> tmpDir;
   nsresult rv = NS_GetSpecialDirectory(NS_APP_CONTENT_PROCESS_TEMP_DIR,
@@ -76,11 +75,17 @@ SandboxBroker::SandboxBroker(UniquePtr<const Policy> aPolicy, int aChildPid,
 UniquePtr<SandboxBroker> SandboxBroker::Create(
     UniquePtr<const Policy> aPolicy, int aChildPid,
     ipc::FileDescriptor& aClientFdOut) {
-  UniqueFileHandle clientfd;
+  int clientFd;
   // Can't use MakeUnique here because the constructor is private.
   UniquePtr<SandboxBroker> rv(
-      new SandboxBroker(std::move(aPolicy), aChildPid, clientfd));
-  aClientFdOut = ipc::FileDescriptor(std::move(clientfd));
+      new SandboxBroker(std::move(aPolicy), aChildPid, clientFd));
+  if (clientFd < 0) {
+    rv = nullptr;
+  } else {
+    // FileDescriptor can be constructed from an int, but that dup()s
+    // the fd; instead, transfer ownership:
+    aClientFdOut = ipc::FileDescriptor(UniqueFileHandle(clientFd));
+  }
   return rv;
 }
 

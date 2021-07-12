@@ -143,7 +143,7 @@ class SandboxBroker final : private SandboxBrokerCommon,
   typedef nsTHashMap<nsCStringHashKey, nsCString> PathMap;
   PathMap mSymlinkMap;
 
-  SandboxBroker(UniquePtr<const Policy> aPolicy, int aChildPid, UniqueFileHandle& aClientFd);
+  SandboxBroker(UniquePtr<const Policy> aPolicy, int aChildPid, int& aClientFd);
   void ThreadMain(void) override;
   void AuditPermissive(int aOp, int aFlags, int aPerms, const char* aPath);
   void AuditDenial(int aOp, int aFlags, int aPerms, const char* aPath);
