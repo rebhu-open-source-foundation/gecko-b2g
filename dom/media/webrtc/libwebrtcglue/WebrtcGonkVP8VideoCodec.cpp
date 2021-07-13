@@ -6,22 +6,39 @@
 
 #include <media/stagefright/MediaDefs.h>
 
+#include "common/browser_logging/CSFLog.h"
 #include "OMXCodecWrapper.h"
 #include "webrtc/modules/video_coding/include/video_error_codes.h"
 #include "WebrtcGonkVideoCodec.h"
+
+#undef LOG_TAG
+#undef LOGE
+#undef LOGW
+#undef LOGI
+#undef LOGD
+#undef LOGV
+
+#define LOG_TAG "Gonk"
+#define LOGE(...) CSFLogError(LOG_TAG, __VA_ARGS__)
+#define LOGW(...) CSFLogWarn(LOG_TAG, __VA_ARGS__)
+#define LOGI(...) CSFLogInfo(LOG_TAG, __VA_ARGS__)
+#define LOGD(...) CSFLogDebug(LOG_TAG, __VA_ARGS__)
+#define LOGV(...) CSFLogVerbose(LOG_TAG, __VA_ARGS__)
 
 namespace mozilla {
 
 // Decoder.
 WebrtcGonkVP8VideoDecoder::WebrtcGonkVP8VideoDecoder() {
+  LOGD("Decoder:%p constructor", this);
   mReservation = new android::OMXCodecReservation(false);
-  CODEC_LOGD("WebrtcGonkVP8VideoDecoder:%p will be constructed", this);
 }
 
 int32_t WebrtcGonkVP8VideoDecoder::InitDecode(
     const webrtc::VideoCodec* aCodecSettings, int32_t aNumOfCores) {
+  LOGD("Decoder:%p initializing", this);
+
   if (!mReservation->ReserveOMXCodec()) {
-    CODEC_LOGE("WebrtcGonkVP8VideoDecoder:%p decoder in use", this);
+    LOGE("Decoder:%p failed to reserve codec", this);
     return WEBRTC_VIDEO_CODEC_ERROR;
   }
 
@@ -30,10 +47,9 @@ int32_t WebrtcGonkVP8VideoDecoder::InitDecode(
                      aCodecSettings->width,
                      aCodecSettings->height) != android::OK) {
     mDecoder = nullptr;
-    CODEC_LOGE("WebrtcGonkVP8VideoDecoder:%p decoder not started", this);
+    LOGE("Decoder:%p failed to initialize", this);
     return WEBRTC_VIDEO_CODEC_ERROR;
   }
-  CODEC_LOGD("WebrtcGonkVP8VideoDecoder:%p decoder started", this);
   return WEBRTC_VIDEO_CODEC_OK;
 }
 
@@ -43,12 +59,12 @@ int32_t WebrtcGonkVP8VideoDecoder::Decode(
     const webrtc::CodecSpecificInfo* aCodecSpecificInfo,
     int64_t aRenderTimeMs) {
   if (aInputImage._length == 0 || !aInputImage._buffer) {
-    CODEC_LOGE("WebrtcGonkVP8VideoDecoder:%p empty input data", this);
+    LOGW("Decoder:%p empty input data, dropping", this);
     return WEBRTC_VIDEO_CODEC_ERROR;
   }
 
   if (mDecoder->Decode(aInputImage, false, aRenderTimeMs) != android::OK) {
-    CODEC_LOGE("WebrtcGonkVP8VideoDecoder:%p error sending input data", this);
+    LOGE("Decoder:%p failed to decode", this);
     return WEBRTC_VIDEO_CODEC_ERROR;
   }
   return WEBRTC_VIDEO_CODEC_OK;
@@ -56,14 +72,14 @@ int32_t WebrtcGonkVP8VideoDecoder::Decode(
 
 int32_t WebrtcGonkVP8VideoDecoder::RegisterDecodeCompleteCallback(
     webrtc::DecodedImageCallback* aCallback) {
-  CODEC_LOGD("WebrtcGonkVP8VideoDecoder:%p set callback:%p", this, aCallback);
+  LOGD("Decoder:%p set callback:%p", this, aCallback);
   MOZ_ASSERT(aCallback);
   mCallback = aCallback;
   return WEBRTC_VIDEO_CODEC_OK;
 }
 
 int32_t WebrtcGonkVP8VideoDecoder::Release() {
-  CODEC_LOGD("WebrtcGonkVP8VideoDecoder:%p will be released", this);
+  LOGD("Decoder:%p releasing", this);
 
   if (mDecoder) {
     mDecoder->Release();
@@ -74,7 +90,7 @@ int32_t WebrtcGonkVP8VideoDecoder::Release() {
 }
 
 WebrtcGonkVP8VideoDecoder::~WebrtcGonkVP8VideoDecoder() {
-  CODEC_LOGD("WebrtcGonkVP8VideoDecoder:%p will be destructed", this);
+  LOGD("Decoder:%p destructor", this);
   Release();
 }
 

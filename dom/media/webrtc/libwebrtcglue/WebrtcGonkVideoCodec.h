@@ -10,18 +10,10 @@
 #include <utils/Mutex.h>
 #include <utils/RefBase.h>
 
-#include "common/browser_logging/CSFLog.h"
 #include "GonkNativeWindow.h"
 #include "webrtc/api/video/video_frame.h"
 #include "webrtc/common_video/include/video_frame.h"
 #include "webrtc/modules/include/module_common_types_public.h"
-
-#define CODEC_LOG_TAG "OMX"
-#define CODEC_LOGV(...) CSFLogInfo(CODEC_LOG_TAG, __VA_ARGS__)
-#define CODEC_LOGD(...) CSFLogDebug(CODEC_LOG_TAG, __VA_ARGS__)
-#define CODEC_LOGI(...) CSFLogInfo(CODEC_LOG_TAG, __VA_ARGS__)
-#define CODEC_LOGW(...) CSFLogWarn(CODEC_LOG_TAG, __VA_ARGS__)
-#define CODEC_LOGE(...) CSFLogError(CODEC_LOG_TAG, __VA_ARGS__)
 
 namespace android {
 
