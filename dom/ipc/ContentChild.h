@@ -927,6 +927,9 @@ class ContentChild final : public PContentChild,
   mozilla::ipc::IPCResult RecvDecoderSupportedMimeTypes(
       nsTArray<nsCString>&& aSupportedTypes);
 
+  mozilla::ipc::IPCResult RecvInitNextGenLocalStorageEnabled(
+      const bool& aEnabled);
+
  public:
   static void DispatchBeforeUnloadToSubtree(
       BrowsingContext* aStartingAt,

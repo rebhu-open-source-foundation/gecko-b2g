@@ -6227,7 +6227,7 @@ void nsDisplayBlendMode::Paint(nsDisplayListBuilder* aBuilder,
 
   RefPtr<DrawTarget> temp =
       dt->CreateClippedDrawTarget(deviceRect, SurfaceFormat::B8G8R8A8);
-  if (!dt) {
+  if (!temp) {
     return;
   }
 

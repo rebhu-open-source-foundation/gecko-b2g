@@ -4769,6 +4769,13 @@ mozilla::ipc::IPCResult ContentChild::RecvDecoderSupportedMimeTypes(
   return IPC_OK();
 }
 
+mozilla::ipc::IPCResult ContentChild::RecvInitNextGenLocalStorageEnabled(
+    const bool& aEnabled) {
+  mozilla::dom::RecvInitNextGenLocalStorageEnabled(aEnabled);
+
+  return IPC_OK();
+}
+
 /* static */ void ContentChild::DispatchBeforeUnloadToSubtree(
     BrowsingContext* aStartingAt,
     const DispatchBeforeUnloadToSubtreeResolver& aResolver) {
