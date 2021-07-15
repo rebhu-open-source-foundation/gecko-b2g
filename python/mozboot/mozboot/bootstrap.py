@@ -266,7 +266,6 @@ class Bootstrapper(object):
             self.instance.ensure_sccache_packages(state_dir, checkout_root)
             self.instance.ensure_lucetc_packages(state_dir, checkout_root)
             self.instance.ensure_wasi_sysroot_packages(state_dir, checkout_root)
-            self.instance.ensure_dump_syms_packages(state_dir, checkout_root)
             if application == "b2g":
                 self.instance.ensure_b2g_sysroot_packages(state_dir, checkout_root)
 
