@@ -1256,9 +1256,23 @@ bool SupplicantStaManager::CompareConfiguration(
   if (aOld.mSsid.compare(aNew.mSsid)) {
     return false;
   }
+  if (!CompareCredential(aOld, aNew)) {
+    return false;
+  }
+
+  return true;
+}
+
+bool SupplicantStaManager::CompareCredential(const NetworkConfiguration& aOld,
+                                             const NetworkConfiguration& aNew) {
   if (aOld.mKeyMgmt.compare(aNew.mKeyMgmt)) {
     return false;
   }
+  if (aOld.mPsk.compare(aNew.mPsk)) {
+    return false;
+  }
+  // TODO: complete the rest credentials comparation.
+
   return true;
 }
 

@@ -229,6 +229,8 @@ class SupplicantStaManager
 
   bool CompareConfiguration(const NetworkConfiguration& aOld,
                             const NetworkConfiguration& aNew);
+  bool CompareCredential(const NetworkConfiguration& aOld,
+                         const NetworkConfiguration& aNew);
   void NotifyTerminating();
   void SupplicantServiceDiedHandler(int32_t aCookie);
 
