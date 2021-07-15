@@ -1304,6 +1304,10 @@ GeckoEditableSupport::SetValue(uint32_t aId,
       inputElement->SetValue(aValue, CallerType::NonSystem, erv);
     } else if (textArea) {
       textArea->SetValue(aValue, erv);
+    } else if (dom::EditableUtils::isContentEditable(activeElement)) {
+      nsGenericHTMLElement* genericElement =
+          nsGenericHTMLElement::FromNode(activeElement);
+      genericElement->SetInnerText(aValue);
     } else {
       IME_LOGD("GeckoEditableSupport::SetValue, element type not supported.");
       break;
