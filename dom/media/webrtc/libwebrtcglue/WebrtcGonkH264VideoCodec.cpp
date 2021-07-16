@@ -14,15 +14,13 @@
 #include "webrtc/modules/video_coding/include/video_error_codes.h"
 #include "WebrtcGonkVideoCodec.h"
 
-using android::ABuffer;
-using android::OMXCodecReservation;
 using android::sp;
 
 namespace mozilla {
 
 // Encoder.
 WebrtcGonkH264VideoEncoder::WebrtcGonkH264VideoEncoder() {
-  mReservation = new OMXCodecReservation(true);
+  mReservation = new android::OMXCodecReservation(true);
   CODEC_LOGD("WebrtcGonkH264VideoEncoder:%p constructed", this);
 }
 
@@ -320,7 +318,7 @@ int32_t WebrtcGonkH264VideoEncoder::SetRates(uint32_t aBitRateKbps,
 
 // Decoder.
 WebrtcGonkH264VideoDecoder::WebrtcGonkH264VideoDecoder() {
-  mReservation = new OMXCodecReservation(false);
+  mReservation = new android::OMXCodecReservation(false);
   CODEC_LOGD("WebrtcGonkH264VideoDecoder:%p will be constructed", this);
 }
 
@@ -354,6 +352,7 @@ int32_t WebrtcGonkH264VideoDecoder::Decode(
   }
 
   if (!mCodecConfigSubmitted) {
+    using android::ABuffer;
     int32_t width, height;
     sp<ABuffer> au = new ABuffer(aInputImage._buffer, aInputImage._length);
     sp<ABuffer> csd = android::MakeAVCCodecSpecificData(au, &width, &height);

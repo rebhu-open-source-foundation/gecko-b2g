@@ -10,13 +10,11 @@
 #include "webrtc/modules/video_coding/include/video_error_codes.h"
 #include "WebrtcGonkVideoCodec.h"
 
-using android::OMXCodecReservation;
-
 namespace mozilla {
 
 // Decoder.
 WebrtcGonkVP8VideoDecoder::WebrtcGonkVP8VideoDecoder() {
-  mReservation = new OMXCodecReservation(false);
+  mReservation = new android::OMXCodecReservation(false);
   CODEC_LOGD("WebrtcGonkVP8VideoDecoder:%p will be constructed", this);
 }
 
