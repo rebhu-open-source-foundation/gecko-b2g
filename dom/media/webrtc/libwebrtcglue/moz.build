@@ -38,11 +38,8 @@ if CONFIG["OS_TARGET"] == "Android":
         UNIFIED_SOURCES += [
             "GonkVideoCodec.cpp",
             "WebrtcGonkH264VideoCodec.cpp",
-            "WebrtcGonkVP8VideoCodec.cpp",
-        ]
-
-        SOURCES += [
             "WebrtcGonkVideoCodec.cpp",
+            "WebrtcGonkVP8VideoCodec.cpp",
         ]
 
     else:
