@@ -5161,7 +5161,7 @@ void PresShell::AddPrintPreviewBackgroundItem(nsDisplayListBuilder* aBuilder,
 static bool AddCanvasBackgroundColor(const nsDisplayList* aList,
                                      nsIFrame* aCanvasFrame, nscolor aColor,
                                      bool aCSSBackgroundColor) {
-  for (nsDisplayItem* i = aList->GetBottom(); i; i = i->GetAbove()) {
+  for (nsDisplayItem* i : *aList) {
     const DisplayItemType type = i->GetType();
 
     if (i->Frame() == aCanvasFrame &&
@@ -5804,7 +5804,7 @@ void PresShell::ProcessSynthMouseMoveEvent(bool aFromScroll) {
 /* static */
 void PresShell::MarkFramesInListApproximatelyVisible(
     const nsDisplayList& aList) {
-  for (nsDisplayItem* item = aList.GetBottom(); item; item = item->GetAbove()) {
+  for (nsDisplayItem* item : aList) {
     nsDisplayList* sublist = item->GetChildren();
     if (sublist) {
       MarkFramesInListApproximatelyVisible(*sublist);

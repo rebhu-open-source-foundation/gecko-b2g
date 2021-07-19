@@ -1163,7 +1163,7 @@ void nsSubDocumentFrame::EndSwapDocShells(nsIFrame* aOther) {
 }
 
 void nsSubDocumentFrame::ClearDisplayItems() {
-  for (nsDisplayItemBase* i : DisplayItems()) {
+  for (nsDisplayItem* i : DisplayItems()) {
     if (i->GetType() == DisplayItemType::TYPE_SUBDOCUMENT) {
       nsIFrame* displayRoot = nsLayoutUtils::GetDisplayRootFrame(this);
       MOZ_ASSERT(displayRoot);
@@ -1375,6 +1375,8 @@ already_AddRefed<mozilla::layers::Layer> nsDisplayRemote::BuildLayer(
   return layer.forget();
 }
 
+namespace mozilla {
+
 void nsDisplayRemote::Paint(nsDisplayListBuilder* aBuilder, gfxContext* aCtx) {
   nsPresContext* pc = mFrame->PresContext();
   nsFrameLoader* fl = GetFrameLoader();
@@ -1505,3 +1507,5 @@ void nsDisplayRemote::HitTest(nsDisplayListBuilder* aBuilder,
     }
   }
 }
+
+}  // namespace mozilla

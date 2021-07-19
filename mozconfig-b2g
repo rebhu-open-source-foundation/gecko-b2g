@@ -136,3 +136,7 @@ fi
 # Hack until we update to ndk r21d
 # configure just checks the file exists, and we don't use it afterwards...
 ac_add_options --with-android-lldb-server=$HOME/.mozbuild/clang/bin/clang
+
+# Workaround upstream bug.
+ac_add_options --enable-wasm-function-references
+

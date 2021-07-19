@@ -2985,7 +2985,7 @@ static RetainedDisplayListBuilder* GetOrCreateRetainedDisplayListBuilder(
 void PrintHitTestInfoStatsInternal(nsDisplayList* aList, int& aTotal,
                                    int& aHitTest, int& aVisible,
                                    int& aSpecial) {
-  for (nsDisplayItem* i = aList->GetBottom(); i; i = i->GetAbove()) {
+  for (nsDisplayItem* i : *aList) {
     aTotal++;
 
     if (i->GetChildren()) {
@@ -5583,7 +5583,10 @@ gfxFloat nsLayoutUtils::GetSnappedBaselineY(nsIFrame* aFrame,
   gfxFloat appUnitsPerDevUnit = aFrame->PresContext()->AppUnitsPerDevPixel();
   gfxFloat baseline = gfxFloat(aY) + aAscent;
   gfxRect putativeRect(0, baseline / appUnitsPerDevUnit, 1, 1);
-  if (!aContext->UserToDevicePixelSnapped(putativeRect, true)) return baseline;
+  if (!aContext->UserToDevicePixelSnapped(
+          putativeRect, gfxContext::SnapOption::IgnoreScale)) {
+    return baseline;
+  }
   return aContext->DeviceToUser(putativeRect.TopLeft()).y * appUnitsPerDevUnit;
 }
 
@@ -5593,7 +5596,8 @@ gfxFloat nsLayoutUtils::GetSnappedBaselineX(nsIFrame* aFrame,
   gfxFloat appUnitsPerDevUnit = aFrame->PresContext()->AppUnitsPerDevPixel();
   gfxFloat baseline = gfxFloat(aX) + aAscent;
   gfxRect putativeRect(baseline / appUnitsPerDevUnit, 0, 1, 1);
-  if (!aContext->UserToDevicePixelSnapped(putativeRect, true)) {
+  if (!aContext->UserToDevicePixelSnapped(
+          putativeRect, gfxContext::SnapOption::IgnoreScale)) {
     return baseline;
   }
   return aContext->DeviceToUser(putativeRect.TopLeft()).x * appUnitsPerDevUnit;
@@ -6233,8 +6237,11 @@ static SnappedImageDrawingParameters ComputeSnappedImageDrawingParameters(
   // we have something that's not translation+scale, or if the scale flips in
   // the X or Y direction, because snapped image drawing can't handle that yet.
   if (!currentMatrix.HasNonAxisAlignedTransform() && currentMatrix._11 > 0.0 &&
-      currentMatrix._22 > 0.0 && aCtx->UserToDevicePixelSnapped(fill, true) &&
-      aCtx->UserToDevicePixelSnapped(dest, true)) {
+      currentMatrix._22 > 0.0 &&
+      aCtx->UserToDevicePixelSnapped(fill,
+                                     gfxContext::SnapOption::IgnoreScale) &&
+      aCtx->UserToDevicePixelSnapped(dest,
+                                     gfxContext::SnapOption::IgnoreScale)) {
     // We snapped. On this code path, |fill| and |dest| take into account
     // currentMatrix's transform.
     didSnap = true;
