@@ -24,12 +24,15 @@ class BluetoothDaemonHelpers : public testing::Test {
   UniquePtr<DaemonSocketPDU> mPDU;
   BluetoothAddress mAddr;
   const uint16_t mBatteryService = 0x180F;
+  const uint8_t mArbitraryUint8 = 12;
+  const uint16_t mArbitraryUint16 = 1234;
+  const uint32_t mArbitraryUint32 = 1234567;
 };
 
 //
 // Bluetooth GAP and GATT
 //
-TEST_F(BluetoothDaemonHelpers, TestBluetoothAddress) {
+TEST_F(BluetoothDaemonHelpers, BluetoothAddress) {
   EXPECT_EQ(PackPDU(mAddr, *mPDU), NS_OK);
 
   BluetoothAddress addr;
@@ -39,7 +42,7 @@ TEST_F(BluetoothDaemonHelpers, TestBluetoothAddress) {
   EXPECT_EQ(mPDU->GetSize(), 0u);
 }
 
-TEST_F(BluetoothDaemonHelpers, TestBluetoothAttributeHandle) {
+TEST_F(BluetoothDaemonHelpers, BluetoothAttributeHandle) {
   BluetoothAttributeHandle handle1, handle2;
   handle1.mHandle = 0x0123;
   EXPECT_EQ(PackPDU(handle1, *mPDU), NS_OK);
@@ -306,6 +309,349 @@ TEST_F(BluetoothDaemonHelpers, BluetoothSdpRecord) {
     EXPECT_EQ(r1.mSupportedContentTypes, r2.mSupportedContentTypes);
     EXPECT_EQ(r1.mInstanceId, r2.mInstanceId);
   }
+  EXPECT_EQ(mPDU->GetSize(), 0u);
+}
+
+//
+// Bluetooth profiles
+//
+TEST_F(BluetoothDaemonHelpers, BluetoothAvrcpAttributeTextPairs) {
+  const uint8_t length1 = 4;
+  const uint8_t attrs[length1] = {1, 2, 3, 4};
+  const char* texts[length1] = {"text1", "text2", "text3", "text4"};
+  BluetoothAvrcpAttributeTextPairs attrTexts(attrs, texts, length1);
+  EXPECT_EQ(PackPDU(length1, attrTexts, *mPDU), NS_OK);
+
+  uint8_t length2 = 0;
+  EXPECT_EQ(UnpackPDU(*mPDU, length2), NS_OK);
+
+  EXPECT_EQ(length1, length2);
+  for (uint8_t i = 0; i < length2; ++i) {
+    uint8_t att = 0, clen = 0;
+    EXPECT_EQ(UnpackPDU(*mPDU, att), NS_OK);
+    EXPECT_EQ(UnpackPDU(*mPDU, clen), NS_OK);
+
+    nsDependentCString cstring;
+    EXPECT_EQ(UnpackPDU(*mPDU, UnpackCString0(cstring)), NS_OK);
+
+    EXPECT_EQ(attrs[i], att);
+    EXPECT_EQ(strlen(texts[i]) + 1, clen);
+    EXPECT_EQ(nsCString(texts[i], clen - 1), cstring);
+  }
+  EXPECT_EQ(mPDU->GetSize(), 0u);
+}
+
+TEST_F(BluetoothDaemonHelpers, BluetoothAvrcpAttributeValuePairs) {
+  const uint8_t length1 = 4;
+  const uint8_t attr[length1] = {1, 2, 3, 4};
+  const uint8_t values[length1] = {1, 2, 3, 4};
+  BluetoothAvrcpAttributeValuePairs attrVal(attr, values, length1);
+  EXPECT_EQ(PackPDU(length1, attrVal, *mPDU), NS_OK);
+
+  uint8_t length2 = 0;
+  EXPECT_EQ(UnpackPDU(*mPDU, length2), NS_OK);
+  EXPECT_EQ(length1, length2);
+  for (uint8_t i = 0; i < length2; ++i) {
+    uint8_t att = 0, val = 0;
+    EXPECT_EQ(UnpackPDU(*mPDU, att), NS_OK);
+    EXPECT_EQ(UnpackPDU(*mPDU, val), NS_OK);
+
+    EXPECT_EQ(att, attr[i]);
+    EXPECT_EQ(val, values[i]);
+  }
+  EXPECT_EQ(mPDU->GetSize(), 0u);
+}
+
+TEST_F(BluetoothDaemonHelpers, BluetoothAvrcpElementAttribute) {
+  // The maximum value of mId can only be 255 in Gecko, but the HAL could accept
+  // a wider range up to uint32
+  const BluetoothAvrcpElementAttribute att1 = {
+      .mId = static_cast<uint32_t>(mArbitraryUint8),
+      .mValue = u"element value"_ns};
+  EXPECT_EQ(PackPDU(att1, *mPDU), NS_OK);
+
+  uint8_t id = 0, clen = 0;
+  nsDependentCString cstring;
+  EXPECT_EQ(UnpackPDU(*mPDU, id), NS_OK);
+  EXPECT_EQ(UnpackPDU(*mPDU, clen), NS_OK);
+  EXPECT_EQ(UnpackPDU(*mPDU, cstring), NS_OK);
+
+  EXPECT_EQ(clen, static_cast<uint8_t>(att1.mValue.Length()) + 1);
+  EXPECT_EQ(att1.mId, id);
+  EXPECT_EQ(att1.mValue, NS_ConvertUTF8toUTF16(cstring));
+  EXPECT_EQ(mPDU->GetSize(), 0u);
+}
+
+TEST_F(BluetoothDaemonHelpers, BluetoothAvrcpEvent) {
+  const BluetoothAvrcpEvent evt1 = AVRCP_EVENT_PLAY_POS_CHANGED;
+  EXPECT_EQ(PackPDU(evt1, *mPDU), NS_OK);
+
+  BluetoothAvrcpEvent evt2 = AVRCP_EVENT_APP_SETTINGS_CHANGED;
+  EXPECT_EQ(UnpackPDU(*mPDU, evt2), NS_OK);
+
+  EXPECT_EQ(evt1, evt2);
+  EXPECT_EQ(mPDU->GetSize(), 0u);
+}
+
+TEST_F(BluetoothDaemonHelpers, BluetoothAvrcpEventParamPair) {
+  const BluetoothAvrcpNotificationParam param = {
+      .mSongPos = 1234,
+  };
+  const BluetoothAvrcpEventParamPair evtParam(AVRCP_EVENT_PLAY_POS_CHANGED,
+                                              param);
+  EXPECT_EQ(PackPDU(evtParam, *mPDU), NS_OK);
+
+  uint32_t songPos = 0;
+  EXPECT_EQ(UnpackPDU(*mPDU, songPos), NS_OK);
+
+  EXPECT_EQ(evtParam.mParam.mSongPos, songPos);
+  EXPECT_EQ(mPDU->GetSize(), 0u);
+}
+
+TEST_F(BluetoothDaemonHelpers, BluetoothAvrcpNotification) {
+  const BluetoothAvrcpNotification ntf1 = AVRCP_NTF_CHANGED;
+  EXPECT_EQ(PackPDU(ntf1, *mPDU), NS_OK);
+  uint8_t val1 = 0;
+  EXPECT_EQ(Convert(ntf1, val1), NS_OK);
+
+  uint8_t val2 = 0;
+  EXPECT_EQ(UnpackPDU(*mPDU, val2), NS_OK);
+
+  EXPECT_EQ(val1, val2);
+  EXPECT_EQ(mPDU->GetSize(), 0u);
+}
+
+TEST_F(BluetoothDaemonHelpers, BluetoothAvrcpPlayerAttribute) {
+  const BluetoothAvrcpPlayerAttribute att1 = AVRCP_PLAYER_ATTRIBUTE_SHUFFLE;
+  EXPECT_EQ(PackPDU(att1, *mPDU), NS_OK);
+
+  BluetoothAvrcpPlayerAttribute att2 = AVRCP_PLAYER_ATTRIBUTE_REPEAT;
+  EXPECT_EQ(UnpackPDU(*mPDU, att2), NS_OK);
+
+  EXPECT_EQ(att2, att2);
+  EXPECT_EQ(mPDU->GetSize(), 0u);
+}
+
+TEST_F(BluetoothDaemonHelpers, BluetoothAvrcpStatus) {
+  const BluetoothAvrcpStatus status1 = AVRCP_STATUS_NOT_FOUND;
+  EXPECT_EQ(PackPDU(status1, *mPDU), NS_OK);
+  uint8_t val1 = 0;
+  EXPECT_EQ(Convert(status1, val1), NS_OK);
+
+  uint8_t val2 = 0;
+  EXPECT_EQ(UnpackPDU(*mPDU, val2), NS_OK);
+
+  EXPECT_EQ(val1, val2);
+  EXPECT_EQ(mPDU->GetSize(), 0u);
+}
+
+TEST_F(BluetoothDaemonHelpers, BluetoothHandsfreeAtResponse) {
+  const BluetoothHandsfreeAtResponse resp1 = HFP_AT_RESPONSE_OK;
+  EXPECT_EQ(PackPDU(resp1, *mPDU), NS_OK);
+  uint8_t val1 = 0;
+  EXPECT_EQ(Convert(resp1, val1), NS_OK);
+
+  uint8_t val2 = 0;
+  EXPECT_EQ(UnpackPDU(*mPDU, val2), NS_OK);
+
+  EXPECT_EQ(val1, val2);
+  EXPECT_EQ(mPDU->GetSize(), 0u);
+}
+
+TEST_F(BluetoothDaemonHelpers, BluetoothHandsfreeCallAddressType) {
+  const BluetoothHandsfreeCallAddressType type1 =
+      HFP_CALL_ADDRESS_TYPE_INTERNATIONAL;
+  EXPECT_EQ(PackPDU(type1, *mPDU), NS_OK);
+  uint8_t val1 = 0;
+  EXPECT_EQ(Convert(type1, val1), NS_OK);
+
+  uint8_t val2 = 0;
+  EXPECT_EQ(UnpackPDU(*mPDU, val2), NS_OK);
+
+  EXPECT_EQ(val1, val2);
+  EXPECT_EQ(mPDU->GetSize(), 0u);
+}
+
+TEST_F(BluetoothDaemonHelpers, BluetoothHandsfreeCallDirection) {
+  const BluetoothHandsfreeCallDirection direction1 =
+      HFP_CALL_DIRECTION_INCOMING;
+  EXPECT_EQ(PackPDU(direction1, *mPDU), NS_OK);
+  uint8_t val1 = 0;
+  EXPECT_EQ(Convert(direction1, val1), NS_OK);
+
+  uint8_t val2 = 0;
+  EXPECT_EQ(UnpackPDU(*mPDU, val2), NS_OK);
+
+  EXPECT_EQ(val1, val2);
+  EXPECT_EQ(mPDU->GetSize(), 0u);
+}
+
+TEST_F(BluetoothDaemonHelpers, BluetoothHandsfreeCallMode) {
+  const BluetoothHandsfreeCallMode mode1 = HFP_CALL_MODE_DATA;
+  EXPECT_EQ(PackPDU(mode1, *mPDU), NS_OK);
+  uint8_t val1 = 0;
+  EXPECT_EQ(Convert(mode1, val1), NS_OK);
+
+  uint8_t val2 = 0;
+  EXPECT_EQ(UnpackPDU(*mPDU, val2), NS_OK);
+
+  EXPECT_EQ(val1, val2);
+  EXPECT_EQ(mPDU->GetSize(), 0u);
+}
+
+TEST_F(BluetoothDaemonHelpers, BluetoothHandsfreeCallMptyType) {
+  const BluetoothHandsfreeCallMptyType type1 = HFP_CALL_MPTY_TYPE_MULTI;
+  EXPECT_EQ(PackPDU(type1, *mPDU), NS_OK);
+  uint8_t val1 = 0;
+  EXPECT_EQ(Convert(type1, val1), NS_OK);
+
+  uint8_t val2 = 0;
+  EXPECT_EQ(UnpackPDU(*mPDU, val2), NS_OK);
+
+  EXPECT_EQ(val1, val2);
+  EXPECT_EQ(mPDU->GetSize(), 0u);
+}
+
+TEST_F(BluetoothDaemonHelpers, BluetoothHandsfreeCallState) {
+  const BluetoothHandsfreeCallState state1 = HFP_CALL_STATE_HELD;
+  EXPECT_EQ(PackPDU(state1, *mPDU), NS_OK);
+  uint8_t val1 = 0;
+  EXPECT_EQ(Convert(state1, val1), NS_OK);
+
+  uint8_t val2 = 0;
+  EXPECT_EQ(UnpackPDU(*mPDU, val2), NS_OK);
+
+  EXPECT_EQ(val1, val2);
+  EXPECT_EQ(mPDU->GetSize(), 0u);
+}
+
+TEST_F(BluetoothDaemonHelpers, BluetoothHandsfreeNetworkState) {
+  const BluetoothHandsfreeNetworkState state1 = HFP_NETWORK_STATE_AVAILABLE;
+  EXPECT_EQ(PackPDU(state1, *mPDU), NS_OK);
+  uint8_t val1 = 0;
+  EXPECT_EQ(Convert(state1, val1), NS_OK);
+
+  uint8_t val2 = 0;
+  EXPECT_EQ(UnpackPDU(*mPDU, val2), NS_OK);
+
+  EXPECT_EQ(val1, val2);
+  EXPECT_EQ(mPDU->GetSize(), 0u);
+}
+
+TEST_F(BluetoothDaemonHelpers, BluetoothHandsfreeServiceType) {
+  const BluetoothHandsfreeServiceType type1 = HFP_SERVICE_TYPE_ROAMING;
+  EXPECT_EQ(PackPDU(type1, *mPDU), NS_OK);
+  uint8_t val1 = 0;
+  EXPECT_EQ(Convert(type1, val1), NS_OK);
+
+  uint8_t val2 = 0;
+  EXPECT_EQ(UnpackPDU(*mPDU, val2), NS_OK);
+
+  EXPECT_EQ(val1, val2);
+  EXPECT_EQ(mPDU->GetSize(), 0u);
+}
+
+TEST_F(BluetoothDaemonHelpers, BluetoothHandsfreeVolumeType) {
+  const BluetoothHandsfreeVolumeType type1 = HFP_VOLUME_TYPE_MICROPHONE;
+  EXPECT_EQ(PackPDU(type1, *mPDU), NS_OK);
+
+  BluetoothHandsfreeVolumeType type2 = HFP_VOLUME_TYPE_SPEAKER;
+  EXPECT_EQ(UnpackPDU(*mPDU, type2), NS_OK);
+
+  EXPECT_EQ(type1, type2);
+  EXPECT_EQ(mPDU->GetSize(), 0u);
+}
+
+TEST_F(BluetoothDaemonHelpers, BluetoothHandsfreeWbsConfig) {
+  const BluetoothHandsfreeWbsConfig conf1 = HFP_WBS_YES;
+  EXPECT_EQ(PackPDU(conf1, *mPDU), NS_OK);
+
+  BluetoothHandsfreeWbsConfig conf2 = HFP_WBS_NONE;
+  EXPECT_EQ(UnpackPDU(*mPDU, conf2), NS_OK);
+
+  EXPECT_EQ(conf1, conf2);
+  EXPECT_EQ(mPDU->GetSize(), 0u);
+}
+
+TEST_F(BluetoothDaemonHelpers, ControlPlayStatus) {
+  const ControlPlayStatus status1 = PLAYSTATUS_FWD_SEEK;
+  EXPECT_EQ(PackPDU(status1, *mPDU), NS_OK);
+  uint8_t val1 = 0;
+  EXPECT_EQ(Convert(status1, val1), NS_OK);
+
+  uint8_t val2 = 0;
+  EXPECT_EQ(UnpackPDU(*mPDU, val2), NS_OK);
+
+  EXPECT_EQ(val1, val2);
+  EXPECT_EQ(mPDU->GetSize(), 0u);
+}
+
+TEST_F(BluetoothDaemonHelpers, BluetoothHidInfoParam) {
+  const BluetoothHidInfoParam param1 = {
+      .mAttributeMask = mArbitraryUint16,
+      .mSubclass = mArbitraryUint8,
+      .mApplicationId = mArbitraryUint8,
+      .mVendorId = mArbitraryUint16,
+      .mProductId = mArbitraryUint16,
+      .mVersion = mArbitraryUint16,
+      .mCountryCode = mArbitraryUint8,
+      .mDescriptorLength = 6,
+      .mDescriptorValue = {1, 7, 11, 8, 9, 13}  // arbitrary uint8_t array
+  };
+  EXPECT_EQ(PackPDU(param1, *mPDU), NS_OK);
+
+  BluetoothHidInfoParam param2;
+  EXPECT_EQ(UnpackPDU(*mPDU, param2), NS_OK);
+
+  EXPECT_EQ(param1.mAttributeMask, param2.mAttributeMask);
+  EXPECT_EQ(param1.mSubclass, param2.mSubclass);
+  EXPECT_EQ(param1.mApplicationId, param2.mApplicationId);
+  EXPECT_EQ(param1.mVendorId, param2.mVendorId);
+  EXPECT_EQ(param1.mProductId, param2.mProductId);
+  EXPECT_EQ(param1.mVersion, param2.mVersion);
+  EXPECT_EQ(param1.mCountryCode, param2.mCountryCode);
+  EXPECT_EQ(param1.mDescriptorLength, param2.mDescriptorLength);
+  for (uint16_t i = 0; i < param1.mDescriptorLength; ++i) {
+    EXPECT_EQ(param1.mDescriptorValue[i], param2.mDescriptorValue[i]);
+  }
+  EXPECT_EQ(mPDU->GetSize(), 0u);
+}
+
+TEST_F(BluetoothDaemonHelpers, BluetoothHidReport) {
+  BluetoothHidReport report1, report2;
+  // fill a nsTArray<uint8_t> with arbitrary length and values
+  for (int i = 0; i < 13; ++i) {
+    report1.mReportData.AppendElement(i);
+  }
+  EXPECT_EQ(PackPDU(report1, *mPDU), NS_OK);
+
+  EXPECT_EQ(UnpackPDU(*mPDU, report2), NS_OK);
+
+  EXPECT_EQ(report1.mReportData, report2.mReportData);
+  EXPECT_EQ(mPDU->GetSize(), 0u);
+}
+
+TEST_F(BluetoothDaemonHelpers, BluetoothHidProtocolMode) {
+  const BluetoothHidProtocolMode mode1 = HID_PROTOCOL_MODE_BOOT;
+  EXPECT_EQ(PackPDU(mode1, *mPDU), NS_OK);
+
+  BluetoothHidProtocolMode mode2 = HID_PROTOCOL_MODE_REPORT;
+  EXPECT_EQ(UnpackPDU(*mPDU, mode2), NS_OK);
+
+  EXPECT_EQ(mode1, mode2);
+  EXPECT_EQ(mPDU->GetSize(), 0u);
+}
+
+TEST_F(BluetoothDaemonHelpers, BluetoothHidReportType) {
+  const BluetoothHidReportType type1 = HID_REPORT_TYPE_OUTPUT;
+  EXPECT_EQ(PackPDU(type1, *mPDU), NS_OK);
+  uint8_t val1 = 0;
+  EXPECT_EQ(Convert(type1, val1), NS_OK);
+
+  uint8_t val2 = 0;
+  EXPECT_EQ(UnpackPDU(*mPDU, val2), NS_OK);
+
+  EXPECT_EQ(val1, val2);
   EXPECT_EQ(mPDU->GetSize(), 0u);
 }
 
