@@ -2,9 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "base/thread.h"
-#include "base/task.h"
-
 #include "Hal.h"
 #include "HalLog.h"
 
@@ -19,6 +16,10 @@ template<typename EnumType>
 constexpr typename std::underlying_type<EnumType>::type asBaseType(EnumType aValue) {
   return static_cast<typename std::underlying_type<EnumType>::type>(aValue);
 }
+
+enum EventQueueFlagBitsInternal : uint32_t {
+  INTERNAL_WAKE =  1 << 16,
+};
 
 SensorType getSensorType(V1_0::SensorType aHidlSensorType) {
   using V1_0::SensorType;
@@ -60,6 +61,13 @@ struct SensorsCallback : public ISensorsCallback {
     return Void();
   }
 };
+
+void
+SensorsHalDeathRecipient::serviceDied(uint64_t cookie, const android::wp<android::hidl::base::V1_0::IBase>& service) {
+  HAL_ERR("sensors hidl server died");
+
+  GonkSensorsHal::GetInstance()->PrepareForReconnect();
+}
 
 class GonkSensorsHal::SensorDataNotifier : public Runnable {
 public:
@@ -139,43 +147,49 @@ GonkSensorsHal::CreateSensorData(const Event aEvent) {
 
 void
 GonkSensorsHal::StartPollingThread() {
-  if (mPollingThread == nullptr) {
-    mPollingThread = new base::Thread("GonkSensors::Polling");
-    MOZ_ASSERT(mPollingThread);
-    mPollingThread->Start();
-    mPollingThread->message_loop()->PostTask(
-      NS_NewRunnableFunction("GonkSensors::PollEvents", [this]() {
-        do {
-          size_t eventsRead = 0;
-
-          // reading from fmq is preferred than polling hal as it is based on shared memory
-          if (mSensors->supportsMessageQueues()) {
-            eventsRead = PollFmq();
-          } else if (mSensors->supportsPolling()) {
-            eventsRead = PollHal();
-          } else {
-            // can't reach here, it must support polling or fmq
-            HAL_ERR("sensors hal must support polling or fmq");
-            break;
-          }
-
-          // create sensor data and dispatch to main thread
-          for (size_t i=0; i<eventsRead; i++) {
-            SensorData sensorData = CreateSensorData(mEventBuffer[i]);
-
-            if (sensorData.sensor() == SENSOR_UNKNOWN) {
-              continue;
-            }
-
-            // TODO: Bug 123480 to notify the count of wakeup events to wakelock queue
-
-            NS_DispatchToMainThread(
-              new SensorDataNotifier(sensorData, mSensorDataCallback));
-          }
-        } while (true);
-      })
-    );
+  if (mPollThread == nullptr) {
+    nsresult rv = NS_NewNamedThread("SensorsPoll", getter_AddRefs(mPollThread));
+    if (NS_FAILED(rv)) {
+      HAL_ERR("sensors poll thread created failed");
+      mPollThread = nullptr;
+      return;
+    }
   }
+
+  mPollThread->Dispatch(NS_NewRunnableFunction("Polling", [this]() {
+    do {
+      size_t eventsRead = 0;
+
+      // reading from fmq is preferred than polling hal as it is based on shared memory
+      if (mSensors->supportsMessageQueues()) {
+        eventsRead = PollFmq();
+      } else if (mSensors->supportsPolling()) {
+        eventsRead = PollHal();
+      } else {
+        // can't reach here, it must support polling or fmq
+        HAL_ERR("sensors hal must support polling or fmq");
+        break;
+      }
+
+      // create sensor data and dispatch to main thread
+      for (size_t i=0; i<eventsRead; i++) {
+        SensorData sensorData = CreateSensorData(mEventBuffer[i]);
+
+        if (sensorData.sensor() == SENSOR_UNKNOWN) {
+          continue;
+        }
+
+        // TODO: Bug 123480 to notify the count of wakeup events to wakelock queue
+
+        NS_DispatchToMainThread(new SensorDataNotifier(sensorData, mSensorDataCallback));
+      }
+      // stop polling sensors data if it is reconnecting
+    } while (!mToReconnect);
+
+    if (mToReconnect) {
+      Reconnect();
+    }
+  }), NS_DISPATCH_NORMAL);
 }
 
 size_t
@@ -211,8 +225,13 @@ GonkSensorsHal::PollFmq() {
   size_t availableEvents = mEventQueue->availableToRead();
   if (availableEvents == 0) {
     uint32_t eventFlagState = 0;
-    mEventQueueFlag->wait(asBaseType(EventQueueFlagBits::READ_AND_PROCESS), &eventFlagState);
+    mEventQueueFlag->wait(asBaseType(EventQueueFlagBits::READ_AND_PROCESS) | asBaseType(INTERNAL_WAKE), &eventFlagState);
     availableEvents = mEventQueue->availableToRead();
+
+    if ((eventFlagState & asBaseType(INTERNAL_WAKE)) && mToReconnect) {
+      HAL_LOG("sensors poll thread is awaken up by internal wake");
+      return 0;
+    }
   }
 
   size_t eventsToRead = std::min(availableEvents, mEventBuffer.size());
@@ -280,6 +299,8 @@ GonkSensorsHal::InitHidlServiceV1_0(android::sp<V1_0::ISensors> aServiceV1_0) {
     // itself if has lingering connection
     auto ret = mSensors->poll(0, [](auto, const auto &, const auto &) {});
     if (ret.isOk()) {
+      mSensorsHalDeathRecipient = new SensorsHalDeathRecipient();
+      aServiceV1_0->linkToDeath(mSensorsHalDeathRecipient, 0);
       return true;
     }
 
@@ -317,8 +338,8 @@ GonkSensorsHal::InitHidlServiceV2_0(android::sp<V2_0::ISensors> aServiceV2_0) {
     return false;
   }
 
-  // TODO: Bug 123482 to handle the death of hidl server
-
+  mSensorsHalDeathRecipient = new SensorsHalDeathRecipient();
+  aServiceV2_0->linkToDeath(mSensorsHalDeathRecipient, 0);
   return true;
 }
 
@@ -391,6 +412,8 @@ GonkSensorsHal::RegisterSensorDataCallback(const SensorDataCallback aCallback) {
 
 bool
 GonkSensorsHal::ActivateSensor(const SensorType aSensorType) {
+  MutexAutoLock lock(mLock);
+
   if (mSensors == nullptr) {
     return false;
   }
@@ -450,6 +473,8 @@ GonkSensorsHal::ActivateSensor(const SensorType aSensorType) {
 
 bool
 GonkSensorsHal::DeactivateSensor(const SensorType aSensorType) {
+  MutexAutoLock lock(mLock);
+
   if (mSensors == nullptr) {
     return false;
   }
@@ -470,6 +495,27 @@ GonkSensorsHal::DeactivateSensor(const SensorType aSensorType) {
   }
 
   return true;
+}
+
+void
+GonkSensorsHal::PrepareForReconnect() {
+  mToReconnect = true;
+  if (mSensors->supportsMessageQueues()) {
+    // wake up the poll thread from sleep state
+    mEventQueueFlag->wake(asBaseType(INTERNAL_WAKE));
+  }
+}
+
+void
+GonkSensorsHal::Reconnect() {
+  MutexAutoLock lock(mLock);
+
+  HAL_LOG("reconnect sensors hidl server");
+  Init();
+
+  // TODO: to recover sensors active/inactive state, tracked by Bug 124978
+
+  mToReconnect = false;
 }
 
 

@@ -5,7 +5,8 @@
 #ifndef HAL_GONK_GONKSENSORSHAL_H_
 #define HAL_GONK_GONKSENSORSHAL_H_
 
-#include "base/thread.h"
+#include "mozilla/Mutex.h"
+#include "nsThreadUtils.h"
 #include "HalSensor.h"
 
 #include "android/hardware/sensors/1.0/types.h"
@@ -42,6 +43,11 @@ namespace hal_impl {
 
 typedef void (* SensorDataCallback)(const SensorData& aSensorData);
 
+class SensorsHalDeathRecipient : public android::hardware::hidl_death_recipient {
+public:
+  virtual void serviceDied(uint64_t cookie, const android::wp<::android::hidl::base::V1_0::IBase>& service) override;
+};
+
 class GonkSensorsHal {
 public:
   static GonkSensorsHal* GetInstance() {
@@ -54,6 +60,8 @@ public:
   bool RegisterSensorDataCallback(const SensorDataCallback aCallback);
   bool ActivateSensor(const SensorType aSensorType);
   bool DeactivateSensor(const SensorType aSensorType);
+  void PrepareForReconnect();
+  void Reconnect();
 private:
   class SensorDataNotifier;
 
@@ -61,9 +69,11 @@ private:
 
   GonkSensorsHal()
     : mSensors(nullptr),
-      mPollingThread(nullptr),
+      mPollThread(nullptr),
+      mLock("Sensors"),
       mSensorDataCallback(nullptr),
-      mEventQueueFlag(nullptr) {
+      mEventQueueFlag(nullptr),
+      mToReconnect(false) {
         memset(mSensorInfoList, 0, sizeof(mSensorInfoList));
         Init();
   };
@@ -81,7 +91,8 @@ private:
 
   android::sp<ISensorsWrapper> mSensors;
   SensorInfo mSensorInfoList[NUM_SENSOR_TYPE];
-  base::Thread* mPollingThread;
+  nsCOMPtr<nsIThread> mPollThread;
+  Mutex mLock;
   SensorDataCallback mSensorDataCallback;
 
   std::array<Event, MAX_EVENT_BUFFER_SIZE> mEventBuffer;
@@ -90,6 +101,9 @@ private:
   typedef MessageQueue<uint32_t, kSynchronizedReadWrite> WakeLockQueue;
   std::unique_ptr<WakeLockQueue> mWakeLockQueue;
   EventFlag* mEventQueueFlag;
+
+  android::sp<SensorsHalDeathRecipient> mSensorsHalDeathRecipient;
+  std::atomic<bool> mToReconnect;
 
   const int64_t kDefaultSamplingPeriodNs = 200000000;
   const int64_t kPressureSamplingPeriodNs = 1000000000;
