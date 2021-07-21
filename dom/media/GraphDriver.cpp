@@ -505,7 +505,7 @@ AudioCallbackDriver::AudioCallbackDriver(
       mStarted(false),
       mInitShutdownThread(SharedThreadPool::Get("CubebOperation"_ns, 1)),
       mAudioChannel(aGraphInterface->AudioChannel()),
-      mAudioThreadId(0),
+      mAudioThreadId(ProfilerThreadId{}),
       mAudioThreadIdInCb(std::thread::id()),
       mAudioStreamState(AudioStreamState::None),
       mFallback("AudioCallbackDriver::mFallback"),
@@ -867,7 +867,7 @@ AudioCallbackDriver::AutoInCallback::~AutoInCallback() {
 }
 
 bool AudioCallbackDriver::CheckThreadIdChanged() {
-  auto id = profiler_current_thread_id();
+  ProfilerThreadId id = profiler_current_thread_id();
   if (id != mAudioThreadId) {
     mAudioThreadId = id;
     return true;

@@ -14,6 +14,7 @@
 #  include "mozilla/Atomics.h"
 #  include "mozilla/Monitor.h"
 #  include "mozilla/MozPromise.h"
+#  include "mozilla/ProfilerUtils.h"
 #  include "mozilla/RefPtr.h"
 #  include "mozilla/Result.h"
 #  include "mozilla/TimeStamp.h"
@@ -332,8 +333,8 @@ class AudioStream final {
   // the default device is used. It is set
   // during the Init() in decoder thread.
   RefPtr<AudioDeviceInfo> mSinkInfo;
-  /* Contains the id of the audio thread, from profiler_get_thread_id. */
-  std::atomic<int> mAudioThreadId;
+  // Contains the id of the audio thread, from profiler_get_thread_id.
+  std::atomic<ProfilerThreadId> mAudioThreadId;
   const bool mSandboxed = false;
 
   MozPromiseHolder<MediaSink::EndedPromise> mEndedPromise;

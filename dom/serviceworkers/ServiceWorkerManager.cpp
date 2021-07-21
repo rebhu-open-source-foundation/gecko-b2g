@@ -724,6 +724,7 @@ ServiceWorkerManager::RegisterForTest(nsIPrincipal* aPrincipal,
     outer->MaybeRejectWithAbortError(
         "registerForTest only allowed when dom.serviceWorkers.testing.enabled "
         "is true");
+    outer.forget(aPromise);
     return NS_OK;
   }
 
@@ -779,16 +780,19 @@ nsresult ServiceWorkerManager::RegisterInternal(
 
   if (aPrincipal == nullptr) {
     outer->MaybeRejectWithAbortError("Missing principal");
+    outer.forget(aPromise);
     return NS_OK;
   }
 
   if (aScriptURL.IsEmpty()) {
     outer->MaybeRejectWithAbortError("Missing script url");
+    outer.forget(aPromise);
     return NS_OK;
   }
 
   if (aScopeURL.IsEmpty()) {
     outer->MaybeRejectWithAbortError("Missing scope url");
+    outer.forget(aPromise);
     return NS_OK;
   }
 
@@ -799,6 +803,7 @@ nsresult ServiceWorkerManager::RegisterInternal(
 
   if (!clientInfo.isSome()) {
     outer->MaybeRejectWithUnknownError("Error creating clientInfo");
+    outer.forget(aPromise);
     return NS_OK;
   }
 
@@ -2670,6 +2675,7 @@ ServiceWorkerManager::RegisterForAddonPrincipal(nsIPrincipal* aPrincipal,
   if (!enabled) {
     outer->MaybeRejectWithNotAllowedError(
         "Disabled. extensions.backgroundServiceWorker.enabled is false");
+    outer.forget(aPromise);
     return NS_OK;
   }
 
@@ -2677,6 +2683,7 @@ ServiceWorkerManager::RegisterForAddonPrincipal(nsIPrincipal* aPrincipal,
   auto* addonPolicy = BasePrincipal::Cast(aPrincipal)->AddonPolicy();
   if (!addonPolicy) {
     outer->MaybeRejectWithNotAllowedError("Not an extension principal");
+    outer.forget(aPromise);
     return NS_OK;
   }
 
@@ -2686,6 +2693,7 @@ ServiceWorkerManager::RegisterForAddonPrincipal(nsIPrincipal* aPrincipal,
     scope.Assign(NS_ConvertUTF16toUTF8(result.unwrap()));
   } else {
     outer->MaybeRejectWithUnknownError("Unable to resolve addon scope URL");
+    outer.forget(aPromise);
     return NS_OK;
   }
 
@@ -2694,6 +2702,7 @@ ServiceWorkerManager::RegisterForAddonPrincipal(nsIPrincipal* aPrincipal,
 
   if (scriptURL.IsEmpty()) {
     outer->MaybeRejectWithNotFoundError("Missing background worker script url");
+    outer.forget(aPromise);
     return NS_OK;
   }
 
@@ -2702,6 +2711,7 @@ ServiceWorkerManager::RegisterForAddonPrincipal(nsIPrincipal* aPrincipal,
 
   if (!clientInfo.isSome()) {
     outer->MaybeRejectWithUnknownError("Error creating clientInfo");
+    outer.forget(aPromise);
     return NS_OK;
   }
 
