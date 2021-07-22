@@ -19,7 +19,7 @@ class B2GHistory final : public mozilla::BaseHistory {
   NS_IMETHOD SetURITitle(nsIURI*, const nsAString&) final;
 
   // BaseHistory
-  void StartPendingVisitedQueries(const PendingVisitedQueries&) final;
+  void StartPendingVisitedQueries(PendingVisitedQueries&&) final;
 
   static already_AddRefed<B2GHistory> GetSingleton();
 

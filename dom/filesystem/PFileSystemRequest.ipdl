@@ -72,7 +72,7 @@ union FileSystemResponseValue
   FileSystemErrorResponse;
 };
 
-refcounted protocol PFileSystemRequest
+[RefCounted] protocol PFileSystemRequest
 {
   manager PBackground;
 

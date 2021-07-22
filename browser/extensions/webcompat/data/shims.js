@@ -98,6 +98,22 @@ const AVAILABLE_SHIMS = [
     ],
   },
   {
+    id: "AdNexus",
+    platform: "all",
+    name: "AdNexus",
+    bug: "1713696",
+    file: "empty-script.js",
+    matches: [
+      "*://acdn.adnxs.com/ast/ast.js",
+      {
+        patterns: ["*://*.adnxs.com/*/pb.js", "*://*.adnxs.com/*/prebid"],
+        target: "adnexus-prebid.js",
+        types: ["script"],
+      },
+    ],
+    onlyIfBlockedByETP: true,
+  },
+  {
     id: "AdSafeProtectedGoogleIMAAdapter",
     platform: "all",
     branches: ["nightly:android"],
@@ -327,6 +343,15 @@ const AVAILABLE_SHIMS = [
       "*://*.moatads.com/*/moatheader.js*",
       "*://*.moatads.com/*/yi.js*",
     ],
+    onlyIfBlockedByETP: true,
+  },
+  {
+    id: "Optimizely",
+    platform: "all",
+    name: "Optimizely",
+    bug: "1714431",
+    file: "optimizely.js",
+    matches: ["*://cdn.optimizely.com/js/*.js"],
     onlyIfBlockedByETP: true,
   },
   {

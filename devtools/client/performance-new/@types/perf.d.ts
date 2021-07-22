@@ -16,7 +16,6 @@ export interface PanelWindow {
   gStore?: Store;
   gInit(perfFront: PerfFront, pageContext: PageContext): void;
   gDestroy(): void;
-  gReportReady?(): void;
   gIsPanelDestroyed?: boolean;
 }
 
@@ -240,7 +239,7 @@ export interface InitializedValues {
   presets: Presets;
   // Determine the current page context.
   pageContext: PageContext;
-  // The popup and devtools panel use different codepaths for getting symbol tables.
+  // Only used by the devtools panel (both local and remote), not by about:profiling.
   getSymbolTableGetter: (
     profile: MinimallyTypedGeckoProfile
   ) => GetSymbolTableCallback;
@@ -329,17 +328,6 @@ export interface InitializeStoreValues {
 
 export type PopupBackgroundFeatures = { [feature: string]: boolean };
 
-/**
- * The state of the profiler popup.
- */
-export interface PopupBackgroundState {
-  features: PopupBackgroundFeatures;
-  buffersize: number;
-  windowLength: number;
-  interval: number;
-  threads: string;
-}
-
 // TS-TODO - Stub
 export interface ContentFrameMessageManager {
   addMessageListener: (event: string, listener: (event: any) => void) => void;
@@ -410,15 +398,6 @@ export interface PerformancePref {
    * button in the customization palette.
    */
   PopupFeatureFlag: "devtools.performance.popup.feature-flag";
-}
-
-/**
- * This interface represents the global values that are potentially on the window
- * object in the popup. Coerce the "window" object into this interface.
- */
-export interface PopupWindow extends Window {
-  gResizePopup?: (height: number) => void;
-  gIsDarkMode?: boolean;
 }
 
 /**

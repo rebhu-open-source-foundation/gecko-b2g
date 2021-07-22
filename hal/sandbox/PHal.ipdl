@@ -107,7 +107,7 @@ struct FMRadioSettings {
 
 namespace hal_sandbox {
 
-nested(upto inside_cpow) sync protocol PHal {
+[NestedUpTo=inside_cpow] sync protocol PHal {
     manager PContent;
 
 child:

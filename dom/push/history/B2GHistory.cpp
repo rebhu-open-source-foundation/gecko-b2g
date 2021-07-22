@@ -29,8 +29,7 @@ already_AddRefed<B2GHistory> B2GHistory::GetSingleton() {
   return history.forget();
 }
 
-void B2GHistory::StartPendingVisitedQueries(
-    const PendingVisitedQueries& aQueries) {
+void B2GHistory::StartPendingVisitedQueries(PendingVisitedQueries&& aQueries) {
   return;
 }
 

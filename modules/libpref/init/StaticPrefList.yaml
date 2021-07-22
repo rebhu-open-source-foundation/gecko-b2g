@@ -7058,13 +7058,6 @@
   value: true
   mirror: always
 
-# Is path() supported in clip-path?
-- name: layout.css.clip-path-path.enabled
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-  rust: true
-
 # Is the image-set() function enabled?
 - name: layout.css.image-set.enabled
   type: RelaxedAtomicBool
@@ -10746,6 +10739,12 @@
 - name: privacy.partition.network_state.connection_with_proxy
   type: bool
   value: false
+  mirror: always
+
+#  Partition the websocket pending connection queue by OriginAttributes.
+- name: privacy.partition.network_state.ws_connection_queue
+  type: RelaxedAtomicBool
+  value: true
   mirror: always
 
 # The global switch to control the URL query sting stripping which strips query
