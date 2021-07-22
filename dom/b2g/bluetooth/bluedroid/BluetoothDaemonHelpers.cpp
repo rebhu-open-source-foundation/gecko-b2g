@@ -1906,7 +1906,21 @@ nsresult UnpackPDU(DaemonSocketPDU& aPDU, BluetoothHidInfoParam& aOut) {
 }
 
 nsresult UnpackPDU(DaemonSocketPDU& aPDU, BluetoothHidReport& aOut) {
-  return UnpackPDU(aPDU, aOut.mReportData);
+  /* unpack data length of report */
+  uint16_t dataLength = 0;
+  nsresult rv = UnpackPDU(aPDU, dataLength);
+  if (NS_FAILED(rv)) {
+    return rv;
+  }
+
+  /* unpack report data */
+  uint8_t data[dataLength];
+  rv = UnpackPDU(aPDU, UnpackArray<uint8_t>(data, dataLength));
+  if (NS_FAILED(rv)) {
+    return rv;
+  }
+  aOut.mReportData.AppendElements(data, dataLength);
+  return NS_OK;
 }
 
 nsresult UnpackPDU(DaemonSocketPDU& aPDU, BluetoothHidProtocolMode& aOut) {
