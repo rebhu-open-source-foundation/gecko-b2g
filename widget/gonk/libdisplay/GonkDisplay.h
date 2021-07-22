@@ -48,12 +48,14 @@ class MOZ_EXPORT GonkDisplay {
   struct DisplayNativeData {
     DisplayNativeData()
         : mXdpi(0)
-         ,mSurfaceformat(0)
-         ,mWidth(0)
+         , mVsyncPeriod(0)
+         , mSurfaceformat(0)
+         , mWidth(0)
          , mHeight(0)
      {};
 
     float mXdpi;
+    nsecs_t mVsyncPeriod;
     int32_t mSurfaceformat;
     uint32_t mWidth;
     uint32_t mHeight;

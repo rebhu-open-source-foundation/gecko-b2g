@@ -172,8 +172,8 @@ GonkDisplayP::GonkDisplayP()
 
   mEnableHWCPower = property_get_bool("persist.hwc.powermode", false);
 
-  ALOGI("width: %i, height: %i, dpi: %f, lcd: %d\n", config->getWidth(),
-        config->getHeight(), config->getDpiX(), lcd_dnsity);
+  ALOGI("width: %i, height: %i, dpi: %f, lcd: %d, vsync: %llu\n", config->getWidth(),
+        config->getHeight(), config->getDpiX(), lcd_dnsity, config->getVsyncPeriod());
 
   DisplayNativeData& dispData =
       mDispNativeData[(uint32_t)DisplayType::DISPLAY_PRIMARY];
@@ -181,6 +181,7 @@ GonkDisplayP::GonkDisplayP()
     dispData.mWidth = config->getWidth();
     dispData.mHeight = config->getHeight();
     dispData.mXdpi = (lcd_dnsity > 0) ? lcd_dnsity : config->getDpiX();
+    dispData.mVsyncPeriod = config->getVsyncPeriod();
     /* The emulator actually reports RGBA_8888, but EGL doesn't return
      * any matching configuration. We force RGBX here to fix it. */
     /*TODO: need to discuss with vendor to check this format issue.*/
