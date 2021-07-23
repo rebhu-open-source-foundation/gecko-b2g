@@ -17,12 +17,14 @@ class BluetoothDaemonHelpers : public testing::Test {
   void SetUp() override {
     mPDU = MakeUnique<DaemonSocketPDU>(DaemonSocketPDU::PDU_MAX_PAYLOAD_LENGTH);
     mAddr = BluetoothAddress(11, 22, 33, 44, 55, 66);
+    mAttributeHandle.mHandle = mArbitraryUint16;
   }
 
   void TearDown() override { mPDU = nullptr; }
 
   UniquePtr<DaemonSocketPDU> mPDU;
   BluetoothAddress mAddr;
+  BluetoothAttributeHandle mAttributeHandle;
   const uint16_t mBatteryService = 0x180F;
   const uint8_t mArbitraryUint8 = 12;
   const uint16_t mArbitraryUint16 = 1234;
@@ -43,13 +45,12 @@ TEST_F(BluetoothDaemonHelpers, BluetoothAddress) {
 }
 
 TEST_F(BluetoothDaemonHelpers, BluetoothAttributeHandle) {
-  BluetoothAttributeHandle handle1, handle2;
-  handle1.mHandle = 0x0123;
-  EXPECT_EQ(PackPDU(handle1, *mPDU), NS_OK);
+  EXPECT_EQ(PackPDU(mAttributeHandle, *mPDU), NS_OK);
 
-  EXPECT_EQ(UnpackPDU(*mPDU, handle2), NS_OK);
+  BluetoothAttributeHandle handle;
+  EXPECT_EQ(UnpackPDU(*mPDU, handle), NS_OK);
 
-  EXPECT_EQ(handle1, handle2);
+  EXPECT_EQ(mAttributeHandle, handle);
   EXPECT_EQ(mPDU->GetSize(), 0u);
 }
 
@@ -226,12 +227,10 @@ TEST_F(BluetoothDaemonHelpers, BluetoothGattId) {
 TEST_F(BluetoothDaemonHelpers, BluetoothGattDbElement) {
   nsTArray<BluetoothGattDbElement> db1, db2;
   BluetoothGattDbElement element;
-  BluetoothAttributeHandle handle;
-  handle.mHandle = 11;
   element.mId = 7;
   element.mUuid = BluetoothUuid(mBatteryService);
   element.mType = GATT_DB_TYPE_SECONDARY_SERVICE;
-  element.mHandle = handle;
+  element.mHandle = mAttributeHandle;
   element.mStartHandle = 5;
   element.mEndHandle = 9;
   element.mProperties = GATT_CHAR_PROP_BIT_READ | GATT_CHAR_PROP_BIT_NOTIFY;
@@ -308,6 +307,185 @@ TEST_F(BluetoothDaemonHelpers, BluetoothSdpRecord) {
     EXPECT_EQ(r1.mSupportedFeatures, r2.mSupportedFeatures);
     EXPECT_EQ(r1.mSupportedContentTypes, r2.mSupportedContentTypes);
     EXPECT_EQ(r1.mInstanceId, r2.mInstanceId);
+  }
+  EXPECT_EQ(mPDU->GetSize(), 0u);
+}
+
+TEST_F(BluetoothDaemonHelpers, BluetoothAclState) {
+  const uint8_t val = static_cast<uint8_t>(ACL_STATE_DISCONNECTED);
+  EXPECT_EQ(PackPDU(val, *mPDU), NS_OK);
+
+  BluetoothAclState state1;
+  EXPECT_EQ(UnpackPDU(*mPDU, state1), NS_OK);
+
+  BluetoothAclState state2;
+  EXPECT_EQ(Convert(val, state2), NS_OK);
+  EXPECT_EQ(state1, state2);
+  EXPECT_EQ(mPDU->GetSize(), 0u);
+}
+
+TEST_F(BluetoothDaemonHelpers, BluetoothBondState) {
+  const uint8_t val = static_cast<uint8_t>(BOND_STATE_BONDING);
+  EXPECT_EQ(PackPDU(val, *mPDU), NS_OK);
+
+  BluetoothBondState state1;
+  EXPECT_EQ(UnpackPDU(*mPDU, state1), NS_OK);
+
+  BluetoothBondState state2;
+  EXPECT_EQ(Convert(val, state2), NS_OK);
+  EXPECT_EQ(state1, state2);
+  EXPECT_EQ(mPDU->GetSize(), 0u);
+}
+
+TEST_F(BluetoothDaemonHelpers, BluetoothTypeOfDevice) {
+  const int32_t val = static_cast<int32_t>(TYPE_OF_DEVICE_BLE);
+  EXPECT_EQ(PackPDU(val, *mPDU), NS_OK);
+
+  BluetoothTypeOfDevice type1;
+  EXPECT_EQ(UnpackPDU(*mPDU, type1), NS_OK);
+
+  BluetoothTypeOfDevice type2;
+  EXPECT_EQ(Convert(val, type2), NS_OK);
+  EXPECT_EQ(type1, type2);
+  EXPECT_EQ(mPDU->GetSize(), 0u);
+}
+
+TEST_F(BluetoothDaemonHelpers, BluetoothRemoteInfo) {
+  const uint32_t verMajor = 3;
+  const uint32_t verMinor = 7;
+  const uint32_t manufacturer = 0x000000b9;
+  EXPECT_EQ(PackPDU(verMajor, *mPDU), NS_OK);
+  EXPECT_EQ(PackPDU(verMinor, *mPDU), NS_OK);
+  EXPECT_EQ(PackPDU(manufacturer, *mPDU), NS_OK);
+
+  BluetoothRemoteInfo info;
+  EXPECT_EQ(UnpackPDU(*mPDU, info), NS_OK);
+
+  EXPECT_EQ(static_cast<int>(verMajor), info.mVerMajor);
+  EXPECT_EQ(static_cast<int>(verMinor), info.mVerMinor);
+  EXPECT_EQ(static_cast<int>(manufacturer), info.mManufacturer);
+  EXPECT_EQ(mPDU->GetSize(), 0u);
+}
+
+TEST_F(BluetoothDaemonHelpers, BluetoothRemoteName) {
+  BluetoothRemoteName bdName;
+  const int bufferSize = sizeof(bdName.mName) + 1;
+  const uint8_t name[bufferSize] = {'b', '2', 'g'};
+  const uint8_t length = 3;
+  EXPECT_EQ(PackPDU(PackArray<uint8_t>(name, sizeof(name)), *mPDU), NS_OK);
+
+  EXPECT_EQ(UnpackPDU(*mPDU, bdName), NS_OK);
+
+  EXPECT_EQ(length, bdName.mLength);
+  for (uint8_t i = 0; i < bdName.mLength; ++i) {
+    EXPECT_EQ(name[i], bdName.mName[i]);
+  }
+  EXPECT_EQ(mPDU->GetSize(), 0u);
+}
+
+// TODO: Revise UnpackPDU(DaemonSocketPDU& aPDU, BluetoothServiceRecord& aOut)
+// by deducing buffer size of aPDU.Read(aOut.mName, sizeof(aOut.mName));
+TEST_F(BluetoothDaemonHelpers, BluetoothServiceRecord) {
+  const BluetoothUuid uuid(AVRCP_TARGET);
+  const uint16_t channel = DEFAULT_RFCOMM_CHANNEL_MAS;
+  const char name[256] = {"SMS Message Access"};
+  EXPECT_EQ(PackPDU(uuid, *mPDU), NS_OK);
+  EXPECT_EQ(PackPDU(channel, *mPDU), NS_OK);
+  EXPECT_EQ(PackPDU(PackArray<char>(name, sizeof(name)), *mPDU), NS_OK);
+
+  BluetoothServiceRecord record;
+  EXPECT_EQ(UnpackPDU(*mPDU, record), NS_OK);
+
+  EXPECT_EQ(uuid, record.mUuid);
+  EXPECT_EQ(channel, record.mChannel);
+  for (unsigned int i = 0; i < sizeof(record.mName); ++i) {
+    EXPECT_EQ(name[i], record.mName[i]);
+  }
+  EXPECT_EQ(mPDU->GetSize(), 0u);
+}
+
+TEST_F(BluetoothDaemonHelpers, BluetoothStatus) {
+  const uint8_t val = static_cast<uint8_t>(STATUS_FAIL);
+  EXPECT_EQ(PackPDU(val, *mPDU), NS_OK);
+
+  BluetoothStatus status1;
+  EXPECT_EQ(UnpackPDU(*mPDU, status1), NS_OK);
+
+  BluetoothStatus status2;
+  EXPECT_EQ(Convert(val, status2), NS_OK);
+  EXPECT_EQ(status1, status2);
+  EXPECT_EQ(mPDU->GetSize(), 0u);
+}
+
+TEST_F(BluetoothDaemonHelpers, BluetoothGattStatus) {
+  const int32_t val = static_cast<int32_t>(GATT_STATUS_INVALID_HANDLE);
+  EXPECT_EQ(PackPDU(val, *mPDU), NS_OK);
+
+  BluetoothGattStatus status1;
+  EXPECT_EQ(UnpackPDU(*mPDU, status1), NS_OK);
+
+  BluetoothGattStatus status2;
+  EXPECT_EQ(Convert(val, status2), NS_OK);
+  EXPECT_EQ(status1, status2);
+  EXPECT_EQ(mPDU->GetSize(), 0u);
+}
+
+TEST_F(BluetoothDaemonHelpers, BluetoothGattDbType) {
+  const int32_t val = static_cast<int32_t>(GATT_STATUS_INVALID_HANDLE);
+  EXPECT_EQ(PackPDU(val, *mPDU), NS_OK);
+
+  BluetoothGattDbType type1;
+  EXPECT_EQ(UnpackPDU(*mPDU, type1), NS_OK);
+
+  BluetoothGattDbType type2;
+  EXPECT_EQ(Convert(val, type2), NS_OK);
+  EXPECT_EQ(type1, type2);
+  EXPECT_EQ(mPDU->GetSize(), 0u);
+}
+
+TEST_F(BluetoothDaemonHelpers, BluetoothGattReadParam) {
+  const uint8_t status = mArbitraryUint8;
+  const uint16_t valueType = mArbitraryUint16;
+  const uint8_t value[] = {1, 2, 3};
+  const uint16_t valueLength = sizeof(value);
+  EXPECT_EQ(PackPDU(mAttributeHandle, *mPDU), NS_OK);
+  EXPECT_EQ(PackPDU(status, *mPDU), NS_OK);
+  EXPECT_EQ(PackPDU(valueType, *mPDU), NS_OK);
+  EXPECT_EQ(PackPDU(valueLength, *mPDU), NS_OK);
+  EXPECT_EQ(PackPDU(PackArray<uint8_t>(value, valueLength), *mPDU), NS_OK);
+
+  BluetoothGattReadParam param;
+  EXPECT_EQ(UnpackPDU(*mPDU, param), NS_OK);
+
+  EXPECT_EQ(mAttributeHandle, param.mHandle);
+  EXPECT_EQ(status, param.mStatus);
+  EXPECT_EQ(valueType, param.mValueType);
+  EXPECT_EQ(valueLength, param.mValueLength);
+  for (uint16_t i = 0; i < param.mValueLength; ++i) {
+    EXPECT_EQ(value[i], param.mValue[i]);
+  }
+  EXPECT_EQ(mPDU->GetSize(), 0u);
+}
+
+TEST_F(BluetoothDaemonHelpers, BluetoothGattNotifyParam) {
+  const bool isNotify = true;
+  const uint8_t value[] = {1, 2, 3};
+  const uint16_t length = sizeof(value);
+  EXPECT_EQ(PackPDU(mAddr, *mPDU), NS_OK);
+  EXPECT_EQ(PackPDU(mAttributeHandle, *mPDU), NS_OK);
+  EXPECT_EQ(PackPDU(isNotify, *mPDU), NS_OK);
+  EXPECT_EQ(PackPDU(length, *mPDU), NS_OK);
+  EXPECT_EQ(PackPDU(PackArray<uint8_t>(value, length), *mPDU), NS_OK);
+
+  BluetoothGattNotifyParam param;
+  EXPECT_EQ(UnpackPDU(*mPDU, param), NS_OK);
+
+  EXPECT_EQ(mAddr, param.mBdAddr);
+  EXPECT_EQ(mAttributeHandle, param.mHandle);
+  EXPECT_EQ(isNotify, param.mIsNotify);
+  EXPECT_EQ(length, param.mLength);
+  for (uint16_t i = 0; i < param.mLength; ++i) {
+    EXPECT_EQ(value[i], param.mValue[i]);
   }
   EXPECT_EQ(mPDU->GetSize(), 0u);
 }
@@ -652,6 +830,184 @@ TEST_F(BluetoothDaemonHelpers, BluetoothHidReportType) {
   EXPECT_EQ(UnpackPDU(*mPDU, val2), NS_OK);
 
   EXPECT_EQ(val1, val2);
+  EXPECT_EQ(mPDU->GetSize(), 0u);
+}
+
+TEST_F(BluetoothDaemonHelpers, BluetoothA2dpAudioState) {
+  const uint8_t val = static_cast<uint8_t>(A2DP_AUDIO_STATE_STOPPED);
+  EXPECT_EQ(PackPDU(val, *mPDU), NS_OK);
+
+  BluetoothA2dpAudioState state1;
+  EXPECT_EQ(UnpackPDU(*mPDU, state1), NS_OK);
+
+  BluetoothA2dpAudioState state2;
+  EXPECT_EQ(Convert(val, state2), NS_OK);
+  EXPECT_EQ(state1, state2);
+  EXPECT_EQ(mPDU->GetSize(), 0u);
+}
+
+TEST_F(BluetoothDaemonHelpers, BluetoothA2dpConnectionState) {
+  const uint8_t val = static_cast<uint8_t>(A2DP_CONNECTION_STATE_CONNECTING);
+  EXPECT_EQ(PackPDU(val, *mPDU), NS_OK);
+
+  BluetoothA2dpConnectionState state1;
+  EXPECT_EQ(UnpackPDU(*mPDU, state1), NS_OK);
+
+  BluetoothA2dpConnectionState state2;
+  EXPECT_EQ(Convert(val, state2), NS_OK);
+  EXPECT_EQ(state1, state2);
+  EXPECT_EQ(mPDU->GetSize(), 0u);
+}
+
+TEST_F(BluetoothDaemonHelpers, BluetoothAvrcpMediaAttribute) {
+  const uint8_t val = static_cast<uint8_t>(AVRCP_MEDIA_ATTRIBUTE_ARTIST);
+  EXPECT_EQ(PackPDU(val, *mPDU), NS_OK);
+
+  BluetoothAvrcpMediaAttribute att1;
+  EXPECT_EQ(UnpackPDU(*mPDU, att1), NS_OK);
+
+  BluetoothAvrcpMediaAttribute att2;
+  EXPECT_EQ(Convert(val, att2), NS_OK);
+  EXPECT_EQ(att1, att2);
+  EXPECT_EQ(mPDU->GetSize(), 0u);
+}
+
+TEST_F(BluetoothDaemonHelpers, BluetoothAvrcpPlayerSettings) {
+  const uint8_t numAttr = 4;
+  const uint8_t ids[256] = {1, 2, 3, 4};
+  const uint8_t values[256] = {1, 2, 3, 4};
+  EXPECT_EQ(PackPDU(numAttr, *mPDU), NS_OK);
+  for (uint8_t i = 0; i < numAttr; ++i) {
+    EXPECT_EQ(PackPDU(ids[i], *mPDU), NS_OK);
+    EXPECT_EQ(PackPDU(values[i], *mPDU), NS_OK);
+  }
+
+  BluetoothAvrcpPlayerSettings setting;
+  EXPECT_EQ(UnpackPDU(*mPDU, setting), NS_OK);
+
+  EXPECT_EQ(numAttr, setting.mNumAttr);
+  for (uint8_t i = 0; i < setting.mNumAttr; ++i) {
+    EXPECT_EQ(ids[i], setting.mIds[i]);
+    EXPECT_EQ(values[i], setting.mValues[i]);
+  }
+  EXPECT_EQ(mPDU->GetSize(), 0u);
+}
+
+TEST_F(BluetoothDaemonHelpers, BluetoothAvrcpRemoteFeatureBits) {
+  const uint8_t val = static_cast<uint8_t>(AVRCP_REMOTE_FEATURE_METADATA);
+  EXPECT_EQ(PackPDU(val, *mPDU), NS_OK);
+
+  BluetoothAvrcpRemoteFeatureBits bits1;
+  EXPECT_EQ(UnpackPDU(*mPDU, bits1), NS_OK);
+
+  BluetoothAvrcpRemoteFeatureBits bits2;
+  EXPECT_EQ(Convert(val, bits2), NS_OK);
+  EXPECT_EQ(bits1, bits2);
+  EXPECT_EQ(mPDU->GetSize(), 0u);
+}
+
+TEST_F(BluetoothDaemonHelpers, BluetoothHandsfreeAudioState) {
+  const uint8_t val = static_cast<uint8_t>(HFP_AUDIO_STATE_CONNECTING);
+  EXPECT_EQ(PackPDU(val, *mPDU), NS_OK);
+
+  BluetoothHandsfreeAudioState state1;
+  EXPECT_EQ(UnpackPDU(*mPDU, state1), NS_OK);
+
+  BluetoothHandsfreeAudioState state2;
+  EXPECT_EQ(Convert(val, state2), NS_OK);
+  EXPECT_EQ(state1, state2);
+  EXPECT_EQ(mPDU->GetSize(), 0u);
+}
+
+TEST_F(BluetoothDaemonHelpers, BluetoothHandsfreeCallHoldType) {
+  const uint8_t val = static_cast<uint8_t>(HFP_AUDIO_STATE_CONNECTING);
+  EXPECT_EQ(PackPDU(val, *mPDU), NS_OK);
+
+  BluetoothHandsfreeCallHoldType type1;
+  EXPECT_EQ(UnpackPDU(*mPDU, type1), NS_OK);
+
+  BluetoothHandsfreeCallHoldType type2;
+  EXPECT_EQ(Convert(val, type2), NS_OK);
+  EXPECT_EQ(type1, type2);
+  EXPECT_EQ(mPDU->GetSize(), 0u);
+}
+
+TEST_F(BluetoothDaemonHelpers, BluetoothHandsfreeConnectionState) {
+  const uint8_t val = static_cast<uint8_t>(HFP_AUDIO_STATE_CONNECTING);
+  EXPECT_EQ(PackPDU(val, *mPDU), NS_OK);
+
+  BluetoothHandsfreeConnectionState state1;
+  EXPECT_EQ(UnpackPDU(*mPDU, state1), NS_OK);
+
+  BluetoothHandsfreeConnectionState state2;
+  EXPECT_EQ(Convert(val, state2), NS_OK);
+  EXPECT_EQ(state1, state2);
+  EXPECT_EQ(mPDU->GetSize(), 0u);
+}
+
+TEST_F(BluetoothDaemonHelpers, BluetoothHandsfreeNRECState) {
+  const uint8_t val = static_cast<uint8_t>(HFP_NREC_STARTED);
+  EXPECT_EQ(PackPDU(val, *mPDU), NS_OK);
+
+  BluetoothHandsfreeNRECState state1;
+  EXPECT_EQ(UnpackPDU(*mPDU, state1), NS_OK);
+
+  BluetoothHandsfreeNRECState state2;
+  EXPECT_EQ(Convert(val, state2), NS_OK);
+  EXPECT_EQ(state1, state2);
+  EXPECT_EQ(mPDU->GetSize(), 0u);
+}
+
+TEST_F(BluetoothDaemonHelpers, BluetoothHandsfreeHfIndType) {
+  const uint8_t val = static_cast<uint8_t>(HFP_HF_IND_ENHANCED_DRIVER_SAFETY);
+  EXPECT_EQ(PackPDU(val, *mPDU), NS_OK);
+
+  BluetoothHandsfreeHfIndType type1;
+  EXPECT_EQ(UnpackPDU(*mPDU, type1), NS_OK);
+
+  BluetoothHandsfreeHfIndType type2;
+  EXPECT_EQ(Convert(val, type2), NS_OK);
+  EXPECT_EQ(type1, type2);
+  EXPECT_EQ(mPDU->GetSize(), 0u);
+}
+
+TEST_F(BluetoothDaemonHelpers, BluetoothHandsfreeVoiceRecognitionState) {
+  const uint8_t val = static_cast<uint8_t>(HFP_VOICE_RECOGNITION_STARTED);
+  EXPECT_EQ(PackPDU(val, *mPDU), NS_OK);
+
+  BluetoothHandsfreeVoiceRecognitionState state1;
+  EXPECT_EQ(UnpackPDU(*mPDU, state1), NS_OK);
+
+  BluetoothHandsfreeVoiceRecognitionState state2;
+  EXPECT_EQ(Convert(val, state2), NS_OK);
+  EXPECT_EQ(state1, state2);
+  EXPECT_EQ(mPDU->GetSize(), 0u);
+}
+
+TEST_F(BluetoothDaemonHelpers, BluetoothHidConnectionState) {
+  const uint8_t val = static_cast<uint8_t>(HID_CONNECTION_STATE_CONNECTING);
+  EXPECT_EQ(PackPDU(val, *mPDU), NS_OK);
+
+  BluetoothHidConnectionState state1;
+  EXPECT_EQ(UnpackPDU(*mPDU, state1), NS_OK);
+
+  BluetoothHidConnectionState state2;
+  EXPECT_EQ(Convert(val, state2), NS_OK);
+  EXPECT_EQ(state1, state2);
+  EXPECT_EQ(mPDU->GetSize(), 0u);
+}
+
+TEST_F(BluetoothDaemonHelpers, BluetoothHidStatus) {
+  const uint8_t val =
+      static_cast<uint8_t>(HID_STATUS_HANDSHAKE_DEVICE_NOT_READY);
+  EXPECT_EQ(PackPDU(val, *mPDU), NS_OK);
+
+  BluetoothHidStatus status1;
+  EXPECT_EQ(UnpackPDU(*mPDU, status1), NS_OK);
+
+  BluetoothHidStatus status2;
+  EXPECT_EQ(Convert(val, status2), NS_OK);
+  EXPECT_EQ(status1, status2);
   EXPECT_EQ(mPDU->GetSize(), 0u);
 }
 
