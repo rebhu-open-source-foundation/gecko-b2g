@@ -146,7 +146,7 @@ void nsWindow::DoDraw(void) {
     listener = targetWindow->GetWidgetListener();
     if (listener) {
       mozilla::layers::LayersBackend backendType =
-          targetWindow->GetLayerManager()->GetBackendType();
+          targetWindow->GetWindowRenderer()->GetBackendType();
       if (mozilla::layers::LayersBackend::LAYERS_CLIENT == backendType ||
           mozilla::layers::LayersBackend::LAYERS_WR == backendType) {
         // No need to do anything, the compositor will handle drawing
@@ -734,9 +734,7 @@ double nsWindow::GetDefaultScaleInternal() {
   return floor(dpi / 150.0 + 0.5);
 }
 
-LayerManager* nsWindow::GetLayerManager(PLayerTransactionChild* aShadowManager,
-                                        LayersBackend aBackendHint,
-                                        LayerManagerPersistence aPersistence) {
+WindowRenderer* nsWindow::GetWindowRenderer() {
   /*if (aAllowRetaining) {
     *aAllowRetaining = true;
   }*/

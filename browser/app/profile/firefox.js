@@ -1521,7 +1521,6 @@ pref("browser.newtabpage.activity-stream.logowordmark.alwaysVisible", true);
 pref("trailhead.firstrun.newtab.triplets", "");
 // Separate about welcome
 pref("browser.aboutwelcome.enabled", true);
-pref("browser.aboutwelcome.protonDesign", true);
 // Used to set multistage welcome UX
 pref("browser.aboutwelcome.screens", "");
 pref("browser.aboutwelcome.skipFocus", true);
@@ -2202,8 +2201,6 @@ pref("devtools.inspector.compatibility.enabled", true);
 #else
 pref("devtools.inspector.compatibility.enabled", false);
 #endif
-// Enable color scheme simulation in the inspector.
-pref("devtools.inspector.color-scheme-simulation.enabled", true);
 // Enable overflow debugging in the inspector.
 pref("devtools.overflow.debugging.enabled", true);
 

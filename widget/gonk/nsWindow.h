@@ -49,8 +49,10 @@ struct InputContextAction;
 class nsScreenGonk;
 class GLCursorImageManager;
 
-class nsWindow : public nsBaseWidget {
+class nsWindow final : public nsBaseWidget {
  public:
+  using nsBaseWidget::GetWindowRenderer;
+
   nsWindow();
 
   NS_DECL_ISUPPORTS_INHERITED
@@ -118,10 +120,7 @@ class nsWindow : public nsBaseWidget {
   virtual float GetDPI() override;
   virtual bool IsVsyncSupported();
   virtual double GetDefaultScaleInternal() override;
-  virtual mozilla::layers::LayerManager* GetLayerManager(
-      PLayerTransactionChild* aShadowManager = nullptr,
-      LayersBackend aBackendHint = mozilla::layers::LayersBackend::LAYERS_NONE,
-      LayerManagerPersistence aPersistence = LAYER_MANAGER_CURRENT) override;
+  virtual WindowRenderer* GetWindowRenderer() override;
   virtual void DestroyCompositor() override;
 
   virtual CompositorBridgeParent* NewCompositorBridgeParent(int aSurfaceWidth,

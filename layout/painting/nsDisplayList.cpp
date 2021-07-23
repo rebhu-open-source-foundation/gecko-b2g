@@ -2294,7 +2294,10 @@ LayerManager* nsDisplayListBuilder::GetWidgetLayerManager(nsView** aView) {
   }
   nsIWidget* window = RootReferenceFrame()->GetNearestWidget();
   if (window) {
-    return window->GetLayerManager();
+    WindowRenderer* renderer = window->GetWindowRenderer();
+    if (renderer) {
+      return renderer->AsLayerManager();
+    }
   }
   return nullptr;
 }
@@ -6460,8 +6463,8 @@ bool nsDisplayOwnLayer::CreateWebRenderCommands(
   return true;
 }
 
-bool nsDisplayOwnLayer::UpdateScrollData(
-    WebRenderScrollData* aData, WebRenderLayerScrollData* aLayerData) {
+bool nsDisplayOwnLayer::UpdateScrollData(WebRenderScrollData* aData,
+                                         WebRenderLayerScrollData* aLayerData) {
   bool isRelevantToApz =
       (IsScrollThumbLayer() || IsScrollbarContainer() || IsZoomingLayer() ||
        (IsFixedPositionLayer() && HasDynamicToolbar()) ||
@@ -6762,8 +6765,7 @@ bool nsDisplayFixedPosition::CreateWebRenderCommands(
 }
 
 bool nsDisplayFixedPosition::UpdateScrollData(
-    WebRenderScrollData* aData,
-    WebRenderLayerScrollData* aLayerData) {
+    WebRenderScrollData* aData, WebRenderLayerScrollData* aLayerData) {
   if (aLayerData) {
     if (!mIsFixedBackground) {
       aLayerData->SetFixedPositionSides(
@@ -7144,8 +7146,7 @@ void nsDisplayStickyPosition::CalculateLayerScrollRanges(
 }
 
 bool nsDisplayStickyPosition::UpdateScrollData(
-    WebRenderScrollData* aData,
-    WebRenderLayerScrollData* aLayerData) {
+    WebRenderScrollData* aData, WebRenderLayerScrollData* aLayerData) {
   bool hasDynamicToolbar = HasDynamicToolbar();
   if (aLayerData && hasDynamicToolbar) {
     StickyScrollContainer* stickyScrollContainer = GetStickyScrollContainer();
@@ -7231,8 +7232,7 @@ UniquePtr<ScrollMetadata> nsDisplayScrollInfoLayer::ComputeScrollMetadata(
 }
 
 bool nsDisplayScrollInfoLayer::UpdateScrollData(
-    WebRenderScrollData* aData,
-    WebRenderLayerScrollData* aLayerData) {
+    WebRenderScrollData* aData, WebRenderLayerScrollData* aLayerData) {
   if (aLayerData) {
     UniquePtr<ScrollMetadata> metadata = ComputeScrollMetadata(
         aData->GetBuilder(), aData->GetManager(), ContainerLayerParameters());
@@ -7336,8 +7336,7 @@ bool nsDisplayZoom::ComputeVisibility(nsDisplayListBuilder* aBuilder,
 
 nsDisplayAsyncZoom::nsDisplayAsyncZoom(
     nsDisplayListBuilder* aBuilder, nsIFrame* aFrame, nsDisplayList* aList,
-    const ActiveScrolledRoot* aActiveScrolledRoot,
-    FrameMetrics::ViewID aViewID)
+    const ActiveScrolledRoot* aActiveScrolledRoot, FrameMetrics::ViewID aViewID)
     : nsDisplayOwnLayer(aBuilder, aFrame, aList, aActiveScrolledRoot),
       mViewID(aViewID) {
   MOZ_COUNT_CTOR(nsDisplayAsyncZoom);
@@ -7382,8 +7381,7 @@ already_AddRefed<Layer> nsDisplayAsyncZoom::BuildLayer(
 }
 
 bool nsDisplayAsyncZoom::UpdateScrollData(
-    WebRenderScrollData* aData,
-    WebRenderLayerScrollData* aLayerData) {
+    WebRenderScrollData* aData, WebRenderLayerScrollData* aLayerData) {
   bool ret = nsDisplayOwnLayer::UpdateScrollData(aData, aLayerData);
   MOZ_ASSERT(ret);
   if (aLayerData) {
@@ -8148,8 +8146,7 @@ bool nsDisplayTransform::CreateWebRenderCommands(
 }
 
 bool nsDisplayTransform::UpdateScrollData(
-    WebRenderScrollData* aData,
-    WebRenderLayerScrollData* aLayerData) {
+    WebRenderScrollData* aData, WebRenderLayerScrollData* aLayerData) {
   if (!mFrame->ChildrenHavePerspective()) {
     // This case is handled in CreateWebRenderCommands by stashing the transform
     // on the stacking context.
