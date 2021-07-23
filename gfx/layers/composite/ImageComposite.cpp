@@ -117,12 +117,12 @@ int ImageComposite::ChooseImageIndex() {
       compositionOpportunityId != mLastChooseImageIndexComposition) {
     // We are inside a composition, in the first call to ChooseImageIndex during
     // this composition.
-    // Find the newest frame whose biased timestamp is at or before
+    // Find the oldest frame whose biased timestamp is at or after
     // `compositionTime`.
     uint32_t imageIndex = 0;
     while (imageIndex + 1 < mImages.Length() &&
-           mImages[imageIndex + 1].mTextureHost->IsValid() &&
-           GetBiasedTime(mImages[imageIndex + 1].mTimeStamp) <=
+           mImages[imageIndex].mTextureHost->IsValid() &&
+           GetBiasedTime(mImages[imageIndex].mTimeStamp) <=
                compositionTime) {
       ++imageIndex;
     }
