@@ -338,7 +338,13 @@ nsresult alarm::Initialize(const nsCOMPtr<nsIPrincipal>& aPrincipal,
     // app's origin.
     // Other modules or services in Gecko should send messages to AlarmService
     // directly, not through AlarmManager or AlarmProxy.
+
+#if !defined(API_DAEMON_PORT) || API_DAEMON_PORT == 80
     aUrl = "http://system.localhost"_ns;
+#else
+    aUrl = nsLiteralCString(
+        "http://system.localhost:" MOZ_STRINGIFY(API_DAEMON_PORT));
+#endif
     LOG("system principal");
     return NS_OK;
   }

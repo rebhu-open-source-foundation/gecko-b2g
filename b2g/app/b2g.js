@@ -1149,7 +1149,11 @@ pref("b2g.system_startup_url", "chrome://b2g/content/system/index.html");
 // pref("b2g.system_startup_url", "chrome://system/content/index.html");
 
 // Use system app browser url
+#if !defined(API_DAEMON_PORT) || API_DAEMON_PORT == 80
 pref("b2g.system_app_browser_url", "http://system.localhost/browser/browser.html");
+#else
+pref("b2g.system_app_browser_url", "http://system.localhost:@API_DAEMON_PORT@/browser/browser.html");
+#endif
 
 pref("devtools.console.stdout.content", true);
 
@@ -1253,7 +1257,11 @@ pref("device.mvs", true);
 #endif
 
 pref("voice-input.enabled", false);
+#if !defined(API_DAEMON_PORT) || API_DAEMON_PORT == 80
 pref("voice-input.icon-url", "http://shared.localhost/style/voice-input/icons/voice-input.svg");
+#else
+pref("voice-input.icon-url", "http://shared.localhost:@API_DAEMON_PORT@/style/voice-input/icons/voice-input.svg");
+#endif
 pref("voice-input.supported-types", "text, search, url, tel, number, month, week");
 pref("voice-input.excluded-x-inputmodes", "native, plain, simplified, spell");
 

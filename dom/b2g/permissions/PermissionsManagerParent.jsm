@@ -70,7 +70,8 @@ class PermissionsManagerParent extends JSWindowActorParent {
 
     if (realPerm) {
       let appType = "pwa";
-      if (aOrigin.endsWith(".localhost")) {
+      let uri = Services.io.newURI(aOrigin);
+      if (uri?.host?.endsWith(".localhost")) {
         // If the permission of core app is not specified in PermissionsTable,
         // fallback to signed app. This should align the behavior with
         // PermissionsInstaller.installPermissions.
