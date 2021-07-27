@@ -2693,13 +2693,15 @@ function WifiWorker() {
     checkAssign("psk", true);
     checkAssign("identity", false);
     checkAssign("password", true);
-    if (wep && net.wep && net.wep != "*") {
-      net.keyIndex = net.keyIndex || 0;
-      configured["wepKey" + net.keyIndex] = net[
-        "wepKey" + net.keyIndex
-      ] = isWepHexKey(net.wep) ? net.wep : quote(net.wep);
-      configured.wepTxKeyIndex = net.wepTxKeyIndex = net.keyIndex;
+    if (wep) {
       configured.authAlg = net.authAlg = "OPEN SHARED";
+      if (net.wep && net.wep != "*") {
+        net.keyIndex = net.keyIndex || 0;
+        configured["wepKey" + net.keyIndex] = net[
+          "wepKey" + net.keyIndex
+        ] = isWepHexKey(net.wep) ? net.wep : quote(net.wep);
+        configured.wepTxKeyIndex = net.wepTxKeyIndex = net.keyIndex;
+      }
     }
 
     if (net.keyMgmt == "WAPI-PSK") {
