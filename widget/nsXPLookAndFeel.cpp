@@ -117,7 +117,6 @@ static const char sIntPrefs[][43] = {
     "ui.menusCanOverlapOSBar",
     "ui.useOverlayScrollbars",
     "ui.allowOverlayScrollbarsOverlap",
-    "ui.showHideScrollbars",
     "ui.skipNavigatingDisabledMenuItem",
     "ui.dragThresholdX",
     "ui.dragThresholdY",
