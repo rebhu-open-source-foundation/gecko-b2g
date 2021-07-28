@@ -140,6 +140,7 @@ nsresult SpeechTaskParent::DispatchEndImpl(float aElapsedTime,
   if (NS_WARN_IF(!(mActor->SendOnEnd(false, aElapsedTime, aCharIndex)))) {
     return NS_ERROR_FAILURE;
   }
+  nsSynthVoiceRegistry::GetInstance()->ShutdownEngine();
 
   return NS_OK;
 }

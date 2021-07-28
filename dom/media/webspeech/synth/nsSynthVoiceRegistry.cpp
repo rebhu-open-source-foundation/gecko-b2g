@@ -731,6 +731,17 @@ void nsSynthVoiceRegistry::ResumeQueue() {
 
 bool nsSynthVoiceRegistry::IsSpeaking() { return mIsSpeaking; }
 
+void nsSynthVoiceRegistry::ShutdownEngine() {
+  if (!mVoices.IsEmpty()) {
+    VoiceData* aVoice = FindBestMatch(u""_ns,u""_ns);
+    if (aVoice) {
+      aVoice->mService->ShutdownEngine();
+    }
+  }
+
+  return;
+}
+
 void nsSynthVoiceRegistry::SetIsSpeaking(bool aIsSpeaking) {
   MOZ_ASSERT(XRE_IsParentProcess());
 

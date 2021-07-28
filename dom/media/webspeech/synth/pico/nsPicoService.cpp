@@ -310,6 +310,8 @@ PicoCallbackRunnable::Run() {
         buffer = SharedBuffer::Create(size);
       }
 
+      // Lock mPicoEngine in case unloadEngine.
+      MonitorAutoLock autoLock(mService->mPicoEngineMonitor);
       status = sPicoApi.pico_getData(
           mService->mPicoEngine, (uint8_t*)buffer->Data() + buffer_offset,
           PICO_MAX_CHUNK_SIZE, &bytes_recv, &out_data_type);
@@ -396,6 +398,7 @@ NS_IMPL_RELEASE(nsPicoService)
 nsPicoService::nsPicoService()
     : mInitialized(false),
       mVoicesMonitor("nsPicoService::mVoices"),
+      mPicoEngineMonitor("nsPicoService::mPicoEngine"),
       mCurrentTask(nullptr),
       mPicoSystem(nullptr),
       mPicoEngine(nullptr),
@@ -657,12 +660,16 @@ void nsPicoService::LoadEngine(PicoVoice* aVoice) {
 void nsPicoService::UnloadEngine() {
   PicoApi::pico_Status status = 0;
 
-  if (mPicoEngine) {
-    status = sPicoApi.pico_disposeEngine(mPicoSystem, &mPicoEngine);
-    PICO_ENSURE_SUCCESS_VOID("pico_disposeEngine", status);
-    status = sPicoApi.pico_releaseVoiceDefinition(mPicoSystem, PICO_VOICE_NAME);
-    PICO_ENSURE_SUCCESS_VOID("pico_releaseVoiceDefinition", status);
-    mPicoEngine = nullptr;
+  // Lock mPicoEngine in case speaking.
+  {
+    MonitorAutoLock autoLock(mPicoEngineMonitor);
+    if (mPicoEngine) {
+      status = sPicoApi.pico_disposeEngine(mPicoSystem, &mPicoEngine);
+      PICO_ENSURE_SUCCESS_VOID("pico_disposeEngine", status);
+      status = sPicoApi.pico_releaseVoiceDefinition(mPicoSystem, PICO_VOICE_NAME);
+      PICO_ENSURE_SUCCESS_VOID("pico_releaseVoiceDefinition", status);
+      mPicoEngine = nullptr;
+    }
   }
 
   if (mSgResource) {
@@ -720,6 +727,23 @@ void nsPicoService::Shutdown() {
   sSingleton->mCurrentTask = nullptr;
 
   sSingleton = nullptr;
+}
+
+NS_IMETHODIMP
+nsPicoService::ShutdownEngine() {
+  if (sSingleton) {
+    sSingleton->mCurrentVoice = nullptr;
+  }
+
+  if (mPicoSystem) {
+    UnloadEngine();
+  }
+
+  if (mPicoMemArea) {
+    mPicoMemArea = nullptr;
+  }
+
+  return NS_OK;
 }
 
 }  // namespace dom

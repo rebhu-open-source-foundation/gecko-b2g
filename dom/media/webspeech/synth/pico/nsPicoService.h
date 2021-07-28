@@ -69,6 +69,8 @@ private:
 
   Monitor mVoicesMonitor;
 
+  Monitor mPicoEngineMonitor;
+
   PicoVoice* mCurrentVoice;
 
   Atomic<nsISpeechTask*> mCurrentTask;

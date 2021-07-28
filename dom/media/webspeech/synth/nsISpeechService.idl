@@ -120,7 +120,7 @@ interface nsISpeechTask : nsISupports
  * A service must also respond with the currect actions and events in response
  * to implemented callback methods.
  */
-[scriptable, uuid(9b7d59db-88ff-43d0-b6ee-9f63d042d08f)]
+[scriptable, uuid(1808c597-cef6-4b2f-88f2-64a7c07d6090)]
 interface nsISpeechService : nsISupports
 {
   /**
@@ -139,6 +139,10 @@ interface nsISpeechService : nsISupports
   void speak(in AString aText, in AString aUri,
              in float aVolume, in float aRate, in float aPitch,
              in nsISpeechTask aTask);
+  /**
+   * Shutdown pico voice engine to free memory when readout disabled.
+   */
+  void shutdownEngine();
 };
 
 %{C++

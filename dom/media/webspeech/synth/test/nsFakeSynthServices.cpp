@@ -210,6 +210,11 @@ FakeSpeechSynth::Speak(const nsAString& aText, const nsAString& aUri,
   return NS_OK;
 }
 
+NS_IMETHODIMP
+FakeSpeechSynth::ShutdownEngine() {
+  return NS_OK;
+}
+
 // nsFakeSynthService
 
 NS_INTERFACE_MAP_BEGIN(nsFakeSynthServices)

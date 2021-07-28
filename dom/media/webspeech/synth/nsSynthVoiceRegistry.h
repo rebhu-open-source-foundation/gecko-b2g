@@ -48,6 +48,8 @@ class nsSynthVoiceRegistry final : public nsISynthVoiceRegistry {
 
   void SetIsSpeaking(bool aIsSpeaking);
 
+  void ShutdownEngine();
+
   static nsSynthVoiceRegistry* GetInstance();
 
   static already_AddRefed<nsSynthVoiceRegistry> GetInstanceForService();

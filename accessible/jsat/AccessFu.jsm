@@ -248,6 +248,13 @@ this.AccessFu = {
       delete this.doneCallback;
     }
 
+    if (Utils.win.speechSynthesis) {
+      let picoService = Cc["@mozilla.org/synthpico;1"].getService(
+        Ci.nsISpeechService
+      );
+      picoService.shutdownEngine();
+    }
+
     Logger.info("AccessFu:Disabled");
   },
 

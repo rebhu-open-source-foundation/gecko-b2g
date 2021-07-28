@@ -553,4 +553,9 @@ void SpeechDispatcherService::EventNotify(uint32_t aMsgId, uint32_t aState) {
   }
 }
 
+NS_IMETHODIMP
+SpeechDispatcherService::ShutdownEngine() {
+  return NS_OK;
+}
+
 }  // namespace mozilla::dom
