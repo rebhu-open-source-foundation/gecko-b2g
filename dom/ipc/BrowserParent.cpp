@@ -155,6 +155,10 @@
 
 #include "mozilla/dom/VirtualCursorService.h"
 
+#if defined(MOZ_WIDGET_ANDROID)
+#  include "mozilla/widget/nsWindow.h"
+#endif  // defined(MOZ_WIDGET_ANDROID)
+
 using namespace mozilla::dom;
 using namespace mozilla::ipc;
 using namespace mozilla::layers;
@@ -4129,6 +4133,23 @@ bool BrowserParent::DeallocPKeyboardEventForwarderParent(
   RefPtr<KeyboardEventForwarderParent> actor =
       dont_AddRef(static_cast<KeyboardEventForwarderParent*>(aActor));
   return true;
+}
+
+mozilla::ipc::IPCResult BrowserParent::RecvShowDynamicToolbar() {
+#if defined(MOZ_WIDGET_ANDROID)
+  nsCOMPtr<nsIWidget> widget = GetTopLevelWidget();
+  if (!widget) {
+    return IPC_OK();
+  }
+
+  RefPtr<nsWindow> window = nsWindow::From(widget);
+  if (!window) {
+    return IPC_OK();
+  }
+
+  window->ShowDynamicToolbar();
+#endif  // defined(MOZ_WIDGET_ANDROID)
+  return IPC_OK();
 }
 
 }  // namespace mozilla::dom

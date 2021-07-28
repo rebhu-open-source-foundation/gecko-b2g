@@ -257,6 +257,7 @@ STATIC_ATOMS = [
     Atom("collapsed", "collapsed"),
     Atom("color", "color"),
     Atom("colorIndex", "color-index"),
+    Atom("colorScheme", "color-scheme"),
     Atom("cols", "cols"),
     Atom("colspan", "colspan"),
     Atom("combobox", "combobox"),

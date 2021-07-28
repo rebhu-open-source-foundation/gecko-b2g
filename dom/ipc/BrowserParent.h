@@ -785,6 +785,8 @@ class BrowserParent final : public PBrowserParent,
   bool DeallocPKeyboardEventForwarderParent(
       PKeyboardEventForwarderParent* aActor);
 
+  mozilla::ipc::IPCResult RecvShowDynamicToolbar();
+
  private:
   void SuppressDisplayport(bool aEnabled);
 
