@@ -4995,8 +4995,7 @@
   value: true
   mirror: always
 
-# Disable using native font source of freetype, for use in tests.
-- name: gfx.font_rendering.native_font_source_none
+- name: gfx.basic_layer_manager.force_enabled
   type: RelaxedAtomicBool
   value: false
   mirror: always
@@ -11056,7 +11055,7 @@
 #---------------------------------------------------------------------------
 - name: signon.usernameOnlyForm.enabled
   type: bool
-  value: true
+  value: @IS_EARLY_BETA_OR_EARLIER@
   mirror: always
 
 #---------------------------------------------------------------------------
@@ -11669,7 +11668,7 @@
 
 - name: webgl.enable-debug-renderer-info
   type: RelaxedAtomicBool
-  value: false
+  value: true
   mirror: always
 
 - name: webgl.enable-draft-extensions
@@ -11793,7 +11792,7 @@
 
 - name: webgl.sanitize-unmasked-renderer
   type: RelaxedAtomicBool
-  value: false
+  value: true
   mirror: always
 
 - name: webgl.allow-immediate-queries
@@ -11943,7 +11942,7 @@
 
 # Whether to allow gtk dark themes in content.
 - name: widget.content.allow-gtk-dark-theme
-  type: bool
+  type: RelaxedAtomicBool
   value: false
   mirror: always
 

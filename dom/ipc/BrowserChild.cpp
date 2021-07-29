@@ -2982,12 +2982,12 @@ mozilla::ipc::IPCResult BrowserChild::RecvRenderLayers(
     MOZ_ASSERT(mPuppetWidget);
     RefPtr<LayerManager> lm =
         mPuppetWidget->GetWindowRenderer()->AsLayerManager();
-    MOZ_ASSERT(lm);
-
-    // We send the current layer observer epoch to the compositor so that
-    // BrowserParent knows whether a layer update notification corresponds to
-    // the latest RecvRenderLayers request that was made.
-    lm->SetLayersObserverEpoch(mLayersObserverEpoch);
+    if (lm) {
+      // We send the current layer observer epoch to the compositor so that
+      // BrowserParent knows whether a layer update notification corresponds to
+      // the latest RecvRenderLayers request that was made.
+      lm->SetLayersObserverEpoch(mLayersObserverEpoch);
+    }
   }
 
   mRenderLayers = aEnabled;
@@ -3042,7 +3042,7 @@ mozilla::ipc::IPCResult BrowserChild::RecvRenderLayers(
   } else {
     RefPtr<nsViewManager> vm = presShell->GetViewManager();
     if (nsView* view = vm->GetRootView()) {
-      presShell->Paint(view, view->GetBounds(), PaintFlags::PaintLayers);
+      presShell->Paint(view, view->GetBounds(), PaintFlags::None);
     }
   }
   presShell->SuppressDisplayport(false);
@@ -3165,8 +3165,9 @@ void BrowserChild::InitRenderingState(
     InitAPZState();
     RefPtr<LayerManager> lm =
         mPuppetWidget->GetWindowRenderer()->AsLayerManager();
-    MOZ_ASSERT(lm);
-    lm->SetLayersObserverEpoch(mLayersObserverEpoch);
+    if (lm) {
+      lm->SetLayersObserverEpoch(mLayersObserverEpoch);
+    }
   } else {
     NS_WARNING("Fallback to BasicLayerManager");
     mLayersConnected = Some(false);
@@ -3464,7 +3465,9 @@ void BrowserChild::DidComposite(mozilla::layers::TransactionId aTransactionId,
       mPuppetWidget->GetWindowRenderer()->AsLayerManager();
   MOZ_ASSERT(lm);
 
-  lm->DidComposite(aTransactionId, aCompositeStart, aCompositeEnd);
+  if (lm) {
+    lm->DidComposite(aTransactionId, aCompositeStart, aCompositeEnd);
+  }
 }
 
 void BrowserChild::DidRequestComposite(const TimeStamp& aCompositeReqStart,
@@ -3495,9 +3498,9 @@ void BrowserChild::ClearCachedResources() {
   MOZ_ASSERT(mPuppetWidget);
   RefPtr<LayerManager> lm =
       mPuppetWidget->GetWindowRenderer()->AsLayerManager();
-  MOZ_ASSERT(lm);
-
-  lm->ClearCachedResources();
+  if (lm) {
+    lm->ClearCachedResources();
+  }
 
   if (nsCOMPtr<Document> document = GetTopLevelDocument()) {
     nsPresContext* presContext = document->GetPresContext();
@@ -3511,9 +3514,9 @@ void BrowserChild::InvalidateLayers() {
   MOZ_ASSERT(mPuppetWidget);
   RefPtr<LayerManager> lm =
       mPuppetWidget->GetWindowRenderer()->AsLayerManager();
-  MOZ_ASSERT(lm);
-
-  FrameLayerBuilder::InvalidateAllLayers(lm);
+  if (lm) {
+    FrameLayerBuilder::InvalidateAllLayers(lm);
+  }
 }
 
 void BrowserChild::SchedulePaint() {
@@ -3569,8 +3572,9 @@ void BrowserChild::ReinitRendering() {
   InitAPZState();
   RefPtr<LayerManager> lm =
       mPuppetWidget->GetWindowRenderer()->AsLayerManager();
-  MOZ_ASSERT(lm);
-  lm->SetLayersObserverEpoch(mLayersObserverEpoch);
+  if (lm) {
+    lm->SetLayersObserverEpoch(mLayersObserverEpoch);
+  }
 
   nsCOMPtr<Document> doc(GetTopLevelDocument());
   doc->NotifyLayerManagerRecreated();
@@ -3581,10 +3585,10 @@ void BrowserChild::ReinitRenderingForDeviceReset() {
 
   RefPtr<LayerManager> lm =
       mPuppetWidget->GetWindowRenderer()->AsLayerManager();
-  if (WebRenderLayerManager* wlm = lm->AsWebRenderLayerManager()) {
-    wlm->DoDestroy(/* aIsSync */ true);
-  } else if (ClientLayerManager* clm = lm->AsClientLayerManager()) {
-    if (ShadowLayerForwarder* fwd = clm->AsShadowForwarder()) {
+  if (lm && lm->AsWebRenderLayerManager()) {
+    lm->AsWebRenderLayerManager()->DoDestroy(/* aIsSync */ true);
+  } else if (lm && lm->AsClientLayerManager()) {
+    if (ShadowLayerForwarder* fwd = lm->AsShadowForwarder()) {
       // Force the LayerTransactionChild to synchronously shutdown. It is
       // okay to do this early, we'll simply stop sending messages. This
       // step is necessary since otherwise the compositor will think we
@@ -3622,8 +3626,9 @@ void BrowserChild::NotifyJankedAnimations(
   MOZ_ASSERT(mPuppetWidget);
   RefPtr<LayerManager> lm =
       mPuppetWidget->GetWindowRenderer()->AsLayerManager();
-  MOZ_ASSERT(lm);
-  lm->UpdatePartialPrerenderedAnimations(aJankedAnimations);
+  if (lm) {
+    lm->UpdatePartialPrerenderedAnimations(aJankedAnimations);
+  }
 }
 
 mozilla::ipc::IPCResult BrowserChild::RecvRequestNotifyAfterRemotePaint() {

@@ -304,6 +304,7 @@ static const char sColorPrefs[][41] = {
     "ui.-moz-win-mediatext",
     "ui.-moz-win-communicationstext",
     "ui.-moz-nativehyperlinktext",
+    "ui.-moz-nativevisitedhyperlinktext",
     "ui.-moz-hyperlinktext",
     "ui.-moz-activehyperlinktext",
     "ui.-moz-visitedhyperlinktext",
@@ -580,6 +581,7 @@ nscolor nsXPLookAndFeel::GetStandinForNativeColor(ColorID aID) {
     COLOR(MozWinMediatext, 0xFF, 0xFF, 0xFF)
     COLOR(MozWinCommunicationstext, 0xFF, 0xFF, 0xFF)
     COLOR(MozNativehyperlinktext, 0x00, 0x66, 0xCC)
+    COLOR(MozNativevisitedhyperlinktext, 0x55, 0x1A, 0x8B)
     COLOR(MozComboboxtext, 0x00, 0x00, 0x00)
     COLOR(MozCombobox, 0xFF, 0xFF, 0xFF)
     default:
@@ -984,6 +986,13 @@ static LookAndFeel::ColorScheme ColorSchemeForDocument(
       return LookAndFeel::SystemColorScheme();
     }
   }
+#ifdef MOZ_WIDGET_GTK
+  if (StaticPrefs::widget_content_allow_gtk_dark_theme()) {
+    // If users manually tweak allow-gtk-dark-theme, allow content to use the
+    // system color scheme rather than forcing it to light.
+    return LookAndFeel::SystemColorScheme();
+  }
+#endif
   return aContentSupportsDark ? LookAndFeel::SystemColorScheme()
                               : ColorScheme::Light;
 }
