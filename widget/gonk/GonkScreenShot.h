@@ -13,16 +13,16 @@
  * limitations under the License.
  */
 
-#ifndef GonkScreenshot_H_
-#define GonkScreenshot_H_
+#ifndef GonkScreenShot_H_
+#define GonkScreenShot_H_
 
 namespace mozilla {
 
-class GonkScreenshot {
+class GonkScreenShot {
 public:
-    static int capture(uint32_t displayId, const char* fileName);
+    static int capture(uint32_t displayId, bool pngEncode, const char* fileName);
 };
 
 } /* namespace mozilla */
 
-#endif /* GonkScreenshot_H_ */
+#endif /* GonkScreenShot_H_ */

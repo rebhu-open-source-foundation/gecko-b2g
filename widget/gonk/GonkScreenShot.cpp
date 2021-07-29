@@ -13,25 +13,11 @@
  * limitations under the License.
  */
 
-#include <errno.h>
-#include <unistd.h>
-#include <stdio.h>
-#include <fcntl.h>
-#include <stdlib.h>
-#include <string.h>
-
-#include <linux/fb.h>
-#include <sys/ioctl.h>
-#include <sys/mman.h>
-
-#include <ui/DisplayInfo.h>
 #include <ui/GraphicBuffer.h>
 #include <ui/GraphicTypes.h>
 #include <ui/PixelFormat.h>
 
-#include <system/graphics.h>
-
-#include "GonkScreenshot.h"
+#include "GonkScreenShot.h"
 #include "libdisplay/GonkDisplay.h"
 #include "png.h"
 
@@ -40,7 +26,7 @@ using namespace android;
 #ifdef LOG_TAG
 #undef LOG_TAG
 #endif
-#define LOG_TAG "GonkScreenshot"
+#define LOG_TAG "GonkScreenShot"
 
 #include <android/log.h>
 #define GS_LOGE(args...)  __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, args)
@@ -150,10 +136,8 @@ static uint32_t encodeToPng(FILE *dstFp, uint32_t w, uint32_t h,
 
 namespace mozilla {
 
-int GonkScreenshot::capture(uint32_t displayId, const char* fileName)
+int GonkScreenShot::capture(uint32_t displayId, bool pngEncode, const char* fileName)
 {
-    bool png = false;
-
     FILE* fp = fopen(fileName, "wb");
     if (!fp) {
         GS_LOGE("Error opening file: %s (%s)\n",
@@ -162,8 +146,8 @@ int GonkScreenshot::capture(uint32_t displayId, const char* fileName)
     }
 
     const int len = strlen(fileName);
-    if (len >= 4 && 0 == strcmp(fileName+len-4, ".png")) {
-        png = true;
+    if (!pngEncode && len >= 4 && 0 == strcmp(fileName+len-4, ".png")) {
+        pngEncode = true;
     }
 
     void* base = NULL;
@@ -198,7 +182,7 @@ int GonkScreenshot::capture(uint32_t displayId, const char* fileName)
     f = outBuffer->getPixelFormat();
 
     // encode to png format.
-    if (png) {
+    if (pngEncode) {
         if (encodeToPng(fp, w, h, s, f, base)) {
             outBuffer->unlock();
             fclose(fp);

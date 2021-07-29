@@ -12,14 +12,11 @@
 #include <binder/Parcel.h>
 #include <pwd.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 #include <sys/un.h>
-#include <utils/String8.h>
 
 #include "GfxDebugger.h"
-#include "GonkScreenshot.h"
-#include "mozilla/layers/LayerManagerComposite.h"
-#include "mozilla/layers/CompositorBridgeParent.h"
+#include "GonkScreenRecord.h"
+#include "GonkScreenShot.h"
 #include "mozilla/layers/SharedBufferManagerParent.h"
 
 #ifdef LOG_TAG
@@ -36,7 +33,6 @@
 #define GD_SOCKET_NAME  "/dev/socket/gfxdebugger-ipc"
 
 using namespace android;
-using android::String8;
 using mozilla::layers::APZCTreeManager;
 using mozilla::layers::AsyncPanZoomController;
 using mozilla::layers::SharedBufferManagerParent;
@@ -292,6 +288,21 @@ void GfxDebugger::Listen()
   }
 }
 
+void OnScreenrecordFinish(int streamFd, int res) {
+  // Dispatch the job back to main thread for notifying client.
+  nsCOMPtr<nsIRunnable> screenrecordFinishCB =
+    NS_NewRunnableFunction(
+      "mozilla::ipc::GfxDebugger::ScreenrecordFinish",
+      [streamFd, res]() -> void {
+        Parcel reply;
+        reply.writeInt32(res);
+        GD_LOGD("screenrecord result: %d", res);
+        send(streamFd, reply.data(), reply.dataSize(), 0);
+      }
+    );
+  NS_DispatchToMainThread(screenrecordFinishCB);
+}
+
 void GfxDebugger::ReceiveSocketData(int aIndex,
                                     UniquePtr<UnixSocketBuffer>& aBuffer)
 {
@@ -319,7 +330,7 @@ void GfxDebugger::ReceiveSocketData(int aIndex,
             for (uint64_t i = 0; i < gb_indices.size(); i++) {
               reply.writeInt64(gb_indices[i]);
             }
-            write(mConnector->mStreamFd, reply.data(), reply.dataSize());
+            send(mConnector->mStreamFd, reply.data(), reply.dataSize(), 0);
             break;
           }
 
@@ -334,7 +345,7 @@ void GfxDebugger::ReceiveSocketData(int aIndex,
             reply.writeCString(filename);
             GD_LOGD("filename=%s, strlen=%d, writed %d bytes", filename,
               strlen(filename), reply.dataSize());
-            write(mConnector->mStreamFd, reply.data(), reply.dataSize());
+            send(mConnector->mStreamFd, reply.data(), reply.dataSize(), 0);
             break;
           }
         }
@@ -348,18 +359,49 @@ void GfxDebugger::ReceiveSocketData(int aIndex,
         switch (op) {
           case SCREENCAP_OP_CAPTURE: {
             uint32_t displayId = parcel.readUint32();
+            bool pngEncode = parcel.readBool();
             const char* filePath = parcel.readCString();
             GD_LOGD("screencap[%s]:", filePath);
-            int res = GonkScreenshot::capture(displayId, filePath);
+            int res = GonkScreenShot::capture(displayId, pngEncode, filePath);
 
             Parcel reply;
-            reply.writeUint32(res);
+            reply.writeInt32(res);
             GD_LOGD("screencap result: %d", res);
-            write(mConnector->mStreamFd, reply.data(), reply.dataSize());
+            send(mConnector->mStreamFd, reply.data(), reply.dataSize(), 0);
             break;
           }
         }
       } // case GD_CMD_SCREENCAP
+      break;
+
+      case GD_CMD_SCREENRECORD: {
+        uint32_t op = parcel.readUint32();
+        aBuffer->Consume(usb->GetSize());
+
+        switch (op) {
+          case SCREENRECORD_OP_CAPTURE: {
+            uint32_t displayId = parcel.readUint32();
+            uint32_t outputFormat = parcel.readUint32();
+            uint32_t timeLimitSec = parcel.readUint32();
+            const char* filePath = parcel.readCString();
+            GD_LOGD("screenrecord[%s]:", filePath);
+            {
+              // Dispatch the job to non main/IO thread to prevent B2G jobs
+              // and composition jobs being blocked.
+              RefPtr<GonkScreenRecord> runnable =
+                  new GonkScreenRecord(displayId, outputFormat, timeLimitSec,
+                    filePath, &OnScreenrecordFinish, mConnector->mStreamFd);
+
+              nsCOMPtr<nsIEventTarget> target =
+                do_GetService(NS_STREAMTRANSPORTSERVICE_CONTRACTID);
+              MOZ_ASSERT(target);
+
+              target->Dispatch(runnable.forget(), NS_DISPATCH_NORMAL);
+            }
+            break;
+          }
+        }
+      } // case GD_CMD_SCREENRECORD
       break;
 
       default:

@@ -1169,6 +1169,7 @@ if CONFIG['OS_TARGET'] == 'Android' or CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
         'media/stagefright/MediaDefs.h',
         'media/stagefright/MediaErrors.h',
         'media/stagefright/MediaExtractor.h',
+        'media/stagefright/MediaMuxer.h',
         'media/stagefright/MediaSource.h',
         'media/stagefright/MediaWriter.h',
         'media/stagefright/MetaData.h',
