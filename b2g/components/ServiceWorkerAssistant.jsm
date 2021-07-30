@@ -94,7 +94,7 @@ this.ServiceWorkerAssistant = {
       }
       return;
     }
-    debug(`register ${aManifestURL}`);
+    debug(`register ${aManifestURL}, sw only: ${aServiceWorkerOnly}`);
 
     let appURI = Services.io.newURI(aManifestURL);
     let fullpath = function(aPath) {
@@ -155,41 +155,23 @@ this.ServiceWorkerAssistant = {
     }
   },
 
-  unregister(aManifestURL, aServiceWorkerOnly) {
+  unregister(aManifestURL) {
     debug(`unregister ${aManifestURL}`);
     let appURI = Services.io.newURI(aManifestURL);
     let ssm = Services.scriptSecurityManager;
     let principal = ssm.createContentPrincipal(appURI, {});
 
-    if (!aServiceWorkerOnly) {
-      systemMessageService.unsubscribe(principal);
-      Services.cpmm.sendAsyncMessage("Activities:UnregisterAll", aManifestURL);
-    }
+    systemMessageService.unsubscribe(principal);
+    Services.cpmm.sendAsyncMessage("Activities:UnregisterAll", aManifestURL);
 
-    const unregisterCallback = {
-      unregisterSucceeded() {
-        debug(`unregister ${aManifestURL} success!`);
-      },
-      unregisterFailed() {
-        debug(`unregister ${aManifestURL} failed.`);
-      },
-      QueryInterface: ChromeUtils.generateQI([
-        "nsIServiceWorkerUnregisterCallback",
-      ]),
-    };
     let scope = serviceWorkerManager.getScopeForUrl(principal, aManifestURL);
-    debug(` getScopeForUrl scope: ${scope}`);
-    serviceWorkerManager.propagateUnregister(
-      principal,
-      unregisterCallback,
-      scope
-    );
+    this._doUnregisterServiceWorker(principal, scope);
   },
 
-  update(aManifestURL, aFeatures, aServiceWorkerOnly) {
-    debug(`update ${aManifestURL}, service worker only: ${aServiceWorkerOnly}`);
-    this.unregister(aManifestURL, aServiceWorkerOnly);
-    this.register(aManifestURL, aFeatures, aServiceWorkerOnly);
+  update(aManifestURL, aFeatures) {
+    debug(`update ${aManifestURL}`);
+    this.unregister(aManifestURL);
+    this.register(aManifestURL, aFeatures);
   },
 
   waitForRegistrations() {
@@ -209,8 +191,30 @@ this.ServiceWorkerAssistant = {
     });
   },
 
+  _doUnregisterServiceWorker(aPrincipal, aScope) {
+    const unregisterCallback = {
+      unregisterSucceeded() {
+        debug(`unregister for scope: ${aScope} success!`);
+      },
+      unregisterFailed() {
+        debug(`unregister for scope: ${aScope} failed.`);
+      },
+      QueryInterface: ChromeUtils.generateQI([
+        "nsIServiceWorkerUnregisterCallback",
+      ]),
+    };
+    serviceWorkerManager.propagateUnregister(
+      aPrincipal,
+      unregisterCallback,
+      aScope
+    );
+  },
+
   _doRegisterServiceWorker(aPrincipal, aScope, aScript, aUpdateViaCache) {
     debug(`_doRegisterServiceWorker: ${aScript}`);
+
+    this._doUnregisterServiceWorker(aPrincipal, aScope);
+
     let promise = serviceWorkerManager
       .register(aPrincipal, aScope, aScript, aUpdateViaCache)
       .then(

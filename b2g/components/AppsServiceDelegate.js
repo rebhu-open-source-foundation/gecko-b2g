@@ -101,7 +101,7 @@ AppsServiceDelegate.prototype = {
     if (aFeatures) {
       try {
         let features = JSON.parse(aFeatures);
-        ServiceWorkerAssistant.update(
+        ServiceWorkerAssistant.register(
           aManifestUrl,
           features,
           true /* serviceWorkerOnly */
