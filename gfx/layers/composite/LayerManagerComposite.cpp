@@ -82,9 +82,7 @@
 #  include "mozilla/widget/GonkCompositorWidget.h"
 #endif
 
-#ifdef USE_SKIA
-#  include "PaintCounter.h"  // For PaintCounter
-#endif
+#include "PaintCounter.h"  // For PaintCounter
 
 class gfxContext;
 
@@ -177,9 +175,7 @@ LayerManagerComposite::LayerManagerComposite(Compositor* aCompositor)
     MOZ_RELEASE_ASSERT(mSurfacePoolHandle);
   }
 
-#ifdef USE_SKIA
   mPaintCounter = nullptr;
-#endif
 }
 
 LayerManagerComposite::~LayerManagerComposite() { Destroy(); }
@@ -216,9 +212,7 @@ void LayerManagerComposite::Destroy() {
     }
     mDestroyed = true;
 
-#ifdef USE_SKIA
     mPaintCounter = nullptr;
-#endif
   }
 }
 
@@ -702,15 +696,12 @@ void LayerManagerComposite::InvalidateDebugOverlay(nsIntRegion& aInvalidRegion,
     aInvalidRegion.Or(aInvalidRegion, nsIntRect(0, 0, 10, aBounds.Height()));
   }
 
-#ifdef USE_SKIA
   bool drawPaintTimes = StaticPrefs::gfx_content_always_paint();
   if (drawPaintTimes) {
     aInvalidRegion.Or(aInvalidRegion, nsIntRect(PaintCounter::GetPaintRect()));
   }
-#endif
 }
 
-#ifdef USE_SKIA
 void LayerManagerComposite::DrawPaintTimes(Compositor* aCompositor) {
   if (!mPaintCounter) {
     mPaintCounter = new PaintCounter();
@@ -719,7 +710,6 @@ void LayerManagerComposite::DrawPaintTimes(Compositor* aCompositor) {
   TimeDuration compositeTime = TimeStamp::Now() - mRenderStartTime;
   mPaintCounter->Draw(aCompositor, mLastPaintTime, compositeTime);
 }
-#endif
 
 static Rect RectWithEdges(int32_t aTop, int32_t aRight, int32_t aBottom,
                           int32_t aLeft) {
@@ -834,12 +824,10 @@ void LayerManagerComposite::RenderDebugOverlay(const IntRect& aBounds) {
     sFrameCount++;
   }
 
-#ifdef USE_SKIA
   bool drawPaintTimes = StaticPrefs::gfx_content_always_paint();
   if (drawPaintTimes) {
     DrawPaintTimes(mCompositor);
   }
-#endif
 }
 
 void LayerManagerComposite::UpdateDebugOverlayNativeLayers() {

@@ -75,6 +75,9 @@ extern crate fluent_langneg_ffi;
 extern crate fluent;
 extern crate fluent_ffi;
 
+extern crate fluent_fallback;
+extern crate l10nregistry;
+
 // Build on Gonk for now.
 // #[cfg(not(target_os = "android"))]
 extern crate viaduct;

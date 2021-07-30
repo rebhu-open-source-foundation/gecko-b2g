@@ -273,7 +273,6 @@ class Bootstrapper(object):
             self.instance.ensure_clang_static_analysis_package(state_dir, checkout_root)
             self.instance.ensure_nasm_packages(state_dir, checkout_root)
             self.instance.ensure_sccache_packages(state_dir, checkout_root)
-            self.instance.ensure_wasi_sysroot_packages(state_dir, checkout_root)
             if application == "b2g":
                 self.instance.ensure_b2g_sysroot_packages(state_dir, checkout_root)
         # Like 'ensure_browser_packages' or 'ensure_mobile_android_packages'

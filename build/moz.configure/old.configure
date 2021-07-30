@@ -74,7 +74,6 @@ def prepare_configure(mozconfig, old_configure_assignments):
 def old_configure_options(*options):
     for opt in options:
         if opt in (
-            "--enable-system-cairo",
             "--enable-system-png",
             "--with-system-libevent",
             "--with-system-png",
@@ -115,7 +114,6 @@ def old_configure_options(*options):
     "--enable-parental-controls",
     '--enable-rsu',
     "--enable-sandbox",
-    "--enable-system-cairo",
     "--enable-system-extension-dirs",
     "--enable-system-pixman",
     "--enable-touchpal",
