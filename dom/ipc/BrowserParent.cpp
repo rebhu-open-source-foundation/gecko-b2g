@@ -134,6 +134,7 @@
 #include "nsISecureBrowserUI.h"
 #include "nsIXULRuntime.h"
 #include "VsyncSource.h"
+#include "nsSubDocumentFrame.h"
 
 #ifdef XP_WIN
 #  include "FxRWindowManager.h"
@@ -169,6 +170,8 @@ using namespace mozilla::gfx;
 
 using mozilla::LazyLogModule;
 using mozilla::Unused;
+
+extern mozilla::LazyLogModule gSHIPBFCacheLog;
 
 LazyLogModule gBrowserFocusLog("BrowserFocus");
 
@@ -664,6 +667,18 @@ void BrowserParent::Destroy() {
   mMarkedDestroying = true;
 }
 
+mozilla::ipc::IPCResult BrowserParent::RecvDidUnsuppressPainting() {
+  if (!mFrameElement) {
+    return IPC_OK();
+  }
+  nsSubDocumentFrame* subdocFrame =
+      do_QueryFrame(mFrameElement->GetPrimaryFrame());
+  if (subdocFrame && subdocFrame->HasRetainedPaintData()) {
+    subdocFrame->ClearRetainedPaintData();
+  }
+  return IPC_OK();
+}
+
 mozilla::ipc::IPCResult BrowserParent::RecvEnsureLayersConnected(
     CompositorOptions* aCompositorOptions) {
   if (mRemoteLayerTreeOwner.IsInitialized()) {
@@ -681,10 +696,19 @@ void BrowserParent::ActorDestroy(ActorDestroyReason why) {
   ContentProcessManager::GetSingleton()->UnregisterRemoteFrame(mTabId);
 
   if (mRemoteLayerTreeOwner.IsInitialized()) {
+    auto layersId = mRemoteLayerTreeOwner.GetLayersId();
+    if (mFrameElement) {
+      nsSubDocumentFrame* f = do_QueryFrame(mFrameElement->GetPrimaryFrame());
+      if (f && f->HasRetainedPaintData() &&
+          f->GetRemotePaintData().mLayersId == layersId) {
+        f->ClearRetainedPaintData();
+      }
+    }
+
     // It's important to unmap layers after the remote browser has been
     // destroyed, otherwise it may still send messages to the compositor which
     // will reject them, causing assertions.
-    RemoveBrowserParentFromTable(mRemoteLayerTreeOwner.GetLayersId());
+    RemoveBrowserParentFromTable(layersId);
     mRemoteLayerTreeOwner.Destroy();
   }
 
@@ -3512,52 +3536,6 @@ void BrowserParent::NotifyResolutionChanged() {
   }
 }
 
-bool BrowserParent::StartApzAutoscroll(float aAnchorX, float aAnchorY,
-                                       nsViewID aScrollId,
-                                       uint32_t aPresShellId) {
-  if (!AsyncPanZoomEnabled()) {
-    return false;
-  }
-
-  bool success = false;
-  if (mRemoteLayerTreeOwner.IsInitialized()) {
-    layers::LayersId layersId = mRemoteLayerTreeOwner.GetLayersId();
-    if (nsCOMPtr<nsIWidget> widget = GetWidget()) {
-      ScrollableLayerGuid guid(layersId, aPresShellId, aScrollId);
-
-      // The anchor coordinates that are passed in are relative to the origin
-      // of the screen, but we are sending them to APZ which only knows about
-      // coordinates relative to the widget, so convert them accordingly.
-      CSSPoint anchorCss{aAnchorX, aAnchorY};
-      LayoutDeviceIntPoint anchor =
-          RoundedToInt(anchorCss * widget->GetDefaultScale());
-      anchor -= widget->WidgetToScreenOffset();
-
-      success = widget->StartAsyncAutoscroll(
-          ViewAs<ScreenPixel>(
-              anchor, PixelCastJustification::LayoutDeviceIsScreenForBounds),
-          guid);
-    }
-  }
-  return success;
-}
-
-void BrowserParent::StopApzAutoscroll(nsViewID aScrollId,
-                                      uint32_t aPresShellId) {
-  if (!AsyncPanZoomEnabled()) {
-    return;
-  }
-
-  if (mRemoteLayerTreeOwner.IsInitialized()) {
-    layers::LayersId layersId = mRemoteLayerTreeOwner.GetLayersId();
-    if (nsCOMPtr<nsIWidget> widget = GetWidget()) {
-      ScrollableLayerGuid guid(layersId, aPresShellId, aScrollId);
-
-      widget->StopAsyncAutoscroll(guid);
-    }
-  }
-}
-
 bool BrowserParent::CanCancelContentJS(
     nsIRemoteTab::NavigationType aNavigationType, int32_t aNavigationIndex,
     nsIURI* aNavigationURI) const {
@@ -3695,15 +3673,15 @@ void BrowserParent::LayerTreeUpdate(const LayersObserverEpoch& aEpoch,
     return;
   }
 
-  RefPtr<EventTarget> target = mFrameElement;
-  if (!target) {
+  RefPtr<Element> frameElement = mFrameElement;
+  if (!frameElement) {
     NS_WARNING("Could not locate target for layer tree message.");
     return;
   }
 
   mHasLayers = aActive;
 
-  RefPtr<Event> event = NS_NewDOMEvent(mFrameElement, nullptr, nullptr);
+  RefPtr<Event> event = NS_NewDOMEvent(frameElement, nullptr, nullptr);
   if (aActive) {
     mHasPresented = true;
     event->InitEvent(u"MozLayerTreeReady"_ns, true, false);
@@ -3712,7 +3690,7 @@ void BrowserParent::LayerTreeUpdate(const LayersObserverEpoch& aEpoch,
   }
   event->SetTrusted(true);
   event->WidgetEventPtr()->mFlags.mOnlyChromeDispatch = true;
-  mFrameElement->DispatchEvent(*event);
+  frameElement->DispatchEvent(*event);
 }
 
 mozilla::ipc::IPCResult BrowserParent::RecvPaintWhileInterruptingJSNoOp(
@@ -3721,21 +3699,6 @@ mozilla::ipc::IPCResult BrowserParent::RecvPaintWhileInterruptingJSNoOp(
   // visible. In this case, we should act as if an update occurred even though
   // we already have the layers.
   LayerTreeUpdate(aEpoch, true);
-  return IPC_OK();
-}
-
-mozilla::ipc::IPCResult BrowserParent::RecvRemotePaintIsReady() {
-  RefPtr<EventTarget> target = mFrameElement;
-  if (!target) {
-    NS_WARNING("Could not locate target for MozAfterRemotePaint message.");
-    return IPC_OK();
-  }
-
-  RefPtr<Event> event = NS_NewDOMEvent(mFrameElement, nullptr, nullptr);
-  event->InitEvent(u"MozAfterRemotePaint"_ns, false, false);
-  event->SetTrusted(true);
-  event->WidgetEventPtr()->mFlags.mOnlyChromeDispatch = true;
-  mFrameElement->DispatchEvent(*event);
   return IPC_OK();
 }
 

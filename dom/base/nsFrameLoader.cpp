@@ -3197,16 +3197,6 @@ void nsFrameLoader::AttributeChanged(mozilla::dom::Element* aElement,
   }
 }
 
-/**
- * Send the RequestNotifyAfterRemotePaint message to the current Tab.
- */
-void nsFrameLoader::RequestNotifyAfterRemotePaint() {
-  // If remote browsing (e10s), handle this with the BrowserParent.
-  if (auto* browserParent = GetBrowserParent()) {
-    Unused << browserParent->SendRequestNotifyAfterRemotePaint();
-  }
-}
-
 void nsFrameLoader::RequestUpdatePosition(ErrorResult& aRv) {
   if (auto* browserParent = GetBrowserParent()) {
     nsresult rv = browserParent->UpdatePosition();

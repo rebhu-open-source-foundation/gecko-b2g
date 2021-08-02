@@ -71,6 +71,7 @@
 #include "mozilla/dom/BlobURLProtocolHandler.h"
 #include "mozilla/dom/ContentMediaController.h"
 #include "mozilla/dom/ElementInlines.h"
+#include "mozilla/dom/FeaturePolicyUtils.h"
 #include "mozilla/dom/HTMLAudioElement.h"
 #include "mozilla/dom/HTMLInputElement.h"
 #include "mozilla/dom/HTMLMediaElementBinding.h"
@@ -7774,6 +7775,12 @@ already_AddRefed<Promise> HTMLMediaElement::SetSinkId(const nsAString& aSinkId,
   RefPtr<Promise> promise = Promise::Create(win->AsGlobal(), aRv);
   if (aRv.Failed()) {
     return nullptr;
+  }
+
+  if (!FeaturePolicyUtils::IsFeatureAllowed(win->GetExtantDoc(),
+                                            u"speaker-selection"_ns)) {
+    promise->MaybeRejectWithNotAllowedError(
+        "Document's Permissions Policy does not allow setSinkId()");
   }
 
   if (mSink.first.Equals(aSinkId)) {

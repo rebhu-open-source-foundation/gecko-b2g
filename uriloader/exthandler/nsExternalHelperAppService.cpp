@@ -2367,6 +2367,10 @@ nsresult nsExternalAppHandler::CreateTransfer() {
   if (mDownloadClassification != nsITransfer::DOWNLOAD_ACCEPTABLE) {
     mCanceled = true;
     mRequest->Cancel(NS_ERROR_ABORT);
+    if (mSaver) {
+      mSaver->Finish(NS_ERROR_ABORT);
+      mSaver = nullptr;
+    }
     return CreateFailedTransfer();
   }
   nsresult rv;
@@ -2473,11 +2477,11 @@ nsresult nsExternalAppHandler::CreateFailedTransfer() {
   if (mBrowsingContext) {
     rv = transfer->InitWithBrowsingContext(
         mSourceUrl, pseudoTarget, u""_ns, mMimeInfo, mTimeDownloadStarted,
-        nullptr, this, channel && NS_UsePrivateBrowsing(channel),
+        mTempFile, this, channel && NS_UsePrivateBrowsing(channel),
         mDownloadClassification, mBrowsingContext, mHandleInternally);
   } else {
     rv = transfer->Init(mSourceUrl, pseudoTarget, u""_ns, mMimeInfo,
-                        mTimeDownloadStarted, nullptr, this,
+                        mTimeDownloadStarted, mTempFile, this,
                         channel && NS_UsePrivateBrowsing(channel),
                         mDownloadClassification);
   }

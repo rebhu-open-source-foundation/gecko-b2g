@@ -257,6 +257,7 @@ class BrowserParent final : public PBrowserParent,
 
   void AddWindowListeners();
 
+  mozilla::ipc::IPCResult RecvDidUnsuppressPainting();
   mozilla::ipc::IPCResult RecvMoveFocus(const bool& aForward,
                                         const bool& aForDocumentNavigation);
 
@@ -709,10 +710,6 @@ class BrowserParent final : public PBrowserParent,
   void PreserveLayers(bool aPreserveLayers);
   void NotifyResolutionChanged();
 
-  bool StartApzAutoscroll(float aAnchorX, float aAnchorY, nsViewID aScrollId,
-                          uint32_t aPresShellId);
-  void StopApzAutoscroll(nsViewID aScrollId, uint32_t aPresShellId);
-
   bool CanCancelContentJS(nsIRemoteTab::NavigationType aNavigationType,
                           int32_t aNavigationIndex,
                           nsIURI* aNavigationURI) const;
@@ -739,8 +736,6 @@ class BrowserParent final : public PBrowserParent,
   virtual mozilla::ipc::IPCResult Recv__delete__() override;
 
   virtual void ActorDestroy(ActorDestroyReason why) override;
-
-  mozilla::ipc::IPCResult RecvRemotePaintIsReady();
 
   mozilla::ipc::IPCResult RecvRemoteIsReadyToHandleInputEvents();
 

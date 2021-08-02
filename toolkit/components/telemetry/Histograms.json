@@ -348,6 +348,17 @@
     "releaseChannelCollection": "opt-out",
     "description": "A count of the number of content processes, collected every five minutes."
   },
+  "CONTENT_PROCESS_PRECISE_COUNT": {
+    "record_in_processes": ["main"],
+    "products": ["firefox"],
+    "alert_emails": ["kmadan@mozilla.com", "perf-telemetry-alerts@mozilla.com"],
+    "expires_in_version": "98",
+    "bug_numbers": [1722103],
+    "kind": "enumerated",
+    "n_values": 100,
+    "releaseChannelCollection": "opt-out",
+    "description": "An enumerated count of the number of content processes, collected every five minutes."
+  },
   "CONTENT_PROCESS_MAX": {
     "record_in_processes": ["main"],
     "products": ["firefox"],
@@ -359,6 +370,17 @@
     "n_buckets": 100,
     "releaseChannelCollection": "opt-out",
     "description": "The maximum number of content processes, submitted when a new maximum is reached."
+  },
+  "CONTENT_PROCESS_PRECISE_MAX": {
+    "record_in_processes": ["main"],
+    "products": ["firefox"],
+    "alert_emails": ["kmadan@mozilla.com", "perf-telemetry-alerts@mozilla.com"],
+    "expires_in_version": "98",
+    "bug_numbers": [1722103],
+    "kind": "enumerated",
+    "n_values": 100,
+    "releaseChannelCollection": "opt-out",
+    "description": "The enumerated maximum number of content processes, submitted when a new maximum is reached."
   },
   "CONTENT_PROCESS_TIME_SINCE_LAST_LAUNCH_MS": {
     "record_in_processes": ["main"],
@@ -16611,18 +16633,5 @@
     "n_buckets": 100,
     "keyed": true,
     "description": "The time that a transaction is waiting for HTTPS RR"
-  },
-  "WINDOW_OPEN_TYPE": {
-    "record_in_processes": ["content"],
-    "products": ["firefox"],
-    "alert_emails": ["arai.unmht@gmail.com"],
-    "expires_in_version": "93",
-    "kind": "categorical",
-    "labels": ["NoPopup_Empty", "NoPopup_Other",
-               "Popup_Width", "Popup_Location",
-               "Popup_Menubar", "Popup_Resizable",
-               "Popup_Scrollbars", "Popup_Status"],
-    "bug_numbers": [1710010],
-    "description": "Whether and how window.open opens a new popup or a new tab"
   }
 }
