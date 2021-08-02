@@ -35,6 +35,7 @@ class GonkCompositorWidget final : public InProcessCompositorWidget {
   EGLNativeWindowType GetEGLNativeWindow();
   int32_t GetNativeSurfaceFormat();
   layers::Composer2D* GetComposer2D();
+  bool GetVsyncSupport();
 };
 
 }  // namespace widget

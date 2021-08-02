@@ -69,10 +69,7 @@ void CompositorVsyncScheduler::Observer::Destroy() {
 CompositorVsyncScheduler::CompositorVsyncScheduler(
     CompositorVsyncSchedulerOwner* aVsyncSchedulerOwner,
     widget::CompositorWidget* aWidget)
-    : mVsyncSchedulerOwner(aVsyncSchedulerOwner),
-      mLastComposeTime(SampleTime::FromNow()),
-      mLastVsyncTime(TimeStamp::Now()),
-      mLastVsyncOutputTime(TimeStamp::Now()),
+    : CompositorScheduler(aVsyncSchedulerOwner),
       mIsObservingVsync(false),
       mVsyncNotificationsSkipped(0),
       mWidget(aWidget),
@@ -482,31 +479,6 @@ void CompositorVsyncScheduler::DispatchVREvents(TimeStamp aVsyncTimestamp) {
 
   VRManager* vm = VRManager::Get();
   vm->NotifyVsync(aVsyncTimestamp);
-}
-
-const SampleTime& CompositorVsyncScheduler::GetLastComposeTime() const {
-  MOZ_ASSERT(CompositorThreadHolder::IsInCompositorThread());
-  return mLastComposeTime;
-}
-
-const TimeStamp& CompositorVsyncScheduler::GetLastVsyncTime() const {
-  MOZ_ASSERT(CompositorThreadHolder::IsInCompositorThread());
-  return mLastVsyncTime;
-}
-
-const TimeStamp& CompositorVsyncScheduler::GetLastVsyncOutputTime() const {
-  MOZ_ASSERT(CompositorThreadHolder::IsInCompositorThread());
-  return mLastVsyncOutputTime;
-}
-
-const VsyncId& CompositorVsyncScheduler::GetLastVsyncId() const {
-  MOZ_ASSERT(CompositorThreadHolder::IsInCompositorThread());
-  return mLastVsyncId;
-}
-
-void CompositorVsyncScheduler::UpdateLastComposeTime() {
-  MOZ_ASSERT(CompositorThreadHolder::IsInCompositorThread());
-  mLastComposeTime = SampleTime::FromNow();
 }
 
 }  // namespace layers

@@ -196,6 +196,9 @@ class ScreenHelperGonk final : public ScreenManager::Helper {
        NotifyDisplayChangedEvent aEventVisibility = NotifyDisplayChangedEvent::Observable);
   void Refresh();
 
+  void AddDisplay(uint32_t aScreenId,
+       nsScreenGonk* screenGonk);
+
   void AddScreen(uint32_t aScreenId,
        DisplayType aDisplayType,
        LayoutDeviceIntRect aRect = LayoutDeviceIntRect(),

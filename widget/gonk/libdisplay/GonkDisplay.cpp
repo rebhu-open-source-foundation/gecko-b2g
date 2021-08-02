@@ -328,35 +328,35 @@ void GonkDisplayP::SetEnabled(bool enabled) {
     if (!mExtFBEnabled) {
       autosuspend_disable();
       mPower->setInteractive(true);
+    }
 
-      if (mHwc && mEnableHWCPower) {
-        SetHwcPowerMode(enabled);
-      } else if (mFBDevice && mFBDevice->enableScreen) {
-        mFBDevice->enableScreen(mFBDevice, enabled);
-      }
+    if (mHwc && mEnableHWCPower) {
+      SetHwcPowerMode(enabled);
+    } else if (mFBDevice && mFBDevice->enableScreen) {
+      mFBDevice->enableScreen(mFBDevice, enabled);
     }
     mFBEnabled = enabled;
 
     // enable vsync
-    if (mEnabledCallback && !mExtFBEnabled) {
+    if (mEnabledCallback) {
       mEnabledCallback(enabled);
     }
   } else {
-    if (mEnabledCallback && !mExtFBEnabled) {
+    if (mEnabledCallback) {
       mEnabledCallback(enabled);
     }
 
-    if (!mExtFBEnabled) {
-      if (mHwc && mEnableHWCPower) {
-        SetHwcPowerMode(enabled);
-      } else if (mFBDevice && mFBDevice->enableScreen) {
-        mFBDevice->enableScreen(mFBDevice, enabled);
-      }
+    if (mHwc && mEnableHWCPower) {
+      SetHwcPowerMode(enabled);
+    } else if (mFBDevice && mFBDevice->enableScreen) {
+      mFBDevice->enableScreen(mFBDevice, enabled);
+    }
+    mFBEnabled = enabled;
 
+    if (!mExtFBEnabled) {
       autosuspend_enable();
       mPower->setInteractive(false);
     }
-    mFBEnabled = enabled;
   }
 }
 
@@ -377,25 +377,13 @@ void GonkDisplayP::SetExtEnabled(bool enabled) {
     if (!mFBEnabled) {
       autosuspend_disable();
       mPower->setInteractive(true);
-
-      SetHwcPowerMode(enabled);
     }
     mExtFBDevice->EnableScreen(enabled);
     mExtFBEnabled = enabled;
-
-    if (mEnabledCallback && !mFBEnabled) {
-      mEnabledCallback(enabled);
-    }
   } else {
-    if (mEnabledCallback && !mFBEnabled) {
-      mEnabledCallback(enabled);
-    }
-
     mExtFBDevice->EnableScreen(enabled);
     mExtFBEnabled = enabled;
     if (!mFBEnabled) {
-      SetHwcPowerMode(enabled);
-
       autosuspend_enable();
       mPower->setInteractive(false);
     }

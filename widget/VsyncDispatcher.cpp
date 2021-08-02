@@ -184,13 +184,21 @@ void RefreshTimerVsyncDispatcher::UpdateVsyncStatus() {
     return;
   }
 
-  mDisplay->NotifyRefreshTimerVsyncStatus(NeedsVsync());
+  if (mDisplay) {
+    mDisplay->NotifyRefreshTimerVsyncStatus(NeedsVsync());
+  }
 }
 
 bool RefreshTimerVsyncDispatcher::NeedsVsync() {
   MOZ_ASSERT(NS_IsMainThread());
   MutexAutoLock lock(mRefreshTimersLock);
   return (mParentRefreshTimer != nullptr) || !mChildRefreshTimers.IsEmpty();
+}
+
+void
+RefreshTimerVsyncDispatcher::ClearDisplay()
+{
+  mDisplay = nullptr;
 }
 
 }  // namespace mozilla

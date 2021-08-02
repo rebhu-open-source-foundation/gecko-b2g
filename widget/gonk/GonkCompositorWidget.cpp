@@ -29,5 +29,11 @@ layers::Composer2D* GonkCompositorWidget::GetComposer2D() {
   return window->GetComposer2D();
 }
 
+bool
+GonkCompositorWidget::GetVsyncSupport() {
+  nsWindow* window = static_cast<nsWindow*>(mWidget);
+  return window->GetVsyncSupport();
+}
+
 }  // namespace widget
 }  // namespace mozilla

@@ -4,10 +4,12 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-#include "SoftwareVsyncSource.h"
 #include "base/task.h"
+#include "mozilla/layers/CompositorBridgeParent.h"
+
 #include "gfxPlatform.h"
 #include "nsThreadUtils.h"
+#include "SoftwareVsyncSource.h"
 
 using namespace mozilla;
 
@@ -33,6 +35,43 @@ SoftwareDisplay::SoftwareDisplay() : mVsyncEnabled(false) {
 
 SoftwareDisplay::~SoftwareDisplay() = default;
 
+bool
+SoftwareDisplay::NeedNotifyVsync()
+{
+  return mPowerOn && mVsyncEnabled;
+}
+
+void
+SoftwareDisplay::EnableVsyncInternal(bool aEnable)
+{
+  MOZ_ASSERT(IsInSoftwareVsyncThread());
+  if (aEnable) {
+    TimeStamp vsyncTime = TimeStamp::Now();
+    TimeStamp outputTime = vsyncTime + mVsyncRate;
+    NotifyVsync(vsyncTime, outputTime);
+  } else {
+    if (mCurrentVsyncTask) {
+      mCurrentVsyncTask->Cancel();
+      mCurrentVsyncTask = nullptr;
+    }
+  }
+}
+
+void
+SoftwareDisplay::SetPowerMode(bool aEnable)
+{
+  if (NS_IsMainThread()) {
+    if (mPowerOn == aEnable) {
+      return;
+    }
+    mPowerOn = aEnable;
+    mVsyncThread->message_loop()->PostTask(NewRunnableMethod<bool>(
+        "SoftwareDisplay::SetPowerMode",this, &SoftwareDisplay::EnableVsyncInternal,
+        NeedNotifyVsync()));
+    return;
+  }
+}
+
 void SoftwareDisplay::EnableVsync() {
   MOZ_ASSERT(mVsyncThread->IsRunning());
   if (NS_IsMainThread()) {
@@ -41,15 +80,11 @@ void SoftwareDisplay::EnableVsync() {
     }
     mVsyncEnabled = true;
 
-    mVsyncThread->message_loop()->PostTask(NewRunnableMethod(
-        "SoftwareDisplay::EnableVsync", this, &SoftwareDisplay::EnableVsync));
+    mVsyncThread->message_loop()->PostTask(NewRunnableMethod<bool>(
+        "SoftwareDisplay::EnableVsync",this, &SoftwareDisplay::EnableVsyncInternal,
+        NeedNotifyVsync()));
     return;
   }
-
-  MOZ_ASSERT(IsInSoftwareVsyncThread());
-  TimeStamp vsyncTime = TimeStamp::Now();
-  TimeStamp outputTime = vsyncTime + mVsyncRate;
-  NotifyVsync(vsyncTime, outputTime);
 }
 
 void SoftwareDisplay::DisableVsync() {
@@ -60,8 +95,10 @@ void SoftwareDisplay::DisableVsync() {
     }
     mVsyncEnabled = false;
 
-    mVsyncThread->message_loop()->PostTask(NewRunnableMethod(
-        "SoftwareDisplay::DisableVsync", this, &SoftwareDisplay::DisableVsync));
+    mVsyncThread->message_loop()->PostTask(NewRunnableMethod<bool>(
+        "SoftwareDisplay::DisableVsync",this, &SoftwareDisplay::EnableVsyncInternal,
+        NeedNotifyVsync()));
+
     return;
   }
 
@@ -85,8 +122,8 @@ void SoftwareDisplay::NotifyVsync(const mozilla::TimeStamp& aVsyncTimestamp,
                                   const mozilla::TimeStamp& aOutputTimestamp) {
   MOZ_ASSERT(IsInSoftwareVsyncThread());
 
-  mozilla::TimeStamp displayVsyncTime = aVsyncTimestamp;
-  mozilla::TimeStamp now = mozilla::TimeStamp::Now();
+  TimeStamp displayVsyncTime = aVsyncTimestamp;
+  TimeStamp now = mozilla::TimeStamp::Now();
   // Posted tasks can only have integer millisecond delays
   // whereas TimeDurations can have floating point delays.
   // Thus the vsync timestamp can be in the future, which large parts

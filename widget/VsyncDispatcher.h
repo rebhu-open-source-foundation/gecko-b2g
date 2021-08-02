@@ -92,6 +92,8 @@ class RefreshTimerVsyncDispatcher final {
   void AddChildRefreshTimer(VsyncObserver* aVsyncObserver);
   void RemoveChildRefreshTimer(VsyncObserver* aVsyncObserver);
 
+  void ClearDisplay();
+
  private:
   virtual ~RefreshTimerVsyncDispatcher();
   void UpdateVsyncStatus();
@@ -100,6 +102,8 @@ class RefreshTimerVsyncDispatcher final {
   // We need to hold a weak ref to the display we belong to in order to notify
   // it of our vsync requirement. The display holds a RefPtr to us, so we can't
   // hold a RefPtr back without causing a cyclic dependency.
+  // Need to explicitly cleared in ClearDisplay(), otherwise, it will keep
+  // notifying VsyncObservers during destructing itself.
   gfx::VsyncSource::Display* mDisplay;
   Mutex mRefreshTimersLock;
   RefPtr<VsyncObserver> mParentRefreshTimer;

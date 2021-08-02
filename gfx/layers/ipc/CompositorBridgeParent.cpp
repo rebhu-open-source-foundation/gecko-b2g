@@ -48,7 +48,7 @@
 #include "mozilla/layers/CompositorOGL.h"            // for CompositorOGL
 #include "mozilla/layers/CompositorThread.h"
 #include "mozilla/layers/CompositorTypes.h"
-#include "mozilla/layers/CompositorVsyncScheduler.h"
+#include "mozilla/layers/CompositorScheduler.h"
 #include "mozilla/layers/ContentCompositorBridgeParent.h"
 #include "mozilla/layers/FrameUniformityData.h"
 #include "mozilla/layers/GeckoContentController.h"
@@ -415,7 +415,7 @@ void CompositorBridgeParent::Initialize() {
   LayerScope::SetPixelScale(mScale.scale);
 
   if (!mOptions.UseWebRender()) {
-    mCompositorScheduler = new CompositorVsyncScheduler(this, mWidget);
+    mCompositorScheduler = CompositorScheduler::Create(this, mWidget);
   }
 }
 
@@ -828,6 +828,7 @@ void CompositorBridgeParent::NotifyShadowTreeTransaction(
 
     mLayerManager->NotifyShadowTreeTransaction();
   }
+
   if (aScheduleComposite) {
     ScheduleComposition();
   }
@@ -1740,7 +1741,7 @@ mozilla::ipc::IPCResult CompositorBridgeParent::RecvAdoptChild(
     RefPtr<wr::WebRenderAPI> api = mWrBridge->GetWebRenderAPI();
     api = api->Clone();
     wr::Epoch newEpoch = childWrBridge->UpdateWebRender(
-        mWrBridge->CompositorScheduler(), std::move(api),
+        mWrBridge->GetCompositorScheduler(), std::move(api),
         mWrBridge->AsyncImageManager(),
         mWrBridge->GetTextureFactoryIdentifier());
     // Pretend we composited, since parent CompositorBridgeParent was replaced.
@@ -1859,7 +1860,7 @@ PWebRenderBridgeParent* CompositorBridgeParent::AllocPWebRenderBridgeParent(
                                         mVsyncRate);
   mWrBridge.get()->AddRef();  // IPDL reference
 
-  mCompositorScheduler = mWrBridge->CompositorScheduler();
+  mCompositorScheduler = mWrBridge->GetCompositorScheduler();
   MOZ_ASSERT(mCompositorScheduler);
   {  // scope lock
     MonitorAutoLock lock(*sIndirectLayerTreesLock);

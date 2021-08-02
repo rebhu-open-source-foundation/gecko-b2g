@@ -30,6 +30,7 @@
 #include "nsUnicodeProperties.h"
 #include "cairo.h"
 #include "VsyncSource.h"
+#include "SoftwareVsyncSource.h"
 
 #include "ft2build.h"
 #include FT_FREETYPE_H
@@ -407,6 +408,8 @@ class AndroidVsyncSource final : public VsyncSource {
 #ifdef MOZ_WIDGET_GONK
 class GonkVsyncSource final : public VsyncSource
 {
+  typedef VsyncSource::Display Display;
+
 public:
   GonkVsyncSource() : mGlobalDisplay(new GonkDisplay())
   {
@@ -416,6 +419,48 @@ public:
   {
     return *mGlobalDisplay;
   }
+
+  virtual Display& GetDisplayById(uint32_t aScreenId) override
+  {
+    if (mDisplayMap.count(aScreenId) > 0) {
+      return *mDisplayMap[aScreenId];
+    }
+
+    // GlobalDisplay should always exist.
+    return GetGlobalDisplay();
+  }
+
+  nsresult
+  AddDisplay(uint32_t aScreenId, VsyncSource::VsyncType aVsyncType) override
+  {
+    MOZ_ASSERT(NS_IsMainThread());
+    if (mDisplayMap.count(aScreenId) > 0) {
+      return NS_ERROR_FAILURE;
+    }
+
+    if (aVsyncType == HARDWARE_VYSNC) {
+      mDisplayMap[aScreenId] = mGlobalDisplay;
+      return NS_OK;
+    } else if (aVsyncType == SORTWARE_VSYNC) {
+      mDisplayMap[aScreenId] = new SoftwareDisplay();
+      return NS_OK;
+    }
+
+    return NS_ERROR_FAILURE;
+  }
+
+  nsresult
+  RemoveDisplay(uint32_t aScreenId) override
+  {
+    MOZ_ASSERT(NS_IsMainThread());
+    if (mDisplayMap.count(aScreenId) == 0) {
+      return NS_ERROR_FAILURE;
+    }
+    mDisplayMap.erase(aScreenId);
+
+    return NS_OK;
+  }
+
 
   class GonkDisplay final : public VsyncSource::Display
   {
@@ -464,8 +509,12 @@ public:
 private:
   virtual ~GonkVsyncSource()
   {
+    MOZ_ASSERT(NS_IsMainThread());
+    mDisplayMap.clear();
   }
-  RefPtr<GonkDisplay> mGlobalDisplay;
+  RefPtr<Display> mGlobalDisplay;
+  // Map of screen Id to Display
+  std::map<uint32_t, RefPtr<Display>> mDisplayMap;
 }; // GonkVsyncSource
 #endif
 

@@ -1354,6 +1354,7 @@ class ScopedContextSurfaceOverride {
 };
 
 void LayerManagerComposite::RenderToPresentationSurface() {
+#ifdef MOZ_WIDGET_ANDROID
   if (!mCompositor) {
     return;
   }
@@ -1399,6 +1400,43 @@ void LayerManagerComposite::RenderToPresentationSurface() {
 
   const IntSize windowSize(ANativeWindow_getWidth(window),
                            ANativeWindow_getHeight(window));
+#elif defined(MOZ_WIDGET_GONK)
+  CompositorOGL* compositor = mCompositor->AsCompositorOGL();
+  nsScreenGonk* screen = static_cast<nsWindow*>(
+      mCompositor->GetWidget())->GetScreen();
+  if (!screen->IsPrimaryScreen()) {
+    // Only primary screen support mirroring
+    return;
+  }
+
+  nsWindow* mirrorScreenWidget = screen->GetMirroringWidget();
+  if (!mirrorScreenWidget) {
+    // No mirroring
+    return;
+  }
+
+  nsScreenGonk* mirrorScreen = mirrorScreenWidget->GetScreen();
+  if (!mirrorScreen->GetTopWindows().IsEmpty()) {
+    return;
+  }
+
+  EGLSurface surface = mirrorScreen->GetEGLSurface();
+  if (surface == LOCAL_EGL_NO_SURFACE) {
+    // Create GLContext
+    RefPtr<GLContext> gl = gl::GLContextProvider::CreateForWindow(
+        mirrorScreenWidget, false);
+    mirrorScreenWidget->SetNativeData(NS_NATIVE_OPENGL_CONTEXT,
+                                      reinterpret_cast<uintptr_t>(gl.get()));
+    surface = mirrorScreen->GetEGLSurface();
+    if (surface == LOCAL_EGL_NO_SURFACE) {
+      // Failed to create EGLSurface
+      return;
+    }
+  }
+  GLContext* gl = compositor->gl();
+  GLContextEGL* egl = GLContextEGL::Cast(gl);
+  const IntSize windowSize = mirrorScreen->GetNaturalBounds().Size().ToUnknownSize();
+#endif
 
   if ((windowSize.width <= 0) || (windowSize.height <= 0)) {
     return;

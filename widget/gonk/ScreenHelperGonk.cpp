@@ -767,36 +767,28 @@ already_AddRefed<Screen> ScreenHelperGonk::MakeScreen(
   DisplayType displayType = (DisplayType)id;
   NS_ENSURE_TRUE(!IsScreenConnected(id), nullptr);
   GonkDisplay::NativeData nativeData =
-
       GetGonkDisplay()->GetNativeData(displayType, nullptr);
-  RefPtr<nsScreenGonk> screengonk =
+
+  RefPtr<nsScreenGonk> screenGonk =
       new nsScreenGonk(id, displayType, nativeData, aEventVisibility);
-  mScreenGonks.InsertOrUpdate(id, screengonk);
+  mScreenGonks.InsertOrUpdate(id, screenGonk);
 
   if (aEventVisibility == NotifyDisplayChangedEvent::Observable) {
     NotifyDisplayChange(id, true);
   }
 
-// TODO: FIXME
-#if 0
   // By default, non primary screen does mirroring.
-  if (aDisplayType != DisplayType::DISPLAY_PRIMARY) {
-      screen->EnableMirroring();
+  if (StaticPrefs::gfx_screen_mirroring_enabled() &&
+      displayType != DisplayType::DISPLAY_PRIMARY) {
+    screenGonk->EnableMirroring();
   }
 
-  VsyncSource::VsyncType vsyncType = (screen->IsVsyncSupported()) ?
-    VsyncSource::VsyncType::HARDWARE_VYSNC :
-    VsyncSource::VsyncType::SORTWARE_VSYNC;
-
-  gfxPlatform::GetPlatform()->GetHardwareVsync()->AddDisplay(id, vsyncType);
-#endif
-
-  LayoutDeviceIntRect bounds = screengonk->GetNaturalBounds();
+  LayoutDeviceIntRect bounds = screenGonk->GetNaturalBounds();
   int32_t depth;
 
-  screengonk->GetColorDepth(&depth);
+  screenGonk->GetColorDepth(&depth);
   float density = 160.0f;  // FIXME: This is the default density
-  float dpi = screengonk->GetDpi();
+  float dpi = screenGonk->GetDpi();
 
   RefPtr<Screen> screen = new Screen(bounds, bounds, depth, depth,
                                      DesktopToLayoutDeviceScale(density),
@@ -821,6 +813,14 @@ void ScreenHelperGonk::Refresh() {
 
   ScreenManager& manager = ScreenManager::GetSingleton();
   manager.Refresh(std::move(screenList));
+}
+
+void ScreenHelperGonk::AddDisplay(uint32_t aScreenId, nsScreenGonk* screenGonk) {
+  VsyncSource::VsyncType vsyncType = (screenGonk->IsVsyncSupported()) ?
+      VsyncSource::VsyncType::HARDWARE_VYSNC :
+      VsyncSource::VsyncType::SORTWARE_VSYNC;
+
+  gfxPlatform::GetPlatform()->GetHardwareVsync()->AddDisplay(aScreenId, vsyncType);
 }
 
 void ScreenHelperGonk::AddScreen(uint32_t aScreenId, DisplayType aDisplayType,

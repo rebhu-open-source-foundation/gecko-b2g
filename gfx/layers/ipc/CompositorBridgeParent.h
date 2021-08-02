@@ -84,7 +84,7 @@ class Compositor;
 class CompositorAnimationStorage;
 class CompositorBridgeParent;
 class CompositorManagerParent;
-class CompositorVsyncScheduler;
+class CompositorScheduler;
 class FrameUniformityData;
 class GeckoContentController;
 class HostLayerManager;
@@ -818,7 +818,7 @@ class CompositorBridgeParent final : public CompositorBridgeParentBase,
   RefPtr<APZUpdater> mApzUpdater;
   RefPtr<OMTASampler> mOMTASampler;
 
-  RefPtr<CompositorVsyncScheduler> mCompositorScheduler;
+  RefPtr<CompositorScheduler> mCompositorScheduler;
   // This makes sure the compositorParent is not destroyed before receiving
   // confirmation that the channel is closed.
   // mSelfRef is cleared in DeferredDestroy which is scheduled by ActorDestroy.

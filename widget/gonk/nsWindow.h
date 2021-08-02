@@ -118,7 +118,8 @@ class nsWindow final : public nsBaseWidget {
       Cursor aCursor);
 
   virtual float GetDPI() override;
-  virtual bool IsVsyncSupported();
+  virtual bool GetVsyncSupport();
+  virtual uint32_t GetScreenId();
   virtual double GetDefaultScaleInternal() override;
   virtual WindowRenderer* GetWindowRenderer() override;
   virtual void DestroyCompositor() override;

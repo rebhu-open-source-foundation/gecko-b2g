@@ -267,6 +267,8 @@ class nsDeviceContext final {
   void RegisterPageDoneCallback(PrintTarget::PageDoneCallback&& aCallback);
   void UnregisterPageDoneCallback();
 
+  void FindScreenId(uint32_t* screenId);
+
  private:
   // Private destructor, to discourage deletion outside of Release():
   ~nsDeviceContext();

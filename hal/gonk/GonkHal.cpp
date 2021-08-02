@@ -48,6 +48,7 @@
 #include "base/message_loop.h"
 #include "base/task.h"
 
+#include "gfxPlatform.h"
 #include "Hal.h"
 #include "HalImpl.h"
 #include "HalLog.h"
@@ -83,6 +84,8 @@
 #include "OrientationObserver.h"
 #include "UeventPoller.h"
 #include "nsIWritablePropertyBag2.h"
+#include "SoftwareVsyncSource.h"
+#include "VsyncSource.h"
 #include <algorithm>
 #include <dlfcn.h>
 
@@ -915,8 +918,22 @@ GetExtScreenEnabled()
 void
 SetExtScreenEnabled(bool aEnabled)
 {
+  uint32_t screenId =
+    widget::ScreenHelperGonk::GetIdFromType(DisplayType::DISPLAY_EXTERNAL);
+  mozilla::gfx::VsyncSource::Display &display =
+    gfxPlatform::GetPlatform()->GetHardwareVsync()->GetDisplayById(screenId);
+  SoftwareDisplay* softwareDisplay = display.AsSoftwareDisplay();
+
+  if (!aEnabled && softwareDisplay) {
+    softwareDisplay->SetPowerMode(aEnabled);
+  }
+
   GetGonkDisplay()->SetExtEnabled(aEnabled);
   sExtScreenEnabled = aEnabled;
+
+  if (aEnabled && softwareDisplay) {
+    softwareDisplay->SetPowerMode(aEnabled);
+  }
 }
 
 static StaticMutex sInternalLockCpuMutex;

@@ -62,6 +62,7 @@ EXPORTS += [
     "nsRefreshObservers.h",
     "nsStyleChangeList.h",
     "nsStyleSheetService.h",
+    "RefreshDriverTimerImpl.h",
     "StackArena.h",
     "TouchManager.h",
     "Units.h",
@@ -172,6 +173,12 @@ if CONFIG["MOZ_WIDGET_TOOLKIT"] == "android":
     LOCAL_INCLUDES += [
         "/widget/android",
     ]
+
+if CONFIG["MOZ_WIDGET_TOOLKIT"] == "gonk":
+    LOCAL_INCLUDES += [
+        "/widget/gonk"
+    ]
+
 
 IPDL_SOURCES += [
     "PresState.ipdlh",

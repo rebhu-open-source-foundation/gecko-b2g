@@ -716,3 +716,11 @@ void nsDeviceContext::UnregisterPageDoneCallback() {
     mPrintTarget->UnregisterPageDoneCallback();
   }
 }
+
+void nsDeviceContext::FindScreenId(uint32_t* screenId) {
+  if (!mWidget) {
+    *screenId = (uint32_t)DisplayType::DISPLAY_PRIMARY;
+  }
+
+  *screenId = mWidget->GetScreenId();
+}
