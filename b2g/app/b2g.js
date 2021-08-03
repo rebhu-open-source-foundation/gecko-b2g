@@ -1196,7 +1196,7 @@ pref("dom.security.skip_remote_script_assertion_in_system_priv_context", true);
 // Disable WebRender by default
 pref("gfx.webrender.all", false);
 pref("gfx.webrender.enabled", false);
-pref("gfx.webrender.force-disabled", true);
+pref("gfx.webrender.force-legacy-layers", true);
 pref("gfx.webrender.picture-tile-width", 256);
 pref("gfx.webrender.picture-tile-height", 512);
 
