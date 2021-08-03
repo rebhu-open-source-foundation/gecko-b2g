@@ -2088,25 +2088,29 @@ void BluetoothServiceBluedroid::BondStateChangedNotification(
   bool bonded = (aState == BOND_STATE_BONDED);
   if (aStatus != STATUS_SUCCESS) {
     if (!bonded) {  // Active/passive pair failed
-      BT_LOGR("Pair failed! Abort pairing.");
 
-      // Notify adapter of pairing aborted
-      nsAutoString deviceAddressStr;
-      AddressToString(aRemoteBdAddr, deviceAddressStr);
-      DistributeSignal(
-          BluetoothSignal(PAIRING_ABORTED_ID, KEY_ADAPTER, deviceAddressStr));
+      // Abort pairing when the authentication has stopped
+      if (aStatus == STATUS_AUTH_FAILURE || aStatus == STATUS_RMT_DEV_DOWN ||
+          aStatus == STATUS_AUTH_REJECTED) {
+        BT_LOGR("Pair failed! Abort pairing.");
+        // Notify adapter of pairing aborted
+        nsAutoString deviceAddressStr;
+        AddressToString(aRemoteBdAddr, deviceAddressStr);
+        DistributeSignal(
+            BluetoothSignal(PAIRING_ABORTED_ID, KEY_ADAPTER, deviceAddressStr));
 
-      // Query pairing device name from hash table
-      BluetoothRemoteName remotebdName;
-      if (!mDeviceNameMap.Get(aRemoteBdAddr, &remotebdName)) {
-        BT_LOGD("BD name is unknown");
+        // Query pairing device name from hash table
+        BluetoothRemoteName remotebdName;
+        if (!mDeviceNameMap.Get(aRemoteBdAddr, &remotebdName)) {
+          BT_LOGD("BD name is unknown");
+        }
+        // Since mName is not 0-terminated, mLength is required here.
+        NS_ConvertASCIItoUTF16 bdName(
+            reinterpret_cast<char*>(remotebdName.mName), remotebdName.mLength);
+
+        BT_ENSURE_TRUE_VOID_BROADCAST_SYSMSG(SYS_MSG_BT_PAIRING_ABORTED,
+                                             BluetoothValue(bdName));
       }
-      // Since mName is not 0-terminated, mLength is required here.
-      NS_ConvertASCIItoUTF16 bdName(reinterpret_cast<char*>(remotebdName.mName),
-                                    remotebdName.mLength);
-
-      BT_ENSURE_TRUE_VOID_BROADCAST_SYSMSG(SYS_MSG_BT_PAIRING_ABORTED,
-                                           BluetoothValue(bdName));
 
       // Reject pair promise
       if (!mCreateBondRunnables.IsEmpty()) {
