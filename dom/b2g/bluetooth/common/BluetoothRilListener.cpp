@@ -204,8 +204,9 @@ nsresult TelephonyListener::HandleCallInfo(nsITelephonyCallInfo* aInfo,
   // IMS call may directly send ALERTING without DIALING and fail several PTS
   // test cases. Therefore, fake a DIALING state if it's missing.
   if (isOutgoing && callState == nsITelephonyService::CALL_STATE_ALERTING &&
-      prevCallState != nsITelephonyService::CALL_STATE_DIALING) {
-    BT_LOGD("Send a dummy CALL_STATE_DIALING to HF device");
+      prevCallState != nsITelephonyService::CALL_STATE_DIALING &&
+      prevCallState != nsITelephonyService::CALL_STATE_ALERTING) {
+    BT_LOGR("Send a dummy CALL_STATE_DIALING to HF device");
     hfp->HandleCallStateChanged(
         callIndex, nsITelephonyService::CALL_STATE_DIALING, disconnectedReason,
         number, isOutgoing, isConference, aSend);
