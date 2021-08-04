@@ -251,7 +251,7 @@ this.SettingsPrefsSync = {
   },
 
   deviceInfoToSettings() {
-    // MOZ_B2G_VERSION is set in b2g/confvars.sh, and is output as a #define value
+    // MOZ_B2G_VERSION is set in b2g/moz.configure, and is output as a #define value
     // from configure.in, defaults to 1.0.0 if this value is not exist.
     let os_version = AppConstants.MOZ_B2G_VERSION;
     let os_name = AppConstants.MOZ_B2G_OS_NAME;
