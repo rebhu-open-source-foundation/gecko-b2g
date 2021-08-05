@@ -954,8 +954,8 @@ void BrowserParent::InitRendering() {
 #endif
 }
 
-bool BrowserParent::AttachLayerManager() {
-  return !!mRemoteLayerTreeOwner.AttachLayerManager();
+bool BrowserParent::AttachWindowRenderer() {
+  return mRemoteLayerTreeOwner.AttachWindowRenderer();
 }
 
 void BrowserParent::MaybeShowFrame() {
@@ -973,7 +973,7 @@ bool BrowserParent::Show(const OwnerShowInfo& aOwnerInfo) {
   }
 
   MOZ_ASSERT(mRemoteLayerTreeOwner.IsInitialized());
-  if (!mRemoteLayerTreeOwner.AttachLayerManager()) {
+  if (!mRemoteLayerTreeOwner.AttachWindowRenderer()) {
     return false;
   }
 

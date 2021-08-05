@@ -738,17 +738,17 @@ WindowRenderer* nsWindow::GetWindowRenderer() {
   /*if (aAllowRetaining) {
     *aAllowRetaining = true;
   }*/
-  if (mLayerManager) {
+  if (mWindowRenderer) {
     // This layer manager might be used for painting outside of DoDraw(), so we
     // need to set the correct rotation on it.
-    if (mLayerManager->GetBackendType() == LayersBackend::LAYERS_CLIENT) {
+    if (mWindowRenderer->GetBackendType() == LayersBackend::LAYERS_CLIENT) {
       ClientLayerManager* manager =
-          static_cast<ClientLayerManager*>(mLayerManager.get());
+          static_cast<ClientLayerManager*>(mWindowRenderer.get());
       uint32_t rotation = mScreen->EffectiveScreenRotation();
       manager->SetDefaultTargetConfiguration(
           mozilla::layers::BufferMode::BUFFER_NONE, ScreenRotation(rotation));
     }
-    return mLayerManager;
+    return mWindowRenderer;
   }
 
   const nsTArray<nsWindow*>& windows = mScreen->GetTopWindows();
@@ -767,8 +767,8 @@ WindowRenderer* nsWindow::GetWindowRenderer() {
       mComposer2D->SetCompositorBridgeParent(mCompositorBridgeParent);
     }
   }
-  MOZ_ASSERT(mLayerManager);
-  return mLayerManager;
+  MOZ_ASSERT(mWindowRenderer);
+  return mWindowRenderer;
 }
 
 void nsWindow::DestroyCompositor() {
@@ -824,7 +824,7 @@ void nsWindow::UserActivity() {
 }
 
 uint32_t nsWindow::GetGLFrameBufferFormat() {
-  if (mLayerManager && mLayerManager->GetBackendType() ==
+  if (mWindowRenderer && mWindowRenderer->GetBackendType() ==
                            mozilla::layers::LayersBackend::LAYERS_OPENGL) {
     // We directly map the hardware fb on Gonk.  The hardware fb
     // has RGB format.
@@ -840,7 +840,7 @@ LayoutDeviceIntRect nsWindow::GetNaturalBounds() {
 nsScreenGonk* nsWindow::GetScreen() { return mScreen; }
 
 bool nsWindow::NeedsPaint() {
-  if (!mLayerManager) {
+  if (!mWindowRenderer) {
     return false;
   }
   return nsIWidget::NeedsPaint();
