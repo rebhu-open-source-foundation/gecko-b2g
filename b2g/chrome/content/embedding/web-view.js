@@ -371,13 +371,6 @@
       this.browser = null;
       this.attrs = [];
 
-      // Mark some functions used by the UI as unimplemented for now.
-      ["addNextPaintListener", "removeNextPaintListener"].forEach(name => {
-        this[name] = () => {
-          this.log(`Unimplemented: ${name}`);
-        };
-      });
-
       this._pid = -1;
     }
 
