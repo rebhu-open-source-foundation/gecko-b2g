@@ -142,7 +142,7 @@ class SessionStoreUtils {
   static void ResetSessionStore(BrowsingContext* aContext);
 
 #if defined(MOZ_WIDGET_ANDROID) || defined(MOZ_THUNDERBIRD) || \
-    defined(MOZ_SUITE)
+    defined(MOZ_SUITE) || defined(MOZ_B2G)
   static constexpr bool NATIVE_LISTENER = false;
 #else
   static constexpr bool NATIVE_LISTENER = true;
