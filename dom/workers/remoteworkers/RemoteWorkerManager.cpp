@@ -575,6 +575,20 @@ RemoteWorkerServiceParent* RemoteWorkerManager::SelectTargetActorInternal(
 
   const auto& workerRemoteType = aData.remoteType();
 
+  bool isServiceWorkerWithoutActorSuggestion = IsServiceWorker(aData);
+  if (isServiceWorkerWithoutActorSuggestion) {
+    // aProcessId is always 0 for ServiceWorker, assert for future changes so
+    // that we shall consider both valid aProcessId and suggestedPid.
+    MOZ_ASSERT(!aProcessId);
+
+    auto suggestedPid =
+        aData.serviceWorkerData().get_ServiceWorkerData().suggestedPid();
+    if (suggestedPid) {
+      aProcessId = suggestedPid;
+    }
+    isServiceWorkerWithoutActorSuggestion = !suggestedPid;
+  }
+
   ForEachActor(
       [&](RemoteWorkerServiceParent* aActor,
           RefPtr<ContentParent>&& aContentParent) {
@@ -599,7 +613,8 @@ RemoteWorkerServiceParent* RemoteWorkerManager::SelectTargetActorInternal(
         MOZ_ASSERT(!actor);
         return true;
       },
-      workerRemoteType, IsServiceWorker(aData) ? Nothing() : Some(aProcessId));
+      workerRemoteType,
+      isServiceWorkerWithoutActorSuggestion ? Nothing() : Some(aProcessId));
 
   return actor;
 }

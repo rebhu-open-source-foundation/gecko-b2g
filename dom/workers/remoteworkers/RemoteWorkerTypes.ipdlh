@@ -26,6 +26,7 @@ struct ServiceWorkerData {
   nsString cacheName;
   uint32_t loadFlags;
   nsString id;
+  int32_t suggestedPid;
 };
 
 union OptionalServiceWorkerData {

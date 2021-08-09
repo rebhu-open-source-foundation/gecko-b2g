@@ -19,6 +19,7 @@
 #include "nsIHttpHeaderVisitor.h"
 #include "nsINetworkInterceptController.h"
 #include "nsIObserverService.h"
+#include "nsIRemoteWorkerActorSelector.h"
 #include "nsIScriptError.h"
 #include "nsIURI.h"
 #include "nsIUploadChannel2.h"
@@ -268,6 +269,14 @@ void ServiceWorkerPrivateImpl::RefreshRemoteWorkerData(
   serviceWorkerData.descriptor() = mOuter->mInfo->Descriptor().ToIPC();
   serviceWorkerData.registrationDescriptor() =
       aRegistration->Descriptor().ToIPC();
+
+  nsCOMPtr<nsIRemoteWorkerActorSelector> rwas =
+      do_GetService("@mozilla.org/remoteworkers/actorselector;1");
+  int pid = 0;
+  if (rwas) {
+    rwas->GetSuggestedPid(&pid);
+  }
+  serviceWorkerData.suggestedPid() = pid;
 }
 
 nsresult ServiceWorkerPrivateImpl::SpawnWorkerIfNeeded() {
