@@ -98,9 +98,9 @@
 #  include "nsCocoaFeatures.h"
 #endif
 
-#ifndef ANDROID
+#if !defined(ANDROID) && !defined(MOZ_B2G)
 #  include "mozilla/browser/NimbusFeatures.h"
-#endif  // ANDROID
+#endif  // !ANDROID && !MOZ_B2G
 
 //-----------------------------------------------------------------------------
 #include "mozilla/net/HttpChannelChild.h"
@@ -128,10 +128,10 @@
 #define NS_HTTP_PROTOCOL_FLAGS \
   (URI_STD | ALLOWS_PROXY | ALLOWS_PROXY_HTTP | URI_LOADABLE_BY_ANYONE)
 
-#ifndef ANDROID
+#if !defined(ANDROID) && !defined(MOZ_B2G)
 #  define UA_EXPERIMENT_NAME "firefox100"_ns
 #  define UA_EXPERIMENT_VAR "firefoxVersion"_ns
-#endif  // ANDROID
+#endif  // !ANDROID && !MOZ_B2G
 
 //-----------------------------------------------------------------------------
 
@@ -141,7 +141,7 @@ namespace mozilla::net {
 
 LazyLogModule gHttpLog("nsHttp");
 
-#ifndef ANDROID
+#if !defined(ANDROID) && !defined(MOZ_B2G)
 static void ExperimentUserAgentUpdated(const char* /* aNimbusPref */,
                                        void* aUserData) {
   MOZ_ASSERT(aUserData != nullptr);
@@ -175,7 +175,7 @@ static void ExperimentUserAgentUpdated(const char* /* aNimbusPref */,
   aExperimentUserAgent->Truncate();
   aExperimentUserAgent->AppendPrintf(uaFormat, firefoxVersion, firefoxVersion);
 }
-#endif  // ANDROID
+#endif  // !ANDROID && !MOZ_B2G
 
 #ifdef ANDROID
 static nsCString GetDeviceModelId() {
@@ -388,11 +388,11 @@ nsresult nsHttpHandler::Init() {
                                        gCallbackPrefs, this);
   PrefsChanged(nullptr);
 
-#ifndef ANDROID
+#if !defined(ANDROID) && !defined(MOZ_B2G)
   // monitor Firefox Version Experiment enrollment
   NimbusFeatures::OnUpdate(UA_EXPERIMENT_NAME, UA_EXPERIMENT_VAR,
                            ExperimentUserAgentUpdated, &mExperimentUserAgent);
-#endif  // ANDROID
+#endif  // !ANDROID && !MOZ_B2G
 
   Telemetry::ScalarSet(Telemetry::ScalarID::NETWORKING_HTTP3_ENABLED,
                        mHttp3Enabled);
