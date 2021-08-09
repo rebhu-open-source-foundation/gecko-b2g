@@ -1243,6 +1243,7 @@ struct ParamTraits<mozilla::PanGestureInput>
             .mRequiresContentResponseIfCannotScrollHorizontallyInStartDirection);
     WriteParam(aMsg, aParam.mOverscrollBehaviorAllowsSwipe);
     WriteParam(aMsg, aParam.mSimulateMomentum);
+    WriteParam(aMsg, aParam.mIsNoLineOrPageDelta);
   }
 
   static bool Read(const Message* aMsg, PickleIterator* aIter,
@@ -1269,7 +1270,9 @@ struct ParamTraits<mozilla::PanGestureInput>
            ReadBoolForBitfield(aMsg, aIter, aResult,
                                &paramType::SetOverscrollBehaviorAllowsSwipe) &&
            ReadBoolForBitfield(aMsg, aIter, aResult,
-                               &paramType::SetSimulateMomentum);
+                               &paramType::SetSimulateMomentum) &&
+           ReadBoolForBitfield(aMsg, aIter, aResult,
+                               &paramType::SetIsNoLineOrPageDelta);
   }
 };
 
