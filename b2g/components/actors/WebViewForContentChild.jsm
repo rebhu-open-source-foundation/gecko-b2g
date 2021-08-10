@@ -44,6 +44,11 @@ function DispatchToCurrentThread(f) {
 }
 
 class WebViewForContentChild extends JSWindowActorChild {
+  constructor() {
+    super();
+    this.enabled = false;
+  }
+
   exportCustomElements() {
     // Prepare scope data to grab the class defined by customElements.js.
     this.window = {
@@ -164,6 +169,7 @@ class WebViewForContentChild extends JSWindowActorChild {
       return;
     }
     this.exportCustomElements();
+    this.enabled = true;
   }
 
   handleEvent(event) {}

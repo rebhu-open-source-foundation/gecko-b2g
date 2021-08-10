@@ -418,7 +418,10 @@ WebViewChild.prototype = {
   // Processes the "rel" field in <link> tags and forward to specific handlers.
   linkAddedHandler(event) {
     let win = event.target.ownerGlobal;
-    if (win != this.global.content) {
+    let actor = win.parent?.windowGlobalChild?.getActor(
+      "WebViewForContent"
+    ) ?? { enabled: false };
+    if (win != this.global.content && !actor.enabled) {
       return;
     }
 
@@ -446,7 +449,17 @@ WebViewChild.prototype = {
     let icon = { href: target.href };
     this.maybeCopyAttribute(target, icon, "sizes");
     this.maybeCopyAttribute(target, icon, "rel");
-    this.global.sendAsyncMessage("WebView::iconchange", icon);
+    let win = event.target.ownerGlobal;
+    if (win === this.global.content) {
+      this.global.sendAsyncMessage("WebView::iconchange", icon);
+    } else {
+      // The event target is the web-view element of a content window.
+      // Dispatch the event to the related frame element.
+      const browser = target.ownerGlobal.frameElement;
+      browser?.dispatchEvent(
+        new win.CustomEvent("iconchange", { detail: icon })
+      );
+    }
   },
 
   openSearchHandler(event) {

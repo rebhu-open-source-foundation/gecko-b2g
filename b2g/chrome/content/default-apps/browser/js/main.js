@@ -42,6 +42,8 @@ class BrowserTab {
     // Binding events
     this.webview.addEventListener("locationchange", this.updateActionsUI);
     this.webview.addEventListener("openwindow", this.openWindow);
+    this.webview.addEventListener("iconchange", this.setupIcon);
+
     this.parentDocument.getElementById("url").value = this.webview.src;
     this.parentDocument
       .getElementById("action-back")
@@ -50,6 +52,7 @@ class BrowserTab {
       .getElementById("action-forward")
       .toggleAttribute("disabled", !this.webview.canGoForward);
     activatedTab = this;
+    this.setupIcon({});
   }
 
   hide() {
@@ -59,6 +62,8 @@ class BrowserTab {
     this.webview.style.display = "none";
     this.webview.removeEventListener("locationchange", this.updateActionsUI);
     this.webview.removeEventListener("openwindow", this.openWindow);
+    this.webview.removeEventListener("iconchange", this.setupIcon);
+
     this.parentDocument.getElementById("url").value = "";
     this.parentDocument
       .getElementById("action-back")
@@ -66,6 +71,7 @@ class BrowserTab {
     this.parentDocument
       .getElementById("action-forward")
       .toggleAttribute("disabled", true);
+    this.setupIcon({});
     activatedTab = null;
   }
 
@@ -78,6 +84,17 @@ class BrowserTab {
         aEvent.detail.frameElement
       )
     );
+  }
+
+  setupIcon(aEvent) {
+    log("setupIcon");
+    let href = aEvent?.detail?.href;
+    if (activatedTab) {
+      activatedTab.parentDocument.querySelector(
+        "#tabs > .icon"
+      ).style.display = href ? "inline" : "none";
+      activatedTab.parentDocument.querySelector("#tabs > .icon").src = href;
+    }
   }
 
   updateActionsUI(aEvent) {
@@ -114,10 +131,12 @@ class BrowserTab {
   }
 
   goForward() {
+    this.setupIcon({});
     this.webview.goForward();
   }
 
   goBack() {
+    this.setupIcon({});
     this.webview.goBack();
   }
 }
