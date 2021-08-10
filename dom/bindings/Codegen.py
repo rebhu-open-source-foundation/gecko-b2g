@@ -1291,8 +1291,7 @@ class CGNamespace(CGThing):
         """
         if not namespaces:
             return CGWrapper(child)
-        inner = CGNamespace.build(namespaces[1:], child)
-        return CGNamespace(namespaces[0], inner)
+        return CGNamespace("::".join(namespaces), child)
 
 
 class CGIncludeGuard(CGWrapper):
@@ -9642,7 +9641,7 @@ class CGPerSignatureCall(CGThing):
             // passed to the webextensions stub method.
             //
             // NOTE: The stub method will receive the original non-normalized js values,
-            // but those arguments will still be normalized on the main thread by the 
+            // but those arguments will still be normalized on the main thread by the
             // WebExtensions API request handler using the same JSONSchema defnition
             // used by the non-webIDL webextensions API bindings.
             AutoSequence<JS::Value> args_sequence;

@@ -1440,6 +1440,10 @@ double MediaDecoder::GetTotalPlayTimeInSeconds() const {
   return mTelemetryProbesReporter->GetTotalPlayTimeInSeconds();
 }
 
+double MediaDecoder::GetVisibleVideoPlayTimeInSeconds() const {
+  return mTelemetryProbesReporter->GetVisibleVideoPlayTimeInSeconds();
+}
+
 double MediaDecoder::GetInvisibleVideoPlayTimeInSeconds() const {
   return mTelemetryProbesReporter->GetInvisibleVideoPlayTimeInSeconds();
 }

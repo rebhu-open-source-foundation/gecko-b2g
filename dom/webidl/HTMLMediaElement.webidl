@@ -248,6 +248,9 @@ partial interface HTMLMediaElement {
   readonly attribute double totalPlayTime;
 
   [ChromeOnly]
+  readonly attribute double visiblePlayTime;
+
+  [ChromeOnly]
   readonly attribute double invisiblePlayTime;
 
   [ChromeOnly]

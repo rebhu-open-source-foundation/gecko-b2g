@@ -2497,13 +2497,13 @@
 # Support for input type=datetime-local.
 - name: dom.forms.datetime-local
   type: bool
-  value: @IS_ANDROID@
+  value: true
   mirror: always
 
 # Support for input type=datetime-local widget. Disabled for now.
 - name: dom.forms.datetime-local.widget
   type: bool
-  value: false
+  value: true
   mirror: always
 
 # Support for input type=month, type=week. By default, disabled.
@@ -2581,6 +2581,12 @@
 # If this is true, the key events defined in the preference
 # dom.keyboardevent.function_keys are dispatched to the content process first.
 - name: dom.keyboardevent.dispatch_function_keys_to_content_first
+  type: bool
+  value: false
+  mirror: always
+
+# Enable/disable KeyboardEvent.initKeyEvent function
+- name: dom.keyboardevent.init_key_event.enabled
   type: bool
   value: false
   mirror: always
@@ -7106,7 +7112,7 @@
 # a double colon, and return the regular style otherwise.
 - name: layout.css.computed-style.throw-on-invalid-pseudo
   type: bool
-  value: @IS_NIGHTLY_BUILD@
+  value: false
   mirror: always
 
 # Are implicit tracks in computed grid templates serialized?
@@ -7166,6 +7172,13 @@
 
 # Is support for color-mix on content enabled?
 - name: layout.css.color-mix.enabled
+  type: RelaxedAtomicBool
+  value: @IS_NIGHTLY_BUILD@
+  mirror: always
+  rust: true
+
+# Is support for color-mix with non-SRGB color spaces on content enabled?
+- name: layout.css.color-mix.color-spaces.enabled
   type: RelaxedAtomicBool
   value: @IS_NIGHTLY_BUILD@
   mirror: always
@@ -7827,6 +7840,13 @@
 - name: layout.css.element-content-none.enabled
   type: RelaxedAtomicBool
   value: false
+  mirror: always
+  rust: true
+
+# Is 'font-synthesis: small-caps' supported?
+- name: layout.css.font-synthesis-small-caps.enabled
+  type: RelaxedAtomicBool
+  value: true
   mirror: always
   rust: true
 
@@ -10725,6 +10745,12 @@
   value: false
   mirror: always
 
+# Whether the storage allowed check should be cached on the inner window.
+- name: privacy.antitracking.cacheStorageAllowedForWindow
+  type: bool
+  value: true
+  mirror: always
+
 # Enable the heuristic to allow storage access for recent visited pages
 - name: privacy.restrict3rdpartystorage.heuristic.recently_visited
   type: bool
@@ -11014,7 +11040,7 @@
 
 -   name: security.sandbox.rdd.shadow-stack.enabled
     type: RelaxedAtomicBool
-    value: false
+    value: @IS_NIGHTLY_BUILD@
     mirror: always
 
 -   name: security.sandbox.socket.shadow-stack.enabled
