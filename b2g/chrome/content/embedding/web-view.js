@@ -624,7 +624,9 @@
 
     cleanup() {
       kRegisteredBrowserEvents.forEach(name => {
-        this.browser.removeEventListener(name, this);
+        if (this.browser) {
+          this.browser.removeEventListener(name, this);
+        }
       });
 
       this.updateDCSState(false);
@@ -633,7 +635,9 @@
         // process, or use a preallocated one, if the old content
         // process is crashed or killed.  So, skip this line for the
         // case of crashing.
-        this.browser.removeProgressListener(this.progressListener);
+        if (this.browser) {
+          this.browser.removeProgressListener(this.progressListener);
+        }
       }
       this.progressListener = null;
 
