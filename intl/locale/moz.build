@@ -22,14 +22,12 @@ elif toolkit == "gonk":
 XPIDL_SOURCES += [
     "mozILocaleService.idl",
     "mozIOSPreferences.idl",
-    "nsICollation.idl",
 ]
 
 XPIDL_MODULE = "locale"
 
 EXPORTS += [
     "DateTimeFormat.h",
-    "nsCollationCID.h",
     "nsLanguageAtomService.h",
     "nsUConvPropertySearch.h",
 ]
@@ -46,8 +44,6 @@ UNIFIED_SOURCES += [
     "DateTimeFormat.cpp",
     "LocaleService.cpp",
     "MozLocale.cpp",
-    "nsCollation.cpp",
-    "nsCollationFactory.cpp",
     "nsLanguageAtomService.cpp",
     "nsUConvPropertySearch.cpp",
     "OSPreferences.cpp",
