@@ -306,10 +306,8 @@ static status_t runEncoder(const sp<MediaCodec>& encoder,
       break;
     }
 
-    GS_LOGD("Calling dequeueOutputBuffer");
     err = encoder->dequeueOutputBuffer(&bufIndex, &offset, &size, &ptsUsec,
         &flags, kTimeout);
-    GS_LOGD("dequeueOutputBuffer returned %d", err);
     switch (err) {
       case NO_ERROR:
         // got a buffer
@@ -322,9 +320,6 @@ static status_t runEncoder(const sp<MediaCodec>& encoder,
           }
         }
         if (size != 0) {
-          GS_LOGD("Got data in buffer %zu, size=%zu, pts=%" PRId64,
-              bufIndex, size, ptsUsec);
-
           // If the virtual display isn't providing us with timestamps,
           // use the current time.  This isn't great -- we could get
           // decoded data in clusters -- but we're not expecting
@@ -603,11 +598,12 @@ int GonkScreenRecord::capture()
     mFinishCallback(mStreamFd, err);
   }
 
+  // Wait for SW Vsync thread to finish and quit.
+  mVsyncThread->Stop();
   if (mCurrentVsyncTask) {
     mCurrentVsyncTask->Cancel();
     mCurrentVsyncTask = nullptr;
   }
-  mVsyncThread->Stop();
 
   return (int) err;
 }
