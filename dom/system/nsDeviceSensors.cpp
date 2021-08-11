@@ -497,8 +497,6 @@ void nsDeviceSensors::FireDOMMotionEvent(Document* doc, EventTarget* target,
     return;
   }
 
-  double interval = (TimeStamp::Now() - mLastDOMMotionEventTime).ToMilliseconds();
-
   IgnoredErrorResult ignored;
   RefPtr<Event> event =
       doc->CreateEvent(u"DeviceMotionEvent"_ns, CallerType::System, ignored);
@@ -511,7 +509,7 @@ void nsDeviceSensors::FireDOMMotionEvent(Document* doc, EventTarget* target,
   me->InitDeviceMotionEvent(
       u"devicemotion"_ns, true, false, *mLastAcceleration,
       *mLastAccelerationIncludingGravity, *mLastRotationRate,
-      Nullable<double>(interval), Nullable<uint64_t>(timestamp));
+      Nullable<double>(DEFAULT_SENSOR_POLL), Nullable<uint64_t>(timestamp));
 
   event->SetTrusted(true);
 
