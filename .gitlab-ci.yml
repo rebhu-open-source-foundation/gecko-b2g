@@ -20,6 +20,7 @@ default:
   image: ${CI_REGISTRY}/re/kaios-build/next/daily:1.49.0_5_3
   tags:
     - hk-fantastic4
+  interruptible: true
 
 variables:
   # GIT_CLONE_PATH would be overidden with "koost" if pipeline gets triggered from within koost
@@ -90,6 +91,7 @@ production:desktop:
     # releng/ci-util/b2g-desktop
     B2G_DESKTOP_PROJECT_ID: 11099
   # override the whole before_script since we don't need the typical preparartion of repository
+  interruptible: false
   before_script:
     - '[[ -f /entrypoint.sh ]] && /entrypoint.sh'
     - |
