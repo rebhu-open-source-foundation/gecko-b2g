@@ -288,6 +288,7 @@ void GfxDebugger::Listen()
   }
 }
 
+static bool gRecordingInProgress = false;
 void OnScreenrecordFinish(int streamFd, int res) {
   // Dispatch the job back to main thread for notifying client.
   nsCOMPtr<nsIRunnable> screenrecordFinishCB =
@@ -298,6 +299,7 @@ void OnScreenrecordFinish(int streamFd, int res) {
         reply.writeInt32(res);
         GD_LOGD("screenrecord result: %d", res);
         send(streamFd, reply.data(), reply.dataSize(), 0);
+        gRecordingInProgress = false;
       }
     );
   NS_DispatchToMainThread(screenrecordFinishCB);
@@ -380,24 +382,27 @@ void GfxDebugger::ReceiveSocketData(int aIndex,
 
         switch (op) {
           case SCREENRECORD_OP_CAPTURE: {
+            if (gRecordingInProgress) {
+              OnScreenrecordFinish(mConnector->mStreamFd, EBUSY);
+              break;
+            }
             uint32_t displayId = parcel.readUint32();
             uint32_t outputFormat = parcel.readUint32();
             uint32_t timeLimitSec = parcel.readUint32();
             const char* filePath = parcel.readCString();
             GD_LOGD("screenrecord[%s]:", filePath);
-            {
-              // Dispatch the job to non main/IO thread to prevent B2G jobs
-              // and composition jobs being blocked.
-              RefPtr<GonkScreenRecord> runnable =
-                  new GonkScreenRecord(displayId, outputFormat, timeLimitSec,
-                    filePath, &OnScreenrecordFinish, mConnector->mStreamFd);
+            // Dispatch the job to non main/IO thread to prevent B2G jobs
+            // and composition jobs being blocked.
+            RefPtr<GonkScreenRecord> runnable =
+                new GonkScreenRecord(displayId, outputFormat, timeLimitSec,
+                  filePath, &OnScreenrecordFinish, mConnector->mStreamFd);
 
-              nsCOMPtr<nsIEventTarget> target =
-                do_GetService(NS_STREAMTRANSPORTSERVICE_CONTRACTID);
-              MOZ_ASSERT(target);
+            nsCOMPtr<nsIEventTarget> target =
+              do_GetService(NS_STREAMTRANSPORTSERVICE_CONTRACTID);
+            MOZ_ASSERT(target);
 
-              target->Dispatch(runnable.forget(), NS_DISPATCH_NORMAL);
-            }
+            target->Dispatch(runnable.forget(), NS_DISPATCH_NORMAL);
+            gRecordingInProgress = true;
             break;
           }
         }

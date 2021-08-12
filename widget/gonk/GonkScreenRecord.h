@@ -43,10 +43,6 @@ public:
     if (mFileName) {
       free(mFileName);
     }
-
-    if (mVsyncThread) {
-      delete mVsyncThread;
-    }
   }
 
   NS_IMETHOD
@@ -57,6 +53,9 @@ public:
   void
   NotifyVsync(const int display, const mozilla::TimeStamp& aVsyncTimestamp,
               const mozilla::TimeDuration& aVsyncPeriod);
+
+  void
+  ClearVsyncTask();
 
   int
   capture();

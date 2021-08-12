@@ -64,6 +64,7 @@ static const char* kMimeTypeAvc = "video/avc";
 
 // Set by signal handler to stop recording.
 static volatile bool gStopRequested = false;
+static sp<IGraphicBufferProducer> gEncoderBufferProducer = nullptr;
 
 /*
  * Configures and starts the MediaCodec encoder.  Obtains an input surface
@@ -135,7 +136,7 @@ static status_t prepareEncoder(uint32_t videoWidth, uint32_t videoHeight,
   GS_LOGD("Codec prepared");
   *pCodec = codec;
   *pBufferProducer = bufferProducer;
-  return 0;
+  return NO_ERROR;
 }
 
 #define GONK_PIXEL_FORMAT_RGBA_8888 1
@@ -185,7 +186,6 @@ static status_t RGB565ToNV12(const uint8_t* src_rgb565, int src_stride_rgb565,
   return NO_ERROR;
 }
 
-static sp<IGraphicBufferProducer> gEncoderBufferProducer = nullptr;
 // This function will be invoked once vsync period expired. The main task will be:
 // 1. Fetch display buffer from GonkDisplay.
 // 2. Convert the data from RGB to NV12.
@@ -248,22 +248,31 @@ unlockSrcBuffer:
     frameBuffer->unlock();
   }
 
-  // Schedule next vsync
-  TimeStamp nextVsync = aVsyncTimestamp + aVsyncPeriod;
-  TimeDuration delay = nextVsync - TimeStamp::Now();
-  if (delay.ToMilliseconds() < 0) {
-    delay = TimeDuration::FromMilliseconds(0);
-    nextVsync = TimeStamp::Now();
+  // Schedule next vsync if recording has not yet been stopped.
+  if (!gStopRequested) {
+    TimeStamp nextVsync = aVsyncTimestamp + aVsyncPeriod;
+    TimeDuration delay = nextVsync - TimeStamp::Now();
+    if (delay.ToMilliseconds() < 0) {
+      delay = TimeDuration::FromMilliseconds(0);
+      nextVsync = TimeStamp::Now();
+    }
+
+    mCurrentVsyncTask =
+        NewCancelableRunnableMethod<int, TimeStamp, TimeDuration>(
+            "GonkScreenRecord::NotifyVsync", this, &GonkScreenRecord::NotifyVsync,
+            display, nextVsync, aVsyncPeriod);
+
+    RefPtr<Runnable> addrefedTask = mCurrentVsyncTask;
+    mVsyncThread->message_loop()->PostDelayedTask(addrefedTask.forget(),
+                                                  delay.ToMilliseconds());
   }
+}
 
-  mCurrentVsyncTask =
-      NewCancelableRunnableMethod<int, TimeStamp, TimeDuration>(
-          "GonkScreenRecord::NotifyVsync", this, &GonkScreenRecord::NotifyVsync,
-          display, nextVsync, aVsyncPeriod);
-
-  RefPtr<Runnable> addrefedTask = mCurrentVsyncTask;
-  mVsyncThread->message_loop()->PostDelayedTask(addrefedTask.forget(),
-                                                delay.ToMilliseconds());
+void GonkScreenRecord::ClearVsyncTask() {
+  if (mCurrentVsyncTask) {
+    mCurrentVsyncTask->Cancel();
+    mCurrentVsyncTask = nullptr;
+  }
 }
 
 /*
@@ -303,6 +312,7 @@ static status_t runEncoder(const sp<MediaCodec>& encoder,
 
     if (systemTime(CLOCK_MONOTONIC) > endWhenNsec) {
       GS_LOGI("Time limit reached\n");
+      gStopRequested = true;
       break;
     }
 
@@ -579,13 +589,14 @@ int GonkScreenRecord::capture()
     if (fd < 0) {
       GS_LOGE("Unable to open '%s': %s\n", mFileName, strerror(errno));
       if (mFinishCallback) {
-        mFinishCallback(mStreamFd, INVALID_OPERATION);
+        mFinishCallback(mStreamFd, errno);
       }
-      return (int) INVALID_OPERATION;
+      return errno;
     }
     close(fd);
   }
 
+  gStopRequested = false;
   mVsyncThread = new ::base::Thread("SoftwareVsyncThread");
   MOZ_RELEASE_ASSERT(mVsyncThread->Start(),
                      "GFX: Could not start software vsync thread");
@@ -598,14 +609,14 @@ int GonkScreenRecord::capture()
     mFinishCallback(mStreamFd, err);
   }
 
+  mVsyncThread->message_loop()->PostTask(NewRunnableMethod(
+      "GonkScreenRecord::ClearVsyncTask", this, &GonkScreenRecord::ClearVsyncTask));
+
   // Wait for SW Vsync thread to finish and quit.
   mVsyncThread->Stop();
-  if (mCurrentVsyncTask) {
-    mCurrentVsyncTask->Cancel();
-    mCurrentVsyncTask = nullptr;
-  }
+  delete mVsyncThread;
 
-  return (int) err;
+  return err;
 }
 
 } /* namespace mozilla */
