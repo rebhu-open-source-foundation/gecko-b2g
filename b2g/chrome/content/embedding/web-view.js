@@ -732,6 +732,11 @@
       return this.browser;
     }
 
+    // Returns this tab's MediaController object.
+    get mediaController() {
+      return this.browser.browsingContext.mediaController;
+    }
+
     set src(url) {
       this.log(`set src to ${url}`);
       // If we are not yet connected to the DOM, add that action to the list
