@@ -268,14 +268,32 @@ void GonkDiskSpaceWatcher::OnFileCanReadWithoutBlocking(int aFd) {
     len = read(aFd, buf, sizeof(buf));
   } while (len == -1 && errno == EINTR);
 
-  // Bail out if the file is busy.
-  if (len < 0 && errno == ETXTBSY) {
-    return;
+  if (len < 0) {
+    switch (errno) {
+      // Bail out if the per-process limit on the number of open files has been
+      // reached.
+      case EMFILE:
+      // Bail out if the system-wide limit on the total number of open files
+      // has been reached.
+      case ENFILE:
+      // Bail out if the value of fd in the response structure is not valid.
+      case EINVAL:
+      case ENOENT:
+      // Bail out if the file is busy.
+      case ETXTBSY:
+        printf_stderr("OnFileCanReadWithoutBlocking error! errno: %s",
+                      strerror(errno));
+        return;
+      default:
+        break;
+    }
   }
 
   // We should get an exact multiple of fanotify_event_metadata
   if (len <= 0 || (len % FAN_EVENT_METADATA_LEN != 0)) {
-    MOZ_CRASH("About to crash: fanotify_event_metadata read error.");
+    printf_stderr("OnFileCanReadWithoutBlocking error! len: %d, errno: %s", len,
+                  strerror(errno));
+    MOZ_CRASH("About to crash: len<=0 or fanotify_event_metadata read error.");
   }
 
   fem = reinterpret_cast<fanotify_event_metadata*>(buf);
