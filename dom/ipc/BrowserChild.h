@@ -39,6 +39,7 @@
 #include "mozilla/layers/CompositorOptions.h"
 #include "mozilla/layers/GeckoContentControllerTypes.h"
 #include "nsIWebBrowserChrome.h"
+#include "nsITopLevelNavigationDelegate.h"
 #include "mozilla/dom/ipc/IdType.h"
 #include "AudioChannelService.h"
 #include "PuppetWidget.h"
@@ -813,6 +814,8 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
                                        nsIRequest* aRequest,
                                        WebProgressData& aWebProgressData,
                                        RequestData& aRequestData);
+  already_AddRefed<nsITopLevelNavigationDelegate>
+  GetTopLevelNavigationDelegate();
 
   MOZ_CAN_RUN_SCRIPT_BOUNDARY
   nsresult UpdateRemotePrintSettings(const embedding::PrintData& aPrintData);

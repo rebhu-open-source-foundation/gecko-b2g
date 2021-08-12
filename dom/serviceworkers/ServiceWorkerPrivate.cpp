@@ -2103,7 +2103,7 @@ namespace {
 class ServiceWorkerPrivateTimerCallback final : public nsITimerCallback,
                                                 public nsINamed {
  public:
-  typedef void (ServiceWorkerPrivate::*Method)(nsITimer*);
+  using Method = void (ServiceWorkerPrivate::*)(nsITimer*);
 
   ServiceWorkerPrivateTimerCallback(ServiceWorkerPrivate* aServiceWorkerPrivate,
                                     Method aMethod)
