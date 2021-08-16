@@ -1483,6 +1483,13 @@ if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gonk':
             'android/hardware/gnss/visibility_control/1.0/IGnssVisibilityControl.h',
         ]
 
+    if CONFIG['B2G_OEMHOOK']:
+        system_headers += [
+            'vendor/qti/hardware/radio/qcrilhook/1.0/IQtiOemHook.h',
+            'vendor/qti/hardware/radio/qcrilhook/1.0/IQtiOemHookIndication.h',
+            'vendor/qti/hardware/radio/qcrilhook/1.0/IQtiOemHookResponse.h',
+        ]
+
 if CONFIG['MOZ_JACK']:
     system_headers += [
         'jack/jack.h',

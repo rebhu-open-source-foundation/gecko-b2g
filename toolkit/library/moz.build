@@ -170,6 +170,10 @@ def Libxul(name, output_category=None):
                 "android.hardware.gnss.visibility_control@1.0",
             )
 
+        if CONFIG["B2G_OEMHOOK"]:
+            AOSPSharedObjects(
+                "vendor.qti.hardware.radio.qcrilhook@1.0",
+            )
 
 # The real libxul definition is in ./build/moz.build, but we define a
 # xul library here such that # FINAL_LIBRARY = 'xul' refers to here, which

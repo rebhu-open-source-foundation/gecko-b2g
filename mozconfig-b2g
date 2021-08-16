@@ -112,6 +112,11 @@ if [ "$ENABLE_RSU" = "true" ]; then
   ac_add_options --enable-rsu
 fi
 
+if test -z "$DISABLE_OEMHOOK"; then
+  # add oemhook unless it is disabled by environment variable
+  ac_add_options --enable-b2g-oemhook
+fi
+
 # Disable until we figure out CI issues
 # ac_add_options --enable-clang-plugin
 

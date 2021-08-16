@@ -127,6 +127,14 @@ if [ -d "koost" ]; then
     export BUILD_KOOST=1
 fi
 
+# Export OEM hook flag since it's used by create-b2g-sysroot.sh for HIDL
+if [ "$PRODUCT_MANUFACTURER" == "QUALCOMM" ]; then
+    export DISABLE_OEMHOOK
+else
+    # OEM hook is only supported on Qualcomm platform
+    export DISABLE_OEMHOOK=1
+fi
+
 if [ -z ${B2G_STANDALONE_BUILD+x} ]; then
   rm -rf "${SYSROOT_DEST}/b2g-sysroot"
   taskcluster/scripts/misc/create-b2g-sysroot.sh "${GONK_PATH}" "${SYSROOT_DEST}"

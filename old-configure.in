@@ -2878,6 +2878,23 @@ fi
 AC_SUBST(B2G_IMS)
 
 dnl ========================================================
+dnl Enable Support for B2G OEM hook
+dnl ========================================================
+MOZ_ARG_ENABLE_BOOL(b2g-oemhook,
+[  --enable-b2g-oemhook   Enable b2g-oemhook modules],
+    B2G_OEMHOOK=1,
+    B2G_OEMHOOK= )
+if test -n "$B2G_OEMHOOK" && \
+   test -d "$_topsrcdir/koost" && \
+   test "$PRODUCT_MANUFACTURER" = "QUALCOMM"; then
+    B2G_OEMHOOK=1
+    AC_DEFINE(B2G_OEMHOOK)
+else
+    B2G_OEMHOOK=
+fi
+AC_SUBST(B2G_OEMHOOK)
+
+dnl ========================================================
 dnl Build B2G custom modules if the dir exists
 dnl ========================================================
 if test -d "$_topsrcdir/koost/C001" ; then
