@@ -17,14 +17,15 @@ RemoteWorkerActorSelector.prototype = {
 
   /**
    * Get a suggested content process for service worker to spawn at.
+   * aScope: Scope of service worker which will be spawned.
    */
-  getSuggestedPid() {
+  getSuggestedPid(aScope) {
     // If delegate is not presented, return 0 as default
     // (which is select a hosting content process randomly).
     if (!this.embedderSelector) {
       return 0;
     }
-    return this.embedderSelector.suggestedForHostingServiceWorker();
+    return this.embedderSelector.suggestedForHostingServiceWorker(aScope);
   },
 };
 

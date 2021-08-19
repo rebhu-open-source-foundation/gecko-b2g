@@ -274,7 +274,8 @@ void ServiceWorkerPrivateImpl::RefreshRemoteWorkerData(
       do_GetService("@mozilla.org/remoteworkers/actorselector;1");
   int pid = 0;
   if (rwas) {
-    rwas->GetSuggestedPid(&pid);
+    auto scope = aRegistration->Scope();
+    rwas->GetSuggestedPid(scope, &pid);
   }
   serviceWorkerData.suggestedPid() = pid;
 }
