@@ -43,6 +43,7 @@ class BrowserTab {
     this.webview.addEventListener("locationchange", this.updateActionsUI);
     this.webview.addEventListener("openwindow", this.openWindow);
     this.webview.addEventListener("iconchange", this.setupIcon);
+    this.webview.addEventListener("titlechange", this.updateTitle);
 
     this.parentDocument.getElementById("url").value = this.webview.src;
     this.parentDocument
@@ -53,6 +54,7 @@ class BrowserTab {
       .toggleAttribute("disabled", !this.webview.canGoForward);
     activatedTab = this;
     this.setupIcon({});
+    this.updateTitle({});
   }
 
   hide() {
@@ -72,6 +74,7 @@ class BrowserTab {
       .getElementById("action-forward")
       .toggleAttribute("disabled", true);
     this.setupIcon({});
+    this.updateTitle({});
     activatedTab = null;
   }
 
@@ -94,6 +97,16 @@ class BrowserTab {
         "#tabs > .icon"
       ).style.display = href ? "inline" : "none";
       activatedTab.parentDocument.querySelector("#tabs > .icon").src = href;
+    }
+  }
+
+  updateTitle(aEvent) {
+    let title = aEvent?.detail?.title;
+    log("updateTitle " + title);
+    if (activatedTab) {
+      activatedTab.parentDocument.querySelector(
+        "#tabs > .title"
+      ).innerText = title;
     }
   }
 

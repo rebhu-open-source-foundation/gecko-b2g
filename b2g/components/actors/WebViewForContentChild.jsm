@@ -47,6 +47,7 @@ class WebViewForContentChild extends JSWindowActorChild {
   constructor() {
     super();
     this.enabled = false;
+    this._isInWebViewForContent = undefined;
   }
 
   exportCustomElements() {
@@ -172,7 +173,51 @@ class WebViewForContentChild extends JSWindowActorChild {
     this.enabled = true;
   }
 
-  handleEvent(event) {}
+  get isInWebViewContent() {
+    if (this._isInWebViewForContent === undefined) {
+      // check if this is child of WebViewForContent.
+      let actor = this.contentWindow.parent.windowGlobalChild.getActor(
+        "WebViewForContent"
+      );
+      if (actor != this) {
+        this._isInWebViewForContent = actor.enabled;
+      }
+    }
+    return this._isInWebViewForContent;
+  }
+
+  handleEvent(aEvent) {
+    if (!this.isInWebViewContent) {
+      // We only handle the window which is one of of <web-view>'s children.
+      return;
+    }
+
+    switch (aEvent.type) {
+      case "DOMTitleChanged": {
+        this.fireTitleChanged(aEvent);
+        break;
+      }
+    }
+  }
 
   receiveMessage(message) {}
+
+  fireTitleChanged(aEvent) {
+    const browser = aEvent.target.defaultView.frameElement;
+    const window = this.contentWindow;
+    // The actor child fires pagetitlechanged to the browser element in the
+    // webview element and then the webview element listen the event and fires
+    // titlechange with this.browser.contentTitle.
+    const event = new window.CustomEvent(
+      "pagetitlechanged",
+      Cu.cloneInto(
+        {
+          bubbles: true,
+          detail: {},
+        },
+        window
+      )
+    );
+    browser.dispatchEvent(event);
+  }
 }
