@@ -263,10 +263,6 @@ nsScreenGonk::SetRotation(uint32_t aRotation) {
     mVirtualBounds = mNaturalBounds;
   }
 
-  // Disable display when rotation change since we may encounter
-  // rotation/orientation/dimension unsync and display abnormal issue.
-  GetGonkDisplay()->SetDisplayVisibility(false);
-
   nsAppShell::NotifyScreenRotation();
 
   for (unsigned int i = 0; i < mTopWindows.Length(); i++) {

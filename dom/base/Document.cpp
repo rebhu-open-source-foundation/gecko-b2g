@@ -413,6 +413,11 @@
 // XXX Must be included after mozilla/Encoding.h
 #include "encoding_rs.h"
 
+#ifdef MOZ_WIDGET_GONK
+#include "libdisplay/GonkDisplay.h"
+#include "mozilla/Hal.h"
+#endif
+
 #ifdef MOZ_XUL
 #  include "mozilla/dom/XULBroadcastManager.h"
 #  include "mozilla/dom/XULPersist.h"
@@ -14192,6 +14197,18 @@ void Document::RestorePreviousFullscreenState(UniquePtr<FullscreenExit> aExit) {
     // just wait for the window to get out from fullscreen first.
     PendingFullscreenChangeList::Add(std::move(aExit));
     AskWindowToExitFullscreen(this);
+  #ifdef MOZ_WIDGET_GONK
+    if (XRE_GetProcessType() == GeckoProcessType_Default) {
+      // Disable display when we want to exit Fullscreen mode since we may
+      // encounter display abnormal issue caused by scale change by app.
+      // Note: only invoke it through b2g process with landscape config.
+      hal::ScreenConfiguration config;
+      hal::GetCurrentScreenConfiguration(&config);
+      if (config.orientation() == hal::eScreenOrientation_LandscapePrimary) {
+        GetGonkDisplay()->SetDisplayVisibility(false);
+      }
+    }
+  #endif
     return;
   }
 

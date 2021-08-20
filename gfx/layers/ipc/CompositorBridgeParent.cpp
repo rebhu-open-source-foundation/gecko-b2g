@@ -1133,7 +1133,7 @@ void CompositorBridgeParent::ShadowLayersUpdated(
     LayerTransactionParent* aLayerTree, const TransactionInfo& aInfo,
     bool aHitTestUpdate) {
   const TargetConfig& targetConfig = aInfo.targetConfig();
-  bool rotationChanged = false;
+  bool exitFullScreenRotationChanged = false;
 
   ScheduleRotationOnCompositorThread(targetConfig, aInfo.isFirstPaint());
 
@@ -1144,14 +1144,16 @@ void CompositorBridgeParent::ShadowLayersUpdated(
   mLayerManager->SetRegionToClear(targetConfig.clearRegion());
   if (mLayerManager->GetCompositor()) {
     if (mLayerManager->GetCompositor()->GetScreenRotation() !=
-        targetConfig.rotation()) {
-      rotationChanged = true;
-      mLayerManager->GetCompositor()->SetScreenRotation(targetConfig.rotation());
+        targetConfig.rotation() && targetConfig.rotation() == ROTATION_0) {
+      // Rotation changed during exit full screen, latch it here
+      // for determining whether to enable display or not.
+      exitFullScreenRotationChanged = true;
     }
+    mLayerManager->GetCompositor()->SetScreenRotation(targetConfig.rotation());
   }
 
   mCompositionManager->Updated(aInfo.isFirstPaint(), targetConfig);
-  if (rotationChanged) {
+  if (exitFullScreenRotationChanged) {
   #ifdef MOZ_WIDGET_GONK
     // Enable display when ShadowLayers orientation config has been synced
     // and latched into AsyncCompositionManager.

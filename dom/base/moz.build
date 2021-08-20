@@ -545,6 +545,7 @@ LOCAL_INCLUDES += [
     "/netwerk/url-classifier",
     "/security/manager/ssl",
     "/widget",
+    "/widget/gonk",
     "/xpcom/ds",
 ]
 
