@@ -130,23 +130,6 @@ variables:
         exit 0
       fi
     - |
-      git checkout FETCH_HEAD -- .gitlab/ci/test_COMMIT_MESSAGE_PATTERN
-      while IFS='|' read -r cmsg expected; do
-        expected=$(sed -e 's/^[[:space:]]*//;s/[[:space:]]*$//' <<< "${expected}")
-        msg "Test COMMIT_MESSAGE_PATTERN with: ${cmsg}, ${expected}"
-        case "${expected}" in
-          yes)
-          [[ ${cmsg} =~ ${COMMIT_MESSAGE_PATTERN} ]] || die "[TEST] Commit message format error."
-          ;;
-          no)
-          [[ ${cmsg} =~ ${COMMIT_MESSAGE_PATTERN} ]] && die "[TEST] This commit message should've failed."
-          ;;
-          *)
-          die "Unknown criteria."
-          ;;
-        esac
-      done < .gitlab/ci/test_COMMIT_MESSAGE_PATTERN
-    - |
       msg "Iteratively validate the message format of the commits within MR #${CI_MERGE_REQUEST_IID}..."
       for c in `git rev-list kaios/${CI_MERGE_REQUEST_TARGET_BRANCH_NAME}..FETCH_HEAD --reverse`; do
         cmsg="$(git show ${c} -q --format=%s)"
