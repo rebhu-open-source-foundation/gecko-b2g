@@ -410,13 +410,6 @@ void CompositorBridgeParent::Initialize() {
   }
 
   LayerScope::SetPixelScale(mScale.scale);
-<<<<<<< HEAD
-
-  if (!mOptions.UseWebRender()) {
-    mCompositorScheduler = CompositorScheduler::Create(this, mWidget);
-  }
-=======
->>>>>>> upstream/master
 }
 
 LayersId CompositorBridgeParent::RootLayerTreeId() {
