@@ -5,10 +5,117 @@
 
 #include <media/stagefright/MediaCodecList.h>
 
+#include "GLContext.h"
+#include "GLContextProvider.h"
 #include "nsTArray.h"
 #include "GfxInfo.h"
+#include "prenv.h"
 
 using namespace mozilla::widget;
+
+class GLStrings {
+  nsCString mVendor;
+  nsCString mRenderer;
+  nsCString mVersion;
+  nsTArray<nsCString> mExtensions;
+  bool mReady;
+
+ public:
+  GLStrings() : mReady(false) {}
+
+  const nsCString& Vendor() {
+    EnsureInitialized();
+    return mVendor;
+  }
+
+  // This spoofed value wins, even if the environment variable
+  // MOZ_GFX_SPOOF_GL_VENDOR was set.
+  void SpoofVendor(const nsCString& s) { mVendor = s; }
+
+  const nsCString& Renderer() {
+    EnsureInitialized();
+    return mRenderer;
+  }
+
+  // This spoofed value wins, even if the environment variable
+  // MOZ_GFX_SPOOF_GL_RENDERER was set.
+  void SpoofRenderer(const nsCString& s) { mRenderer = s; }
+
+  const nsCString& Version() {
+    EnsureInitialized();
+    return mVersion;
+  }
+
+  // This spoofed value wins, even if the environment variable
+  // MOZ_GFX_SPOOF_GL_VERSION was set.
+  void SpoofVersion(const nsCString& s) { mVersion = s; }
+
+  const nsTArray<nsCString>& Extensions() {
+    EnsureInitialized();
+    return mExtensions;
+  }
+
+  void EnsureInitialized() {
+    if (mReady) {
+      return;
+    }
+
+    RefPtr<mozilla::gl::GLContext> gl;
+    nsCString discardFailureId;
+    gl = mozilla::gl::GLContextProvider::CreateHeadless(
+        {mozilla::gl::CreateContextFlags::REQUIRE_COMPAT_PROFILE},
+        &discardFailureId);
+
+    if (!gl) {
+      // Setting mReady to true here means that we won't retry. Everything will
+      // remain blocklisted forever. Ideally, we would like to update that once
+      // any GLContext is successfully created, like the compositor's GLContext.
+      mReady = true;
+      return;
+    }
+
+    gl->MakeCurrent();
+
+    if (mVendor.IsEmpty()) {
+      const char* spoofedVendor = PR_GetEnv("MOZ_GFX_SPOOF_GL_VENDOR");
+      if (spoofedVendor) {
+        mVendor.Assign(spoofedVendor);
+      } else {
+        mVendor.Assign((const char*)gl->fGetString(LOCAL_GL_VENDOR));
+      }
+    }
+
+    if (mRenderer.IsEmpty()) {
+      const char* spoofedRenderer = PR_GetEnv("MOZ_GFX_SPOOF_GL_RENDERER");
+      if (spoofedRenderer) {
+        mRenderer.Assign(spoofedRenderer);
+      } else {
+        mRenderer.Assign((const char*)gl->fGetString(LOCAL_GL_RENDERER));
+      }
+    }
+
+    if (mVersion.IsEmpty()) {
+      const char* spoofedVersion = PR_GetEnv("MOZ_GFX_SPOOF_GL_VERSION");
+      if (spoofedVersion) {
+        mVersion.Assign(spoofedVersion);
+      } else {
+        mVersion.Assign((const char*)gl->fGetString(LOCAL_GL_VERSION));
+      }
+    }
+
+    if (mExtensions.IsEmpty()) {
+      nsCString rawExtensions;
+      rawExtensions.Assign((const char*)gl->fGetString(LOCAL_GL_EXTENSIONS));
+      rawExtensions.Trim(" ");
+
+      for (auto extension : rawExtensions.Split(' ')) {
+        mExtensions.AppendElement(extension);
+      }
+    }
+
+    mReady = true;
+  }
+};
 
 GfxInfo::GfxInfo() {}
 
@@ -152,10 +259,12 @@ GfxInfo::GetWindowProtocol(nsAString& aWindowProtocol) {
 }
 
 nsresult GfxInfo::GetFeatureStatusImpl(
-    int32_t aFeature, int32_t* aStatus, nsAString& /*aSuggestedDriverVersion*/,
-    const nsTArray<GfxDriverInfo>& /*aDriverInfo*/, nsACString& aFailureId,
-    OperatingSystem* /*aOS*/ /* = nullptr */) {
+    int32_t aFeature, int32_t* aStatus, nsAString& aSuggestedDriverVersion,
+    const nsTArray<GfxDriverInfo>& aDriverInfo, nsACString& aFailureId,
+    OperatingSystem* aOS) {
   NS_ENSURE_ARG_POINTER(aStatus);
+  OperatingSystem os = OperatingSystem::Android;
+  if (aOS) *aOS = os;
 
   if (aFeature == nsIGfxInfo::FEATURE_WEBRENDER) {
     *aStatus = nsIGfxInfo::FEATURE_ALLOW_ALWAYS;
@@ -168,8 +277,36 @@ nsresult GfxInfo::GetFeatureStatusImpl(
   } else if (aFeature == FEATURE_WEBRTC_HW_ACCELERATION_H264) {
     *aStatus = WebRtcHwH264Supported();
     aFailureId = "FEATURE_FAILURE_WEBRTC_H264";
+  } else if (aFeature == FEATURE_WEBRENDER_SHADER_CACHE) {
+    // Program binaries are known to be buggy on Adreno 3xx. While we haven't
+    // encountered any correctness or stability issues with them, loading them
+    // fails more often than not, so is a waste of time. Better to just not
+    // even attempt to cache them. See bug 1615574.
+    auto glStrings = new GLStrings();
+    const bool isAdreno3xx =
+        glStrings->Renderer().Find("Adreno (TM) 3", /*ignoreCase*/ true) >= 0;
+    if (isAdreno3xx) {
+      *aStatus = nsIGfxInfo::FEATURE_BLOCKED_DEVICE;
+      aFailureId = "FEATURE_FAILURE_ADRENO_3XX";
+    } else {
+      *aStatus = nsIGfxInfo::FEATURE_STATUS_OK;
+    }
+  } else if (aFeature == FEATURE_GL_SWIZZLE) {
+    // Swizzling appears to be buggy on PowerVR Rogue devices with webrender.
+    // See bug 1704783.
+    auto glStrings = new GLStrings();
+    const bool isPowerVRRogue =
+        glStrings->Renderer().Find("PowerVR Rogue", /*ignoreCase*/ true) >= 0;
+    if (isPowerVRRogue) {
+      *aStatus = nsIGfxInfo::FEATURE_BLOCKED_DEVICE;
+      aFailureId = "FEATURE_FAILURE_POWERVR_ROGUE";
+    } else {
+      *aStatus = nsIGfxInfo::FEATURE_STATUS_OK;
+    }
   } else {
-    *aStatus = nsIGfxInfo::FEATURE_STATUS_OK;
+    return GfxInfoBase::GetFeatureStatusImpl(aFeature, aStatus,
+                                             aSuggestedDriverVersion,
+                                             aDriverInfo, aFailureId, &os);
   }
 
   return NS_OK;
