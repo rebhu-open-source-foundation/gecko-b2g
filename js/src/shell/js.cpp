@@ -129,8 +129,11 @@
 #include "js/friend/WindowProxy.h"  // js::IsWindowProxy, js::SetWindowProxyClass, js::ToWindowProxyIfWindow, js::ToWindowIfWindowProxy
 #include "js/GCAPI.h"               // JS::AutoCheckCannotGC
 #include "js/GCVector.h"
+#include "js/GlobalObject.h"
 #include "js/Initialization.h"
+#include "js/Interrupt.h"
 #include "js/JSON.h"
+#include "js/MemoryCallbacks.h"
 #include "js/MemoryFunctions.h"
 #include "js/Modules.h"  // JS::GetModulePrivate, JS::SetModule{DynamicImport,Metadata,Resolve}Hook, JS::SetModulePrivate
 #include "js/Object.h"  // JS::GetClass, JS::GetCompartment, JS::GetReservedSlot, JS::SetReservedSlot
@@ -140,8 +143,11 @@
 #include "js/PropertySpec.h"
 #include "js/Realm.h"
 #include "js/RegExp.h"  // JS::ObjectIsRegExp
+#include "js/ScriptPrivate.h"
 #include "js/SourceText.h"
 #include "js/StableStringChars.h"
+#include "js/Stack.h"
+#include "js/StreamConsumer.h"
 #include "js/StructuredClone.h"
 #include "js/SweepingAPI.h"
 #include "js/Transcoding.h"  // JS::TranscodeBuffer, JS::TranscodeRange
@@ -622,10 +628,9 @@ bool shell::enablePropertyErrorMessageFix = false;
 bool shell::enableIteratorHelpers = false;
 bool shell::enablePrivateClassFields = false;
 bool shell::enablePrivateClassMethods = false;
-bool shell::enableTopLevelAwait = true;
 bool shell::enableErgonomicBrandChecks = true;
 bool shell::useOffThreadParseGlobal = true;
-bool shell::enableClassStaticBlocks = false;
+bool shell::enableClassStaticBlocks = true;
 #ifdef JS_GC_ZEAL
 uint32_t shell::gZealBits = 0;
 uint32_t shell::gZealFrequency = 0;
@@ -637,6 +642,8 @@ bool shell::reportWarnings = true;
 bool shell::compileOnly = false;
 bool shell::disableOOMFunctions = false;
 bool shell::defaultToSameCompartment = true;
+
+bool shell::useFdlibmForSinCosTan = false;
 
 #ifdef DEBUG
 bool shell::dumpEntrainedVariables = false;
@@ -8535,7 +8542,7 @@ static bool EnsureGrayRoot(JSContext* cx, unsigned argc, Value* vp) {
   }
 
   if (!priv->grayRoot) {
-    if (!(priv->grayRoot = NewTenuredDenseEmptyArray(cx, nullptr))) {
+    if (!(priv->grayRoot = NewTenuredDenseEmptyArray(cx))) {
       return false;
     }
   }
@@ -11271,9 +11278,9 @@ static bool SetContextOptions(JSContext* cx, const OptionParser& op) {
   enablePrivateClassMethods = !op.getBoolOption("disable-private-methods");
   enableErgonomicBrandChecks =
       !op.getBoolOption("disable-ergonomic-brand-checks");
-  enableTopLevelAwait = op.getBoolOption("enable-top-level-await");
-  enableClassStaticBlocks = op.getBoolOption("enable-class-static-blocks");
+  enableClassStaticBlocks = !op.getBoolOption("disable-class-static-blocks");
   useOffThreadParseGlobal = op.getBoolOption("off-thread-parse-global");
+  useFdlibmForSinCosTan = op.getBoolOption("use-fdlibm-for-sin-cos-tan");
 
   JS::ContextOptionsRef(cx)
       .setAsmJS(enableAsmJS)
@@ -11303,10 +11310,10 @@ static bool SetContextOptions(JSContext* cx, const OptionParser& op) {
       .setPrivateClassFields(enablePrivateClassFields)
       .setPrivateClassMethods(enablePrivateClassMethods)
       .setErgnomicBrandChecks(enableErgonomicBrandChecks)
-      .setTopLevelAwait(enableTopLevelAwait)
       .setClassStaticBlocks(enableClassStaticBlocks);
 
   JS::SetUseOffThreadParseGlobal(useOffThreadParseGlobal);
+  JS::SetUseFdlibmForSinCosTan(useFdlibmForSinCosTan);
 
   // Check --fast-warmup first because it sets default warm-up thresholds. These
   // thresholds can then be overridden below by --ion-eager and other flags.
@@ -12255,8 +12262,10 @@ int main(int argc, char** argv) {
           "Disable ergonomic brand checks for private class fields") ||
       !op.addBoolOption('\0', "enable-top-level-await",
                         "Enable top-level await") ||
+      !op.addBoolOption('\0', "disable-class-static-blocks",
+                        "Disable class static blocks") ||
       !op.addBoolOption('\0', "enable-class-static-blocks",
-                        "Enable class static blocks") ||
+                        "(no-op) Enable class static blocks") ||
       !op.addBoolOption('\0', "off-thread-parse-global",
                         "Use parseGlobal in all off-thread compilation") ||
       !op.addBoolOption('\0', "no-large-arraybuffers",
@@ -12490,7 +12499,9 @@ int main(int argc, char** argv) {
       !op.addBoolOption('\0', "reprl", "Enable REPRL mode for fuzzing") ||
 #endif
       !op.addStringOption('\0', "telemetry-dir", "[directory]",
-                          "Output telemetry results in a directory")) {
+                          "Output telemetry results in a directory") ||
+      !op.addBoolOption('\0', "use-fdlibm-for-sin-cos-tan",
+                        "Use fdlibm for Math.sin, Math.cos, and Math.tan")) {
     return EXIT_FAILURE;
   }
 
@@ -12659,9 +12670,9 @@ int main(int argc, char** argv) {
 
   JS_SetGCParameter(cx, JSGC_MAX_BYTES, 0xffffffff);
 
-  size_t availMem = op.getIntOption("available-memory");
-  if (availMem > 0) {
-    JS_SetGCParametersBasedOnAvailableMemory(cx, availMem);
+  size_t availMemMB = op.getIntOption("available-memory");
+  if (availMemMB > 0) {
+    JS_SetGCParametersBasedOnAvailableMemory(cx, availMemMB);
   }
 
   JS_SetTrustedPrincipals(cx, &ShellPrincipals::fullyTrusted);

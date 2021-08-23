@@ -133,27 +133,22 @@ class BinaryPath {
     return rv;
   }
 
+#elif defined(MOZ_WIDGET_GONK)
+  static nsresult Get(char aResult[MAXPATHLEN]) {
+    snprintf(aResult, MAXPATHLEN, "%s", "/system/b2g/b2g");
+    aResult[MAXPATHLEN - 1] = '\0';
+    return NS_OK;
+  }
 #elif defined(ANDROID)
   static nsresult Get(char aResult[MAXPATHLEN]) {
-    // On Android, we use the GRE_HOME variable that is set by the Java
-    // bootstrap code.
-    const char* greHome = getenv("GRE_HOME");
-
-#if defined(MOZ_WIDGET_GONK)
-    if (!greHome) {
-          greHome = "/system/b2g";
-    }
-#endif
-
-    if (!greHome) {
+    // On Android, we use the MOZ_ANDROID_LIBDIR variable that is set by the
+    // Java bootstrap code.
+    const char* libDir = getenv("MOZ_ANDROID_LIBDIR");
+    if (!libDir) {
       return NS_ERROR_FAILURE;
     }
 
-#if !defined(MOZ_WIDGET_GONK)
-    snprintf(aResult, MAXPATHLEN, "%s/%s", greHome, "dummy");
-#else
-    snprintf(aResult, MAXPATHLEN, "%s/%s", greHome, "b2g");
-#endif
+    snprintf(aResult, MAXPATHLEN, "%s/%s", libDir, "dummy");
     aResult[MAXPATHLEN - 1] = '\0';
     return NS_OK;
   }

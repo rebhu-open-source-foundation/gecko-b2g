@@ -10,6 +10,8 @@
 #include "mozilla/CheckedInt.h"
 #include "mozilla/TextUtils.h"
 
+#include "jsapi.h"
+
 #include "frontend/TokenStream.h"
 #include "irregexp/RegExpAPI.h"
 #include "jit/InlinableNatives.h"
@@ -1446,14 +1448,6 @@ static bool InterpretDollar(JSLinearString* matched, JSLinearString* string,
       break;
     case '&':
       out->init(matched, 0, matched->length());
-      break;
-    case '+':
-      // SpiderMonkey extension
-      if (captures.length() == 0) {
-        out->initEmpty(matched);
-      } else {
-        GetParen(matched, captures[captures.length() - 1], out);
-      }
       break;
     case '`':
       out->init(string, 0, position);

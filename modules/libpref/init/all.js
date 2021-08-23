@@ -229,6 +229,17 @@ pref("general.autoscroll.prevent_to_start.altKey", false);  // Alt
 pref("general.autoscroll.prevent_to_start.metaKey", false); // Command on macOS
 pref("general.autoscroll.prevent_to_start.osKey", false);   // Windows key on Windows or Super key on Linux
 
+// When this pref is set to true, middle click on non-editable content keeps
+// selected range rather than collapsing selection at the clicked position.
+// This behavior is incompatible with Chrome, so enabling this could cause
+// breaking some web apps.
+// Note that this pref is ignored when "general.autoScroll" is set to false
+// or "middlemouse.paste" is set to true.  For the former case, there is no
+// reason do be incompatible with Chrome.  For the latter case, the selection
+// change is important for "paste" event listeners even if it's non-editable
+// content.
+pref("general.autoscroll.prevent_to_collapse_selection_by_middle_mouse_down", false);
+
 // maximum number of dated backups to keep at any time
 pref("browser.bookmarks.max_backups",       5);
 
@@ -1167,11 +1178,17 @@ pref("javascript.options.mem.gc_low_frequency_heap_growth", 150);
 // JSGC_ALLOCATION_THRESHOLD
 pref("javascript.options.mem.gc_allocation_threshold_mb", 27);
 
+// JSGC_MALLOC_THRESHOLD_BASE
+pref("javascript.options.mem.gc_malloc_threshold_base_mb", 38);
+
 // JSGC_SMALL_HEAP_INCREMENTAL_LIMIT
 pref("javascript.options.mem.gc_small_heap_incremental_limit", 140);
 
 // JSGC_LARGE_HEAP_INCREMENTAL_LIMIT
 pref("javascript.options.mem.gc_large_heap_incremental_limit", 110);
+
+// JSGC_URGENT_THRESHOLD_MB
+pref("javascript.options.mem.gc_urgent_threshold_mb", 16);
 
 // JSGC_MIN_EMPTY_CHUNK_COUNT
 pref("javascript.options.mem.gc_min_empty_chunk_count", 1);
@@ -1227,6 +1244,7 @@ pref("network.protocol-handler.external.data", false);
 pref("network.protocol-handler.external.ie.http", false);
 pref("network.protocol-handler.external.iehistory", false);
 pref("network.protocol-handler.external.ierss", false);
+pref("network.protocol-handler.external.mk", false);
 pref("network.protocol-handler.external.ms-help", false);
 pref("network.protocol-handler.external.res", false);
 pref("network.protocol-handler.external.shell", false);

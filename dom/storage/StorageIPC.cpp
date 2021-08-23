@@ -6,6 +6,7 @@
 
 #include "StorageIPC.h"
 
+#include "StorageCommon.h"
 #include "StorageUtils.h"
 #include "LocalStorageManager.h"
 #include "SessionStorageObserver.h"
@@ -29,15 +30,15 @@ namespace dom {
 
 namespace {
 
-typedef nsClassHashtable<nsCStringHashKey, nsTArray<LocalStorageCacheParent*>>
-    LocalStorageCacheParentHashtable;
+using LocalStorageCacheParentHashtable =
+    nsClassHashtable<nsCStringHashKey, nsTArray<LocalStorageCacheParent*>>;
 
 StaticAutoPtr<LocalStorageCacheParentHashtable> gLocalStorageCacheParents;
 
-StorageDBChild* sStorageChild[2] = {nullptr, nullptr};
+StorageDBChild* sStorageChild[kPrivateBrowsingIdCount] = {nullptr, nullptr};
 
 // False until we shut the storage child down.
-bool sStorageChildDown[2] = {false, false};
+bool sStorageChildDown[kPrivateBrowsingIdCount] = {false, false};
 
 }  // namespace
 
@@ -120,6 +121,7 @@ class StorageDBChild::ShutdownObserver final : public nsIObserver {
   explicit ShutdownObserver(const uint32_t aPrivateBrowsingId)
       : mPrivateBrowsingId(aPrivateBrowsingId) {
     MOZ_ASSERT(NS_IsMainThread());
+    MOZ_RELEASE_ASSERT(aPrivateBrowsingId < kPrivateBrowsingIdCount);
   }
 
   NS_DECL_ISUPPORTS
@@ -147,7 +149,7 @@ StorageDBChild::StorageDBChild(LocalStorageManager* aManager,
       mPrivateBrowsingId(aPrivateBrowsingId),
       mStatus(NS_OK),
       mIPCOpen(false) {
-  MOZ_ASSERT(aPrivateBrowsingId <= 1);
+  MOZ_RELEASE_ASSERT(aPrivateBrowsingId < kPrivateBrowsingIdCount);
   MOZ_ASSERT(!NextGenLocalStorageEnabled());
 }
 
@@ -156,7 +158,7 @@ StorageDBChild::~StorageDBChild() = default;
 // static
 StorageDBChild* StorageDBChild::Get(const uint32_t aPrivateBrowsingId) {
   MOZ_ASSERT(NS_IsMainThread());
-  MOZ_ASSERT(aPrivateBrowsingId <= 1);
+  MOZ_RELEASE_ASSERT(aPrivateBrowsingId < kPrivateBrowsingIdCount);
   MOZ_ASSERT(!NextGenLocalStorageEnabled());
 
   return sStorageChild[aPrivateBrowsingId];
@@ -165,7 +167,7 @@ StorageDBChild* StorageDBChild::Get(const uint32_t aPrivateBrowsingId) {
 // static
 StorageDBChild* StorageDBChild::GetOrCreate(const uint32_t aPrivateBrowsingId) {
   MOZ_ASSERT(NS_IsMainThread());
-  MOZ_ASSERT(aPrivateBrowsingId <= 1);
+  MOZ_RELEASE_ASSERT(aPrivateBrowsingId < kPrivateBrowsingIdCount);
   MOZ_ASSERT(!NextGenLocalStorageEnabled());
 
   StorageDBChild*& storageChild = sStorageChild[aPrivateBrowsingId];
@@ -1546,6 +1548,11 @@ PBackgroundStorageParent* AllocPBackgroundStorageParent(
     const nsString& aProfilePath, const uint32_t& aPrivateBrowsingId) {
   ::mozilla::ipc::AssertIsOnBackgroundThread();
 
+  if (NS_WARN_IF(NextGenLocalStorageEnabled()) ||
+      NS_WARN_IF(aPrivateBrowsingId >= kPrivateBrowsingIdCount)) {
+    return nullptr;
+  }
+
   return new StorageDBParent(aProfilePath, aPrivateBrowsingId);
 }
 
@@ -1554,6 +1561,8 @@ mozilla::ipc::IPCResult RecvPBackgroundStorageConstructor(
     const uint32_t& aPrivateBrowsingId) {
   ::mozilla::ipc::AssertIsOnBackgroundThread();
   MOZ_ASSERT(aActor);
+  MOZ_ASSERT(aPrivateBrowsingId < kPrivateBrowsingIdCount);
+  MOZ_ASSERT(!NextGenLocalStorageEnabled());
 
   auto* actor = static_cast<StorageDBParent*>(aActor);
   actor->Init();

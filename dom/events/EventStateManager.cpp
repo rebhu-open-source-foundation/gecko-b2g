@@ -1211,8 +1211,10 @@ bool EventStateManager::LookForAccessKeyAndExecute(
           }
         }
 
-        if (element->PerformAccesskey(shouldActivate, aIsTrustedEvent)) {
-          if (aIsTrustedEvent) {
+        auto result =
+            element->PerformAccesskey(shouldActivate, aIsTrustedEvent);
+        if (result.isOk()) {
+          if (result.unwrap() && aIsTrustedEvent) {
             // If this is a child process, inform the parent that we want the
             // focus, but pass false since we don't want to change the window
             // order.
@@ -2011,7 +2013,7 @@ void EventStateManager::MaybeFirePointerCancel(WidgetInputEvent* aEvent) {
                              aTouchEvent->mWidget);
 
     PointerEventHandler::InitPointerEventFromTouch(
-        &event, aTouchEvent, aTouchEvent->mTouches[0], true);
+        event, *aTouchEvent, *aTouchEvent->mTouches[0], true);
 
     event.convertToPointer = false;
     presShell->HandleEventWithTarget(&event, targetFrame, content, &status);
@@ -2877,7 +2879,7 @@ nsIFrame* EventStateManager::ComputeScrollTargetAndMayAdjustWheelEvent(
     // event, continue the loop to check its parent, if any.
   }
 
-  nsIFrame* newFrame = nsLayoutUtils::GetCrossDocParentFrame(
+  nsIFrame* newFrame = nsLayoutUtils::GetCrossDocParentFrameInProcess(
       aTargetFrame->PresShell()->GetRootFrame());
   aOptions =
       static_cast<ComputeScrollTargetOptions>(aOptions & ~START_FROM_PARENT);

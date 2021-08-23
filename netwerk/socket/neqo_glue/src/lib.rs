@@ -9,12 +9,13 @@ use neqo_http3::Error as Http3Error;
 use neqo_http3::{Http3Client, Http3ClientEvent, Http3Parameters, Http3State};
 use neqo_qpack::QpackSettings;
 use neqo_transport::{
-    CongestionControlAlgorithm, ConnectionParameters, Error as TransportError, Output, QuicVersion,
-    RandomConnectionIdGenerator,
+    stream_id::StreamType, CongestionControlAlgorithm, ConnectionParameters, Error as TransportError,
+    Output, QuicVersion, RandomConnectionIdGenerator,
 };
 use nserror::*;
 use nsstring::*;
 use qlog::QlogStreamer;
+use std::borrow::Cow;
 use std::cell::RefCell;
 use std::convert::TryFrom;
 use std::fs::OpenOptions;
@@ -43,6 +44,8 @@ impl NeqoHttp3Conn {
         remote_addr: &nsACString,
         max_table_size: u64,
         max_blocked_streams: u16,
+        max_data: u64,
+        max_stream_data: u64,
         qlog_dir: &nsACString,
     ) -> Result<RefPtr<NeqoHttp3Conn>, nsresult> {
         // Nss init.
@@ -93,7 +96,9 @@ impl NeqoHttp3Conn {
             remote,
             ConnectionParameters::default()
                 .quic_version(quic_version)
-                .cc_algorithm(CongestionControlAlgorithm::Cubic),
+                .cc_algorithm(CongestionControlAlgorithm::Cubic)
+                .max_data(max_data)
+                .max_stream_data(StreamType::BiDi, false, max_stream_data),
             &http3_settings,
             Instant::now(),
         ) {
@@ -176,6 +181,8 @@ pub extern "C" fn neqo_http3conn_new(
     remote_addr: &nsACString,
     max_table_size: u64,
     max_blocked_streams: u16,
+    max_data: u64,
+    max_stream_data: u64,
     qlog_dir: &nsACString,
     result: &mut *const NeqoHttp3Conn,
 ) -> nsresult {
@@ -188,6 +195,8 @@ pub extern "C" fn neqo_http3conn_new(
         remote_addr,
         max_table_size,
         max_blocked_streams,
+        max_data,
+        max_stream_data,
         qlog_dir,
     ) {
         Ok(http3_conn) => {
@@ -582,6 +591,15 @@ pub enum Http3Event {
     NoEvent,
 }
 
+fn sanitize_header(mut y: Cow<[u8]>) -> Cow<[u8]> {
+    for i in 0..y.len() {
+        if matches!(y[i], b'\n' | b'\r' | b'\0') {
+            y.to_mut()[i] = b' ';
+        }
+    }
+    y
+}
+
 fn convert_h3_to_h1_headers(headers: Vec<Header>, ret_headers: &mut ThinVec<u8>) -> nsresult {
     if headers.iter().filter(|&h| h.name() == ":status").count() != 1 {
         return NS_ERROR_ILLEGAL_VALUE;
@@ -598,9 +616,9 @@ fn convert_h3_to_h1_headers(headers: Vec<Header>, ret_headers: &mut ThinVec<u8>)
     ret_headers.extend_from_slice(b"\r\n");
 
     for hdr in headers.iter().filter(|&h| h.name() != ":status") {
-        ret_headers.extend_from_slice(hdr.name().as_bytes());
+        ret_headers.extend_from_slice(&sanitize_header(Cow::from(hdr.name().as_bytes())));
         ret_headers.extend_from_slice(b": ");
-        ret_headers.extend_from_slice(hdr.value().as_bytes());
+        ret_headers.extend_from_slice(&sanitize_header(Cow::from(hdr.value().as_bytes())));
         ret_headers.extend_from_slice(b"\r\n");
     }
     ret_headers.extend_from_slice(b"\r\n");

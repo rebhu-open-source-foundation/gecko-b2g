@@ -75,7 +75,9 @@
 #include "js/friend/DumpFunctions.h"  // js::Dump{Backtrace,Heap,Object}, JS::FormatStackDump, js::IgnoreNurseryObjects
 #include "js/friend/ErrorMessages.h"  // js::GetErrorMessage, JSMSG_*
 #include "js/friend/WindowProxy.h"    // js::ToWindowProxyIfWindow
+#include "js/GlobalObject.h"
 #include "js/HashTable.h"
+#include "js/Interrupt.h"
 #include "js/LocaleSensitive.h"
 #include "js/OffThreadScriptCompilation.h"  // js::UseOffThreadParseGlobal
 #include "js/Printf.h"
@@ -84,6 +86,7 @@
 #include "js/RegExpFlags.h"  // JS::RegExpFlag, JS::RegExpFlags
 #include "js/SourceText.h"
 #include "js/StableStringChars.h"
+#include "js/Stack.h"
 #include "js/String.h"  // JS::GetLinearStringLength, JS::StringToLinearString
 #include "js/StructuredClone.h"
 #include "js/UbiNode.h"
@@ -198,12 +201,6 @@ static bool GetRealmConfiguration(JSContext* cx, unsigned argc, Value* vp) {
   if (!JS_SetProperty(cx, info, "privateMethods",
                       privateFields && privateMethods ? TrueHandleValue
                                                       : FalseHandleValue)) {
-    return false;
-  }
-
-  bool topLevelAwait = cx->options().topLevelAwait();
-  if (!JS_SetProperty(cx, info, "topLevelAwait",
-                      topLevelAwait ? TrueHandleValue : FalseHandleValue)) {
     return false;
   }
 
@@ -356,7 +353,7 @@ static bool GetBuildConfiguration(JSContext* cx, unsigned argc, Value* vp) {
 #endif
   if (!JS_SetProperty(cx, info, "osx", value)) {
     return false;
-}
+  }
 
 #ifdef JS_CODEGEN_ARM64
   value = BooleanValue(true);
@@ -686,6 +683,7 @@ static bool MinorGC(JSContext* cx, unsigned argc, Value* vp) {
   _("pretenureGroupThreshold", JSGC_PRETENURE_GROUP_THRESHOLD, true)       \
   _("zoneAllocDelayKB", JSGC_ZONE_ALLOC_DELAY_KB, true)                    \
   _("mallocThresholdBase", JSGC_MALLOC_THRESHOLD_BASE, true)               \
+  _("urgentThreshold", JSGC_URGENT_THRESHOLD_MB, true)                     \
   _("chunkBytes", JSGC_CHUNK_BYTES, false)                                 \
   _("helperThreadRatio", JSGC_HELPER_THREAD_RATIO, true)                   \
   _("maxHelperThreads", JSGC_MAX_HELPER_THREADS, true)                     \
@@ -875,17 +873,6 @@ static bool WasmThreadsEnabled(JSContext* cx, unsigned argc, Value* vp) {
   }
 JS_FOR_WASM_FEATURES(WASM_FEATURE, WASM_FEATURE);
 #undef WASM_FEATURE
-
-static bool WasmSimdExperimentalEnabled(JSContext* cx, unsigned argc,
-                                        Value* vp) {
-  CallArgs args = CallArgsFromVp(argc, vp);
-#ifdef ENABLE_WASM_SIMD_EXPERIMENTAL
-  args.rval().setBoolean(wasm::SimdAvailable(cx));
-#else
-  args.rval().setBoolean(false);
-#endif
-  return true;
-}
 
 static bool WasmSimdWormholeEnabled(JSContext* cx, unsigned argc, Value* vp) {
   CallArgs args = CallArgsFromVp(argc, vp);
@@ -7867,11 +7854,6 @@ JS_FOR_WASM_FEATURES(WASM_FEATURE, WASM_FEATURE)
 "wasmThreadsEnabled()",
 "  Returns a boolean indicating whether the WebAssembly threads proposal is\n"
 "  supported on the current device."),
-
-    JS_FN_HELP("wasmSimdExperimentalEnabled", WasmSimdExperimentalEnabled, 0, 0,
-"wasmSimdExperimentalEnabled()",
-"  Returns a boolean indicating whether WebAssembly SIMD experimental instructions\n"
-"  are supported by the compilers and runtime."),
 
     JS_FN_HELP("wasmSimdWormholeEnabled", WasmSimdWormholeEnabled, 0, 0,
 "wasmSimdWormholeEnabled()",

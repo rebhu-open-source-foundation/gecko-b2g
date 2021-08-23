@@ -667,6 +667,10 @@ toolbar-settings-button =
      *[other] Open settings
   }
 
+toolbar-overflow-customize-button =
+  .label = Customize toolbar…
+  .accesskey = C
+
 ## EME notification panel
 
 eme-notifications-drm-content-playing = Some audio or video on this site uses DRM software, which may limit what { -brand-short-name } can let you do with it.
@@ -698,3 +702,26 @@ remote-tabs-sync-now = Sync Now
 # "More" item in macOS share menu
 menu-share-more =
     .label = More…
+ui-tour-info-panel-close =
+    .tooltiptext = Close
+
+## Variables:
+##  $uriHost (String): URI host for which the popup was allowed or blocked.
+
+popups-infobar-allow =
+    .label = Allow pop-ups for { $uriHost }
+    .accesskey = p
+
+popups-infobar-block =
+    .label = Block pop-ups for { $uriHost }
+    .accesskey = p
+
+##
+
+popups-infobar-dont-show-message =
+    .label = Don’t show this message when pop-ups are blocked
+    .accesskey = D
+
+picture-in-picture-hide-toggle =
+    .label = Hide Picture-in-Picture Toggle
+    .accesskey = H

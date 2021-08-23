@@ -42,6 +42,7 @@ class ServiceWorkerContainer;
 class DOMRequest;
 class CredentialsContainer;
 class Clipboard;
+class LockManager;
 }  // namespace dom
 namespace webgpu {
 class Instance;
@@ -52,8 +53,7 @@ class Instance;
 // Navigator: Script "navigator" object
 //*****************************************************************************
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 class Permissions;
 
@@ -208,6 +208,7 @@ class Navigator final : public nsISupports, public nsWrapperCache {
   mozilla::dom::CredentialsContainer* Credentials();
   dom::Clipboard* Clipboard();
   webgpu::Instance* Gpu();
+  dom::LockManager* Locks();
 
   static bool Webdriver();
 
@@ -295,9 +296,9 @@ class Navigator final : public nsISupports, public nsWrapperCache {
   RefPtr<AddonManager> mAddonManager;
   RefPtr<webgpu::Instance> mWebGpu;
   RefPtr<Promise> mSharePromise;  // Web Share API related
+  RefPtr<dom::LockManager> mLocks;
 };
 
-}  // namespace dom
 }  // namespace mozilla
 
 #endif  // mozilla_dom_Navigator_h

@@ -145,7 +145,7 @@ class nsMenuPopupFrame final : public nsBoxFrame,
   // as popups are opened asynchronously, the popup pending state is used to
   // prevent multiple requests from attempting to open the same popup twice
   nsPopupState PopupState() { return mPopupState; }
-  void SetPopupState(nsPopupState aPopupState) { mPopupState = aPopupState; }
+  void SetPopupState(nsPopupState);
 
   NS_IMETHOD SetActive(bool aActiveFlag) override {
     // We don't care.
@@ -481,21 +481,6 @@ class nsMenuPopupFrame final : public nsBoxFrame,
   // attributes.
   void MoveToAttributePosition();
 
-  /**
-   * Return whether the popup direction should be RTL.
-   * If the popup has an anchor, its direction is the anchor direction.
-   * Otherwise, its the general direction of the UI.
-   *
-   * Return whether the popup direction should be RTL.
-   */
-  bool IsDirectionRTL() const {
-    return mAnchorContent && mAnchorContent->GetPrimaryFrame()
-               ? mAnchorContent->GetPrimaryFrame()
-                         ->StyleVisibility()
-                         ->mDirection == mozilla::StyleDirection::Rtl
-               : StyleVisibility()->mDirection == mozilla::StyleDirection::Rtl;
-  }
-
   // Create a popup view for this frame. The view is added a child of the root
   // view, and is initially hidden.
   void CreatePopupView();
@@ -512,6 +497,21 @@ class nsMenuPopupFrame final : public nsBoxFrame,
   bool ShouldFollowAnchor();
 
  public:
+  /**
+   * Return whether the popup direction should be RTL.
+   * If the popup has an anchor, its direction is the anchor direction.
+   * Otherwise, its the general direction of the UI.
+   *
+   * Return whether the popup direction should be RTL.
+   */
+  bool IsDirectionRTL() const {
+    return mAnchorContent && mAnchorContent->GetPrimaryFrame()
+               ? mAnchorContent->GetPrimaryFrame()
+                         ->StyleVisibility()
+                         ->mDirection == mozilla::StyleDirection::Rtl
+               : StyleVisibility()->mDirection == mozilla::StyleDirection::Rtl;
+  }
+
   bool ShouldFollowAnchor(nsRect& aRect);
 
   // Returns parent menu widget for submenus that are in the same

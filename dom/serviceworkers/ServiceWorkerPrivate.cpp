@@ -1321,7 +1321,6 @@ class FetchEventRunnable : public ExtendableFunctionalEventWorkerRunnable,
   nsCString mMethod;
   nsString mClientId;
   nsString mResultingClientId;
-  bool mMarkLaunchServiceWorkerEnd;
   RequestCache mCacheMode;
   RequestMode mRequestMode;
   RequestRedirect mRequestRedirect;
@@ -1350,7 +1349,6 @@ class FetchEventRunnable : public ExtendableFunctionalEventWorkerRunnable,
         mScriptSpec(aScriptSpec),
         mClientId(aClientId),
         mResultingClientId(aResultingClientId),
-        mMarkLaunchServiceWorkerEnd(aMarkLaunchServiceWorkerEnd),
         mCacheMode(RequestCache::Default),
         mRequestMode(RequestMode::No_cors),
         mRequestRedirect(RequestRedirect::Follow)
@@ -1460,20 +1458,6 @@ class FetchEventRunnable : public ExtendableFunctionalEventWorkerRunnable,
   bool WorkerRun(JSContext* aCx, WorkerPrivate* aWorkerPrivate) override {
     MOZ_ASSERT(aWorkerPrivate);
 
-    if (mMarkLaunchServiceWorkerEnd) {
-      mInterceptedChannel->SetLaunchServiceWorkerEnd(TimeStamp::Now());
-
-      // A probe to measure sw launch time for telemetry.
-      TimeStamp launchStartTime = TimeStamp();
-      mInterceptedChannel->GetLaunchServiceWorkerStart(&launchStartTime);
-
-      TimeStamp launchEndTime = TimeStamp();
-      mInterceptedChannel->GetLaunchServiceWorkerEnd(&launchEndTime);
-      Telemetry::AccumulateTimeDelta(Telemetry::SERVICE_WORKER_LAUNCH_TIME,
-                                     launchStartTime, launchEndTime);
-    }
-
-    mInterceptedChannel->SetDispatchFetchEventEnd(TimeStamp::Now());
     return DispatchFetchEvent(aCx, aWorkerPrivate);
   }
 
@@ -1496,17 +1480,10 @@ class FetchEventRunnable : public ExtendableFunctionalEventWorkerRunnable,
     explicit ResumeRequest(
         nsMainThreadPtrHandle<nsIInterceptedChannel>& aChannel)
         : Runnable("dom::FetchEventRunnable::ResumeRequest"),
-          mChannel(aChannel) {
-      mChannel->SetFinishResponseStart(TimeStamp::Now());
-    }
+          mChannel(aChannel) {}
 
     NS_IMETHOD Run() override {
       MOZ_ASSERT(NS_IsMainThread());
-
-      TimeStamp timeStamp = TimeStamp::Now();
-      mChannel->SetHandleFetchEventEnd(timeStamp);
-      mChannel->SetChannelResetEnd(timeStamp);
-      mChannel->SaveTimeStamps();
 
       nsresult rv = mChannel->ResetInterception(false);
       if (NS_FAILED(rv)) {
@@ -1604,8 +1581,6 @@ class FetchEventRunnable : public ExtendableFunctionalEventWorkerRunnable,
     event->PostInit(mInterceptedChannel, mRegistration, mScriptSpec);
     event->SetTrusted(true);
 
-    mInterceptedChannel->SetHandleFetchEventStart(TimeStamp::Now());
-
     nsresult rv2 = DispatchExtendableEventOnWorkerScope(
         aCx, aWorkerPrivate->GlobalScope(), event, nullptr);
     if ((NS_WARN_IF(NS_FAILED(rv2)) &&
@@ -1696,16 +1671,9 @@ nsresult ServiceWorkerPrivate::SendFetchEvent(
                                   aResultingClientId);
   }
 
-  aChannel->SetLaunchServiceWorkerStart(TimeStamp::Now());
-  aChannel->SetDispatchFetchEventStart(TimeStamp::Now());
-
   bool newWorkerCreated = false;
   rv = SpawnWorkerIfNeeded(FetchEvent, &newWorkerCreated, aLoadGroup);
   NS_ENSURE_SUCCESS(rv, rv);
-
-  if (!newWorkerCreated) {
-    aChannel->SetLaunchServiceWorkerEnd(TimeStamp::Now());
-  }
 
   nsMainThreadPtrHandle<nsIInterceptedChannel> handle(
       new nsMainThreadPtrHolder<nsIInterceptedChannel>("nsIInterceptedChannel",

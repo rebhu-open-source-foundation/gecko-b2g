@@ -40,6 +40,7 @@
 #include "mozilla/Services.h"
 #include "mozilla/StaticPrefs_dom.h"
 #include "mozilla/StoragePrincipalHelper.h"
+#include "mozilla/Telemetry.h"
 #include "mozilla/Unused.h"
 #include "mozilla/dom/ClientIPCTypes.h"
 #include "mozilla/dom/DOMTypes.h"
@@ -289,6 +290,8 @@ nsresult ServiceWorkerPrivateImpl::SpawnWorkerIfNeeded() {
     mOuter->RenewKeepAliveToken(ServiceWorkerPrivate::WakeUpReason::Unknown);
     return NS_OK;
   }
+
+  mServiceWorkerLaunchTimeStart = TimeStamp::Now();
 
   PBackgroundChild* bgChild = BackgroundChild::GetForCurrentThread();
 
@@ -1099,6 +1102,9 @@ void ServiceWorkerPrivateImpl::CreationFailed() {
   MOZ_ASSERT(mOuter);
   MOZ_ASSERT(mControllerChild);
 
+  Telemetry::AccumulateTimeDelta(Telemetry::SERVICE_WORKER_LAUNCH_TIME_2,
+                                 mServiceWorkerLaunchTimeStart);
+
   Shutdown();
 }
 
@@ -1107,6 +1113,9 @@ void ServiceWorkerPrivateImpl::CreationSucceeded() {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(mOuter);
   MOZ_ASSERT(mControllerChild);
+
+  Telemetry::AccumulateTimeDelta(Telemetry::SERVICE_WORKER_LAUNCH_TIME_2,
+                                 mServiceWorkerLaunchTimeStart);
 
   mOuter->RenewKeepAliveToken(ServiceWorkerPrivate::WakeUpReason::Unknown);
 }

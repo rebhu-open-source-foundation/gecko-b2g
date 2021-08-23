@@ -306,8 +306,7 @@ void LoadContextOptions(const char* aPrefName, void* /* aClosure */) {
       .setPrivateClassMethods(
           GetWorkerPref<bool>("experimental.private_methods"_ns))
       .setErgnomicBrandChecks(
-          GetWorkerPref<bool>("experimental.ergonomic_brand_checks"_ns))
-      .setTopLevelAwait(GetWorkerPref<bool>("experimental.top_level_await"_ns));
+          GetWorkerPref<bool>("experimental.ergonomic_brand_checks"_ns));
 
   nsCOMPtr<nsIXULRuntime> xr = do_GetService("@mozilla.org/xre/runtime;1");
   if (xr) {
@@ -427,6 +426,12 @@ void LoadJSGCMemoryOptions(const char* aPrefName, void* /* aClosure */) {
       PREF("gc_small_heap_size_max_mb", JSGC_SMALL_HEAP_SIZE_MAX),
       PREF("gc_large_heap_size_min_mb", JSGC_LARGE_HEAP_SIZE_MIN),
       PREF("gc_allocation_threshold_mb", JSGC_ALLOCATION_THRESHOLD),
+      PREF("gc_malloc_threshold_base_mb", JSGC_MALLOC_THRESHOLD_BASE),
+      PREF("gc_small_heap_incremental_limit",
+           JSGC_SMALL_HEAP_INCREMENTAL_LIMIT),
+      PREF("gc_large_heap_incremental_limit",
+           JSGC_LARGE_HEAP_INCREMENTAL_LIMIT),
+      PREF("gc_urgent_threshold_mb", JSGC_URGENT_THRESHOLD_MB),
       PREF("gc_incremental_slice_ms", JSGC_SLICE_TIME_BUDGET_MS),
       PREF("gc_min_empty_chunk_count", JSGC_MIN_EMPTY_CHUNK_COUNT),
       PREF("gc_max_empty_chunk_count", JSGC_MAX_EMPTY_CHUNK_COUNT),
@@ -492,6 +497,10 @@ void LoadJSGCMemoryOptions(const char* aPrefName, void* /* aClosure */) {
       case JSGC_SMALL_HEAP_SIZE_MAX:
       case JSGC_LARGE_HEAP_SIZE_MIN:
       case JSGC_ALLOCATION_THRESHOLD:
+      case JSGC_MALLOC_THRESHOLD_BASE:
+      case JSGC_SMALL_HEAP_INCREMENTAL_LIMIT:
+      case JSGC_LARGE_HEAP_INCREMENTAL_LIMIT:
+      case JSGC_URGENT_THRESHOLD_MB:
       case JSGC_MIN_EMPTY_CHUNK_COUNT:
       case JSGC_MAX_EMPTY_CHUNK_COUNT:
         UpdateCommonJSGCMemoryOption(rts, pref->name, pref->key);
@@ -931,7 +940,7 @@ class WorkerJSContext final : public mozilla::CycleCollectedJSContext {
     MOZ_ASSERT(!NS_IsMainThread());
     MOZ_ASSERT(runnable);
 
-    std::queue<RefPtr<MicroTaskRunnable>>* microTaskQueue = nullptr;
+    std::deque<RefPtr<MicroTaskRunnable>>* microTaskQueue = nullptr;
 
     JSContext* cx = Context();
     NS_ASSERTION(cx, "This should never be null!");
@@ -953,7 +962,7 @@ class WorkerJSContext final : public mozilla::CycleCollectedJSContext {
     }
 
     JS::JobQueueMayNotBeEmpty(cx);
-    microTaskQueue->push(std::move(runnable));
+    microTaskQueue->push_back(std::move(runnable));
   }
 
   bool IsSystemCaller() const override {

@@ -817,8 +817,6 @@ class gfxPlatform : public mozilla::layers::MemoryPressureListener {
   static bool WebRenderPrefEnabled();
   // you probably want to use gfxVars::UseWebRender() instead of this
   static bool WebRenderEnvvarEnabled();
-  // you probably want to use gfxVars::UseWebRender() instead of this
-  static bool WebRenderEnvvarDisabled();
 
   static const char* WebRenderResourcePathOverride();
 
@@ -1024,7 +1022,6 @@ class gfxPlatform : public mozilla::layers::MemoryPressureListener {
   void InitCompositorAccelerationPrefs();
   void InitGPUProcessPrefs();
   virtual void InitPlatformGPUProcessPrefs() {}
-  void InitOMTPConfig();
 
   // Gather telemetry data about the Gfx Platform and send it
   static void ReportTelemetry();

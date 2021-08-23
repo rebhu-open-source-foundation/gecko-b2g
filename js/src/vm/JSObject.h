@@ -10,6 +10,8 @@
 #include "mozilla/Maybe.h"
 #include "mozilla/MemoryReporting.h"
 
+#include "jsfriendapi.h"
+
 #include "gc/Barrier.h"
 #include "js/Conversions.h"
 #include "js/friend/ErrorMessages.h"  // JSErrNum
@@ -761,10 +763,6 @@ JSObject* GetThisObjectOfWith(JSObject* env);
 } /* namespace js */
 
 namespace js {
-
-bool NewObjectWithTaggedProtoIsCachable(JSContext* cx,
-                                        Handle<TaggedProto> proto,
-                                        NewObjectKind newKind);
 
 // ES6 9.1.15 GetPrototypeFromConstructor.
 extern bool GetPrototypeFromConstructor(JSContext* cx,

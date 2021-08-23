@@ -65,6 +65,7 @@
 
 #include "nsComponentManagerUtils.h"
 #include "nsContentUtils.h"
+#include "nsIDUtils.h"
 #include "nsNetUtil.h"
 #include "nsProxyRelease.h"
 #include "nsQueryObject.h"
@@ -2025,14 +2026,9 @@ class ContinueDispatchFetchEventRunnable : public Runnable {
     nsString clientId;
     nsString resultingClientId;
     nsCOMPtr<nsILoadInfo> loadInfo = channel->LoadInfo();
-    char buf[NSID_LENGTH];
     Maybe<ClientInfo> clientInfo = loadInfo->GetClientInfo();
     if (clientInfo.isSome()) {
-      clientInfo.ref().Id().ToProvidedString(buf);
-      NS_ConvertASCIItoUTF16 uuid(buf);
-
-      // Remove {} and the null terminator
-      clientId.Assign(Substring(uuid, 1, NSID_LENGTH - 3));
+      clientId = NSID_TrimBracketsUTF16(clientInfo->Id());
     }
 
     // Having an initial or reserved client are mutually exclusive events:
@@ -2050,10 +2046,7 @@ class ContinueDispatchFetchEventRunnable : public Runnable {
     }
 
     if (resulting.isSome()) {
-      resulting.ref().Id().ToProvidedString(buf);
-      NS_ConvertASCIItoUTF16 uuid(buf);
-
-      resultingClientId.Assign(Substring(uuid, 1, NSID_LENGTH - 3));
+      resultingClientId = NSID_TrimBracketsUTF16(resulting->Id());
     }
 
     rv = mServiceWorkerPrivate->SendFetchEvent(mChannel, mLoadGroup, clientId,

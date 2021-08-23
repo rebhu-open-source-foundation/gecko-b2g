@@ -15647,17 +15647,22 @@ already_AddRefed<Element> Document::CreateHTMLElement(nsAtom* aTag) {
   return element.forget();
 }
 
+void AutoWalkBrowsingContextGroup::SuppressBrowsingContext(
+    BrowsingContext* aContext) {
+  aContext->PreOrderWalk([&](BrowsingContext* aBC) {
+    if (nsCOMPtr<nsPIDOMWindowOuter> win = aBC->GetDOMWindow()) {
+      if (RefPtr<Document> doc = win->GetExtantDoc()) {
+        SuppressDocument(doc);
+        mDocuments.AppendElement(doc);
+      }
+    }
+  });
+}
+
 void AutoWalkBrowsingContextGroup::SuppressBrowsingContextGroup(
     BrowsingContextGroup* aGroup) {
   for (const auto& bc : aGroup->Toplevels()) {
-    bc->PreOrderWalk([&](BrowsingContext* aBC) {
-      if (nsCOMPtr<nsPIDOMWindowOuter> win = aBC->GetDOMWindow()) {
-        if (RefPtr<Document> doc = win->GetExtantDoc()) {
-          SuppressDocument(doc);
-          mDocuments.AppendElement(doc);
-        }
-      }
-    });
+    SuppressBrowsingContext(bc);
   }
 }
 
@@ -15670,10 +15675,14 @@ nsAutoSyncOperation::nsAutoSyncOperation(Document* aDoc,
     ccjs->SetMicroTaskLevel(0);
   }
   if (aDoc) {
-    if (auto* bcg = aDoc->GetDocGroup()->GetBrowsingContextGroup()) {
-      SuppressBrowsingContextGroup(bcg);
-    }
     mBrowsingContext = aDoc->GetBrowsingContext();
+    if (InputTaskManager::CanSuspendInputEvent()) {
+      if (auto* bcg = aDoc->GetDocGroup()->GetBrowsingContextGroup()) {
+        SuppressBrowsingContextGroup(bcg);
+      }
+    } else if (mBrowsingContext) {
+      SuppressBrowsingContext(mBrowsingContext->Top());
+    }
     if (mBrowsingContext &&
         mSyncBehavior == SyncOperationBehavior::eSuspendInput &&
         InputTaskManager::CanSuspendInputEvent()) {
@@ -15706,6 +15715,18 @@ nsAutoSyncOperation::~nsAutoSyncOperation() {
       mSyncBehavior == SyncOperationBehavior::eSuspendInput &&
       InputTaskManager::CanSuspendInputEvent()) {
     mBrowsingContext->Group()->DecInputEventSuspensionLevel();
+  }
+}
+
+void Document::SetIsInSyncOperation(bool aSync) {
+  if (CycleCollectedJSContext* ccjs = CycleCollectedJSContext::Get()) {
+    ccjs->UpdateMicroTaskSuppressionGeneration();
+  }
+
+  if (aSync) {
+    ++mInSyncOperationCount;
+  } else {
+    --mInSyncOperationCount;
   }
 }
 
@@ -17195,6 +17216,17 @@ StylePrefersColorScheme Document::PrefersColorScheme(
     }
   }
 
+  if (!nsContentUtils::IsChromeDoc(this)) {
+    switch (StaticPrefs::layout_css_prefers_color_scheme_content_override()) {
+      case 0:
+        return StylePrefersColorScheme::Dark;
+      case 1:
+        return StylePrefersColorScheme::Light;
+      default:
+        break;
+    }
+  }
+
   const bool dark =
       !!LookAndFeel::GetInt(LookAndFeel::IntID::SystemUsesDarkTheme, 0);
   return dark ? StylePrefersColorScheme::Dark : StylePrefersColorScheme::Light;
@@ -17352,4 +17384,37 @@ void Document::UnregisterFromMemoryReportingForDataDocument() {
     }
   }
 }
+void Document::OOPChildLoadStarted(BrowserBridgeChild* aChild) {
+  MOZ_DIAGNOSTIC_ASSERT(!mOOPChildrenLoading.Contains(aChild));
+  mOOPChildrenLoading.AppendElement(aChild);
+  if (mOOPChildrenLoading.Length() == 1) {
+    // Let's block unload so that we're blocked from going into the BFCache
+    // until the child has actually notified us that it has done loading.
+    BlockOnload();
+  }
+}
+
+void Document::OOPChildLoadDone(BrowserBridgeChild* aChild) {
+  // aChild will not be in the list if nsDocLoader::Stop() was called, since
+  // that clears mOOPChildrenLoading.  It also dispatches the 'load' event,
+  // so we don't need to call DocLoaderIsEmpty in that case.
+  if (mOOPChildrenLoading.RemoveElement(aChild)) {
+    if (mOOPChildrenLoading.IsEmpty()) {
+      UnblockOnload(false);
+    }
+    RefPtr<nsDocLoader> docLoader(mDocumentContainer);
+    if (docLoader) {
+      docLoader->OOPChildrenLoadingIsEmpty();
+    }
+  }
+}
+
+void Document::ClearOOPChildrenLoading() {
+  nsTArray<const BrowserBridgeChild*> oopChildrenLoading;
+  mOOPChildrenLoading.SwapElements(oopChildrenLoading);
+  if (!oopChildrenLoading.IsEmpty()) {
+    UnblockOnload(false);
+  }
+}
+
 }  // namespace mozilla::dom

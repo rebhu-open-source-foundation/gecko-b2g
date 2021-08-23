@@ -52,6 +52,7 @@
 #include "WrapperFactory.h"
 #include "nsGlobalWindow.h"
 #include "mozilla/AutoRestore.h"
+#include "mozilla/BasePrincipal.h"
 #include "mozilla/PresShell.h"
 #include "mozilla/SchedulerGroup.h"
 #include "mozilla/StaticPrefs_javascript.h"
@@ -1705,13 +1706,6 @@ static void DOMGCSliceCallback(JSContext* aCx, JS::GCProgress aProgress,
 
       sScheduler.NoteGCEnd();
 
-      using mozilla::ipc::IdleSchedulerChild;
-      IdleSchedulerChild* child =
-          IdleSchedulerChild::GetMainThreadIdleScheduler();
-      if (child) {
-        child->DoneGC();
-      }
-
       // May need to kill the GC runner
       sScheduler.KillGCRunner();
 
@@ -1741,7 +1735,7 @@ static void DOMGCSliceCallback(JSContext* aCx, JS::GCProgress aProgress,
       sScheduler.NoteGCSliceEnd(aDesc.lastSliceEnd(aCx) -
                                 aDesc.lastSliceStart(aCx));
 
-      if (sShuttingDown || aDesc.isComplete_) {
+      if (sShuttingDown) {
         sScheduler.KillGCRunner();
       } else {
         // If incremental GC wasn't triggered by GCTimerFired, we may not have a
@@ -2016,12 +2010,22 @@ void nsJSContext::EnsureStatics() {
 
   Preferences::RegisterCallbackAndCall(
       SetMemoryPrefChangedCallbackInt,
+      "javascript.options.mem.gc_malloc_threshold_base_mb",
+      (void*)JSGC_MALLOC_THRESHOLD_BASE);
+
+  Preferences::RegisterCallbackAndCall(
+      SetMemoryPrefChangedCallbackInt,
       "javascript.options.mem.gc_small_heap_incremental_limit",
       (void*)JSGC_SMALL_HEAP_INCREMENTAL_LIMIT);
   Preferences::RegisterCallbackAndCall(
       SetMemoryPrefChangedCallbackInt,
       "javascript.options.mem.gc_large_heap_incremental_limit",
       (void*)JSGC_LARGE_HEAP_INCREMENTAL_LIMIT);
+
+  Preferences::RegisterCallbackAndCall(
+      SetMemoryPrefChangedCallbackInt,
+      "javascript.options.mem.gc_urgent_threshold_mb",
+      (void*)JSGC_URGENT_THRESHOLD_MB);
 
   Preferences::RegisterCallbackAndCall(SetIncrementalCCPrefChangedCallback,
                                        "dom.cycle_collector.incremental");

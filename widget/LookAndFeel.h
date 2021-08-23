@@ -440,6 +440,7 @@ class LookAndFeel {
                                               : ColorScheme::Light;
   }
 
+  static ColorScheme ColorSchemeForChrome();
   static ColorScheme ColorSchemeForStyle(const dom::Document&,
                                          const StyleColorSchemeFlags&);
   static ColorScheme ColorSchemeForFrame(const nsIFrame*);

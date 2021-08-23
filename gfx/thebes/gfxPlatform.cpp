@@ -15,7 +15,6 @@
 #include "mozilla/webrender/RenderThread.h"
 #include "mozilla/webrender/WebRenderAPI.h"
 #include "mozilla/webrender/webrender_ffi.h"
-#include "mozilla/layers/PaintThread.h"
 #include "mozilla/gfx/BuildConstants.h"
 #include "mozilla/gfx/gfxConfigManager.h"
 #include "mozilla/gfx/gfxVars.h"
@@ -953,7 +952,6 @@ void gfxPlatform::Init() {
   ) {
     gPlatform->EnsureDevicesInitialized();
   }
-  gPlatform->InitOMTPConfig();
 
   if (gfxConfig::IsEnabled(Feature::GPU_PROCESS)) {
     GPUProcessManager* gpu = GPUProcessManager::Get();
@@ -1328,12 +1326,6 @@ void gfxPlatform::InitLayersIPC() {
   }
   sLayersIPCIsUp = true;
 
-  if (XRE_IsContentProcess()) {
-    if (gfxVars::UseOMTP()) {
-      layers::PaintThread::Start();
-    }
-  }
-
   if (XRE_IsParentProcess()) {
     if (!gfxConfig::IsEnabled(Feature::GPU_PROCESS) && UseWebRender()) {
       wr::RenderThread::Start();
@@ -1362,9 +1354,6 @@ void gfxPlatform::ShutdownLayersIPC() {
 #endif
     }
 
-    if (gfxVars::UseOMTP()) {
-      layers::PaintThread::Shutdown();
-    }
   } else if (XRE_IsParentProcess()) {
     gfx::VRManagerChild::ShutDown();
     layers::CompositorManagerChild::Shutdown();
@@ -2638,12 +2627,6 @@ bool gfxPlatform::WebRenderEnvvarEnabled() {
   return (env && *env == '1');
 }
 
-/*static*/
-bool gfxPlatform::WebRenderEnvvarDisabled() {
-  const char* env = PR_GetEnv("MOZ_WEBRENDER");
-  return (env && *env == '0');
-}
-
 /* static */ const char* gfxPlatform::WebRenderResourcePathOverride() {
   const char* resourcePath = PR_GetEnv("WR_RESOURCE_PATH");
   if (!resourcePath || resourcePath[0] == '\0') {
@@ -2869,59 +2852,6 @@ void gfxPlatform::InitWebGPUConfig() {
     feature.ForceDisable(FeatureStatus::UnavailableNoWebRender,
                          "WebGPU can't present without WebRender",
                          "FEATURE_FAILURE_WEBGPU_NEED_WEBRENDER"_ns);
-  }
-}
-
-void gfxPlatform::InitOMTPConfig() {
-  ScopedGfxFeatureReporter reporter("OMTP");
-
-  FeatureState& omtp = gfxConfig::GetFeature(Feature::OMTP);
-  int32_t paintWorkerCount = PaintThread::CalculatePaintWorkerCount();
-
-  if (!XRE_IsParentProcess()) {
-    // The parent process runs through all the real decision-making code
-    // later in this function. For other processes we still want to report
-    // the state of the feature for crash reports.
-    if (gfxVars::UseOMTP()) {
-      reporter.SetSuccessful(paintWorkerCount);
-    }
-    return;
-  }
-
-  omtp.SetDefaultFromPref("layers.omtp.enabled", true,
-                          Preferences::GetBool("layers.omtp.enabled", false,
-                                               PrefValueKind::Default));
-
-  int32_t cpuCores = PR_GetNumberOfProcessors();
-  const uint64_t kMinSystemMemory = 2147483648;  // 2 GB
-  if (cpuCores <= 2) {
-    omtp.ForceDisable(FeatureStatus::Broken,
-                      "OMTP is not supported with <= 2 cores",
-                      "FEATURE_FAILURE_OMTP_FEW_CORES"_ns);
-  } else if (mTotalPhysicalMemory < kMinSystemMemory) {
-    omtp.ForceDisable(FeatureStatus::Broken,
-                      "OMTP is not supported with < 2 GB RAM",
-                      "FEATURE_FAILURE_OMTP_LOW_PMEM"_ns);
-  } else if (mTotalVirtualMemory < kMinSystemMemory) {
-    omtp.ForceDisable(FeatureStatus::Broken,
-                      "OMTP is not supported with < 2 GB VMEM",
-                      "FEATURE_FAILURE_OMTP_LOW_VMEM"_ns);
-  }
-
-  if (mContentBackend == BackendType::CAIRO) {
-    omtp.ForceDisable(FeatureStatus::Broken,
-                      "OMTP is not supported when using cairo",
-                      "FEATURE_FAILURE_COMP_PREF"_ns);
-  }
-
-  if (InSafeMode()) {
-    omtp.ForceDisable(FeatureStatus::Blocked, "OMTP blocked by safe-mode",
-                      "FEATURE_FAILURE_COMP_SAFEMODE"_ns);
-  }
-
-  if (omtp.IsEnabled()) {
-    gfxVars::SetUseOMTP(true);
-    reporter.SetSuccessful(paintWorkerCount);
   }
 }
 
@@ -3471,19 +3401,6 @@ bool gfxPlatform::FallbackFromAcceleration(FeatureStatus aStatus,
     gfxCriticalNote << "Fallback WR to SW-WR";
     gfxVars::SetUseSoftwareWebRender(true);
     return true;
-  }
-
-  if (StaticPrefs::gfx_webrender_fallback_basic_AtStartup() &&
-      !DoesFissionForceWebRender()) {
-    // Fallback from WebRender or Software WebRender to Basic.
-    gfxCriticalNote << "Fallback (SW-)WR to Basic";
-    if (gfxConfig::IsEnabled(Feature::WEBRENDER_SOFTWARE)) {
-      gfxConfig::GetFeature(Feature::WEBRENDER_SOFTWARE)
-          .ForceDisable(aStatus, aMessage, aFailureId);
-    }
-    gfxVars::SetUseWebRender(false);
-    gfxVars::SetUseSoftwareWebRender(false);
-    return false;
   }
 
   MOZ_ASSERT(gfxVars::UseWebRender());
