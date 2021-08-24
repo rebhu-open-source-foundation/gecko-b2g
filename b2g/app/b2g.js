@@ -1275,4 +1275,4 @@ pref("dom.webshare.enabled", true);
 
 // Workardound https://bugzilla.mozilla.org/show_bug.cgi?id=1725339 until
 // a better solution for b2g system app is found.
-user_pref("security.disallow_privileged_https_subdocuments_loads", false);
+pref("security.disallow_privileged_https_subdocuments_loads", false);
