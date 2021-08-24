@@ -28,6 +28,7 @@
 #include "cutils/properties.h"
 #include "FramebufferSurface.h"
 #include "GonkDisplayP.h"
+#include "mozilla/Preferences.h"
 
 #ifdef LOG_TAG
 #  undef LOG_TAG
@@ -121,6 +122,11 @@ std::shared_ptr<const HWC2::Display::Config> getActiveConfig(
   }
 
   return config;
+}
+
+namespace mozilla {
+__attribute__((visibility("default"))) void HookSetVsyncAlwaysEnabled(
+    bool aAlways);
 }
 
 // ----------------------------------------------------------------------------
@@ -341,7 +347,13 @@ void GonkDisplayP::SetEnabled(bool enabled) {
     if (mEnabledCallback) {
       mEnabledCallback(enabled);
     }
+    if (Preferences::GetBool("gfx.vsync.force-enable", false)) {
+      HookSetVsyncAlwaysEnabled(true);
+    }
   } else {
+    if (Preferences::GetBool("gfx.vsync.force-enable", false)) {
+      HookSetVsyncAlwaysEnabled(false);
+    }
     if (mEnabledCallback) {
       mEnabledCallback(enabled);
     }

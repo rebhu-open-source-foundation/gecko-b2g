@@ -855,14 +855,14 @@ namespace mozilla {
 __attribute__((visibility("default"))) void StartBootAnimation() {
   GetGonkDisplay();  // Ensure GonkDisplay exist
   sRunAnimation = true;
-  // TODO: FIXME HookSetVsyncAlwaysEnabled(true);
+  HookSetVsyncAlwaysEnabled(true);
   pthread_create(&sAnimationThread, nullptr, AnimationThread, nullptr);
 }
 
 __attribute__((visibility("default"))) void StopBootAnimation() {
   if (sRunAnimation) {
     sRunAnimation = false;
-    // TODO: FIXME HookSetVsyncAlwaysEnabled(false);
+    HookSetVsyncAlwaysEnabled(false);
     pthread_join(sAnimationThread, nullptr);
     GetGonkDisplay()->NotifyBootAnimationStopped();
   }
