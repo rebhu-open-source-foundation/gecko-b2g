@@ -1734,7 +1734,7 @@ void GeckoEditableSupport::GetBlurInputContextBag(nsInputContext* aInputContext,
 void GeckoEditableSupport::ContentRemoved(nsIContent* aChild,
                                           nsIContent* aPreviousSibling) {
   RefPtr<Element> ele = do_QueryReferent(mFocusedTarget);
-  if (ele && ele->IsInclusiveDescendantOf(aChild)) {
+  if (ele && ele->IsShadowIncludingInclusiveDescendantOf(aChild)) {
     // When focusing on a content editable element and removing it from the DOM
     // tree, we won't receive the blur event. We have to blur IME here. Can't
     // handle it with NOTIFY_IME_OF_BLUR because it also is triggered when
