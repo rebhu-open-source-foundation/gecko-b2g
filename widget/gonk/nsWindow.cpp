@@ -38,8 +38,6 @@
 #include "nsAppShell.h"
 #include "nsTArray.h"
 #include "nsIWidgetListener.h"
-#include "ClientLayerManager.h"
-#include "BasicLayers.h"
 #include "CompositorSession.h"
 #include "ScreenHelperGonk.h"
 #include "libdisplay/GonkDisplay.h"
@@ -743,15 +741,6 @@ WindowRenderer* nsWindow::GetWindowRenderer() {
     *aAllowRetaining = true;
   }*/
   if (mWindowRenderer) {
-    // This layer manager might be used for painting outside of DoDraw(), so we
-    // need to set the correct rotation on it.
-    if (mWindowRenderer->GetBackendType() == LayersBackend::LAYERS_CLIENT) {
-      ClientLayerManager* manager =
-          static_cast<ClientLayerManager*>(mWindowRenderer.get());
-      uint32_t rotation = mScreen->EffectiveScreenRotation();
-      manager->SetDefaultTargetConfiguration(
-          mozilla::layers::BufferMode::BUFFER_NONE, ScreenRotation(rotation));
-    }
     return mWindowRenderer;
   }
 
@@ -829,7 +818,7 @@ void nsWindow::UserActivity() {
 
 uint32_t nsWindow::GetGLFrameBufferFormat() {
   if (mWindowRenderer && mWindowRenderer->GetBackendType() ==
-                           mozilla::layers::LayersBackend::LAYERS_OPENGL) {
+                             mozilla::layers::LayersBackend::LAYERS_OPENGL) {
     // We directly map the hardware fb on Gonk.  The hardware fb
     // has RGB format.
     return LOCAL_GL_RGB;

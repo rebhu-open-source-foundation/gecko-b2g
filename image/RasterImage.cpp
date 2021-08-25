@@ -618,7 +618,7 @@ RasterImage::GetFrameInternal(const IntSize& aSize,
 }
 
 Tuple<ImgDrawResult, IntSize> RasterImage::GetImageContainerSize(
-    LayerManager* aManager, const IntSize& aRequestedSize, uint32_t aFlags) {
+    WindowRenderer* aRenderer, const IntSize& aRequestedSize, uint32_t aFlags) {
   if (!LoadHasSize()) {
     return MakeTuple(ImgDrawResult::NOT_READY, IntSize(0, 0));
   }
@@ -631,7 +631,7 @@ Tuple<ImgDrawResult, IntSize> RasterImage::GetImageContainerSize(
   // support upscaling. If aRequestedSize > mSize, we will never give a larger
   // surface than mSize. If mSize > aRequestedSize, and mSize > maxTextureSize,
   // we still want to use image containers if aRequestedSize <= maxTextureSize.
-  int32_t maxTextureSize = aManager->GetMaxTextureSize();
+  int32_t maxTextureSize = aRenderer->GetMaxTextureSize();
   if (min(mSize.width, aRequestedSize.width) > maxTextureSize ||
       min(mSize.height, aRequestedSize.height) > maxTextureSize) {
     return MakeTuple(ImgDrawResult::NOT_SUPPORTED, IntSize(0, 0));
@@ -653,13 +653,13 @@ RasterImage::IsImageContainerAvailable(LayerManager* aManager,
 }
 
 NS_IMETHODIMP_(already_AddRefed<ImageContainer>)
-RasterImage::GetImageContainer(LayerManager* aManager, uint32_t aFlags) {
+RasterImage::GetImageContainer(WindowRenderer* aRenderer, uint32_t aFlags) {
   // Strip out unsupported flags for raster images.
   uint32_t flags = aFlags & ~(FLAG_RECORD_BLOB);
 
   RefPtr<ImageContainer> container;
   ImgDrawResult drawResult =
-      GetImageContainerImpl(aManager, mSize.ToUnknownSize(), Nothing(),
+      GetImageContainerImpl(aRenderer, mSize.ToUnknownSize(), Nothing(),
                             Nothing(), flags, getter_AddRefs(container));
 
   // We silence the unused warning here because anything that needs the draw
@@ -687,7 +687,7 @@ RasterImage::IsImageContainerAvailableAtSize(LayerManager* aManager,
 }
 
 NS_IMETHODIMP_(ImgDrawResult)
-RasterImage::GetImageContainerAtSize(layers::LayerManager* aManager,
+RasterImage::GetImageContainerAtSize(WindowRenderer* aRenderer,
                                      const gfx::IntSize& aSize,
                                      const Maybe<SVGImageContext>& aSVGContext,
                                      const Maybe<ImageIntRegion>& aRegion,
@@ -696,7 +696,7 @@ RasterImage::GetImageContainerAtSize(layers::LayerManager* aManager,
   // We do not pass in the given SVG context because in theory it could differ
   // between calls, but actually have no impact on the actual contents of the
   // image container.
-  return GetImageContainerImpl(aManager, aSize, Nothing(), Nothing(), aFlags,
+  return GetImageContainerImpl(aRenderer, aSize, Nothing(), Nothing(), aFlags,
                                aOutContainer);
 }
 

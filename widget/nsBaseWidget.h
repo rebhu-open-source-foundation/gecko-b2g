@@ -60,7 +60,6 @@ class SourceSurface;
 }  // namespace gfx
 
 namespace layers {
-class BasicLayerManager;
 class CompositorBridgeChild;
 class CompositorBridgeParent;
 class IAPZCTreeManager;
@@ -146,7 +145,6 @@ class nsBaseWidget : public nsIWidget, public nsSupportsWeakReference {
   typedef base::Thread Thread;
   typedef mozilla::gfx::DrawTarget DrawTarget;
   typedef mozilla::gfx::SourceSurface SourceSurface;
-  typedef mozilla::layers::BasicLayerManager BasicLayerManager;
   typedef mozilla::layers::BufferMode BufferMode;
   typedef mozilla::layers::CompositorBridgeChild CompositorBridgeChild;
   typedef mozilla::layers::CompositorBridgeParent CompositorBridgeParent;
@@ -409,7 +407,6 @@ class nsBaseWidget : public nsIWidget, public nsSupportsWeakReference {
 
    private:
     nsBaseWidget* mWidget;
-    RefPtr<BasicLayerManager> mLayerManager;
     mozilla::FallbackRenderer* mRenderer = nullptr;
   };
   friend class AutoLayerManagerSetup;
