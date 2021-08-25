@@ -70,7 +70,10 @@ void LogProtocolError(const char* aFmt, ...) {
 //
 
 nsresult Convert(bool aIn, uint8_t& aOut) {
-  static const uint8_t sValue[] = {[false] = 0x00, [true] = 0x01};
+  static const uint8_t sValue[] = {
+      0x00,  // [false] = 0x00
+      0x01,  // [true]  = 0x01
+  };
   aOut = sValue[aIn];
   return NS_OK;
 }
@@ -123,7 +126,10 @@ nsresult Convert(int aIn, int32_t& aOut) {
 }
 
 nsresult Convert(uint8_t aIn, bool& aOut) {
-  static const bool sBool[] = {[0x00] = false, [0x01] = true};
+  static const bool sBool[] = {
+      false,  // [0x00] = false
+      true,   // [0x01] = true
+  };
   if (MOZ_HAL_IPC_CONVERT_WARN_IF(aIn >= MOZ_ARRAY_LENGTH(sBool), uint8_t,
                                   bool)) {
     return NS_ERROR_ILLEGAL_VALUE;

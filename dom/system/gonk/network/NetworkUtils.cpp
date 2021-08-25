@@ -27,6 +27,7 @@
 #include "mozilla/fallible.h"
 #include "mozilla/StaticPrefs_network.h"
 #include "mozilla/StaticPrefs_dom.h"
+#include "mozilla/Unused.h"
 #include "nsPrintfCString.h"
 #include <errno.h>
 #include <string.h>
@@ -2031,7 +2032,7 @@ CommandResult NetworkUtils::getInterfaces(NetworkParams& aOptions) {
   if (status.isOk()) {
     result.mInterfaceList.Construct();
     for (uint32_t i = 0; i < interfaceGetList.size(); i++) {
-      auto item = result.mInterfaceList.Value().AppendElement(
+      mozilla::Unused << result.mInterfaceList.Value().AppendElement(
           NS_ConvertUTF8toUTF16(interfaceGetList[i].c_str()),
           mozilla::fallible_t());
     }
@@ -2368,8 +2369,8 @@ CommandResult NetworkUtils::getTetherStats(NetworkParams& aOptions) {
       tetherStats.mRxPackets = statsParcel.rxPackets;
       tetherStats.mTxBytes = statsParcel.txBytes;
       tetherStats.mTxPackets = statsParcel.txPackets;
-      result.mTetherStats.Value().AppendElement(std::move(tetherStats),
-                                                mozilla::fallible);
+      mozilla::Unused << result.mTetherStats.Value().AppendElement(
+          std::move(tetherStats), mozilla::fallible);
     }
   }
   return CommandResult(result);

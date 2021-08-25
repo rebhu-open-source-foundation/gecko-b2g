@@ -35,11 +35,8 @@ namespace ipc {
 nsresult DaemonSocketConnector::CreateRandomAddressString(
     const nsACString& aPrefix, unsigned long aPostfixLength,
     nsACString& aAddress) {
-  static const char sHexChar[16] = {
-      [0x0] = '0', [0x1] = '1', [0x2] = '2', [0x3] = '3',
-      [0x4] = '4', [0x5] = '5', [0x6] = '6', [0x7] = '7',
-      [0x8] = '8', [0x9] = '9', [0xa] = 'a', [0xb] = 'b',
-      [0xc] = 'c', [0xd] = 'd', [0xe] = 'e', [0xf] = 'f'};
+  static const char sHexChar[16] = {'0', '1', '2', '3', '4', '5', '6', '7',
+                                    '8', '9', 'a', 'b', 'c', 'd', 'f'};
 
   unsigned short seed[3];
 

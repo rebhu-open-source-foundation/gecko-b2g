@@ -22,18 +22,7 @@ static const char WIFI_INTERFACE_NAME[] = "android.hardware.wifi@1.0::IWifi";
 static StaticAutoPtr<WifiHal> sWifiHal;
 mozilla::Mutex WifiHal::sLock("wifi-hidl");
 
-WifiHal::WifiHal()
-    : mWifi(nullptr),
-      mWifiChip(nullptr),
-      mStaIface(nullptr),
-      mP2pIface(nullptr),
-      mApIface(nullptr),
-      mDeathRecipient(nullptr),
-      mServiceManager(nullptr),
-      mServiceManagerDeathRecipient(nullptr),
-      mCapabilities(0) {
-  InitServiceManager();
-}
+WifiHal::WifiHal() : mCapabilities(0) { InitServiceManager(); }
 
 WifiHal* WifiHal::Get() {
   MOZ_ASSERT(NS_IsMainThread());
@@ -445,11 +434,6 @@ Result_t WifiHal::ConfigureFirmwareRoaming(
 
   if (response.code != WifiStatusCode::SUCCESS) {
     WIFI_LOGE(LOG_TAG, "Failed to get roaming capabilities");
-    return nsIWifiResult::ERROR_COMMAND_FAILED;
-  }
-
-  if (roamingCaps.maxBlacklistSize < 0 || roamingCaps.maxWhitelistSize < 0) {
-    WIFI_LOGE(LOG_TAG, "Invalid size of roaming capabilities");
     return nsIWifiResult::ERROR_COMMAND_FAILED;
   }
 

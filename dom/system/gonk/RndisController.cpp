@@ -177,7 +177,7 @@ class RndisSetupDispatcher : public Runnable {
     // Reset timer since whole monitoring finish.
     pollingTime = 0;
 
-    nsresult rv = NS_DispatchToMainThread(NS_NewRunnableFunction(
+    NS_DispatchToMainThread(NS_NewRunnableFunction(
         "RndisResultDispatcher",
         [callback = std::move(mCallback), success]() -> void {
           if (sRndisController) {
@@ -188,8 +188,8 @@ class RndisSetupDispatcher : public Runnable {
   }
 
  private:
-  bool mEnable;
   nsCOMPtr<nsIRndisControllerResult> mCallback;
+  bool mEnable;
 };
 
 RndisController::RndisController() {

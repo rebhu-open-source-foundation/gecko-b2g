@@ -11,6 +11,7 @@
 #include "mozilla/ErrorResult.h"
 #include "mozilla/ModuleUtils.h"
 #include "mozilla/RefPtr.h"
+#include "mozilla/Unused.h"
 #include "mozilla/dom/File.h"
 #include "cert.h"
 #include "certdb.h"
@@ -143,7 +144,7 @@ class ImportCertTask final : public CryptoTask {
     // key already exists.
     for (auto& c : certificateList) {
       nsAutoCString importedDbKey;
-      c->GetDbKey(importedDbKey);
+      Unused << c->GetDbKey(importedDbKey);
       if (importedDbKey.Equals(dbKey)) {
         *exist = true;
         break;
