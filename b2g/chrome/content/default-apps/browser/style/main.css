@@ -24,3 +24,7 @@ body {
 #tabs .icon {
   width: 32px;
 }
+
+#tabs {
+  font-size: small;
+}

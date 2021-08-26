@@ -44,6 +44,7 @@ class BrowserTab {
     this.webview.addEventListener("openwindow", this.openWindow);
     this.webview.addEventListener("iconchange", this.setupIcon);
     this.webview.addEventListener("titlechange", this.updateTitle);
+    this.webview.addEventListener("opensearch", this.updateSearch);
 
     this.parentDocument.getElementById("url").value = this.webview.src;
     this.parentDocument
@@ -55,6 +56,7 @@ class BrowserTab {
     activatedTab = this;
     this.setupIcon({});
     this.updateTitle({});
+    this.updateSearch({});
   }
 
   hide() {
@@ -75,6 +77,7 @@ class BrowserTab {
       .toggleAttribute("disabled", true);
     this.setupIcon({});
     this.updateTitle({});
+    this.updateSearch({});
     activatedTab = null;
   }
 
@@ -107,6 +110,16 @@ class BrowserTab {
       activatedTab.parentDocument.querySelector(
         "#tabs > .title"
       ).innerText = title;
+    }
+  }
+
+  updateSearch(aEvent) {
+    let title = aEvent?.detail?.title;
+    let href = aEvent?.detail?.href;
+    log(`updateSearch ${title}:${href}`);
+    if (activatedTab) {
+      activatedTab.parentDocument.querySelector("#tabs > .search").innerText =
+        title + " " + href;
     }
   }
 

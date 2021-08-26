@@ -469,11 +469,25 @@ WebViewChild.prototype = {
     if (target.type !== "application/opensearchdescription+xml") {
       return;
     }
-
-    this.global.sendAsyncMessage("WebView::opensearch", {
-      title: target.title,
-      href: target.href,
-    });
+    let win = event.target.ownerGlobal;
+    if (win === this.global.content) {
+      this.global.sendAsyncMessage("WebView::opensearch", {
+        title: target.title,
+        href: target.href,
+      });
+    } else {
+      // The event target is the web-view element of a content window.
+      // Dispatch the event to the related frame element.
+      const browser = target.ownerGlobal.frameElement;
+      browser?.dispatchEvent(
+        new win.CustomEvent("opensearch", {
+          detail: {
+            title: target.title,
+            href: target.href,
+          },
+        })
+      );
+    }
   },
 
   manifestChangedHandler(event) {
