@@ -396,81 +396,104 @@ this.SettingsPrefsSync = {
 
   // Synchronizes a set of preferences with matching settings.
   synchronizePrefs() {
-    for (let key in kSettingsToObserve) {
-      let setting = kSettingsToObserve[key];
+    gSettingsManager.getBatch(Object.keys(kSettingsToObserve), {
+      resolve: results => {
+        let syncSettings = {};
+        results.forEach(result => {
+          const { name, value } = result;
+          syncSettings[name] = value;
+        });
 
-      // Allow setting to contain flags redefining prefName and defaultValue.
-      let prefName = setting.prefName || key;
-      let defaultValue = setting.defaultValue;
-      if (defaultValue === undefined) {
-        defaultValue = setting;
-      }
+        for (let key in kSettingsToObserve) {
+          let setting = kSettingsToObserve[key];
 
-      let prefs = Services.prefs;
-      // If requested, reset setting value and defaultValue to the pref value.
-      if (setting.resetToPref) {
-        switch (prefs.getPrefType(prefName)) {
-          case Ci.nsIPrefBranch.PREF_BOOL:
-            defaultValue = prefs.getBoolPref(prefName);
-            break;
+          // Allow setting to contain flags redefining prefName and defaultValue.
+          let prefName = setting.prefName || key;
+          let defaultValue = setting.defaultValue;
+          if (defaultValue === undefined) {
+            defaultValue = setting;
+          }
 
-          case Ci.nsIPrefBranch.PREF_INT:
-            defaultValue = prefs.getIntPref(prefName);
-            break;
+          let prefs = Services.prefs;
+          // If requested, reset setting value and defaultValue to the pref value.
+          if (setting.resetToPref) {
+            switch (prefs.getPrefType(prefName)) {
+              case Ci.nsIPrefBranch.PREF_BOOL:
+                defaultValue = prefs.getBoolPref(prefName);
+                break;
 
-          case Ci.nsIPrefBranch.PREF_STRING:
-            defaultValue = prefs.getCharPref(prefName);
-            break;
-        }
+              case Ci.nsIPrefBranch.PREF_INT:
+                defaultValue = prefs.getIntPref(prefName);
+                break;
 
-        let setting = { name: key };
-        setting.value = JSON.stringify(defaultValue);
-        gSettingsManager.set(
-          [setting],
-          settingCallback(`Failed to set setting ${key}`)
-        );
-      }
-
-      // Figure out the right setter function for this type of pref.
-      let setPref;
-      switch (typeof defaultValue) {
-        case "boolean":
-          setPref = prefs.setBoolPref.bind(prefs);
-          break;
-        case "number":
-          setPref = prefs.setIntPref.bind(prefs);
-          break;
-        case "string":
-          setPref = prefs.setCharPref.bind(prefs);
-          break;
-      }
-
-      // Map value of setting to of prefs.
-      let mapValue;
-      if (setting.hasOwnProperty("valueMap")) {
-        mapValue = v =>
-          setting.valueMap.hasOwnProperty(v)
-            ? setting.valueMap[v]
-            : defaultValue;
-      } else {
-        mapValue = v => v;
-      }
-
-      // Add an observer for this setting.
-      this.addSettingsObserver(
-        key,
-        {
-          observeSetting: info => {
-            if (!info) {
-              return;
+              case Ci.nsIPrefBranch.PREF_STRING:
+                defaultValue = prefs.getCharPref(prefName);
+                break;
             }
-            let value = JSON.parse(info.value);
+
+            let setting = { name: key };
+            setting.value = JSON.stringify(defaultValue);
+            gSettingsManager.set(
+              [setting],
+              settingCallback(`Failed to set setting ${key}`)
+            );
+          }
+
+          // Figure out the right setter function for this type of pref.
+          let setPref;
+          switch (typeof defaultValue) {
+            case "boolean":
+              setPref = prefs.setBoolPref.bind(prefs);
+              break;
+            case "number":
+              setPref = prefs.setIntPref.bind(prefs);
+              break;
+            case "string":
+              setPref = prefs.setCharPref.bind(prefs);
+              break;
+          }
+
+          // Map value of setting to of prefs.
+          let mapValue;
+          if (setting.hasOwnProperty("valueMap")) {
+            mapValue = v =>
+              setting.valueMap.hasOwnProperty(v)
+                ? setting.valueMap[v]
+                : defaultValue;
+          } else {
+            mapValue = v => v;
+          }
+
+          // Sync preference value from settings before add observer
+          if (!setting.resetToPref && syncSettings.hasOwnProperty(key)) {
+            let value = JSON.parse(syncSettings[key]);
             setPref(prefName, mapValue(value));
-          },
-        },
-        `Failed to add observer for ${key}`
-      );
-    }
+          }
+
+          // Add an observer for this setting.
+          this.addSettingsObserver(
+            key,
+            {
+              observeSetting: info => {
+                if (!info) {
+                  return;
+                }
+                let value = JSON.parse(info.value);
+                setPref(prefName, mapValue(value));
+              },
+            },
+            `Failed to add observer for ${key}`
+          );
+        }
+      },
+      reject: error => {
+        console.error(
+          `SettingsPrefsSync: synchronizePrefs get settings failed:${JSON.stringify(
+            error
+          )}`
+        );
+      },
+    });
   },
 
   // Setup setting observer for language
