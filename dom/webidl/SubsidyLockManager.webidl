@@ -7,6 +7,7 @@
 [Pref="dom.subsidylock.enabled",
 Exposed=Window]
 interface SubsidyLockManager {
+  iterable<SubsidyLock?>;
   getter SubsidyLock? item(unsigned long index);
   readonly attribute unsigned long length;
 };

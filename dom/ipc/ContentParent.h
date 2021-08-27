@@ -982,6 +982,10 @@ class ContentParent final
 
   bool DeallocPMobileConnectionParent(PMobileConnectionParent* aActor);
 
+  PSubsidyLockParent* AllocPSubsidyLockParent(const uint32_t& aClientId);
+
+  bool DeallocPSubsidyLockParent(PSubsidyLockParent* aActor);
+
   PImsRegServiceFinderParent* AllocPImsRegServiceFinderParent();
 
   bool DeallocPImsRegServiceFinderParent(PImsRegServiceFinderParent* aActor);
@@ -1088,11 +1092,6 @@ class ContentParent final
   PIccParent* AllocPIccParent(const uint32_t& aServiceId);
 
   bool DeallocPIccParent(PIccParent* aActor);
-
-  virtual PSubsidyLockParent* AllocPSubsidyLockParent(
-      const uint32_t& aClientId);
-
-  virtual bool DeallocPSubsidyLockParent(PSubsidyLockParent* aActor);
 
   virtual PCellBroadcastParent* AllocPCellBroadcastParent();
 

@@ -16,7 +16,7 @@ sync protocol PSubsidyLock
 
 parent:
   /**
-   * Send when child no longer needs to use PMobileConnection.
+   * Send when child no longer needs to use PSubsidyLock.
    */
   async __delete__();
 

@@ -754,9 +754,9 @@ class ContentChild final : public PContentChild,
   PSubsidyLockChild* SendPSubsidyLockConstructor(PSubsidyLockChild* aActor,
                                                  const uint32_t& aClientId);
 
-  virtual PSubsidyLockChild* AllocPSubsidyLockChild(const uint32_t& aClientId);
+  PSubsidyLockChild* AllocPSubsidyLockChild(const uint32_t& aClientId);
 
-  virtual bool DeallocPSubsidyLockChild(PSubsidyLockChild* aActor);
+  bool DeallocPSubsidyLockChild(PSubsidyLockChild* aActor);
 
   PIccChild* SendPIccConstructor(PIccChild* aActor, const uint32_t& aServiceId);
 

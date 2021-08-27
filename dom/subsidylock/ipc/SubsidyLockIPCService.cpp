@@ -44,8 +44,8 @@ SubsidyLockIPCService::GetItemByServiceId(uint32_t aServiceId,
   if (!mItems[aServiceId]) {
     RefPtr<SubsidyLockChild> child = new SubsidyLockChild(aServiceId);
 
-    // |SendPMobileConnectionConstructor| adds another reference to the child
-    // actor and removes in |DeallocPMobileConnectionChild|.
+    // |SendPSubsidyLockConstructor| adds another reference to the child
+    // actor and removes in |DeallocPSubsidyLockChild|.
     ContentChild::GetSingleton()->SendPSubsidyLockConstructor(child,
                                                               aServiceId);
 

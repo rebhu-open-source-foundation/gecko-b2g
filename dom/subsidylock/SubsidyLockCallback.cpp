@@ -73,12 +73,23 @@ SubsidyLockCallback::NotifySuccess() {
 NS_IMETHODIMP
 SubsidyLockCallback::NotifyUnlockSubsidyLockError(const nsAString& aError,
                                                   int32_t aRetryCount) {
-  // Refer to IccCardLockError for detail retry count.
-  nsCOMPtr<nsIDOMRequestService> rs =
-      do_GetService(DOMREQUEST_SERVICE_CONTRACTID);
-  NS_ENSURE_TRUE(rs, NS_ERROR_FAILURE);
+  SubsidyCardLockError result;
+  result.mError = aError;
+  result.mRetryCount = aRetryCount;
 
-  return rs->FireErrorAsync(mRequest, aError);
+  AutoJSAPI jsapi;
+  if (NS_WARN_IF(!jsapi.Init(mWindow))) {
+    return NS_ERROR_FAILURE;
+  }
+
+  JSContext* cx = jsapi.cx();
+  JS::Rooted<JS::Value> jsResult(cx);
+  if (!ToJSValue(cx, result, &jsResult)) {
+    jsapi.ClearException();
+    return NS_ERROR_DOM_TYPE_MISMATCH_ERR;
+  }
+
+  return NotifySuccess(jsResult);
 }
 
 }  // namespace subsidylock

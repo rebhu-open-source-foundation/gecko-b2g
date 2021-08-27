@@ -4,11 +4,13 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+[GenerateConversionToJS]
 dictionary lockTypes
 {
   sequence<unsigned long> lockTypes;
 };
 
+[GenerateConversionToJS]
 dictionary UnlockOptions
 {
   required unsigned long lockType;
@@ -16,7 +18,15 @@ dictionary UnlockOptions
   DOMString password;
 };
 
+[GenerateConversionToJS]
+dictionary SubsidyCardLockError
+{
+  DOMString? error = null;
+  long retryCount = -1; // The number of remaining retries. -1 if unkown.
+};
+
 [Pref="dom.subsidylock.enabled",
+Func="B2G::HasMobileConnectionSupport",
 Exposed=Window]
 interface SubsidyLock
 {
@@ -48,10 +58,21 @@ interface SubsidyLock
   // PUK for PCK (Personalisation Control Key).
   const long SUBSIDY_LOCK_SIM_SIM_PUK              = 10;
 
-
-  [Throws, Func="B2G::HasMobileConnectionSupport"]
+  [Throws]
   DOMRequest getSubsidyLockStatus();
 
-  [Throws, Func="B2G::HasMobileConnectionSupport"]
+  /**
+   * Unlock a subsidy lock.
+   *
+   * @param info
+   *        An object containing the information necessary to unlock
+   *        the given lock.
+   *
+   * @return a DOMRequest.
+   *         The request's error will be an object containing the number of
+   *         remaining retries
+   *         @see SubsidyCardLockError.
+   */
+  [Throws]
   DOMRequest unlockSubsidyLock(UnlockOptions info);
 };
