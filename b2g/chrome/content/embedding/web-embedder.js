@@ -320,20 +320,6 @@ XPCOMUtils.defineLazyServiceGetter(
         "web-embedder-set-process-selector"
       );
 
-      let worker_actor_selector = Cc[
-        "@mozilla.org/remoteworkers/actorselector;1"
-      ].getService(Ci.nsIRemoteWorkerActorSelector);
-      if (!worker_actor_selector) {
-        _webembed_log(
-          `No RemoteWorkerActorSelector, will fallback to spawn service workers
-           on content processes randomly.`
-        );
-      }
-      Services.obs.notifyObservers(
-        { wrappedJSObject: delegates.remoteWorkerActorSelector },
-        "web-embedder-set-remote-worker-actor-selector"
-      );
-
       // Notify the shell that a new embedder was created and send it the window provider.
       Services.obs.notifyObservers(
         new BrowserDOMWindow(this),

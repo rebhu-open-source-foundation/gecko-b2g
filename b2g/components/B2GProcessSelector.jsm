@@ -24,6 +24,15 @@ B2GProcessSelector.prototype = {
     }
     return this.embedderSelector.provideProcess(aType, aProcesses, aMaxCount);
   },
+
+  suggestServiceWorkerProcess(aScope) {
+    // If delegate is not presented, return 0 as default
+    // (select a hosting content process randomly).
+    if (!this.embedderSelector) {
+      return 0;
+    }
+    return this.embedderSelector.suggestServiceWorkerProcess(aScope);
+  },
 };
 
 var EXPORTED_SYMBOLS = ["B2GProcessSelector"];

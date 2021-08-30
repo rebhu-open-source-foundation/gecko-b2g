@@ -53,4 +53,12 @@ interface nsIContentProcessProvider : nsISupports
   int32_t provideProcess(in AUTF8String aType,
                          in Array<nsIContentProcessInfo> aAliveProcesses,
                          in uint32_t aMaxCount);
+
+  /**
+   * Return a suggested content process pid for a service worker to spawn at.
+   * Return 0 as default behavior, and RemoteWorkerManager will select a pid
+   * randomly.
+   * aScope: Scope of service worker which will be spawned.
+   */
+  int32_t suggestServiceWorkerProcess(in ACString aScope);
 };

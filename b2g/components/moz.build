@@ -65,7 +65,6 @@ EXTRA_JS_MODULES += [
     "PermissionsInstaller.jsm",
     "PermissionsTable.jsm",
     "PersistentDataBlock.jsm",
-    "RemoteWorkerActorSelector.jsm",
     "Screenshot.jsm",
     "ServiceWorkerAssistant.jsm",
     "SettingsPrefsSync.jsm",

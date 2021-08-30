@@ -14,12 +14,12 @@
 #include "nsDebug.h"
 #include "nsError.h"
 #include "nsIChannel.h"
+#include "nsIContentProcess.h"
 #include "nsIHttpChannel.h"
 #include "nsIHttpChannelInternal.h"
 #include "nsIHttpHeaderVisitor.h"
 #include "nsINetworkInterceptController.h"
 #include "nsIObserverService.h"
-#include "nsIRemoteWorkerActorSelector.h"
 #include "nsIScriptError.h"
 #include "nsIURI.h"
 #include "nsIUploadChannel2.h"
@@ -271,12 +271,12 @@ void ServiceWorkerPrivateImpl::RefreshRemoteWorkerData(
   serviceWorkerData.registrationDescriptor() =
       aRegistration->Descriptor().ToIPC();
 
-  nsCOMPtr<nsIRemoteWorkerActorSelector> rwas =
-      do_GetService("@mozilla.org/remoteworkers/actorselector;1");
+  nsCOMPtr<nsIContentProcessProvider> cpp =
+      do_GetService("@mozilla.org/ipc/processselector;1");
   int pid = 0;
-  if (rwas) {
+  if (cpp) {
     auto scope = aRegistration->Scope();
-    rwas->GetSuggestedPid(scope, &pid);
+    cpp->SuggestServiceWorkerProcess(scope, &pid);
   }
   serviceWorkerData.suggestedPid() = pid;
 }

@@ -24,7 +24,6 @@ XPIDL_SOURCES += [
     "nsIPermissionDelegateHandler.idl",
     "nsIQueryContentEventResult.idl",
     "nsIRemoteTab.idl",
-    "nsIRemoteWorkerActorSelector.idl",
     "nsIServiceWorkerManager.idl",
     "nsIStructuredCloneContainer.idl",
     "nsITextInputProcessor.idl",

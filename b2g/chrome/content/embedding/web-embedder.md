@@ -110,6 +110,8 @@ This delegate allows the embedder to control how content processes are reused or
 
 - `provideProcess(aType, aProcesses, aMaxCount)` returns the index of the process to reuse or -1 to create a new process.
 
+- `suggestServiceWorkerProcess(aScope)` returns a suggested content process pid for a service worker to spawn at. Return 0 as default behavior, and gecko will select a pid randomly. aScope is the scope of service worker which will be spawned.
+
 ## Notifications delegate
 
 This delegate is responsible for displaying desktop notifications UI.
