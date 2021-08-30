@@ -169,6 +169,15 @@ XPCOMUtils.defineLazyServiceGetter(
   "nsIRilWorkerService"
 );
 
+if (Ci.nsIOemHook) {
+  XPCOMUtils.defineLazyServiceGetter(
+    this,
+    "gOemHookService",
+    "@mozilla.org/b2g/oemhookservice;1",
+    "nsIOemHookService"
+  );
+}
+
 XPCOMUtils.defineLazyServiceGetter(
   this,
   "gNetworkTimeService",
@@ -615,6 +624,8 @@ function RadioInterface(aClientId) {
 
   this._receivedSmsCbPagesMap = null;
 
+  this.oemHook = null;
+
   /**
    * Cell Broadcast Search Lists.
    */
@@ -661,14 +672,19 @@ function RadioInterface(aClientId) {
   );
 }
 
+// OemHook.
+let radioInterface_queryInterfaces = [Ci.nsIRadioInterface, Ci.nsIRilCallback];
+if (Ci.nsIOemHookCallback) {
+  radioInterface_queryInterfaces.push(Ci.nsIOemHookCallback);
+}
+
 RadioInterface.prototype = {
   classID: RADIOINTERFACE_CID,
-  QueryInterface: ChromeUtils.generateQI([
-    Ci.nsIRadioInterface,
-    Ci.nsIRilCallback,
-  ]),
+  QueryInterface: ChromeUtils.generateQI(radioInterface_queryInterfaces),
 
   rilworker: null,
+
+  oemHook: null,
 
   // This gets incremented each time we send out a message.
   token: 1,
@@ -4349,6 +4365,48 @@ RadioInterface.prototype = {
           );
         }
         break;
+      case "stopNetworkScan":
+        if (response.errorMsg == 0) {
+          if (DEBUG) {
+            this.debug(
+              "RILJ: [" +
+                response.rilMessageToken +
+                "] < RIL_REQUEST_STOP_NETWORK_SCAN"
+            );
+          }
+        } else if (DEBUG) {
+          this.debug(
+            "RILJ: [" +
+              response.rilMessageToken +
+              "] < RIL_REQUEST_STOP_NETWORK_SCAN error = " +
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
+          );
+        }
+        break;
+      case "setUnsolResponseFilter":
+        if (response.errorMsg == 0) {
+          if (DEBUG) {
+            this.debug(
+              "RILJ: [" +
+                response.rilMessageToken +
+                "] < RIL_REQUEST_SET_UNSOLICITED_RESPONSE_FILTER"
+            );
+          }
+        } else if (DEBUG) {
+          this.debug(
+            "RILJ: [" +
+              response.rilMessageToken +
+              "] < RIL_REQUEST_SET_UNSOLICITED_RESPONSE_FILTER error = " +
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
+          );
+        }
+        break;
       case "updateICCContact":
         // This is not a ril reponse.
         response.errorMsg = result.errorMsg;
@@ -4395,47 +4453,15 @@ RadioInterface.prototype = {
         response.errorMsg = result.errorMsg;
         result = response;
         break;
-      case "stopNetworkScan":
-        if (response.errorMsg == 0) {
-          if (DEBUG) {
-            this.debug(
-              "RILJ: [" +
-                response.rilMessageToken +
-                "] < RIL_REQUEST_STOP_NETWORK_SCAN"
-            );
-          }
-        } else if (DEBUG) {
-          this.debug(
-            "RILJ: [" +
-              response.rilMessageToken +
-              "] < RIL_REQUEST_STOP_NETWORK_SCAN error = " +
-              result.errorMsg +
-              " (" +
-              response.errorMsg +
-              ")"
-          );
-        }
+      case "iccUnlockSubsidyLock":
+        // This is not a ril reponse.
+        response.errorMsg = result.errorMsg;
+        result = response;
         break;
-      case "setUnsolResponseFilter":
-        if (response.errorMsg == 0) {
-          if (DEBUG) {
-            this.debug(
-              "RILJ: [" +
-                response.rilMessageToken +
-                "] < RIL_REQUEST_SET_UNSOLICITED_RESPONSE_FILTER"
-            );
-          }
-        } else if (DEBUG) {
-          this.debug(
-            "RILJ: [" +
-              response.rilMessageToken +
-              "] < RIL_REQUEST_SET_UNSOLICITED_RESPONSE_FILTER error = " +
-              result.errorMsg +
-              " (" +
-              response.errorMsg +
-              ")"
-          );
-        }
+      case "iccGetSubsidyLockStatus":
+        // This is not a ril reponse.
+        response.errorMsg = result.errorMsg;
+        result = response;
         break;
 
       default:
@@ -6097,6 +6123,7 @@ RadioInterface.prototype = {
         this.rilworker.getIccCardStatus(message.rilMessageToken);
         break;
       case "iccUnlockCardLock":
+      case "iccUnlockSubsidyLock":
         this.processIccUnlockCardLock(message);
         break;
       case "iccSetCardLockEnabled":
@@ -6110,6 +6137,11 @@ RadioInterface.prototype = {
         break;
       case "iccGetCardLockRetryCount":
         this.processIccGetCardLockRetryCount(message);
+        break;
+      // For no sim case. OemHook api.
+      case "iccGetSubsidyLockStatus":
+        message.lockType = RIL.GECKO_CARDLOCK_ALL;
+        this.processGetPersonalizationStatus(message);
         break;
       case "enterDepersonalization":
         break;
@@ -7033,6 +7065,9 @@ RadioInterface.prototype = {
         );
         break;
       default:
+        this.debug(message.rilMessageType + " not supported.");
+        message.errorMsg = RIL.GECKO_ERROR_REQUEST_NOT_SUPPORTED;
+        this.handleRilResponse(message);
         break;
     }
   },
@@ -7299,32 +7334,9 @@ RadioInterface.prototype = {
         break;
       case RIL.GECKO_CARDLOCK_NCK:
       case RIL.GECKO_CARDLOCK_NSCK:
-      case RIL.GECKO_CARDLOCK_NCK1:
-      case RIL.GECKO_CARDLOCK_NCK2:
-      case RIL.GECKO_CARDLOCK_HNCK:
       case RIL.GECKO_CARDLOCK_CCK:
       case RIL.GECKO_CARDLOCK_SPCK:
-      case RIL.GECKO_CARDLOCK_PCK:
-      case RIL.GECKO_CARDLOCK_RCCK:
-      case RIL.GECKO_CARDLOCK_RSPCK:
-      case RIL.GECKO_CARDLOCK_NCK_PUK:
-      case RIL.GECKO_CARDLOCK_NSCK_PUK:
-      case RIL.GECKO_CARDLOCK_NCK1_PUK:
-      case RIL.GECKO_CARDLOCK_NCK2_PUK:
-      case RIL.GECKO_CARDLOCK_HNCK_PUK:
-      case RIL.GECKO_CARDLOCK_CCK_PUK:
-      case RIL.GECKO_CARDLOCK_SPCK_PUK:
-      case RIL.GECKO_CARDLOCK_PCK_PUK:
-      case RIL.GECKO_CARDLOCK_RCCK_PUK: // Fall through.
-      case RIL.GECKO_CARDLOCK_RSPCK_PUK:
-        message.facility =
-          RIL.GECKO_CARDLOCK_TO_FACILITY_CODE[message.lockType];
-        message.serviceClass =
-          RIL.ICC_SERVICE_CLASS_VOICE |
-          RIL.ICC_SERVICE_CLASS_DATA |
-          RIL.ICC_SERVICE_CLASS_FAX;
-        message.enabled = false;
-        this.setICCFacilityLock(message);
+        this.enterDepersonalizationReq(message);
         break;
       default:
         message.errorMsg = RIL.GECKO_ERROR_REQUEST_NOT_SUPPORTED;
@@ -7437,6 +7449,32 @@ RadioInterface.prototype = {
     );
   },
 
+  // OemHook api
+  enterDepersonalizationReq(message) {
+    this.getOemHook();
+    if (this.oemHook) {
+      if (DEBUG) {
+        this.debug(
+          "OEMHOOK: [" +
+            message.rilMessageToken +
+            "] > OEMHOOK_ENTER_DEPERSONALIZATION_REQ  lockType = " +
+            message.lockType +
+            " , password = " +
+            message.password
+        );
+      }
+      this.oemHook.enterDepersonalizationReq(
+        message.rilMessageToken,
+        message.lockType,
+        message.password
+      );
+    } else {
+      this.debug("can not get OemHook");
+      message.errorMsg = RIL.GECKO_ERROR_REQUEST_NOT_SUPPORTED;
+      this.handleRilResponse(message);
+    }
+  },
+
   /**
    * Helper function for setting the state of ICC locks.
    */
@@ -7464,22 +7502,26 @@ RadioInterface.prototype = {
    */
   processIccGetCardLockEnabled(message) {
     switch (message.lockType) {
-      case RIL.GECKO_CARDLOCK_PIN: // Fall through.
+      case RIL.GECKO_CARDLOCK_PIN:
       case RIL.GECKO_CARDLOCK_FDN:
         message.facility = RIL.GECKO_CARDLOCK_TO_FACILITY[message.lockType];
+        message.password = ""; // For query no need to provide pin.
+        message.serviceClass =
+          RIL.ICC_SERVICE_CLASS_VOICE |
+          RIL.ICC_SERVICE_CLASS_DATA |
+          RIL.ICC_SERVICE_CLASS_FAX;
+        this.queryICCFacilityLock(message);
+        break;
+      case RIL.GECKO_CARDLOCK_NCK:
+      case RIL.GECKO_CARDLOCK_NSCK:
+      case RIL.GECKO_CARDLOCK_CCK:
+      case RIL.GECKO_CARDLOCK_SPCK:
+        this.processGetPersonalizationStatus(message);
         break;
       default:
         message.errorMsg = RIL.GECKO_ERROR_REQUEST_NOT_SUPPORTED;
         this.handleRilResponse(message);
-        return;
     }
-
-    message.password = ""; // For query no need to provide pin.
-    message.serviceClass =
-      RIL.ICC_SERVICE_CLASS_VOICE |
-      RIL.ICC_SERVICE_CLASS_DATA |
-      RIL.ICC_SERVICE_CLASS_FAX;
-    this.queryICCFacilityLock(message);
   },
 
   queryICCFacilityLock(message) {
@@ -7504,6 +7546,29 @@ RadioInterface.prototype = {
       message.serviceClass,
       this.aid
     );
+  },
+
+  // OemHook api
+  processGetPersonalizationStatus(message) {
+    this.getOemHook();
+    if (this.oemHook) {
+      if (DEBUG) {
+        this.debug(
+          "OEMHOOK: [" +
+            message.rilMessageToken +
+            "] > OEMHOOK_PERSONALIZATION_STATUS_REQ  lockType = " +
+            message.lockType
+        );
+      }
+      this.oemHook.personalizationStatusReq(
+        message.rilMessageToken,
+        message.lockType
+      );
+    } else {
+      this.debug("can not get OemHook");
+      message.errorMsg = RIL.GECKO_ERROR_REQUEST_NOT_SUPPORTED;
+      this.handleRilResponse(message);
+    }
   },
 
   /**
@@ -8166,6 +8231,156 @@ RadioInterface.prototype = {
       });
     } else {
       this.sendRilRequest(rilMessageType, message);
+    }
+  },
+
+  getOemHook() {
+    if (this.oemHook) {
+      return;
+    }
+
+    if (Ci.nsIOemHook) {
+      this.debug("Init OemHook module.");
+      this.oemHook = gOemHookService.getOemHook(this.clientId);
+      if (this.oemHook) {
+        this.oemHook.init(this);
+      }
+    }
+  },
+
+  // nsIOemHookCallback
+  handleOemHookResponse(response) {
+    if (DEBUG) {
+      this.debug(
+        "Received message from oemHook handleOemHookResponse:" +
+          JSON.stringify(response.messageType)
+      );
+    }
+
+    if (!response) {
+      return;
+    }
+
+    // For backward avaliable. Intention for not change the origianl parameter naming for the upperlayer.
+    let result = {};
+    result.rilMessageType = response.messageType;
+    result.rilMessageToken = response.messageToken;
+
+    if (typeof response.errorMsg == "string") {
+      result.errorMsg = response.errorMsg;
+    } else {
+      result.errorMsg = RIL.RIL_ERROR_TO_GECKO_ERROR[response.errorMsg];
+    }
+
+    switch (response.messageType) {
+      case "personalizationStatusReq":
+        // This is a oemhook resposne
+        if (response.errorMsg == 0) {
+          let persoStatus = response.persoResp.persoStatus;
+          // For iccGetSubsidyLockStatus response
+          if (persoStatus.length > 1) {
+            if (DEBUG) {
+              this.debug(
+                "OEMHOOK: [" +
+                  response.messageToken +
+                  "] < OEMHOOK_PERSONALIZATION_STATUS_REQ  persoStatus = " +
+                  JSON.stringify(persoStatus)
+              );
+            }
+            result.persoStatus = persoStatus;
+          }
+          // For getCardLockEnabled response
+          else if (persoStatus.length == 1) {
+            if (DEBUG) {
+              this.debug(
+                "OEMHOOK: [" +
+                  response.messageToken +
+                  "] < OEMHOOK_PERSONALIZATION_STATUS_REQ  lock = " +
+                  persoStatus[0].hasPersoStatus +
+                  " , remainingRetries = " +
+                  persoStatus[0].verifyAttempts
+              );
+            }
+            result.enabled = persoStatus[0].hasPersoStatus;
+          } else {
+            if (DEBUG) {
+              this.debug(
+                "OEMHOOK: [" +
+                  response.messageToken +
+                  "] < OEMHOOK_PERSONALIZATION_STATUS_REQ  error = "
+              );
+            }
+            result.errorMsg = RIL.GECKO_ERROR_GENERIC_FAILURE;
+          }
+        } else if (DEBUG) {
+          this.debug(
+            "OEMHOOK: [" +
+              response.messageToken +
+              "] < OEMHOOK_PERSONALIZATION_STATUS_REQ error = " +
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")"
+          );
+        }
+        break;
+      case "enterDepersonalizationReq":
+        // This is a oemhook resposne
+        if (response.errorMsg == 0) {
+          if (DEBUG) {
+            this.debug(
+              "OEMHOOK: [" +
+                response.messageToken +
+                "] < OEMHOOK_ENTER_DEPERSONALIZATION_REQ"
+            );
+          }
+        } else if (DEBUG) {
+          let remainingRetries = response.depersoResp
+            ? response.depersoResp.depersoRetries
+            : -1;
+          this.debug(
+            "OEMHOOK: [" +
+              response.messageToken +
+              "] < OEMHOOK_ENTER_DEPERSONALIZATION_REQ error = " +
+              result.errorMsg +
+              " (" +
+              response.errorMsg +
+              ")" +
+              "remainingRetries = " +
+              remainingRetries
+          );
+        }
+        result.remainingRetries = response.depersoResp
+          ? response.depersoResp.depersoRetries
+          : -1;
+        break;
+      default:
+        throw new Error(
+          "Unknow response message type : " + response.rilMessageType
+        );
+    }
+
+    let token = response.messageToken;
+    let callback = this.tokenCallbackMap[token];
+
+    if (!callback) {
+      if (DEBUG) {
+        this.debug("Ignore orphan token: " + token);
+      }
+      return;
+    }
+
+    let keep = false;
+    try {
+      keep = callback(result);
+    } catch (e) {
+      if (DEBUG) {
+        this.debug("callback throws an exception: " + e);
+      }
+    }
+
+    if (!keep) {
+      delete this.tokenCallbackMap[token];
     }
   },
 };
