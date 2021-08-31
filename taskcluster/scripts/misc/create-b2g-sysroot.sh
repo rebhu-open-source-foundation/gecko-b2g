@@ -234,7 +234,7 @@ copy_to_sysroot "${includes_list}" "include"
 if test -z "$DISABLE_OEMHOOK"; then
     # Put HIDL headers and libraries of OEM hook into sysroot
     rsync --times --no-relative --copy-links \
-        "${src}/out/target/product/${GONK_PRODUCT_NAME}/vendor/lib${BINSUFFIX}/vendor.qti.hardware.radio.qcrilhook@1.0.so" \
+        "${src}/out/target/product/${GONK_PRODUCT_NAME}/system/product/lib${BINSUFFIX}/vendor.qti.hardware.radio.qcrilhook@1.0.so" \
         "${dest}/b2g-sysroot/libs/"
     rsync --times --no-relative --copy-links -r \
         "${src}/out/soong/.intermediates/vendor/qcom/proprietary/commonsys-intf/telephony/interfaces/hal/qcrilhook/1.0/vendor.qti.hardware.radio.qcrilhook@1.0_genc++_headers/gen/" \
