@@ -18,8 +18,6 @@ chrome.jar:
   content/desktop.css                   (content/desktop.css)
   content/desktop.js                    (content/desktop.js)
 #endif
-  content/blank.html                    (content/blank.html)
-  content/blank.css                     (content/blank.css)
 #ifdef MOZ_WIDGET_GONK
   content/devtools/adb.js               (content/devtools/adb.js)
 #endif
