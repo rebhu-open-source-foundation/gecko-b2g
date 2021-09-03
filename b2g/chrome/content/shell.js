@@ -203,6 +203,9 @@ var shell = {
         break;
       case "MozAfterPaint":
         window.removeEventListener("MozAfterPaint", this);
+        // Use the first paint as a proxy to know when the system app is loaded and
+        // we can then stop the boot animation.
+        this.notifyContentWindowLoaded();
         break;
       case "unload":
         this.stop();
