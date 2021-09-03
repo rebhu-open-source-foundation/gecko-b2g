@@ -91,6 +91,16 @@ function rememberPermission(typesInfo, remember, granted, principal) {
     : Ci.nsIPermissionManager.DENY_ACTION;
 
   typesInfo.forEach(perm => {
+    // See https://bugzilla.mozilla.org/show_bug.cgi?id=1177242
+    if (perm.permission == "video-capture") {
+      Services.perms.addFromPrincipal(
+        principal,
+        "MediaManagerVideo",
+        Ci.nsIPermissionManager.ALLOW_ACTION,
+        Ci.nsIPermissionManager.EXPIRE_SESSION
+      );
+    }
+
     // Since only `installed apps` are listed in permission settings UI,
     // `installed apps` and `webpages` are handled differently.
     if (hasDefaultPermissions(principal)) {
