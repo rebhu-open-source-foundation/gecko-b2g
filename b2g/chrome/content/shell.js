@@ -149,6 +149,11 @@ var shell = {
 
     this._started = true;
 
+    let gaiaChrome = Cc["@mozilla.org/b2g/gaia-chrome;1"].getService();
+    if (!gaiaChrome) {
+      debug("No gaia chrome!");
+    }
+
     // This forces the initialization of the cookie service before we hit the
     // network.
     // See bug 810209
