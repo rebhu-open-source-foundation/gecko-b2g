@@ -99,6 +99,49 @@ var shell = {
     this.contentBrowser = systemAppFrame;
   },
 
+  _progressListener: {
+    stopUrl: null,
+
+    onLocationChange: (webProgress, request, location, flags) => {
+      debug(`LocationChange: ${location.spec}`);
+    },
+
+    onProgressChange: () => {
+      debug(`ProgressChange`);
+    },
+
+    onSecurityChange: () => {
+      debug(`SecurityChange`);
+    },
+
+    onStateChange: (webProgress, request, stateFlags, status) => {
+      debug(`StateChange ${stateFlags} ${request.name}`);
+      if (stateFlags & Ci.nsIWebProgressListener.STATE_START) {
+        if (!this.stopUrl) {
+          this.stopUrl = request.name;
+        }
+      }
+
+      if (stateFlags & Ci.nsIWebProgressListener.STATE_STOP) {
+        if (this.stopUrl && request.name == this.stopUrl) {
+          debug(`About to notify system app is loaded.`);
+          shell.contentBrowser.removeProgressListener(shell._progressListener);
+          shell.notifyContentWindowLoaded();
+        }
+      }
+    },
+
+    onStatusChange: () => {
+      debug(`StatusChange`);
+    },
+
+    QueryInterface: ChromeUtils.generateQI([
+      Ci.nsIWebProgressListener2,
+      Ci.nsIWebProgressListener,
+      Ci.nsISupportsWeakReference,
+    ]),
+  },
+
   start() {
     if (this._started) {
       return;
@@ -116,56 +159,15 @@ var shell = {
 
     let startURL = this.startURL;
 
-    window.addEventListener("MozAfterPaint", this);
     window.addEventListener("sizemodechange", this);
     window.addEventListener("unload", this);
 
     Services.virtualcursor.init(window);
 
-    let stopUrl = null;
-
-    // Listen for loading events on the system app xul:browser
-    let listener = {
-      onLocationChange: (webProgress, request, location, flags) => {
-        // debug(`LocationChange: ${location.spec}`);
-      },
-
-      onProgressChange: () => {
-        // debug(`ProgressChange`);
-      },
-
-      onSecurityChange: () => {
-        // debug(`SecurityChange`);
-      },
-
-      onStateChange: (webProgress, request, stateFlags, status) => {
-        // debug(`StateChange ${stateFlags}`);
-        if (stateFlags & Ci.nsIWebProgressListener.STATE_START) {
-          if (!stopUrl) {
-            stopUrl = request.name;
-          }
-        }
-
-        if (stateFlags & Ci.nsIWebProgressListener.STATE_STOP) {
-          // debug(`Done loading ${request.name}`);
-          if (stopUrl && request.name == stopUrl) {
-            this.contentBrowser.removeProgressListener(listener);
-            this.notifyContentWindowLoaded();
-          }
-        }
-      },
-
-      onStatusChange: () => {
-        // debug(`StatusChange`);
-      },
-
-      QueryInterface: ChromeUtils.generateQI([
-        Ci.nsIWebProgressListener2,
-        Ci.nsIWebProgressListener,
-        Ci.nsISupportsWeakReference,
-      ]),
-    };
-    this.contentBrowser.addProgressListener(listener);
+    this.contentBrowser.addProgressListener(
+      this._progressListener,
+      Ci.nsIWebProgress.NOTIFY_STATE_REQUEST
+    );
 
     Services.ppmm.addMessageListener("dial-handler", this);
     Services.ppmm.addMessageListener("sms-handler", this);
@@ -200,12 +202,6 @@ var shell = {
         } else {
           this.contentBrowser.docShellIsActive = true;
         }
-        break;
-      case "MozAfterPaint":
-        window.removeEventListener("MozAfterPaint", this);
-        // Use the first paint as a proxy to know when the system app is loaded and
-        // we can then stop the boot animation.
-        this.notifyContentWindowLoaded();
         break;
       case "unload":
         this.stop();
