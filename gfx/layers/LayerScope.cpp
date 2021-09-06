@@ -1615,6 +1615,8 @@ void LayerScopeAutoFrame::BeginFrame(int64_t aFrameStamp) {
   if (!LayerScope::CheckSendable()) {
     return;
   }
+  printf_stderr("*** LayerScope: FrameStamp:%" PRIu64,
+                static_cast<uint64_t>(aFrameStamp));
   SenderHelper::ClearSentTextureIds();
 
   gLayerScopeManager.GetSocketManager()->AppendDebugData(
