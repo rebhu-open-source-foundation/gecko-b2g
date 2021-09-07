@@ -210,5 +210,10 @@ void RemoteWorkerControllerParent::Terminated() {
   Unused << SendTerminated();
 }
 
+RefPtr<RemoteWorkerController>
+RemoteWorkerControllerParent::GetRemoteWorkerController() const {
+  return mRemoteWorkerController;
+}
+
 }  // namespace dom
 }  // namespace mozilla

@@ -248,6 +248,9 @@
 #  include "nsIStringBundle.h"
 #endif
 
+#include "ContentProcess.h"
+#include "nsIContentProcess.h"
+
 extern uint32_t gRestartMode;
 extern void InstallSignalHandlers(const char* ProgramName);
 
@@ -1062,6 +1065,12 @@ nsXULAppInfo::GetLastAppBuildID(nsACString& aResult) {
   }
 
   aResult.Assign(gLastAppBuildID);
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsXULAppInfo::GetContentProcesses(nsTArray<RefPtr<nsIContentProcessInfo>>& aProcesses) {
+  aProcesses.AppendElements(std::move(ContentParent::GetContentProcessInfoList()));
   return NS_OK;
 }
 

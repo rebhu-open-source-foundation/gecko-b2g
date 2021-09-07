@@ -36,6 +36,8 @@ bool BFCacheInParent();
 
 %}
 
+interface nsIContentProcessInfo;
+
 /**
  * Provides information about the XUL runtime.
  * @status UNSTABLE - This interface is not frozen and will probably change in
@@ -276,6 +278,13 @@ interface nsIXULRuntime : nsISupports
    * @throw NS_ERROR_NOT_AVAILABLE if not available.
    */
   void ensureContentProcess();
+
+  /**
+   * Return a list of information of all available content processes.
+   * The list includes the information of preallocated processes if
+   * there is.
+   */
+  Array<nsIContentProcessInfo> getContentProcesses();
 
   /**
    * Modification time of the profile lock before the profile was locked on

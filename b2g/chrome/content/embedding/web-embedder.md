@@ -60,6 +60,7 @@ The `WebEmbedder` object exposes the following methods:
     - `idleTime`: the amount of time in seconds.
 - `doSelectionAction(action)`: send selection action to the active window, `action` can be one of ['cut', 'copy', 'paste', 'selectAll'].
 - `launchRemoteWindows()`: this will open remote shell windows if the device supports multiscreen.
+- `getContentProcesses()`: returns a list of process information items.
 
 ### Events
 

@@ -156,6 +156,10 @@ class RemoteWorkerController final {
 
   bool IsTerminated() const;
 
+  RefPtr<nsIURI> GetScriptURI() const {
+    return mScriptURI;
+  }
+
  private:
   RemoteWorkerController(const RemoteWorkerData& aData,
                          RemoteWorkerObserver* aObserver);
@@ -185,6 +189,8 @@ class RemoteWorkerController final {
 
   RefPtr<RemoteWorkerObserver> mObserver;
   RefPtr<RemoteWorkerParent> mActor;
+  // The URI of the service worker script associated with this controller
+  RefPtr<nsIURI> mScriptURI;
 
   enum {
     ePending,

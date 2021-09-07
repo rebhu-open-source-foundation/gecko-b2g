@@ -63,6 +63,11 @@ interface nsIBrowser : nsISupports
   readonly attribute nsIReferrerInfo referrerInfo;
 
   /**
+   * The URI that the browser is visiting.
+   */
+  readonly attribute nsIURI currentURI;
+
+  /**
    * Whether or not the browser is in the process of an nsIWebNavigation
    * navigation method.
    */

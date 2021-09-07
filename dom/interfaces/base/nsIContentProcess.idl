@@ -35,6 +35,21 @@ interface nsIContentProcessInfo : nsISupports
    * The process is going to be shut down.
    */
   readonly attribute boolean willShutDown;
+
+  /**
+   * Number of service workers running in this content process.
+   */
+  readonly attribute int32_t serviceWorkerCount;
+
+  /**
+   * The URIs loading in the tabs living in this content process.
+   */
+  readonly attribute Array<nsIURI> tabURIs;
+
+  /**
+   * The URIs of the service workers running in this content process.
+   */
+  readonly attribute Array<nsIURI> serviceWorkerURIs;
 };
 
 [scriptable, uuid(83ffb063-5f65-4c45-ae07-3f553e0809bb)]

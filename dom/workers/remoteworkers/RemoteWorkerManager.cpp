@@ -30,6 +30,7 @@
 #include "nsTArray.h"
 #include "nsThreadUtils.h"
 #include "RemoteWorkerServiceParent.h"
+#include "RemoteWorkerControllerParent.h"
 
 mozilla::LazyLogModule gRemoteWorkerManagerLog("RemoteWorkerManager");
 
@@ -496,6 +497,9 @@ void RemoteWorkerManager::ForEachActor(
   AssertIsOnBackgroundThread();
 
   const auto length = mChildActors.Length();
+  if (length == 0) {
+    return;
+  }
 
   auto end = static_cast<uint32_t>(rand()) % length;
   if (aProcessId) {
@@ -742,6 +746,78 @@ void RemoteWorkerManager::LaunchNewContentProcess(
       });
 
   SchedulerGroup::Dispatch(TaskCategory::Other, r.forget());
+}
+
+nsTArray<RefPtr<nsIURI>>
+RemoteWorkerManager::GetScriptURIs(base::ProcessId aProcessId,
+                                   const nsACString& aRemoteType) {
+  AssertIsInMainProcess();
+  AssertIsOnBackgroundThread();
+
+  AutoTArray<RefPtr<nsIURI>, 16> scripts;
+
+  RemoteWorkerServiceParent* actor = nullptr;
+  ForEachActor(
+      [&](RemoteWorkerServiceParent* aActor,
+          RefPtr<ContentParent>&& aContentParent) {
+        if (aContentParent->OtherPid() == aProcessId) {
+          actor = aActor;
+          return false;
+        }
+
+        MOZ_ASSERT(!actor);
+        return true;
+      },
+      aRemoteType,
+      Some(aProcessId));
+
+  if (!actor) {
+    return std::move(scripts);
+  }
+
+  AutoTArray<PRemoteWorkerControllerParent*, 16> rwcparents;
+  PBackgroundParent* background = actor->Manager();
+  background->ManagedPRemoteWorkerControllerParent(rwcparents);
+  for (auto* _rwcparent : rwcparents) {
+    auto* rwcparent = static_cast<RemoteWorkerControllerParent*>(_rwcparent);
+    RefPtr<RemoteWorkerController> controller = rwcparent->GetRemoteWorkerController();
+    scripts.AppendElement(controller->GetScriptURI());
+  }
+
+  return std::move(scripts);
+}
+
+nsTArray<RefPtr<nsIURI>>
+RemoteWorkerManager::GetScriptURIsThread(base::ProcessId aProcessId,
+                                         const nsACString& aRemoteType) {
+  if (IsOnBackgroundThread()) {
+    RefPtr<RemoteWorkerManager> mgr = RemoteWorkerManager::GetOrCreate();
+    return std::move(mgr->GetScriptURIs(aProcessId, aRemoteType));
+  }
+
+  Monitor m("GetScriptURIsThread");
+  volatile bool finished = false;
+  nsTArray<RefPtr<nsIURI>> uris;
+  RefPtr<nsIRunnable> worker =
+    NS_NewRunnableFunction(
+      __func__,
+      [&] {
+        MonitorAutoLock lock(m);
+        RefPtr<RemoteWorkerManager> mgr = RemoteWorkerManager::GetOrCreate();
+        uris = std::move(mgr->GetScriptURIs(aProcessId, aRemoteType));
+        finished = true;
+        lock.Notify();
+      });
+  RefPtr<nsIThread> bgtarget = GetBackgroundThread();
+  bgtarget->Dispatch(worker, NS_DISPATCH_NORMAL);
+  {
+    MonitorAutoLock lock(m);
+    while (!finished) {
+      lock.Wait();
+    }
+  }
+
+  return std::move(uris);
 }
 
 }  // namespace dom

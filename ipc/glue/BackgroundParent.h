@@ -108,6 +108,8 @@ inline void AssertIsOnBackgroundThread() {}
 
 #endif  // DEBUG
 
+already_AddRefed<nsIThread> GetBackgroundThread();
+
 inline void AssertIsInMainProcess() { MOZ_ASSERT(XRE_IsParentProcess()); }
 
 inline void AssertIsInMainOrSocketProcess() {

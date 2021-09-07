@@ -171,6 +171,10 @@ class ParentImpl final : public BackgroundParentImpl {
     THREADSAFETY_ASSERT(IsOnBackgroundThread());
   }
 
+  static already_AddRefed<nsIThread> GetBackgroundThread() {
+    return do_AddRef(sBackgroundThread);
+  }
+
   // `ParentImpl` instances are created and need to be deleted on the main
   // thread, despite IPC controlling them on a background thread. Use
   // `_WITH_DELETE_ON_MAIN_THREAD` to force destruction to occur on the desired
@@ -651,6 +655,10 @@ bool IsOnBackgroundThread() { return ParentImpl::IsOnBackgroundThread(); }
 void AssertIsOnBackgroundThread() { ParentImpl::AssertIsOnBackgroundThread(); }
 
 #endif  // DEBUG
+
+already_AddRefed<nsIThread> GetBackgroundThread() {
+  return ParentImpl::GetBackgroundThread();
+}
 
 }  // namespace ipc
 }  // namespace mozilla

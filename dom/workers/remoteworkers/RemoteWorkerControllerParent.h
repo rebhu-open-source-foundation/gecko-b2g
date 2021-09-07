@@ -40,6 +40,8 @@ class RemoteWorkerControllerParent final : public PRemoteWorkerControllerParent,
   void MaybeSendSetServiceWorkerSkipWaitingFlag(
       std::function<void(bool)>&& aCallback);
 
+  RefPtr<RemoteWorkerController> GetRemoteWorkerController() const;
+
  private:
   ~RemoteWorkerControllerParent();
 

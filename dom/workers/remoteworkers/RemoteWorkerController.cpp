@@ -59,6 +59,10 @@ RemoteWorkerController::RemoteWorkerController(const RemoteWorkerData& aData,
                        OptionalServiceWorkerData::TServiceWorkerData) {
   AssertIsInMainProcess();
   AssertIsOnBackgroundThread();
+
+  nsCString scripturi = NS_ConvertUTF16toUTF8(aData.originalScriptURL());
+  DebugOnly<nsresult> rv = NS_NewURI(getter_AddRefs(mScriptURI), scripturi);
+  MOZ_ASSERT(NS_SUCCEEDED(rv));
 }
 
 RemoteWorkerController::~RemoteWorkerController() {

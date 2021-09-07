@@ -714,6 +714,8 @@ class ContentParent final
       const Maybe<nsID>& aAgentClusterId,
       BlobURLDataRequestResolver&& aResolver);
 
+  static nsTArray<RefPtr<nsIContentProcessInfo>> GetContentProcessInfoList();
+
  protected:
   bool CheckBrowsingContextEmbedder(CanonicalBrowsingContext* aBC,
                                     const char* aOperation) const;

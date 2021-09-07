@@ -129,6 +129,7 @@
 #include "mozilla/dom/Permissions.h"
 #include "mozilla/dom/ProcessMessageManager.h"
 #include "mozilla/dom/PushNotifier.h"
+#include "mozilla/dom/RemoteWorkerManager.h"
 #include "mozilla/dom/SystemMessageServiceParent.h"
 #include "mozilla/dom/ServiceWorkerManager.h"
 #include "mozilla/dom/ServiceWorkerRegistrar.h"
@@ -671,6 +672,59 @@ ScriptableCPInfo::GetWillShutDown(bool* aWillShutDown) {
   return NS_OK;
 }
 
+NS_IMETHODIMP
+ScriptableCPInfo::GetServiceWorkerCount(int32_t* aServiceWorkerCount) {
+  int32_t pid = -1;
+  nsresult rv = GetProcessId(&pid);
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  nsCString remoteType;
+  rv = mContentParent->GetRemoteType(remoteType);
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  *aServiceWorkerCount = RemoteWorkerManager::GetScriptURIsThread(pid, remoteType).Length();
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+ScriptableCPInfo::GetTabURIs(nsTArray<RefPtr<nsIURI>>& aTabURIs) {
+  nsTArray<PBrowserParent*> browserParents;
+  mContentParent->ManagedPBrowserParent(browserParents);
+  for (auto* _browserParent : browserParents) {
+    auto browserParent = static_cast<BrowserParent*>(_browserParent);
+    RefPtr<Element> element = browserParent->GetOwnerElement();
+    if (!element) {
+      continue;
+    }
+    nsCOMPtr<nsIBrowser> browser = element->AsBrowser();
+    RefPtr<nsIURI> uri;
+    DebugOnly<nsresult> rv = browser->GetCurrentURI(getter_AddRefs(uri));
+    MOZ_ASSERT(NS_SUCCEEDED(rv));
+    if (!uri) {
+      continue;
+    }
+
+    aTabURIs.AppendElement(uri);
+  }
+
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+ScriptableCPInfo::GetServiceWorkerURIs(nsTArray<RefPtr<nsIURI>>& aServiceWorkerURIs) {
+  int32_t pid = -1;
+  nsresult rv = GetProcessId(&pid);
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  nsCString remoteType;
+  rv = mContentParent->GetRemoteType(remoteType);
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  aServiceWorkerURIs = std::move(RemoteWorkerManager::GetScriptURIsThread(pid, remoteType));
+
+  return NS_OK;
+}
+
 ProcessID GetTelemetryProcessID(const nsACString& remoteType) {
   // OOP WebExtensions run in a content process.
   // For Telemetry though we want to break out collected data from the
@@ -831,6 +885,24 @@ uint32_t ContentParent::GetPoolSize(const nsACString& aContentProcessType) {
   }
 
   return *sBrowserContentParents->GetOrInsertNew(aContentProcessType);
+}
+
+/*static*/ nsTArray<RefPtr<nsIContentProcessInfo>>
+ContentParent::GetContentProcessInfoList() {
+  nsTArray<RefPtr<nsIContentProcessInfo>> infos;
+  {
+    auto& processes = GetOrCreatePool(PREALLOC_REMOTE_TYPE);
+    for (auto* cp : processes) {
+      infos.AppendElement(cp->mScriptableHelper);
+    }
+  }
+  {
+    auto& processes = GetOrCreatePool(DEFAULT_REMOTE_TYPE);
+    for (auto* cp : processes) {
+      infos.AppendElement(cp->mScriptableHelper);
+    }
+  }
+  return std::move(infos);
 }
 
 const nsDependentCSubstring RemoteTypePrefix(
