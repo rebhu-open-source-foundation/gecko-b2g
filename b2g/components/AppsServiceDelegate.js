@@ -80,6 +80,7 @@ AppsServiceDelegate.prototype = {
 
   onBootDone() {
     log(`onBootDone`);
+    Services.obs.notifyObservers(null, "on-boot-done");
     ServiceWorkerAssistant.waitForRegistrations();
   },
 

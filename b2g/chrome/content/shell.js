@@ -332,7 +332,12 @@ document.addEventListener(
         SettingsPrefsSync.delayedInit();
       }, 10000);
 
-      shell.start();
+      // Wait for the the on-boot-done event to start the shell.
+      // If the on-boot-done is not reported,
+      // the shell will be started by the following timeout handler.
+      Services.obs.addObserver(() => {
+        shell.start();
+      }, "on-boot-done");
     });
 
     // Force startup if we didn't get the settings ready under 3s.
