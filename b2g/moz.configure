@@ -139,10 +139,14 @@ option(
 def sandboxgpunode(value):
     return "GPU_NODE_%s" % value[0]
 
+
 option("--with-api-daemon-port", nargs=1, help="api daemon port number", default="80")
+
+
 @depends("--with-api-daemon-port")
 def api_daemon_port(value):
     return value[0]
+
 
 set_config("API_DAEMON_PORT", api_daemon_port)
 set_define("API_DAEMON_PORT", api_daemon_port)
@@ -154,5 +158,20 @@ set_define("MOZ_SANDBOX_GPU_NODE", sandboxgpunode)
 
 # Enable 3gpp support in mp4parse C bindings.
 set_define("MP4PARSE_FEATURE_3GPP", 1)
+
+# SafeBrowsing Support
+# ==============================================================
+option("--enable-safebrowsing", help="Enable Safe Browsing (default disable)")
+
+
+@depends("--disable-safebrowsing", target)
+def safebrowsing(value, target):
+    enabled = bool(value)
+    if enabled:
+        return True
+
+
+set_config("MOZ_SAFE_BROWSING", safebrowsing)
+set_define("MOZ_SAFE_BROWSING", safebrowsing)
 
 include("common.configure")

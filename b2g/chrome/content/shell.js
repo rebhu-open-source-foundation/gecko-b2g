@@ -35,6 +35,11 @@ XPCOMUtils.defineLazyServiceGetter(
   "nsIVirtualCursorService"
 );
 
+XPCOMUtils.defineLazyModuleGetters(this, {
+  GeckoBridge: "resource://gre/modules/GeckoBridge.jsm",
+  SafeBrowsing: "resource://gre/modules/SafeBrowsing.jsm",
+});
+
 const isGonk = AppConstants.platform === "gonk";
 
 if (isGonk) {
@@ -314,10 +319,9 @@ document.addEventListener(
     }
 
     // Start the SIDL <-> Gecko bridge.
-    const { GeckoBridge } = ChromeUtils.import(
-      "resource://gre/modules/GeckoBridge.jsm"
-    );
     GeckoBridge.start();
+    // Init SafeBrowsing prefs.
+    SafeBrowsing.init();
 
     shell.createSystemAppFrame();
 

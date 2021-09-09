@@ -43,6 +43,312 @@ function settingCallback(message) {
   };
 }
 
+class ContentBlocking {
+  constructor() {
+    this.contentBlockingLevel = "disabled";
+    this.switchingLevel = false;
+    this.PREF_CB_LEVEL = "browser.contentblocking.level";
+    this.PREF_FEATURES_PREF = "browser.contentblocking.features";
+
+    this.LEVEL_PREFS = {
+      strict: {
+        "network.cookie.cookieBehavior": null,
+        "network.cookie.cookieBehavior.pbmode": null,
+        "privacy.trackingprotection.pbmode.enabled": null,
+        "privacy.trackingprotection.enabled": null,
+        "privacy.trackingprotection.socialtracking.enabled": null,
+        "privacy.trackingprotection.fingerprinting.enabled": null,
+        "privacy.trackingprotection.cryptomining.enabled": null,
+        "privacy.annotate_channels.strict_list.enabled": null,
+      },
+      standard: {
+        "network.cookie.cookieBehavior": null,
+        "network.cookie.cookieBehavior.pbmode": null,
+        "privacy.trackingprotection.pbmode.enabled": null,
+        "privacy.trackingprotection.enabled": null,
+        "privacy.trackingprotection.socialtracking.enabled": null,
+        "privacy.trackingprotection.fingerprinting.enabled": null,
+        "privacy.trackingprotection.cryptomining.enabled": null,
+        "privacy.annotate_channels.strict_list.enabled": null,
+      },
+      disabled: {
+        "network.cookie.cookieBehavior": null,
+        "network.cookie.cookieBehavior.pbmode": null,
+        "privacy.trackingprotection.pbmode.enabled": null,
+        "privacy.trackingprotection.enabled": null,
+        "privacy.trackingprotection.socialtracking.enabled": null,
+        "privacy.trackingprotection.fingerprinting.enabled": null,
+        "privacy.trackingprotection.cryptomining.enabled": null,
+        "privacy.annotate_channels.strict_list.enabled": null,
+      },
+    };
+
+    this._setPrefExpectationsAndUpdate();
+
+    Services.prefs.addObserver(
+      "browser.contentblocking.features.strict",
+      this._setPrefExpectationsAndUpdate
+    );
+    Services.prefs.addObserver(
+      "browser.contentblocking.features.standard",
+      this._setPrefExpectationsAndUpdate
+    );
+    Services.prefs.addObserver(
+      "browser.contentblocking.features.disabled",
+      this._setPrefExpectationsAndUpdate
+    );
+  }
+
+  log(msg) {
+    console.log(`<ContentBlocking> ${msg}`);
+  }
+
+  updateCB(level = "standard") {
+    this.log("updateCB:" + level);
+    this.contentBlockingLevel = level;
+    this._updateCBLevel(level);
+  }
+
+  get level() {
+    return this.contentBlockingLevel;
+  }
+
+  clear() {
+    Services.prefs.removeObserver(
+      "browser.contentblocking.features.strict",
+      this._setPrefExpectationsAndUpdate
+    );
+    Services.prefs.removeObserver(
+      "browser.contentblocking.features.standard",
+      this._setPrefExpectationsAndUpdate
+    );
+    Services.prefs.removeObserver(
+      "browser.contentblocking.features.disabled",
+      this._setPrefExpectationsAndUpdate
+    );
+  }
+
+  _setPrefExpectationsAndUpdate() {
+    let levels = ["strict", "standard", "disabled"];
+    for (let level of levels) {
+      this._setPrefExpectations(level);
+    }
+  }
+
+  _setPrefExpectations(level) {
+    let rulesArray = Services.prefs.getStringPref(
+      this.PREF_FEATURES_PREF + "." + level,
+      ""
+    );
+    if (!rulesArray) {
+      return;
+    }
+
+    // The prefs inside LEVEL_PREFS are initial values.
+    // If the pref remains null, then it will expect the default value.
+    for (let pref in this.LEVEL_PREFS[level]) {
+      this.LEVEL_PREFS[level][pref] = null;
+    }
+
+    rulesArray = rulesArray.split(",");
+    for (let item of rulesArray) {
+      switch (item) {
+        case "tp":
+          this.LEVEL_PREFS[level]["privacy.trackingprotection.enabled"] = true;
+          break;
+        case "-tp":
+          this.LEVEL_PREFS[level]["privacy.trackingprotection.enabled"] = false;
+          break;
+        case "tpPrivate":
+          this.LEVEL_PREFS[level][
+            "privacy.trackingprotection.pbmode.enabled"
+          ] = true;
+          break;
+        case "-tpPrivate":
+          this.LEVEL_PREFS[level][
+            "privacy.trackingprotection.pbmode.enabled"
+          ] = false;
+          break;
+        case "fp":
+          this.LEVEL_PREFS[level][
+            "privacy.trackingprotection.fingerprinting.enabled"
+          ] = true;
+          break;
+        case "-fp":
+          this.LEVEL_PREFS[level][
+            "privacy.trackingprotection.fingerprinting.enabled"
+          ] = false;
+          break;
+        case "cm":
+          this.LEVEL_PREFS[level][
+            "privacy.trackingprotection.cryptomining.enabled"
+          ] = true;
+          break;
+        case "-cm":
+          this.LEVEL_PREFS[level][
+            "privacy.trackingprotection.cryptomining.enabled"
+          ] = false;
+          break;
+        case "stp":
+          this.LEVEL_PREFS[level][
+            "privacy.trackingprotection.socialtracking.enabled"
+          ] = true;
+          break;
+        case "-stp":
+          this.LEVEL_PREFS[level][
+            "privacy.trackingprotection.socialtracking.enabled"
+          ] = false;
+          break;
+        case "lvl2":
+          this.LEVEL_PREFS[level][
+            "privacy.annotate_channels.strict_list.enabled"
+          ] = true;
+          break;
+        case "-lvl2":
+          this.LEVEL_PREFS[level][
+            "privacy.annotate_channels.strict_list.enabled"
+          ] = false;
+          break;
+        case "cookieBehavior0":
+          this.LEVEL_PREFS[level]["network.cookie.cookieBehavior"] =
+            Ci.nsICookieService.BEHAVIOR_ACCEPT;
+          break;
+        case "cookieBehavior1":
+          this.LEVEL_PREFS[level]["network.cookie.cookieBehavior"] =
+            Ci.nsICookieService.BEHAVIOR_REJECT_FOREIGN;
+          break;
+        case "cookieBehavior2":
+          this.LEVEL_PREFS[level]["network.cookie.cookieBehavior"] =
+            Ci.nsICookieService.BEHAVIOR_REJECT;
+          break;
+        case "cookieBehavior3":
+          this.LEVEL_PREFS[level]["network.cookie.cookieBehavior"] =
+            Ci.nsICookieService.BEHAVIOR_LIMIT_FOREIGN;
+          break;
+        case "cookieBehavior4":
+          this.LEVEL_PREFS[level]["network.cookie.cookieBehavior"] =
+            Ci.nsICookieService.BEHAVIOR_REJECT_TRACKER;
+          break;
+        case "cookieBehavior5":
+          this.LEVEL_PREFS[level]["network.cookie.cookieBehavior"] =
+            Ci.nsICookieService.BEHAVIOR_REJECT_TRACKER_AND_PARTITION_FOREIGN;
+          break;
+        case "cookieBehaviorPBM0":
+          this.LEVEL_PREFS[level]["network.cookie.cookieBehavior.pbmode"] =
+            Ci.nsICookieService.BEHAVIOR_ACCEPT;
+          break;
+        case "cookieBehaviorPBM1":
+          this.LEVEL_PREFS[level]["network.cookie.cookieBehavior.pbmode"] =
+            Ci.nsICookieService.BEHAVIOR_REJECT_FOREIGN;
+          break;
+        case "cookieBehaviorPBM2":
+          this.LEVEL_PREFS[level]["network.cookie.cookieBehavior.pbmode"] =
+            Ci.nsICookieService.BEHAVIOR_REJECT;
+          break;
+        case "cookieBehaviorPBM3":
+          this.LEVEL_PREFS[level]["network.cookie.cookieBehavior.pbmode"] =
+            Ci.nsICookieService.BEHAVIOR_LIMIT_FOREIGN;
+          break;
+        case "cookieBehaviorPBM4":
+          this.LEVEL_PREFS[level]["network.cookie.cookieBehavior.pbmode"] =
+            Ci.nsICookieService.BEHAVIOR_REJECT_TRACKER;
+          break;
+        case "cookieBehaviorPBM5":
+          this.LEVEL_PREFS[level]["network.cookie.cookieBehavior.pbmode"] =
+            Ci.nsICookieService.BEHAVIOR_REJECT_TRACKER_AND_PARTITION_FOREIGN;
+          break;
+        default:
+          Cu.reportError(`Error: Unknown rule observed ${item}`);
+      }
+    }
+  }
+
+  _updateCBLevel(level) {
+    if (this.switchingLevel) {
+      return;
+    }
+    // Turn on switchingLevel flag, to ensure that when the individual prefs that change as a result
+    // of the level change do not trigger yet another level change.
+    this.switchingLevel = true;
+    this._setPrefsToLevel(level);
+    this.switchingLevel = false;
+  }
+
+  /**
+   * Sets all user-exposed content blocking preferences to values that match the selected level.
+   */
+  _setPrefsToLevel(level) {
+    if (!["standard", "strict", "disabled"].includes(level)) {
+      return;
+    }
+
+    for (let pref in this.LEVEL_PREFS[level]) {
+      let value = this.LEVEL_PREFS[level][pref];
+      if (Services.prefs.prefIsLocked(pref)) {
+        continue;
+      }
+
+      if (value == null) {
+        Services.prefs.clearUserPref(pref);
+      } else {
+        switch (Services.prefs.getPrefType(pref)) {
+          case Services.prefs.PREF_BOOL:
+            Services.prefs.setBoolPref(pref, value);
+            break;
+          case Services.prefs.PREF_INT:
+            Services.prefs.setIntPref(pref, value);
+            break;
+          case Services.prefs.PREF_STRING:
+            Services.prefs.setStringPref(pref, value);
+            break;
+        }
+      }
+    }
+    Services.prefs.setStringPref(this.PREF_CB_LEVEL, level);
+  }
+
+  _dumpLevel(level) {
+    this.log("_dumpLevel:" + level);
+    for (let pref in this.LEVEL_PREFS[level]) {
+      let value = this.LEVEL_PREFS[level][pref];
+      this.log(pref + ":" + value);
+    }
+  }
+
+  _dumpPrefs() {
+    this.log("_dumpPrefs:");
+    let prefs = [
+      "network.cookie.cookieBehavior",
+      "network.cookie.cookieBehavior.pbmode",
+      "privacy.trackingprotection.pbmode.enabled",
+      "privacy.trackingprotection.enabled",
+      "privacy.trackingprotection.socialtracking.enabled",
+      "privacy.trackingprotection.fingerprinting.enabled",
+      "privacy.trackingprotection.cryptomining.enabled",
+      "privacy.annotate_channels.strict_list.enabled",
+    ];
+
+    prefs.forEach(pref => {
+      if (Services.prefs.prefIsLocked(pref)) {
+        return;
+      }
+      let value;
+      switch (Services.prefs.getPrefType(pref)) {
+        case Services.prefs.PREF_BOOL:
+          value = Services.prefs.getBoolPref(pref);
+          break;
+        case Services.prefs.PREF_INT:
+          value = Services.prefs.getIntPref(pref);
+          break;
+        case Services.prefs.PREF_STRING:
+          value = Services.prefs.setStringPref(pref);
+          break;
+      }
+      this.log(pref + ":" + value);
+    });
+  }
+}
+
 const kSettingsToObserve = {
   "apz.overscroll.enabled": true,
   "browser.safebrowsing.enabled": true,
@@ -183,6 +489,11 @@ this.SettingsPrefsSync = {
         settingCallback(`Failed to add observer for ${item.key}`)
       );
     });
+
+    if (this._contentBlocking) {
+      this._contentBlocking.clear();
+      this._contentBlocking = null;
+    }
   },
 
   // Helper to add a setting observer and register it for later cleanup.
@@ -216,6 +527,8 @@ this.SettingsPrefsSync = {
     this.synchronizePrefs();
     this.setupLanguageSettingObserver();
     this.setupLowPrecisionSettings();
+    this._contentBlocking = new ContentBlocking();
+    this.setupContentBlocking();
   },
 
   // Returns a Commercial Unit Reference which is vendor dependent.
@@ -385,6 +698,30 @@ this.SettingsPrefsSync = {
         this.updateAccessFu(setting.value);
       }
     );
+  },
+
+  // Observes the contentblocking settings.
+  setupContentBlocking() {
+    this.addSettingsObserver(
+      "browser.contentblocking.level",
+      {
+        observeSetting: info => {
+          if (!info) {
+            return;
+          }
+          let value = JSON.parse(info.value);
+          this._contentBlocking.updateCB(value);
+        },
+      },
+      "Failed to add a setting observer for browser.contentblocking.level"
+    );
+
+    this.getSettingWithDefault(
+      "browser.contentblocking.level",
+      "disabled"
+    ).then(setting => {
+      this._contentBlocking.updateCB(setting.value);
+    });
   },
 
   // Synchronizes a set of preferences with matching settings.

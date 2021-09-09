@@ -30,3 +30,7 @@ ac_add_options --with-ccache=sccache
 ac_add_options --with-api-daemon-port=8081
 
 mk_add_options AUTOCLOBBER=1
+
+if [ -n "$MOZ_SAFE_BROWSING" ]; then
+  ac_add_options --enable-safebrowsing
+fi

@@ -364,6 +364,9 @@ pref("dom.w3c_touch_events.safetyY", 120); // escape borders in units of 1/240"
 
 #ifdef MOZ_SAFE_BROWSING
 pref("browser.safebrowsing.enabled", true);
+pref("browser.contentblocking.features.standard", "-tp,tpPrivate,cookieBehavior0,-cm,-fp");
+pref("browser.contentblocking.features.strict", "tp,tpPrivate,cookieBehavior5,cookieBehaviorPBM5,cm,fp,stp,lvl2");
+pref("browser.contentblocking.features.disable", "-tp,-tpPrivate,cookieBehavior0,-cm,-fp");
 // Prevent loading of pages identified as malware
 pref("browser.safebrowsing.malware.enabled", true);
 pref("browser.safebrowsing.downloads.enabled", true);
@@ -402,9 +405,7 @@ pref("urlclassifier.gethash.timeout_ms", 5000);
 pref("urlclassifier.max-complete-age", 2700);
 
 // Tracking protection
-pref("privacy.trackingprotection.enabled", true);
-pref("privacy.trackingprotection.pbmode.enabled", true);
-
+pref("privacy.trackingprotection.lower_network_priority", true);
 #endif
 
 // True if this is the first time we are showing about:firstrun
