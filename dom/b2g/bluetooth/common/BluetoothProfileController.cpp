@@ -28,10 +28,11 @@ USING_BLUETOOTH_NAMESPACE
 
 #define CONNECTION_TIMEOUT_MS 8000
 
-class CheckProfileStatusCallback : public nsITimerCallback {
+class CheckProfileStatusCallback : public nsITimerCallback, public nsINamed {
  public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSITIMERCALLBACK
+  NS_DECL_NSINAMED
 
   explicit CheckProfileStatusCallback(BluetoothProfileController* aController)
       : mController(aController) {
@@ -217,7 +218,7 @@ void BluetoothProfileController::SetupProfiles(bool aAssignServiceClass) {
   }
 }
 
-NS_IMPL_ISUPPORTS(CheckProfileStatusCallback, nsITimerCallback)
+NS_IMPL_ISUPPORTS(CheckProfileStatusCallback, nsITimerCallback, nsINamed)
 
 NS_IMETHODIMP
 CheckProfileStatusCallback::Notify(nsITimer* aTimer) {
@@ -226,6 +227,12 @@ CheckProfileStatusCallback::Notify(nsITimer* aTimer) {
   // timeout.
   mController->GiveupAndContinue();
 
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+CheckProfileStatusCallback::GetName(nsACString& aName) {
+  aName.AssignLiteral("CheckProfileStatusCallback");
   return NS_OK;
 }
 

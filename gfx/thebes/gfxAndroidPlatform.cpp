@@ -441,7 +441,7 @@ public:
     if (aVsyncType == HARDWARE_VYSNC) {
       mDisplayMap[aScreenId] = mGlobalDisplay;
       return NS_OK;
-    } else if (aVsyncType == SORTWARE_VSYNC) {
+    } else if (aVsyncType == SOFTWARE_VSYNC) {
       mDisplayMap[aScreenId] = new SoftwareDisplay();
       return NS_OK;
     }

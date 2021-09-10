@@ -22,12 +22,12 @@
 #include "ImageLayers.h"
 #include "libdisplay/GonkDisplay.h"
 #include "HwcComposer2D.h"
-#include "LayerScope.h"
+// #include "LayerScope.h"
 #include "Units.h"
 #include "mozilla/ClearOnShutdown.h"
 #include "mozilla/layers/CompositorBridgeParent.h"
-#include "mozilla/layers/LayerManagerComposite.h"
-#include "mozilla/layers/PLayerTransaction.h"
+// #include "mozilla/layers/LayerManagerComposite.h"
+// #include "mozilla/layers/PLayerTransaction.h"
 //#include "mozilla/layers/ShadowLayerUtilsGralloc.h"
 #include "mozilla/layers/TextureHostOGL.h"  // for TextureHostOGL
 #include "mozilla/StaticPtr.h"
@@ -934,7 +934,10 @@ bool HwcComposer2D::TryRenderWithHwc(Layer* aRoot, nsIWidget* aWidget,
 
     if (!TryHwComposition(screen)) {
         LOGD("Full HWC Composition failed. Fallback to GPU Composition or partial OVERLAY Composition");
+// TODO: FIXME
+#if 0
         LayerScope::CleanLayer();
+#endif
         return false;
     }
 

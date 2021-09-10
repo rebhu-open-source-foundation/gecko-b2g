@@ -15,11 +15,14 @@ class nsIDOMWindowUtils;
 namespace mozilla {
 namespace dom {
 
-class PanSimulator final : public nsIDOMEventListener, public nsITimerCallback {
+class PanSimulator final : public nsIDOMEventListener,
+                           public nsITimerCallback,
+                           public nsINamed {
  public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIDOMEVENTLISTENER
   NS_DECL_NSITIMERCALLBACK
+  NS_DECL_NSINAMED
 
   enum {
     eTouchStart = 0,

@@ -54,7 +54,7 @@ static double sDefStepOffset[] = {CURSOR_MOVE_PHASES};
 #define K_VIRTUALBOUNDARY_PIXEL 20
 #define K_MOVE_STEP_OFFSET_DEFAULT 5.0
 
-NS_IMPL_ISUPPORTS(CursorSimulator, nsIDOMEventListener, nsITimerCallback)
+NS_IMPL_ISUPPORTS(CursorSimulator, nsIDOMEventListener, nsITimerCallback, nsINamed)
 
 CursorSimulator::CursorSimulator(nsPIDOMWindowOuter* aWindow,
                                  nsIVirtualCursor* aDelegate)
@@ -85,6 +85,12 @@ CursorSimulator::CursorSimulator(nsPIDOMWindowOuter* aWindow,
 
 CursorSimulator::~CursorSimulator() {
   MOZ_LOG(gVirtualCursorLog, LogLevel::Debug, ("CursorSimulator destruct\n"));
+}
+
+NS_IMETHODIMP
+CursorSimulator::GetName(nsACString& aName) {
+  aName.AssignLiteral("CursorSimulator");
+  return NS_OK;
 }
 
 void CursorSimulator::UpdatePos() {

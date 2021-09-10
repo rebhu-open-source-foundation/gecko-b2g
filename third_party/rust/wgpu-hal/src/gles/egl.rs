@@ -42,9 +42,12 @@ type WlEglWindowResizeFun = unsafe extern "system" fn(
 type WlEglWindowDestroyFun = unsafe extern "system" fn(window: *const raw::c_void);
 
 #[cfg(target_os = "android")]
+type ANativeWindow = *mut raw::c_void;
+
+#[cfg(target_os = "android")]
 extern "C" {
     pub fn ANativeWindow_setBuffersGeometry(
-        window: *mut raw::c_void,
+        window: ANativeWindow,
         width: i32,
         height: i32,
         format: i32,

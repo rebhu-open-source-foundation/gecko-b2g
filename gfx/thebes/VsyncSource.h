@@ -13,6 +13,8 @@
 #include "nsISupportsImpl.h"
 #include "mozilla/layers/LayersTypes.h"
 
+class SoftwareDisplay;
+
 namespace mozilla {
 class RefreshTimerVsyncDispatcher;
 class CompositorVsyncDispatcher;
@@ -31,6 +33,11 @@ class VsyncSource {
 
   typedef mozilla::RefreshTimerVsyncDispatcher RefreshTimerVsyncDispatcher;
   typedef mozilla::CompositorVsyncDispatcher CompositorVsyncDispatcher;
+
+  enum VsyncType {
+    HARDWARE_VYSNC,
+    SOFTWARE_VSYNC
+  };
 
  public:
   // Controls vsync unique to each display and unique on each platform
@@ -81,6 +88,8 @@ class VsyncSource {
     virtual bool IsVsyncEnabled() = 0;
     virtual void Shutdown() = 0;
 
+    virtual SoftwareDisplay* AsSoftwareDisplay() { return nullptr; }
+
    protected:
     virtual ~Display();
 
@@ -123,6 +132,11 @@ class VsyncSource {
 
   RefPtr<RefreshTimerVsyncDispatcher> GetRefreshTimerVsyncDispatcher();
   virtual Display& GetGlobalDisplay() = 0;  // Works across all displays
+  virtual Display& GetDisplayById(uint32_t aScreenId) { return GetGlobalDisplay(); }
+  virtual nsresult AddDisplay(uint32_t aScreenId, VsyncType aVsyncType) {
+    return NS_OK;
+  }
+  virtual nsresult RemoveDisplay(uint32_t aScreenId) { return NS_OK; }
   void Shutdown();
 
  protected:

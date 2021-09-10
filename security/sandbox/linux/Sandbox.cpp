@@ -629,7 +629,7 @@ bool SetContentProcessSandbox(ContentProcessSandboxParams&& aParams) {
 #ifdef MOZ_WIDGET_GONK
   // Live as long as this process.
   aParams.mFiles = new SandboxOpenedFiles();
-  aParams.mFiles->Add("/dev/binder", true, O_RDWR);
+  aParams.mFiles->Add("/dev/binder", SandboxOpenedFile::Dup::YES, O_RDWR);
   {
     char value[PROP_VALUE_MAX];
     if (property_get("media.settings.xml", value, NULL) <= 0) {
@@ -638,7 +638,7 @@ bool SetContentProcessSandbox(ContentProcessSandboxParams&& aParams) {
       // we need to raise error log here.
       SANDBOX_LOG_ERROR("No media profile is pre-opened for camera");
     } else {
-      aParams.mFiles->Add(value, false, O_RDONLY);
+      aParams.mFiles->Add(value, SandboxOpenedFile::Dup::NO, O_RDONLY);
     }
   }
 #endif
@@ -685,12 +685,6 @@ void SetMediaPluginSandbox(const char* aFilePath) {
 #ifdef __i386__
   files->Add("/proc/self/auxv");  // Info also in process's address space.
 #endif
-  // Bug 1712506: the Widevine CDM will try to access these but
-  // doesn't appear to need them.
-  files->Add("/sys/devices/system/cpu/online", SandboxOpenedFile::Error{});
-  files->Add("/proc/stat", SandboxOpenedFile::Error{});
-  files->Add("/proc/net/unix", SandboxOpenedFile::Error{});
-  files->Add("/proc/self/maps", SandboxOpenedFile::Error{});
 
   // Finally, start the sandbox.
   SetCurrentProcessSandbox(GetMediaSandboxPolicy(files));

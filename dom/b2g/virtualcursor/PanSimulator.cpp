@@ -14,7 +14,7 @@
 
 extern mozilla::LazyLogModule gVirtualCursorLog;
 
-NS_IMPL_ISUPPORTS(PanSimulator, nsIDOMEventListener, nsITimerCallback)
+NS_IMPL_ISUPPORTS(PanSimulator, nsIDOMEventListener, nsITimerCallback, nsINamed)
 
 PanSimulator::PanSimulator(nsPIDOMWindowOuter* aWindow,
                            nsIDOMWindowUtils* aWinUtils)
@@ -178,5 +178,11 @@ NS_IMETHODIMP PanSimulator::HandleEvent(Event* aEvent) {
     FireTouchEvent(eTouchEnd, p);
     mKeyCode = 0;
   }
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+PanSimulator::GetName(nsACString& aName) {
+  aName.AssignLiteral("PanSimulator");
   return NS_OK;
 }

@@ -42,13 +42,15 @@ enum ECursorMovePhases { CURSOR_MOVE_PHASES };
 
 class nsIVirtualCursor;
 class CursorSimulator final : public nsIDOMEventListener,
-                              public nsITimerCallback {
+                              public nsITimerCallback,
+                              public nsINamed {
   enum class CursorDirection { UP, DOWN, LEFT, RIGHT, NONE };
 
  public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIDOMEVENTLISTENER
   NS_DECL_NSITIMERCALLBACK
+  NS_DECL_NSINAMED
 
   CursorSimulator(nsPIDOMWindowOuter* aWindow, nsIVirtualCursor* aDelegate);
   void Enable();

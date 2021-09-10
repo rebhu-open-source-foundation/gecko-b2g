@@ -112,6 +112,8 @@ EXPORTS.mozilla.layers += [
     "AtomicRefCountedWithFinalize.h",
     "AxisPhysicsModel.h",
     "AxisPhysicsMSDModel.h",
+    "basic/BasicCompositor.h",
+    "basic/TextureHostBasic.h",
     "BSPTree.h",
     "BufferTexture.h",
     "BuildConstants.h",
@@ -372,6 +374,8 @@ UNIFIED_SOURCES += [
     "apz/util/TouchCounter.cpp",
     "AxisPhysicsModel.cpp",
     "AxisPhysicsMSDModel.cpp",
+    "basic/BasicLayersImpl.cpp",
+    "basic/TextureHostBasic.cpp",
     "BSPTree.cpp",
     "BufferTexture.cpp",
     "CanvasDrawEventRecorder.cpp",
@@ -484,6 +488,7 @@ UNIFIED_SOURCES += [
 ]
 
 SOURCES += [
+    "basic/BasicCompositor.cpp",
     "client/TextureClient.cpp",
     "composite/TextureHost.cpp",
     "ImageContainer.cpp",

@@ -48,8 +48,8 @@
 #include "mozilla/layers/APZThreadUtils.h"
 #include "mozilla/layers/CompositorOGL.h"
 #include "mozilla/layers/CompositorBridgeParent.h"
-#include "mozilla/layers/LayerManagerComposite.h"
-#include "mozilla/layers/LayerTransactionChild.h"
+// #include "mozilla/layers/LayerManagerComposite.h"
+// #include "mozilla/layers/LayerTransactionChild.h"
 #include "mozilla/Preferences.h"
 #include "mozilla/TouchEvents.h"
 #include "HwcComposer2D.h"
@@ -689,24 +689,24 @@ nsWindow::MakeFullScreen(bool aFullScreen, nsIScreen*) {
   return NS_OK;
 }
 
-void nsWindow::DrawWindowOverlay(LayerManagerComposite* aManager,
-                                 LayoutDeviceIntRect aRect) {
-  if (aManager && mGLCursorImageManager) {
-    CompositorOGL* compositor =
-        static_cast<CompositorOGL*>(aManager->GetCompositor());
-    if (compositor) {
-      if (mGLCursorImageManager->ShouldDrawGLCursor() &&
-          mGLCursorImageManager->IsCursorImageReady(mCursor.mDefaultCursor)) {
-        GLCursorImageManager::GLCursorImage cursorImage =
-            mGLCursorImageManager->GetGLCursorImage(mCursor.mDefaultCursor);
-        LayoutDeviceIntPoint position =
-            mGLCursorImageManager->GetGLCursorPosition();
-        compositor->DrawGLCursor(aRect, position, cursorImage.mSurface,
-                                 cursorImage.mImgSize, cursorImage.mHotspot);
-      }
-    }
-  }
-}
+// void nsWindow::DrawWindowOverlay(LayerManagerComposite* aManager,
+//                                  LayoutDeviceIntRect aRect) {
+//   if (aManager && mGLCursorImageManager) {
+//     CompositorOGL* compositor =
+//         static_cast<CompositorOGL*>(aManager->GetCompositor());
+//     if (compositor) {
+//       if (mGLCursorImageManager->ShouldDrawGLCursor() &&
+//           mGLCursorImageManager->IsCursorImageReady(mCursor.mDefaultCursor)) {
+//         GLCursorImageManager::GLCursorImage cursorImage =
+//             mGLCursorImageManager->GetGLCursorImage(mCursor.mDefaultCursor);
+//         LayoutDeviceIntPoint position =
+//             mGLCursorImageManager->GetGLCursorPosition();
+//         compositor->DrawGLCursor(aRect, position, cursorImage.mSurface,
+//                                  cursorImage.mImgSize, cursorImage.mHotspot);
+//       }
+//     }
+//   }
+// }
 
 already_AddRefed<DrawTarget> nsWindow::StartRemoteDrawing() {
   RefPtr<DrawTarget> buffer = mScreen->StartRemoteDrawing();

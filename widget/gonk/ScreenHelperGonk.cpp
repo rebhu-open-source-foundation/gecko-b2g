@@ -774,10 +774,10 @@ already_AddRefed<Screen> ScreenHelperGonk::MakeScreen(
   }
 
   // By default, non primary screen does mirroring.
-  if (StaticPrefs::gfx_screen_mirroring_enabled() &&
-      displayType != DisplayType::DISPLAY_PRIMARY) {
-    screenGonk->EnableMirroring();
-  }
+  // if (StaticPrefs::gfx_screen_mirroring_enabled() &&
+  //     displayType != DisplayType::DISPLAY_PRIMARY) {
+  //   screenGonk->EnableMirroring();
+  // }
 
   LayoutDeviceIntRect bounds = screenGonk->GetNaturalBounds();
   int32_t depth;
@@ -814,7 +814,7 @@ void ScreenHelperGonk::Refresh() {
 void ScreenHelperGonk::AddDisplay(uint32_t aScreenId, nsScreenGonk* screenGonk) {
   VsyncSource::VsyncType vsyncType = (screenGonk->IsVsyncSupported()) ?
       VsyncSource::VsyncType::HARDWARE_VYSNC :
-      VsyncSource::VsyncType::SORTWARE_VSYNC;
+      VsyncSource::VsyncType::SOFTWARE_VSYNC;
 
   gfxPlatform::GetPlatform()->GetHardwareVsync()->AddDisplay(aScreenId, vsyncType);
 }

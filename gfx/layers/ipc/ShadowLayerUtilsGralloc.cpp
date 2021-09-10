@@ -8,9 +8,9 @@
 #include "ipc/IPCMessageUtilsSpecializations.h"
 #include "mozilla/DebugOnly.h"
 #include "mozilla/gfx/Point.h"
-#include "mozilla/layers/LayerTransactionChild.h"
-#include "mozilla/layers/ShadowLayers.h"
-#include "mozilla/layers/LayerManagerComposite.h"
+//#include "mozilla/layers/LayerTransactionChild.h"
+//#include "mozilla/layers/ShadowLayers.h"
+//#include "mozilla/layers/LayerManagerComposite.h"
 #include "mozilla/layers/CompositorTypes.h"
 #include "mozilla/layers/TextureHost.h"
 #include "mozilla/layers/SharedBufferManagerChild.h"
@@ -187,17 +187,17 @@ MagicGrallocBufferHandle::MagicGrallocBufferHandle(const sp<GraphicBuffer>& aGra
 //-----------------------------------------------------------------------------
 // Parent process
 
-/*static*/ bool
-LayerManagerComposite::SupportsDirectTexturing()
-{
-  return true;
-}
+// /*static*/ bool
+// LayerManagerComposite::SupportsDirectTexturing()
+// {
+//   return true;
+// }
 
-/*static*/ void
-LayerManagerComposite::PlatformSyncBeforeReplyUpdate()
-{
-  // Nothing to be done for gralloc.
-}
+// /*static*/ void
+// LayerManagerComposite::PlatformSyncBeforeReplyUpdate()
+// {
+//   // Nothing to be done for gralloc.
+// }
 
 //-----------------------------------------------------------------------------
 // Both processes
@@ -229,11 +229,11 @@ GetGraphicBufferFromDesc(SurfaceDescriptor aDesc)
   return GetGraphicBufferFrom(handle);
 }
 
-/*static*/ void
-ShadowLayerForwarder::PlatformSyncBeforeUpdate()
-{
-  // Nothing to be done for gralloc.
-}
+// /*static*/ void
+// ShadowLayerForwarder::PlatformSyncBeforeUpdate()
+// {
+//   // Nothing to be done for gralloc.
+// }
 
 } // namespace layers
 } // namespace mozilla

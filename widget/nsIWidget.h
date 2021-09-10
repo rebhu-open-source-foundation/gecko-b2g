@@ -2184,14 +2184,6 @@ class nsIWidget : public nsISupports {
    */
   virtual double GetDefaultScaleInternal() { return 1.0; }
 
- //public:
-    /**
-     * Called after the LayerManager draws the layer tree
-     *
-     * Always called from the compositing thread.
-     */
-    //virtual void DrawWindowOverlay(LayerManagerComposite* aManager,
-    //                               LayoutDeviceIntRect aRect) = 0;
   /**
    * Layout uses this to alert the widget to the client rect representing
    * the window maximize button.  An empty rect indicates there is no

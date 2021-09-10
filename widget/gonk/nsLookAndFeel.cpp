@@ -86,16 +86,10 @@ nsresult nsLookAndFeel::NativeGetColor(ColorID aID, ColorScheme,
       // not used?
       aColor = TEXT_NORMAL_COLOR;
       break;
-    case ColorID::TextSelectBackground:
-      aColor = NS_RGBA(0x00, 0x73, 0xe6, 0x66);
-      break;
     case ColorID::IMESelectedRawTextBackground:
     case ColorID::IMESelectedConvertedTextBackground:
       // still used
       aColor = BASE_SELECTED_COLOR;
-      break;
-    case ColorID::TextSelectForeground:
-      aColor = NS_SAME_AS_FOREGROUND_COLOR;
       break;
     case ColorID::IMESelectedRawTextForeground:
     case ColorID::IMESelectedConvertedTextForeground:
@@ -259,11 +253,11 @@ nsresult nsLookAndFeel::NativeGetColor(ColorID aID, ColorScheme,
       aColor = FG_PRELIGHT_COLOR;
       break;
     case ColorID::MozCellhighlight:
-    case ColorID::MozHtmlCellhighlight:
+    case ColorID::Selecteditem:
       aColor = BASE_ACTIVE_COLOR;
       break;
     case ColorID::MozCellhighlighttext:
-    case ColorID::MozHtmlCellhighlighttext:
+    case ColorID::Selecteditemtext:
       aColor = TEXT_ACTIVE_COLOR;
       break;
     case ColorID::MozMenuhover:

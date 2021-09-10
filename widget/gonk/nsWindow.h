@@ -167,8 +167,8 @@ class nsWindow final : public nsBaseWidget {
   // event (like a keypress or mouse click).
   void UserActivity();
 
-  void DrawWindowOverlay(LayerManagerComposite* aManager,
-                         LayoutDeviceIntRect aRect);
+//   void DrawWindowOverlay(LayerManagerComposite* aManager,
+//                          LayoutDeviceIntRect aRect);
 
  private:
   void EnsureGLCursorImageManager();

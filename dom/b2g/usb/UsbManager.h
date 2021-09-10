@@ -26,10 +26,12 @@ namespace dom {
 
 class UsbManager : public DOMEventTargetHelper,
                    public UsbObserver,
-                   public nsITimerCallback {
+                   public nsITimerCallback,
+                   public nsINamed {
  public:
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_NSITIMERCALLBACK
+  NS_DECL_NSINAMED
 
   explicit UsbManager(nsPIDOMWindowInner* aWindow);
 

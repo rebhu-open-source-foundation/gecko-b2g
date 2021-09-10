@@ -35,7 +35,7 @@ class SandboxOpenedFile final {
 
   // This constructor opens the named file and saves the descriptor.
   // If the open fails, IsOpen() will return false and GetDesc() will
-  // quietly return -1.  If aDup is Dup::YES, GetDesc() will return a
+  // quietly return -1.  If aDup is true, GetDesc() will return a
   // dup() of the descriptor every time it's called; otherwise, the
   // first call will return the descriptor and any further calls will
   // log an error message and return -1.

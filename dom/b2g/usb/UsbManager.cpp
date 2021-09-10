@@ -25,6 +25,7 @@ namespace dom {
 
 NS_INTERFACE_MAP_BEGIN(UsbManager)
   NS_INTERFACE_MAP_ENTRY(nsITimerCallback)
+  NS_INTERFACE_MAP_ENTRY(nsINamed)
 NS_INTERFACE_MAP_END_INHERITING(DOMEventTargetHelper)
 
 NS_IMPL_ADDREF_INHERITED(UsbManager, DOMEventTargetHelper)
@@ -104,6 +105,12 @@ UsbManager::Notify(nsITimer* aTimer) {
   RefPtr<UsbEvent> event =
       UsbEvent::Constructor(this, USB_STATUS_CHANGE_NAME, init);
   DispatchTrustedEvent(event);
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+UsbManager::GetName(nsACString& aName) {
+  aName.AssignLiteral("UsbManager");
   return NS_OK;
 }
 
