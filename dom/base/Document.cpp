@@ -6937,7 +6937,7 @@ bool Document::RemoveFromBFCacheSync() {
     removed = true;
   }
 
-  if (XRE_IsContentProcess()) {
+  if (mozilla::SessionHistoryInParent() && XRE_IsContentProcess()) {
     if (BrowsingContext* bc = GetBrowsingContext()) {
       if (bc->IsInBFCache()) {
         ContentChild* cc = ContentChild::GetSingleton();
@@ -16789,6 +16789,10 @@ already_AddRefed<mozilla::dom::Promise> Document::RequestStorageAccess(
 
 RefPtr<Document::AutomaticStorageAccessPermissionGrantPromise>
 Document::AutomaticStorageAccessPermissionCanBeGranted() {
+  if (!StaticPrefs::privacy_antitracking_enableWebcompat()) {
+    return AutomaticStorageAccessPermissionGrantPromise::CreateAndResolve(
+        false, __func__);
+  }
   if (XRE_IsContentProcess()) {
     // In the content process, we need to ask the parent process to compute
     // this.  The reason is that nsIPermissionManager::GetAllWithTypePrefix()

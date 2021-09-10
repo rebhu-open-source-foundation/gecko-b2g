@@ -186,7 +186,7 @@ nsresult AudioStream::EnsureTimeStretcherInitializedUnlocked() {
 }
 
 nsresult AudioStream::SetPlaybackRate(double aPlaybackRate) {
-  TRACE();
+  TRACE("AudioStream::SetPlaybackRate");
   // MUST lock since the rate transposer is used from the cubeb callback,
   // and rate changes can cause the buffer to be reallocated
   MonitorAutoLock mon(mMonitor);
@@ -217,7 +217,7 @@ nsresult AudioStream::SetPlaybackRate(double aPlaybackRate) {
 }
 
 nsresult AudioStream::SetPreservesPitch(bool aPreservesPitch) {
-  TRACE();
+  TRACE("AudiOStream::SetPreservesPitch");
   // MUST lock since the rate transposer is used from the cubeb callback,
   // and rate changes can cause the buffer to be reallocated
   MonitorAutoLock mon(mMonitor);
@@ -265,7 +265,7 @@ nsresult AudioStream::Init(uint32_t aNumChannels,
                            uint32_t aRate, AudioDeviceInfo* aSinkInfo,
                            const dom::AudioChannel aAudioChannel) {
   auto startTime = TimeStamp::Now();
-  TRACE();
+  TRACE("AudioStream::Init");
 
   LOG("%s channels: %d, rate: %d", __FUNCTION__, aNumChannels, aRate);
   mChannels = aNumChannels;
@@ -316,7 +316,7 @@ nsresult AudioStream::Init(uint32_t aNumChannels,
 
 nsresult AudioStream::OpenCubeb(cubeb* aContext, cubeb_stream_params& aParams,
                                 TimeStamp aStartTime, bool aIsFirst) {
-  TRACE();
+  TRACE("AudioStream::OpenCubeb");
   MOZ_ASSERT(aContext);
 
   cubeb_stream* stream = nullptr;
@@ -346,7 +346,7 @@ nsresult AudioStream::OpenCubeb(cubeb* aContext, cubeb_stream_params& aParams,
 }
 
 void AudioStream::SetVolume(double aVolume) {
-  TRACE();
+  TRACE("AudioStream::SetVolume");
   MOZ_ASSERT(aVolume >= 0.0 && aVolume <= 1.0, "Invalid volume");
 
   {
@@ -365,7 +365,7 @@ void AudioStream::SetVolume(double aVolume) {
 }
 
 void AudioStream::SetStreamName(const nsAString& aStreamName) {
-  TRACE();
+  TRACE("AudioStream::SetStreamName");
 
   nsAutoCString aRawStreamName;
   nsresult rv = NS_CopyUnicodeToNative(aStreamName, aRawStreamName);
@@ -382,7 +382,7 @@ void AudioStream::SetStreamName(const nsAString& aStreamName) {
 
 Result<already_AddRefed<MediaSink::EndedPromise>, nsresult>
 AudioStream::Start() {
-  TRACE();
+  TRACE("AudioStream::Start");
   MonitorAutoLock mon(mMonitor);
   MOZ_ASSERT(mState == INITIALIZED);
   mState = STARTED;
@@ -407,7 +407,7 @@ AudioStream::Start() {
 }
 
 void AudioStream::Pause() {
-  TRACE();
+  TRACE("AudioStream::Pause");
   MonitorAutoLock mon(mMonitor);
   MOZ_ASSERT(mState != INITIALIZED, "Must be Start()ed.");
   MOZ_ASSERT(mState != STOPPED, "Already Pause()ed.");
@@ -428,7 +428,7 @@ void AudioStream::Pause() {
 }
 
 void AudioStream::Resume() {
-  TRACE();
+  TRACE("AudioStream::Resume");
   MonitorAutoLock mon(mMonitor);
   MOZ_ASSERT(mState != INITIALIZED, "Must be Start()ed.");
   MOZ_ASSERT(mState != STARTED, "Already Start()ed.");
@@ -449,7 +449,7 @@ void AudioStream::Resume() {
 }
 
 void AudioStream::Shutdown() {
-  TRACE();
+  TRACE("AudioStream::Shutdown");
   MonitorAutoLock mon(mMonitor);
   LOG("Shutdown, state %d", mState);
 
@@ -467,21 +467,21 @@ void AudioStream::Shutdown() {
 }
 
 int64_t AudioStream::GetPosition() {
-  TRACE();
+  TRACE("AudioStream::GetPosition");
   MonitorAutoLock mon(mMonitor);
   int64_t frames = GetPositionInFramesUnlocked();
   return frames >= 0 ? mAudioClock.GetPosition(frames) : -1;
 }
 
 int64_t AudioStream::GetPositionInFrames() {
-  TRACE();
+  TRACE("AudioStream::GetPositionInFrames");
   MonitorAutoLock mon(mMonitor);
   int64_t frames = GetPositionInFramesUnlocked();
   return frames >= 0 ? mAudioClock.GetPositionInFrames(frames) : -1;
 }
 
 int64_t AudioStream::GetPositionInFramesUnlocked() {
-  TRACE();
+  TRACE("AudioStream::GetPositionInFramesUnlocked");
   mMonitor.AssertCurrentThreadOwns();
 
   if (mState == ERRORED) {
@@ -510,7 +510,7 @@ bool AudioStream::IsValidAudioFormat(Chunk* aChunk) {
 }
 
 void AudioStream::GetUnprocessed(AudioBufferWriter& aWriter) {
-  TRACE();
+  TRACE("AudioStream::GetUnprocessed");
   mMonitor.AssertCurrentThreadOwns();
 
   // Flush the timestretcher pipeline, if we were playing using a playback rate
@@ -546,7 +546,7 @@ void AudioStream::GetUnprocessed(AudioBufferWriter& aWriter) {
 }
 
 void AudioStream::GetTimeStretched(AudioBufferWriter& aWriter) {
-  TRACE();
+  TRACE("AudioStream::GetTimeStretched");
   mMonitor.AssertCurrentThreadOwns();
 
   // We need to call the non-locking version, because we already have the lock.
@@ -610,7 +610,7 @@ long AudioStream::DataCallback(void* aBuffer, long aFrames) {
   WebCore::DenormalDisabler disabler;
 
   TRACE_AUDIO_CALLBACK_BUDGET(aFrames, mAudioClock.GetInputRate());
-  TRACE();
+  TRACE("AudioStream::DataCallback");
   MonitorAutoLock mon(mMonitor);
   MOZ_ASSERT(mState != SHUTDOWN, "No data callback after shutdown");
 
@@ -650,6 +650,8 @@ long AudioStream::DataCallback(void* aBuffer, long aFrames) {
     mAudioClock.UpdateFrameHistory(aFrames - writer.Available(),
                                    writer.Available());
     if (writer.Available() > 0) {
+      TRACE_COMMENT("AudioStream::DataCallback", "Underrun: %d frames missing",
+                    writer.Available());
       LOGW("lost %d frames", writer.Available());
       writer.WriteZeros(writer.Available());
     }

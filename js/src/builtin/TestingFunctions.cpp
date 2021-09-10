@@ -3781,8 +3781,7 @@ static bool ReadGeckoProfilingStack(JSContext* cx, unsigned argc, Value* vp) {
     uint32_t inlineFrameNo = 0;
     for (auto& inlineFrame : frame) {
       // Object holding frame info.
-      RootedObject inlineFrameInfo(cx,
-                                   NewBuiltinClassInstance<PlainObject>(cx));
+      RootedObject inlineFrameInfo(cx, NewPlainObject(cx));
       if (!inlineFrameInfo) {
         return false;
       }
@@ -3863,7 +3862,7 @@ class ShellAllocationMetadataBuilder : public AllocationMetadataBuilder {
 
 JSObject* ShellAllocationMetadataBuilder::build(
     JSContext* cx, HandleObject, AutoEnterOOMUnsafeRegion& oomUnsafe) const {
-  RootedObject obj(cx, NewBuiltinClassInstance<PlainObject>(cx));
+  RootedObject obj(cx, NewPlainObject(cx));
   if (!obj) {
     oomUnsafe.crash("ShellAllocationMetadataBuilder::build");
   }
@@ -5392,7 +5391,7 @@ static bool FindPath(JSContext* cx, unsigned argc, Value* vp) {
   // array in start-to-target order.
   for (size_t i = 0; i < length; i++) {
     // Build an object describing the node and edge.
-    RootedObject obj(cx, NewBuiltinClassInstance<PlainObject>(cx));
+    RootedObject obj(cx, NewPlainObject(cx));
     if (!obj) {
       return false;
     }
@@ -5606,7 +5605,7 @@ static bool ShortestPaths(JSContext* cx, unsigned argc, Value* vp) {
       path->ensureDenseInitializedLength(0, pathLength);
 
       for (size_t k = 0; k < pathLength; k++) {
-        RootedPlainObject part(cx, NewBuiltinClassInstance<PlainObject>(cx));
+        RootedPlainObject part(cx, NewPlainObject(cx));
         if (!part) {
           return false;
         }
@@ -7006,15 +7005,33 @@ static bool EncodeAsUtf8InBuffer(JSContext* cx, unsigned argc, Value* vp) {
   }
   array->ensureDenseInitializedLength(0, 2);
 
-  size_t length;
-  bool isSharedMemory;
-  uint8_t* data;
-  if (!args[1].isObject() ||
-      !JS_GetObjectAsUint8Array(&args[1].toObject(), &length, &isSharedMemory,
-                                &data) ||
-      isSharedMemory ||  // excluded views of SharedArrayBuffers
-      !data) {           // exclude views of detached ArrayBuffers
+  JSObject* obj = args[1].isObject() ? &args[1].toObject() : nullptr;
+  Rooted<JS::Uint8Array> view(cx, JS::Uint8Array::unwrap(obj));
+  if (!view) {
     ReportUsageErrorASCII(cx, callee, "Second argument must be a Uint8Array");
+    return false;
+  }
+
+  size_t length;
+  bool isSharedMemory = false;
+  uint8_t* data = nullptr;
+  {
+    // The hazard analysis does not track the data pointer, so it can neither
+    // tell that `data` is dead if ReportUsageErrorASCII is called, nor that
+    // its live range ends at the call to AsWritableChars(). Construct a
+    // temporary scope to hide from the analysis. This should really be replaced
+    // with a safer mechanism.
+    JS::AutoCheckCannotGC nogc(cx);
+    if (!view.isDetached()) {
+      data = view.get().getLengthAndData(&length, &isSharedMemory, nogc);
+    }
+  }
+
+  if (isSharedMemory ||  // exclude views of SharedArrayBuffers
+      !data) {           // exclude views of detached ArrayBuffers
+    ReportUsageErrorASCII(
+        cx, callee,
+        "Second argument must be an unshared, non-detached Uint8Array");
     return false;
   }
 

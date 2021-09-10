@@ -959,17 +959,14 @@ nsRect Element::GetClientAreaRect() {
       presContext && presContext->IsRootContentDocument();
   if (overlayScrollbars && rootContentDocument &&
       doc->IsScrollingElement(this)) {
-    // We will always have a pres shell if we have a pres context, and we will
-    // only get here if we have a pres context from the root content document
-    // check
-    PresShell* presShell = doc->GetPresShell();
-
-    // Ensure up to date dimensions, but don't reflow
-    RefPtr<nsViewManager> viewManager = presShell->GetViewManager();
-    if (viewManager) {
-      viewManager->FlushDelayedResize(false);
+    if (PresShell* presShell = doc->GetPresShell()) {
+      // Ensure up to date dimensions, but don't reflow
+      RefPtr<nsViewManager> viewManager = presShell->GetViewManager();
+      if (viewManager) {
+        viewManager->FlushDelayedResize(false);
+      }
+      return nsRect(nsPoint(), presContext->GetVisibleArea().Size());
     }
-    return nsRect(nsPoint(), presContext->GetVisibleArea().Size());
   }
 
   nsIFrame* frame;
@@ -1183,11 +1180,13 @@ already_AddRefed<ShadowRoot> Element::AttachShadow(const ShadowRootInit& aInit,
     OwnerDoc()->ReportShadowDOMUsage();
   }
 
-  return AttachShadowWithoutNameChecks(aInit.mMode, aInit.mSlotAssignment);
+  return AttachShadowWithoutNameChecks(aInit.mMode, aInit.mDelegatesFocus,
+                                       aInit.mSlotAssignment);
 }
 
 already_AddRefed<ShadowRoot> Element::AttachShadowWithoutNameChecks(
-    ShadowRootMode aMode, SlotAssignmentMode aSlotAssignment) {
+    ShadowRootMode aMode, bool aDelegatesFocus,
+    SlotAssignmentMode aSlotAssignment) {
   nsAutoScriptBlocker scriptBlocker;
 
   RefPtr<mozilla::dom::NodeInfo> nodeInfo =
@@ -1215,8 +1214,8 @@ already_AddRefed<ShadowRoot> Element::AttachShadowWithoutNameChecks(
    *    and mode is init's mode.
    */
   auto* nim = nodeInfo->NodeInfoManager();
-  RefPtr<ShadowRoot> shadowRoot =
-      new (nim) ShadowRoot(this, aMode, aSlotAssignment, nodeInfo.forget());
+  RefPtr<ShadowRoot> shadowRoot = new (nim) ShadowRoot(
+      this, aMode, aDelegatesFocus, aSlotAssignment, nodeInfo.forget());
 
   if (NodeOrAncestorHasDirAuto()) {
     shadowRoot->SetAncestorHasDirAuto();
@@ -3184,7 +3183,7 @@ nsresult Element::CopyInnerTo(Element* aDst, ReparseAttributes aReparse) {
     // The cloned node may be a custom element that may require
     // enqueing upgrade reaction.
     if (nsAtom* typeAtom = data->GetCustomElementType()) {
-      aDst->SetCustomElementData(new CustomElementData(typeAtom));
+      aDst->SetCustomElementData(MakeUnique<CustomElementData>(typeAtom));
       MOZ_ASSERT(dstNodeInfo->NameAtom()->Equals(dstNodeInfo->LocalName()));
       CustomElementDefinition* definition =
           nsContentUtils::LookupCustomElementDefinition(
@@ -4029,7 +4028,7 @@ void Element::ClearServoData(Document* aDoc) {
   }
 }
 
-void Element::SetCustomElementData(CustomElementData* aData) {
+void Element::SetCustomElementData(UniquePtr<CustomElementData> aData) {
   SetHasCustomElementData();
 
   if (aData->mState != CustomElementData::State::eCustom) {
@@ -4060,7 +4059,7 @@ void Element::SetCustomElementData(CustomElementData* aData) {
     }
   }
 #endif
-  slots->mCustomElementData = aData;
+  slots->mCustomElementData = std::move(aData);
 }
 
 CustomElementDefinition* Element::GetCustomElementDefinition() const {

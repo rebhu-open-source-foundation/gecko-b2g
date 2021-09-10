@@ -214,7 +214,7 @@ pref("security.osreauthenticator.password_last_changed_lo", 0);
 pref("security.osreauthenticator.password_last_changed_hi", 0);
 
 pref("security.crash_tracking.js_load_1.prevCrashes", 0);
-pref("security.crash_tracking.js_load_1.maxCrashes", 1);
+pref("security.crash_tracking.js_load_1.maxCrashes", 0);
 
 pref("general.useragent.compatMode.firefox", false);
 
@@ -348,7 +348,7 @@ pref("browser.chrome.image_icons.max_size", 1024);
 pref("browser.triple_click_selects_paragraph", true);
 
 // Enable fillable forms in the PDF viewer.
-pref("pdfjs.renderInteractiveForms", true);
+pref("pdfjs.annotationMode", 2);
 
 // Enable JavaScript support in the PDF viewer.
 pref("pdfjs.enableScripting", true);
@@ -630,14 +630,12 @@ pref("gfx.font_rendering.graphite.enabled", true);
   // comma separated list of backends to use in order of preference
   // e.g., pref("gfx.canvas.azure.backends", "direct2d,skia");
   pref("gfx.canvas.azure.backends", "direct2d1.1,skia");
-  pref("gfx.content.azure.backends", "direct2d1.1,skia");
 #elif defined(XP_MACOSX)
-  pref("gfx.content.azure.backends", "skia");
   pref("gfx.canvas.azure.backends", "skia");
 #else
   pref("gfx.canvas.azure.backends", "skia");
-  pref("gfx.content.azure.backends", "skia");
 #endif
+pref("gfx.content.azure.backends", "skia");
 
 #ifdef XP_WIN
   pref("gfx.webrender.flip-sequential", false);
@@ -796,6 +794,9 @@ pref("toolkit.osfile.log", false);
 pref("toolkit.scrollbox.smoothScroll", true);
 pref("toolkit.scrollbox.scrollIncrement", 20);
 pref("toolkit.scrollbox.clickToScroll.scrollDelay", 150);
+
+// Controls logging for Sqlite.jsm.
+pref("toolkit.sqlitejsm.loglevel", "Error");
 
 pref("toolkit.tabbox.switchByScrolling", false);
 
@@ -3715,7 +3716,6 @@ pref("network.tcp.keepalive.idle_time", 600); // seconds; 10 mins
 pref("network.psl.onUpdate_notify", false);
 
 #ifdef MOZ_WIDGET_GTK
-  pref("gfx.xrender.enabled",false);
   pref("widget.content.gtk-theme-override", "");
   pref("widget.disable-workspace-management", false);
   pref("widget.titlebar-x11-use-shape-mask", false);
@@ -4299,7 +4299,11 @@ pref("dom.clients.openwindow_favors_same_process", true);
 // If `true`, about:processes shows in-process subframes.
 pref("toolkit.aboutProcesses.showAllSubframes", false);
 // If `true`, about:processes shows thread information.
-pref("toolkit.aboutProcesses.showThreads", false);
+#ifdef NIGHTLY_BUILD
+  pref("toolkit.aboutProcesses.showThreads", true);
+#else
+  pref("toolkit.aboutProcesses.showThreads", false);
+#endif
 
 // When a crash happens, whether to include heap regions of the crash context
 // in the minidump. Enabled by default on nightly and aurora.
@@ -4308,8 +4312,6 @@ pref("toolkit.aboutProcesses.showThreads", false);
 #else
   pref("toolkit.crashreporter.include_context_heap", true);
 #endif
-
-pref("layers.omtp.enabled", false);
 
 // Support for legacy customizations that rely on checking the
 // user profile directory for these stylesheets:

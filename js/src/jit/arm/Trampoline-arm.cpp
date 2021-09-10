@@ -100,6 +100,8 @@ struct EnterJITStack {
  *   ...using standard EABI calling convention
  */
 void JitRuntime::generateEnterJIT(JSContext* cx, MacroAssembler& masm) {
+  AutoCreatedBy acb(masm, "JitRuntime::generateEnterJIT");
+
   enterJITOffset_ = startTrampolineCode(masm);
 
   const Address slot_token(sp, offsetof(EnterJITStack, token));
@@ -380,6 +382,8 @@ JitRuntime::getCppEntryRegisters(JitFrameLayout* frameStackAddress) {
 void JitRuntime::generateInvalidator(MacroAssembler& masm, Label* bailoutTail) {
   // See large comment in x86's JitRuntime::generateInvalidator.
 
+  AutoCreatedBy acb(masm, "JitRuntime::generateInvalidator");
+
   invalidatorOffset_ = startTrampolineCode(masm);
 
   // At this point, one of two things has happened:
@@ -454,6 +458,8 @@ void JitRuntime::generateInvalidator(MacroAssembler& masm, Label* bailoutTail) {
 
 void JitRuntime::generateArgumentsRectifier(MacroAssembler& masm,
                                             ArgumentsRectifierKind kind) {
+  AutoCreatedBy acb(masm, "JitRuntime::generateArgumentsRectifier");
+
   switch (kind) {
     case ArgumentsRectifierKind::Normal:
       argumentsRectifierOffset_ = startTrampolineCode(masm);
@@ -477,7 +483,9 @@ void JitRuntime::generateArgumentsRectifier(MacroAssembler& masm,
     ScratchRegisterScope scratch(masm);
     masm.ma_and(Imm32(CalleeTokenMask), r1, r6, scratch);
   }
-  masm.ma_ldrh(EDtrAddr(r6, EDtrOffImm(JSFunction::offsetOfNargs())), r6);
+  masm.ma_ldr(DTRAddr(r6, DtrOffImm(JSFunction::offsetOfFlagsAndArgCount())),
+              r6);
+  masm.ma_lsr(Imm32(JSFunction::ArgCountShift), r6, r6);
 
   masm.ma_sub(r6, r8, r2);
 
@@ -724,6 +732,8 @@ static void GenerateBailoutThunk(MacroAssembler& masm, uint32_t frameClass,
 JitRuntime::BailoutTable JitRuntime::generateBailoutTable(MacroAssembler& masm,
                                                           Label* bailoutTail,
                                                           uint32_t frameClass) {
+  AutoCreatedBy acb(masm, "JitRuntime::generateBailoutTable");
+
   uint32_t offset = startTrampolineCode(masm);
 
   {
@@ -743,6 +753,8 @@ JitRuntime::BailoutTable JitRuntime::generateBailoutTable(MacroAssembler& masm,
 
 void JitRuntime::generateBailoutHandler(MacroAssembler& masm,
                                         Label* bailoutTail) {
+  AutoCreatedBy acb(masm, "JitRuntime::generateBailoutHandler");
+
   bailoutHandlerOffset_ = startTrampolineCode(masm);
 
   GenerateBailoutThunk(masm, NO_FRAME_SIZE_CLASS_ID, bailoutTail);
@@ -751,6 +763,8 @@ void JitRuntime::generateBailoutHandler(MacroAssembler& masm,
 bool JitRuntime::generateVMWrapper(JSContext* cx, MacroAssembler& masm,
                                    const VMFunctionData& f, DynFn nativeFun,
                                    uint32_t* wrapperOffset) {
+  AutoCreatedBy acb(masm, "JitRuntime::generateVMWrapper");
+
   *wrapperOffset = startTrampolineCode(masm);
 
   AllocatableGeneralRegisterSet regs(Register::Codes::WrapperMask);
@@ -942,6 +956,8 @@ bool JitRuntime::generateVMWrapper(JSContext* cx, MacroAssembler& masm,
 
 uint32_t JitRuntime::generatePreBarrier(JSContext* cx, MacroAssembler& masm,
                                         MIRType type) {
+  AutoCreatedBy acb(masm, "JitRuntime::generatePreBarrier");
+
   uint32_t offset = startTrampolineCode(masm);
 
   masm.pushReturnAddress();
@@ -994,6 +1010,8 @@ uint32_t JitRuntime::generatePreBarrier(JSContext* cx, MacroAssembler& masm,
 
 void JitRuntime::generateExceptionTailStub(MacroAssembler& masm,
                                            Label* profilerExitTail) {
+  AutoCreatedBy acb(masm, "JitRuntime::generateExceptionTailStub");
+
   exceptionTailOffset_ = startTrampolineCode(masm);
 
   masm.bind(masm.failureLabel());
@@ -1002,6 +1020,8 @@ void JitRuntime::generateExceptionTailStub(MacroAssembler& masm,
 
 void JitRuntime::generateBailoutTailStub(MacroAssembler& masm,
                                          Label* bailoutTail) {
+  AutoCreatedBy acb(masm, "JitRuntime::generateBailoutTailStub");
+
   bailoutTailOffset_ = startTrampolineCode(masm);
   masm.bind(bailoutTail);
 
@@ -1010,6 +1030,8 @@ void JitRuntime::generateBailoutTailStub(MacroAssembler& masm,
 
 void JitRuntime::generateProfilerExitFrameTailStub(MacroAssembler& masm,
                                                    Label* profilerExitTail) {
+  AutoCreatedBy acb(masm, "JitRuntime::generateProfilerExitFrameTailStub");
+
   profilerExitFrameTailOffset_ = startTrampolineCode(masm);
   masm.bind(profilerExitTail);
 

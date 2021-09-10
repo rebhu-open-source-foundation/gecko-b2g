@@ -94,7 +94,7 @@ class WebRenderBridgeParent final : public PWebRenderBridgeParent,
   void UpdateQualitySettings();
   void UpdateDebugFlags();
   void UpdateMultithreading();
-  void UpdateBatchingParameters();
+  void UpdateParameters();
   void UpdateProfilerUI();
 
   mozilla::ipc::IPCResult RecvEnsureConnected(
@@ -503,6 +503,7 @@ class WebRenderBridgeParent final : public PWebRenderBridgeParent,
 #if defined(MOZ_WIDGET_ANDROID)
   UiCompositorControllerParent* mScreenPixelsTarget;
 #endif
+  uint16_t mBlobTileSize;
   bool mDestroyed;
   bool mReceivedDisplayList;
   bool mIsFirstPaint;

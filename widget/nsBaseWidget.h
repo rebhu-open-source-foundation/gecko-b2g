@@ -68,6 +68,7 @@ class APZEventState;
 struct APZEventResult;
 class CompositorSession;
 class ImageContainer;
+class WebRenderLayerManager;
 struct ScrollableLayerGuid;
 class RemoteCompositorSession;
 }  // namespace layers
@@ -453,8 +454,8 @@ class nsBaseWidget : public nsIWidget, public nsSupportsWeakReference {
     return true;
   }
   virtual void PostRender(mozilla::widget::WidgetRenderingContext* aContext) {}
-  virtual void DrawWindowOverlay(LayerManagerComposite* aManager,
-                                 LayoutDeviceIntRect aRect) override {}
+  // virtual void DrawWindowOverlay(LayerManagerComposite* aManager,
+  //                                LayoutDeviceIntRect aRect) override {}
 
   virtual RefPtr<mozilla::layers::NativeLayerRoot> GetNativeLayerRoot() {
     return nullptr;
@@ -556,6 +557,7 @@ class nsBaseWidget : public nsIWidget, public nsSupportsWeakReference {
                                     LayoutDeviceIntPoint aPoint,
                                     double aPressure, uint32_t aRotation,
                                     int32_t aTiltX, int32_t aTiltY,
+                                    int32_t aButton,
                                     nsIObserver* aObserver) override {
     MOZ_RELEASE_ASSERT(
         false, "This method is not implemented on the current platform");
@@ -800,8 +802,9 @@ class nsBaseWidget : public nsIWidget, public nsSupportsWeakReference {
 #endif
 
  private:
-  already_AddRefed<LayerManager> CreateCompositorSession(
-      int aWidth, int aHeight, mozilla::layers::CompositorOptions* aOptionsOut);
+  already_AddRefed<mozilla::layers::WebRenderLayerManager>
+  CreateCompositorSession(int aWidth, int aHeight,
+                          mozilla::layers::CompositorOptions* aOptionsOut);
 };
 
 #endif  // nsBaseWidget_h__

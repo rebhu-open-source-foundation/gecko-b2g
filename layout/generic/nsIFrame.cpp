@@ -5696,6 +5696,16 @@ void nsIFrame::DisassociateImage(const StyleImage& aImage) {
   loader->DisassociateRequestFromFrame(req, this);
 }
 
+StyleImageRendering nsIFrame::UsedImageRendering() const {
+  ComputedStyle* style;
+  if (nsCSSRendering::IsCanvasFrame(this)) {
+    nsCSSRendering::FindBackground(this, &style);
+  } else {
+    style = Style();
+  }
+  return style->StyleVisibility()->mImageRendering;
+}
+
 Maybe<nsIFrame::Cursor> nsIFrame::GetCursor(const nsPoint&) {
   StyleCursorKind kind = StyleUI()->mCursor.keyword;
   if (kind == StyleCursorKind::Auto) {
@@ -7341,8 +7351,6 @@ void nsIFrame::InvalidateFrameWithRect(const nsRect& aRect,
 
 /*static*/
 uint8_t nsIFrame::sLayerIsPrerenderedDataKey;
-
-bool nsIFrame::TryUpdateTransformOnly(Layer** aLayerResult) { return false; }
 
 bool nsIFrame::IsInvalid(nsRect& aRect) {
   if (!HasAnyStateBits(NS_FRAME_NEEDS_PAINT)) {

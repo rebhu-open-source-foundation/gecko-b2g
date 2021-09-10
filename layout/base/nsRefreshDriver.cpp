@@ -66,6 +66,7 @@
 #include "mozilla/dom/Selection.h"
 #include "mozilla/dom/VsyncChild.h"
 #include "mozilla/dom/WindowBinding.h"
+#include "mozilla/layers/WebRenderLayerManager.h"
 #include "mozilla/RestyleManager.h"
 #include "mozilla/TaskController.h"
 #include "Layers.h"
@@ -164,6 +165,171 @@ NS_IMPL_ISUPPORTS_INHERITED(
 
 mozilla::Atomic<bool> VsyncRefreshDriverTimer::RefreshDriverVsyncObserver::
     ParentProcessVsyncNotifier::sVsyncPriorityEnabled(false);
+
+/**
+ * Since the content process takes some time to setup
+ * the vsync IPC connection, this timer is used
+ * during the intial startup process.
+ * During initial startup, the refresh drivers
+ * are ticked off this timer, and are swapped out once content
+ * vsync IPC connection is established.
+ */
+class StartupRefreshDriverTimer : public SimpleTimerBasedRefreshDriverTimer {
+ public:
+  explicit StartupRefreshDriverTimer(double aRate)
+      : SimpleTimerBasedRefreshDriverTimer(aRate) {}
+
+ protected:
+  void ScheduleNextTick(TimeStamp aNowTime) override {
+    // Since this is only used for startup, it isn't super critical
+    // that we tick at consistent intervals.
+    TimeStamp newTarget = aNowTime + mRateDuration;
+    uint32_t delay =
+        static_cast<uint32_t>((newTarget - aNowTime).ToMilliseconds());
+    mTimer->InitWithNamedFuncCallback(
+        TimerTick, this, delay, nsITimer::TYPE_ONE_SHOT,
+        "StartupRefreshDriverTimer::ScheduleNextTick");
+    mTargetTime = newTarget;
+  }
+
+ public:
+  bool IsTicking() const override { return true; }
+};
+
+/*
+ * A RefreshDriverTimer for inactive documents.  When a new refresh driver is
+ * added, the rate is reset to the base (normally 1s/1fps).  Every time
+ * it ticks, a single refresh driver is poked.  Once they have all been poked,
+ * the duration between ticks doubles, up to mDisableAfterMilliseconds.  At that
+ * point, the timer is quiet and doesn't tick (until something is added to it
+ * again).
+ *
+ * When a timer is removed, there is a possibility of another timer
+ * being skipped for one cycle.  We could avoid this by adjusting
+ * mNextDriverIndex in RemoveRefreshDriver, but there's little need to
+ * add that complexity.  All we want is for inactive drivers to tick
+ * at some point, but we don't care too much about how often.
+ */
+class InactiveRefreshDriverTimer final
+    : public SimpleTimerBasedRefreshDriverTimer {
+ public:
+  explicit InactiveRefreshDriverTimer(double aRate)
+      : SimpleTimerBasedRefreshDriverTimer(aRate),
+        mNextTickDuration(aRate),
+        mDisableAfterMilliseconds(-1.0),
+        mNextDriverIndex(0) {}
+
+  InactiveRefreshDriverTimer(double aRate, double aDisableAfterMilliseconds)
+      : SimpleTimerBasedRefreshDriverTimer(aRate),
+        mNextTickDuration(aRate),
+        mDisableAfterMilliseconds(aDisableAfterMilliseconds),
+        mNextDriverIndex(0) {}
+
+  void AddRefreshDriver(nsRefreshDriver* aDriver) override {
+    RefreshDriverTimer::AddRefreshDriver(aDriver);
+
+    LOG("[%p] inactive timer got new refresh driver %p, resetting rate", this,
+        aDriver);
+
+    // reset the timer, and start with the newly added one next time.
+    mNextTickDuration = mRateMilliseconds;
+
+    // we don't really have to start with the newly added one, but we may as
+    // well not tick the old ones at the fastest rate any more than we need to.
+    mNextDriverIndex = GetRefreshDriverCount() - 1;
+
+    StopTimer();
+    StartTimer();
+  }
+
+  TimeDuration GetTimerRate() override {
+    return TimeDuration::FromMilliseconds(mNextTickDuration);
+  }
+
+ protected:
+  uint32_t GetRefreshDriverCount() {
+    return mContentRefreshDrivers.Length() + mRootRefreshDrivers.Length();
+  }
+
+  void StartTimer() override {
+    mLastFireTime = TimeStamp::Now();
+    mLastFireId = VsyncId();
+
+    mTargetTime = mLastFireTime + mRateDuration;
+
+    uint32_t delay = static_cast<uint32_t>(mRateMilliseconds);
+    mTimer->InitWithNamedFuncCallback(TimerTickOne, this, delay,
+                                      nsITimer::TYPE_ONE_SHOT,
+                                      "InactiveRefreshDriverTimer::StartTimer");
+    mIsTicking = true;
+  }
+
+  void StopTimer() override {
+    mTimer->Cancel();
+    mIsTicking = false;
+  }
+
+  void ScheduleNextTick(TimeStamp aNowTime) override {
+    if (mDisableAfterMilliseconds > 0.0 &&
+        mNextTickDuration > mDisableAfterMilliseconds) {
+      // We hit the time after which we should disable
+      // inactive window refreshes; don't schedule anything
+      // until we get kicked by an AddRefreshDriver call.
+      return;
+    }
+
+    // double the next tick time if we've already gone through all of them once
+    if (mNextDriverIndex >= GetRefreshDriverCount()) {
+      mNextTickDuration *= 2.0;
+      mNextDriverIndex = 0;
+    }
+
+    // this doesn't need to be precise; do a simple schedule
+    uint32_t delay = static_cast<uint32_t>(mNextTickDuration);
+    mTimer->InitWithNamedFuncCallback(
+        TimerTickOne, this, delay, nsITimer::TYPE_ONE_SHOT,
+        "InactiveRefreshDriverTimer::ScheduleNextTick");
+
+    LOG("[%p] inactive timer next tick in %f ms [index %d/%d]", this,
+        mNextTickDuration, mNextDriverIndex, GetRefreshDriverCount());
+  }
+
+ public:
+  bool IsTicking() const override { return mIsTicking; }
+
+ protected:
+  /* Runs just one driver's tick. */
+  void TickOne() {
+    TimeStamp now = TimeStamp::Now();
+
+    ScheduleNextTick(now);
+
+    mLastFireTime = now;
+    mLastFireId = VsyncId();
+
+    nsTArray<RefPtr<nsRefreshDriver>> drivers(mContentRefreshDrivers.Clone());
+    drivers.AppendElements(mRootRefreshDrivers);
+    size_t index = mNextDriverIndex;
+
+    if (index < drivers.Length() &&
+        !drivers[index]->IsTestControllingRefreshesEnabled()) {
+      TickDriver(drivers[index], VsyncId(), now);
+    }
+
+    mNextDriverIndex++;
+  }
+
+  static void TimerTickOne(nsITimer* aTimer, void* aClosure) {
+    RefPtr<InactiveRefreshDriverTimer> timer =
+        static_cast<InactiveRefreshDriverTimer*>(aClosure);
+    timer->TickOne();
+  }
+
+  double mNextTickDuration;
+  double mDisableAfterMilliseconds;
+  uint32_t mNextDriverIndex;
+  bool mIsTicking = false;
+};
 
 }  // namespace mozilla
 
@@ -375,6 +541,7 @@ nsRefreshDriver::nsRefreshDriver(nsPresContext* aPresContext)
       mInNormalTick(false),
       mAttemptedExtraTickSinceLastVsync(false),
       mHasExceededAfterLoadTickPeriod(false),
+      mHasStartedTimerAtLeastOnce(false),
       mWarningThreshold(REFRESH_WAIT_WARNING) {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(mPresContext,
@@ -782,6 +949,22 @@ void nsRefreshDriver::EnsureTimerStarted(EnsureTimerStartedFlags aFlags) {
     if (mActiveTimer) mActiveTimer->RemoveRefreshDriver(this);
     mActiveTimer = newTimer;
     mActiveTimer->AddRefreshDriver(this);
+
+    if (!mHasStartedTimerAtLeastOnce) {
+      mHasStartedTimerAtLeastOnce = true;
+      if (profiler_can_accept_markers()) {
+        nsCString text = "initial timer start "_ns;
+        if (mPresContext->Document()->GetDocumentURI()) {
+          text.Append(
+              mPresContext->Document()->GetDocumentURI()->GetSpecOrDefault());
+        }
+
+        PROFILER_MARKER_TEXT("nsRefreshDriver", LAYOUT,
+                             MarkerOptions(MarkerInnerWindowIdFromDocShell(
+                                 GetDocShell(mPresContext))),
+                             text);
+      }
+    }
 
     // If the timer has ticked since we last ticked, consider doing a 'catch-up'
     // tick immediately.
@@ -1709,8 +1892,8 @@ void nsRefreshDriver::Tick(VsyncId aId, TimeStamp aNowTime,
     if (!mCompositionPayloads.IsEmpty()) {
       nsIWidget* widget = mPresContext->GetRootWidget();
       WindowRenderer* renderer = widget ? widget->GetWindowRenderer() : nullptr;
-      if (renderer && renderer->AsLayerManager()) {
-        renderer->AsLayerManager()->RegisterPayloads(mCompositionPayloads);
+      if (renderer && renderer->AsWebRender()) {
+        renderer->AsWebRender()->RegisterPayloads(mCompositionPayloads);
       }
       mCompositionPayloads.Clear();
     }
@@ -2151,6 +2334,27 @@ Maybe<TimeStamp> nsRefreshDriver::GetNextTickHint() {
     }
   }
   return hint;
+}
+
+/* static */
+bool nsRefreshDriver::IsRegularRateTimerTicking() {
+  MOZ_ASSERT(NS_IsMainThread());
+
+  if (sRegularRateTimer) {
+    if (sRegularRateTimer->IsTicking()) {
+      return true;
+    }
+  }
+
+  if (sRegularRateTimerList) {
+    for (RefreshDriverTimer* timer : *sRegularRateTimerList) {
+      if (timer->IsTicking()) {
+        return true;
+      }
+    }
+  }
+
+  return false;
 }
 
 void nsRefreshDriver::Disconnect() {

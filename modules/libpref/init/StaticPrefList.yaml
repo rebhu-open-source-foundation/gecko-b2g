@@ -1207,6 +1207,12 @@
   type: RelaxedAtomicUint32
   value: 3000
   mirror: always
+  
+# Maximum delay between scroll input events that will be considered a scrolling interaction (milliseconds).
+- name: browser.places.interactions.scrolling_timeout_ms
+  type: RelaxedAtomicUint32
+  value: 5000
+  mirror: always
 
 # Force usage of in-memory (rather than file on disk) media cache for video streaming when private browsing
 - name: browser.privatebrowsing.forceMediaMemoryCache
@@ -1361,6 +1367,15 @@
 - name: browser.tabs.remote.separatePrivilegedMozillaWebContentProcess
   type: bool
   value: false
+  mirror: always
+
+# Whether or not process selection for subframes will prefer re-using an
+# existing content process over creating a new one. Enabling this pref should
+# reduce the number of processes allocated for non-first-party domains if
+# dom.ipc.processCount.webIsolated > 1.
+- name: browser.tabs.remote.subframesPreferUsed
+  type: bool
+  value: true
   mirror: always
 
 # When this pref is enabled, opaque response is only allowed to enter the
@@ -2930,6 +2945,17 @@
   value: "storage"
   mirror: never
 
+# An upper limit for the "age" of an origin. Any origin which is older than the
+# threshold is considered as unaccessed. That doesn't necessarily mean that
+# such origins will be immediatelly archived. They will be archived only when
+# dom.quotaManager.checkQuotaInfoLoadTime is true and loading of quota info
+# takes a long time (dom.quotaManager.longQuotaInfoLoadTimeThresholdMs is used
+# to decide what is a long quota info load time).
+- name: dom.quotaManager.unaccessedForLongTimeThresholdSec
+  type: RelaxedAtomicUint32
+  value: 33696000 # 13 months
+  mirror: always
+
 # Should we try to load origin information from the cache?
 # See bug 1563023 for more details.
 - name: dom.quotaManager.loadQuotaFromCache
@@ -2948,6 +2974,20 @@
 - name: dom.quotaManager.caching.checkBuildId
   type: RelaxedAtomicBool
   value: true
+  mirror: always
+
+# Should we check quota info load time and eventually archive some unaccessed
+# origins if loading of quota info takes a long time ?
+- name: dom.quotaManager.checkQuotaInfoLoadTime
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
+# An upper limit for quota info load time, anything which takes longer than the
+# threshold is considered as long quota info load time.
+- name: dom.quotaManager.longQuotaInfoLoadTimeThresholdMs
+  type: RelaxedAtomicUint32
+  value: 21000 # 21 seconds
   mirror: always
 
 # Preference that users can set to override temporary storage smart limit
@@ -3361,6 +3401,15 @@
 - name: dom.serviceWorkers.mitigations.navigation_fault_threshold
   type: uint32_t
   value: 3
+  mirror: always
+
+# This is the group usage head room for service workers.
+# The quota usage mitigation algorithm uses this preference to determine if the
+# origin or also group data should be cleared or not.
+# The default value is 400 MiB.
+- name: dom.serviceWorkers.mitigations.group_usage_headroom_kb
+  type: uint32_t
+  value: 400 * 1024
   mirror: always
 
 - name: dom.serviceWorkers.testing.enabled
@@ -3922,6 +3971,12 @@
   value: @IS_NOT_ANDROID@
   mirror: always
 
+# Is the 'delegatesFocus' attribute for shadow dom
+- name: dom.shadowdom.delegatesFocus.enabled
+  type: bool
+  value: true
+  mirror: always
+
 # Is the 'assign' API for slot element enabled?
 - name: dom.shadowdom.slot.assign.enabled
   type: bool
@@ -4418,6 +4473,22 @@
 - name: fission.openNonFissionWindowOption
   type: bool
   value: false
+  mirror: always
+
+# The strategy used to control how sites are isolated into separate processes
+# when Fisison is enabled. This pref has no effect if Fission is disabled.
+# See the `WebContentIsolationStrategy` enum in `ProcessIsolation.cpp`.
+- name: fission.webContentIsolationStrategy
+  type: uint32_t
+  value: 1
+  mirror: always
+
+# Time in seconds before a site loaded with the Cross-Origin-Opener-Policy
+# header is no longer considered high-value and isolated in the "highValueCOOP"
+# configuration.
+- name: fission.highValue.coop.expiration
+  type: uint32_t
+  value: 2592000   # 30 days (in seconds)
   mirror: always
 
 #---------------------------------------------------------------------------
@@ -5111,11 +5182,6 @@
   value: 16
   mirror: once
 
-- name: gfx.logging.painted-pixel-count.enabled
-  type: RelaxedAtomicBool
-  value: false
-  mirror: always
-
 # The maximums here are quite conservative, we can tighten them if problems show up.
 - name: gfx.logging.texture-usage.enabled
   type: bool
@@ -5207,13 +5273,6 @@
   value: false
   mirror: once
 
-# Disable surface sharing due to issues with compatible FBConfigs on
-# NVIDIA drivers as described in bug 1193015.
-- name: gfx.use-glx-texture-from-pixmap
-  type: RelaxedAtomicBool
-  value: false
-  mirror: always
-
 - name: gfx.use-iosurface-textures
   type: bool
   value: false
@@ -5301,27 +5360,27 @@
   value: false
   mirror: always
 
-- name: gfx.webrender.blob.paint-flashing
+- name: gfx.webrender.debug.blob.paint-flashing
   type: RelaxedAtomicBool
   value: false
   mirror: always
 
-- name: gfx.webrender.enable-capture
+- name: gfx.webrender.debug.enable-capture
   type: bool
   value: false
   mirror: once
 
-- name: gfx.webrender.dl.dump-parent
+- name: gfx.webrender.debug.dl.dump-parent
   type: RelaxedAtomicBool
   value: false
   mirror: always
 
-- name: gfx.webrender.dl.dump-content
+- name: gfx.webrender.debug.dl.dump-content
   type: RelaxedAtomicBool
   value: false
   mirror: always
 
-- name: gfx.webrender.dl.dump-content-serialized
+- name: gfx.webrender.debug.dl.dump-content-serialized
   type: RelaxedAtomicBool
   value: false
   mirror: always
@@ -5333,7 +5392,7 @@
   mirror: once
 #endif
 
-- name: gfx.webrender.highlight-painted-layers
+- name: gfx.webrender.debug.highlight-painted-layers
   type: RelaxedAtomicBool
   value: false
   mirror: always
@@ -5356,6 +5415,11 @@
 - name: gfx.webrender.batching.lookback
   type: uint32_t
   value: 10
+  mirror: always
+
+- name: gfx.webrender.blob-tile-size
+  type: uint32_t
+  value: 256
   mirror: always
 
 - name: gfx.webrender.compositor
@@ -5929,7 +5993,7 @@
 # 2 = Strict: reject violations of "should" specification directives
 - name: image.avif.compliance_strictness
   type: RelaxedAtomicInt32
-  value: 0
+  value: 1
   mirror: always
 
 # Whether we apply container-level transforms like mirroring and rotation
@@ -6429,16 +6493,6 @@
   value: false
   mirror: always
 
-- name: layers.acceleration.draw-fps.print-histogram
-  type: RelaxedAtomicBool
-  value: false
-  mirror: always
-
-- name: layers.acceleration.draw-fps.write-to-file
-  type: RelaxedAtomicBool
-  value: false
-  mirror: always
-
 # Whether to force acceleration on, ignoring blacklists.
 
 # bug 838603 -- on Android, accidentally blacklisting OpenGL layers
@@ -6471,11 +6525,6 @@
   type: RelaxedAtomicBool
   value: false
   mirror: always
-
-- name: layers.bufferrotation.enabled
-  type: bool
-  value: true
-  mirror: once
 
 - name: layers.child-process-shutdown
   type: RelaxedAtomicBool
@@ -6516,81 +6565,6 @@
 #endif
   mirror: always
 
-- name: layers.draw-bigimage-borders
-  type: RelaxedAtomicBool
-  value: false
-  mirror: always
-
-- name: layers.draw-borders
-  type: RelaxedAtomicBool
-  value: false
-  mirror: always
-
-- name: layers.draw-tile-borders
-  type: RelaxedAtomicBool
-  value: false
-  mirror: always
-
-- name: layers.draw-layer-info
-  type: RelaxedAtomicBool
-  value: false
-  mirror: always
-
-- name: layers.dump
-  type: RelaxedAtomicBool
-  value: false
-  mirror: always
-
-# If we're dumping layers, also dump the texture data
-- name: layers.dump-texture
-  type: RelaxedAtomicBool
-  value: false
-  mirror: always
-
-#ifdef MOZ_DUMP_PAINTING
--   name: layers.dump-decision
-    type: RelaxedAtomicBool
-    value: false
-    mirror: always
-#endif
-
-- name: layers.dump-client-layers
-  type: RelaxedAtomicBool
-  value: false
-  mirror: always
-
-- name: layers.dump-host-layers
-  type: RelaxedAtomicBool
-  value: false
-  mirror: always
-
-- name: layers.compositing-tiles.width
-  type: RelaxedAtomicInt32
-  value: 1024
-  mirror: always
-
-- name: layers.compositing-tiles.height
-  type: RelaxedAtomicInt32
-  value: 1024
-  mirror: always
-
-# 0 is "no change" for contrast, positive values increase it, negative values
-# decrease it until we hit mid gray at -1 contrast, after that it gets weird.
-- name: layers.effect.contrast
-  type: AtomicFloat
-  value: 0.0f
-  mirror: always
-
-- name: layers.effect.grayscale
-  type: RelaxedAtomicBool
-  value: false
-  mirror: always
-
-- name: layers.effect.invert
-  type: RelaxedAtomicBool
-  value: false
-  mirror: always
-
 - name: layers.enable-tiles
   type: bool
 #if defined(XP_MACOSX) || defined (XP_OPENBSD)
@@ -6599,20 +6573,6 @@
   value: false
 #endif
   mirror: once
-
-- name: layers.enable-tiles-if-skia-pomtp
-  type: bool
-#if defined(XP_WIN)
-  value: true
-#else
-  value: false
-#endif
-  mirror: once
-
-- name: layers.flash-borders
-  type: RelaxedAtomicBool
-  value: false
-  mirror: always
 
 # Force all possible layers to be always active layers.
 - name: layers.force-active
@@ -6731,22 +6691,10 @@
   value: false
   mirror: always
 
-- name: layers.low-precision-opacity
-  type: AtomicFloat
-  value: 1.0f
-  mirror: always
-
 - name: layers.low-precision-resolution
   type: AtomicFloat
   value: 0.25f
   mirror: always
-
-# Max number of layers per container. See Overwrite in mobile prefs.
-- name: layers.max-active
-  type: RelaxedAtomicInt32
-  value: -1
-  mirror: always
-
 
 # Whether to animate simple opacity and transforms on the compositor.
 - name: layers.offmainthreadcomposition.async-animations
@@ -6774,31 +6722,6 @@
   value: -1
   mirror: always
 
-- name: layers.omtp.capture-limit
-  type: uint32_t
-  value: 25 * 1024 * 1024
-  mirror: once
-
-- name: layers.omtp.dump-capture
-  type: RelaxedAtomicBool
-  value: false
-  mirror: always
-
-- name: layers.omtp.paint-workers
-  type: int32_t
-  value: -1
-  mirror: once
-
-- name: layers.omtp.release-capture-on-main-thread
-  type: RelaxedAtomicBool
-  value: false
-  mirror: always
-
-- name: layers.orientation.sync.timeout
-  type: RelaxedAtomicUint32
-  value: (uint32_t)0
-  mirror: always
-
 #ifdef XP_WIN
 -   name: layers.prefer-opengl
     type: bool
@@ -6806,19 +6729,8 @@
     mirror: once
 #endif
 
-- name: layers.progressive-paint
-  type: RelaxedAtomicBool
-  value: false
-  mirror: always
-  do_not_use_directly: true
-
 # Copy-on-write canvas.
 - name: layers.shared-buffer-provider.enabled
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-
-- name: layers.single-tile.enabled
   type: RelaxedAtomicBool
   value: true
   mirror: always
@@ -6837,67 +6749,12 @@
   value: 512
   mirror: once
 
-- name: layers.tile-initial-pool-size
-  type: uint32_t
-  value: (uint32_t)50
-  mirror: once
-
-- name: layers.tile-pool-unused-size
-  type: uint32_t
-  value: (uint32_t)10
-  mirror: once
-
-- name: layers.tile-pool-shrink-timeout
-  type: uint32_t
-  value: (uint32_t)50
-  mirror: once
-
-- name: layers.tile-pool-clear-timeout
-  type: uint32_t
-  value: (uint32_t)5000
-  mirror: once
-
 # If this is set the tile size will only be treated as a suggestion.
 # On B2G we will round this to the stride of the underlying allocation.
 # On any platform we may later use the screen size and ignore
 # tile-width/tile-height entirely. Its recommended to turn this off
 # if you change the tile size.
 - name: layers.tiles.adjust
-  type: bool
-  value: true
-  mirror: once
-
-- name: layers.tiles.edge-padding
-  type: bool
-  value: @IS_ANDROID@
-  mirror: once
-
-- name: layers.tiles.fade-in.enabled
-  type: RelaxedAtomicBool
-  value: false
-  mirror: always
-
-- name: layers.tiles.fade-in.duration-ms
-  type: RelaxedAtomicUint32
-  value: 250
-  mirror: always
-
-- name: layers.tiles.retain-back-buffer
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-
-- name: layers.transaction.warning-ms
-  type: RelaxedAtomicUint32
-  value: 200
-  mirror: always
-
-- name: layers.uniformity-info
-  type: bool
-  value: false
-  mirror: once
-
-- name: layers.use-image-offscreen-surfaces
   type: bool
   value: true
   mirror: once
@@ -7012,12 +6869,6 @@
   value: false
   mirror: always
 
-# Whether we should layerize all animated images (if otherwise possible).
-- name: layout.animated-image-layers.enabled
-  type: bool
-  value: false
-  mirror: always
-
 # One of several prefs affecting the maximum area to pre-render when animating
 # a large element on the compositor.
 # This pref enables transform (and transform like properties) animations on a
@@ -7066,6 +6917,13 @@
 - name: layout.css.caption-side-non-standard.enabled
   type: RelaxedAtomicBool
   value: false
+  mirror: always
+  rust: true
+
+# Whether @layer is enabled
+- name: layout.css.cascade-layers.enabled
+  type: RelaxedAtomicBool
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
   rust: true
 
@@ -7195,9 +7053,9 @@
   mirror: always
   rust: true
 
-# Whether the bloom filter optimization is applied to attribute names too, not
+# Whether the rule hash is applied to attribute names too, not
 # only classes / id / namespaces / etc.
-- name: layout.css.bloom-filter-attribute-names.enabled
+- name: layout.css.bucket-attribute-names.enabled
   type: RelaxedAtomicBool
   value: true
   mirror: always
@@ -7741,11 +7599,6 @@
   value: 64
   mirror: always
 
-- name: layout.paint_rects_separately
-  type: bool
-  value: true
-  mirror: once
-
 # On Android, don't synth mouse move events after scrolling, as they cause
 # unexpected user-visible behaviour. Can remove this after bug 1633450 is
 # satisfactorily resolved.
@@ -7779,11 +7632,6 @@
 - name: layout.show_previous_page
   type: bool
   value: true
-  mirror: always
-
-- name: layout.smaller-painted-layers
-  type: RelaxedAtomicBool
-  value: false
   mirror: always
 
 # Pref to stop overlay scrollbars from fading out, for testing purposes.
@@ -7882,16 +7730,6 @@
   type: bool
   value: true
   mirror: always
-
-# Whether :is() and :where() ignore errors inside their selector lists
-# internally, rather than failing to parse altogether.
-#
-# See https://github.com/w3c/csswg-drafts/issues/3264
-- name: layout.css.is-and-where-better-error-recovery.enabled
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-  rust: true
 
 # Is 'content:none' supported on (non-pseudo) elements?
 - name: layout.css.element-content-none.enabled
@@ -9633,6 +9471,15 @@
   value: @IS_EARLY_BETA_OR_EARLIER@
   mirror: always
 
+
+# Set to ignore referrer policies which is less restricted than the default for
+# cross-site requests in the private browsing mode, including 'unsafe-url',
+# 'no-referrer-when-downgrade' and 'origin-when-cross-origin'.
+- name: network.http.referer.disallowCrossSiteRelaxingDefault.pbmode
+  type: bool
+  value: true
+  mirror: always
+
 # Set the Private Browsing Default Referrer Policy applied to third-party
 # trackers when the default cookie policy is set to reject third-party
 # trackers, to be used unless overriden by the site.
@@ -9667,6 +9514,12 @@
 
 # If set to true, IOService.offline depends on IOService.connectivity.
 - name: network.offline-mirrors-connectivity
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+# If set to true, disallow localhost connections when offline.
+- name: network.disable-localhost-when-offline
   type: RelaxedAtomicBool
   value: false
   mirror: always
@@ -9930,7 +9783,7 @@
 # Whether to cache SSL resumption tokens in necko.
 - name: network.ssl_tokens_cache_enabled
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: @IS_EARLY_BETA_OR_EARLIER@
   mirror: always
 
 # Capacity of the above cache, in kilobytes.
@@ -9950,6 +9803,11 @@
   type: String
   value: "https://mozilla.cloudflare-dns.com/dns-query"
   mirror: never
+
+- name: network.trr.strict_native_fallback
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
 
 # Single TRR request timeout, in milliseconds
 - name: network.trr.request_timeout_ms
@@ -10542,6 +10400,14 @@
   value: true
   mirror: always
 
+# Whether we attempt to generate and use document-internal PDF destinations.
+# This currently sometimes results in an internal cairo error, see bug 1725743;
+# disabled by default until that is resolved.
+- name: print.save_as_pdf.internal_destinations.enabled
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
 # The default DPI for printing.
 #
 # For PDF-based output, DPI should ideally be irrelevant, but in fact it is not
@@ -10843,6 +10709,18 @@
   value: true
   mirror: always
 
+# Controls the anti-tracking webcompat features. This includes:
+# - All URL-Classifier and state partitioning skip lists (prefs and remote
+#   settings)
+# - Storage access heuristics (opener, redirect, etc.)
+# - StorageAccessAPI automatic grants (skips the prompt)
+# - Allowing specific tracking channels on user opt-in (e.g. facebook login
+#   shim).
+- name: privacy.antitracking.enableWebcompat
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
 # Enable the heuristic to allow storage access for recent visited pages
 - name: privacy.restrict3rdpartystorage.heuristic.recently_visited
   type: bool
@@ -10905,7 +10783,7 @@
 
 - name: privacy.partition.bloburl_per_agent_cluster
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: false
   mirror: always
 
 - name: privacy.window.name.update.enabled
@@ -11127,12 +11005,12 @@
 
 -   name: security.sandbox.rdd.shadow-stack.enabled
     type: RelaxedAtomicBool
-    value: @IS_NIGHTLY_BUILD@
+    value: true
     mirror: always
 
 -   name: security.sandbox.socket.shadow-stack.enabled
     type: RelaxedAtomicBool
-    value: @IS_NIGHTLY_BUILD@
+    value: true
     mirror: always
 
 -   name: security.sandbox.gpu.shadow-stack.enabled
@@ -11214,7 +11092,7 @@
 # but only with scheme data and contentpolicytype subdocument
 - name: security.disallow_privileged_data_subdocuments_loads
   type: bool
-  value: false
+  value: true
   mirror: always
 
 # Disable preloaded static key pins by default.
@@ -12208,15 +12086,6 @@
   mirror: always
 #endif
 
-# Smooth rendering mode for Wayland basic compositor.
-# 0 - direct draw
-# 1 - basic caching
-# 2 - all caching
-- name: widget.wayland-smooth-rendering
-  type: RelaxedAtomicUint32
-  value: 1
-  mirror: always
-
 # Use DMABuf backend for WebGL.
 - name: widget.dmabuf-webgl.enabled
   type: RelaxedAtomicBool
@@ -12226,6 +12095,12 @@
 # Use async clipboard on Wayland
 - name: widget.wayland.async-clipboard.enabled
   type: bool
+  value: true
+  mirror: once
+
+# Use async data getter on Wayland Clipboard
+- name: widget.wayland.async-data-transfer.enabled
+  type: bool
   value: false
   mirror: once
 
@@ -12233,11 +12108,6 @@
 - name: widget.wayland.fractional_buffer_scale
   type: float
   value: 0.0f
-  mirror: once
-
-- name: widget.wayland.multi-buffer-software-backend.enabled
-  type: bool
-  value: true
   mirror: once
 
 # Use opaque region for MozContainer wl_surface

@@ -57,9 +57,7 @@ namespace layers {
 
 class AsyncPanZoomController;
 class ClientLayerManager;
-class HostLayerManager;
 class Layer;
-class LayerMetricsWrapper;
 class PaintedLayer;
 class ContainerLayer;
 class ImageLayer;
@@ -72,19 +70,12 @@ class RefLayer;
 class HostLayer;
 class FocusTarget;
 class KnowsCompositor;
-class ShadowableLayer;
-class ShadowLayerForwarder;
-class LayerManagerComposite;
 class TransactionIdAllocator;
 class FrameUniformityData;
 class PersistentBufferProvider;
 class GlyphArray;
 class WebRenderLayerManager;
 struct AnimData;
-
-namespace layerscope {
-class LayersPacket;
-}  // namespace layerscope
 
 // Defined in LayerUserData.h; please include that file instead.
 class LayerUserData;
@@ -159,12 +150,6 @@ class LayerManager : public WindowRenderer {
    */
   void Destroy() override;
   bool IsDestroyed() { return mDestroyed; }
-
-  virtual LayerManager* AsLayerManager() override { return this; }
-
-  virtual LayerManagerComposite* AsLayerManagerComposite() { return nullptr; }
-
-  virtual HostLayerManager* AsHostLayerManager() { return nullptr; }
 
   virtual WebRenderLayerManager* AsWebRenderLayerManager() { return nullptr; }
 
@@ -285,20 +270,6 @@ class LayerManager : public WindowRenderer {
    * Can be called anytime
    */
   Layer* GetRoot() { return mRoot; }
-
-  /**
-   * Does a breadth-first search from the root layer to find the first
-   * scrollable layer, and returns its ViewID. Note that there may be
-   * other layers in the tree which share the same ViewID.
-   * Can be called any time.
-   */
-  ScrollableLayerGuid::ViewID GetRootScrollableLayerId();
-
-  /**
-   * Returns a LayerMetricsWrapper containing the Root
-   * Content Documents layer.
-   */
-  LayerMetricsWrapper GetRootContentLayer();
 
   /**
    * CONSTRUCTION PHASE ONLY
@@ -478,12 +449,6 @@ class LayerManager : public WindowRenderer {
   void Dump(bool aSorted = false);
 
   /**
-   * Dump information about this layer manager and its managed tree to
-   * layerscope packet.
-   */
-  void Dump(layerscope::LayersPacket* aPacket);
-
-  /**
    * Log information about this layer manager and its managed tree to
    * the NSPR log (if enabled for "Layers").
    */
@@ -541,18 +506,6 @@ class LayerManager : public WindowRenderer {
 
   virtual TransactionId GetLastTransactionId() { return TransactionId{0}; }
 
-  void RegisterPayload(const CompositionPayload& aPayload) {
-    mPayload.AppendElement(aPayload);
-    MOZ_ASSERT(mPayload.Length() < 10000);
-  }
-
-  void RegisterPayloads(const nsTArray<CompositionPayload>& aPayload) {
-    mPayload.AppendElements(aPayload);
-    MOZ_ASSERT(mPayload.Length() < 10000);
-  }
-
-  virtual void PayloadPresented(const TimeStamp& aTimeStamp);
-
   void SetContainsSVG(bool aContainsSVG) { mContainsSVG = aContainsSVG; }
 
  protected:
@@ -570,10 +523,6 @@ class LayerManager : public WindowRenderer {
   // used to implement Dump*() and Log*().
   virtual void PrintInfo(std::stringstream& aStream, const char* aPrefix);
 
-  // Print interesting information about this into layerscope packet.
-  // Internally used to implement Dump().
-  virtual void DumpPacket(layerscope::LayersPacket* aPacket);
-
   uint64_t mId;
   bool mInTransaction;
 
@@ -581,14 +530,6 @@ class LayerManager : public WindowRenderer {
   bool mContainsSVG;
   // The count of pixels that were painted in the current transaction.
   uint32_t mPaintedPixelCount;
-  // The payload associated with currently pending painting work, for
-  // client layer managers that typically means payload that is part of the
-  // 'upcoming transaction', for HostLayerManagers this typically means
-  // what has been included in received transactions to be presented on the
-  // next composite.
-  // IMPORTANT: Clients should take care to clear this or risk it slowly
-  // growing out of control.
-  nsTArray<CompositionPayload> mPayload;
 
  public:
   /*

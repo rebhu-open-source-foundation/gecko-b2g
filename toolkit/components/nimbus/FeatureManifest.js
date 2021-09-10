@@ -13,7 +13,14 @@ const EXPORTED_SYMBOLS = ["FeatureManifest"];
 const FeatureManifest = {
   urlbar: {
     description: "The Address Bar",
+    exposureDescription:
+      "Exposure is sent once per browsing session after the first urlbar query is made.",
     variables: {
+      merinoEnabled: {
+        type: "boolean",
+        fallbackPref: "browser.urlbar.merino.enabled",
+        description: "Whether Merino is enabled as a quick suggest source",
+      },
       quickSuggestEnabled: {
         type: "boolean",
         fallbackPref: "browser.urlbar.quicksuggest.enabled",
@@ -24,6 +31,19 @@ const FeatureManifest = {
         fallbackPref: "browser.urlbar.quicksuggest.nonSponsoredIndex",
         description:
           "The index of non-sponsored QuickSuggest results within the general group. A negative index is relative to the end of the group",
+      },
+      quickSuggestRemoteSettingsEnabled: {
+        type: "boolean",
+        fallbackPref: "browser.urlbar.quicksuggest.remoteSettings.enabled",
+        description:
+          "Whether Remote Settings is enabled as a quick suggest source",
+      },
+      quickSuggestScenario: {
+        type: "string",
+        fallbackPref: "browser.urlbar.quicksuggest.scenario",
+        description:
+          "The Firefox Suggest scenario in which the user is enrolled",
+        enum: ["history", "offline", "online"],
       },
       quickSuggestShouldShowOnboardingDialog: {
         type: "boolean",
@@ -48,6 +68,8 @@ const FeatureManifest = {
   },
   aboutwelcome: {
     description: "The about:welcome page",
+    exposureDescription:
+      "Exposure is sent once per browsing session when the about:welcome URL is first accessed.",
     isEarlyStartup: true,
     variables: {
       enabled: {
@@ -75,6 +97,7 @@ const FeatureManifest = {
   },
   abouthomecache: {
     description: "The startup about:home cache.",
+    exposureDescription: false,
     isEarlyStartup: true,
     variables: {
       enabled: {
@@ -86,6 +109,7 @@ const FeatureManifest = {
   },
   firefox100: {
     description: "Firefox User-Agent version",
+    exposureDescription: false,
     isEarlyStartup: true,
     variables: {
       firefoxVersion: {
@@ -96,14 +120,10 @@ const FeatureManifest = {
   },
   newtab: {
     description: "The about:newtab page",
+    exposureDescription:
+      "Exposure is sent once per browsing session when the first newtab page loads (either about:newtab or about:home).",
     isEarlyStartup: true,
     variables: {
-      newNewtabExperienceEnabled: {
-        type: "boolean",
-        fallbackPref:
-          "browser.newtabpage.activity-stream.newNewtabExperience.enabled",
-        description: "Is the new UI enabled?",
-      },
       customizationMenuEnabled: {
         type: "boolean",
         fallbackPref:
@@ -118,6 +138,7 @@ const FeatureManifest = {
   },
   pocketNewtab: {
     description: "The Pocket section in newtab",
+    exposureDescription: false,
     isEarlyStartup: true,
     variables: {
       spocPositions: {
@@ -130,6 +151,7 @@ const FeatureManifest = {
   },
   "password-autocomplete": {
     description: "A special autocomplete UI for password fields.",
+    exposureDescription: false,
     variables: {
       directMigrateSingleProfile: {
         type: "boolean",
@@ -139,6 +161,7 @@ const FeatureManifest = {
   },
   shellService: {
     description: "Interface with OS, e.g., pinning and set default",
+    exposureDescription: false,
     isEarlyStartup: true,
     variables: {
       disablePin: {
@@ -154,6 +177,7 @@ const FeatureManifest = {
   },
   upgradeDialog: {
     description: "The dialog shown for major upgrades",
+    exposureDescription: false,
     isEarlyStartup: true,
     variables: {
       enabled: {
@@ -165,6 +189,8 @@ const FeatureManifest = {
   },
   privatebrowsing: {
     description: "about:privatebrowsing",
+    exposureDescription:
+      "Exposure is sent once per browsing session the first time the PB page loads",
     variables: {
       infoEnabled: {
         type: "boolean",
@@ -210,8 +236,8 @@ const FeatureManifest = {
       promoSectionStyle: {
         type: "string",
         description:
-          "Sets the position of the promo section. Possible values are: top, bottom. Default bottom.",
-        enum: ["top", "bottom"],
+          "Sets the position of the promo section. Possible values are: top, below-search, bottom. Default bottom.",
+        enum: ["top", "below-search", "bottom"],
       },
       promoTitle: {
         type: "string",
@@ -228,6 +254,10 @@ const FeatureManifest = {
         fallbackPref: "browser.privatebrowsing.promoLinkText",
         description: "The text of the link in the promo box.",
       },
+      promoHeader: {
+        type: "string",
+        description: "The title of the promo section.",
+      },
       promoLinkUrl: {
         type: "string",
         fallbackPref: "browser.privatebrowsing.promoLinkUrl",
@@ -236,13 +266,24 @@ const FeatureManifest = {
       promoLinkType: {
         type: "string",
         description:
-          "Type of promo link type. Possible values: link, button. Default is button.",
+          "Type of promo link type. Possible values: link, button. Default is link.",
         enum: ["link", "button"],
+      },
+      promoImageLarge: {
+        type: "string",
+        description:
+          "URL for image used on the left side of the promo box, larger, showcases some feature. Default off.",
+      },
+      promoImageSmall: {
+        type: "string",
+        description:
+          "URL for image used on the right side of the promo box, smaller, usually a logo. Default off.",
       },
     },
   },
   readerMode: {
     description: "Firefox Reader Mode",
+    exposureDescription: false,
     isEarlyStartup: true,
     variables: {
       pocketCTAVersion: {

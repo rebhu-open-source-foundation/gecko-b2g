@@ -7558,8 +7558,8 @@ void nsDisplayTableBorderCollapse::Paint(nsDisplayListBuilder* aBuilder,
   drawTarget->SetTransform(
       drawTarget->GetTransform().PreTranslate(ToPoint(devPixelOffset)));
 
-  static_cast<nsTableFrame*>(mFrame)->PaintBCBorders(*drawTarget,
-                                                     GetPaintRect() - pt);
+  static_cast<nsTableFrame*>(mFrame)->PaintBCBorders(
+      *drawTarget, GetPaintRect(aBuilder, aCtx) - pt);
 }
 
 bool nsDisplayTableBorderCollapse::CreateWebRenderCommands(
@@ -7567,8 +7567,10 @@ bool nsDisplayTableBorderCollapse::CreateWebRenderCommands(
     const StackingContextHelper& aSc,
     mozilla::layers::RenderRootStateManager* aManager,
     nsDisplayListBuilder* aDisplayListBuilder) {
+  bool dummy;
   static_cast<nsTableFrame*>(mFrame)->CreateWebRenderCommandsForBCBorders(
-      aBuilder, aSc, GetPaintRect(), ToReferenceFrame());
+      aBuilder, aSc, GetBounds(aDisplayListBuilder, &dummy),
+      ToReferenceFrame());
   return true;
 }
 

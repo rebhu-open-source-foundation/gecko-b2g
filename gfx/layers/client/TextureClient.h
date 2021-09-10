@@ -496,8 +496,6 @@ class TextureClient : public AtomicRefCountedWithFinalize<TextureClient> {
    */
   already_AddRefed<gfx::DataSourceSurface> GetAsSurface();
 
-  virtual void PrintInfo(std::stringstream& aStream, const char* aPrefix);
-
   /**
    * Copies a rectangle from this texture client to a position in aTarget.
    * It is assumed that the necessary locks are in place; so this should at
@@ -842,76 +840,6 @@ class MOZ_RAII TextureClientAutoLock {
   bool mChecked;
 #endif
   bool mSucceeded;
-};
-
-// Automatically locks and unlocks two texture clients, and exposes them as a
-// a single draw target dual. Since texture locking is fallible, Succeeded()
-// must be checked on the guard object before proceeding.
-class MOZ_RAII DualTextureClientAutoLock {
- public:
-  DualTextureClientAutoLock(TextureClient* aTexture,
-                            TextureClient* aTextureOnWhite, OpenMode aMode)
-      : mTarget(nullptr), mTexture(aTexture), mTextureOnWhite(aTextureOnWhite) {
-    if (!mTexture->Lock(aMode)) {
-      return;
-    }
-
-    mTarget = mTexture->BorrowDrawTarget();
-
-    if (!mTarget) {
-      mTexture->Unlock();
-      return;
-    }
-
-    if (!mTextureOnWhite) {
-      return;
-    }
-
-    if (!mTextureOnWhite->Lock(aMode)) {
-      mTarget = nullptr;
-      mTexture->Unlock();
-      return;
-    }
-
-    RefPtr<gfx::DrawTarget> targetOnWhite = mTextureOnWhite->BorrowDrawTarget();
-
-    if (!targetOnWhite) {
-      mTarget = nullptr;
-      mTexture->Unlock();
-      mTextureOnWhite->Unlock();
-      return;
-    }
-
-    mTarget = gfx::Factory::CreateDualDrawTarget(mTarget, targetOnWhite);
-
-    if (!mTarget) {
-      mTarget = nullptr;
-      mTexture->Unlock();
-      mTextureOnWhite->Unlock();
-    }
-  }
-
-  ~DualTextureClientAutoLock() {
-    if (Succeeded()) {
-      mTarget = nullptr;
-
-      mTexture->Unlock();
-      if (mTextureOnWhite) {
-        mTextureOnWhite->Unlock();
-      }
-    }
-  }
-
-  bool Succeeded() const { return !!mTarget; }
-
-  operator gfx::DrawTarget*() const { return mTarget; }
-  gfx::DrawTarget* operator->() const { return mTarget; }
-
-  RefPtr<gfx::DrawTarget> mTarget;
-
- private:
-  RefPtr<TextureClient> mTexture;
-  RefPtr<TextureClient> mTextureOnWhite;
 };
 
 class KeepAlive {

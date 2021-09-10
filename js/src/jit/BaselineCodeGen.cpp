@@ -193,6 +193,8 @@ bool BaselineInterpreterHandler::addDebugInstrumentationOffset(
 }
 
 MethodStatus BaselineCompiler::compile() {
+  AutoCreatedBy acb(masm, "BaselineCompiler::compile");
+
   JSScript* script = handler.script();
   JitSpew(JitSpew_BaselineScripts, "Baseline compiling script %s:%u:%u (%p)",
           script->filename(), script->lineno(), script->column(), script);
@@ -241,6 +243,7 @@ MethodStatus BaselineCompiler::compile() {
     return Method_Error;
   }
 
+  AutoCreatedBy acb2(masm, "exception_tail");
   Linker linker(masm);
   if (masm.oom()) {
     ReportOutOfMemory(cx);
@@ -501,6 +504,9 @@ void BaselineInterpreterCodeGen::emitInitializeLocals() {
 //    void PostWriteBarrier(JSRuntime* rt, JSObject* obj);
 template <typename Handler>
 bool BaselineCodeGen<Handler>::emitOutOfLinePostBarrierSlot() {
+  AutoCreatedBy acb(masm,
+                    "BaselineCodeGen<Handler>::emitOutOfLinePostBarrierSlot");
+
   if (!postBarrierSlot_.used()) {
     return true;
   }
@@ -592,6 +598,8 @@ static void CreateAllocSitesForICChain(JSScript* script, uint32_t entryIndex) {
 
 template <>
 bool BaselineCompilerCodeGen::emitNextIC() {
+  AutoCreatedBy acb(masm, "emitNextIC");
+
   // Emit a call to an IC stored in JitScript. Calls to this must match the
   // ICEntry order in JitScript: first the non-op IC entries for |this| and
   // formal arguments, then the for-op IC entries for JOF_IC ops.
@@ -1140,7 +1148,8 @@ void BaselineCompilerCodeGen::emitInitFrameFields(Register nonFunctionEnv) {
   masm.store32(Imm32(0), frame.addressOfFlags());
   if (handler.function()) {
     masm.loadFunctionFromCalleeToken(frame.addressOfCalleeToken(), scratch);
-    masm.loadPtr(Address(scratch, JSFunction::offsetOfEnvironment()), scratch);
+    masm.unboxObject(Address(scratch, JSFunction::offsetOfEnvironment()),
+                     scratch);
     masm.storePtr(scratch, frame.addressOfEnvironmentChain());
   } else {
     masm.storePtr(nonFunctionEnv, frame.addressOfEnvironmentChain());
@@ -1187,10 +1196,11 @@ void BaselineInterpreterCodeGen::emitInitFrameFields(Register nonFunctionEnv) {
   {
     // CalleeToken_Function or CalleeToken_FunctionConstructing.
     masm.andPtr(Imm32(uint32_t(CalleeTokenMask)), scratch1);
-    masm.loadPtr(Address(scratch1, JSFunction::offsetOfEnvironment()),
-                 scratch2);
+    masm.unboxObject(Address(scratch1, JSFunction::offsetOfEnvironment()),
+                     scratch2);
     masm.storePtr(scratch2, frame.addressOfEnvironmentChain());
-    masm.loadPtr(Address(scratch1, JSFunction::offsetOfScript()), scratch1);
+    masm.loadPrivate(Address(scratch1, JSFunction::offsetOfJitInfoOrScript()),
+                     scratch1);
     masm.jump(&done);
   }
   masm.bind(&notFunction);
@@ -3249,7 +3259,7 @@ bool BaselineCodeGen<Handler>::emit_NewPrivateName() {
 
   pushScriptNameArg(R0.scratchReg(), R1.scratchReg());
 
-  using Fn = JS::Symbol* (*)(JSContext*, HandlePropertyName);
+  using Fn = JS::Symbol* (*)(JSContext*, HandleAtom);
   if (!callVM<Fn, NewPrivateName>()) {
     return false;
   }
@@ -4238,7 +4248,8 @@ void BaselineCompilerCodeGen::loadNumFormalArguments(Register dest) {
 template <>
 void BaselineInterpreterCodeGen::loadNumFormalArguments(Register dest) {
   masm.loadFunctionFromCalleeToken(frame.addressOfCalleeToken(), dest);
-  masm.load16ZeroExtend(Address(dest, JSFunction::offsetOfNargs()), dest);
+  masm.load32(Address(dest, JSFunction::offsetOfFlagsAndArgCount()), dest);
+  masm.rshift32(Imm32(JSFunction::ArgCountShift), dest);
 }
 
 template <typename Handler>
@@ -5547,8 +5558,8 @@ bool BaselineCodeGen<Handler>::emit_SuperFun() {
 
 #ifdef DEBUG
   Label classCheckDone;
-  masm.branchTestObjClass(Assembler::Equal, callee, &JSFunction::class_,
-                          scratch, callee, &classCheckDone);
+  masm.branchTestObjIsFunction(Assembler::Equal, callee, scratch, callee,
+                               &classCheckDone);
   masm.assumeUnreachable("Unexpected non-JSFunction callee in JSOp::SuperFun");
   masm.bind(&classCheckDone);
 #endif
@@ -5893,7 +5904,8 @@ bool BaselineCodeGen<Handler>::emit_Resume() {
   // script does not have a JitScript.
   Label interpret;
   Register scratch1 = regs.takeAny();
-  masm.loadPtr(Address(callee, JSFunction::offsetOfScript()), scratch1);
+  masm.loadPrivate(Address(callee, JSFunction::offsetOfJitInfoOrScript()),
+                   scratch1);
   masm.branchIfScriptHasNoJitScript(scratch1, &interpret);
 
 #ifdef JS_TRACE_LOGGING
@@ -5912,7 +5924,9 @@ bool BaselineCodeGen<Handler>::emit_Resume() {
   // Push |undefined| for all formals.
   Register scratch2 = regs.takeAny();
   Label loop, loopDone;
-  masm.load16ZeroExtend(Address(callee, JSFunction::offsetOfNargs()), scratch2);
+  masm.load32(Address(callee, JSFunction::offsetOfFlagsAndArgCount()),
+              scratch2);
+  masm.rshift32(Imm32(JSFunction::ArgCountShift), scratch2);
 
   static_assert(sizeof(Value) == 8);
   static_assert(JitStackAlignment == 16 || JitStackAlignment == 8);
@@ -6075,7 +6089,8 @@ bool BaselineCodeGen<Handler>::emit_Resume() {
   // Load script in scratch1.
   masm.unboxObject(
       Address(genObj, AbstractGeneratorObject::offsetOfCalleeSlot()), scratch1);
-  masm.loadPtr(Address(scratch1, JSFunction::offsetOfScript()), scratch1);
+  masm.loadPrivate(Address(scratch1, JSFunction::offsetOfJitInfoOrScript()),
+                   scratch1);
 
   // Load resume index in scratch2 and mark generator as running.
   Address resumeIndexSlot(genObj,
@@ -6434,6 +6449,8 @@ bool BaselineInterpreterCodeGen::emit_ForceInterpreter() {
 
 template <typename Handler>
 bool BaselineCodeGen<Handler>::emitPrologue() {
+  AutoCreatedBy acb(masm, "BaselineCodeGen<Handler>::emitPrologue");
+
 #ifdef JS_USE_LINK_REGISTER
   // Push link register from generateEnterJIT()'s BLR.
   masm.pushReturnAddress();
@@ -6503,6 +6520,8 @@ bool BaselineCodeGen<Handler>::emitPrologue() {
 
 template <typename Handler>
 bool BaselineCodeGen<Handler>::emitEpilogue() {
+  AutoCreatedBy acb(masm, "BaselineCodeGen<Handler>::emitEpilogue");
+
   masm.bind(&return_);
 
   if (!handler.shouldEmitDebugEpilogueAtReturnOp()) {
@@ -6527,6 +6546,8 @@ bool BaselineCodeGen<Handler>::emitEpilogue() {
 }
 
 MethodStatus BaselineCompiler::emitBody() {
+  AutoCreatedBy acb(masm, "BaselineCompiler::emitBody");
+
   JSScript* script = handler.script();
   MOZ_ASSERT(handler.pc() == script->code());
 
@@ -6587,9 +6608,10 @@ MethodStatus BaselineCompiler::emitBody() {
     }
 
 #define EMIT_OP(OP, ...)                                       \
-  case JSOp::OP:                                               \
+  case JSOp::OP: {                                             \
+    AutoCreatedBy acb(masm, "op=" #OP);                        \
     if (MOZ_UNLIKELY(!this->emit_##OP())) return Method_Error; \
-    break;
+  } break;
 
     switch (op) {
       FOR_EACH_OPCODE(EMIT_OP)
@@ -6632,6 +6654,8 @@ static constexpr Register InterpreterPCRegAtDispatch =
     HasInterpreterPCReg() ? InterpreterPCReg : R0.scratchReg();
 
 bool BaselineInterpreterGenerator::emitInterpreterLoop() {
+  AutoCreatedBy acb(masm, "BaselineInterpreterGenerator::emitInterpreterLoop");
+
   Register scratch1 = R0.scratchReg();
   Register scratch2 = R1.scratchReg();
 
@@ -6706,6 +6730,7 @@ bool BaselineInterpreterGenerator::emitInterpreterLoop() {
   Label opLabels[JSOP_LIMIT];
 #define EMIT_OP(OP, ...)                          \
   {                                               \
+    AutoCreatedBy acb(masm, "op=" #OP);           \
     masm.bind(&opLabels[uint8_t(JSOp::OP)]);      \
     handler.setCurrentOp(JSOp::OP);               \
     if (!this->emit_##OP()) {                     \
@@ -6775,6 +6800,10 @@ bool BaselineInterpreterGenerator::emitInterpreterLoop() {
 }
 
 void BaselineInterpreterGenerator::emitOutOfLineCodeCoverageInstrumentation() {
+  AutoCreatedBy acb(masm,
+                    "BaselineInterpreterGenerator::"
+                    "emitOutOfLineCodeCoverageInstrumentation");
+
   masm.bind(handler.codeCoverageAtPrologueLabel());
 #ifdef JS_USE_LINK_REGISTER
   masm.pushReturnAddress();
@@ -6811,6 +6840,8 @@ void BaselineInterpreterGenerator::emitOutOfLineCodeCoverageInstrumentation() {
 }
 
 bool BaselineInterpreterGenerator::generate(BaselineInterpreter& interpreter) {
+  AutoCreatedBy acb(masm, "BaselineInterpreterGenerator::generate");
+
   if (!emitPrologue()) {
     return false;
   }
@@ -6830,6 +6861,7 @@ bool BaselineInterpreterGenerator::generate(BaselineInterpreter& interpreter) {
   emitOutOfLineCodeCoverageInstrumentation();
 
   {
+    AutoCreatedBy acb(masm, "everything_else");
     Linker linker(masm);
     if (masm.oom()) {
       ReportOutOfMemory(cx);
@@ -6895,6 +6927,7 @@ bool BaselineInterpreterGenerator::generate(BaselineInterpreter& interpreter) {
 JitCode* JitRuntime::generateDebugTrapHandler(JSContext* cx,
                                               DebugTrapHandlerKind kind) {
   StackMacroAssembler masm;
+  AutoCreatedBy acb(masm, "JitRuntime::generateDebugTrapHandler");
 
   AllocatableGeneralRegisterSet regs(GeneralRegisterSet::All());
   regs.takeUnchecked(BaselineFrameReg);

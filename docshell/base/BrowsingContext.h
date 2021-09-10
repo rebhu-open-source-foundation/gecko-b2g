@@ -379,9 +379,6 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
 
   void DisplayLoadError(const nsAString& aURI);
 
-  // Determine if the current BrowsingContext is in the BFCache.
-  bool IsCached() const;
-
   // Check that this browsing context is targetable for navigations (i.e. that
   // it is neither closed, cached, nor discarded).
   bool IsTargetable() const;
@@ -398,7 +395,7 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
   bool IsChrome() const { return !IsContent(); }
 
   bool IsTop() const { return !GetParent(); }
-  bool IsFrame() const { return !IsTop(); }
+  bool IsSubframe() const { return !IsTop(); }
 
   bool IsTopContent() const { return IsContent() && IsTop(); }
   bool IsTopContentOfNestedWebView() const {
@@ -407,7 +404,7 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
 
   bool IsInSubtreeOf(BrowsingContext* aContext);
 
-  bool IsContentSubframe() const { return IsContent() && IsFrame(); }
+  bool IsContentSubframe() const { return IsContent() && IsSubframe(); }
 
   // non-zero
   uint64_t Id() const { return mBrowsingContextId; }
@@ -421,7 +418,7 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
   // NOTE: Unlike `GetEmbedderWindowGlobal`, `GetParentWindowContext` does not
   // cross toplevel content browser boundaries.
   WindowContext* GetParentWindowContext() const { return mParentWindow; }
-  WindowContext* GetTopWindowContext();
+  WindowContext* GetTopWindowContext() const;
 
   already_AddRefed<BrowsingContext> GetOpener() const {
     RefPtr<BrowsingContext> opener(Get(GetOpenerId()));
@@ -866,7 +863,7 @@ class BrowsingContext : public nsILoadContext, public nsWrapperCache {
 
   void FlushSessionStore();
 
-  bool IsInBFCache() const { return mIsInBFCache; }
+  bool IsInBFCache() const;
 
   bool AllowJavascript() const { return GetAllowJavascript(); }
   bool CanExecuteScripts() const { return mCanExecuteScripts; }

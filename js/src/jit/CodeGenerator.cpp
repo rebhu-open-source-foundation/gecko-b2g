@@ -2554,6 +2554,7 @@ JitCode* JitRealm::generateRegExpMatcherStub(JSContext* cx) {
              gc::GetGCKindSlots(templateObj.getAllocKind()));
 
   StackMacroAssembler masm(cx);
+  AutoCreatedBy acb(masm, "JitRealm::generateRegExpMatcherStub");
 
 #ifdef JS_USE_LINK_REGISTER
   masm.pushReturnAddress();
@@ -2893,6 +2894,7 @@ JitCode* JitRealm::generateRegExpSearcherStub(JSContext* cx) {
   Register temp3 = regs.takeAny();
 
   StackMacroAssembler masm(cx);
+  AutoCreatedBy acb(masm, "JitRealm::generateRegExpSearcherStub");
 
 #ifdef JS_USE_LINK_REGISTER
   masm.pushReturnAddress();
@@ -3057,6 +3059,7 @@ JitCode* JitRealm::generateRegExpTesterStub(JSContext* cx) {
   Register result = ReturnReg;
 
   StackMacroAssembler masm(cx);
+  AutoCreatedBy acb(masm, "JitRealm::generateRegExpTesterStub");
 
 #ifdef JS_USE_LINK_REGISTER
   masm.pushReturnAddress();
@@ -3523,28 +3526,22 @@ void CodeGenerator::visitLambdaArrow(LLambdaArrow* lir) {
 
 void CodeGenerator::emitLambdaInit(Register output, Register envChain,
                                    const LambdaFunctionInfo& info) {
-  // Initialize nargs and flags. We do this with a single uint32 to avoid
-  // 16-bit writes.
-  union {
-    struct S {
-      uint16_t nargs;
-      uint16_t flags;
-    } s;
-    uint32_t word;
-  } u;
-  u.s.nargs = info.nargs;
-  u.s.flags = info.flags.toRaw();
+  uint32_t flagsAndArgs =
+      info.flags.toRaw() | (info.nargs << JSFunction::ArgCountShift);
+  masm.storeValue(JS::PrivateUint32Value(flagsAndArgs),
+                  Address(output, JSFunction::offsetOfFlagsAndArgCount()));
+  masm.storePrivateValue(
+      ImmGCPtr(info.baseScript),
+      Address(output, JSFunction::offsetOfJitInfoOrScript()));
 
-  static_assert(JSFunction::offsetOfFlags() == JSFunction::offsetOfNargs() + 2,
-                "the code below needs to be adapted");
-  masm.store32(Imm32(u.word), Address(output, JSFunction::offsetOfNargs()));
-  masm.storePtr(ImmGCPtr(info.baseScript),
-                Address(output, JSFunction::offsetOfBaseScript()));
-  masm.storePtr(envChain, Address(output, JSFunction::offsetOfEnvironment()));
+  masm.storeValue(JSVAL_TYPE_OBJECT, envChain,
+                  Address(output, JSFunction::offsetOfEnvironment()));
   // No post barrier needed because output is guaranteed to be allocated in
   // the nursery.
-  masm.storePtr(ImmGCPtr(info.funUnsafe()->displayAtom()),
-                Address(output, JSFunction::offsetOfAtom()));
+
+  JSAtom* atom = info.funUnsafe()->displayAtom();
+  JS::Value atomValue = atom ? JS::StringValue(atom) : JS::UndefinedValue();
+  masm.storeValue(atomValue, Address(output, JSFunction::offsetOfAtom()));
 }
 
 void CodeGenerator::visitFunctionWithProto(LFunctionWithProto* lir) {
@@ -3964,7 +3961,7 @@ void CodeGenerator::visitElements(LElements* lir) {
 void CodeGenerator::visitFunctionEnvironment(LFunctionEnvironment* lir) {
   Address environment(ToRegister(lir->function()),
                       JSFunction::offsetOfEnvironment());
-  masm.loadPtr(environment, ToRegister(lir->output()));
+  masm.unboxObject(environment, ToRegister(lir->output()));
 }
 
 void CodeGenerator::visitHomeObject(LHomeObject* lir) {
@@ -4726,7 +4723,7 @@ void CodeGenerator::visitGuardFunctionScript(LGuardFunctionScript* lir) {
   Register function = ToRegister(lir->function());
 
   Label bail;
-  Address scriptAddr(function, JSFunction::offsetOfBaseScript());
+  Address scriptAddr(function, JSFunction::offsetOfJitInfoOrScript());
   masm.branchPtr(Assembler::NotEqual, scriptAddr,
                  ImmGCPtr(lir->mir()->expected()), &bail);
   bailoutFrom(&bail, lir->snapshot());
@@ -5357,8 +5354,8 @@ void CodeGenerator::visitCallGeneric(LCallGeneric* call) {
 
   // Guard that calleereg is actually a function object.
   if (call->mir()->needsClassCheck()) {
-    masm.branchTestObjClass(Assembler::NotEqual, calleereg, &JSFunction::class_,
-                            nargsreg, calleereg, &invoke);
+    masm.branchTestObjIsFunction(Assembler::NotEqual, calleereg, nargsreg,
+                                 calleereg, &invoke);
   }
 
   // Guard that callee allows the [[Call]] or [[Construct]] operation required.
@@ -5414,8 +5411,9 @@ void CodeGenerator::visitCallGeneric(LCallGeneric* call) {
   DebugOnly<unsigned> numNonArgsOnStack = 1 + call->isConstructing();
   MOZ_ASSERT(call->numActualArgs() ==
              call->mir()->numStackArgs() - numNonArgsOnStack);
-  masm.load16ZeroExtend(Address(calleereg, JSFunction::offsetOfNargs()),
-                        nargsreg);
+  masm.load32(Address(calleereg, JSFunction::offsetOfFlagsAndArgCount()),
+              nargsreg);
+  masm.rshift32(Imm32(JSFunction::ArgCountShift), nargsreg);
   masm.branch32(Assembler::Above, nargsreg, Imm32(call->numActualArgs()),
                 &thunk);
   masm.jump(&makeCall);
@@ -5941,8 +5939,8 @@ void CodeGenerator::emitApplyGeneric(T* apply) {
 
   // Unless already known, guard that calleereg is actually a function object.
   if (!apply->hasSingleTarget()) {
-    masm.branchTestObjClass(Assembler::NotEqual, calleereg, &JSFunction::class_,
-                            objreg, calleereg, &invoke);
+    masm.branchTestObjIsFunction(Assembler::NotEqual, calleereg, objreg,
+                                 calleereg, &invoke);
   }
 
   // Guard that calleereg is an interpreted function with a JSScript.
@@ -5988,8 +5986,9 @@ void CodeGenerator::emitApplyGeneric(T* apply) {
     // Check whether the provided arguments satisfy target argc.
     if (!apply->hasSingleTarget()) {
       Register nformals = extraStackSpace;
-      masm.load16ZeroExtend(Address(calleereg, JSFunction::offsetOfNargs()),
-                            nformals);
+      masm.load32(Address(calleereg, JSFunction::offsetOfFlagsAndArgCount()),
+                  nformals);
+      masm.rshift32(Imm32(JSFunction::ArgCountShift), nformals);
       masm.branch32(Assembler::Below, argcreg, nformals, &underflow);
     } else {
       masm.branch32(Assembler::Below, argcreg,
@@ -6517,6 +6516,8 @@ void CodeGenerator::emitDebugForceBailing(LInstruction* lir) {
 
 bool CodeGenerator::generateBody() {
   JitSpewCont(JitSpew_Codegen, "\n");
+  AutoCreatedBy acb(masm, "CodeGenerator::generateBody");
+
   JitSpew(JitSpew_Codegen, "==== BEGIN CodeGenerator::generateBody ====");
   IonScriptCounts* counts = maybeCreateScriptCounts();
 
@@ -7173,7 +7174,7 @@ void CodeGenerator::visitNewNamedLambdaObject(LNewNamedLambdaObject* lir) {
   using Fn =
       js::NamedLambdaObject* (*)(JSContext*, HandleFunction, gc::InitialHeap);
   OutOfLineCode* ool = oolCallVM<Fn, NamedLambdaObject::createTemplateObject>(
-      lir, ArgList(ImmGCPtr(info.funMaybeLazy()), Imm32(gc::DefaultHeap)),
+      lir, ArgList(info.funMaybeLazy(), Imm32(gc::DefaultHeap)),
       StoreRegisterTo(objReg));
 
   TemplateObject templateObject(lir->mir()->templateObj());
@@ -7637,7 +7638,8 @@ void CodeGenerator::visitFunctionLength(LFunctionLength* lir) {
   Label bail;
 
   // Get the JSFunction flags.
-  masm.load16ZeroExtend(Address(function, JSFunction::offsetOfFlags()), output);
+  masm.load32(Address(function, JSFunction::offsetOfFlagsAndArgCount()),
+              output);
 
   // Functions with a SelfHostedLazyScript must be compiled with the slow-path
   // before the function length is known. If the length was previously resolved,
@@ -10083,6 +10085,7 @@ JitCode* JitRealm::generateStringConcatStub(JSContext* cx) {
   JitSpew(JitSpew_Codegen, "# Emitting StringConcat stub");
 
   StackMacroAssembler masm(cx);
+  AutoCreatedBy acb(masm, "JitRealm::generateStringConcatStub");
 
   Register lhs = CallTempReg0;
   Register rhs = CallTempReg1;
@@ -10189,6 +10192,8 @@ JitCode* JitRealm::generateStringConcatStub(JSContext* cx) {
 }
 
 void JitRuntime::generateFreeStub(MacroAssembler& masm) {
+  AutoCreatedBy acb(masm, "JitRuntime::generateFreeStub");
+
   const Register regSlots = CallTempReg0;
 
   freeStubOffset_ = startTrampolineCode(masm);
@@ -10216,6 +10221,8 @@ void JitRuntime::generateFreeStub(MacroAssembler& masm) {
 }
 
 void JitRuntime::generateLazyLinkStub(MacroAssembler& masm) {
+  AutoCreatedBy acb(masm, "JitRuntime::generateLazyLinkStub");
+
   lazyLinkStubOffset_ = startTrampolineCode(masm);
 
 #ifdef JS_USE_LINK_REGISTER
@@ -10249,6 +10256,8 @@ void JitRuntime::generateLazyLinkStub(MacroAssembler& masm) {
 }
 
 void JitRuntime::generateInterpreterStub(MacroAssembler& masm) {
+  AutoCreatedBy acb(masm, "JitRuntime::generateInterpreterStub");
+
   interpreterStubOffset_ = startTrampolineCode(masm);
 
 #ifdef JS_USE_LINK_REGISTER
@@ -10283,6 +10292,7 @@ void JitRuntime::generateInterpreterStub(MacroAssembler& masm) {
 }
 
 void JitRuntime::generateDoubleToInt32ValueStub(MacroAssembler& masm) {
+  AutoCreatedBy acb(masm, "JitRuntime::generateDoubleToInt32ValueStub");
   doubleToInt32ValueStubOffset_ = startTrampolineCode(masm);
 
   Label done;
@@ -11419,6 +11429,8 @@ bool CodeGenerator::generateWasm(wasm::TypeIdDesc funcTypeId,
                                  size_t trapExitLayoutNumWords,
                                  wasm::FuncOffsets* offsets,
                                  wasm::StackMaps* stackMaps) {
+  AutoCreatedBy acb(masm, "CodeGenerator::generateWasm");
+
   JitSpew(JitSpew_Codegen, "# Emitting wasm code");
   setUseWasmStackArgumentAbi();
 
@@ -11518,6 +11530,8 @@ bool CodeGenerator::generateWasm(wasm::TypeIdDesc funcTypeId,
 }
 
 bool CodeGenerator::generate() {
+  AutoCreatedBy acb(masm, "CodeGenerator::generate");
+
   JitSpew(JitSpew_Codegen, "# Emitting code for script %s:%u:%u",
           gen->outerInfo().script()->filename(),
           gen->outerInfo().script()->lineno(),
@@ -11626,6 +11640,8 @@ static bool AddInlinedCompilations(JSContext* cx, HandleScript script,
 }
 
 bool CodeGenerator::link(JSContext* cx, const WarpSnapshot* snapshot) {
+  AutoCreatedBy acb(masm, "CodeGenerator::link");
+
   // We cancel off-thread Ion compilations in a few places during GC, but if
   // this compilation was performed off-thread it will already have been
   // removed from the relevant lists by this point. Don't allow GC here.
@@ -12331,7 +12347,7 @@ void CodeGenerator::visitCheckPrivateFieldCache(LCheckPrivateFieldCache* ins) {
 void CodeGenerator::visitNewPrivateName(LNewPrivateName* ins) {
   pushArg(ImmGCPtr(ins->mir()->name()));
 
-  using Fn = JS::Symbol* (*)(JSContext*, HandlePropertyName);
+  using Fn = JS::Symbol* (*)(JSContext*, HandleAtom);
   callVM<Fn, NewPrivateName>(ins);
 }
 
@@ -12699,8 +12715,9 @@ void CodeGenerator::visitLoadDataViewElement(LLoadDataViewElement* lir) {
                 ToBoolean(littleEndian) == MOZ_LITTLE_ENDIAN();
 
   // Directly load if no byte swap is needed and the platform supports unaligned
-  // accesses for floating point registers.
-  if (noSwap && MacroAssembler::SupportsFastUnalignedAccesses()) {
+  // accesses for the access.  (Such support is assumed for integer types.)
+  if (noSwap && (!Scalar::isFloatingType(storageType) ||
+                 MacroAssembler::SupportsFastUnalignedFPAccesses())) {
     if (!Scalar::isBigIntType(storageType)) {
       Label fail;
       masm.loadFromTypedArray(storageType, source, out, temp, &fail);
@@ -13080,8 +13097,10 @@ void CodeGenerator::visitStoreDataViewElement(LStoreDataViewElement* lir) {
                 ToBoolean(littleEndian) == MOZ_LITTLE_ENDIAN();
 
   // Directly store if no byte swap is needed and the platform supports
-  // unaligned accesses for floating point registers.
-  if (noSwap && MacroAssembler::SupportsFastUnalignedAccesses()) {
+  // unaligned accesses for the access.  (Such support is assumed for integer
+  // types.)
+  if (noSwap && (!Scalar::isFloatingType(writeType) ||
+                 MacroAssembler::SupportsFastUnalignedFPAccesses())) {
     if (!Scalar::isBigIntType(writeType)) {
       StoreToTypedArray(masm, writeType, value, dest);
     } else {
@@ -14030,6 +14049,23 @@ void CodeGenerator::visitGuardToClass(LGuardToClass* ins) {
   bailoutFrom(&notEqual, ins->snapshot());
 }
 
+void CodeGenerator::visitGuardToFunction(LGuardToFunction* ins) {
+  Register lhs = ToRegister(ins->lhs());
+  Register temp = ToRegister(ins->temp0());
+
+  // branchTestObjClass may zero the object register on speculative paths
+  // (we should have a defineReuseInput allocation in this case).
+  Register spectreRegToZero = lhs;
+
+  Label notEqual;
+
+  masm.branchTestObjIsFunction(Assembler::NotEqual, lhs, temp, spectreRegToZero,
+                               &notEqual);
+
+  // Can't return null-return here, so bail.
+  bailoutFrom(&notEqual, ins->snapshot());
+}
+
 void CodeGenerator::visitObjectClassToString(LObjectClassToString* lir) {
   Register obj = ToRegister(lir->lhs());
   Register temp = ToRegister(lir->temp0());
@@ -14206,8 +14242,14 @@ void CodeGenerator::visitAssertClass(LAssertClass* ins) {
   Register temp = ToRegister(ins->getTemp(0));
 
   Label success;
-  masm.branchTestObjClassNoSpectreMitigations(
-      Assembler::Equal, obj, ins->mir()->getClass(), temp, &success);
+  if (ins->mir()->getClass() == &FunctionClass) {
+    // Allow both possible function classes here.
+    masm.branchTestObjIsFunctionNoSpectreMitigations(Assembler::Equal, obj,
+                                                     temp, &success);
+  } else {
+    masm.branchTestObjClassNoSpectreMitigations(
+        Assembler::Equal, obj, ins->mir()->getClass(), temp, &success);
+  }
   masm.assumeUnreachable("Wrong KnownClass during run-time");
   masm.bind(&success);
 }
@@ -14759,9 +14801,10 @@ void CodeGenerator::visitNaNToZero(LNaNToZero* lir) {
 }
 
 static void BoundFunctionLength(MacroAssembler& masm, Register target,
-                                Register targetFlags, Register argCount,
-                                Register output, Label* slowPath) {
-  masm.loadFunctionLength(target, targetFlags, output, slowPath);
+                                Register targetFlagsAndArgCount,
+                                Register argCount, Register output,
+                                Label* slowPath) {
+  masm.loadFunctionLength(target, targetFlagsAndArgCount, output, slowPath);
 
   // Compute the bound function length: Max(0, target.length - argCount).
   Label nonNegative;
@@ -14797,9 +14840,13 @@ static void BoundFunctionName(MacroAssembler& masm, Register target,
   Label guessed, hasName;
   masm.branchTest32(Assembler::NonZero, targetFlags,
                     Imm32(FunctionFlags::HAS_GUESSED_ATOM), &guessed);
+
   masm.bind(&loadName);
-  masm.loadPtr(Address(target, JSFunction::offsetOfAtom()), output);
-  masm.branchTestPtr(Assembler::NonZero, output, output, &hasName);
+  Address atom(Address(target, JSFunction::offsetOfAtom()));
+  masm.branchTestUndefined(Assembler::Equal, atom, &guessed);
+  masm.unboxString(atom, output);
+  masm.jump(&hasName);
+
   {
     masm.bind(&guessed);
 
@@ -14809,12 +14856,13 @@ static void BoundFunctionName(MacroAssembler& masm, Register target,
   masm.bind(&hasName);
 }
 
-static void BoundFunctionFlags(MacroAssembler& masm, Register targetFlags,
-                               Register bound, Register output) {
+static void BoundFunctionFlagsAndArgCount(MacroAssembler& masm,
+                                          Register targetFlags, Register bound,
+                                          Register output) {
   // Set the BOUND_FN flag and, if the target is a constructor, the
   // CONSTRUCTOR flag.
   Label isConstructor, boundFlagsComputed;
-  masm.load16ZeroExtend(Address(bound, JSFunction::offsetOfFlags()), output);
+  masm.load32(Address(bound, JSFunction::offsetOfFlagsAndArgCount()), output);
   masm.branchTest32(Assembler::NonZero, targetFlags,
                     Imm32(FunctionFlags::CONSTRUCTOR), &isConstructor);
   {
@@ -14847,16 +14895,16 @@ void CodeGenerator::visitFinishBoundFunctionInit(
       FunctionExtended::offsetOfBoundFunctionLengthSlot();
 
   // Take the slow path if the target is not a JSFunction.
-  masm.branchTestObjClass(Assembler::NotEqual, target, &JSFunction::class_,
-                          temp0, target, slowPath);
+  masm.branchTestObjIsFunction(Assembler::NotEqual, target, temp0, target,
+                               slowPath);
 
   // Take the slow path if we'd need to adjust the [[Prototype]].
   masm.loadObjProto(bound, temp0);
   masm.loadObjProto(target, temp1);
   masm.branchPtr(Assembler::NotEqual, temp0, temp1, slowPath);
 
-  // Get the function flags.
-  masm.load16ZeroExtend(Address(target, JSFunction::offsetOfFlags()), temp0);
+  // Get the function flags and arg count.
+  masm.load32(Address(target, JSFunction::offsetOfFlagsAndArgCount()), temp0);
 
   // Functions with a SelfHostedLazyScript must be compiled with the slow-path
   // before the function length is known. If the length or name property is
@@ -14874,11 +14922,12 @@ void CodeGenerator::visitFinishBoundFunctionInit(
   // Store the target's name atom in the bound function as is.
   BoundFunctionName(masm, target, temp0, temp1, gen->runtime->names(),
                     slowPath);
-  masm.storePtr(temp1, Address(bound, JSFunction::offsetOfAtom()));
+  masm.storeValue(JSVAL_TYPE_STRING, temp1,
+                  Address(bound, JSFunction::offsetOfAtom()));
 
   // Update the bound function's flags.
-  BoundFunctionFlags(masm, temp0, bound, temp1);
-  masm.store16(temp1, Address(bound, JSFunction::offsetOfFlags()));
+  BoundFunctionFlagsAndArgCount(masm, temp0, bound, temp1);
+  masm.store32(temp1, Address(bound, JSFunction::offsetOfFlagsAndArgCount()));
 
   masm.bind(ool->rejoin());
 }
@@ -14967,8 +15016,8 @@ void CodeGenerator::visitSuperFunction(LSuperFunction* lir) {
 
 #ifdef DEBUG
   Label classCheckDone;
-  masm.branchTestObjClass(Assembler::Equal, callee, &JSFunction::class_, temp,
-                          callee, &classCheckDone);
+  masm.branchTestObjIsFunction(Assembler::Equal, callee, temp, callee,
+                               &classCheckDone);
   masm.assumeUnreachable("Unexpected non-JSFunction callee in JSOp::SuperFun");
   masm.bind(&classCheckDone);
 #endif

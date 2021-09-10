@@ -698,10 +698,14 @@ class ActivePS {
         mWasSamplingPaused(false)
 #endif
   {
-    // Deep copy aFilters.
+    // Deep copy and lower-case aFilters.
     MOZ_ALWAYS_TRUE(mFilters.resize(aFilterCount));
+    MOZ_ALWAYS_TRUE(mFiltersLowered.resize(aFilterCount));
     for (uint32_t i = 0; i < aFilterCount; ++i) {
       mFilters[i] = aFilters[i];
+      mFiltersLowered[i].reserve(mFilters[i].size());
+      std::transform(mFilters[i].cbegin(), mFilters[i].cend(),
+                     std::back_inserter(mFiltersLowered[i]), ::tolower);
     }
 
 #if !defined(RELEASE_OR_BETA)
@@ -746,21 +750,17 @@ class ActivePS {
   }
 
   bool ThreadSelected(const char* aThreadName) {
-    if (mFilters.empty()) {
+    if (mFiltersLowered.empty()) {
       return true;
     }
 
     std::string name = aThreadName;
     std::transform(name.begin(), name.end(), name.begin(), ::tolower);
 
-    for (uint32_t i = 0; i < mFilters.length(); ++i) {
-      std::string filter = mFilters[i];
-
+    for (const auto& filter : mFiltersLowered) {
       if (filter == "*") {
         return true;
       }
-
-      std::transform(filter.begin(), filter.end(), filter.begin(), ::tolower);
 
       // Crude, non UTF-8 compatible, case insensitive substring search
       if (name.find(filter) != std::string::npos) {
@@ -940,6 +940,7 @@ class ActivePS {
   }
 
   PS_GET(const Vector<std::string>&, Filters)
+  PS_GET(const Vector<std::string>&, FiltersLowered)
 
   // Not using PS_GET, because only the "Controlled" interface of
   // `mProfileBufferChunkManager` should be exposed here.
@@ -1259,6 +1260,7 @@ class ActivePS {
 
   // Substrings of names of threads we want to profile.
   Vector<std::string> mFilters;
+  Vector<std::string> mFiltersLowered;
 
   // ID of the active browser screen's active tab.
   // It's being used to determine the profiled tab. It's "0" if we failed to
@@ -2127,7 +2129,7 @@ static void DoLULBacktrace(
 #  endif
 
   // Copy up to N_STACK_BYTES from rsp-REDZONE upwards, but not going past the
-  // stack's registered top point.  Do some basic sanity checks too.  This
+  // stack's registered top point.  Do some basic validity checks too.  This
   // assumes that the TaggedUWord holding the stack pointer value is valid, but
   // it should be, since it was constructed that way in the code just above.
 
@@ -2187,7 +2189,14 @@ static void DoLULBacktrace(
     uintptr_t nToCopy = 0;
     if (start < end) {
       nToCopy = end - start;
-      if (nToCopy > lul::N_STACK_BYTES) nToCopy = lul::N_STACK_BYTES;
+      if (nToCopy >= 1024u * 1024u) {
+        // start is abnormally far from end, possibly due to some special code
+        // that uses a separate stack elsewhere (e.g.: rr). In this case we just
+        // give up on this sample.
+        nToCopy = 0;
+      } else if (nToCopy > lul::N_STACK_BYTES) {
+        nToCopy = lul::N_STACK_BYTES;
+      }
     }
     MOZ_ASSERT(nToCopy <= lul::N_STACK_BYTES);
     stackImg.mLen = nToCopy;
@@ -2330,9 +2339,25 @@ static void DoSyncSample(
   TimeDuration delta = aNow - CorePS::ProcessStartTime();
   aBuffer.AddEntry(ProfileBufferEntry::Time(delta.ToMilliseconds()));
 
-  DoSharedSample(/* aIsSynchronous = */ true, aFeatures, aThreadData,
-                 aThreadData.GetJsFrameBuffer(), aRegs, samplePos,
-                 bufferRangeStart, aBuffer, aCaptureOptions);
+  if (!aThreadData.GetJSContext()) {
+    // No JSContext, there is no JS frame buffer (and no need for it).
+    DoSharedSample(/* aIsSynchronous = */ true, aFeatures, aThreadData,
+                   /* aJsFrames = */ nullptr, aRegs, samplePos,
+                   bufferRangeStart, aBuffer, aCaptureOptions);
+  } else {
+    // JSContext is present, we need to lock the thread data to access the JS
+    // frame buffer.
+    ThreadRegistration::WithOnThreadRef([&](ThreadRegistration::OnThreadRef
+                                                aOnThreadRef) {
+      aOnThreadRef.WithConstLockedRWOnThread(
+          [&](const ThreadRegistration::LockedRWOnThread& aLockedThreadData) {
+            DoSharedSample(/* aIsSynchronous = */ true, aFeatures, aThreadData,
+                           aLockedThreadData.GetJsFrameBuffer(), aRegs,
+                           samplePos, bufferRangeStart, aBuffer,
+                           aCaptureOptions);
+          });
+    });
+  }
 }
 
 // Writes the components of a periodic sample to ActivePS's ProfileBuffer.
@@ -2762,8 +2787,8 @@ struct JavaMarker {
       baseprofiler::SpliceableJSONWriter& aWriter) {}
   static MarkerSchema MarkerTypeDisplay() {
     using MS = MarkerSchema;
-    MS schema{MS::Location::timelineOverview, MS::Location::markerChart,
-              MS::Location::markerTable};
+    MS schema{MS::Location::TimelineOverview, MS::Location::MarkerChart,
+              MS::Location::MarkerTable};
     schema.SetAllLabels("{marker.name}");
     return schema;
   }
@@ -2780,13 +2805,12 @@ struct JavaMarkerWithDetails {
   }
   static MarkerSchema MarkerTypeDisplay() {
     using MS = MarkerSchema;
-    MS schema{MS::Location::timelineOverview, MS::Location::markerChart,
-              MS::Location::markerTable};
+    MS schema{MS::Location::TimelineOverview, MS::Location::MarkerChart,
+              MS::Location::MarkerTable};
     schema.SetTooltipLabel("{marker.name}");
     schema.SetChartLabel("{marker.data.details}");
     schema.SetTableLabel("{marker.name} - {marker.data.details}");
-    schema.AddKeyLabelFormat("details", "Details",
-                             MarkerSchema::Format::string);
+    schema.AddKeyLabelFormat("details", "Details", MS::Format::String);
     return schema;
   }
 };
@@ -5323,8 +5347,6 @@ ProfilingStack* profiler_register_thread(const char* aName,
                                          void* aGuessStackTop) {
   DEBUG_LOG("profiler_register_thread(%s)", aName);
 
-  MOZ_RELEASE_ASSERT(CorePS::Exists());
-
   // This will call `ThreadRegistry::Register()` (see below).
   return ThreadRegistration::RegisterThread(aName, aGuessStackTop);
 }
@@ -5664,10 +5686,10 @@ void profiler_clear_js_context() {
 }
 
 static void profiler_suspend_and_sample_thread(
-    PSLockRef aLock,
+    const PSAutoLock* aLockIfAsynchronousSampling,
     const ThreadRegistration::UnlockedReaderAndAtomicRWOnThread& aThreadData,
-    JsFrame* aJsFrames, bool aIsSynchronous, uint32_t aFeatures,
-    ProfilerStackCollector& aCollector, bool aSampleNative) {
+    JsFrame* aJsFrames, uint32_t aFeatures, ProfilerStackCollector& aCollector,
+    bool aSampleNative) {
   const ThreadRegistrationInfo& info = aThreadData.Info();
 
   if (info.IsMainThread()) {
@@ -5690,10 +5712,10 @@ static void profiler_suspend_and_sample_thread(
     }
 #endif
     const uint32_t jsFramesCount =
-        aJsFrames
-            ? ExtractJsFrames(aIsSynchronous, aThreadData, aRegs, aCollector,
-                              aJsFrames, stackWalkControlIfSupported)
-            : 0;
+        aJsFrames ? ExtractJsFrames(!aLockIfAsynchronousSampling, aThreadData,
+                                    aRegs, aCollector, aJsFrames,
+                                    stackWalkControlIfSupported)
+                  : 0;
 
 #if defined(HAVE_FASTINIT_NATIVE_UNWIND)
     if (aSampleNative) {
@@ -5710,13 +5732,13 @@ static void profiler_suspend_and_sample_thread(
 #    error "Invalid configuration"
 #  endif
 
-      MergeStacks(aFeatures, aIsSynchronous, aThreadData, aRegs, nativeStack,
-                  aCollector, aJsFrames, jsFramesCount);
+      MergeStacks(aFeatures, !aLockIfAsynchronousSampling, aThreadData, aRegs,
+                  nativeStack, aCollector, aJsFrames, jsFramesCount);
     } else
 #endif
     {
-      MergeStacks(aFeatures, aIsSynchronous, aThreadData, aRegs, nativeStack,
-                  aCollector, aJsFrames, jsFramesCount);
+      MergeStacks(aFeatures, !aLockIfAsynchronousSampling, aThreadData, aRegs,
+                  nativeStack, aCollector, aJsFrames, jsFramesCount);
 
       if (ProfilerFeature::HasLeaf(aFeatures)) {
         aCollector.CollectNativeLeafAddr((void*)aRegs.mPC);
@@ -5724,7 +5746,7 @@ static void profiler_suspend_and_sample_thread(
     }
   };
 
-  if (aIsSynchronous) {
+  if (!aLockIfAsynchronousSampling) {
     // Sampling the current thread, do NOT suspend it!
     Registers regs;
 #if defined(HAVE_NATIVE_UNWIND)
@@ -5735,14 +5757,14 @@ static void profiler_suspend_and_sample_thread(
     collectStack(regs, TimeStamp::Now());
   } else {
     // Suspend, sample, and then resume the target thread.
-    Sampler sampler(aLock);
+    Sampler sampler(*aLockIfAsynchronousSampling);
     TimeStamp now = TimeStamp::Now();
-    sampler.SuspendAndSampleAndResumeThread(aLock, aThreadData, now,
-                                            collectStack);
+    sampler.SuspendAndSampleAndResumeThread(*aLockIfAsynchronousSampling,
+                                            aThreadData, now, collectStack);
 
     // NOTE: Make sure to disable the sampler before it is destroyed, in
     // case the profiler is running at the same time.
-    sampler.Disable(aLock);
+    sampler.Disable(*aLockIfAsynchronousSampling);
   }
 }
 
@@ -5761,12 +5783,25 @@ void profiler_suspend_and_sample_thread(ProfilerThreadId aThreadId,
           aOnThreadRef.WithUnlockedReaderAndAtomicRWOnThread(
               [&](const ThreadRegistration::UnlockedReaderAndAtomicRWOnThread&
                       aThreadData) {
-                // TODO: Remove this lock when on-thread sampling doesn't
-                // require it anymore.
-                PSAutoLock lock;
-                profiler_suspend_and_sample_thread(
-                    lock, aThreadData, aThreadData.GetJsFrameBuffer(), true,
-                    aFeatures, aCollector, aSampleNative);
+                if (!aThreadData.GetJSContext()) {
+                  // No JSContext, there is no JS frame buffer (and no need for
+                  // it).
+                  profiler_suspend_and_sample_thread(
+                      /* aLockIfAsynchronousSampling = */ nullptr, aThreadData,
+                      /* aJsFrames = */ nullptr, aFeatures, aCollector,
+                      aSampleNative);
+                } else {
+                  // JSContext is present, we need to lock the thread data to
+                  // access the JS frame buffer.
+                  aOnThreadRef.WithConstLockedRWOnThread(
+                      [&](const ThreadRegistration::LockedRWOnThread&
+                              aLockedThreadData) {
+                        profiler_suspend_and_sample_thread(
+                            /* aLockIfAsynchronousSampling = */ nullptr,
+                            aThreadData, aLockedThreadData.GetJsFrameBuffer(),
+                            aFeatures, aCollector, aSampleNative);
+                      });
+                }
               });
         });
   } else {
@@ -5778,8 +5813,8 @@ void profiler_suspend_and_sample_thread(ProfilerThreadId aThreadId,
               [&](const ThreadRegistration::UnlockedReaderAndAtomicRWOnThread&
                       aThreadData) {
                 JsFrameBuffer& jsFrames = CorePS::JsFrames(lock);
-                profiler_suspend_and_sample_thread(lock, aThreadData, jsFrames,
-                                                   false, aFeatures, aCollector,
+                profiler_suspend_and_sample_thread(&lock, aThreadData, jsFrames,
+                                                   aFeatures, aCollector,
                                                    aSampleNative);
               });
         });

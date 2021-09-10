@@ -23,6 +23,7 @@
 #include "GMPServiceChild.h"
 #include "Geolocation.h"
 #include "imgLoader.h"
+#include "ScrollingMetrics.h"
 #include "mozilla/BasePrincipal.h"
 #include "mozilla/Components.h"
 #include "mozilla/HangDetails.h"
@@ -44,6 +45,7 @@
 #include "mozilla/SimpleEnumerator.h"
 #include "mozilla/SpinEventLoopUntil.h"
 #include "mozilla/StaticPrefs_accessibility.h"
+#include "mozilla/StaticPrefs_browser.h"
 #include "mozilla/StaticPrefs_dom.h"
 #include "mozilla/StaticPrefs_fission.h"
 #include "mozilla/StaticPrefs_media.h"
@@ -60,6 +62,7 @@
 #include "mozilla/dom/ChildProcessMessageManager.h"
 #include "mozilla/dom/ClientManager.h"
 #include "mozilla/dom/ContentParent.h"
+#include "mozilla/dom/ContentProcessManager.h"
 #include "mozilla/dom/ContentPlaybackController.h"
 #include "mozilla/dom/ContentProcessMessageManager.h"
 #include "mozilla/dom/DataTransfer.h"
@@ -379,9 +382,9 @@ struct ProcessPriorityChange {
   }
   static MarkerSchema MarkerTypeDisplay() {
     using MS = MarkerSchema;
-    MS schema{MS::Location::markerChart, MS::Location::markerTable};
-    schema.AddKeyFormat("Before", MS::Format::string);
-    schema.AddKeyFormat("After", MS::Format::string);
+    MS schema{MS::Location::MarkerChart, MS::Location::MarkerTable};
+    schema.AddKeyFormat("Before", MS::Format::String);
+    schema.AddKeyFormat("After", MS::Format::String);
     schema.AddStaticLabelValue("Note",
                                "This is a notification of the priority change "
                                "that was done by the parent process");
@@ -405,9 +408,9 @@ struct ProcessPriority {
   }
   static MarkerSchema MarkerTypeDisplay() {
     using MS = MarkerSchema;
-    MS schema{MS::Location::markerChart, MS::Location::markerTable};
-    schema.AddKeyFormat("Priority", MS::Format::string);
-    schema.AddKeyFormat("Marker cause", MS::Format::string);
+    MS schema{MS::Location::MarkerChart, MS::Location::MarkerTable};
+    schema.AddKeyFormat("Priority", MS::Format::String);
+    schema.AddKeyFormat("Marker cause", MS::Format::String);
     schema.SetAllLabels("priority: {marker.data.Priority}");
     return schema;
   }
@@ -415,7 +418,6 @@ struct ProcessPriority {
 }  // namespace geckoprofiler::markers
 
 namespace mozilla {
-
 namespace dom {
 
 // IPC sender for remote GC/CC logging.
@@ -2587,6 +2589,14 @@ mozilla::ipc::IPCResult ContentChild::RecvCollectPerfStatsJSON(
   return IPC_OK();
 }
 
+mozilla::ipc::IPCResult ContentChild::RecvCollectScrollingMetrics(
+    CollectScrollingMetricsResolver&& aResolver) {
+  auto metrics = ScrollingMetrics::CollectLocalScrollingMetrics();
+  using ResolverArgs = Tuple<const uint32_t&, const uint32_t&>;
+  aResolver(ResolverArgs(Get<0>(metrics), Get<1>(metrics)));
+  return IPC_OK();
+}
+
 mozilla::ipc::IPCResult ContentChild::RecvNotifyAlertsObserver(
     const nsCString& aType, const nsString& aData) {
   nsTArray<nsCOMPtr<nsIObserver>> observersToNotify;
@@ -2711,6 +2721,14 @@ mozilla::ipc::IPCResult ContentChild::RecvUpdateSharedData(
 
 mozilla::ipc::IPCResult ContentChild::RecvFontListChanged() {
   gfxPlatformFontList::PlatformFontList()->FontListChanged();
+
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult ContentChild::RecvForceGlobalReflow(
+    bool aNeedsReframe) {
+  gfxPlatform::ForceGlobalReflow(aNeedsReframe ? gfxPlatform::NeedsReframe::Yes
+                                               : gfxPlatform::NeedsReframe::No);
 
   return IPC_OK();
 }
@@ -3502,6 +3520,7 @@ bool ContentChild::DeallocPWebBrowserPersistDocumentChild(
 }
 
 mozilla::ipc::IPCResult ContentChild::RecvInvokeDragSession(
+    const MaybeDiscarded<WindowContext>& aSourceWindowContext,
     nsTArray<IPCDataTransfer>&& aTransfers, const uint32_t& aAction) {
   nsCOMPtr<nsIDragService> dragService =
       do_GetService("@mozilla.org/widget/dragservice;1");
@@ -3510,6 +3529,7 @@ mozilla::ipc::IPCResult ContentChild::RecvInvokeDragSession(
     nsCOMPtr<nsIDragSession> session;
     dragService->GetCurrentSession(getter_AddRefs(session));
     if (session) {
+      session->SetSourceWindowContext(aSourceWindowContext.GetMaybeDiscarded());
       session->SetDragAction(aAction);
       // Check if we are receiving any file objects. If we are we will want
       // to hide any of the other objects coming in from content.

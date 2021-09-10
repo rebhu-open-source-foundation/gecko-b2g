@@ -108,7 +108,6 @@
 #  include "GLContextEGL.h"  // for GLContextEGL::FindVisual()
 #  include "WindowSurfaceX11Image.h"
 #  include "WindowSurfaceX11SHM.h"
-#  include "WindowSurfaceXRender.h"
 #endif
 #ifdef MOZ_WAYLAND
 #  include "nsIClipboard.h"
@@ -474,6 +473,7 @@ nsWindow::nsWindow()
       mPopupChanged(false),
       mPopupTemporaryHidden(false),
       mPopupClosed(false),
+      mPopupUseMoveToRect(false),
       mPopupLastAnchor(),
       mPreferredPopupRect(),
       mPreferredPopupRectFlushed(false),
@@ -732,8 +732,6 @@ void nsWindow::Destroy() {
   // Ensure any resources assigned to the window get cleaned up first
   // to avoid double-freeing.
   mSurfaceProvider.CleanupResources();
-
-  ClearCachedResources();
 
   g_signal_handlers_disconnect_by_data(gtk_settings_get_default(), this);
 
@@ -1111,11 +1109,6 @@ void nsWindow::ApplySizeConstraints(void) {
 void nsWindow::Show(bool aState) {
   if (aState == mIsShown) return;
 
-  // Clear our cached resources when the window is hidden.
-  if (mIsShown && !aState) {
-    ClearCachedResources();
-  }
-
   mIsShown = aState;
 
   LOG(("nsWindow::Show [%p] state %d\n", (void*)this, aState));
@@ -1319,6 +1312,69 @@ void nsWindow::HideWaylandWindow() {
   gtk_widget_hide(mShell);
 }
 
+// Gtk refuses to map popup window with x < 0 && y < 0 relative coordinates
+// see https://gitlab.gnome.org/GNOME/gtk/-/issues/4071
+// as a workaround just fool around and place the popup temporary to 0,0.
+bool nsWindow::WaylandPopupRemoveNegativePosition(int* aX, int* aY) {
+  LOG(("nsWindow::WaylandPopupRemoveNegativePosition() [%p]\n", this));
+
+  int x, y;
+  GdkWindow* window = gtk_widget_get_window(mShell);
+  gdk_window_get_origin(window, &x, &y);
+  if (x >= 0 || y >= 0) {
+    LOG(("  coordinates are correct"));
+    return false;
+  }
+
+  LOG(("  wrong coord (%d, %d) move to 0,0", x, y));
+  gdk_window_move(window, 0, 0);
+
+  if (aX) {
+    *aX = x;
+  }
+  if (aY) {
+    *aY = y;
+  }
+
+  return true;
+}
+
+void nsWindow::ShowWaylandWindow() {
+  LOG(("nsWindow::ShowWaylandWindow: [%p]\n", this));
+  if (!IsWaylandPopup()) {
+    LOG(("  toplevel, show it now"));
+    gtk_widget_show(mShell);
+    return;
+  }
+
+  if (!mPopupTrackInHierarchy) {
+    LOG(("  popup is not tracked in popup hierarchy, show it now"));
+    gtk_widget_show(mShell);
+    return;
+  }
+
+  // Popup position was checked before gdk_window_move_to_rect() callback
+  // so just show it.
+  if (mPopupUseMoveToRect && mWaitingForMoveToRectCallback) {
+    LOG(("  active move-to-rect callback, show it as is"));
+    gtk_widget_show(mShell);
+    return;
+  }
+
+  if (gtk_widget_is_visible(mShell)) {
+    LOG(("  is already visible, quit"));
+    return;
+  }
+
+  int x, y;
+  bool moved = WaylandPopupRemoveNegativePosition(&x, &y);
+  gtk_widget_show(mShell);
+  if (moved) {
+    LOG(("  move back to (%d, %d) and show", x, y));
+    gdk_window_move(gtk_widget_get_window(mShell), x, y);
+  }
+}
+
 void nsWindow::WaylandPopupMarkAsClosed() {
   LOG_POPUP(("nsWindow::WaylandPopupMarkAsClosed: [%p]\n", this));
   mPopupClosed = true;
@@ -1358,6 +1414,10 @@ void nsWindow::HideWaylandPopupWindow(bool aTemporaryHide,
   // Hide only visible popups or popups closed pernamently.
   if (visible) {
     HideWaylandWindow();
+
+    // If there's pending Move-To-Rect callback and we hide the popup
+    // the callback won't be called any more.
+    mWaitingForMoveToRectCallback = false;
   }
 
   // Clear rendering transactions of closed window and disable rendering to it
@@ -1554,7 +1614,7 @@ void nsWindow::WaylandPopupHierarchyShowTemporaryHidden() {
     if (popup->mPopupTemporaryHidden) {
       popup->mPopupTemporaryHidden = false;
       LOG_POPUP(("  showing temporary hidden popup [%p]", popup));
-      gtk_widget_show(popup->mShell);
+      popup->ShowWaylandWindow();
     }
     popup = popup->mWaylandPopupNext;
   }
@@ -1632,39 +1692,6 @@ void nsWindow::WaylandPopupHierarchyCalculatePositions() {
          popup->mRelativePopupPosition.x, popup->mRelativePopupPosition.y));
     popup = popup->mWaylandPopupNext;
   }
-}
-
-// Gtk don't allow us to place tooltip popup on x < 0 & y < 0 coordinates
-// see https://gitlab.gnome.org/GNOME/gtk/-/issues/4071
-// so just remove such popups
-//
-// Returns:
-//     false - positions are valid or we still need to reposition/show some
-//             popups.
-//     true  - last (and only changed) popup was removed, no need to do any
-//             other actions.
-bool nsWindow::IsTooltipWithNegativeRelativePositionRemoved() {
-  LOG_POPUP(("nsWindow::IsTooltipWithNegativeRelativePositionRemoved()"));
-
-  nsWindow* firstChangedPopup = this;
-  nsWindow* popup = this;
-
-  while (popup) {
-    if (popup->mPopupType == ePopupTypeTooltip) {
-      if (popup->mRelativePopupPosition.x < 0 &&
-          popup->mRelativePopupPosition.y < 0) {
-        LOG_POPUP(
-            ("  removing tooltip with both negative coordinates [%p]", popup));
-        popup->HideWaylandPopupWindow(/* aTemporaryHide */ false,
-                                      /* aRemoveFromPopupList */ true);
-        return firstChangedPopup == popup;
-      }
-      break;
-    }
-    popup = popup->mWaylandPopupNext;
-  }
-
-  return false;
 }
 
 // The MenuList popups are used as dropdown menus for example in WebRTC
@@ -1951,9 +1978,6 @@ void nsWindow::UpdateWaylandPopupHierarchy() {
       &layoutPopupWidgetChain);
 
   changedPopup->WaylandPopupHierarchyCalculatePositions();
-  if (changedPopup->IsTooltipWithNegativeRelativePositionRemoved()) {
-    return;
-  }
 
   nsWindow* popup = changedPopup;
   while (popup) {
@@ -1976,7 +2000,9 @@ void nsWindow::UpdateWaylandPopupHierarchy() {
          "move-to-rect %d\n",
          popup, popup->mPopupMatchesLayout, popup->mPopupAnchored,
          popup->mWaylandPopupPrev->mWaylandToplevel == nullptr, useMoveToRect));
-    popup->WaylandPopupMove(useMoveToRect);
+
+    popup->mPopupUseMoveToRect = useMoveToRect;
+    popup->WaylandPopupMove();
     popup->mPopupChanged = false;
     popup = popup->mWaylandPopupNext;
   }
@@ -2136,6 +2162,98 @@ static GdkGravity PopupGetHorizontallyFlippedAnchor(GdkGravity anchor) {
   return anchor;
 }
 
+// Position the popup directly by gtk_window_move() and try to keep it
+// on screen by just moving it in scope of it's parent window.
+//
+// It's used when we position noautihode popup and we don't use xdg_positioner.
+// See Bug 1718867
+void nsWindow::WaylandPopupSetDirectPosition(GdkPoint* aPosition,
+                                             GdkRectangle* aSize) {
+  LOG_POPUP(("nsWindow::WaylandPopupSetDirectPosition [%p] %d,%d -> %d x %d\n",
+             (void*)this, aPosition->x, aPosition->y, aSize->width,
+             aSize->height));
+
+  mPopupPosition = *aPosition;
+
+  GtkWindow* parentGtkWindow = gtk_window_get_transient_for(GTK_WINDOW(mShell));
+  nsWindow* window = get_window_for_gtk_widget(GTK_WIDGET(parentGtkWindow));
+  GdkWindow* gdkWindow =
+      gtk_widget_get_window(GTK_WIDGET(window->GetMozContainer()));
+
+  int parentWidth = gdk_window_get_width(gdkWindow);
+  int popupWidth = aSize->width;
+
+  int x;
+  gdk_window_get_position(gdkWindow, &x, nullptr);
+
+  // If popup is bigger than main window just center it.
+  if (popupWidth > parentWidth) {
+    mPopupPosition.x = -(parentWidth - popupWidth) / 2 + x;
+  } else {
+    nsMenuPopupFrame* popupFrame = GetMenuPopupFrame(GetFrame());
+    if (popupFrame->IsDirectionRTL()) {
+      // Stick with right window edge
+      if (mPopupPosition.x < x) {
+        mPopupPosition.x = x;
+      }
+    } else {
+      // Stick with left window edge
+      if (mPopupPosition.x + popupWidth > parentWidth + x) {
+        mPopupPosition.x = parentWidth + x - popupWidth;
+      }
+    }
+  }
+
+  LOG_POPUP(("  set position [%d, %d]\n", mPopupPosition.x, mPopupPosition.y));
+  gtk_window_move(GTK_WINDOW(mShell), mPopupPosition.x, mPopupPosition.y);
+
+  LOG_POPUP(("  set size [%d, %d]\n", aSize->width, aSize->height));
+  gtk_window_resize(GTK_WINDOW(mShell), aSize->width, aSize->height);
+
+  if (mPopupPosition.x != aPosition->x) {
+    mBounds.x = mPopupPosition.x * FractionalScaleFactor();
+    mBounds.y = mPopupPosition.y * FractionalScaleFactor();
+    LOG_POPUP(("  setting new bounds [%d, %d]\n", mBounds.x, mBounds.y));
+    NotifyWindowMoved(mBounds.x, mBounds.y);
+    nsMenuPopupFrame* popupFrame = GetMenuPopupFrame(GetFrame());
+    popupFrame->MoveTo(CSSIntPoint(mPopupPosition.x, mPopupPosition.y), true);
+  }
+}
+
+bool nsWindow::WaylandPopupFitsParentWindow(GdkRectangle* aSize) {
+  GtkWindow* parentGtkWindow = gtk_window_get_transient_for(GTK_WINDOW(mShell));
+  nsWindow* parentWindow =
+      get_window_for_gtk_widget(GTK_WIDGET(parentGtkWindow));
+
+  // Don't try to fiddle with popup position when our parent is also popup.
+  // Use layout setup in such case.
+  if (parentWindow->IsPopup()) {
+    return false;
+  }
+
+  // Use MozContainer to get visible area without decorations.
+  GdkWindow* parentGdkWindow =
+      gtk_widget_get_window(GTK_WIDGET(parentWindow->GetMozContainer()));
+
+  // x,y are offsets of mozcontainer, i.e. size of CSD decorations size.
+  int x, y;
+  gdk_window_get_position(parentGdkWindow, &x, &y);
+
+  // We use parent mozcontainer size plus left/top CSD decorations sizes as
+  // this coordinates are used by mBounds.
+  int parentWidth = gdk_window_get_width(parentGdkWindow) + x;
+  int parentHeight = gdk_window_get_width(parentGdkWindow) + y;
+  int popupWidth = aSize->width;
+  int popupHeight = aSize->height;
+
+  int scale = FractionalScaleFactor();
+  int popupX = mBounds.x / scale;
+  int popupY = mBounds.y / scale;
+
+  return popupX + popupWidth <= parentWidth &&
+         popupY + popupHeight <= parentHeight;
+}
+
 void nsWindow::NativeMoveResizeWaylandPopup(GdkPoint* aPosition,
                                             GdkRectangle* aSize) {
   LOG_POPUP(("nsWindow::NativeMoveResizeWaylandPopup [%p] %d,%d -> %d x %d\n",
@@ -2150,29 +2268,35 @@ void nsWindow::NativeMoveResizeWaylandPopup(GdkPoint* aPosition,
     return;
   }
 
+  if (!WaylandPopupNeedsTrackInHierarchy()) {
+    WaylandPopupSetDirectPosition(aPosition, aSize);
+    return;
+  }
+
+  LOG_POPUP(("  set size [%d, %d]\n", aSize->width, aSize->height));
+  gtk_window_resize(GTK_WINDOW(mShell), aSize->width, aSize->height);
+
+  if (mPopupPosition.x == aPosition->x && mPopupPosition.y == aPosition->y &&
+      WaylandPopupFitsParentWindow(aSize)) {
+    // Popup position has not been changed and its position/size fits
+    // parent window so no need to reposition the window.
+    LOG_POPUP(("  fits parent window size, just resize\n"));
+    return;
+  }
+
   // Mark popup as changed as we're updating position/size.
   mPopupChanged = true;
 
   // Save popup position for former re-calculations when popup hierarchy
   // is changed.
-  LOG_POPUP(("  saved popup position [%d, %d]\n", aPosition->x, aPosition->y));
+  LOG_POPUP(("  popup position changed from [%d, %d] to [%d, %d]\n",
+             mPopupPosition.x, mPopupPosition.y, aPosition->x, aPosition->y));
   mPopupPosition = *aPosition;
-  if (aSize) {
-    LOG_POPUP(("  set size [%d, %d]\n", aSize->width, aSize->height));
-    gtk_window_resize(GTK_WINDOW(mShell), aSize->width, aSize->height);
-  }
-
-  if (!WaylandPopupNeedsTrackInHierarchy()) {
-    LOG_POPUP(("  not tracked, move popup to [%d, %d]\n", aPosition->x,
-               aPosition->y));
-    gtk_window_move(GTK_WINDOW(mShell), aPosition->x, aPosition->y);
-    return;
-  }
 
   UpdateWaylandPopupHierarchy();
 }
 
-void nsWindow::WaylandPopupMove(bool aUseMoveToRect) {
+void nsWindow::WaylandPopupMove() {
   LOG_POPUP(("nsWindow::WaylandPopupMove [%p]\n", (void*)this));
 
   // Available as of GTK 3.24+
@@ -2190,7 +2314,11 @@ void nsWindow::WaylandPopupMove(bool aUseMoveToRect) {
   LOG_POPUP(("  relative widget popup offset [%d, %d]\n",
              mRelativePopupOffset.x, mRelativePopupOffset.y));
 
-  if (!sGdkWindowMoveToRect || !gdkWindow || !aUseMoveToRect || !popupFrame) {
+  if (mPopupUseMoveToRect) {
+    mPopupUseMoveToRect = sGdkWindowMoveToRect && gdkWindow && popupFrame;
+  }
+
+  if (!mPopupUseMoveToRect) {
     LOG_POPUP(("  use gtk_window_move(%d, %d)\n", mRelativePopupPosition.x,
                mRelativePopupPosition.y));
     gtk_window_move(GTK_WINDOW(mShell),
@@ -2363,6 +2491,11 @@ void nsWindow::WaylandPopupMove(bool aUseMoveToRect) {
         "Positioning visible popup under Wayland, position may be wrong!");
   }
 
+  // Correct popup position now. It will be updated by gdk_window_move_to_rect()
+  // anyway but we need to set it now to avoid a race condition here.
+  WaylandPopupRemoveNegativePosition();
+
+  LOG_POPUP(("  move-to-rect call"));
   mPopupLastAnchor = anchorRect;
   sGdkWindowMoveToRect(gdkWindow, &rect, rectAnchor, menuAnchor, hints,
                        cursorOffset.x / p2a, cursorOffset.y / p2a);
@@ -3402,7 +3535,7 @@ gboolean nsWindow::OnExposeEvent(cairo_t* cr) {
   region.ScaleRoundOut(scale, scale);
 
   WindowRenderer* renderer = GetWindowRenderer();
-  LayerManager* layerManager = renderer->AsLayerManager();
+  WebRenderLayerManager* layerManager = renderer->AsWebRender();
   KnowsCompositor* knowsCompositor = renderer->AsKnowsCompositor();
 
   if (knowsCompositor && layerManager && mCompositorSession) {
@@ -5437,11 +5570,6 @@ nsresult nsWindow::Create(nsIWidget* aParent, nsNativeWidget aNativeParent,
       // the drawing window
       mGdkWindow = gtk_widget_get_window(eventWidget);
 
-      if (GdkIsX11Display() && gfx::gfxVars::UseEGL() && mIsAccelerated) {
-        mCompositorState = COMPOSITOR_PAUSED_MISSING_EGL_WINDOW;
-        ResumeCompositorHiddenWindow();
-      }
-
       if (mIsWaylandPanelWindow) {
         gtk_window_set_decorated(GTK_WINDOW(mShell), false);
       }
@@ -6078,10 +6206,12 @@ void nsWindow::NativeShow(bool aAction) {
       if (mWindowType != eWindowType_invisible) {
         SetUserTimeAndStartupIDForActivatedWindow(mShell);
       }
-      LOG(("  calling gtk_widget_show(mShell) [%p]\n", this));
-      gtk_widget_show(mShell);
       if (GdkIsWaylandDisplay()) {
+        ShowWaylandWindow();
         WaylandStartVsync();
+      } else {
+        LOG(("  calling gtk_widget_show(mShell) [%p]\n", this));
+        gtk_widget_show(mShell);
       }
     } else if (mContainer) {
       LOG(("  calling gtk_widget_show(mContainer)\n"));
@@ -6300,12 +6430,21 @@ void nsWindow::SetWindowMouseTransparent(bool aIsTransparent) {
     return;
   }
 
+  LOG(("nsWindow::SetWindowMouseTransparent(%d) [%p]", aIsTransparent, this));
+
   cairo_rectangle_int_t emptyRect = {0, 0, 0, 0};
   cairo_region_t* region =
       aIsTransparent ? cairo_region_create_rectangle(&emptyRect) : nullptr;
   gdk_window_input_shape_combine_region(window, region, 0, 0);
   if (region) {
     cairo_region_destroy(region);
+  }
+
+  // On Wayland gdk_window_input_shape_combine_region() call is cached and
+  // applied to underlying wl_surface when GdkWindow is repainted.
+  // Force repaint of GdkWindow to apply the change immediately.
+  if (GdkIsWaylandDisplay()) {
+    gdk_window_invalidate_rect(window, nullptr, false);
   }
 }
 
@@ -8376,26 +8515,16 @@ void nsWindow::SetCompositorWidgetDelegate(CompositorWidgetDelegate* delegate) {
     MOZ_ASSERT(mCompositorWidgetDelegate,
                "nsWindow::SetCompositorWidgetDelegate called with a "
                "non-PlatformCompositorWidgetDelegate");
+    if (GdkIsX11Display() && gfxVars::UseEGL() && mIsAccelerated) {
+      // This is called from nsBaseWidget::CreateCompositor() in which case
+      // we need to create a new EGL surface in RenderCompositorEGL on X11
+      mCompositorState = COMPOSITOR_PAUSED_MISSING_EGL_WINDOW;
+    }
     ResumeCompositorHiddenWindow();
     WaylandStartVsync();
   } else {
     WaylandStopVsync();
     mCompositorWidgetDelegate = nullptr;
-  }
-}
-
-void nsWindow::ClearCachedResources() {
-  if (mWindowRenderer && mWindowRenderer->GetBackendType() ==
-                             mozilla::layers::LayersBackend::LAYERS_BASIC) {
-    mWindowRenderer->AsLayerManager()->ClearCachedResources();
-  }
-
-  GList* children = gdk_window_peek_children(mGdkWindow);
-  for (GList* list = children; list; list = list->next) {
-    nsWindow* window = get_window_for_gdk_window(GDK_WINDOW(list->data));
-    if (window) {
-      window->ClearCachedResources();
-    }
   }
 }
 
@@ -9036,15 +9165,6 @@ void nsWindow::GetCompositorWidgetInitData(
       (mXWindow != X11None) ? mXWindow : (uintptr_t) nullptr, displayName,
       isShaped, GdkIsX11Display(), GetClientSize());
 }
-
-#ifdef MOZ_WAYLAND
-bool nsWindow::WaylandSurfaceNeedsClear() {
-  if (mContainer) {
-    return moz_container_wayland_surface_needs_clear(MOZ_CONTAINER(mContainer));
-  }
-  return false;
-}
-#endif
 
 #ifdef MOZ_X11
 /* XApp progress support currently works by setting a property

@@ -46,6 +46,8 @@ const TELEMETRY_EVENT_CATEGORY = "contextservices.quicksuggest";
 const EXPERIMENT_PREF = "browser.urlbar.quicksuggest.enabled";
 const SUGGEST_PREF = "suggest.quicksuggest";
 
+const DEFAULT_SCENARIO = UrlbarPrefs.get("quickSuggestScenario");
+
 // Spy for the custom impression/click sender
 let spy;
 
@@ -62,8 +64,8 @@ add_task(async function init() {
   await SpecialPowers.pushPrefEnv({
     set: [
       [EXPERIMENT_PREF, true],
-      ["browser.urlbar.suggest.searches", true],
-      ["browser.urlbar.quicksuggest.showedOnboardingDialog", true],
+      ["browser.urlbar." + SUGGEST_PREF, true],
+      ["browser.urlbar.suggest.quicksuggest.sponsored", true],
     ],
   });
 
@@ -108,6 +110,37 @@ add_task(async function impression() {
     assertCustomImpression(index);
   });
   await PlacesUtils.history.clear();
+});
+
+// Tests the impression scalar and the custom impression ping for "online" scenario.
+add_task(async function impression_online() {
+  await UrlbarTestUtils.withExperiment({
+    valueOverrides: {
+      // Make sure Merino is disabled so we don't hit the network.
+      merinoEnabled: false,
+      quickSuggestScenario: "online",
+      quickSuggestEnabled: true,
+      quickSuggestShouldShowOnboardingDialog: false,
+    },
+    callback: async () => {
+      spy.resetHistory();
+      await BrowserTestUtils.withNewTab("about:blank", async () => {
+        await UrlbarTestUtils.promiseAutocompleteResultPopup({
+          window,
+          value: TEST_SEARCH_STRING,
+          fireInputEvent: true,
+        });
+        let index = 1;
+        await assertIsQuickSuggest(index);
+        await UrlbarTestUtils.promisePopupClose(window, () => {
+          EventUtils.synthesizeKey("KEY_Enter");
+        });
+        assertScalars({ [TELEMETRY_SCALARS.IMPRESSION]: index + 1 });
+        assertCustomImpression(index, "online");
+      });
+      await PlacesUtils.history.clear();
+    },
+  });
 });
 
 // Makes sure the impression scalar and the custom impression are not incremented
@@ -321,7 +354,42 @@ add_task(async function enableToggled() {
   TelemetryTestUtils.assertEvents([], { category: TELEMETRY_EVENT_CATEGORY });
   await SpecialPowers.popPrefEnv();
 
-  UrlbarPrefs.clear(SUGGEST_PREF);
+  // Set the pref back to what it was at the start of the task.
+  UrlbarPrefs.set(SUGGEST_PREF, !enabled);
+});
+
+// Tests the contextservices.quicksuggest sponsored_toggled event telemetry by
+// toggling the suggest.quicksuggest.sponsored pref.
+add_task(async function sponsoredToggled() {
+  Services.telemetry.clearEvents();
+
+  // Toggle the suggest.quicksuggest.sponsored pref twice. We should get two
+  // events.
+  let enabled = UrlbarPrefs.get("suggest.quicksuggest.sponsored");
+  for (let i = 0; i < 2; i++) {
+    enabled = !enabled;
+    UrlbarPrefs.set("suggest.quicksuggest.sponsored", enabled);
+    TelemetryTestUtils.assertEvents([
+      {
+        category: TELEMETRY_EVENT_CATEGORY,
+        method: "sponsored_toggled",
+        object: enabled ? "enabled" : "disabled",
+      },
+    ]);
+  }
+
+  // Set the main quicksuggest.enabled pref to false and toggle the
+  // suggest.quicksuggest pref again. We shouldn't get any events.
+  await SpecialPowers.pushPrefEnv({
+    set: [[EXPERIMENT_PREF, false]],
+  });
+  enabled = !enabled;
+  UrlbarPrefs.set("suggest.quicksuggest.sponsored", enabled);
+  TelemetryTestUtils.assertEvents([], { category: TELEMETRY_EVENT_CATEGORY });
+  await SpecialPowers.popPrefEnv();
+
+  // Set the pref back to what it was at the start of the task.
+  UrlbarPrefs.set("suggest.quicksuggest.sponsored", !enabled);
 });
 
 // Tests the Nimbus "exposure" event gets recorded when the user is enrolled in
@@ -337,6 +405,8 @@ add_task(async function nimbusExposure() {
   UrlbarProviderQuickSuggest._recordedExposureEvent = false;
   let doExperimentCleanup = await UrlbarTestUtils.enrollExperiment({
     valueOverrides: {
+      // Make sure Merino is disabled so we don't hit the network.
+      merinoEnabled: false,
       quickSuggestEnabled: true,
       quickSuggestShouldShowOnboardingDialog: false,
     },
@@ -479,11 +549,17 @@ async function assertNoQuickSuggestResults() {
  *
  * @param {number} [index]
  *   The expected index of the Quick Suggest result.
+ * @param {string} [scenario]
+ *   The scenario of the Quick Suggest, should be one of "offline", "history", "online".
  */
-function assertCustomImpression(index) {
+function assertCustomImpression(index, scenario = DEFAULT_SCENARIO) {
   Assert.ok(spy.calledOnce, "Should send a custom impression ping");
   // Validate the impression ping
   let [payload, endpoint] = spy.firstCall.args;
+  let expectedSearchQuery = scenario === "online" ? TEST_SEARCH_STRING : "";
+  let expectedMatchedKeywords = scenario === "online" ? TEST_SEARCH_STRING : "";
+  let expectedScenario = scenario;
+
   Assert.ok(
     endpoint.includes(CONTEXTUAL_SERVICES_PING_TYPES.QS_IMPRESSION),
     "Should set the endpoint for QuickSuggest impression"
@@ -503,14 +579,15 @@ function assertCustomImpression(index) {
   Assert.equal(payload.position, index + 1, "Should set the position");
   Assert.equal(
     payload.search_query,
-    "",
-    "Should set the search_query to an empty string"
+    expectedSearchQuery,
+    "Should set the search_query"
   );
   Assert.equal(
     payload.matched_keywords,
-    "",
-    "Should set the matched_keywords to an empty string"
+    expectedMatchedKeywords,
+    "Should set the matched_keywords"
   );
+  Assert.equal(payload.scenario, expectedScenario, "Should set the scenario");
 }
 
 /**
@@ -548,6 +625,7 @@ function assertCustomClick(index) {
   );
   Assert.equal(payload.block_id, 1, "Should set the block_id");
   Assert.equal(payload.position, index + 1, "Should set the position");
+  Assert.equal(payload.scenario, DEFAULT_SCENARIO, "Should set the scenario");
 }
 
 /**

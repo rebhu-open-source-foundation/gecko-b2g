@@ -535,16 +535,17 @@ impl Document {
                 profile_scope!("GetScrollNodeState");
                 tx.send(self.scene.spatial_tree.get_scroll_node_state()).unwrap();
             }
-            FrameMsg::UpdateDynamicProperties(property_bindings) => {
-                self.dynamic_properties.set_properties(property_bindings);
+            FrameMsg::ResetDynamicProperties => {
+                self.dynamic_properties.reset_properties();
+            }
+            FrameMsg::AppendDynamicProperties(property_bindings) => {
+                self.dynamic_properties.add_properties(property_bindings);
             }
             FrameMsg::AppendDynamicTransformProperties(property_bindings) => {
                 self.dynamic_properties.add_transforms(property_bindings);
             }
             FrameMsg::SetIsTransformAsyncZooming(is_zooming, animation_id) => {
-                let node = self.scene.spatial_tree.spatial_nodes.iter_mut()
-                    .find(|node| node.is_transform_bound_to_property(animation_id));
-                if let Some(node) = node {
+                if let Some(node) = self.scene.spatial_tree.get_node_by_anim_id(animation_id) {
                     if node.is_async_zooming != is_zooming {
                         node.is_async_zooming = is_zooming;
                         self.frame_is_valid = false;

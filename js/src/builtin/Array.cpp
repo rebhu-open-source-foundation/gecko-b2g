@@ -49,7 +49,6 @@
 
 #include "vm/ArgumentsObject-inl.h"
 #include "vm/ArrayObject-inl.h"
-#include "vm/Caches-inl.h"
 #include "vm/GeckoProfiler-inl.h"
 #include "vm/Interpreter-inl.h"
 #include "vm/IsGivenTypeObject-inl.h"
@@ -3864,8 +3863,8 @@ static JSObject* CreateArrayPrototype(JSContext* cx, JSProtoKey key) {
 static bool array_proto_finish(JSContext* cx, JS::HandleObject ctor,
                                JS::HandleObject proto) {
   // Add Array.prototype[@@unscopables]. ECMA-262 draft (2016 Mar 19) 22.1.3.32.
-  RootedObject unscopables(
-      cx, NewTenuredObjectWithGivenProto<PlainObject>(cx, nullptr));
+  RootedObject unscopables(cx,
+                           NewPlainObjectWithProto(cx, nullptr, TenuredObject));
   if (!unscopables) {
     return false;
   }

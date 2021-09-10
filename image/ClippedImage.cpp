@@ -25,7 +25,6 @@ namespace mozilla {
 
 using namespace gfx;
 using layers::ImageContainer;
-using layers::LayerManager;
 using std::make_pair;
 using std::max;
 using std::modf;
@@ -290,36 +289,10 @@ std::pair<ImgDrawResult, RefPtr<SourceSurface>> ClippedImage::GetFrameInternal(
 }
 
 NS_IMETHODIMP_(bool)
-ClippedImage::IsImageContainerAvailable(LayerManager* aManager,
+ClippedImage::IsImageContainerAvailable(WindowRenderer* aRenderer,
                                         uint32_t aFlags) {
   if (!ShouldClip()) {
-    return InnerImage()->IsImageContainerAvailable(aManager, aFlags);
-  }
-  return false;
-}
-
-NS_IMETHODIMP_(already_AddRefed<ImageContainer>)
-ClippedImage::GetImageContainer(WindowRenderer* aRenderer, uint32_t aFlags) {
-  // XXX(seth): We currently don't have a way of clipping the result of
-  // GetImageContainer. We work around this by always returning null, but if it
-  // ever turns out that ClippedImage is widely used on codepaths that can
-  // actually benefit from GetImageContainer, it would be a good idea to fix
-  // that method for performance reasons.
-
-  if (!ShouldClip()) {
-    return InnerImage()->GetImageContainer(aRenderer, aFlags);
-  }
-
-  return nullptr;
-}
-
-NS_IMETHODIMP_(bool)
-ClippedImage::IsImageContainerAvailableAtSize(LayerManager* aManager,
-                                              const IntSize& aSize,
-                                              uint32_t aFlags) {
-  if (!ShouldClip()) {
-    return InnerImage()->IsImageContainerAvailableAtSize(aManager, aSize,
-                                                         aFlags);
+    return InnerImage()->IsImageContainerAvailable(aRenderer, aFlags);
   }
   return false;
 }

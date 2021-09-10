@@ -52,7 +52,6 @@
 #include "mozilla/layers/IAPZCTreeManager.h"
 #include "mozilla/layers/ImageBridgeChild.h"
 #include "mozilla/layers/InputAPZContext.h"
-#include "mozilla/layers/PLayerTransactionChild.h"
 #include "mozilla/layers/WebRenderLayerManager.h"
 #include "mozilla/webrender/WebRenderTypes.h"
 #include "nsAppDirectoryServiceDefs.h"
@@ -386,10 +385,10 @@ void nsBaseWidget::DestroyCompositor() {
 // This prevents the layer manager from starting a new transaction during
 // shutdown.
 void nsBaseWidget::RevokeTransactionIdAllocator() {
-  if (!mWindowRenderer || !mWindowRenderer->AsLayerManager()) {
+  if (!mWindowRenderer || !mWindowRenderer->AsWebRender()) {
     return;
   }
-  mWindowRenderer->AsLayerManager()->SetTransactionIdAllocator(nullptr);
+  mWindowRenderer->AsWebRender()->SetTransactionIdAllocator(nullptr);
 }
 
 void nsBaseWidget::ReleaseContentController() {
@@ -1285,7 +1284,7 @@ nsBaseWidget::GetCompositorVsyncDispatcher() {
   return dispatcher.forget();
 }
 
-already_AddRefed<LayerManager> nsBaseWidget::CreateCompositorSession(
+already_AddRefed<WebRenderLayerManager> nsBaseWidget::CreateCompositorSession(
     int aWidth, int aHeight, CompositorOptions* aOptionsOut) {
   MOZ_ASSERT(aOptionsOut);
 
@@ -1340,7 +1339,7 @@ already_AddRefed<LayerManager> nsBaseWidget::CreateCompositorSession(
     options.SetInitiallyPaused(CompositorInitiallyPaused());
 #endif
 
-    RefPtr<LayerManager> lm = new WebRenderLayerManager(this);
+    RefPtr<WebRenderLayerManager> lm = new WebRenderLayerManager(this);
 
     bool retry = false;
     mCompositorSession = gpu->CreateTopLevelCompositor(
@@ -1350,10 +1349,9 @@ already_AddRefed<LayerManager> nsBaseWidget::CreateCompositorSession(
     if (mCompositorSession) {
       TextureFactoryIdentifier textureFactoryIdentifier;
       nsCString error;
-      lm->AsWebRenderLayerManager()->Initialize(
-          mCompositorSession->GetCompositorBridgeChild(),
-          wr::AsPipelineId(mCompositorSession->RootLayerTreeId()),
-          &textureFactoryIdentifier, error);
+      lm->Initialize(mCompositorSession->GetCompositorBridgeChild(),
+                     wr::AsPipelineId(mCompositorSession->RootLayerTreeId()),
+                     &textureFactoryIdentifier, error);
       if (textureFactoryIdentifier.mParentBackend != LayersBackend::LAYERS_WR) {
         retry = true;
         DestroyCompositor();
@@ -1397,7 +1395,8 @@ void nsBaseWidget::CreateCompositor(int aWidth, int aHeight) {
   }
 
   CompositorOptions options;
-  RefPtr<LayerManager> lm = CreateCompositorSession(aWidth, aHeight, &options);
+  RefPtr<WebRenderLayerManager> lm =
+      CreateCompositorSession(aWidth, aHeight, &options);
   if (!lm) {
     return;
   }
@@ -1421,14 +1420,12 @@ void nsBaseWidget::CreateCompositor(int aWidth, int aHeight) {
     mInitialZoomConstraints.reset();
   }
 
-  if (lm->AsWebRenderLayerManager()) {
-    TextureFactoryIdentifier textureFactoryIdentifier =
-        lm->GetTextureFactoryIdentifier();
-    MOZ_ASSERT(textureFactoryIdentifier.mParentBackend ==
-               LayersBackend::LAYERS_WR);
-    ImageBridgeChild::IdentifyCompositorTextureHost(textureFactoryIdentifier);
-    gfx::VRManagerChild::IdentifyTextureHost(textureFactoryIdentifier);
-  }
+  TextureFactoryIdentifier textureFactoryIdentifier =
+      lm->GetTextureFactoryIdentifier();
+  MOZ_ASSERT(textureFactoryIdentifier.mParentBackend ==
+             LayersBackend::LAYERS_WR);
+  ImageBridgeChild::IdentifyCompositorTextureHost(textureFactoryIdentifier);
+  gfx::VRManagerChild::IdentifyTextureHost(textureFactoryIdentifier);
 
   WindowUsesOMTC();
 

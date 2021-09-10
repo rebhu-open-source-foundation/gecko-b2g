@@ -20,6 +20,12 @@ PLACES_AUTOCOMPLETE_6_FIRST_RESULTS_TIME_MS
   This probe tracks the amount of time it takes to get the first six results.
   It is an exponential histogram with values between 50 and 1000.
 
+FX_URLBAR_MERINO_LATENCY_MS
+  This probe is related to the Firefox Suggest (quick suggest) feature. It
+  records the time (ms) from the request to the Merino server to its
+  response. It is an exponential histogram with values between 0 and 30000 (0s
+  and 30s).
+
 FX_URLBAR_SELECTED_RESULT_METHOD
   This probe tracks how a result was picked by the user from the list.
   It is a categorical histogram with these values:
@@ -441,6 +447,8 @@ QuickSuggest Impression
     The Name of the advertiser.
   - ``reporting_url``
     The reporting URL of the QuickSuggest link, normally pointing to the ad partner's reporting endpoint.
+  - ``scenario``
+    The scenario of the QuickSuggest, could be one of "history", "offline", and "online".
 
 QuickSuggest Click
   This records a click ping when a QuickSuggest link is clicked by the user.
@@ -456,6 +464,8 @@ QuickSuggest Click
     The placement of the QuickSuggest link in the Urlbar (1-based).
   - ``reporting_url``
     The reporting URL of the QuickSuggest link, normally pointing to the ad partner's reporting endpoint.
+  - ``scenario``
+    The scenario of the QuickSuggest, could be one of "history", "offline", and "online".
 
 
 Other telemetry relevant to the Address Bar
@@ -497,16 +507,24 @@ contextual.services.quicksuggest.*
 contextservices.quicksuggest
   This is event telemetry under the ``contextservices.quicksuggest`` category.
   It's enabled only when the ``browser.urlbar.quicksuggest.enabled`` pref is
-  true. An event is recorded when the user toggles the
-  ``browser.urlbar.suggest.quicksuggest`` pref, which corresponds to the
-  checkbox in about:preferences#search labeled "Show Firefox Suggest in the
-  address bar (suggested and sponsored results)". If the user never toggles
-  the pref, then this event is never recorded.
+  true.
 
-  The full spec for this event is:
+  The following event is recorded when the
+  ``browser.urlbar.suggest.quicksuggest`` pref is toggled:
 
     - Category: ``contextservices.quicksuggest``
     - Method: ``enable_toggled``
+    - Objects: ``enabled``, ``disabled`` -- ``enabled`` is recorded when the
+      pref is flipped from false to true, and ``disabled`` is recorded when the
+      pref is flipped from true to false.
+    - Value: Not used
+    - Extra: Not used
+
+  The following event is recorded when the
+  ``browser.urlbar.suggest.quicksuggest.sponsored`` pref is toggled:
+
+    - Category: ``contextservices.quicksuggest``
+    - Method: ``sponsored_toggled``
     - Objects: ``enabled``, ``disabled`` -- ``enabled`` is recorded when the
       pref is flipped from false to true, and ``disabled`` is recorded when the
       pref is flipped from true to false.

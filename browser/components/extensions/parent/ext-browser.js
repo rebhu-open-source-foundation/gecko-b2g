@@ -44,34 +44,6 @@ function isPrivateTab(nativeTab) {
   return PrivateBrowsingUtils.isBrowserPrivate(nativeTab.linkedBrowser);
 }
 
-// This function is pretty tightly tied to Extension.jsm.
-// Its job is to fill in the |tab| property of the sender.
-const getSender = (extension, target, sender) => {
-  let tabId;
-  if ("tabId" in sender) {
-    // The message came from a privileged extension page running in a tab. In
-    // that case, it should include a tabId property (which is filled in by the
-    // page-open listener below).
-    tabId = sender.tabId;
-    delete sender.tabId;
-  } else if (
-    ExtensionCommon.instanceOf(target, "XULFrameElement") ||
-    ExtensionCommon.instanceOf(target, "HTMLIFrameElement")
-  ) {
-    tabId = tabTracker.getBrowserData(target).tabId;
-  }
-
-  if (tabId) {
-    let tab = extension.tabManager.get(tabId, null);
-    if (tab) {
-      sender.tab = tab.convert();
-    }
-  }
-};
-
-// Used by Extension.jsm
-global.tabGetSender = getSender;
-
 /* eslint-disable mozilla/balanced-listeners */
 extensions.on("uninstalling", (msg, extension) => {
   if (extension.uninstallURL) {
@@ -393,6 +365,10 @@ class TabTracker extends TabTrackerBase {
     if (!nativeTab.parentNode) {
       throw new Error("Cannot attach ID to a destroyed tab.");
     }
+    if (nativeTab.ownerGlobal.closed) {
+      throw new Error("Cannot attach ID to a tab in a closed window.");
+    }
+
     this._tabs.set(nativeTab, id);
     if (nativeTab.linkedBrowser) {
       this._browsers.set(nativeTab.linkedBrowser, id);

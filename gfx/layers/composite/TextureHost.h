@@ -615,7 +615,6 @@ class TextureHost : public AtomicRefCountedWithFinalize<TextureHost> {
   virtual void ForgetBufferActor() {}
 
   virtual const char* Name() { return "TextureHost"; }
-  virtual void PrintInfo(std::stringstream& aStream, const char* aPrefix);
 
   /**
    * Indicates whether the TextureHost implementation is backed by an
@@ -831,7 +830,6 @@ class TextureHost : public AtomicRefCountedWithFinalize<TextureHost> {
 
   friend class Compositor;
   friend class TextureParent;
-  friend class TiledLayerBufferComposite;
   friend class TextureSourceProvider;
   friend class GPUVideoTextureHost;
   friend class WebRenderTextureHost;

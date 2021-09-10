@@ -1,10 +1,16 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+#include "ICU4CGlue.h"
 #include "NumberFormatFields.h"
+#include "NumberFormatFieldsUtil.h"
+#include "ScopedICUObject.h"
 
-namespace mozilla {
-namespace intl {
+#include "unicode/uformattedvalue.h"
+#include "unicode/unum.h"
+#include "unicode/unumberformatter.h"
+
+namespace mozilla::intl {
 
 bool NumberFormatFields::append(NumberPartType type, int32_t begin,
                                 int32_t end) {
@@ -244,5 +250,78 @@ bool NumberFormatFields::toPartsVector(size_t overallLength,
   return lastEndIndex == overallLength;
 }
 
-}  // namespace intl
-}  // namespace mozilla
+Result<std::u16string_view, ICUError> FormatResultToParts(
+    const UFormattedNumber* value, Maybe<double> number, bool isNegative,
+    bool formatForUnit, NumberPartVector& parts) {
+  UErrorCode status = U_ZERO_ERROR;
+
+  const UFormattedValue* formattedValue = unumf_resultAsValue(value, &status);
+  if (U_FAILURE(status)) {
+    return Err(ToICUError(status));
+  }
+
+  return FormatResultToParts(formattedValue, number, isNegative, formatForUnit,
+                             parts);
+}
+
+Result<std::u16string_view, ICUError> FormatResultToParts(
+    const UFormattedValue* value, Maybe<double> number, bool isNegative,
+    bool formatForUnit, NumberPartVector& parts) {
+  UErrorCode status = U_ZERO_ERROR;
+
+  int32_t utf16Length;
+  const char16_t* utf16Str = ufmtval_getString(value, &utf16Length, &status);
+  if (U_FAILURE(status)) {
+    return Err(ToICUError(status));
+  }
+
+  UConstrainedFieldPosition* fpos = ucfpos_open(&status);
+  if (U_FAILURE(status)) {
+    return Err(ToICUError(status));
+  }
+  ScopedICUObject<UConstrainedFieldPosition, ucfpos_close> toCloseFpos(fpos);
+
+  // We're only interested in UFIELD_CATEGORY_NUMBER fields.
+  ucfpos_constrainCategory(fpos, UFIELD_CATEGORY_NUMBER, &status);
+  if (U_FAILURE(status)) {
+    return Err(ToICUError(status));
+  }
+
+  // Vacuum up fields in the overall formatted string.
+  NumberFormatFields fields;
+
+  while (true) {
+    bool hasMore = ufmtval_nextPosition(value, fpos, &status);
+    if (U_FAILURE(status)) {
+      return Err(ToICUError(status));
+    }
+    if (!hasMore) {
+      break;
+    }
+
+    int32_t fieldName = ucfpos_getField(fpos, &status);
+    if (U_FAILURE(status)) {
+      return Err(ToICUError(status));
+    }
+
+    int32_t beginIndex, endIndex;
+    ucfpos_getIndexes(fpos, &beginIndex, &endIndex, &status);
+    if (U_FAILURE(status)) {
+      return Err(ToICUError(status));
+    }
+
+    Maybe<NumberPartType> partType = GetPartTypeForNumberField(
+        UNumberFormatFields(fieldName), number, isNegative, formatForUnit);
+    if (!partType || !fields.append(*partType, beginIndex, endIndex)) {
+      return Err(ICUError::InternalError);
+    }
+  }
+
+  if (!fields.toPartsVector(utf16Length, parts)) {
+    return Err(ICUError::InternalError);
+  }
+
+  return std::u16string_view(utf16Str, static_cast<size_t>(utf16Length));
+}
+
+}  // namespace mozilla::intl

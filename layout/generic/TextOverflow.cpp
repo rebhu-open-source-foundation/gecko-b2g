@@ -209,16 +209,13 @@ static void PaintTextShadowCallback(gfxContext* aCtx, nsPoint aShadowOffset,
 
 void nsDisplayTextOverflowMarker::Paint(nsDisplayListBuilder* aBuilder,
                                         gfxContext* aCtx) {
-  DrawTargetAutoDisableSubpixelAntialiasing disable(aCtx->GetDrawTarget(),
-                                                    IsSubpixelAADisabled());
-
   nscolor foregroundColor =
       nsLayoutUtils::GetColor(mFrame, &nsStyleText::mWebkitTextFillColor);
 
   // Paint the text-shadows for the overflow marker
-  nsLayoutUtils::PaintTextShadow(mFrame, aCtx, mRect, GetPaintRect(),
-                                 foregroundColor, PaintTextShadowCallback,
-                                 (void*)this);
+  nsLayoutUtils::PaintTextShadow(mFrame, aCtx, mRect,
+                                 GetPaintRect(aBuilder, aCtx), foregroundColor,
+                                 PaintTextShadowCallback, (void*)this);
   aCtx->SetColor(gfx::sRGBColor::FromABGR(foregroundColor));
   PaintTextToContext(aCtx, nsPoint(0, 0));
 }

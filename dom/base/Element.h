@@ -573,7 +573,7 @@ class Element : public FragmentOrElement {
    *
    * @param aData The custom element data.
    */
-  void SetCustomElementData(CustomElementData* aData);
+  void SetCustomElementData(UniquePtr<CustomElementData> aData);
 
   /**
    * Gets the custom element definition used by web components custom element.
@@ -1269,7 +1269,7 @@ class Element : public FragmentOrElement {
   bool CanAttachShadowDOM() const;
 
   already_AddRefed<ShadowRoot> AttachShadowWithoutNameChecks(
-      ShadowRootMode aMode,
+      ShadowRootMode aMode, bool aDelegatesFocus = false,
       SlotAssignmentMode aSlotAssignmentMode = SlotAssignmentMode::Named);
 
   // Attach UA Shadow Root if it is not attached.

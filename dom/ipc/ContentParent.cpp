@@ -1018,8 +1018,9 @@ already_AddRefed<ContentParent> ContentParent::GetUsedBrowserProcess(
   }
 
   if (aPreferUsed && numberOfParents) {
-    // For the preloaded browser we don't want to create a new process but
-    // reuse an existing one.
+    // If we prefer re-using existing content processes, we don't want to create
+    // a new process, and instead re-use an existing one, so pretend the process
+    // limit is at the current number of processes.
     aMaxContentParents = numberOfParents;
   }
 
@@ -2731,7 +2732,7 @@ bool ContentParent::LaunchSubprocessResolve(bool aIsSync,
     MOZ_ASSERT(sCreatedFirstContentProcess);
     MOZ_ASSERT(!mPrefSerializer);
     MOZ_ASSERT(mLifecycleState != LifecycleState::LAUNCHING);
-    return true;
+    return mLaunchResolvedOk;
   }
   mLaunchResolved = true;
 
@@ -2815,6 +2816,8 @@ bool ContentParent::LaunchSubprocessResolve(bool aIsSync,
             ((mLaunchYieldTS - mLaunchTS) + (TimeStamp::Now() - launchResumeTS))
                 .ToMilliseconds()));
   }
+
+  mLaunchResolvedOk = true;
   return true;
 }
 
@@ -2887,6 +2890,7 @@ ContentParent::ContentParent(const nsACString& aRemoteType, int32_t aJSPluginID)
       mCreatedPairedMinidumps(false),
       mShutdownPending(false),
       mLaunchResolved(false),
+      mLaunchResolvedOk(false),
       mIsRemoteInputEventQueueEnabled(false),
       mIsInputPriorityEventEnabled(false),
       mIsInPool(false),
@@ -5650,7 +5654,10 @@ void ContentParent::MaybeInvokeDragSession(BrowserParent* aParent) {
           transferables, dataTransfers, false, nullptr, this);
       uint32_t action;
       session->GetDragAction(&action);
-      mozilla::Unused << SendInvokeDragSession(dataTransfers, action);
+
+      RefPtr<WindowContext> sourceWC;
+      session->GetSourceWindowContext(getter_AddRefs(sourceWC));
+      mozilla::Unused << SendInvokeDragSession(sourceWC, dataTransfers, action);
     }
   }
 }
@@ -7732,7 +7739,7 @@ void ContentParent::AddBrowsingContextGroup(BrowsingContextGroup* aGroup) {
 void ContentParent::RemoveBrowsingContextGroup(BrowsingContextGroup* aGroup) {
   MOZ_DIAGNOSTIC_ASSERT(aGroup);
   // Remove the group from our list. This is called from the
-  // BrowisngContextGroup when unsubscribing, so we don't need to do it here.
+  // BrowsingContextGroup when unsubscribing, so we don't need to do it here.
   if (mGroups.EnsureRemoved(aGroup) && CanSend()) {
     // If we're removing the entry for the first time, tell the content process
     // to clean up the group.

@@ -1291,7 +1291,7 @@ nsresult HTMLEditor::AutoDeleteRangesHandler::ComputeRangesToDelete(
           return NS_SUCCESS_DOM_NO_OPERATION;
         }
         if (HTMLEditUtils::IsInvisibleBRElement(
-                *scanFromCaretPointResult.BRElementPtr(), editingHost)) {
+                *scanFromCaretPointResult.BRElementPtr())) {
           EditorDOMPoint newCaretPosition =
               aDirectionAndAmount == nsIEditor::eNext
                   ? EditorDOMPoint::After(
@@ -1563,7 +1563,7 @@ EditActionResult HTMLEditor::AutoDeleteRangesHandler::Run(
           return EditActionCanceled();
         }
         if (HTMLEditUtils::IsInvisibleBRElement(
-                *scanFromCaretPointResult.BRElementPtr(), editingHost)) {
+                *scanFromCaretPointResult.BRElementPtr())) {
           // TODO: We should extend the range to delete again before/after
           //       the caret point and use `HandleDeleteNonCollapsedRanges()`
           //       instead after we would create delete range computation
@@ -1652,8 +1652,9 @@ HTMLEditor::AutoDeleteRangesHandler::ComputeRangesToDeleteAroundCollapsedRanges(
     const HTMLEditor& aHTMLEditor, nsIEditor::EDirection aDirectionAndAmount,
     AutoRangeArray& aRangesToDelete, const WSRunScanner& aWSRunScannerAtCaret,
     const WSScanResult& aScanFromCaretPointResult) const {
-  if (aScanFromCaretPointResult.InNormalWhiteSpaces() ||
-      aScanFromCaretPointResult.InNormalText()) {
+  if (aScanFromCaretPointResult.InCollapsibleWhiteSpaces() ||
+      aScanFromCaretPointResult.InNonCollapsibleCharacters() ||
+      aScanFromCaretPointResult.ReachedPreformattedLineBreak()) {
     nsresult rv = aRangesToDelete.Collapse(aScanFromCaretPointResult.Point());
     if (NS_FAILED(rv)) {
       NS_WARNING("AutoRangeArray::Collapse() failed");
@@ -1766,8 +1767,9 @@ HTMLEditor::AutoDeleteRangesHandler::HandleDeleteAroundCollapsedRanges(
       EditorType::HTML));
 
   if (StaticPrefs::editor_white_space_normalization_blink_compatible()) {
-    if (aScanFromCaretPointResult.InNormalWhiteSpaces() ||
-        aScanFromCaretPointResult.InNormalText()) {
+    if (aScanFromCaretPointResult.InCollapsibleWhiteSpaces() ||
+        aScanFromCaretPointResult.InNonCollapsibleCharacters() ||
+        aScanFromCaretPointResult.ReachedPreformattedLineBreak()) {
       nsresult rv = aRangesToDelete.Collapse(aScanFromCaretPointResult.Point());
       if (NS_FAILED(rv)) {
         NS_WARNING("AutoRangeArray::Collapse() failed");
@@ -1782,7 +1784,8 @@ HTMLEditor::AutoDeleteRangesHandler::HandleDeleteAroundCollapsedRanges(
     }
   }
 
-  if (aScanFromCaretPointResult.InNormalWhiteSpaces()) {
+  if (aScanFromCaretPointResult.InCollapsibleWhiteSpaces() ||
+      aScanFromCaretPointResult.ReachedPreformattedLineBreak()) {
     EditActionResult result = HandleDeleteCollapsedSelectionAtWhiteSpaces(
         aHTMLEditor, aDirectionAndAmount, aWSRunScannerAtCaret.ScanStartRef());
     NS_WARNING_ASSERTION(result.Succeeded(),
@@ -1792,7 +1795,7 @@ HTMLEditor::AutoDeleteRangesHandler::HandleDeleteAroundCollapsedRanges(
     return result;
   }
 
-  if (aScanFromCaretPointResult.InNormalText()) {
+  if (aScanFromCaretPointResult.InNonCollapsibleCharacters()) {
     if (NS_WARN_IF(!aScanFromCaretPointResult.GetContent()->IsText())) {
       return EditActionResult(NS_ERROR_FAILURE);
     }
@@ -2378,8 +2381,7 @@ EditActionResult HTMLEditor::AutoDeleteRangesHandler::HandleDeleteAtomicContent(
     const EditorDOMPoint& aCaretPoint,
     const WSRunScanner& aWSRunScannerAtCaret) {
   MOZ_ASSERT(aHTMLEditor.IsEditActionDataAvailable());
-  MOZ_ASSERT(!HTMLEditUtils::IsInvisibleBRElement(
-      aAtomicContent, aWSRunScannerAtCaret.GetEditingHost()));
+  MOZ_ASSERT(!HTMLEditUtils::IsInvisibleBRElement(aAtomicContent));
   MOZ_ASSERT(&aAtomicContent != aWSRunScannerAtCaret.GetEditingHost());
 
   nsresult rv =
@@ -3707,8 +3709,7 @@ HTMLEditor::AutoDeleteRangesHandler::DeleteNodeIfInvisibleAndEditableTextNode(
   }
 
   if (!HTMLEditUtils::IsRemovableFromParentNode(*text) ||
-      HTMLEditUtils::IsVisibleTextNode(*text,
-                                       aHTMLEditor.GetActiveEditingHost())) {
+      HTMLEditUtils::IsVisibleTextNode(*text)) {
     return NS_OK;
   }
 
@@ -3769,7 +3770,7 @@ HTMLEditor::AutoDeleteRangesHandler::DeleteParentBlocksWithTransactionIfEmpty(
                  "End reason is not the reached <br> element");
     // If the <br> element is visible, we shouldn't remove the parent block.
     if (HTMLEditUtils::IsVisibleBRElement(
-            *wsScannerForPoint.GetEndReasonContent(), editingHost)) {
+            *wsScannerForPoint.GetEndReasonContent())) {
       return NS_SUCCESS_EDITOR_ELEMENT_NOT_FOUND;
     }
     if (wsScannerForPoint.GetEndReasonContent()->GetNextSibling()) {
@@ -4447,7 +4448,7 @@ nsresult HTMLEditor::AutoDeleteRangesHandler::AutoBlockElementsJoiner::
       nsIContent* nextContent =
           atStart.IsEndOfContainer() && range.StartRef().GetChild() &&
                   HTMLEditUtils::IsInvisibleBRElement(
-                      *range.StartRef().GetChild(), editingHost)
+                      *range.StartRef().GetChild())
               ? HTMLEditUtils::GetNextContent(
                     *atStart.ContainerAsContent(),
                     {WalkTreeOption::IgnoreDataNodeExceptText,
@@ -5401,7 +5402,7 @@ bool HTMLEditor::AutoDeleteRangesHandler::ExtendRangeToIncludeInvisibleNodes(
                          forwardScanFromEndResult.BRElementPtr(),
                      "End reason is not the reached <br> element");
         if (HTMLEditUtils::IsVisibleBRElement(
-                *wsScannerAtEnd.GetEndReasonContent(), editingHost)) {
+                *wsScannerAtEnd.GetEndReasonContent())) {
           break;
         }
         if (!atFirstInvisibleBRElement.IsSet()) {

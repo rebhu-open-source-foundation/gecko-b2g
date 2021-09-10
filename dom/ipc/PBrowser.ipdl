@@ -90,6 +90,7 @@ using nsCursor from "nsIWidget.h";
 using struct LookAndFeelInt from "mozilla/widget/WidgetMessageUtils.h";
 using class mozilla::dom::MessagePort from "mozilla/dom/MessagePort.h";
 using class mozilla::dom::ipc::StructuredCloneData from "mozilla/dom/ipc/StructuredCloneData.h";
+using mozilla::dom::MaybeDiscardedWindowContext from "mozilla/dom/WindowContext.h";
 using mozilla::EventMessage from "mozilla/EventForwards.h";
 using nsEventStatus from "mozilla/EventForwards.h";
 using mozilla::Modifiers from "mozilla/EventForwards.h";
@@ -528,6 +529,7 @@ parent:
                                    uint32_t aRotation,
                                    int32_t aTiltX,
                                    int32_t aTiltY,
+                                   int32_t aButton,
                                    uint64_t aObserverId);
     async SynthesizeNativeTouchpadDoubleTap(LayoutDeviceIntPoint aPoint,
                                             uint32_t aModifierFlags);
@@ -652,7 +654,8 @@ parent:
                             uint32_t stride, SurfaceFormat format,
                             LayoutDeviceIntRect dragRect,
                             nsIPrincipal principal, nsIContentSecurityPolicy csp,
-                            CookieJarSettingsArgs cookieJarSettings);
+                            CookieJarSettingsArgs cookieJarSettings,
+                            MaybeDiscardedWindowContext sourceWindowContext);
 
     async AudioChannelActivityNotification(uint32_t aAudioChannel,
                                            bool aActive);

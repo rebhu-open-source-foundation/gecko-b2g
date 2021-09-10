@@ -25,7 +25,6 @@
 #include "nsComboboxControlFrame.h"
 #include "mozilla/dom/Document.h"
 #include "nsIFormControlFrame.h"
-#include "nsIForm.h"
 #include "nsIFrame.h"
 #include "nsListControlFrame.h"
 #include "nsISelectControlFrame.h"
@@ -1250,13 +1249,10 @@ EventStates HTMLSelectElement::IntrinsicState() const {
   return state;
 }
 
-// nsIFormControl
-
-NS_IMETHODIMP
-HTMLSelectElement::SaveState() {
+void HTMLSelectElement::SaveState() {
   PresState* presState = GetPrimaryPresState();
   if (!presState) {
-    return NS_OK;
+    return;
   }
 
   SelectContentData state;
@@ -1284,8 +1280,6 @@ HTMLSelectElement::SaveState() {
     presState->disabled() = HasAttr(kNameSpaceID_None, nsGkAtoms::disabled);
     presState->disabledSet() = true;
   }
-
-  return NS_OK;
 }
 
 bool HTMLSelectElement::RestoreState(PresState* aState) {
@@ -1338,6 +1332,8 @@ void HTMLSelectElement::RestoreStateTo(const SelectContentData& aNewSelected) {
     }
   }
 }
+
+// nsIFormControl
 
 NS_IMETHODIMP
 HTMLSelectElement::Reset() {

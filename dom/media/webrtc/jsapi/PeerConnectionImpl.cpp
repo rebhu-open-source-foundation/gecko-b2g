@@ -347,8 +347,9 @@ PeerConnectionImpl::~PeerConnectionImpl() {
     destroy_timecard(mTimeCard);
     mTimeCard = nullptr;
   }
-  // This aborts if not on main thread (in Debug builds)
-  PC_AUTO_ENTER_API_CALL_NO_CHECK();
+
+  MOZ_ASSERT(NS_IsMainThread());
+
   if (mWindow && mActiveOnWindow) {
     mWindow->RemovePeerConnection();
     // No code is supposed to observe the assignment below, but
@@ -2135,7 +2136,7 @@ nsresult PeerConnectionImpl::CloseInt() {
 }
 
 void PeerConnectionImpl::ShutdownMedia() {
-  PC_AUTO_ENTER_API_CALL_NO_CHECK();
+  MOZ_ASSERT(NS_IsMainThread());
 
   if (!mMedia) return;
 

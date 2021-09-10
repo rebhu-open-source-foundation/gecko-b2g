@@ -217,8 +217,7 @@ class ParentProcessDocumentOpenInfo final : public nsDocumentOpenInfo,
   // channel listener so that we forward onto DocumentLoadListener.
   bool TryDefaultContentListener(nsIChannel* aChannel,
                                  const nsCString& aContentType) {
-    uint32_t canHandle = nsWebNavigationInfo::IsTypeSupported(
-        aContentType, mBrowsingContext->GetAllowPlugins());
+    uint32_t canHandle = nsWebNavigationInfo::IsTypeSupported(aContentType);
     if (canHandle != nsIWebNavigationInfo::UNSUPPORTED) {
       m_targetStreamListener = mListener;
       nsLoadFlags loadFlags = 0;
@@ -2022,6 +2021,14 @@ bool DocumentLoadListener::DocShellWillDisplayContent(nsresult aStatus) {
       aStatus, mChannel, mLoadStateLoadType, loadingContext->IsTop(),
       loadingContext->GetUseErrorPages(), isInitialDocument, nullptr);
 
+  if (NS_SUCCEEDED(rv)) {
+    MOZ_LOG(gProcessIsolationLog, LogLevel::Verbose,
+            ("Skipping process switch, as DocShell will not display content "
+             "(status: %s) %s",
+             GetStaticErrorName(aStatus),
+             mChannelCreationURI->GetSpecOrDefault().get()));
+  }
+
   // If filtering returned a failure code, then an error page will
   // be display for that code, so return true;
   return NS_FAILED(rv);
@@ -2186,6 +2193,8 @@ DocumentLoadListener::OnStartRequest(nsIRequest* aRequest) {
       // support redirects, then we need to do it manually, by faking a process
       // switch.
       mDoingProcessSwitch = true;
+
+      DisconnectListeners(NS_BINDING_ABORTED, NS_BINDING_ABORTED, true);
 
       // XXX(anny) This is currently a dead code path because parent-controlled
       // DC pref is off. When we enable the pref, we might get extra STATE_START

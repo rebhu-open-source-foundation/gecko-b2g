@@ -9,7 +9,7 @@ use malloc_size_of::{MallocSizeOf, MallocSizeOfOps};
 use crate::render_api::MemoryReport;
 use crate::composite::CompositorKind;
 use crate::clip::{ClipStore, ClipStoreStats};
-use crate::spatial_tree::SpatialTree;
+use crate::spatial_tree::{SpatialTree, SceneSpatialTree};
 use crate::frame_builder::{ChasePrimitive, FrameBuilderConfig};
 use crate::hit_test::{HitTester, HitTestingScene, HitTestingSceneStats};
 use crate::internal_types::{FastHashMap, PlaneSplitter};
@@ -42,12 +42,23 @@ impl SceneProperties {
         }
     }
 
-    /// Set the current property list for this display list.
-    pub fn set_properties(&mut self, properties: DynamicProperties) {
-        self.pending_properties = Some(properties);
+    /// Reset the pending properties without flush.
+    pub fn reset_properties(&mut self) {
+        self.pending_properties = None;
     }
 
     /// Add to the current property list for this display list.
+    pub fn add_properties(&mut self, properties: DynamicProperties) {
+        let mut pending_properties = self.pending_properties
+            .take()
+            .unwrap_or_default();
+
+        pending_properties.extend(properties);
+
+        self.pending_properties = Some(pending_properties);
+    }
+
+    /// Add to the current transform property list for this display list.
     pub fn add_transforms(&mut self, transforms: Vec<PropertyValue<LayoutTransform>>) {
         let mut pending_properties = self.pending_properties
             .take()
@@ -61,8 +72,8 @@ impl SceneProperties {
     /// Flush any pending updates to the scene properties. Returns
     /// true if the properties have changed since the last flush
     /// was called. This code allows properties to be changed by
-    /// multiple set_properties and add_properties calls during a
-    /// single transaction, and still correctly determine if any
+    /// multiple reset_properties, add_properties and add_transforms calls
+    /// during a single transaction, and still correctly determine if any
     /// properties have changed. This can have significant power
     /// saving implications, allowing a frame build to be skipped
     /// if the properties haven't changed in many cases.
@@ -290,7 +301,7 @@ impl BuiltScene {
             background_color: None,
             prim_store: PrimitiveStore::new(&PrimitiveStoreStats::empty()),
             clip_store: ClipStore::new(&ClipStoreStats::empty()),
-            spatial_tree: SpatialTree::new(),
+            spatial_tree: SpatialTree::new(SceneSpatialTree::new()),
             hit_testing_scene: Arc::new(HitTestingScene::new(&HitTestingSceneStats::empty())),
             tile_cache_config: TileCacheConfig::new(0),
             tile_cache_pictures: Vec::new(),

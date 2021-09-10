@@ -19,7 +19,6 @@
 #include "mozilla/dom/SVGDocument.h"
 #include "mozilla/gfx/2D.h"
 #include "mozilla/gfx/gfxVars.h"
-#include "mozilla/layers/LayerManager.h"
 #include "mozilla/PendingAnimationTracker.h"
 #include "mozilla/PresShell.h"
 #include "mozilla/ProfilerLabels.h"
@@ -809,10 +808,10 @@ Tuple<ImgDrawResult, IntSize> VectorImage::GetImageContainerSize(
 }
 
 NS_IMETHODIMP_(bool)
-VectorImage::IsImageContainerAvailable(LayerManager* aManager,
+VectorImage::IsImageContainerAvailable(WindowRenderer* aRenderer,
                                        uint32_t aFlags) {
   if (mError || !mIsFullyLoaded ||
-      aManager->GetBackendType() != LayersBackend::LAYERS_WR) {
+      aRenderer->GetBackendType() != LayersBackend::LAYERS_WR) {
     return false;
   }
 
@@ -823,24 +822,6 @@ VectorImage::IsImageContainerAvailable(LayerManager* aManager,
   }
 
   return true;
-}
-
-//******************************************************************************
-NS_IMETHODIMP_(already_AddRefed<ImageContainer>)
-VectorImage::GetImageContainer(WindowRenderer* aRenderer, uint32_t aFlags) {
-  MOZ_ASSERT(aRenderer->GetBackendType() != LayersBackend::LAYERS_WR,
-             "WebRender should always use GetImageContainerAvailableAtSize!");
-  return nullptr;
-}
-
-//******************************************************************************
-NS_IMETHODIMP_(bool)
-VectorImage::IsImageContainerAvailableAtSize(LayerManager* aManager,
-                                             const IntSize& aSize,
-                                             uint32_t aFlags) {
-  // Since we only support image containers with WebRender, and it can handle
-  // textures larger than the hw max texture size, we don't need to check aSize.
-  return !aSize.IsEmpty() && IsImageContainerAvailable(aManager, aFlags);
 }
 
 //******************************************************************************

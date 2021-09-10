@@ -6750,8 +6750,9 @@
     "description": "PLACES: Expiration steps to cleanup the database"
   },
   "PLACES_AUTOCOMPLETE_1ST_RESULT_TIME_MS": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox", "fennec"],
+    "record_in_processes": ["main"],
+    "products": ["firefox"],
+    "alert_emails": ["fx-search@mozilla.com", "adw@mozilla.com"],
     "expires_in_version": "never",
     "kind": "exponential",
     "low": 50,
@@ -6761,8 +6762,8 @@
   },
   "PLACES_AUTOCOMPLETE_6_FIRST_RESULTS_TIME_MS": {
     "record_in_processes": ["main"],
-    "products": ["firefox", "fennec"],
-    "alert_emails": ["mdeboer@mozilla.com"],
+    "products": ["firefox"],
+    "alert_emails": ["fx-search@mozilla.com", "adw@mozilla.com"],
     "releaseChannelCollection": "opt-out",
     "expires_in_version": "never",
     "kind": "exponential",
@@ -8507,6 +8508,18 @@
     "n_buckets": 30,
     "keyed": true,
     "description": "Number of toplevel location changes in tablet and desktop mode (only used on win10 where tablet mode is available)"
+  },
+  "FX_URLBAR_MERINO_LATENCY_MS": {
+    "record_in_processes": ["main"],
+    "products": ["firefox"],
+    "alert_emails": ["fx-search@mozilla.com", "adw@mozilla.com"],
+    "expires_in_version": "never",
+    "kind": "exponential",
+    "high": 30000,
+    "n_buckets": 50,
+    "releaseChannelCollection": "opt-out",
+    "bug_numbers": [1727799],
+    "description": "Firefox: Time from request to Merino endpoint to response (ms)"
   },
   "FX_URLBAR_SELECTED_RESULT_INDEX": {
     "record_in_processes": ["main", "content"],
@@ -16194,124 +16207,6 @@
     "bug_numbers": [1602903, 1656132, 1690329],
     "description": "Fission enabled status of individual windows in fission.autostart and non-fission.autostart profiles"
   },
-  "BASE_FONT_FAMILIES_PER_PAGE": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox"],
-    "alert_emails": ["jkew@mozilla.com"],
-    "expires_in_version": "94",
-    "kind": "exponential",
-    "high": 256,
-    "n_buckets": 64,
-    "releaseChannelCollection": "opt-out",
-    "bug_numbers": [1619349],
-    "description": "Number of font-family names used that resolved to base system fonts"
-  },
-  "LANGPACK_FONT_FAMILIES_PER_PAGE": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox"],
-    "alert_emails": ["jkew@mozilla.com"],
-    "expires_in_version": "94",
-    "kind": "exponential",
-    "high": 256,
-    "n_buckets": 64,
-    "releaseChannelCollection": "opt-out",
-    "bug_numbers": [1619349],
-    "description": "Number of font-family names used that resolved to langpack-installed fonts"
-  },
-  "USER_FONT_FAMILIES_PER_PAGE": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox"],
-    "alert_emails": ["jkew@mozilla.com"],
-    "expires_in_version": "94",
-    "kind": "exponential",
-    "high": 256,
-    "n_buckets": 64,
-    "releaseChannelCollection": "opt-out",
-    "bug_numbers": [1619349],
-    "description": "Number of font-family names used that resolved to user-installed fonts"
-  },
-  "WEB_FONT_FAMILIES_PER_PAGE": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox"],
-    "alert_emails": ["jkew@mozilla.com"],
-    "expires_in_version": "94",
-    "kind": "exponential",
-    "high": 256,
-    "n_buckets": 64,
-    "releaseChannelCollection": "opt-out",
-    "bug_numbers": [1619349],
-    "description": "Number of font-family names used that resolved to web fonts"
-  },
-  "FALLBACK_TO_PREFS_FONT": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox"],
-    "alert_emails": ["jkew@mozilla.com"],
-    "expires_in_version": "94",
-    "kind": "boolean",
-    "releaseChannelCollection": "opt-out",
-    "bug_numbers": [1619349],
-    "description": "Font fallback occurred using a font family specified in prefs"
-  },
-  "FALLBACK_TO_BASE_FONT": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox"],
-    "alert_emails": ["jkew@mozilla.com"],
-    "expires_in_version": "94",
-    "kind": "boolean",
-    "releaseChannelCollection": "opt-out",
-    "bug_numbers": [1619349],
-    "description": "Font fallback occurred using a base system font"
-  },
-  "FALLBACK_TO_LANGPACK_FONT": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox"],
-    "alert_emails": ["jkew@mozilla.com"],
-    "expires_in_version": "94",
-    "kind": "boolean",
-    "releaseChannelCollection": "opt-out",
-    "bug_numbers": [1619349],
-    "description": "Font fallback occurred using a langpack-installed font"
-  },
-  "FALLBACK_TO_USER_FONT": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox"],
-    "alert_emails": ["jkew@mozilla.com"],
-    "expires_in_version": "94",
-    "kind": "boolean",
-    "releaseChannelCollection": "opt-out",
-    "bug_numbers": [1619349],
-    "description": "Font fallback occurred using a user-installed font"
-  },
-  "MISSING_FONT": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox"],
-    "alert_emails": ["jkew@mozilla.com"],
-    "expires_in_version": "94",
-    "kind": "boolean",
-    "releaseChannelCollection": "opt-out",
-    "bug_numbers": [1619349],
-    "description": "Encountered a missing character (not supported by any available font)"
-  },
-  "MISSING_FONT_LANGPACK": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox"],
-    "alert_emails": ["jkew@mozilla.com"],
-    "expires_in_version": "94",
-    "kind": "boolean",
-    "releaseChannelCollection": "opt-out",
-    "bug_numbers": [1619349],
-    "description": "Encountered a missing character that would have been supported by a langpack-installed font"
-  },
-  "MISSING_FONT_USER": {
-    "record_in_processes": ["main", "content"],
-    "products": ["firefox"],
-    "alert_emails": ["jkew@mozilla.com"],
-    "expires_in_version": "94",
-    "kind": "boolean",
-    "releaseChannelCollection": "opt-out",
-    "bug_numbers": [1619349],
-    "description": "Encountered a missing character that would have been supported by a user-installed font"
-  },
   "COOKIE_PURGING_ORIGINS_PURGED": {
     "expires_in_version": "never",
     "record_in_processes": ["main"],
@@ -16813,5 +16708,17 @@
       "Fetch",
       "Unexpected"
     ]
+  },
+  "DOWNLOADS_USER_ACTION_ON_BLOCKED_DOWNLOAD": {
+    "record_in_processes": ["main"],
+    "products": ["firefox"],
+    "alert_emails": ["dlee@mozilla.com", "safebrowsing-telemetry@mozilla.org"],
+    "bug_numbers": [1722066],
+    "expires_in_version": "never",
+    "releaseChannelCollection": "opt-out",
+    "kind": "enumerated",
+    "n_values": 3,
+    "keyed": true,
+    "description": "Users action on blocked download, keyed by verdict type (0=Number of blocked downloads, 1=Confirm block, 2=Confirm unblock)"
   }
 }

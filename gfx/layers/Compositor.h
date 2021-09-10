@@ -134,7 +134,6 @@ class TextureSource;
 class DataTextureSource;
 class CompositingRenderTarget;
 class CompositorBridgeParent;
-class LayerManagerComposite;
 class NativeLayer;
 class CompositorOGL;
 class CompositorD3D11;
@@ -518,22 +517,6 @@ class Compositor : public TextureSourceProvider {
    */
   virtual bool SupportsPartialTextureUpdate() = 0;
 
-  void SetDiagnosticTypes(DiagnosticTypes aDiagnostics) {
-    mDiagnosticTypes = aDiagnostics;
-  }
-
-  DiagnosticTypes GetDiagnosticTypes() const { return mDiagnosticTypes; }
-
-  void DrawDiagnostics(DiagnosticFlags aFlags, const gfx::Rect& visibleRect,
-                       const gfx::IntRect& aClipRect,
-                       const gfx::Matrix4x4& transform,
-                       uint32_t aFlashCounter = DIAGNOSTIC_FLASH_COUNTER_MAX);
-
-  void DrawDiagnostics(DiagnosticFlags aFlags, const nsIntRegion& visibleRegion,
-                       const gfx::IntRect& aClipRect,
-                       const gfx::Matrix4x4& transform,
-                       uint32_t aFlashCounter = DIAGNOSTIC_FLASH_COUNTER_MAX);
-
 #ifdef MOZ_DUMP_PAINTING
   virtual const char* Name() const = 0;
 #endif  // MOZ_DUMP_PAINTING
@@ -610,14 +593,6 @@ class Compositor : public TextureSourceProvider {
   already_AddRefed<RecordedFrame> RecordFrame(const TimeStamp& aTimeStamp);
 
  protected:
-  void DrawDiagnosticsInternal(DiagnosticFlags aFlags,
-                               const gfx::Rect& aVisibleRect,
-                               const gfx::IntRect& aClipRect,
-                               const gfx::Matrix4x4& transform,
-                               uint32_t aFlashCounter);
-
-  bool ShouldDrawDiagnostics(DiagnosticFlags);
-
   /**
    * Given a layer rect, clip, and transform, compute the area of the backdrop
    * that needs to be copied for mix-blending. The output transform translates
@@ -669,7 +644,6 @@ class Compositor : public TextureSourceProvider {
    */
   TimeStamp mLastCompositionEndTime;
 
-  DiagnosticTypes mDiagnosticTypes;
   CompositorBridgeParent* mParent;
 
   /**

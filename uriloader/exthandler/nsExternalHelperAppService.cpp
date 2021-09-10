@@ -289,6 +289,7 @@ static nsresult GetDownloadDirectory(nsIFile** _directory,
 #if defined(ANDROID)
   return NS_ERROR_FAILURE;
 #endif
+
   bool usePrefDir =
       StaticPrefs::browser_download_improvements_to_download_panel();
 #ifdef XP_MACOSX
@@ -329,78 +330,132 @@ static nsresult GetDownloadDirectory(nsIFile** _directory,
         // This is just the OS default location, so fall out
         break;
     }
-  }
+    if (!dir) {
+      rv = NS_GetSpecialDirectory(NS_OS_DEFAULT_DOWNLOAD_DIR,
+                                  getter_AddRefs(dir));
+      NS_ENSURE_SUCCESS(rv, rv);
+    }
+  } else {
+#if defined(MOZ_WIDGET_GONK)
+    // On Gonk, store the files on the sdcard in the downloads directory.
+    // We need to check with the volume manager which storage point is
+    // available.
 
-  if (!dir) {
-#ifdef XP_MACOSX
-    // Default to the OS X default download location.
-    rv = NS_GetSpecialDirectory(NS_OSX_DEFAULT_DOWNLOAD_DIR,
-                                getter_AddRefs(dir));
-#elif defined(XP_WIN)
-    rv = NS_GetSpecialDirectory(
-        StaticPrefs::browser_download_improvements_to_download_panel()
-            ? NS_WIN_DEFAULT_DOWNLOAD_DIR
-            : NS_OS_TEMP_DIR,
-        getter_AddRefs(dir));
-#elif defined(MOZ_WIDGET_GONK)
-  // On Gonk, store the files on the sdcard in the downloads directory.
-  // We need to check with the volume manager which storage point is
-  // available.
+    // Pick the default storage in case multiple (internal and external) ones
+    // are available.
+    nsString storageName;
+    nsDOMDeviceStorage::GetDefaultStorageName(u"sdcard"_ns, storageName);
 
-  // Pick the default storage in case multiple (internal and external) ones
-  // are available.
-  nsString storageName;
-  nsDOMDeviceStorage::GetDefaultStorageName(u"sdcard"_ns,
-                                            storageName);
+    RefPtr<DeviceStorageFile> dsf(
+        new DeviceStorageFile(u"sdcard"_ns, storageName, u"downloads"_ns));
+    NS_ENSURE_TRUE(dsf->mFile, NS_ERROR_FILE_ACCESS_DENIED);
 
-  RefPtr<DeviceStorageFile> dsf(
-      new DeviceStorageFile(u"sdcard"_ns, storageName,
-                            u"downloads"_ns));
-  NS_ENSURE_TRUE(dsf->mFile, NS_ERROR_FILE_ACCESS_DENIED);
+    // If we're not checking for availability we're done.
+    if (aSkipChecks) {
+      dsf->mFile.forget(_directory);
+      return NS_OK;
+    }
 
-  // If we're not checking for availability we're done.
-  if (aSkipChecks) {
-    dsf->mFile.forget(_directory);
-    return NS_OK;
-  }
+    // Check device storage status before continuing.
+    nsString storageStatus;
+    dsf->GetStatus(storageStatus);
 
-  // Check device storage status before continuing.
-  nsString storageStatus;
-  dsf->GetStatus(storageStatus);
+    // If we get an "unavailable" status, it means the sd card is not present.
+    // We'll also catch internal errors by looking for an empty string and
+    // assume the SD card isn't present when this occurs.
+    if (storageStatus.EqualsLiteral("unavailable") || storageStatus.IsEmpty()) {
+      return NS_ERROR_FILE_NOT_FOUND;
+    }
 
-  // If we get an "unavailable" status, it means the sd card is not present.
-  // We'll also catch internal errors by looking for an empty string and assume
-  // the SD card isn't present when this occurs.
-  if (storageStatus.EqualsLiteral("unavailable") || storageStatus.IsEmpty()) {
-    return NS_ERROR_FILE_NOT_FOUND;
-  }
+    // If we get a status other than 'available' here it means the card is busy
+    // because it's mounted via USB or it is being formatted.
+    if (!storageStatus.EqualsLiteral("available")) {
+      return NS_ERROR_FILE_ACCESS_DENIED;
+    }
 
-  // If we get a status other than 'available' here it means the card is busy
-  // because it's mounted via USB or it is being formatted.
-  if (!storageStatus.EqualsLiteral("available")) {
-    return NS_ERROR_FILE_ACCESS_DENIED;
-  }
-
-  bool alreadyThere;
-  nsresult rv = dsf->mFile->Exists(&alreadyThere);
-  NS_ENSURE_SUCCESS(rv, rv);
-  if (!alreadyThere) {
-    rv = dsf->mFile->Create(nsIFile::DIRECTORY_TYPE, 0770);
+    bool alreadyThere;
+    nsresult rv = dsf->mFile->Exists(&alreadyThere);
     NS_ENSURE_SUCCESS(rv, rv);
-  }
-  dir = dsf->mFile;
-#elif defined(XP_UNIX)
-    rv = NS_GetSpecialDirectory(
-        StaticPrefs::browser_download_improvements_to_download_panel()
-            ? NS_UNIX_DEFAULT_DOWNLOAD_DIR
-            : NS_OS_TEMP_DIR,
-        getter_AddRefs(dir));
+    if (!alreadyThere) {
+      rv = dsf->mFile->Create(nsIFile::DIRECTORY_TYPE, 0770);
+      NS_ENSURE_SUCCESS(rv, rv);
+    }
+    dir = dsf->mFile;
 #else
-    // On all other platforms, we default to the systems temporary directory.
     rv = NS_GetSpecialDirectory(NS_OS_TEMP_DIR, getter_AddRefs(dir));
+    NS_ENSURE_SUCCESS(rv, rv);
 #endif
 
+#if !defined(XP_MACOSX) && defined(XP_UNIX)
+    // Ensuring that only the current user can read the file names we end up
+    // creating. Note that creating directories with a specified permission is
+    // only supported on Unix platform right now. That's why the above check
+    // exists.
+
+    uint32_t permissions;
+    rv = dir->GetPermissions(&permissions);
     NS_ENSURE_SUCCESS(rv, rv);
+
+    if (permissions != PR_IRWXU) {
+      const char* userName = PR_GetEnv("USERNAME");
+      if (!userName || !*userName) {
+        userName = PR_GetEnv("USER");
+      }
+      if (!userName || !*userName) {
+        userName = PR_GetEnv("LOGNAME");
+      }
+      if (!userName || !*userName) {
+        userName = "mozillaUser";
+      }
+
+      nsAutoString userDir;
+      userDir.AssignLiteral("mozilla_");
+      userDir.AppendASCII(userName);
+      userDir.ReplaceChar(FILE_PATH_SEPARATOR FILE_ILLEGAL_CHARACTERS, '_');
+
+      int counter = 0;
+      bool pathExists;
+      nsCOMPtr<nsIFile> finalPath;
+
+      while (true) {
+        nsAutoString countedUserDir(userDir);
+        countedUserDir.AppendInt(counter, 10);
+        dir->Clone(getter_AddRefs(finalPath));
+        finalPath->Append(countedUserDir);
+
+        rv = finalPath->Exists(&pathExists);
+        NS_ENSURE_SUCCESS(rv, rv);
+
+        if (pathExists) {
+          // If this path has the right permissions, use it.
+          rv = finalPath->GetPermissions(&permissions);
+          NS_ENSURE_SUCCESS(rv, rv);
+
+          // Ensuring the path is writable by the current user.
+          bool isWritable;
+          rv = finalPath->IsWritable(&isWritable);
+          NS_ENSURE_SUCCESS(rv, rv);
+
+          if (permissions == PR_IRWXU && isWritable) {
+            dir = finalPath;
+            break;
+          }
+        }
+
+        rv = finalPath->Create(nsIFile::DIRECTORY_TYPE, PR_IRWXU);
+        if (NS_SUCCEEDED(rv)) {
+          dir = finalPath;
+          break;
+        }
+        if (rv != NS_ERROR_FILE_ALREADY_EXISTS) {
+          // Unexpected error.
+          return rv;
+        }
+        counter++;
+      }
+    }
+
+#endif
   }
 
   NS_ASSERTION(dir, "Somehow we didn't get a download directory!");
@@ -1681,6 +1736,11 @@ NS_IMETHODIMP nsExternalAppHandler::OnStartRequest(nsIRequest* request) {
     aChannel->GetURI(getter_AddRefs(mSourceUrl));
   }
 
+  if (StaticPrefs::browser_download_improvements_to_download_panel() &&
+      IsDownloadSpam(aChannel)) {
+    return NS_OK;
+  }
+
   mDownloadClassification =
       nsContentSecurityUtils::ClassifyDownload(aChannel, MIMEType);
 
@@ -1954,6 +2014,62 @@ NS_IMETHODIMP nsExternalAppHandler::OnStartRequest(nsIRequest* request) {
     }
   }
   return NS_OK;
+}
+
+bool nsExternalAppHandler::IsDownloadSpam(nsIChannel* aChannel) {
+  nsCOMPtr<nsILoadInfo> loadInfo = aChannel->LoadInfo();
+
+  if (loadInfo->GetHasValidUserGestureActivation()) {
+    return false;
+  }
+
+  nsCOMPtr<nsIPermissionManager> permissionManager =
+      mozilla::services::GetPermissionManager();
+  nsCOMPtr<nsIPrincipal> principal = loadInfo->TriggeringPrincipal();
+  bool exactHostMatch = false;
+  constexpr auto type = "automatic-download"_ns;
+  nsCOMPtr<nsIPermission> permission;
+
+  permissionManager->GetPermissionObject(principal, type, exactHostMatch,
+                                         getter_AddRefs(permission));
+
+  if (permission) {
+    uint32_t capability;
+    permission->GetCapability(&capability);
+    if (capability == nsIPermissionManager::DENY_ACTION) {
+      mCanceled = true;
+      aChannel->Cancel(NS_ERROR_ABORT);
+      return true;
+    }
+    if (capability == nsIPermissionManager::ALLOW_ACTION) {
+      return false;
+    }
+    // If no action is set (i.e: null), we set PROMPT_ACTION by default,
+    // which will notify the Downloads UI to open the panel on the next request.
+    if (capability == nsIPermissionManager::PROMPT_ACTION) {
+      nsCOMPtr<nsIObserverService> observerService =
+          mozilla::services::GetObserverService();
+
+      nsAutoCString cStringURI;
+      loadInfo->TriggeringPrincipal()->GetPrePath(cStringURI);
+      observerService->NotifyObservers(
+          nullptr, "blocked-automatic-download",
+          NS_ConvertASCIItoUTF16(cStringURI.get()).get());
+      // FIXME: In order to escape memory leaks, currently we cancel blocked
+      // downloads. This is temporary solution, because download data should be
+      // kept in order to restart the blocked download.
+      mCanceled = true;
+      aChannel->Cancel(NS_ERROR_ABORT);
+      // End cancel
+      return true;
+    }
+  } else {
+    permissionManager->AddFromPrincipal(
+        principal, type, nsIPermissionManager::PROMPT_ACTION,
+        nsIPermissionManager::EXPIRE_NEVER, 0 /* expire time */);
+  }
+
+  return false;
 }
 
 // Convert error info into proper message text and send OnStatusChange

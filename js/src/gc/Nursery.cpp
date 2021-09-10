@@ -22,6 +22,7 @@
 #include "gc/GCLock.h"
 #include "gc/Memory.h"
 #include "gc/PublicIterators.h"
+#include "gc/Tenuring.h"
 #include "jit/JitFrames.h"
 #include "jit/JitRealm.h"
 #include "util/DifferentialTesting.h"
@@ -35,6 +36,7 @@
 
 #include "gc/Marking-inl.h"
 #include "gc/Zone-inl.h"
+#include "vm/GeckoProfiler-inl.h"
 #include "vm/NativeObject-inl.h"
 
 using namespace js;
@@ -793,17 +795,6 @@ void js::Nursery::forwardBufferPointer(uintptr_t* pSlotsElems) {
   *pSlotsElems = reinterpret_cast<uintptr_t>(buffer);
 }
 
-js::TenuringTracer::TenuringTracer(JSRuntime* rt, Nursery* nursery)
-    : GenericTracer(rt, JS::TracerKind::Tenuring,
-                    JS::WeakMapTraceAction::TraceKeysAndValues),
-      nursery_(*nursery),
-      tenuredSize(0),
-      tenuredCells(0),
-      objHead(nullptr),
-      objTail(&objHead),
-      stringHead(nullptr),
-      stringTail(&stringHead) {}
-
 inline double js::Nursery::calcPromotionRate(bool* validForTenuring) const {
   MOZ_ASSERT(validForTenuring);
 
@@ -977,12 +968,16 @@ inline TimeStamp js::Nursery::lastCollectionEndTime() const {
 }
 
 bool js::Nursery::shouldCollect() const {
-  if (minorGCRequested()) {
-    return true;
+  if (!isEnabled()) {
+    return false;
   }
 
   if (isEmpty() && capacity() == tunables().gcMinNurseryBytes()) {
     return false;
+  }
+
+  if (minorGCRequested()) {
+    return true;
   }
 
   // Eagerly collect the nursery in idle time if it's nearly full.
@@ -1216,42 +1211,8 @@ js::Nursery::CollectionResult js::Nursery::doCollection(JS::GCReason reason) {
   // Move objects pointed to by roots from the nursery to the major heap.
   TenuringTracer mover(rt, this);
 
-  // Mark the store buffer. This must happen first.
-  StoreBuffer& sb = gc->storeBuffer();
-
-  // Strings in the whole cell buffer must be traced first, in order to mark
-  // tenured dependent strings' bases as non-deduplicatable. The rest of
-  // nursery collection (whole non-string cells, edges, etc.) can happen later.
-  startProfile(ProfileKey::TraceWholeCells);
-  sb.traceWholeCells(mover);
-  endProfile(ProfileKey::TraceWholeCells);
-
-  startProfile(ProfileKey::TraceValues);
-  sb.traceValues(mover);
-  endProfile(ProfileKey::TraceValues);
-
-  startProfile(ProfileKey::TraceCells);
-  sb.traceCells(mover);
-  endProfile(ProfileKey::TraceCells);
-
-  startProfile(ProfileKey::TraceSlots);
-  sb.traceSlots(mover);
-  endProfile(ProfileKey::TraceSlots);
-
-  startProfile(ProfileKey::TraceGenericEntries);
-  sb.traceGenericEntries(&mover);
-  endProfile(ProfileKey::TraceGenericEntries);
-
-  startProfile(ProfileKey::MarkRuntime);
-  gc->traceRuntimeForMinorGC(&mover, session);
-  endProfile(ProfileKey::MarkRuntime);
-
-  startProfile(ProfileKey::MarkDebugger);
-  {
-    gcstats::AutoPhase ap(stats(), gcstats::PhaseKind::MARK_ROOTS);
-    DebugAPI::traceAllForMovingGC(&mover);
-  }
-  endProfile(ProfileKey::MarkDebugger);
+  // Trace everything considered as a root by a minor GC.
+  traceRoots(session, mover);
 
   startProfile(ProfileKey::SweepCaches);
   gc->purgeRuntimeForMinorGC();
@@ -1315,6 +1276,49 @@ js::Nursery::CollectionResult js::Nursery::doCollection(JS::GCReason reason) {
   endProfile(ProfileKey::CheckHashTables);
 
   return {mover.tenuredSize, mover.tenuredCells};
+}
+
+void js::Nursery::traceRoots(AutoGCSession& session, TenuringTracer& mover) {
+  // Suppress the sampling profiler to prevent it observing moved functions.
+  AutoSuppressProfilerSampling suppressProfiler(
+      runtime()->mainContextFromOwnThread());
+
+  // Trace the store buffer. This must happen first.
+  StoreBuffer& sb = gc->storeBuffer();
+
+  // Strings in the whole cell buffer must be traced first, in order to mark
+  // tenured dependent strings' bases as non-deduplicatable. The rest of
+  // nursery collection (whole non-string cells, edges, etc.) can happen later.
+  startProfile(ProfileKey::TraceWholeCells);
+  sb.traceWholeCells(mover);
+  endProfile(ProfileKey::TraceWholeCells);
+
+  startProfile(ProfileKey::TraceValues);
+  sb.traceValues(mover);
+  endProfile(ProfileKey::TraceValues);
+
+  startProfile(ProfileKey::TraceCells);
+  sb.traceCells(mover);
+  endProfile(ProfileKey::TraceCells);
+
+  startProfile(ProfileKey::TraceSlots);
+  sb.traceSlots(mover);
+  endProfile(ProfileKey::TraceSlots);
+
+  startProfile(ProfileKey::TraceGenericEntries);
+  sb.traceGenericEntries(&mover);
+  endProfile(ProfileKey::TraceGenericEntries);
+
+  startProfile(ProfileKey::MarkRuntime);
+  gc->traceRuntimeForMinorGC(&mover, session);
+  endProfile(ProfileKey::MarkRuntime);
+
+  startProfile(ProfileKey::MarkDebugger);
+  {
+    gcstats::AutoPhase ap(stats(), gcstats::PhaseKind::MARK_ROOTS);
+    DebugAPI::traceAllForMovingGC(&mover);
+  }
+  endProfile(ProfileKey::MarkDebugger);
 }
 
 size_t js::Nursery::doPretenuring(JSRuntime* rt, JS::GCReason reason,

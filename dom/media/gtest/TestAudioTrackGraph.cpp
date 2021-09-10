@@ -519,7 +519,6 @@ float rmsf32(AudioDataValue* aSamples, uint32_t aChannels, uint32_t aFrames) {
   return sqrt(rms);
 }
 
-#  ifndef WIN32  // failure on windows10x32
 TEST(TestAudioTrackGraph, AudioInputTrackDisabling)
 {
   MockCubeb* cubeb = new MockCubeb();
@@ -559,19 +558,12 @@ TEST(TestAudioTrackGraph, AudioInputTrackDisabling)
 
   stream->SetOutputRecordingEnabled(true);
 
-  // Wait for a second worth of audio data. GoFaster is dispatched through a
-  // ControlMessage so that it is called in the first audio driver iteration.
-  // Otherwise the audio driver might be going very fast while the fallback
-  // system clock driver is still in an iteration.
-  DispatchFunction([&] {
-    inputTrack->GraphImpl()->AppendMessage(MakeUnique<GoFaster>(cubeb));
-  });
+  // Wait for a second worth of audio data.
   uint32_t totalFrames = 0;
   WaitUntil(stream->FramesProcessedEvent(), [&](uint32_t aFrames) {
     totalFrames += aFrames;
     return totalFrames > static_cast<uint32_t>(graph->GraphRate());
   });
-  cubeb->DontGoFaster();
 
   const uint32_t ITERATION_COUNT = 5;
   uint32_t iterations = ITERATION_COUNT;
@@ -586,7 +578,6 @@ TEST(TestAudioTrackGraph, AudioInputTrackDisabling)
       } else {
         currentMode = DisabledTrackMode::SILENCE_BLACK;
       }
-      inputTrack->GraphImpl()->AppendMessage(MakeUnique<GoFaster>(cubeb));
     });
 
     totalFrames = 0;
@@ -594,7 +585,6 @@ TEST(TestAudioTrackGraph, AudioInputTrackDisabling)
       totalFrames += aFrames;
       return totalFrames > static_cast<uint32_t>(graph->GraphRate());
     });
-    cubeb->DontGoFaster();
   }
 
   // Clean up.
@@ -637,7 +627,6 @@ TEST(TestAudioTrackGraph, AudioInputTrackDisabling)
     EXPECT_EQ(rmsf32(&(data[startIdx]), 2, rate / 10), 0.0);
   }
 }
-#  endif  // win32
 
 void TestCrossGraphPort(uint32_t aInputRate, uint32_t aOutputRate,
                         float aDriftFactor, uint32_t aBufferMs = 50) {

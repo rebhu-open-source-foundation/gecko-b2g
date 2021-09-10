@@ -405,6 +405,7 @@
          "RequireObjectCoercible")                                             \
   MACRO_(resolve, resolve, "resolve")                                          \
   MACRO_(result, result, "result")                                             \
+  MACRO_(results, results, "results")                                          \
   MACRO_(resumeGenerator, resumeGenerator, "resumeGenerator")                  \
   MACRO_(return, return_, "return")                                            \
   MACRO_(revoke, revoke, "revoke")                                             \
@@ -514,6 +515,7 @@
   MACRO_(useAsm, useAsm, "use asm")                                            \
   MACRO_(useGrouping, useGrouping, "useGrouping")                              \
   MACRO_(useStrict, useStrict, "use strict")                                   \
+  MACRO_(UTC, UTC, "UTC")                                                      \
   MACRO_(void, void_, "void")                                                  \
   MACRO_(value, value, "value")                                                \
   MACRO_(valueOf, valueOf, "valueOf")                                          \

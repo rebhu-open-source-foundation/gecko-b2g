@@ -466,7 +466,7 @@ void nsSubDocumentFrame::BuildDisplayList(nsDisplayListBuilder* aBuilder,
   nsIScrollableFrame* sf = presShell->GetRootScrollFrameAsScrollable();
   bool constructZoomItem = subdocRootFrame && parentAPD != subdocAPD;
   bool needsOwnLayer = false;
-  if (constructZoomItem || presContext->IsRootContentDocument() ||
+  if (constructZoomItem || presContext->IsRootContentDocumentCrossProcess() ||
       (sf && sf->IsScrollingActive())) {
     needsOwnLayer = true;
   }

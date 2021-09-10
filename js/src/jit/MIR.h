@@ -26,6 +26,7 @@
 #include "jit/JitAllocPolicy.h"
 #include "jit/MacroAssembler.h"
 #include "jit/MIROpsGenerated.h"
+#include "jit/ShuffleAnalysis.h"
 #include "jit/TypeData.h"
 #include "jit/TypePolicy.h"
 #include "js/experimental/JitInfo.h"  // JSJit{Getter,Setter}Op, JSJitInfo
@@ -8589,6 +8590,7 @@ class MGuardToClass : public MUnaryInstruction,
   MGuardToClass(MDefinition* object, const JSClass* clasp)
       : MUnaryInstruction(classOpcode, object), class_(clasp) {
     MOZ_ASSERT(object->type() == MIRType::Object);
+    MOZ_ASSERT(!clasp->isJSFunction(), "Use MGuardToFunction instead");
     setResultType(MIRType::Object);
     setMovable();
 
@@ -8615,6 +8617,34 @@ class MGuardToClass : public MUnaryInstruction,
       return false;
     }
     if (getClass() != ins->toGuardToClass()->getClass()) {
+      return false;
+    }
+    return congruentIfOperandsEqual(ins);
+  }
+};
+
+class MGuardToFunction : public MUnaryInstruction,
+                         public SingleObjectPolicy::Data {
+  explicit MGuardToFunction(MDefinition* object)
+      : MUnaryInstruction(classOpcode, object) {
+    MOZ_ASSERT(object->type() == MIRType::Object);
+    setResultType(MIRType::Object);
+    setMovable();
+
+    // We will bail out if the class type is incorrect, so we need to ensure we
+    // don't eliminate this instruction
+    setGuard();
+  }
+
+ public:
+  INSTRUCTION_HEADER(GuardToFunction)
+  TRIVIAL_NEW_WRAPPERS
+  NAMED_OPERANDS((0, object))
+
+  MDefinition* foldsTo(TempAllocator& alloc) override;
+  AliasSet getAliasSet() const override { return AliasSet::None(); }
+  bool congruentTo(const MDefinition* ins) const override {
+    if (!ins->isGuardToFunction()) {
       return false;
     }
     return congruentIfOperandsEqual(ins);
@@ -10345,6 +10375,13 @@ MConstant* MDefinition::maybeConstantValue() {
   }
   return nullptr;
 }
+
+#ifdef ENABLE_WASM_SIMD
+MWasmShuffleSimd128* BuildWasmShuffleSimd128(TempAllocator& alloc,
+                                             const int8_t* control,
+                                             MDefinition* lhs,
+                                             MDefinition* rhs);
+#endif  // ENABLE_WASM_SIMD
 
 }  // namespace jit
 }  // namespace js

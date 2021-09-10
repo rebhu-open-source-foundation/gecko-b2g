@@ -16,7 +16,7 @@
 #include "audio_thread_priority.h"
 #ifdef MOZ_WIDGET_ANDROID
 #  include "AndroidProcess.h"
-#endif
+#endif // MOZ_WIDGET_ANDROID
 
 namespace mozilla {
 
@@ -61,7 +61,7 @@ void GraphRunner::Shutdown() {
 
 auto GraphRunner::OneIteration(GraphTime aStateTime, GraphTime aIterationEnd,
                                AudioMixer* aMixer) -> IterationResult {
-  TRACE();
+  TRACE("GraphRunner::OneIteration");
 
   MonitorAutoLock lock(mMonitor);
   MOZ_ASSERT(mThreadState == ThreadState::Wait);
@@ -111,7 +111,7 @@ void PromoteRenderingThreadAndroid() {
            java::sdk::Process::GetThreadPriority(java::sdk::Process::MyTid())));
 }
 };  // namespace
-#endif
+#endif // MOZ_WIDGET_ANDROID
 
 NS_IMETHODIMP GraphRunner::Run() {
 #ifndef XP_LINUX
@@ -121,7 +121,7 @@ NS_IMETHODIMP GraphRunner::Run() {
 
 #ifdef MOZ_WIDGET_ANDROID
   PromoteRenderingThreadAndroid();
-#endif
+#endif // MOZ_WIDGET_ANDROID
 
   nsCOMPtr<nsIThreadInternal> threadInternal = do_QueryInterface(mThread);
   threadInternal->SetObserver(mGraph);
@@ -135,7 +135,7 @@ NS_IMETHODIMP GraphRunner::Run() {
       break;
     }
     MOZ_DIAGNOSTIC_ASSERT(mIterationState.isSome());
-    TRACE();
+    TRACE("GraphRunner::Run");
     mIterationResult = mGraph->OneIterationImpl(mIterationState->StateTime(),
                                                 mIterationState->IterationEnd(),
                                                 mIterationState->Mixer());

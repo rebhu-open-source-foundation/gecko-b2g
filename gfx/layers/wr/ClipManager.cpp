@@ -274,8 +274,8 @@ Maybe<wr::WrSpatialId> ClipManager::DefineScrollLayers(
       DefineScrollLayers(aASR->mParent, aItem);
 
   Maybe<ScrollMetadata> metadata =
-      aASR->mScrollableFrame->ComputeScrollMetadata(
-          mManager, aItem->ReferenceFrame(), nullptr);
+      aASR->mScrollableFrame->ComputeScrollMetadata(mManager, aItem->Frame(),
+                                                    aItem->ToReferenceFrame());
   if (!metadata) {
     MOZ_ASSERT_UNREACHABLE("Expected scroll metadata to be available!");
     return ancestorSpace;
@@ -289,7 +289,8 @@ Maybe<wr::WrSpatialId> ClipManager::DefineScrollLayers(
 
   nsIScrollableFrame* scrollableFrame = aASR->mScrollableFrame;
   nsIFrame* scrollFrame = do_QueryFrame(scrollableFrame);
-  nsPoint offset = scrollFrame->GetOffsetToCrossDoc(aItem->ReferenceFrame());
+  nsPoint offset = scrollFrame->GetOffsetToCrossDoc(aItem->Frame()) +
+                   aItem->ToReferenceFrame();
   float auPerDevPixel = aItem->Frame()->PresContext()->AppUnitsPerDevPixel();
   nsRect scrollPort = scrollableFrame->GetScrollPortRect() + offset;
   LayoutDeviceRect clipBounds =
@@ -323,7 +324,8 @@ Maybe<wr::WrSpatialId> ClipManager::DefineScrollLayers(
 
   return Some(mBuilder->DefineScrollLayer(
       viewId, parent, wr::ToLayoutRect(contentRect),
-      wr::ToLayoutRect(clipBounds), wr::ToLayoutPoint(scrollOffset)));
+      wr::ToLayoutRect(clipBounds), wr::ToLayoutPoint(scrollOffset),
+      wr::SpatialKey(uint64_t(scrollFrame), 0, wr::SpatialKeyKind::Scroll)));
 }
 
 Maybe<wr::WrClipChainId> ClipManager::DefineClipChain(

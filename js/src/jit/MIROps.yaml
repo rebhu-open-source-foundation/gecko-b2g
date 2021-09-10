@@ -1777,7 +1777,7 @@
 
 - name: NewPrivateName
   arguments:
-    name: PropertyName*
+    name: JSAtom*
   result_type: Symbol
   possibly_calls: true
 
@@ -1892,6 +1892,9 @@
   gen_boilerplate: false
 
 - name: GuardToClass
+  gen_boilerplate: false
+
+- name: GuardToFunction
   gen_boilerplate: false
 
 - name: IsArray
@@ -2585,7 +2588,7 @@
     lhs: Simd128
     rhs: Simd128
   arguments:
-    control: SimdConstant
+    shuffle: SimdShuffle
   type_policy: none
   result_type: Simd128
   movable: true

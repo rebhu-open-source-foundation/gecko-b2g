@@ -12,7 +12,6 @@
 #include "GLContext.h"          // for GLContext
 #include "GLUploadHelpers.h"
 #include "Layers.h"                 // for WriteSnapshotToDumpFile
-#include "LayerScope.h"             // for LayerScope
 #include "gfxCrashReporterUtils.h"  // for ScopedGfxFeatureReporter
 #include "gfxEnv.h"                 // for gfxEnv
 #include "gfxPlatform.h"            // for gfxPlatform
@@ -30,7 +29,6 @@
 #include "mozilla/gfx/Triangle.h"   // for Triangle
 #include "mozilla/gfx/gfxVars.h"    // for gfxVars
 #include "mozilla/layers/ImageDataSerializer.h"
-#include "mozilla/layers/LayerManagerComposite.h"  // for LayerComposite, etc
 #include "mozilla/layers/NativeLayer.h"
 #include "mozilla/layers/CompositingRenderTargetOGL.h"
 #include "mozilla/layers/Effects.h"      // for EffectChain, TexturedEffect, etc
@@ -1452,8 +1450,6 @@ void CompositorOGL::DrawGeometry(const Geometry& aGeometry,
   //      quads. Fix me.
   mPixelsFilled += destRect.Area();
 
-  LayerScope::DrawBegin();
-
   EffectMask* effectMask;
   Rect maskBounds;
   if (aEffectChain.mSecondaryEffects[EffectTypes::MASK]) {
@@ -1554,7 +1550,6 @@ void CompositorOGL::DrawGeometry(const Geometry& aGeometry,
   }
   program->SetProjectionMatrix(mProjMatrix);
   program->SetLayerTransform(aTransform);
-  LayerScope::SetLayerTransform(aTransform);
 
   if (colorMatrix) {
     EffectColorMatrix* effectColorMatrix = static_cast<EffectColorMatrix*>(
@@ -1583,7 +1578,6 @@ void CompositorOGL::DrawGeometry(const Geometry& aGeometry,
   }
 
   program->SetRenderOffset(offset.x, offset.y);
-  LayerScope::SetRenderOffset(offset.x, offset.y);
 
   if (aOpacity != 1.f) program->SetLayerOpacity(aOpacity);
 
@@ -1917,8 +1911,6 @@ void CompositorOGL::DrawGeometry(const Geometry& aGeometry,
 
   // in case rendering has used some other GL context
   MakeCurrent();
-
-  LayerScope::DrawEnd(mGLContext, aEffectChain, aRect.Width(), aRect.Height());
 }
 
 void CompositorOGL::BindAndDrawGeometry(ShaderProgramOGL* aProgram,
@@ -1994,7 +1986,6 @@ void CompositorOGL::BindAndDrawQuads(ShaderProgramOGL* aProg, int aQuads,
   mGLContext->fDrawArrays(LOCAL_GL_TRIANGLES, 0, 6 * aQuads);
   mGLContext->fDisableVertexAttribArray(kCoordinateAttributeIndex);
   mGLContext->fBindBuffer(LOCAL_GL_ARRAY_BUFFER, 0);
-  LayerScope::SetDrawRects(aQuads, aLayerRects, aTextureRects);
 }
 
 void CompositorOGL::InitializeVAO(const GLuint aAttrib, const GLint aComponents,

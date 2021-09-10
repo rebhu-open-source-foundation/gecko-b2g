@@ -139,7 +139,6 @@ windows10-32-shippable-qr/opt:
         - raptor-firefox
         - web-platform-tests
         - web-platform-tests-wdspec-headless
-        - windows32-tests
         - windows-talos
 
 windows10-32-qr/opt:
@@ -151,41 +150,39 @@ windows10-32-qr/opt:
         - raptor-firefox
         - web-platform-tests
         - web-platform-tests-wdspec-headless
-        - windows32-tests
         - windows-talos
 
 windows10-32-qr/debug:
     build-platform: win32/debug
     test-sets:
         - web-platform-tests
-        - windows32-tests
         - windows-7-tests
 
+windows10-32-2004-shippable-qr/opt:
+    build-platform: win32-shippable/opt
+    test-sets:
+        - windows32-2004-tests
+
+windows10-32-2004-qr/opt:
+    build-platform: win32/opt
+    test-sets:
+        - windows32-2004-tests
+
+windows10-32-2004-qr/debug:
+    build-platform: win32/debug
+    test-sets:
+        - windows32-2004-tests
 
 # win64
 windows10-64-ccov-qr/opt:
     build-platform: win64-ccov/opt
     test-sets:
-        - desktop-screenshot-capture
-        - windows-tests
-        - windows-ccov-tests
-        - windows10-tests
-        - ccov-code-coverage-tests
-        - windows10-2004-tests  # For Bug 1723531
-        - web-platform-tests  # For Bug 1723531
-
-windows10-64-qr/debug:
-    build-platform: win64/debug
-    test-sets:
-        - windows-tests
-        - windows10-tests
+        - windows10-64-ccov-tests  # For Bug 1723531 but without what has been migrated in Bug X so far
 
 windows10-64-qr/opt:
     build-platform: win64/opt
     test-sets:
         - windows-talos
-        - windows-tests
-        - windows10-tests
         - raptor-firefox
         - browsertime
 
@@ -205,23 +202,9 @@ windows10-64-shippable-qr/opt:
     build-platform: win64-shippable/opt
     test-sets:
         - windows-talos
-        - windows-tests
-        - windows10-tests
         - raptor-chrome
         - raptor-firefox
         - browsertime
-
-windows10-64-devedition-qr/opt:
-    build-platform: win64-devedition/opt
-    test-sets:
-        - windows-tests
-        - windows10-tests
-
-windows10-64-asan-qr/opt:
-    build-platform: win64-asan/opt
-    test-sets:
-        - windows-tests
-        - windows10-tests
 
 windows10-64-mingwclang-qr/debug:
     build-platform: win64-mingwclang/debug
@@ -244,6 +227,11 @@ windows10-32-mingwclang-qr/opt:
         - mingwclang-tests-opt
 
 # win10-64 2004
+windows10-64-2004-ccov-qr/opt:
+    build-platform: win64-ccov/opt
+    test-sets:
+        - windows10-64-2004-ccov-tests
+
 windows10-64-2004-qr/debug:
     build-platform: win64/debug
     test-sets:

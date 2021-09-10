@@ -157,6 +157,18 @@ WINDOWS_WORKER_TYPES = {
         "virtual-with-gpu": "t-win10-64-gpu-s",
         "hardware": "t-win10-64-ref-hw",
     },
+    "windows10-32-2004-mingwclang-qr": {
+        "virtual": "win10-64-2004",
+        "virtual-with-gpu": "win10-64-2004-gpu",
+    },
+    "windows10-32-2004-qr": {
+        "virtual": "win10-64-2004",
+        "virtual-with-gpu": "win10-64-2004-gpu",
+    },
+    "windows10-32-2004-shippable-qr": {
+        "virtual": "win10-64-2004",
+        "virtual-with-gpu": "win10-64-2004-gpu",
+    },
     "windows10-64-2004": {
         "virtual": "win10-64-2004",
         "virtual-with-gpu": "win10-64-2004-gpu",
@@ -1151,6 +1163,7 @@ def setup_browsertime(config, tasks):
                 "linux64-chromedriver-90",
                 "linux64-chromedriver-91",
                 "linux64-chromedriver-92",
+                "linux64-chromedriver-93",
             ],
             "linux.*": [
                 "linux64-chromedriver-87",
@@ -1158,6 +1171,7 @@ def setup_browsertime(config, tasks):
                 "linux64-chromedriver-90",
                 "linux64-chromedriver-91",
                 "linux64-chromedriver-92",
+                "linux64-chromedriver-93",
             ],
             "macosx.*": [
                 "mac64-chromedriver-87",
@@ -1165,6 +1179,7 @@ def setup_browsertime(config, tasks):
                 "mac64-chromedriver-90",
                 "mac64-chromedriver-91",
                 "mac64-chromedriver-92",
+                "mac64-chromedriver-93",
             ],
             "windows.*aarch64.*": [
                 "win32-chromedriver-87",
@@ -1172,6 +1187,7 @@ def setup_browsertime(config, tasks):
                 "win32-chromedriver-90",
                 "win32-chromedriver-91",
                 "win32-chromedriver-92",
+                "win32-chromedriver-93",
             ],
             "windows.*-32.*": [
                 "win32-chromedriver-87",
@@ -1179,6 +1195,7 @@ def setup_browsertime(config, tasks):
                 "win32-chromedriver-90",
                 "win32-chromedriver-91",
                 "win32-chromedriver-92",
+                "win32-chromedriver-93",
             ],
             "windows.*-64.*": [
                 "win32-chromedriver-87",
@@ -1186,6 +1203,7 @@ def setup_browsertime(config, tasks):
                 "win32-chromedriver-90",
                 "win32-chromedriver-91",
                 "win32-chromedriver-92",
+                "win32-chromedriver-93",
             ],
         }
 
@@ -1503,6 +1521,9 @@ def handle_tier(config, tasks):
                 "windows10-32-qr/debug",
                 "windows10-32-qr/opt",
                 "windows10-32-shippable-qr/opt",
+                "windows10-32-2004-qr/debug",
+                "windows10-32-2004-qr/opt",
+                "windows10-32-2004-shippable-qr/opt",
                 "windows10-aarch64-qr/opt",
                 "windows10-64/debug",
                 "windows10-64/opt",

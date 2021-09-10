@@ -46,9 +46,9 @@ struct AsyncClipboardData {
   ClipboardDataType mDataType;
 };
 
-static void wayland_clipboard_contents_received(
+static void wayland_clipboard_contents_received_async(
     GtkClipboard* clipboard, GtkSelectionData* selection_data, gpointer data) {
-  LOGCLIP(("wayland_clipboard_contents_received() selection_data = %p\n",
+  LOGCLIP(("wayland_clipboard_contents_received_async() selection_data = %p\n",
            selection_data));
   AsyncClipboardData* fastTrack = static_cast<AsyncClipboardData*>(data);
   fastTrack->mRetrievalContex->TransferAsyncClipboardData(
@@ -78,6 +78,7 @@ void nsRetrievalContextWaylandAsync::TransferAsyncClipboardData(
 
   if (mClipboardRequestNumber != aClipboardRequestNumber) {
     LOGCLIP(("    request number does not match!\n"));
+    return;
   }
   LOGCLIP(("    request number matches\n"));
 
@@ -157,7 +158,7 @@ GdkAtom* nsRetrievalContextWaylandAsync::GetTargets(int32_t aWhichClipboard,
   mClipboardRequestNumber++;
   gtk_clipboard_request_contents(
       gtk_clipboard_get(selection), gdk_atom_intern("TARGETS", FALSE),
-      wayland_clipboard_contents_received,
+      wayland_clipboard_contents_received_async,
       new AsyncClipboardData(CLIPBOARD_TARGETS, mClipboardRequestNumber, this));
 
   if (!WaitForClipboardContent()) {
@@ -196,7 +197,7 @@ const char* nsRetrievalContextWaylandAsync::GetClipboardData(
   mClipboardRequestNumber++;
   gtk_clipboard_request_contents(
       gtk_clipboard_get(selection), gdk_atom_intern(aMimeType, FALSE),
-      wayland_clipboard_contents_received,
+      wayland_clipboard_contents_received_async,
       new AsyncClipboardData(CLIPBOARD_DATA, mClipboardRequestNumber, this));
 
   if (!WaitForClipboardContent()) {
@@ -238,17 +239,23 @@ const char* nsRetrievalContextWaylandAsync::GetClipboardText(
 }
 
 bool nsRetrievalContextWaylandAsync::WaitForClipboardContent() {
+  int iteration = 1;
+
   PRTime entryTime = PR_Now();
   while (!mClipboardDataReceived) {
-    // check the number of iterations
-    LOGCLIP(("doing iteration...\n"));
-    PR_Sleep(20 * PR_TicksPerSecond() / 1000); /* sleep for 20 ms/iteration */
-    if (PR_Now() - entryTime > kClipboardTimeout) {
-      LOGCLIP(("  failed to get async clipboard data in time limit\n"));
-      break;
+    if (iteration++ > kClipboardFastIterationNum) {
+      /* sleep for 10 ms/iteration */
+      PR_Sleep(PR_MillisecondsToInterval(10));
+      if (PR_Now() - entryTime > kClipboardTimeout) {
+        LOGCLIP(("  failed to get async clipboard data in time limit\n"));
+        break;
+      }
     }
+    LOGCLIP(("doing iteration %d msec %ld ...\n", (iteration - 1),
+             (long)((PR_Now() - entryTime) / 1000)));
     gtk_main_iteration();
   }
+
   return mClipboardDataReceived && mClipboardData != nullptr;
 }
 

@@ -25,7 +25,7 @@ from mach.registrar import Registrar
 from mozbuild.mozconfig import MozconfigLoader
 from mozbuild.base import MachCommandBase
 
-# Command files like this are listed in build/mach_bootstrap.py in alphabetical
+# Command files like this are listed in build/mach_initialize.py in alphabetical
 # order, but we need to access commands earlier in the sorted order to grab
 # their arguments. Force them to load now.
 import mozbuild.artifact_commands  # NOQA: F401
@@ -82,7 +82,7 @@ class MachCommands(MachCommandBase):
     def script_dir(self, command_context):
         return os.path.join(command_context.topsrcdir, "js/src/devtools/rootAnalysis")
 
-    def work_dir(self, command_context, application, given):
+    def get_work_dir(self, command_context, application, given):
         if given is not None:
             return given
         return os.path.join(command_context.topsrcdir, "haz-" + application)
@@ -99,7 +99,11 @@ class MachCommands(MachCommandBase):
         env["PATH"] = "{sixgill_dir}/usr/bin:{gccbin}:{PATH}".format(
             sixgill_dir=self.sixgill_dir(), gccbin=gccbin, PATH=env["PATH"]
         )
-        env["LD_LIBRARY_PATH"] = "{}/lib64".format(self.gcc_dir())
+
+    def setup_env_for_shell(self, env, shell):
+        """Add JS shell directory to dynamic lib search path"""
+        for var in ("LD_LIBRARY_PATH", "DYLD_LIBRARY_PATH"):
+            env[var] = ":".join(p for p in (env.get(var), os.path.dirname(shell)) if p)
 
     @Command(
         "hazards",
@@ -225,7 +229,7 @@ no shell found in %s -- must build the JS shell with `mach hazards build-shell` 
                 command_context.topsrcdir, "obj-analyzed-" + application
             )
 
-        work_dir = self.work_dir(command_context, application, kwargs["work_dir"])
+        work_dir = self.get_work_dir(command_context, application, kwargs["work_dir"])
         self.ensure_dir_exists(work_dir)
         with open(os.path.join(work_dir, "defaults.py"), "wt") as fh:
             data = textwrap.dedent(
@@ -249,6 +253,7 @@ no shell found in %s -- must build the JS shell with `mach hazards build-shell` 
         buildscript = " ".join(
             [
                 command_context.topsrcdir + "/mach hazards compile",
+                "--job-size=3.0",  # Conservatively estimate 3GB/process
                 "--application=" + application,
                 "--haz-objdir=" + objdir,
             ]
@@ -348,7 +353,12 @@ no shell found in %s -- must build the JS shell with `mach hazards build-shell` 
     @CommandArgument(
         "--work-dir", default=None, help="Directory for output and working files."
     )
-    def analyze(self, command_context, application, shell_objdir, work_dir):
+    @CommandArgument(
+        "extra",
+        nargs=argparse.REMAINDER,
+        help="Remaining non-optional arguments to analyze.py script",
+    )
+    def analyze(self, command_context, application, shell_objdir, work_dir, extra):
         """Analyzed gathered data for rooting hazards"""
 
         shell = self.ensure_shell(command_context, shell_objdir)
@@ -356,14 +366,19 @@ no shell found in %s -- must build the JS shell with `mach hazards build-shell` 
             os.path.join(self.script_dir(command_context), "analyze.py"),
             "--js",
             shell,
-            "gcTypes",
-            "-v",
         ]
+        if extra:
+            args += extra
+        else:
+            args += [
+                "gcTypes",
+                "-v",
+            ]
 
         self.setup_env_for_tools(os.environ)
-        os.environ["LD_LIBRARY_PATH"] += ":" + os.path.dirname(shell)
+        self.setup_env_for_shell(os.environ, shell)
 
-        work_dir = self.work_dir(command_context, application, work_dir)
+        work_dir = self.get_work_dir(command_context, application, work_dir)
         return command_context.run_process(args=args, cwd=work_dir, pass_thru=True)
 
     @SubCommand(
@@ -391,5 +406,6 @@ no shell found in %s -- must build the JS shell with `mach hazards build-shell` 
         ]
 
         self.setup_env_for_tools(os.environ)
-        os.environ["LD_LIBRARY_PATH"] += ":" + os.path.dirname(shell)
+        self.setup_env_for_shell(os.environ, shell)
+
         return command_context.run_process(args=args, pass_thru=True)

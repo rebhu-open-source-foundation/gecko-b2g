@@ -417,7 +417,7 @@ class Warnings(MachCommandBase):
     def database_path(self, command_context):
         return command_context._get_state_filename("warnings.json")
 
-    def database(self, command_context):
+    def get_warnings_database(self, command_context):
         from mozbuild.compilation.warnings import WarningsDatabase
 
         path = self.database_path(command_context)
@@ -448,7 +448,7 @@ class Warnings(MachCommandBase):
         "recent report.",
     )
     def summary(self, command_context, directory=None, report=None):
-        database = self.database(command_context)
+        database = self.get_warnings_database(command_context)
 
         if directory:
             dirpath = self.join_ensure_dir(command_context.topsrcdir, directory)
@@ -489,7 +489,7 @@ class Warnings(MachCommandBase):
         "recent report.",
     )
     def list(self, command_context, directory=None, flags=None, report=None):
-        database = self.database(command_context)
+        database = self.get_warnings_database(command_context)
 
         by_name = sorted(database.warnings)
 
@@ -2453,28 +2453,6 @@ class CreateMachEnvironment(MachCommandBase):
         """Create the mach virtualenv."""
         from mozboot.util import get_mach_virtualenv_root
         from mozbuild.virtualenv import VirtualenvManager
-
-        if sys.platform.startswith("darwin") and not os.environ.get(
-            "MACH_I_DO_WANT_TO_USE_ROSETTA"
-        ):
-            # If running on arm64 mac, check whether we're running under
-            # Rosetta and advise against it.
-            proc = subprocess.run(
-                ["sysctl", "-n", "sysctl.proc_translated"],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.DEVNULL,
-            )
-            if (
-                proc.returncode == 0
-                and proc.stdout.decode("ascii", "replace").strip() == "1"
-            ):
-                print(
-                    "Python is being emulated under Rosetta. Please use a native "
-                    "Python instead. If you still really want to go ahead, set "
-                    "the MACH_I_DO_WANT_TO_USE_ROSETTA environment variable.",
-                    file=sys.stderr,
-                )
-                return 1
 
         virtualenv_path = get_mach_virtualenv_root()
         if sys.executable.startswith(virtualenv_path):
