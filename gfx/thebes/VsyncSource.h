@@ -13,12 +13,9 @@
 #include "nsISupportsImpl.h"
 #include "mozilla/layers/LayersTypes.h"
 
-class SoftwareDisplay;
-
 namespace mozilla {
-class CompositorVsyncDispatcher;
-class RefreshDriverTimer;
 class RefreshTimerVsyncDispatcher;
+class CompositorVsyncDispatcher;
 class VsyncObserver;
 struct VsyncEvent;
 
@@ -34,11 +31,6 @@ class VsyncSource {
 
   typedef mozilla::RefreshTimerVsyncDispatcher RefreshTimerVsyncDispatcher;
   typedef mozilla::CompositorVsyncDispatcher CompositorVsyncDispatcher;
-
-  enum VsyncType {
-    HARDWARE_VYSNC,
-    SORTWARE_VSYNC
-  };
 
  public:
   // Controls vsync unique to each display and unique on each platform
@@ -82,15 +74,12 @@ class VsyncSource {
     void MoveListenersToNewSource(const RefPtr<VsyncSource>& aNewSource);
     void NotifyRefreshTimerVsyncStatus(bool aEnable);
     virtual TimeDuration GetVsyncRate();
-    RefreshDriverTimer* GetRefreshDriverTimer();
 
     // These should all only be called on the main thread
     virtual void EnableVsync() = 0;
     virtual void DisableVsync() = 0;
     virtual bool IsVsyncEnabled() = 0;
     virtual void Shutdown() = 0;
-
-    virtual SoftwareDisplay* AsSoftwareDisplay() { return nullptr; }
 
    protected:
     virtual ~Display();
@@ -111,7 +100,6 @@ class VsyncSource {
     VsyncId mLastVsyncIdSentToMainThread;     // hold mDispatcherLock to touch
     VsyncId mLastMainThreadProcessedVsyncId;  // hold mDispatcherLock to touch
     bool mHasGenericObservers;                // hold mDispatcherLock to touch
-    RefPtr<RefreshDriverTimer> mRefreshDriverTimer;
   };
 
   void EnableCompositorVsyncDispatcher(
@@ -135,11 +123,6 @@ class VsyncSource {
 
   RefPtr<RefreshTimerVsyncDispatcher> GetRefreshTimerVsyncDispatcher();
   virtual Display& GetGlobalDisplay() = 0;  // Works across all displays
-  virtual Display& GetDisplayById(uint32_t aScreenId);
-  virtual nsresult AddDisplay(uint32_t aScreenId, VsyncType aVsyncType) {
-    return NS_OK;
-  }
-  virtual nsresult RemoveDisplay(uint32_t aScreenId) { return NS_OK; }
   void Shutdown();
 
  protected:

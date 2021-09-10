@@ -17,8 +17,6 @@
 class SoftwareDisplay final : public mozilla::gfx::VsyncSource::Display {
  public:
   SoftwareDisplay();
-  // To simulate power on/off of a display
-  void SetPowerMode(bool aEnable);
   void EnableVsync() override;
   void DisableVsync() override;
   bool IsVsyncEnabled() override;
@@ -28,11 +26,8 @@ class SoftwareDisplay final : public mozilla::gfx::VsyncSource::Display {
   mozilla::TimeDuration GetVsyncRate() override;
   void ScheduleNextVsync(mozilla::TimeStamp aVsyncTimestamp);
   void Shutdown() override;
-  virtual SoftwareDisplay* AsSoftwareDisplay() override { return this; }
 
   virtual ~SoftwareDisplay();
-  void EnableVsyncInternal(bool aEnable);
-  bool NeedNotifyVsync();
 
  private:
   mozilla::TimeDuration mVsyncRate;
@@ -41,7 +36,6 @@ class SoftwareDisplay final : public mozilla::gfx::VsyncSource::Display {
   RefPtr<mozilla::CancelableRunnable>
       mCurrentVsyncTask;  // only access on vsync thread
   bool mVsyncEnabled;     // Only access on main thread
-  bool mPowerOn;
 };                        // SoftwareDisplay
 
 // Fallback option to use a software timer to mimic vsync. Useful for gtests

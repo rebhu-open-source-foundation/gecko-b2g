@@ -6,13 +6,11 @@
 #ifdef MOZ_WIDGET_GONK
 #include "libdisplay/GonkDisplay.h"
 #endif
-#include "mozilla/VsyncDispatcher.h"
-
-#include "MainThreadUtils.h"
+#include "VsyncSource.h"
 #include "nsThreadUtils.h"
 #include "nsXULAppAPI.h"
-#include "RefreshDriverTimerImpl.h"
-#include "VsyncSource.h"
+#include "mozilla/VsyncDispatcher.h"
+#include "MainThreadUtils.h"
 
 namespace mozilla {
 namespace gfx {
@@ -89,7 +87,6 @@ VsyncSource::Display::Display()
 VsyncSource::Display::~Display() {
   MOZ_ASSERT(NS_IsMainThread());
   MutexAutoLock lock(mDispatcherLock);
-  mRefreshTimerVsyncDispatcher->ClearDisplay();
   mRefreshTimerVsyncDispatcher = nullptr;
   MOZ_ASSERT(mRegisteredCompositorVsyncDispatchers.Length() == 0);
   MOZ_ASSERT(mEnabledCompositorVsyncDispatchers.Length() == 0);
@@ -250,19 +247,6 @@ void VsyncSource::Display::NotifyRefreshTimerVsyncStatus(bool aEnable) {
   UpdateVsyncStatus();
 }
 
-RefreshDriverTimer*
-VsyncSource::Display::GetRefreshDriverTimer()
-{
-  MOZ_ASSERT(NS_IsMainThread());
-
-  if (!mRefreshDriverTimer) {
-    mRefreshDriverTimer =
-      new VsyncRefreshDriverTimer(mRefreshTimerVsyncDispatcher);
-  }
-
-  return mRefreshDriverTimer;
-}
-
 void VsyncSource::Display::UpdateVsyncStatus() {
   MOZ_ASSERT(NS_IsMainThread());
   // WARNING: This function SHOULD NOT BE CALLED WHILE HOLDING LOCKS
@@ -293,19 +277,6 @@ RefPtr<RefreshTimerVsyncDispatcher>
 VsyncSource::Display::GetRefreshTimerVsyncDispatcher() {
   return mRefreshTimerVsyncDispatcher;
 }
-
-VsyncSource::Display&
-VsyncSource::GetDisplayById(uint32_t aScreenId)
-{
-  // Vsync events occur on a specific Display Object.
-  // Ideally each screen with independent vsync rate has a
-  // corresponding Display Object which provides vsync events for ticking.
-  // And a Global Display synchronizes across all Displays, providing
-  // vsync events for compositing. Each platform should implement at least
-  // Global Display, and then we can fallback to it when specific Display
-  // doesn't exist.
-  return GetGlobalDisplay();
-};
 
 void VsyncSource::Shutdown() { GetGlobalDisplay().Shutdown(); }
 

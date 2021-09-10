@@ -62,7 +62,6 @@ EXPORTS += [
     "nsRefreshObservers.h",
     "nsStyleChangeList.h",
     "nsStyleSheetService.h",
-    "RefreshDriverTimerImpl.h",
     "StackArena.h",
     "TouchManager.h",
     "Units.h",

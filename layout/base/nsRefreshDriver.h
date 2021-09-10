@@ -12,20 +12,20 @@
 #ifndef nsRefreshDriver_h_
 #define nsRefreshDriver_h_
 
-#include "mozilla/Attributes.h"
 #include "mozilla/FlushType.h"
-#include "mozilla/Maybe.h"
 #include "mozilla/TimeStamp.h"
 #include "mozilla/UniquePtr.h"
 #include "mozilla/Vector.h"
 #include "mozilla/WeakPtr.h"
+#include "nsTObserverArray.h"
+#include "nsTArray.h"
+#include "nsTHashSet.h"
 #include "nsClassHashtable.h"
 #include "nsHashKeys.h"
 #include "nsRefreshObservers.h"
-#include "nsTArray.h"
-#include "nsTHashSet.h"
 #include "nsThreadUtils.h"
-#include "nsTObserverArray.h"
+#include "mozilla/Attributes.h"
+#include "mozilla/Maybe.h"
 #include "mozilla/dom/VisualViewport.h"
 #include "mozilla/layers/TransactionIdAllocator.h"
 #include "LayersTypes.h"
@@ -307,7 +307,7 @@ class nsRefreshDriver final : public mozilla::layers::TransactionIdAllocator,
    */
   nsPresContext* GetPresContext() const;
 
-  void CreateVsyncChildVsyncRefreshTimer();
+  void CreateVsyncRefreshTimer();
 
 #ifdef DEBUG
   /**
@@ -519,8 +519,6 @@ class nsRefreshDriver final : public mozilla::layers::TransactionIdAllocator,
     return mPendingTransactions.Length() >= 2;
   }
 
-  uint32_t GetScreenId() const;
-  mozilla::RefreshDriverTimer* GetRefreshDriverTimerFromCurrentDisplay() const;
   mozilla::RefreshDriverTimer* ChooseTimer();
   mozilla::RefreshDriverTimer* mActiveTimer;
   RefPtr<mozilla::RefreshDriverTimer> mOwnTimer;
