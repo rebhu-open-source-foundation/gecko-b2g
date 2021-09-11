@@ -206,6 +206,7 @@ already_AddRefed<TextureHost> TextureHost::Create(
       break;
 
     case SurfaceDescriptor::TSurfaceDescriptorMacIOSurface:
+    case SurfaceDescriptor::TSurfaceDescriptorGralloc:
       result = CreateTextureHostOGL(aDesc, aDeallocator, aBackend, aFlags);
       break;
 
