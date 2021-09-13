@@ -148,10 +148,7 @@ function sendToBrowserWindow(requestAction, request, typesInfo, callback) {
     return;
   }
 
-  let uuid = Cc["@mozilla.org/uuid-generator;1"]
-    .getService(Ci.nsIUUIDGenerator)
-    .generateUUID()
-    .toString();
+  let uuid = Services.uuid.generateUUID().toString();
   let requestId = `permission-prompt-${uuid}`;
 
   let permissions = {};

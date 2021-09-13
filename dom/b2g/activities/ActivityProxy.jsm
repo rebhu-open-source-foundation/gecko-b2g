@@ -30,10 +30,7 @@ ActivityProxy.prototype = {
   activities: new Map(),
 
   create(owner, options, origin) {
-    let id = Cc["@mozilla.org/uuid-generator;1"]
-      .getService(Ci.nsIUUIDGenerator)
-      .generateUUID()
-      .toString();
+    let id = Services.uuid.generateUUID().toString();
 
     this.activities.set(id, {
       owner: owner ? owner : {},

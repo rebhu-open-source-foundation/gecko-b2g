@@ -30,13 +30,6 @@ XPCOMUtils.defineLazyServiceGetter(
   "nsISettingsManager"
 );
 
-XPCOMUtils.defineLazyServiceGetter(
-  this,
-  "uuidgen",
-  "@mozilla.org/uuid-generator;1",
-  "nsIUUIDGenerator"
-);
-
 this.EXPORTED_SYMBOLS = ["SettingsPrefsSync"];
 
 // Returns a settings.set(...) callback that just logs errors
@@ -339,7 +332,7 @@ this.SettingsPrefsSync = {
       // This should only happen on first usage or after changing the
       // do-not-track value from disallow to allow.
       if (!trackingId) {
-        trackingId = uuidgen
+        trackingId = Services.uuid
           .generateUUID()
           .toString()
           .replace(/[{}]/g, "");
