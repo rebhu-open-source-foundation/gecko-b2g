@@ -1050,6 +1050,10 @@ void nsIContent::SetAssignedSlot(HTMLSlotElement* aSlot) {
   ExtendedContentSlots()->mAssignedSlot = aSlot;
 }
 
+#ifdef MOZ_DOM_LIST
+void nsIContent::Dump() { List(); }
+#endif
+
 void FragmentOrElement::GetTextContentInternal(nsAString& aTextContent,
                                                OOMReporter& aError) {
   if (!nsContentUtils::GetNodeTextContent(this, true, aTextContent, fallible)) {

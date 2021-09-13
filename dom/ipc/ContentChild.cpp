@@ -4194,6 +4194,16 @@ mozilla::ipc::IPCResult ContentChild::RecvWindowClose(
     return IPC_OK();
   }
 
+  // Call `GetDocument()` to force the document and its inner window to be
+  // created, as it would be forced to be created if this call was being
+  // performed in-process.
+  if (NS_WARN_IF(!aContext.get()->GetDocument())) {
+    MOZ_LOG(BrowsingContext::GetLog(), LogLevel::Debug,
+            ("ChildIPC: Trying to send a message to a context but document "
+             "creation failed"));
+    return IPC_OK();
+  }
+
   nsGlobalWindowOuter::Cast(window)->CloseOuter(aTrustedCaller);
   return IPC_OK();
 }
@@ -4214,6 +4224,17 @@ mozilla::ipc::IPCResult ContentChild::RecvWindowFocus(
         ("ChildIPC: Trying to send a message to a context without a window"));
     return IPC_OK();
   }
+
+  // Call `GetDocument()` to force the document and its inner window to be
+  // created, as it would be forced to be created if this call was being
+  // performed in-process.
+  if (NS_WARN_IF(!aContext.get()->GetDocument())) {
+    MOZ_LOG(BrowsingContext::GetLog(), LogLevel::Debug,
+            ("ChildIPC: Trying to send a message to a context but document "
+             "creation failed"));
+    return IPC_OK();
+  }
+
   nsGlobalWindowOuter::Cast(window)->FocusOuter(
       aCallerType, /* aFromOtherProcess */ true, aActionId);
   return IPC_OK();
@@ -4234,6 +4255,17 @@ mozilla::ipc::IPCResult ContentChild::RecvWindowBlur(
         ("ChildIPC: Trying to send a message to a context without a window"));
     return IPC_OK();
   }
+
+  // Call `GetDocument()` to force the document and its inner window to be
+  // created, as it would be forced to be created if this call was being
+  // performed in-process.
+  if (NS_WARN_IF(!aContext.get()->GetDocument())) {
+    MOZ_LOG(BrowsingContext::GetLog(), LogLevel::Debug,
+            ("ChildIPC: Trying to send a message to a context but document "
+             "creation failed"));
+    return IPC_OK();
+  }
+
   nsGlobalWindowOuter::Cast(window)->BlurOuter(aCallerType);
   return IPC_OK();
 }
@@ -4508,6 +4540,16 @@ mozilla::ipc::IPCResult ContentChild::RecvWindowPostMessage(
           aData.targetOrigin(), aData.targetOriginURI(),
           aData.callerPrincipal(), *aData.subjectPrincipal(),
           getter_AddRefs(providedPrincipal))) {
+    return IPC_OK();
+  }
+
+  // Call `GetDocument()` to force the document and its inner window to be
+  // created, as it would be forced to be created if this call was being
+  // performed in-process.
+  if (NS_WARN_IF(!aContext.get()->GetDocument())) {
+    MOZ_LOG(BrowsingContext::GetLog(), LogLevel::Debug,
+            ("ChildIPC: Trying to send a message to a context but document "
+             "creation failed"));
     return IPC_OK();
   }
 

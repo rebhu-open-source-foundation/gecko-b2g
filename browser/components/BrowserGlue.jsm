@@ -1646,6 +1646,8 @@ BrowserGlue.prototype = {
 
     ProcessHangMonitor.init();
 
+    UrlbarPrefs.maybeEnableOfflineQuickSuggest();
+
     // A channel for "remote troubleshooting" code...
     let channel = new WebChannel(
       "remote-troubleshooting",
@@ -2908,7 +2910,7 @@ BrowserGlue.prototype = {
         title = gTabbrowserBundle.GetStringFromName("tabs.closeTabsTitle");
         title = PluralForm.get(pagecount, title).replace("#1", pagecount);
         buttonLabel = gTabbrowserBundle.GetStringFromName(
-          "tabs.closeTabsButton"
+          "tabs.closeButtonMultiple"
         );
       }
     }

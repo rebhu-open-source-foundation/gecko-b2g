@@ -21,20 +21,15 @@ XPCOMUtils.defineLazyModuleGetters(this, {
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.jsm",
   Services: "resource://gre/modules/Services.jsm",
   setTimeout: "resource://gre/modules/Timer.jsm",
+  sinon: "resource://testing-common/Sinon.jsm",
   TestUtils: "resource://testing-common/TestUtils.jsm",
   UrlbarController: "resource:///modules/UrlbarController.jsm",
   UrlbarPrefs: "resource:///modules/UrlbarPrefs.jsm",
   UrlbarProvider: "resource:///modules/UrlbarUtils.jsm",
+  UrlbarQuickSuggest: "resource:///modules/UrlbarQuickSuggest.jsm",
   UrlbarSearchUtils: "resource:///modules/UrlbarSearchUtils.jsm",
   UrlbarUtils: "resource:///modules/UrlbarUtils.jsm",
 });
-
-XPCOMUtils.defineLazyServiceGetter(
-  this,
-  "uuidGenerator",
-  "@mozilla.org/uuid-generator;1",
-  "nsIUUIDGenerator"
-);
 
 // This must be kept in sync with FeatureManifest.js. UrlbarPrefs.get() will
 // throw an "unknown pref" error if a test enrolls in a mock experiment and hits
@@ -850,6 +845,33 @@ var UrlbarTestUtils = {
     });
     return doExperimentCleanup;
   },
+
+  /**
+   * Waits for quick suggest initialization to finish, ensures its data will not
+   * be updated again during the test, and also optionally sets it up with mock
+   * data.
+   *
+   * @param {array} [data]
+   *   Array of quick suggest data objects. If not given, then this function
+   *   won't set up any mock data.
+   */
+  async ensureQuickSuggestInit(data = null) {
+    this._testScope?.info("Awaiting UrlbarQuickSuggest.init");
+    await UrlbarQuickSuggest.init();
+    this._testScope?.info("Done awaiting UrlbarQuickSuggest.init");
+    let sandbox = sinon.createSandbox();
+    sandbox.stub(UrlbarQuickSuggest, "_ensureAttachmentsDownloadedHelper");
+    this._testScope?.registerCleanupFunction(() => sandbox.restore());
+    if (data) {
+      this._testScope?.info(
+        "Awaiting UrlbarQuickSuggest._processSuggestionsJSON"
+      );
+      await UrlbarQuickSuggest._processSuggestionsJSON(data);
+      this._testScope?.info(
+        "Done awaiting UrlbarQuickSuggest._processSuggestionsJSON"
+      );
+    }
+  },
 };
 
 UrlbarTestUtils.formHistory = {
@@ -965,7 +987,7 @@ class TestProvider extends UrlbarProvider {
    */
   constructor({
     results,
-    name = "TestProvider" + uuidGenerator.generateUUID(),
+    name = "TestProvider" + Services.uuid.generateUUID(),
     type = UrlbarUtils.PROVIDER_TYPE.PROFILE,
     priority = 0,
     addTimeout = 0,

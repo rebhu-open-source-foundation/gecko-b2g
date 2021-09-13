@@ -77,7 +77,8 @@ static void PrintDisplayItemTo(nsDisplayListBuilder* aBuilder,
 
   aStream << nsPrintfCString(
       "%s p=0x%p f=0x%p(%s) key=%d %sbounds(%d,%d,%d,%d) "
-      "componentAlpha(%d,%d,%d,%d) clip(%s) asr(%s) clipChain(%s)%s ",
+      "componentAlpha(%d,%d,%d,%d) clip(%s) asr(%s) clipChain(%s)%s "
+      "agr=0x%p",
       aItem->Name(), aItem, (void*)f, NS_ConvertUTF16toUTF8(contentData).get(),
       aItem->GetPerFrameKey(),
       (aItem->ZIndex() ? nsPrintfCString("z=%d ", aItem->ZIndex()).get() : ""),
@@ -85,7 +86,8 @@ static void PrintDisplayItemTo(nsDisplayListBuilder* aBuilder,
       component.width, component.height, clip.ToString().get(),
       ActiveScrolledRoot::ToString(aItem->GetActiveScrolledRoot()).get(),
       DisplayItemClipChain::ToString(aItem->GetClipChain()).get(),
-      aItem->IsUniform(aBuilder) ? " uniform" : "");
+      aItem->IsUniform(aBuilder) ? " uniform" : "",
+      aItem->GetAnimatedGeometryRoot()->mFrame);
 
   for (auto iter = opaque.RectIter(); !iter.Done(); iter.Next()) {
     const nsRect& r = iter.Get();

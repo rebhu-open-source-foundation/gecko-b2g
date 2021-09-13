@@ -1502,7 +1502,7 @@ var PushService = {
           record =>
             info.domain == "*" ||
             (record.uri &&
-              eTLDService.hasRootDomain(record.uri.prePath, info.domain))
+              Services.eTLD.hasRootDomain(record.uri.prePath, info.domain))
         );
       })
       .catch(e => {

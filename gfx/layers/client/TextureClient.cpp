@@ -846,6 +846,13 @@ gfx::DrawTarget* TextureClient::BorrowDrawTarget() {
   return mBorrowedDrawTarget;
 }
 
+void TextureClient::EndDraw() {
+  MOZ_ASSERT(!mBorrowedDrawTarget ||
+             mBorrowedDrawTarget->refCount() <= mExpectedDtRefs);
+  mBorrowedDrawTarget = nullptr;
+  mData->EndDraw();
+}
+
 already_AddRefed<gfx::SourceSurface> TextureClient::BorrowSnapshot() {
   MOZ_ASSERT(mIsLocked);
 

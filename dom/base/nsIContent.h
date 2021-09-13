@@ -789,6 +789,13 @@ class nsIContent : public nsINode {
 
 #if defined(MOZ_DOM_LIST) || defined(DEBUG_FRAME_DUMP)
   /**
+   * An alias for List() with default arguments. Since some debuggers can't
+   * figure the default arguments easily, having an out-of-line, non-static
+   * function helps quite a lot.
+   */
+  void Dump();
+
+  /**
    * List the content (and anything it contains) out to the given
    * file stream. Use aIndent as the base indent during formatting.
    */
