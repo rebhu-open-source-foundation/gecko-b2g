@@ -1327,9 +1327,7 @@ LayerIntSize GetFrameSize(const nsIFrame* aFrame) {
       aFrame->GetContentRectRelativeToSelf().Size(),
       aFrame->PresContext()->AppUnitsPerDevPixel());
 
-  float cumulativeResolution = aFrame->PresShell()->GetCumulativeResolution();
-  return LayerIntSize::Round(size.width * cumulativeResolution,
-                             size.height * cumulativeResolution);
+  return LayerIntSize::Round(size.width, size.height);
 }
 
 namespace mozilla {

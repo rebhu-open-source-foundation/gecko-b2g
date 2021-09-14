@@ -2849,8 +2849,14 @@ void BrowsingContext::DidSet(FieldIndex<IDX_IsInBFCache>) {
   });
 
   if (isInBFCache) {
-    PreOrderWalk(
-        [&](BrowsingContext* aContext) { aContext->mIsInBFCache = true; });
+    PreOrderWalk([&](BrowsingContext* aContext) {
+      aContext->mIsInBFCache = true;
+      Document* doc = aContext->GetDocument();
+      if (doc) {
+        // Container needs to be cleared after mIsInBFCache is set to true.
+        doc->SetContainer(nullptr);
+      }
+    });
   }
 }
 

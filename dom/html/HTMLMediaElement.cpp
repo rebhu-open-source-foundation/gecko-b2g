@@ -2660,10 +2660,6 @@ void HTMLMediaElement::SelectResource() {
           !mIsLoadingFromSourceChildren,
           "Should think we're not loading from source children by default");
 
-      if (!mMediaSource) {
-        OwnerDoc()->AddMediaElementWithMSE();
-      }
-
       RemoveMediaElementFromURITable();
       if (!mSrcMediaSource) {
         mLoadingSrc = uri;
@@ -2673,7 +2669,11 @@ void HTMLMediaElement::SelectResource() {
       mLoadingSrcTriggeringPrincipal = mSrcAttrTriggeringPrincipal;
       DDLOG(DDLogCategory::Property, "loading_src",
             nsCString(NS_ConvertUTF16toUTF8(src)));
+      bool hadMediaSource = !!mMediaSource;
       mMediaSource = mSrcMediaSource;
+      if (mMediaSource && !hadMediaSource) {
+        OwnerDoc()->AddMediaElementWithMSE();
+      }
       DDLINKCHILD("mediasource", mMediaSource.get());
       UpdatePreloadAction();
       if (mPreloadAction == HTMLMediaElement::PRELOAD_NONE && !mMediaSource) {
@@ -2927,16 +2927,16 @@ void HTMLMediaElement::LoadFromSourceChildren() {
       return;
     }
 
-    if (!mMediaSource) {
-      OwnerDoc()->AddMediaElementWithMSE();
-    }
-
     RemoveMediaElementFromURITable();
     mLoadingSrc = uri;
     mLoadingSrcTriggeringPrincipal = childSrc->GetSrcTriggeringPrincipal();
     DDLOG(DDLogCategory::Property, "loading_src",
           nsCString(NS_ConvertUTF16toUTF8(src)));
+    bool hadMediaSource = !!mMediaSource;
     mMediaSource = childSrc->GetSrcMediaSource();
+    if (mMediaSource && !hadMediaSource) {
+      OwnerDoc()->AddMediaElementWithMSE();
+    }
     DDLINKCHILD("mediasource", mMediaSource.get());
     NS_ASSERTION(mNetworkState == NETWORK_LOADING,
                  "Network state should be loading");
