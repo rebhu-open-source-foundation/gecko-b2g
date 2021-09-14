@@ -123,6 +123,43 @@ class WebViewForContentChild extends JSWindowActorChild {
         this.__dispatchEventImpl(event);
       });
     };
+
+    // Now nested webview is inprocess and doesn't own a message manager.
+    // Instead of messages, we use events when using a nested web-view.
+    classBrowser.prototype.webViewGetBackgroundColor = function() {
+      let id = `WebView::ReturnBackgroundColor::${this.webViewRequestId}`;
+      this.webViewRequestId += 1;
+
+      return new this.ownerGlobal.Promise((resolve, reject) => {
+        const window = this.contentWindow;
+        this.addEventListener(
+          id,
+          function got_backgroundColor(event) {
+            let detail = event.detail;
+            if (detail.success) {
+              resolve(detail.result);
+            } else {
+              reject();
+            }
+          },
+          { once: true }
+        );
+        const event = new window.CustomEvent(
+          "webview-getbackgroundcolor",
+          Cu.cloneInto(
+            {
+              detail: {
+                id,
+              },
+              bubbles: true,
+            },
+            window
+          )
+        );
+        window.dispatchEvent(event);
+      });
+    };
+
     classWebView.prototype._getter = function(aName) {
       return this[aName];
     };
@@ -186,6 +223,38 @@ class WebViewForContentChild extends JSWindowActorChild {
     return this._isInWebViewForContent;
   }
 
+  getBackgroundColor(browser, event) {
+    let eventName = event.detail.id;
+    let content = browser.contentWindow;
+
+    let backgroundcolor = "transparent";
+    try {
+      backgroundcolor = content
+        .getComputedStyle(content.document.body)
+        .getPropertyValue("background-color");
+
+      const window = browser.ownerGlobal;
+      const event = new window.CustomEvent(
+        eventName,
+        Cu.cloneInto(
+          {
+            bubbles: true,
+            detail: {
+              success: true,
+              result: backgroundcolor,
+            },
+          },
+          window
+        )
+      );
+      browser.dispatchEvent(event);
+    } catch (e) {
+      browser.dispatchEvent(eventName, {
+        success: false,
+      });
+    }
+  }
+
   handleEvent(aEvent) {
     if (!this.isInWebViewContent) {
       // We only handle the window which is one of of <web-view>'s children.
@@ -195,6 +264,10 @@ class WebViewForContentChild extends JSWindowActorChild {
     switch (aEvent.type) {
       case "DOMTitleChanged": {
         this.fireTitleChanged(aEvent);
+        break;
+      }
+      case "webview-getbackgroundcolor": {
+        this.getBackgroundColor(aEvent.target.frameElement, aEvent);
         break;
       }
     }

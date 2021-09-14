@@ -6,7 +6,13 @@
 
 let tabs = [];
 let activatedTab = null;
-let commands = ["action-back", "action-forward", "action-go", "action-close"];
+let commands = [
+  "action-back",
+  "action-forward",
+  "action-go",
+  "action-close",
+  "action-get-bgcolor",
+];
 
 function log(msg) {
   console.log(`Default browser app: ${msg}`);
@@ -29,6 +35,9 @@ class BrowserTab {
       .toggleAttribute("disabled", false);
     this.parentDocument
       .getElementById("action-close")
+      .toggleAttribute("disabled", false);
+    this.parentDocument
+      .getElementById("action-get-bgcolor")
       .toggleAttribute("disabled", false);
     this.show();
   }
@@ -165,6 +174,12 @@ class BrowserTab {
     this.setupIcon({});
     this.webview.goBack();
   }
+
+  getBgColor() {
+    this.webview.getBackgroundColor().then(bgcolor => {
+      log(`background color= ${bgcolor}`);
+    });
+  }
 }
 
 document.addEventListener(
@@ -203,6 +218,10 @@ document.addEventListener(
     openBtn.addEventListener("click", () => {
       tabs.push(new BrowserTab(document, startURL, null));
     });
+
+    this.getBgColor = function() {
+      activatedTab.getBgColor();
+    };
 
     // Binding Actions
     commands.forEach(id => {

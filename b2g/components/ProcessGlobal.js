@@ -281,6 +281,7 @@ ProcessGlobal.prototype = {
           events: {
             DOMContentLoaded: { capture: true },
             DOMTitleChanged: { mozSystemGroup: true },
+            "webview-getbackgroundcolor": { capture: true },
           },
         },
         allFrames: true,
