@@ -738,6 +738,7 @@ nsresult nsContentUtils::Init() {
 
   sNameSpaceManager = nsNameSpaceManager::GetInstance();
   NS_ENSURE_TRUE(sNameSpaceManager, NS_ERROR_OUT_OF_MEMORY);
+  NS_ADDREF(sNameSpaceManager);
 
   sXPConnect = nsXPConnect::XPConnect();
   // We hold a strong ref to sXPConnect to ensure that it does not go away until
@@ -1902,6 +1903,7 @@ void nsContentUtils::Shutdown() {
   NS_IF_RELEASE(sNullSubjectPrincipal);
   NS_IF_RELEASE(sIOService);
   NS_IF_RELEASE(sUUIDGenerator);
+  NS_IF_RELEASE(sNameSpaceManager);
   sLineBreaker = nullptr;
   sWordBreaker = nullptr;
   sBidiKeyboard = nullptr;
