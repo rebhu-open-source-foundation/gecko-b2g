@@ -55,7 +55,7 @@ public:
       const wr::LayoutRect& aBounds,
       const wr::LayoutRect& aClip, wr::ImageRendering aFilter,
       const Range<wr::ImageKey>& aImageKeys,
-      const bool aPreferCompositorSurface);
+      PushDisplayItemFlagSet aFlags) override;
 
   virtual gfx::IntSize GetSize() const override { return mCropSize; }
 

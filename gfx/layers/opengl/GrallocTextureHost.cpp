@@ -500,12 +500,12 @@ void GrallocTextureHostOGL::PushDisplayItems(
     wr::DisplayListBuilder& aBuilder, const wr::LayoutRect& aBounds,
     const wr::LayoutRect& aClip, wr::ImageRendering aFilter,
     const Range<wr::ImageKey>& aImageKeys,
-    const bool aPreferCompositorSurface) {
+    PushDisplayItemFlagSet aFlags) {
   MOZ_ASSERT(aImageKeys.length() == 1);
   aBuilder.PushImage(aBounds, aClip, true, aFilter, aImageKeys[0],
                      !(mFlags & TextureFlags::NON_PREMULTIPLIED),
                      wr::ColorF{1.0f, 1.0f, 1.0f, 1.0f},
-                     aPreferCompositorSurface);
+                     aFlags.contains(PushDisplayItemFlag::PREFER_COMPOSITOR_SURFACE));
 }
 
 }  // namespace layers
