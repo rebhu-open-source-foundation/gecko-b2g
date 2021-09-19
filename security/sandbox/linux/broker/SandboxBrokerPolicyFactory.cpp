@@ -782,6 +782,8 @@ UniquePtr<SandboxBroker::Policy> SandboxBrokerPolicyFactory::GetContentPolicy(
 #ifdef MOZ_WIDGET_GONK
   policy->AddPath(rdonly, nsPrintfCString("/proc/%d/cmdline", aPid).get());
   policy->AddPath(rdonly, nsPrintfCString("/proc/%d/comm", aPid).get());
+  // debuggerd need this to find all threads in the process.
+  policy->AddPath(rdonly, nsPrintfCString("/proc/%d/task", aPid).get());
 
 #  if MOZ_SANDBOX_GPU_NODE == GPU_NODE_imagination
   policy->AddPath(rdonly,

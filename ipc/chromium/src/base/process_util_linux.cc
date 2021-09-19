@@ -10,6 +10,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <signal.h>
 
 #include "algorithm"
 
@@ -280,10 +281,32 @@ static void ReserveFileDescriptors() {
   }
 }
 
+#ifdef MOZ_WIDGET_GONK
+#define DEBUGGERD_SIGNO (__SIGRTMIN + 3)
+
+static void WorkaroundDebuggerdSigHandler() {
+  // The signal handler installed by debuggerd blocks all signals.
+  // However, the sandbox need signal SIGSYS to forward syscalls.  If
+  // SIGSYS is blocked by the handler of debuggerd, the debuggerd will
+  // fail for calling syscalls.  Here, we unblock SIGSYS.
+  int signo = DEBUGGERD_SIGNO;
+  struct sigaction act;
+  int r = sigaction(signo, nullptr, &act);
+  MOZ_ASSERT(r >= 0);
+  sigdelset(&act.sa_mask, SIGSYS);
+  r = sigaction(signo, &act, nullptr);
+  MOZ_ASSERT(r >= 0);
+}
+#endif // MOZ_WIDGET_GONK
+
 void InitForkServerProcess() {
   InstallChildSignalHandler();
   ReserveFileDescriptors();
   SetThisProcessName("forkserver");
+
+#ifdef MOZ_WIDGET_GONK
+  WorkaroundDebuggerdSigHandler();
+#endif
 }
 
 static bool LaunchAppWithForkServer(const std::vector<std::string>& argv,
