@@ -1605,7 +1605,7 @@ class FunctionCompiler {
       return true;
     }
 
-    const FuncType& funcType = moduleEnv_.types[funcTypeIndex].funcType();
+    const FuncType& funcType = (*moduleEnv_.types)[funcTypeIndex].funcType();
     const TypeIdDesc& funcTypeId = moduleEnv_.typeIds[funcTypeIndex];
 
     CalleeDesc callee;
@@ -1630,7 +1630,7 @@ class FunctionCompiler {
       callee = CalleeDesc::wasmTable(table, funcTypeId);
     }
 
-    CallSiteDesc desc(lineOrBytecode, CallSiteDesc::Indirect);
+    CallSiteDesc desc(lineOrBytecode, CallSiteDesc::Dynamic);
     ArgTypeVector args(funcType);
     ResultType resultType = ResultType::Vector(funcType.results());
     auto* ins = MWasmCall::New(alloc(), desc, callee, call.regArgs_,
@@ -1651,7 +1651,7 @@ class FunctionCompiler {
       return true;
     }
 
-    CallSiteDesc desc(lineOrBytecode, CallSiteDesc::Import);
+    CallSiteDesc desc(lineOrBytecode, CallSiteDesc::Dynamic);
     auto callee = CalleeDesc::import(globalDataOffset);
     ArgTypeVector args(funcType);
     ResultType resultType = ResultType::Vector(funcType.results());
@@ -2740,7 +2740,7 @@ static bool EmitCallIndirect(FunctionCompiler& f, bool oldStyle) {
     return true;
   }
 
-  const FuncType& funcType = f.moduleEnv().types[funcTypeIndex].funcType();
+  const FuncType& funcType = (*f.moduleEnv().types)[funcTypeIndex].funcType();
 
   CallCompileState call;
   if (!EmitCallArgs(f, funcType, args, &call)) {
@@ -5780,7 +5780,7 @@ bool wasm::IonCompileFunctions(const ModuleEnvironment& moduleEnv,
     if (!locals.appendAll(funcType.args())) {
       return false;
     }
-    if (!DecodeLocalEntries(d, moduleEnv.types, moduleEnv.features, &locals)) {
+    if (!DecodeLocalEntries(d, *moduleEnv.types, moduleEnv.features, &locals)) {
       return false;
     }
 
@@ -5834,7 +5834,7 @@ bool wasm::IonCompileFunctions(const ModuleEnvironment& moduleEnv,
       ArgTypeVector args(funcType);
       if (!codegen.generateWasm(funcTypeId, prologueTrapOffset, args,
                                 trapExitLayout, trapExitLayoutNumWords,
-                                &offsets, &code->stackMaps)) {
+                                &offsets, &code->stackMaps, &d)) {
         return false;
       }
 

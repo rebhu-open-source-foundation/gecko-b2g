@@ -554,19 +554,6 @@ pref("browser.search.separatePrivateDefault.ui.banner.max", 0);
 // Enables the display of the Mozilla VPN banner in private browsing windows
 pref("browser.privatebrowsing.vpnpromourl", "https://vpn.mozilla.org/?utm_source=firefox-browser&utm_medium=firefox-%CHANNEL%-browser&utm_campaign=private-browsing-vpn-link");
 
-pref("browser.privatebrowsing.infoEnabled", true);
-pref("browser.privatebrowsing.infoIcon", "");
-pref("browser.privatebrowsing.infoTitle", "");
-pref("browser.privatebrowsing.infoBody","");
-pref("browser.privatebrowsing.infoLinkText", "");
-pref("browser.privatebrowsing.infoLinkUrl", "");
-pref("browser.privatebrowsing.promoEnabled", true);
-pref("browser.privatebrowsing.promoTitle", "");
-pref("browser.privatebrowsing.promoLinkText", "");
-pref("browser.privatebrowsing.promoLinkUrl", "");
-pref("browser.privatebrowsing.infoTitleEnabled", true);
-pref("browser.privatebrowsing.promoTitleEnabled", true);
-
 pref("browser.sessionhistory.max_entries", 50);
 
 // Built-in default permissions.
@@ -1473,6 +1460,11 @@ pref("browser.newtabpage.activity-stream.asrouter.providers.messaging-experiment
 // ASRouter user prefs
 pref("browser.newtabpage.activity-stream.asrouter.userprefs.cfr.addons", true);
 pref("browser.newtabpage.activity-stream.asrouter.userprefs.cfr.features", true);
+
+// Default to allowing the ASRouter captive portal VPN promo messages to be
+// shown when specified, but do so in a pref in case someone needs to override
+// it.
+pref("browser.newtabpage.activity-stream.asrouter.disable-captive-portal-vpn-promo", false);
 
 // The pref that controls if ASRouter uses the remote fluent files.
 // It's enabled by default, but could be disabled to force ASRouter to use the local files.

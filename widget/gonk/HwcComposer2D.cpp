@@ -19,7 +19,6 @@
 #include <android/log.h>
 #include <string.h>
 
-#include "ImageLayers.h"
 #include "libdisplay/GonkDisplay.h"
 #include "HwcComposer2D.h"
 // #include "LayerScope.h"

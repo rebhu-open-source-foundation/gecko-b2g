@@ -7,7 +7,6 @@
 #define GONKCAMERAIMAGE_H
 
 #include "mozilla/ReentrantMonitor.h"
-#include "ImageLayers.h"
 #include "ImageContainer.h"
 #include "GrallocImages.h"
 

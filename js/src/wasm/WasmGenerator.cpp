@@ -275,9 +275,9 @@ bool ModuleGenerator::init(Metadata* maybeAsmJSMetadata) {
     // Copy type definitions to metadata that are required at runtime,
     // allocating global data so that codegen can find the type id's at
     // runtime.
-    for (uint32_t typeIndex = 0; typeIndex < moduleEnv_->types.length();
+    for (uint32_t typeIndex = 0; typeIndex < moduleEnv_->types->length();
          typeIndex++) {
-      const TypeDef& typeDef = moduleEnv_->types[typeIndex];
+      const TypeDef& typeDef = (*moduleEnv_->types)[typeIndex];
       TypeIdDesc& typeId = moduleEnv_->typeIds[typeIndex];
 
       if (TypeIdDesc::isGlobal(typeDef)) {
@@ -308,12 +308,12 @@ bool ModuleGenerator::init(Metadata* maybeAsmJSMetadata) {
     if (moduleEnv_->functionReferencesEnabled()) {
       // Do a linear pass to create a map from src index to dest index.
       RenumberVector renumbering;
-      if (!renumbering.reserve(moduleEnv_->types.length())) {
+      if (!renumbering.reserve(moduleEnv_->types->length())) {
         return false;
       }
       for (uint32_t srcIndex = 0, destIndex = 0;
-           srcIndex < moduleEnv_->types.length(); srcIndex++) {
-        const TypeDef& typeDef = moduleEnv_->types[srcIndex];
+           srcIndex < moduleEnv_->types->length(); srcIndex++) {
+        const TypeDef& typeDef = (*moduleEnv_->types)[srcIndex];
         if (!TypeIdDesc::isGlobal(typeDef)) {
           renumbering.infallibleAppend(UINT32_MAX);
           continue;
@@ -474,8 +474,7 @@ bool ModuleGenerator::linkCallSites() {
     const CallSiteTarget& target = callSiteTargets_[lastPatchedCallSite_];
     uint32_t callerOffset = callSite.returnAddressOffset();
     switch (callSite.kind()) {
-      case CallSiteDesc::Import:
-      case CallSiteDesc::Indirect:
+      case CallSiteDesc::Dynamic:
       case CallSiteDesc::Symbolic:
         break;
       case CallSiteDesc::Func: {
@@ -578,9 +577,6 @@ void ModuleGenerator::noteCodeRange(uint32_t codeRangeIndex,
       break;
     case CodeRange::Throw:
       // Jumped to by other stubs, so nothing to do.
-      break;
-    case CodeRange::IndirectStub:
-      MOZ_CRASH("Indirect stub generates later - at runtime.");
       break;
     case CodeRange::FarJumpIsland:
     case CodeRange::BuiltinThunk:

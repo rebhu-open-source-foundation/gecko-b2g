@@ -73,6 +73,7 @@
 #ifdef MOZ_VTUNE
 #  include "vtune/VTuneWrapper.h"
 #endif
+#include "wasm/WasmBinary.h"
 #include "wasm/WasmGC.h"
 #include "wasm/WasmStubs.h"
 
@@ -7920,34 +7921,37 @@ void CodeGenerator::visitWasmCall(LWasmCall* lir) {
 #endif
 
   // LWasmCallBase::isCallPreserved() assumes that all MWasmCalls preserve the
-  // TLS and pinned regs. The only case where where we have to reload
-  // the TLS and pinned regs is when we emit import or builtin instance calls.
-  bool reloadRegs = false;
-  bool switchRealm = false;
+  // TLS and pinned regs. The only case where where we don't have to reload
+  // the TLS and pinned regs is when the callee preserves them.
+  bool reloadRegs = true;
+  bool switchRealm = true;
 
   const wasm::CallSiteDesc& desc = mir->desc();
   const wasm::CalleeDesc& callee = mir->callee();
   switch (callee.which()) {
     case wasm::CalleeDesc::Func:
       masm.call(desc, callee.funcIndex());
+      reloadRegs = false;
+      switchRealm = false;
       break;
     case wasm::CalleeDesc::Import:
       masm.wasmCallImport(desc, callee);
-      reloadRegs = true;
-      switchRealm = true;
       break;
     case wasm::CalleeDesc::AsmJSTable:
     case wasm::CalleeDesc::WasmTable:
       masm.wasmCallIndirect(desc, callee, needsBoundsCheck);
+      reloadRegs = switchRealm = callee.which() == wasm::CalleeDesc::WasmTable;
       break;
     case wasm::CalleeDesc::Builtin:
       masm.call(desc, callee.builtin());
+      reloadRegs = false;
+      switchRealm = false;
       break;
     case wasm::CalleeDesc::BuiltinInstanceMethod:
       masm.wasmCallBuiltinInstanceMethod(desc, mir->instanceArg(),
                                          callee.builtin(),
                                          mir->builtinMethodFailureMode());
-      reloadRegs = true;
+      switchRealm = false;
       break;
   }
 
@@ -11419,13 +11423,11 @@ static bool CreateStackMapFromLSafepoint(LSafepoint& safepoint,
   return true;
 }
 
-bool CodeGenerator::generateWasm(wasm::TypeIdDesc funcTypeId,
-                                 wasm::BytecodeOffset trapOffset,
-                                 const wasm::ArgTypeVector& argTypes,
-                                 const MachineState& trapExitLayout,
-                                 size_t trapExitLayoutNumWords,
-                                 wasm::FuncOffsets* offsets,
-                                 wasm::StackMaps* stackMaps) {
+bool CodeGenerator::generateWasm(
+    wasm::TypeIdDesc funcTypeId, wasm::BytecodeOffset trapOffset,
+    const wasm::ArgTypeVector& argTypes, const MachineState& trapExitLayout,
+    size_t trapExitLayoutNumWords, wasm::FuncOffsets* offsets,
+    wasm::StackMaps* stackMaps, wasm::Decoder* decoder) {
   AutoCreatedBy acb(masm, "CodeGenerator::generateWasm");
 
   JitSpew(JitSpew_Codegen, "# Emitting wasm code");
@@ -11436,6 +11438,11 @@ bool CodeGenerator::generateWasm(wasm::TypeIdDesc funcTypeId,
   wasm::GenerateFunctionPrologue(masm, funcTypeId, mozilla::Nothing(), offsets);
 
   MOZ_ASSERT(masm.framePushed() == 0);
+
+  // Very large frames are implausible, probably an attack.
+  if (frameSize() > wasm::MaxFrameSize) {
+    return decoder->fail(decoder->beginOffset(), "stack frame is too large");
+  }
 
   if (omitOverRecursedCheck()) {
     masm.reserveStack(frameSize());

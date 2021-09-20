@@ -240,7 +240,7 @@
 #include "proxy/DeadObjectProxy.h"
 #include "util/DifferentialTesting.h"
 #include "util/Poison.h"
-#include "util/Windows.h"
+#include "util/WindowsWrapper.h"
 #include "vm/BigIntType.h"
 #include "vm/GetterSetter.h"
 #include "vm/HelperThreadState.h"
@@ -1673,7 +1673,8 @@ void GCRuntime::backgroundFinalize(JSFreeOp* fop, Arena* listHead,
 //  - arenas allocated during marking
 //  - arenas allocated during sweeping
 //  - finalized arenas
-void ArenaLists::mergeFinalizedArenas(AllocKind thingKind, SortedArenaList& finalizedArenas) {
+void ArenaLists::mergeFinalizedArenas(AllocKind thingKind,
+                                      SortedArenaList& finalizedArenas) {
   ArenaList& arenas = arenaList(thingKind);
 
   ArenaList allocatedDuringSweep = std::move(arenas);

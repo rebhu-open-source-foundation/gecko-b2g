@@ -24,7 +24,6 @@ jobs-from:
     - cram.yml
     - doc.yml
     - file-metadata.yml
-    - infer.yml
     - jsshell.yml
     - mozlint.yml
     - mozlint-android.yml
@@ -32,6 +31,7 @@ jobs-from:
     - python.yml
     - remote.yml
     - shadow-scheduler.yml
+    - taskgraph.yml
     - webidl.yml
     - wpt-manifest.yml
     - wpt-metadata.yml

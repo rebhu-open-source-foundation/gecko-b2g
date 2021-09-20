@@ -3204,7 +3204,7 @@ dependencies = [
 [[package]]
 name = "mp4parse"
 version = "0.11.5"
-source = "git+https://github.com/mozilla/mp4parse-rust?rev=2dcd3d84424a02c167ac40e535a9e3231252d6c1#2dcd3d84424a02c167ac40e535a9e3231252d6c1"
+source = "git+https://github.com/mozilla/mp4parse-rust?rev=72eb355ddeada541d7e57dbe5fb60eb5124dea0d#72eb355ddeada541d7e57dbe5fb60eb5124dea0d"
 dependencies = [
  "bitreader",
  "byteorder",
@@ -3222,7 +3222,7 @@ version = "0.1.0"
 [[package]]
 name = "mp4parse_capi"
 version = "0.11.5"
-source = "git+https://github.com/mozilla/mp4parse-rust?rev=2dcd3d84424a02c167ac40e535a9e3231252d6c1#2dcd3d84424a02c167ac40e535a9e3231252d6c1"
+source = "git+https://github.com/mozilla/mp4parse-rust?rev=72eb355ddeada541d7e57dbe5fb60eb5124dea0d#72eb355ddeada541d7e57dbe5fb60eb5124dea0d"
 dependencies = [
  "byteorder",
  "fallible_collections",
@@ -3594,9 +3594,10 @@ dependencies = [
 [[package]]
 name = "packed_simd"
 version = "0.3.4"
-source = "git+https://github.com/hsivonen/packed_simd?rev=6a16f954950401b92b4e220fbf2dfaf6f00e1fb2#6a16f954950401b92b4e220fbf2dfaf6f00e1fb2"
+source = "git+https://github.com/hsivonen/packed_simd?rev=8b4bd7d8229660a749dbe419a57ea01df9de5453#8b4bd7d8229660a749dbe419a57ea01df9de5453"
 dependencies = [
  "cfg-if 0.1.10",
+ "rustc_version",
 ]
 
 [[package]]

@@ -184,7 +184,6 @@ EXPORTS += [
     "SeekTarget.h",
     "SelfRef.h",
     "SharedBuffer.h",
-    "ThreadPoolCOMListener.h",
     "TimeUnits.h",
     "Tracing.h",
     "VideoFrameContainer.h",
@@ -322,11 +321,6 @@ if CONFIG["MOZ_WIDGET_TOOLKIT"] == "gonk":
     UNIFIED_SOURCES += [
         "AMRDecoder.cpp",
         "AMRDemuxer.cpp",
-    ]
-
-if CONFIG["OS_TARGET"] == "WINNT":
-    SOURCES += [
-        "ThreadPoolCOMListener.cpp",
     ]
 
 # FIXME: if CONFIG['MOZ_B2G']:

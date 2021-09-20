@@ -387,32 +387,6 @@ void ClientWebGLContext::ClearVRSwapChain() { Run<RPROC(ClearVRSwapChain)>(); }
 
 // -
 
-already_AddRefed<layers::Layer> ClientWebGLContext::GetCanvasLayer(
-    nsDisplayListBuilder* builder, Layer* oldLayer, LayerManager* manager) {
-  if (!mResetLayer && oldLayer) {
-    RefPtr<layers::Layer> ret = oldLayer;
-    return ret.forget();
-  }
-
-  RefPtr<CanvasLayer> canvasLayer = manager->CreateCanvasLayer();
-  if (!canvasLayer) {
-    NS_WARNING("CreateCanvasLayer returned null!");
-    return nullptr;
-  }
-
-  const auto canvasRenderer = canvasLayer->CreateOrGetCanvasRenderer();
-  if (!InitializeCanvasRenderer(builder, canvasRenderer)) return nullptr;
-
-  uint32_t flags = 0;
-  if (GetIsOpaque()) {
-    flags |= Layer::CONTENT_OPAQUE;
-  }
-  canvasLayer->SetContentFlags(flags);
-
-  mResetLayer = false;
-  return canvasLayer.forget();
-}
-
 bool ClientWebGLContext::UpdateWebRenderCanvasData(
     nsDisplayListBuilder* aBuilder, WebRenderCanvasData* aCanvasData) {
   CanvasRenderer* renderer = aCanvasData->GetCanvasRenderer();
@@ -6020,18 +5994,8 @@ void ClientWebGLContext::ShaderSource(WebGLShaderJS& shader,
   if (IsContextLost()) return;
   if (!shader.ValidateUsable(*this, "shader")) return;
 
-  auto source = ToString(NS_ConvertUTF16toUTF8(sourceU16));
-  const auto cleanSource = CommentsToSpaces(source);
-
-  const auto badChar = CheckGLSLPreprocString(mIsWebGL2, cleanSource);
-  if (badChar) {
-    EnqueueError(LOCAL_GL_INVALID_VALUE,
-                 "`source` contains illegal character 0x%x.", *badChar);
-    return;
-  }
-
-  shader.mSource = std::move(source);
-  Run<RPROC(ShaderSource)>(shader.mId, cleanSource);
+  shader.mSource = ToString(NS_ConvertUTF16toUTF8(sourceU16));
+  Run<RPROC(ShaderSource)>(shader.mId, shader.mSource);
 }
 
 // -

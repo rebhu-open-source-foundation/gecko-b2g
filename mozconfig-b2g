@@ -142,6 +142,8 @@ fi
 # configure just checks the file exists, and we don't use it afterwards...
 ac_add_options --with-android-lldb-server=$HOME/.mozbuild/clang/bin/clang
 
-# Workaround upstream bug.
+# All the nice wasm things.
+ac_add_options --enable-wasm-simd
 ac_add_options --enable-wasm-function-references
-
+ac_add_options --enable-wasm-type-reflections
+ac_add_options --enable-wasm-exceptions

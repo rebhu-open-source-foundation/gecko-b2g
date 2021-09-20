@@ -53,11 +53,11 @@
 #include "mozilla/MathAlgorithms.h"
 
 #include "imgIContainer.h"
+#include "Layers.h"
 #include "nsBoxFrame.h"
 #include "nsImageFrame.h"
 #include "nsSubDocumentFrame.h"
 #include "nsViewManager.h"
-#include "ImageLayers.h"
 #include "ImageContainer.h"
 #include "nsCanvasFrame.h"
 #include "nsSubDocumentFrame.h"
@@ -436,6 +436,12 @@ void nsDisplayListBuilder::AutoCurrentActiveScrolledRootSetter::
   }
 
   mUsed = true;
+}
+
+nsDisplayListBuilder::AutoContainerASRTracker::AutoContainerASRTracker(
+    nsDisplayListBuilder* aBuilder)
+    : mBuilder(aBuilder), mSavedContainerASR(aBuilder->mCurrentContainerASR) {
+  mBuilder->mCurrentContainerASR = mBuilder->mCurrentActiveScrolledRoot;
 }
 
 nsPresContext* nsDisplayListBuilder::CurrentPresContext() {

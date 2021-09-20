@@ -149,9 +149,6 @@ class BasicCompositor : public Compositor {
   RefPtr<SurfacePoolHandle> GetSurfacePoolHandle() override;
 
   bool SupportsPartialTextureUpdate() override { return true; }
-  bool CanUseCanvasLayerForSize(const gfx::IntSize& aSize) override {
-    return true;
-  }
   int32_t GetMaxTextureSize() const override;
   void SetDestinationSurfaceSize(const gfx::IntSize& aSize) override {}
 

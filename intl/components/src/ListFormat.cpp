@@ -3,6 +3,10 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 #include "mozilla/intl/ListFormat.h"
 
+#include "ScopedICUObject.h"
+
+#include "ScopedICUObject.h"
+
 namespace mozilla::intl {
 
 /*static*/ Result<UniquePtr<ListFormat>, ICUError> ListFormat::TryCreate(

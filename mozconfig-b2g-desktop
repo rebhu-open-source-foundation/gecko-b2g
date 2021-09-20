@@ -17,6 +17,8 @@ ac_add_options --disable-sandbox
 
 ac_add_options --enable-wasm-simd
 ac_add_options --enable-wasm-function-references
+ac_add_options --enable-wasm-type-reflections
+ac_add_options --enable-wasm-exceptions
 
 # Disable until we figure CI issues
 # ac_add_options --enable-clang-plugin

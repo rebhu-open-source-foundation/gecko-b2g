@@ -8,7 +8,6 @@
 
 #ifdef MOZ_WIDGET_GONK
 
-#include "ImageLayers.h"
 #include "ImageContainer.h"
 #include "mozilla/gfx/Point.h"
 #include "mozilla/layers/AtomicRefCountedWithFinalize.h"
