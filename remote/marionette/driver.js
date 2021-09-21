@@ -2169,7 +2169,7 @@ GeckoDriver.prototype.closeChromeWindow = async function() {
 };
 
 /** Delete Marionette session. */
-GeckoDriver.prototype.deleteSession = function() {
+GeckoDriver.prototype.deleteSession = async function() {
   if (!this.currentSession) {
     return;
   }
@@ -2196,7 +2196,7 @@ GeckoDriver.prototype.deleteSession = function() {
   // Always unregister actors after all other observers
   // and listeners have been removed.
   unregisterCommandsActor();
-  unregisterEventsActor();
+  await unregisterEventsActor(this.getBrowsingContext());
 
   if (RemoteAgent.webDriverBiDi) {
     RemoteAgent.webDriverBiDi.deleteSession();
@@ -2701,7 +2701,7 @@ GeckoDriver.prototype.quit = async function(cmd) {
   }
 
   this._server.acceptConnections = false;
-  this.deleteSession();
+  await this.deleteSession();
 
   // Notify all windows that an application quit has been requested.
   const cancelQuit = Cc["@mozilla.org/supports-PRBool;1"].createInstance(

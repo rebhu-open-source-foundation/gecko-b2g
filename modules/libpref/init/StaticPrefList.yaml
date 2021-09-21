@@ -4969,6 +4969,15 @@
   value: false
   mirror: always
 
+#ifdef XP_MACOSX
+  # Create specialized video-only layers for video content, and
+  # attempt to isolate video layers in fullscreen windows.
+-   name: gfx.core-animation.specialize-video
+    type: RelaxedAtomicBool
+    value: false
+    mirror: always
+#endif
+
 #if defined(MOZ_WIDGET_ANDROID)
   # Overrides the glClear color used when the surface origin is not (0, 0)
   # Used for drawing a border around the content.
@@ -7219,6 +7228,12 @@
   value: true
   mirror: always
   rust: true
+
+# Is support for caching an grid item's block axis measurement enabled?
+- name: layout.css.grid-item-baxis-measurement.enabled
+  type: bool
+  value: @IS_NIGHTLY_BUILD@
+  mirror: always
 
 # Is support for CSS masonry layout enabled?
 - name: layout.css.grid-template-masonry-value.enabled
@@ -9828,7 +9843,7 @@
 # Whether to cache SSL resumption tokens in necko.
 - name: network.ssl_tokens_cache_enabled
   type: RelaxedAtomicBool
-  value: @IS_EARLY_BETA_OR_EARLIER@
+  value: true
   mirror: always
 
 # Capacity of the above cache, in kilobytes.
@@ -10184,6 +10199,12 @@
 
 # Whether to enable echconfig.
 - name: network.dns.echconfig.enabled
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
+# Whether to enable echconfig for http3.
+- name: network.dns.http3_echconfig.enabled
   type: RelaxedAtomicBool
   value: false
   mirror: always
