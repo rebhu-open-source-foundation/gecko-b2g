@@ -472,7 +472,7 @@ def setup(command_context):
 @Command(
     "web-platform-tests",
     category="testing",
-    conditions=[conditions.is_firefox_or_android],
+    conditions=[conditions.is_b2g_desktop or conditions.is_firefox_or_android],
     description="Run web-platform-tests.",
     parser=create_parser_wpt,
 )
@@ -517,7 +517,7 @@ def run_web_platform_tests(command_context, **params):
 @Command(
     "wpt",
     category="testing",
-    conditions=[conditions.is_firefox_or_android],
+    conditions=[conditions.is_b2g_desktop or conditions.is_firefox_or_android],
     description="Run web-platform-tests.",
     parser=create_parser_wpt,
 )
