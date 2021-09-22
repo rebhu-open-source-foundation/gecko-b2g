@@ -17,7 +17,7 @@ include:
   - '.gitlab/ci/scm/sidl_services.yml'
 
 default:
-  image: ${CI_REGISTRY}/re/kaios-build/next/daily:1.49.0_5_3
+  image: ${CI_REGISTRY}/re/kaios-build/next/daily:1.53.0_6_0
   tags:
     - hk-fantastic4
   interruptible: true
