@@ -482,7 +482,6 @@ UNIFIED_SOURCES += [
 ]
 
 SOURCES += [
-    "basic/BasicCompositor.cpp",
     "client/TextureClient.cpp",
     "composite/TextureHost.cpp",
     "ImageContainer.cpp",

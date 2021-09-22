@@ -6,7 +6,6 @@
 #ifndef MOZILLA_GFX_GRALLOCTEXTUREHOST_BASIC_H
 #define MOZILLA_GFX_GRALLOCTEXTUREHOST_BASIC_H
 
-#include "mozilla/layers/BasicCompositor.h"
 #include "mozilla/layers/ShadowLayerUtilsGralloc.h"
 #include "mozilla/layers/TextureHostBasic.h"
 
@@ -65,7 +64,6 @@ public:
 #endif
 
 protected:
-  RefPtr<BasicCompositor> mCompositor;
   RefPtr<DataTextureSource> mTextureSource;
   SurfaceDescriptorGralloc mGrallocHandle;
   // gralloc buffer size.
