@@ -139,6 +139,7 @@ nsURLFormatterService.prototype = {
       AppConstants.MOZ_GOOGLE_SAFEBROWSING_API_KEY,
     BING_API_CLIENTID: () => AppConstants.MOZ_BING_API_CLIENTID,
     BING_API_KEY: () => AppConstants.MOZ_BING_API_KEY,
+    GONK_GEOLOCATION_API_KEY: () => AppConstants.GONK_GEOLOCATION_API_KEY,
     DISTRIBUTION() {
       return this.distribution.id;
     },

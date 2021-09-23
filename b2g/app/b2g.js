@@ -192,7 +192,7 @@ pref("geo.wifi.uri", "");
 pref("geo.provider.need_authorization", false);
 
 // the secret API key of location service
-pref("geo.authorization.key", "%GONK_GEO_API_KEY%");
+pref("geo.authorization.key", "%GONK_GEOLOCATION_API_KEY%");
 
 // URL for geolocation crowdsourcing
 pref("geo.stumbler.url", "https://location.services.mozilla.com/v1/geosubmit?key=%MOZILLA_API_KEY%");

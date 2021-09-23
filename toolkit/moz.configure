@@ -822,6 +822,7 @@ simple_keyfile("Pocket API")
 
 simple_keyfile("KaiOS Push API")
 simple_keyfile("KaiOS Service API")
+simple_keyfile("Gonk Geolocation API")
 
 # WebRender Debugger integration
 # ==============================================================
