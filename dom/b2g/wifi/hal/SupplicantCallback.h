@@ -221,7 +221,7 @@ class SupplicantStaIfaceCallback : public ISupplicantStaIfaceCallbackV1_0 {
   void NotifyWpsTimeout();
   void NotifyWpsOverlap();
 
-  bool mFourwayHandshake;
+  ISupplicantStaIfaceCallback::State mStateBeforeDisconnect;
   std::string mInterfaceName;
   android::sp<WifiEventCallback> mCallback;
   android::sp<PasspointEventCallback> mPasspointCallback;

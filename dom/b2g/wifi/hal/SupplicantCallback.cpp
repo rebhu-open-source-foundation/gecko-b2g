@@ -33,7 +33,7 @@ SupplicantStaIfaceCallback::SupplicantStaIfaceCallback(
     const android::sp<WifiEventCallback>& aCallback,
     const android::sp<PasspointEventCallback>& aPasspointCallback,
     const android::sp<SupplicantStaManager> aSupplicantManager)
-    : mFourwayHandshake(false),
+    : mStateBeforeDisconnect(ISupplicantStaIfaceCallback::State::INACTIVE),
       mInterfaceName(aInterfaceName),
       mCallback(aCallback),
       mPasspointCallback(aPasspointCallback),
@@ -47,7 +47,7 @@ Return<void> SupplicantStaIfaceCallback::onNetworkAdded(uint32_t id) {
 Return<void> SupplicantStaIfaceCallback::onNetworkRemoved(uint32_t id) {
   MutexAutoLock lock(sLock);
   WIFI_LOGD(LOG_TAG, "ISupplicantStaIfaceCallback.onNetworkRemoved()");
-  mFourwayHandshake = false;
+  mStateBeforeDisconnect = ISupplicantStaIfaceCallback::State::INACTIVE;
   return android::hardware::Void();
 }
 
@@ -61,9 +61,9 @@ Return<void> SupplicantStaIfaceCallback::onStateChanged(
   std::string bssidStr = ConvertMacToString(bssid);
   std::string ssidStr(ssid.begin(), ssid.end());
 
-  mFourwayHandshake =
-      (newState == ISupplicantStaIfaceCallback::State::FOURWAY_HANDSHAKE);
-
+  if (newState != ISupplicantStaIfaceCallback::State::DISCONNECTED) {
+    mStateBeforeDisconnect = newState;
+  }
   if (newState == ISupplicantStaIfaceCallback::State::COMPLETED) {
     NotifyConnected(ssidStr, bssidStr);
   }
@@ -137,12 +137,25 @@ Return<void> SupplicantStaIfaceCallback::onDisconnected(
   MutexAutoLock lock(sLock);
   WIFI_LOGD(LOG_TAG, "ISupplicantStaIfaceCallback.onDisconnected()");
 
-  if (mFourwayHandshake &&
-      (!locallyGenerated ||
-       reasonCode !=
-           ISupplicantStaIfaceCallback::ReasonCode::IE_IN_4WAY_DIFFERS)) {
-    NotifyAuthenticationFailure(nsIWifiEvent::AUTH_FAILURE_WRONG_KEY,
-                                nsIWifiEvent::ERROR_CODE_NONE);
+  if (mSupplicantManager) {
+    NetworkConfiguration curConfig =
+        mSupplicantManager->GetCurrentConfiguration();
+    if (curConfig.IsValidNetwork()) {
+      if (mStateBeforeDisconnect ==
+              ISupplicantStaIfaceCallback::State::FOURWAY_HANDSHAKE &&
+          curConfig.IsPskNetwork() &&
+          (!locallyGenerated ||
+           reasonCode !=
+               ISupplicantStaIfaceCallback::ReasonCode::IE_IN_4WAY_DIFFERS)) {
+        NotifyAuthenticationFailure(nsIWifiEvent::AUTH_FAILURE_WRONG_KEY,
+                                    nsIWifiEvent::ERROR_CODE_NONE);
+      } else if (mStateBeforeDisconnect ==
+                     ISupplicantStaIfaceCallback::State::ASSOCIATED &&
+                 curConfig.IsEapNetwork()) {
+        NotifyAuthenticationFailure(nsIWifiEvent::AUTH_FAILURE_EAP_FAILURE,
+                                    nsIWifiEvent::ERROR_CODE_NONE);
+      }
+    }
   }
 
   std::string bssidStr = ConvertMacToString(bssid);

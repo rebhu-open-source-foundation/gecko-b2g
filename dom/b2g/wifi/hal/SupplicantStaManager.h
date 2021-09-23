@@ -133,6 +133,7 @@ class SupplicantStaManager
                               nsAString& aGeneratedPin);
   Result_t CancelWps();
 
+  NetworkConfiguration GetCurrentConfiguration() const;
   int32_t GetCurrentNetworkId() const;
 
   bool IsCurrentEapNetwork();
@@ -225,7 +226,6 @@ class SupplicantStaManager
   android::sp<SupplicantStaNetwork> CreateStaNetwork();
   android::sp<SupplicantStaNetwork> GetStaNetwork(uint32_t aNetId) const;
   android::sp<SupplicantStaNetwork> GetCurrentNetwork() const;
-  NetworkConfiguration GetCurrentConfiguration() const;
 
   bool CompareConfiguration(const NetworkConfiguration& aOld,
                             const NetworkConfiguration& aNew);

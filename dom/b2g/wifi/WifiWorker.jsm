@@ -1590,7 +1590,11 @@ var WifiManager = (function() {
         WifiConstants.DISABLED_AUTHENTICATION_NO_CREDENTIALS,
         function(doDisable) {
           if (doDisable) {
-            manager.disableNetwork(function() {});
+            manager.disableNetwork(function() {
+              notify("networkdisable", {
+                reason: WifiConstants.DISABLED_AUTHENTICATION_FAILURE,
+              });
+            });
           }
         }
       );
