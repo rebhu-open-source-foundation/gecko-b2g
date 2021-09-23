@@ -454,9 +454,15 @@ void ImageBridgeParent::NotifyNotUsed(PTextureParent* aTexture,
   uint64_t textureId = TextureHost::GetTextureSerial(aTexture);
   mPendingAsyncMessage.push_back(OpNotifyNotUsed(textureId, aTransactionId));
 
+#if defined(MOZ_WIDGET_GONK)
+  // Always flush pending async messages since webrender composition has
+  // performance issue currently on Gonk which leads to camera preview halt issue.
+  SendPendingAsyncMessages();
+#else
   if (!IsAboutToSendAsyncMessages()) {
     SendPendingAsyncMessages();
   }
+#endif
 }
 
 /* static */
