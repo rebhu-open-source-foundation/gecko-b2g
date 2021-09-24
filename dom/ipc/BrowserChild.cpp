@@ -1168,9 +1168,8 @@ mozilla::ipc::IPCResult BrowserChild::RecvLoadURL(
       mozilla::ipc::SetThisProcessName(appName.get());
     }
   }
+  else if (!StringEndsWith(host, "about:blank"_ns) && mIsTopLevel) {
 
-  if (!StringEndsWith(host, ".localhost"_ns) &&
-      !StringEndsWith(host, "about:blank"_ns) && mIsTopLevel) {
     nsCOMPtr<nsIEffectiveTLDService> tldService =
         do_GetService(NS_EFFECTIVETLDSERVICE_CONTRACTID);
     MOZ_ASSERT(tldService);
