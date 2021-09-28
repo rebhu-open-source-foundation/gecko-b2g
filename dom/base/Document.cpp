@@ -102,7 +102,6 @@
 #include "mozilla/SMILTimeContainer.h"
 #include "mozilla/ScopeExit.h"
 #include "mozilla/Components.h"
-#include "mozilla/ServoCSSPropList.h"
 #include "mozilla/ServoStyleConsts.h"
 #include "mozilla/ServoStyleSet.h"
 #include "mozilla/ServoTypes.h"
@@ -1516,6 +1515,18 @@ bool Document::CallerIsTrustedAboutNetError(JSContext* aCx, JSObject* aObject) {
 #endif
 }
 
+bool Document::CallerIsTrustedAboutHttpsOnlyError(JSContext* aCx,
+                                                  JSObject* aObject) {
+  nsGlobalWindowInner* win = xpc::WindowOrNull(aObject);
+#ifdef ANDROID
+  // GeckoView uses data URLs for error pages, so for now just check for any
+  // error page
+  return win && win->GetDocument() && win->GetDocument()->IsErrorPage();
+#else
+  return win && IsAboutErrorPage(win, "httpsonlyerror");
+#endif
+}
+
 already_AddRefed<mozilla::dom::Promise> Document::AddCertException(
     bool aIsTemporary) {
   nsIGlobalObject* global = GetScopeObject();
@@ -1655,6 +1666,12 @@ already_AddRefed<mozilla::dom::Promise> Document::AddCertException(
 
   promise->MaybeReject(NS_ERROR_FAILURE);
   return promise.forget();
+}
+
+void Document::ReloadWithHttpsOnlyException() {
+  if (WindowGlobalChild* wgc = GetWindowGlobalChild()) {
+    wgc->SendReloadWithHttpsOnlyException();
+  }
 }
 
 void Document::GetNetErrorInfo(NetErrorInfo& aInfo, ErrorResult& aRv) {
@@ -17124,7 +17141,21 @@ bool Document::HasStorageAccessPermissionGranted() {
   }
 
   nsCOMPtr<nsILoadInfo> loadInfo = mChannel->LoadInfo();
-  return loadInfo->GetHasStoragePermission();
+  return loadInfo->GetStoragePermission() != nsILoadInfo::NoStoragePermission;
+}
+
+bool Document::HasStorageAccessPermissionGrantedByAllowList() {
+  // We only care about if the document gets the storage permission via the
+  // allow list here. So we don't check the storage access cache in the inner
+  // window.
+
+  if (!mChannel) {
+    return false;
+  }
+
+  nsCOMPtr<nsILoadInfo> loadInfo = mChannel->LoadInfo();
+  return loadInfo->GetStoragePermission() ==
+         nsILoadInfo::StoragePermissionAllowListed;
 }
 
 nsIPrincipal* Document::EffectiveStoragePrincipal() const {

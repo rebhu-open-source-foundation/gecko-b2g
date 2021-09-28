@@ -1132,6 +1132,12 @@
   value: false
   mirror: always
 
+# See bug 1731668
+- name: browser.download.enable_spam_prevention
+  type: bool
+  value: false
+  mirror: always
+
 - name: browser.download.sanitize_non_media_extensions
   type: bool
   value: true
@@ -1153,7 +1159,7 @@
 # Whether pressing Esc will exit fullscreen.
 - name: browser.fullscreen.exit_on_escape
   type: bool
-  value: false
+  value: true
   mirror: always
 #endif
 
@@ -5178,17 +5184,6 @@
   value: true
   mirror: always
 
-#  Whether to enable LayerScope tool and default listening port.
-- name: gfx.layerscope.enabled
-  type: RelaxedAtomicBool
-  value: false
-  mirror: always
-
-- name: gfx.layerscope.port
-  type: RelaxedAtomicInt32
-  value: 23456
-  mirror: always
-
 # The level of logging:
 # - 0: no logging;
 # - 1: adds errors;
@@ -5430,11 +5425,6 @@
 - name: gfx.webrender.max-filter-ops-per-chain
   type: RelaxedAtomicUint32
   value: 64
-  mirror: always
-
-- name: gfx.webrender.enable-multithreading
-  type: bool
-  value: true
   mirror: always
 
 - name: gfx.webrender.batching.lookback
@@ -6544,31 +6534,10 @@
   mirror: once
   do_not_use_directly: true
 
-# Preference that when switched at runtime will run a series of benchmarks
-# and output the result to stderr.
-- name: layers.bench.enabled
-  type: RelaxedAtomicBool
-  value: false
-  mirror: always
-
 - name: layers.child-process-shutdown
   type: RelaxedAtomicBool
   value: true
   mirror: always
-
-- name: layers.componentalpha.enabled
-  type: bool
-#ifdef MOZ_GFX_OPTIMIZE_MOBILE
-  # Nb: we ignore this pref if MOZ_GFX_OPTIMIZE_MOBILE is defined, as if this
-  # pref was always false. But we go to the effort of setting it to false so
-  # that telemetry's reporting of the pref value is more likely to reflect what
-  # the code is doing.
-  value: false
-#else
-  value: true
-#endif
-  mirror: once
-  do_not_use_directly: true
 
 - name: layers.d3d11.force-warp
   type: bool
@@ -6616,24 +6585,6 @@
   mirror: always
 
 - name: layers.force-synchronous-resize
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-
-# Whether to enable arbitrary layer geometry for OpenGL compositor.
-- name: layers.geometry.opengl.enabled
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-
-# Whether to enable arbitrary layer geometry for Basic compositor.
-- name: layers.geometry.basic.enabled
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-
- # Whether to enable arbitrary layer geometry for DirectX compositor.
-- name: layers.geometry.d3d11.enabled
   type: RelaxedAtomicBool
   value: true
   mirror: always
@@ -7211,8 +7162,29 @@
 #   1 - only base system fonts
 #   2 - also fonts from optional language packs
 #   3 - also user-installed fonts
-- name: layout.css.font-visibility.level
-  type: RelaxedAtomicInt32
+- name: layout.css.font-visibility.standard
+  type: int32_t
+  value: 3
+  mirror: always
+
+# font-visibility setting when Tracking Protection is enabled
+- name: layout.css.font-visibility.trackingprotection
+  type: int32_t
+  value: 3
+  mirror: always
+
+# font-visibility setting when Resist Fingerprinting is enabled
+- name: layout.css.font-visibility.resistFingerprinting
+  type: int32_t
+  value: 1
+  mirror: always
+
+# Max font-visibility setting for Private Browsing contexts
+# (The actual value used in a private-browsing context will be the lesser of
+# the appropriate standard/trackingprotection/RFP value from above, and the
+# private-browsing level specified by this pref.)
+- name: layout.css.font-visibility.private
+  type: int32_t
   value: 3
   mirror: always
 
@@ -10256,11 +10228,11 @@
   mirror: always
 
 # When this pref is true, AddStorageEntry will return an error if the
-# OPEN_READONLY flag is passed and no entry exists. If no regressions occur
-# this pref should be removed at some point in the future.
+# OPEN_READONLY & OPEN_SECRETLY flags are passed and no entry exists.
+# If no regressions occur this pref should be removed.
 - name: network.cache.bug1708673
   type: RelaxedAtomicBool
-  value: false
+  value: true
   mirror: always
 
 #  This is used for a temporary workaround for a web-compat issue. If pref is
@@ -10523,6 +10495,13 @@
 - name: privacy.annotate_channels.strict_list.enabled
   type: bool
   value: @IS_EARLY_BETA_OR_EARLIER@
+  mirror: always
+
+# Enable the clearing of cache data using the clear-site-data header. If enabled,
+# header values of "cache" and "*" will clear cached data from the site
+- name: privacy.clearsitedata.cache.enabled
+  type: bool
+  value: false
   mirror: always
 
 # First Party Isolation (double keying), disabled by default.

@@ -656,7 +656,7 @@ class ContentParent final
       uint64_t aGroupId, BrowsingContext::IPCInitializer&& aInit);
 
   mozilla::ipc::IPCResult RecvDiscardBrowsingContext(
-      const MaybeDiscarded<BrowsingContext>& aContext,
+      const MaybeDiscarded<BrowsingContext>& aContext, bool aDoDiscard,
       DiscardBrowsingContextResolver&& aResolve);
 
   mozilla::ipc::IPCResult RecvWindowClose(

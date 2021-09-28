@@ -123,6 +123,8 @@ XPCOMUtils.defineLazyServiceGetters(this, {
 });
 
 const PREF_PDFJS_ISDEFAULT_CACHE_STATE = "pdfjs.enabledCache.state";
+const PREF_DFPI_ENABLED_BY_DEFAULT =
+  "privacy.restrict3rdpartystorage.rollout.enabledByDefault";
 
 /**
  * Fission-compatible JSProcess implementations.
@@ -1337,6 +1339,10 @@ BrowserGlue.prototype = {
       "browser.contentblocking.features.strict",
       this._setPrefExpectationsAndUpdate
     );
+    Services.prefs.removeObserver(
+      PREF_DFPI_ENABLED_BY_DEFAULT,
+      this._setDefaultCookieBehavior
+    );
   },
 
   // runs on startup, before the first command line handler is invoked
@@ -1855,6 +1861,9 @@ BrowserGlue.prototype = {
     PlacesUtils.favicons.setDefaultIconURIPreferredSize(
       16 * aWindow.devicePixelRatio
     );
+    // _setDefaultCookieBehavior needs to run before other functions that modify
+    // privacy preferences such as _setPrefExpectationsAndUpdate and _matchCBCategory
+    this._setDefaultCookieBehavior();
     this._setPrefExpectationsAndUpdate();
     this._matchCBCategory();
 
@@ -1895,6 +1904,10 @@ BrowserGlue.prototype = {
       "browser.contentblocking.features.strict",
       this._setPrefExpectationsAndUpdate
     );
+    Services.prefs.addObserver(
+      PREF_DFPI_ENABLED_BY_DEFAULT,
+      this._setDefaultCookieBehavior
+    );
   },
 
   _updateAutoplayPref() {
@@ -1906,6 +1919,20 @@ BrowserGlue.prototype = {
     if (blocked in labels) {
       telemetry.add(labels[blocked]);
     }
+  },
+
+  // For the initial rollout of dFPI, set the default cookieBehavior based on the pref
+  // set during onboarding when the user chooses to enable protections or not.
+  _setDefaultCookieBehavior() {
+    if (!Services.prefs.getBoolPref(PREF_DFPI_ENABLED_BY_DEFAULT, false)) {
+      return;
+    }
+
+    let defaultPrefs = Services.prefs.getDefaultBranch("");
+    defaultPrefs.setIntPref(
+      "network.cookie.cookieBehavior",
+      Ci.nsICookieService.BEHAVIOR_REJECT_TRACKER_AND_PARTITION_FOREIGN
+    );
   },
 
   _setPrefExpectations() {
@@ -2362,6 +2389,7 @@ BrowserGlue.prototype = {
     }
 
     Sanitizer.onStartup();
+    this._maybeShowRestoreSessionInfoBar();
     this._scheduleStartupIdleTasks();
     this._lateTasksIdleObserver = (idleService, topic, data) => {
       if (topic == "idle") {
@@ -4148,6 +4176,73 @@ BrowserGlue.prototype = {
       id: "defaultBrowserCheck",
       context: { willShowDefaultPrompt: willPrompt, source: "startup" },
     });
+  },
+
+  /**
+   * Only show the infobar when canRestoreLastSession and the pref value == 1
+   */
+  async _maybeShowRestoreSessionInfoBar() {
+    let count = Services.prefs.getIntPref(
+      "browser.startup.couldRestoreSession.count",
+      0
+    );
+    if (count < 0 || count >= 2) {
+      return;
+    }
+    if (count == 0) {
+      // We don't show the infobar right after the update which establishes this pref
+      // Increment the counter so we can consider it next time
+      Services.prefs.setIntPref(
+        "browser.startup.couldRestoreSession.count",
+        ++count
+      );
+      return;
+    }
+
+    // We've restarted at least once; we will show the notification if possible:
+    if (!SessionStore.canRestoreLastSession) {
+      return;
+    }
+
+    Services.prefs.setIntPref(
+      "browser.startup.couldRestoreSession.count",
+      ++count
+    );
+
+    const win = BrowserWindowTracker.getTopWindow();
+    const messageFragment = win.document.createDocumentFragment();
+    const message = win.document.createElement("span");
+    const icon = win.document.createElement("img");
+    icon.src = "chrome://browser/skin/menu.svg";
+    icon.setAttribute("data-l10n-name", "icon");
+    icon.className = "inline-icon";
+    message.appendChild(icon);
+    messageFragment.appendChild(message);
+    win.document.l10n.setAttributes(
+      message,
+      "restore-session-startup-suggestion-message"
+    );
+
+    const buttons = [
+      {
+        "l10n-id": "restore-session-startup-suggestion-button",
+        callback: () => {
+          win.PanelUI.show();
+        },
+      },
+    ];
+
+    const notifyBox = win.gBrowser.getNotificationBox();
+    const notification = notifyBox.appendNotification(
+      "startup-restore-session-suggestion",
+      {
+        label: messageFragment,
+        priority: notifyBox.PRIORITY_INFO_MEDIUM,
+      },
+      buttons
+    );
+    // Don't allow it to be immediately hidden:
+    notification.timeout = Date.now() + 3000;
   },
 
   /**

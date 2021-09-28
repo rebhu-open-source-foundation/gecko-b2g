@@ -939,6 +939,7 @@ pub static MEDIA_FEATURES: [MediaFeatureDescription; 61] = [
     lnf_int_feature!(atom!("-moz-windows-default-theme"), WindowsDefaultTheme),
     lnf_int_feature!(atom!("-moz-mac-graphite-theme"), MacGraphiteTheme),
     lnf_int_feature!(atom!("-moz-mac-big-sur-theme"), MacBigSurTheme),
+    lnf_int_feature!(atom!("-moz-mac-rtl"), MacRTL),
     lnf_int_feature!(atom!("-moz-windows-accent-color-in-titlebar"), WindowsAccentColorInTitlebar),
     lnf_int_feature!(atom!("-moz-windows-compositor"), DWMCompositor),
     lnf_int_feature!(atom!("-moz-windows-classic"), WindowsClassic),

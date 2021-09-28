@@ -299,6 +299,9 @@ pref("browser.startup.homepage.abouthome_cache.loglevel", "Warn");
 // Whether we should skip the homepage when opening the first-run page
 pref("browser.startup.firstrunSkipsHomepage", true);
 
+// Whether we should show the session-restore infobar on startup
+pref("browser.startup.couldRestoreSession.count", 0);
+
 // Show an about:blank window as early as possible for quick startup feedback.
 // Held to nightly on Linux due to bug 1450626.
 // Disabled on Mac because the bouncing dock icon already provides feedback.
@@ -1474,6 +1477,9 @@ pref("browser.newtabpage.activity-stream.asrouter.useRemoteL10n", true);
 pref("browser.newtabpage.activity-stream.discoverystream.enabled", true);
 pref("browser.newtabpage.activity-stream.discoverystream.hardcoded-basic-layout", false);
 pref("browser.newtabpage.activity-stream.discoverystream.compactLayout.enabled", false);
+pref("browser.newtabpage.activity-stream.discoverystream.loadMore.enabled", false);
+pref("browser.newtabpage.activity-stream.discoverystream.lastCardMessage.enabled", false);
+pref("browser.newtabpage.activity-stream.discoverystream.newFooterSection.enabled", false);
 pref("browser.newtabpage.activity-stream.discoverystream.spoc-positions", "2,4,11,20");
 pref("browser.newtabpage.activity-stream.discoverystream.spocs-endpoint", "");
 pref("browser.newtabpage.activity-stream.discoverystream.spocs-endpoint-query", "");

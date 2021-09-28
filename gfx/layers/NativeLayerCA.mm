@@ -660,7 +660,7 @@ void NativeLayerCA::AttachExternalImage(wr::RenderTextureHost* aExternalImage) {
     r.mMutatedFrontSurface = true;
     r.mMutatedDisplayRect = true;
     r.mMutatedSize = true;
-    r.mMutatedSpecializeVideo = changedSpecializeVideo;
+    r.mMutatedSpecializeVideo |= changedSpecializeVideo;
   });
 }
 
@@ -1107,27 +1107,38 @@ CALayer* NativeLayerCA::UnderlyingCALayer(WhichRepresentation aRepresentation) {
 }
 
 bool NativeLayerCA::Representation::EnqueueSurface(IOSurfaceRef aSurfaceRef) {
+  MOZ_ASSERT([mContentCALayer isKindOfClass:[AVSampleBufferDisplayLayer class]]);
+
   // Convert the IOSurfaceRef into a CMSampleBuffer, so we can enqueue it in mContentCALayer
   CVPixelBufferRef pixelBuffer = nullptr;
   CVReturn cvValue =
       CVPixelBufferCreateWithIOSurface(kCFAllocatorDefault, aSurfaceRef, nullptr, &pixelBuffer);
   if (cvValue != kCVReturnSuccess) {
+    MOZ_ASSERT(pixelBuffer == nullptr, "Failed call shouldn't allocate memory.");
     return false;
   }
+  CFTypeRefPtr<CVPixelBufferRef> pixelBufferDeallocator =
+      CFTypeRefPtr<CVPixelBufferRef>::WrapUnderCreateRule(pixelBuffer);
 
-  CMVideoFormatDescriptionRef formatDescription;
+  CMVideoFormatDescriptionRef formatDescription = nullptr;
   OSStatus osValue = CMVideoFormatDescriptionCreateForImageBuffer(kCFAllocatorDefault, pixelBuffer,
                                                                   &formatDescription);
   if (osValue != noErr) {
+    MOZ_ASSERT(formatDescription == nullptr, "Failed call shouldn't allocate memory.");
     return false;
   }
+  CFTypeRefPtr<CMVideoFormatDescriptionRef> formatDescriptionDeallocator =
+      CFTypeRefPtr<CMVideoFormatDescriptionRef>::WrapUnderCreateRule(formatDescription);
 
   CMSampleBufferRef sampleBuffer = nullptr;
   osValue = CMSampleBufferCreateReadyWithImageBuffer(
       kCFAllocatorDefault, pixelBuffer, formatDescription, &kCMTimingInfoInvalid, &sampleBuffer);
   if (osValue != noErr) {
+    MOZ_ASSERT(sampleBuffer == nullptr, "Failed call shouldn't allocate memory.");
     return false;
   }
+  CFTypeRefPtr<CMSampleBufferRef> sampleBufferDeallocator =
+      CFTypeRefPtr<CMSampleBufferRef>::WrapUnderCreateRule(sampleBuffer);
 
   // Since we don't have timing information for the sample, before we enqueue it, we
   // attach an attribute that specifies that the sample should be played immediately.
@@ -1136,8 +1147,8 @@ bool NativeLayerCA::Representation::EnqueueSurface(IOSurfaceRef aSurfaceRef) {
     // No dictionary to alter.
     return false;
   }
-  CFMutableDictionaryRef sample0Dictionary = reinterpret_cast<CFMutableDictionaryRef>(
-      const_cast<void*>(CFArrayGetValueAtIndex(attachmentsArray, 0)));
+  CFMutableDictionaryRef sample0Dictionary =
+      (__bridge CFMutableDictionaryRef)CFArrayGetValueAtIndex(attachmentsArray, 0);
   CFDictionarySetValue(sample0Dictionary, kCMSampleAttachmentKey_DisplayImmediately,
                        kCFBooleanTrue);
 

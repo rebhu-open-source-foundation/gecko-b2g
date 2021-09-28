@@ -94,9 +94,8 @@ def busted_file(command_context, against):
         # Look up the file implementing that command, then cross-refernce
         # moz.build files to get the product/component.
         handler = command_context._mach_context.commands.command_handlers[against]
-        method = getattr(handler.cls, handler.method)
         sourcefile = mozpath.relpath(
-            inspect.getsourcefile(method), command_context.topsrcdir
+            inspect.getsourcefile(handler.func), command_context.topsrcdir
         )
         reader = command_context.mozbuild_reader(config_mode="empty")
         try:

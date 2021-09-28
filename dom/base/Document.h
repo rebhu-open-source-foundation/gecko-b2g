@@ -1420,6 +1420,10 @@ class Document : public nsINode,
   // Returns whether this document has the storage access permission.
   bool HasStorageAccessPermissionGranted();
 
+  // Returns whether the storage access permission of the document is granted by
+  // the allow list.
+  bool HasStorageAccessPermissionGrantedByAllowList();
+
   // Increments the document generation.
   inline void Changed() { ++mGeneration; }
 
@@ -2241,6 +2245,13 @@ class Document : public nsINode,
    * GetNetErrorInfo is a trusted about net error page or not.
    */
   static bool CallerIsTrustedAboutNetError(JSContext* aCx, JSObject* aObject);
+
+  /**
+   * This function checks if the document that is trying to access
+   * ReloadWithHttpsOnlyException is a trusted HTTPS only error page.
+   */
+  static bool CallerIsTrustedAboutHttpsOnlyError(JSContext* aCx,
+                                                 JSObject* aObject);
 
   /**
    * Get security info like error code for a failed channel. This
@@ -3997,6 +4008,8 @@ class Document : public nsINode,
       nsIPrincipal* aPrincipal);
 
   already_AddRefed<Promise> AddCertException(bool aIsTemporary);
+
+  void ReloadWithHttpsOnlyException();
 
   // Subframes need to be static cloned after the main document has been
   // embedded within a script global. A `PendingFrameStaticClone` is a static

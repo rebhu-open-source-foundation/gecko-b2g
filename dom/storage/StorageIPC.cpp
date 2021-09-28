@@ -19,6 +19,7 @@
 #include "mozilla/ipc/PBackgroundChild.h"
 #include "mozilla/ipc/PBackgroundParent.h"
 #include "mozilla/dom/ContentParent.h"
+#include "mozilla/StoragePrincipalHelper.h"
 #include "mozilla/Unused.h"
 #include "nsCOMPtr.h"
 #include "nsIPrincipal.h"
@@ -1393,9 +1394,9 @@ nsresult SessionStorageObserverParent::Observe(
 }
 
 SessionStorageCacheParent::SessionStorageCacheParent(
-    const nsCString& aOriginAttrs, const nsCString& aOriginKey,
-    SessionStorageManagerParent* aActor)
-    : mOriginAttrs(aOriginAttrs),
+    const mozilla::ipc::PrincipalInfo& aPrincipalInfo,
+    const nsCString& aOriginKey, SessionStorageManagerParent* aActor)
+    : mPrincipalInfo(aPrincipalInfo),
       mOriginKey(aOriginKey),
       mManagerActor(aActor) {
   ::mozilla::ipc::AssertIsOnBackgroundThread();
@@ -1420,7 +1421,14 @@ mozilla::ipc::IPCResult SessionStorageCacheParent::RecvLoad(
   RefPtr<BackgroundSessionStorageManager> manager = mManagerActor->GetManager();
   MOZ_ASSERT(manager);
 
-  manager->CopyDataToContentProcess(mOriginAttrs, mOriginKey, *aData);
+  OriginAttributes attrs;
+  MOZ_ALWAYS_TRUE(
+      StoragePrincipalHelper::GetOriginAttributes(mPrincipalInfo, attrs));
+
+  nsAutoCString originAttrs;
+  attrs.CreateSuffix(originAttrs);
+
+  manager->CopyDataToContentProcess(originAttrs, mOriginKey, *aData);
 
   return IPC_OK();
 }
@@ -1433,7 +1441,13 @@ mozilla::ipc::IPCResult SessionStorageCacheParent::RecvCheckpoint(
   RefPtr<BackgroundSessionStorageManager> manager = mManagerActor->GetManager();
   MOZ_ASSERT(manager);
 
-  manager->UpdateData(mOriginAttrs, mOriginKey, aWriteInfos);
+  OriginAttributes attrs;
+  StoragePrincipalHelper::GetOriginAttributes(mPrincipalInfo, attrs);
+
+  nsAutoCString originAttrs;
+  attrs.CreateSuffix(originAttrs);
+
+  manager->UpdateData(originAttrs, mOriginKey, aWriteInfos);
 
   return IPC_OK();
 }
@@ -1457,6 +1471,7 @@ SessionStorageManagerParent::SessionStorageManagerParent(uint64_t aTopContextId)
           BackgroundSessionStorageManager::GetOrCreate(aTopContextId)) {
   ::mozilla::ipc::AssertIsOnBackgroundThread();
   MOZ_ASSERT(mBackgroundManager);
+  mBackgroundManager->AddParticipatingActor(this);
 }
 
 SessionStorageManagerParent::~SessionStorageManagerParent() = default;
@@ -1464,13 +1479,17 @@ SessionStorageManagerParent::~SessionStorageManagerParent() = default;
 void SessionStorageManagerParent::ActorDestroy(ActorDestroyReason aWhy) {
   ::mozilla::ipc::AssertIsOnBackgroundThread();
 
+  if (mBackgroundManager) {
+    mBackgroundManager->RemoveParticipatingActor(this);
+  }
+
   mBackgroundManager = nullptr;
 }
 
 already_AddRefed<PBackgroundSessionStorageCacheParent>
 SessionStorageManagerParent::AllocPBackgroundSessionStorageCacheParent(
-    const nsCString& aOriginAttrs, const nsCString& aOriginKey) {
-  return MakeAndAddRef<SessionStorageCacheParent>(aOriginAttrs, aOriginKey,
+    const PrincipalInfo& aPrincipalInfo, const nsCString& aOriginKey) {
+  return MakeAndAddRef<SessionStorageCacheParent>(aPrincipalInfo, aOriginKey,
                                                   this);
 }
 
@@ -1479,9 +1498,18 @@ BackgroundSessionStorageManager* SessionStorageManagerParent::GetManager()
   return mBackgroundManager;
 }
 
+mozilla::ipc::IPCResult SessionStorageManagerParent::RecvClearStorages(
+    const OriginAttributesPattern& aPattern, const nsCString& aOriginScope) {
+  ::mozilla::ipc::AssertIsOnBackgroundThread();
+  mBackgroundManager->ClearStorages(aPattern, aOriginScope);
+  return IPC_OK();
+}
+
 mozilla::ipc::IPCResult SessionStorageManagerParent::RecvDeleteMe() {
   ::mozilla::ipc::AssertIsOnBackgroundThread();
   MOZ_ASSERT(mBackgroundManager);
+
+  mBackgroundManager->RemoveParticipatingActor(this);
 
   mBackgroundManager = nullptr;
 

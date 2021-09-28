@@ -150,15 +150,13 @@ def run_debug_commands(command_context, match=None):
         if match and match not in command:
             continue
 
-        cls = handler.cls
-        method = getattr(cls, getattr(handler, "method"))
+        func = handler.func
 
         print(command)
         print("=" * len(command))
         print("")
-        print("File: %s" % inspect.getsourcefile(method))
-        print("Class: %s" % cls.__name__)
-        print("Method: %s" % handler.method)
+        print("File: %s" % inspect.getsourcefile(func))
+        print("Function: %s" % func.__name__)
         print("")
 
 

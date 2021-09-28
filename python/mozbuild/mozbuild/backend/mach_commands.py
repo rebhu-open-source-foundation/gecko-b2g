@@ -64,7 +64,7 @@ def run(command_context, ide, args):
             return rc
 
         # First install what we can through install manifests.
-        rc = build_commands._run_make(
+        rc = command_context._run_make(
             directory=command_context.topobjdir,
             target="pre-export",
             line_handler=None,
@@ -75,7 +75,7 @@ def run(command_context, ide, args):
         # Then build the rest of the build dependencies by running the full
         # export target, because we can't do anything better.
         for target in ("export", "pre-compile"):
-            rc = build_commands._run_make(
+            rc = command_context._run_make(
                 directory=command_context.topobjdir,
                 target=target,
                 line_handler=None,
