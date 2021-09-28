@@ -14,7 +14,6 @@
 #include "mozilla/RefPtr.h"      // for RefPtr
 #include "mozilla/TimeStamp.h"   // for TimeStamp
 #include "mozilla/gfx/Point.h"   // for IntSize
-#include "mozilla/layers/CompositorScheduler.h"
 #include "mozilla/layers/SampleTime.h"
 #include "mozilla/VsyncDispatcher.h"
 #include "mozilla/widget/CompositorWidget.h"
@@ -38,7 +37,9 @@ class CompositorVsyncSchedulerOwner;
  * compositor when it need to paint.
  * Turns vsync notifications into scheduled composites.
  **/
-class CompositorVsyncScheduler final : public CompositorScheduler {
+class CompositorVsyncScheduler {
+  NS_INLINE_DECL_THREADSAFE_REFCOUNTING(CompositorVsyncScheduler)
+
  public:
   CompositorVsyncScheduler(CompositorVsyncSchedulerOwner* aVsyncSchedulerOwner,
                            widget::CompositorWidget* aWidget);
@@ -100,6 +101,20 @@ class CompositorVsyncScheduler final : public CompositorScheduler {
   bool FlushPendingComposite();
 
   /**
+   * Return the vsync timestamp of the last or ongoing composite. Must be called
+   * on the compositor thread.
+   */
+  const SampleTime& GetLastComposeTime() const;
+
+  /**
+   * Return the vsync timestamp and id of the most recently received
+   * vsync event. Must be called on the compositor thread.
+   */
+  const TimeStamp& GetLastVsyncTime() const;
+  const TimeStamp& GetLastVsyncOutputTime() const;
+  const VsyncId& GetLastVsyncId() const;
+
+  /**
    * Update LastCompose TimeStamp to current timestamp.
    * The function is typically used when composition is handled outside the
    * CompositorVsyncScheduler.
@@ -151,6 +166,12 @@ class CompositorVsyncScheduler final : public CompositorScheduler {
     // Hold raw pointer to avoid mutual reference.
     CompositorVsyncScheduler* mOwner;
   };
+
+  CompositorVsyncSchedulerOwner* mVsyncSchedulerOwner;
+  SampleTime mLastComposeTime;
+  TimeStamp mLastVsyncTime;
+  TimeStamp mLastVsyncOutputTime;
+  VsyncId mLastVsyncId;
 
   bool mAsapScheduling;
   bool mIsObservingVsync;

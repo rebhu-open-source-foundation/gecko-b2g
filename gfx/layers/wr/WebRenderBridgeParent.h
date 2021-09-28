@@ -14,7 +14,6 @@
 #include "GLContextProvider.h"
 #include "mozilla/DataMutex.h"
 #include "mozilla/layers/CompositableTransactionParent.h"
-#include "mozilla/layers/CompositorScheduler.h"
 #include "mozilla/layers/CompositorVsyncSchedulerOwner.h"
 #include "mozilla/layers/LayerManager.h"
 #include "mozilla/layers/PWebRenderBridgeParent.h"
@@ -47,7 +46,7 @@ namespace layers {
 class AsyncImagePipelineManager;
 class Compositor;
 class CompositorBridgeParentBase;
-class CompositorScheduler;
+class CompositorVsyncScheduler;
 class OMTASampler;
 class UiCompositorControllerParent;
 class WebRenderBridgeParentRef;
@@ -71,7 +70,7 @@ class WebRenderBridgeParent final : public PWebRenderBridgeParent,
   WebRenderBridgeParent(CompositorBridgeParentBase* aCompositorBridge,
                         const wr::PipelineId& aPipelineId,
                         widget::CompositorWidget* aWidget,
-                        CompositorScheduler* aScheduler,
+                        CompositorVsyncScheduler* aScheduler,
                         RefPtr<wr::WebRenderAPI>&& aApi,
                         RefPtr<AsyncImagePipelineManager>&& aImageMgr,
                         TimeDuration aVsyncRate);
@@ -84,7 +83,7 @@ class WebRenderBridgeParent final : public PWebRenderBridgeParent,
     return do_AddRef(mApi);
   }
   AsyncImagePipelineManager* AsyncImageManager() { return mAsyncImageManager; }
-  CompositorScheduler* GetCompositorScheduler() {
+  CompositorVsyncScheduler* CompositorScheduler() {
     return mCompositorScheduler.get();
   }
   CompositorBridgeParentBase* GetCompositorBridge() {
@@ -251,7 +250,7 @@ class WebRenderBridgeParent final : public PWebRenderBridgeParent,
    * to generate frame. If we need to generate new frame at next composite
    * timing, call this method.
    *
-   * Call CompositorScheduler::ScheduleComposition() directly, if we just
+   * Call CompositorVsyncScheduler::ScheduleComposition() directly, if we just
    * want to trigger AsyncImagePipelines update checks.
    */
   void ScheduleGenerateFrame();
@@ -275,7 +274,7 @@ class WebRenderBridgeParent final : public PWebRenderBridgeParent,
   void NotifyDidSceneBuild(RefPtr<const wr::WebRenderPipelineInfo> aInfo);
 
   wr::Epoch UpdateWebRender(
-      CompositorScheduler* aScheduler, RefPtr<wr::WebRenderAPI>&& aApi,
+      CompositorVsyncScheduler* aScheduler, RefPtr<wr::WebRenderAPI>&& aApi,
       AsyncImagePipelineManager* aImageMgr,
       const TextureFactoryIdentifier& aTextureFactoryIdentifier);
 
@@ -471,7 +470,7 @@ class WebRenderBridgeParent final : public PWebRenderBridgeParent,
   RefPtr<widget::CompositorWidget> mWidget;
   RefPtr<wr::WebRenderAPI> mApi;
   RefPtr<AsyncImagePipelineManager> mAsyncImageManager;
-  RefPtr<CompositorScheduler> mCompositorScheduler;
+  RefPtr<CompositorVsyncScheduler> mCompositorScheduler;
   // mActiveAnimations is used to avoid leaking animations when
   // WebRenderBridgeParent is destroyed abnormally and Tab move between
   // different windows.

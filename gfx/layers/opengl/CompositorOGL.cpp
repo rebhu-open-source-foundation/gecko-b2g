@@ -1786,12 +1786,14 @@ void CompositorOGL::DrawGLCursor(
         mCursorTextureCache,
         SamplingFilter::POINT,
         true);
+  auto rect = gfx::Rect(aCursorPos.x - aHotspot.x, aCursorPos.y - aHotspot.y, aImgSize.width, aImgSize.height);
   Compositor::DrawQuad(
-      gfx::Rect(aCursorPos.x - aHotspot.x, aCursorPos.y - aHotspot.y, aImgSize.width, aImgSize.height),
+      rect,
       gfx::IntRect(aRect.x, aRect.y, aRect.width, aRect.height),
       effects,
       alpha,
-      gfx::Matrix4x4()
+      gfx::Matrix4x4(),
+      rect
       );
 }
 

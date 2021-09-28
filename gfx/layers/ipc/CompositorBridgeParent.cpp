@@ -44,7 +44,7 @@
 #include "mozilla/layers/CompositorOGL.h"            // for CompositorOGL
 #include "mozilla/layers/CompositorThread.h"
 #include "mozilla/layers/CompositorTypes.h"
-#include "mozilla/layers/CompositorScheduler.h"
+#include "mozilla/layers/CompositorVsyncScheduler.h"
 #include "mozilla/layers/ContentCompositorBridgeParent.h"
 #include "mozilla/layers/FrameUniformityData.h"
 #include "mozilla/layers/GeckoContentController.h"
@@ -95,10 +95,6 @@
 #  include "mozilla/gfx/DeviceManagerDx.h"
 #endif
 
-#ifdef MOZ_WIDGET_GONK
-#include "libdisplay/GonkDisplay.h"
-#endif
-
 namespace mozilla {
 
 namespace layers {
@@ -114,8 +110,8 @@ using mozilla::Telemetry::LABELS_CONTENT_FRAME_TIME_REASON;
 /// the addition that it doesn't assert if the compositor thread holder is
 /// already gone during late shutdown.
 static void AssertIsInCompositorThread() {
-//  MOZ_RELEASE_ASSERT(!CompositorThread() ||
-//                     CompositorThreadHolder::IsInCompositorThread());
+  MOZ_RELEASE_ASSERT(!CompositorThread() ||
+                     CompositorThreadHolder::IsInCompositorThread());
 }
 
 CompositorBridgeParentBase::CompositorBridgeParentBase(
@@ -1155,7 +1151,7 @@ mozilla::ipc::IPCResult CompositorBridgeParent::RecvAdoptChild(
     RefPtr<wr::WebRenderAPI> api = mWrBridge->GetWebRenderAPI();
     api = api->Clone();
     wr::Epoch newEpoch = childWrBridge->UpdateWebRender(
-        mWrBridge->GetCompositorScheduler(), std::move(api),
+        mWrBridge->CompositorScheduler(), std::move(api),
         mWrBridge->AsyncImageManager(),
         mWrBridge->GetTextureFactoryIdentifier());
     // Pretend we composited, since parent CompositorBridgeParent was replaced.
@@ -1274,7 +1270,7 @@ PWebRenderBridgeParent* CompositorBridgeParent::AllocPWebRenderBridgeParent(
                                         mVsyncRate);
   mWrBridge.get()->AddRef();  // IPDL reference
 
-  mCompositorScheduler = mWrBridge->GetCompositorScheduler();
+  mCompositorScheduler = mWrBridge->CompositorScheduler();
   MOZ_ASSERT(mCompositorScheduler);
   {  // scope lock
     MonitorAutoLock lock(*sIndirectLayerTreesLock);

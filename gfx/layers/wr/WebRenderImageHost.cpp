@@ -68,8 +68,8 @@ void WebRenderImageHost::UseTextureHost(
   if (GetAsyncRef()) {
     for (const auto& it : mWrBridges) {
       RefPtr<WebRenderBridgeParent> wrBridge = it.second->WrBridge();
-      if (wrBridge && wrBridge->GetCompositorScheduler()) {
-        wrBridge->GetCompositorScheduler()->ScheduleComposition();
+      if (wrBridge && wrBridge->CompositorScheduler()) {
+        wrBridge->CompositorScheduler()->ScheduleComposition();
       }
     }
   }
