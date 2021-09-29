@@ -1396,6 +1396,7 @@ Document::Document(const char* aContentType)
       mHasWarnedAboutZoom(false),
       mIsRunningExecCommand(false),
       mSetCompleteAfterDOMContentLoaded(false),
+      mDidHitCompleteSheetCache(false),
       mPendingFullscreenRequests(0),
       mXMLDeclarationBits(0),
       mOnloadBlockCount(0),
