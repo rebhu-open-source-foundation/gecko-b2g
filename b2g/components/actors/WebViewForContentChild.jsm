@@ -6,226 +6,19 @@
 
 var EXPORTED_SYMBOLS = ["WebViewForContentChild"];
 
-const { XPCOMUtils } = ChromeUtils.import(
-  "resource://gre/modules/XPCOMUtils.jsm"
-);
-
-XPCOMUtils.defineLazyModuleGetters(this, {
-  Services: "resource://gre/modules/Services.jsm",
-});
-
-function IsValidKey(aKey) {
-  const blockList = [
-    "constructor",
-    "customInterfaces",
-    "dispatchEvent",
-    "getCustomInterfaceCallbac",
-    "length",
-    "name",
-    "prototype",
-    "QueryInterface",
-  ];
-  return !aKey.startsWith("__") && !blockList.includes(aKey);
-}
-
-function BuildProperties(aObj) {
-  const properties = Object.getOwnPropertyDescriptors(aObj);
-  const propertiesFiltered = {};
-  Object.getOwnPropertyNames(properties).forEach(key => {
-    if (IsValidKey(key)) {
-      propertiesFiltered[key] = properties[key];
-    }
-  });
-  return propertiesFiltered;
-}
-
-function DispatchToCurrentThread(f) {
-  Services.tm.currentThread.dispatch(f, Ci.nsIThread.DISPATCH_NORMAL);
-}
-
 class WebViewForContentChild extends JSWindowActorChild {
-  constructor() {
-    super();
-    this.enabled = false;
-    this._isInWebViewForContent = undefined;
-  }
-
-  exportCustomElements() {
-    // Prepare scope data to grab the class defined by customElements.js.
-    this.window = {
-      document: this.contentWindow.document,
-      customElements: {
-        define: (aTag, aClass) => (this.customElements.classes[aTag] = aClass),
-      },
-      addEventListener: this.contentWindow.addEventListener.bind(
-        this.contentWindow
-      ),
-    };
-    this.window.window = this.window;
-
-    this.customElements = {
-      setElementCreationCallback: (aTag, aCallback) => aCallback(),
-      classes: {},
-    };
-
-    // customElement.js will import
-    //  <browser> at browser-custom-element.js
-    //  and <web-view> at web-view.js.
-    try {
-      Services.scriptloader.loadSubScript(
-        "chrome://global/content/customElements.js",
-        this
-      );
-    } catch (exception) {}
-
-    // Prepare the prototype we want to export.
-    const classWebView = this.customElements.classes["web-view"];
-    const classBrowser = this.customElements.classes.browser;
-
-    // Add closures
-    classWebView.__doPollyfill = aObj => {
-      Object.defineProperties(
-        aObj,
-        Object.getOwnPropertyDescriptors(classWebView.prototype)
-      );
-    };
-    classWebView.__doPollyfillForBrowser = aBrowser => {
-      Object.defineProperties(
-        aBrowser,
-        Object.getOwnPropertyDescriptors(classBrowser.prototype)
-      );
-      aBrowser.construct();
-    };
-    classWebView.prototype.__getActor = () => {
-      return this; // Note: 'this' is the actor itself.
-    };
-
-    // Add non-closures
-    classWebView.prototype.__dispatchEventImpl =
-      classWebView.prototype.dispatchEvent;
-    classWebView.prototype.dispatchEvent = function(aEvent) {
-      // It is not allowed to dispatch events in MainThread,
-      // this needs to run asynchronously.
-      DispatchToCurrentThread(() => {
-        // When creating a CustomEvent object,
-        // we must create the object form the same window.
-        const window = this.__getActor().contentWindow;
-        const event = new window.CustomEvent(
-          aEvent.type,
-          Cu.cloneInto(
-            {
-              bubbles: aEvent.bubbles,
-              detail: aEvent.detail,
-            },
-            window
-          )
-        );
-        this.__dispatchEventImpl(event);
-      });
-    };
-
-    // Now nested webview is inprocess and doesn't own a message manager.
-    // Instead of messages, we use events when using a nested web-view.
-    classBrowser.prototype.webViewGetBackgroundColor = function() {
-      let id = `WebView::ReturnBackgroundColor::${this.webViewRequestId}`;
-      this.webViewRequestId += 1;
-
-      return new this.ownerGlobal.Promise((resolve, reject) => {
-        const window = this.contentWindow;
-        this.addEventListener(
-          id,
-          function got_backgroundColor(event) {
-            let detail = event.detail;
-            if (detail.success) {
-              resolve(detail.result);
-            } else {
-              reject();
-            }
-          },
-          { once: true }
-        );
-        const event = new window.CustomEvent(
-          "webview-getbackgroundcolor",
-          Cu.cloneInto(
-            {
-              detail: {
-                id,
-              },
-              bubbles: true,
-            },
-            window
-          )
-        );
-        window.dispatchEvent(event);
-      });
-    };
-
-    classWebView.prototype._getter = function(aName) {
-      return this[aName];
-    };
-    classWebView.prototype._setter = function(aName, aValue) {
-      this[aName] = aValue;
-    };
-
-    const webViewClassData = {
-      properties: BuildProperties(classWebView.prototype),
-      staticProperties: BuildProperties(classWebView),
-    };
-
-    Cu.exportFunction(
-      () => {
-        return Cu.cloneInto(webViewClassData, this.contentWindow, {
-          cloneFunctions: true,
-        });
-      },
-      this.contentWindow,
-      { defineAs: `getWebViewClassData` }
-    );
-
-    // Do export in page script.
-    Services.scriptloader.loadSubScript(
-      "chrome://b2g/content/browser/web-view.js",
-      this.contentWindow
-    );
-
-    delete this.customElements;
-  }
-
-  hasPermission(aType) {
-    const permission = Services.perms.testPermissionFromPrincipal(
-      this.document.nodePrincipal,
-      aType
-    );
-    return permission == Services.perms.ALLOW_ACTION;
-  }
-
-  actorCreated() {
-    if (
-      this.document.nodePrincipal.isSystemPrincipal ||
-      !this.hasPermission("web-view")
-    ) {
-      return;
+  log(...args) {
+    dump("WebViewForContentChild: ");
+    for (let a of args) {
+      dump(a + " ");
     }
-    this.exportCustomElements();
-    this.enabled = true;
-  }
-
-  get isInWebViewContent() {
-    if (this._isInWebViewForContent === undefined) {
-      // check if this is child of WebViewForContent.
-      let actor = this.contentWindow.parent.windowGlobalChild.getActor(
-        "WebViewForContent"
-      );
-      if (actor != this) {
-        this._isInWebViewForContent = actor.enabled;
-      }
-    }
-    return this._isInWebViewForContent;
+    dump("\n");
   }
 
   getBackgroundColor(browser, event) {
     let eventName = event.detail.id;
     let content = browser.contentWindow;
+    const win = browser.ownerGlobal;
 
     let backgroundcolor = "transparent";
     try {
@@ -233,41 +26,62 @@ class WebViewForContentChild extends JSWindowActorChild {
         .getComputedStyle(content.document.body)
         .getPropertyValue("background-color");
 
-      const window = browser.ownerGlobal;
-      const event = new window.CustomEvent(
-        eventName,
-        Cu.cloneInto(
-          {
-            bubbles: true,
-            detail: {
-              success: true,
-              result: backgroundcolor,
+      browser?.dispatchEvent(
+        new win.CustomEvent(
+          eventName,
+          Cu.cloneInto(
+            {
+              bubbles: true,
+              detail: {
+                success: true,
+                result: backgroundcolor,
+              },
             },
-          },
-          window
+            win
+          )
         )
       );
-      browser.dispatchEvent(event);
     } catch (e) {
-      browser.dispatchEvent(eventName, {
-        success: false,
-      });
+      browser?.dispatchEvent(
+        new win.CustomEvent(eventName, {
+          success: false,
+        })
+      );
     }
   }
 
-  handleEvent(aEvent) {
-    if (!this.isInWebViewContent) {
-      // We only handle the window which is one of of <web-view>'s children.
+  handleEvent(event) {
+    const browser = this.browsingContext.embedderElement;
+
+    if (
+      !browser ||
+      !(browser instanceof XULFrameElement) ||
+      browser.isRemoteBrowser
+    ) {
+      // We only handle the window which is one of in-process <web-view>'s children.
       return;
     }
+    this.log(
+      `${this.contentWindow.document.URL} handleEvent: (${event.type}) browser=(${browser})`
+    );
 
-    switch (aEvent.type) {
+    switch (event.type) {
       case "DOMTitleChanged": {
-        this.fireTitleChanged(aEvent);
+        this.fireTitleChanged(event);
         break;
       }
       case "webview-getbackgroundcolor": {
-        this.getBackgroundColor(aEvent.target.frameElement, aEvent);
+        this.getBackgroundColor(browser, event);
+        break;
+      }
+      case "DOMMetaAdded":
+      case "DOMMetaChanged":
+      case "DOMMetaRemoved": {
+        this.fireMetaChanged(event);
+        break;
+      }
+      case "DOMLinkAdded": {
+        this.handleLinkAdded(event);
         break;
       }
     }
@@ -275,22 +89,106 @@ class WebViewForContentChild extends JSWindowActorChild {
 
   receiveMessage(message) {}
 
-  fireTitleChanged(aEvent) {
-    const browser = aEvent.target.defaultView.frameElement;
-    const window = this.contentWindow;
+  fireTitleChanged(event) {
+    const browser = this.browsingContext.embedderElement;
+    const win = browser.ownerGlobal;
     // The actor child fires pagetitlechanged to the browser element in the
     // webview element and then the webview element listen the event and fires
     // titlechange with this.browser.contentTitle.
-    const event = new window.CustomEvent(
-      "pagetitlechanged",
-      Cu.cloneInto(
-        {
-          bubbles: true,
-          detail: {},
-        },
-        window
+    browser?.dispatchEvent(
+      new win.CustomEvent(
+        "pagetitlechanged",
+        Cu.cloneInto(
+          {
+            bubbles: true,
+            detail: {},
+          },
+          win
+        )
       )
     );
-    browser.dispatchEvent(event);
+  }
+
+  fireMetaChanged(event) {
+    let target = event.target;
+    const browser = this.browsingContext.embedderElement;
+    const win = browser.ownerGlobal;
+    browser?.dispatchEvent(
+      new win.CustomEvent(
+        "metachange",
+        Cu.cloneInto(
+          {
+            bubbles: true,
+            detail: {
+              name: target.name,
+              content: target.content,
+              type: event.type.replace("DOMMeta", "").toLowerCase(),
+            },
+          },
+          win
+        )
+      )
+    );
+  }
+
+  handleLinkAdded(event) {
+    let iconchangeHandler = this.iconChangedHandler.bind(this);
+    let handlers = {
+      icon: iconchangeHandler,
+      "apple-touch-icon": iconchangeHandler,
+      "apple-touch-icon-precomposed": iconchangeHandler,
+      search: this.openSearchHandler.bind(this),
+    };
+
+    this.log(`Got linkAdded: (${event.target.href}) ${event.target.rel}`);
+    event.target.rel.split(" ").forEach(function(x) {
+      let token = x.toLowerCase();
+      if (handlers[token]) {
+        handlers[token](event);
+      }
+    }, this);
+  }
+
+  maybeCopyAttribute(src, target, attribute) {
+    if (src.getAttribute(attribute)) {
+      target[attribute] = src.getAttribute(attribute);
+    }
+  }
+
+  iconChangedHandler(event) {
+    let target = event.target;
+    this.log(`Got iconchanged: (${target.href})`);
+
+    let icon = { href: target.href };
+    this.maybeCopyAttribute(target, icon, "sizes");
+    this.maybeCopyAttribute(target, icon, "rel");
+
+    // The event target is the web-view element of a content window.
+    // Dispatch the event to the related frame element.
+    const browser = this.browsingContext.embedderElement;
+    const win = browser.ownerGlobal;
+    browser?.dispatchEvent(new win.CustomEvent("iconchange", { detail: icon }));
+  }
+
+  openSearchHandler(event) {
+    let target = event.target;
+    this.log(`Got opensearch: (${target.href})`);
+
+    if (target.type !== "application/opensearchdescription+xml") {
+      return;
+    }
+
+    // The event target is the web-view element of a content window.
+    // Dispatch the event to the related frame element.
+    const browser = this.browsingContext.embedderElement;
+    const win = browser.ownerGlobal;
+    browser?.dispatchEvent(
+      new win.CustomEvent("opensearch", {
+        detail: {
+          title: target.title,
+          href: target.href,
+        },
+      })
+    );
   }
 }

@@ -275,12 +275,25 @@ ProcessGlobal.prototype = {
         includeChrome: true,
       },
 
+      WebViewExporter: {
+        child: {
+          moduleURI: "resource://gre/actors/WebViewExporterChild.jsm",
+          events: {
+            DOMContentLoaded: { capture: true },
+          },
+        },
+        allFrames: true,
+      },
+
       WebViewForContent: {
         child: {
           moduleURI: "resource://gre/actors/WebViewForContentChild.jsm",
           events: {
-            DOMContentLoaded: { capture: true },
             DOMTitleChanged: { mozSystemGroup: true },
+            DOMLinkAdded: { capture: true },
+            DOMMetaAdded: { capture: true },
+            DOMMetaChanged: { capture: true },
+            DOMMetaRemoved: { capture: true },
             "webview-getbackgroundcolor": { capture: true },
           },
         },

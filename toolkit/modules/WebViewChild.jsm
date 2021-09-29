@@ -418,10 +418,7 @@ WebViewChild.prototype = {
   // Processes the "rel" field in <link> tags and forward to specific handlers.
   linkAddedHandler(event) {
     let win = event.target.ownerGlobal;
-    let actor = win.parent?.windowGlobalChild?.getActor(
-      "WebViewForContent"
-    ) ?? { enabled: false };
-    if (win != this.global.content && !actor.enabled) {
+    if (win != this.global.content) {
       return;
     }
 
@@ -449,17 +446,7 @@ WebViewChild.prototype = {
     let icon = { href: target.href };
     this.maybeCopyAttribute(target, icon, "sizes");
     this.maybeCopyAttribute(target, icon, "rel");
-    let win = event.target.ownerGlobal;
-    if (win === this.global.content) {
-      this.global.sendAsyncMessage("WebView::iconchange", icon);
-    } else {
-      // The event target is the web-view element of a content window.
-      // Dispatch the event to the related frame element.
-      const browser = target.ownerGlobal.frameElement;
-      browser?.dispatchEvent(
-        new win.CustomEvent("iconchange", { detail: icon })
-      );
-    }
+    this.global.sendAsyncMessage("WebView::iconchange", icon);
   },
 
   openSearchHandler(event) {
@@ -469,25 +456,10 @@ WebViewChild.prototype = {
     if (target.type !== "application/opensearchdescription+xml") {
       return;
     }
-    let win = event.target.ownerGlobal;
-    if (win === this.global.content) {
-      this.global.sendAsyncMessage("WebView::opensearch", {
-        title: target.title,
-        href: target.href,
-      });
-    } else {
-      // The event target is the web-view element of a content window.
-      // Dispatch the event to the related frame element.
-      const browser = target.ownerGlobal.frameElement;
-      browser?.dispatchEvent(
-        new win.CustomEvent("opensearch", {
-          detail: {
-            title: target.title,
-            href: target.href,
-          },
-        })
-      );
-    }
+    this.global.sendAsyncMessage("WebView::opensearch", {
+      title: target.title,
+      href: target.href,
+    });
   },
 
   manifestChangedHandler(event) {

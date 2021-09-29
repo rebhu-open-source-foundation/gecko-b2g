@@ -13,5 +13,6 @@ FINAL_TARGET_FILES.actors += [
     "SelectionActionChild.jsm",
     "SelectionActionParent.jsm",
     "VoiceInputStyleChild.jsm",
+    "WebViewExporterChild.jsm",
     "WebViewForContentChild.jsm",
 ]
