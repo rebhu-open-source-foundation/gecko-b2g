@@ -16,7 +16,7 @@ interface nsIGonkSmsMessage: nsISupports
   /**
    * The time stamp when message is arrived to SMSC.
    */
-  readonly attribute DOMTimeStamp SentTimestamp;
+  readonly attribute DOMTimeStamp sentTimestamp;
 
   /**
    * The sender's address of this message.
