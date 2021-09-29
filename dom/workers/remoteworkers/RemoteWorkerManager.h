@@ -60,11 +60,11 @@ class RemoteWorkerManager final {
 
   static bool HasExtensionPrincipal(const RemoteWorkerData& aData);
 
-  nsTArray<RefPtr<nsIURI>> GetScriptURIs(base::ProcessId aProcessId,
-                                         const nsACString& aRemoteType);
+  static nsTArray<RefPtr<nsIURI>> GetScriptURIsInternal(base::ProcessId aProcessId,
+                                                        const nsACString& aRemoteType);
 
-  static nsTArray<RefPtr<nsIURI>> GetScriptURIsThread(base::ProcessId aProcessId,
-                                                      const nsACString& aRemoteType);
+  static nsTArray<RefPtr<nsIURI>> GetScriptURIs(base::ProcessId aProcessId,
+                                                const nsACString& aRemoteType);
 
  private:
   RemoteWorkerManager();

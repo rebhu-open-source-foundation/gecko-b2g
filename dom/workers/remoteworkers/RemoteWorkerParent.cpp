@@ -23,8 +23,9 @@ namespace {
 
 class UnregisterActorRunnable final : public Runnable {
  public:
-  explicit UnregisterActorRunnable(already_AddRefed<ContentParent> aParent)
-      : Runnable("UnregisterActorRunnable"), mContentParent(aParent) {
+  explicit UnregisterActorRunnable(already_AddRefed<ContentParent> aParent,
+                                   nsIURI* aScriptURL)
+      : Runnable("UnregisterActorRunnable"), mContentParent(aParent), mScriptURL(aScriptURL) {
     AssertIsOnBackgroundThread();
   }
 
@@ -32,7 +33,7 @@ class UnregisterActorRunnable final : public Runnable {
   Run() override {
     MOZ_ASSERT(NS_IsMainThread());
 
-    mContentParent->UnregisterRemoveWorkerActor();
+    mContentParent->UnregisterRemoveWorkerActor(mScriptURL);
     mContentParent = nullptr;
 
     return NS_OK;
@@ -40,6 +41,7 @@ class UnregisterActorRunnable final : public Runnable {
 
  private:
   RefPtr<ContentParent> mContentParent;
+  RefPtr<nsIURI> mScriptURL;
 };
 
 }  // namespace
@@ -54,13 +56,14 @@ RemoteWorkerParent::~RemoteWorkerParent() {
   MOZ_ASSERT(XRE_IsParentProcess());
 }
 
-void RemoteWorkerParent::Initialize(bool aAlreadyRegistered) {
+void RemoteWorkerParent::Initialize(nsIURI* aScriptURL,
+                                    bool aAlreadyRegistered) {
   RefPtr<ContentParent> parent = BackgroundParent::GetContentParent(Manager());
 
   // Parent is null if the child actor runs on the parent process.
   if (parent) {
     if (!aAlreadyRegistered) {
-      parent->RegisterRemoteWorkerActor();
+      parent->RegisterRemoteWorkerActor(aScriptURL);
     }
 
     NS_ReleaseOnMainThread("RemoteWorkerParent::Initialize ContentParent",
@@ -93,7 +96,8 @@ void RemoteWorkerParent::ActorDestroy(IProtocol::ActorDestroyReason) {
   // Parent is null if the child actor runs on the parent process.
   if (parent) {
     RefPtr<UnregisterActorRunnable> r =
-        new UnregisterActorRunnable(parent.forget());
+        new UnregisterActorRunnable(parent.forget(),
+                                    mController->GetScriptURI().get());
 
     SchedulerGroup::Dispatch(TaskCategory::Other, r.forget());
   }

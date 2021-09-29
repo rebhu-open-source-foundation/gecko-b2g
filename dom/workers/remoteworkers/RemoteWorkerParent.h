@@ -27,7 +27,7 @@ class RemoteWorkerParent final : public PRemoteWorkerParent {
 
   RemoteWorkerParent();
 
-  void Initialize(bool aAlreadyRegistered = false);
+  void Initialize(nsIURI* aScriptURL, bool aAlreadyRegistered = false);
 
   void SetController(RemoteWorkerController* aController);
 

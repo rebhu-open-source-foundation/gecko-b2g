@@ -386,11 +386,11 @@ class ContentParent final
   TestShellParent* GetTestShellSingleton();
 
   // This method can be called on any thread.
-  void RegisterRemoteWorkerActor();
+  void RegisterRemoteWorkerActor(nsIURI* aScriptURL);
 
   // This method _must_ be called on main-thread because it can start the
   // shutting down of the content process.
-  void UnregisterRemoveWorkerActor();
+  void UnregisterRemoveWorkerActor(nsIURI* aScriptURL);
 
   void ReportChildAlreadyBlocked();
 
@@ -1646,6 +1646,7 @@ class ContentParent final
   // It's touched on PBackground thread and on main-thread.
   struct RemoteWorkerActorData {
     uint32_t mCount = 0;
+    nsTArray<RefPtr<nsIURI>> mScriptURLs;
     bool mShutdownStarted = false;
   };
 

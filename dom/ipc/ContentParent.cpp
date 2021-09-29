@@ -682,7 +682,7 @@ ScriptableCPInfo::GetServiceWorkerCount(int32_t* aServiceWorkerCount) {
   rv = mContentParent->GetRemoteType(remoteType);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  *aServiceWorkerCount = RemoteWorkerManager::GetScriptURIsThread(pid, remoteType).Length();
+  *aServiceWorkerCount = RemoteWorkerManager::GetScriptURIs(pid, remoteType).Length();
   return NS_OK;
 }
 
@@ -720,7 +720,7 @@ ScriptableCPInfo::GetServiceWorkerURIs(nsTArray<RefPtr<nsIURI>>& aServiceWorkerU
   rv = mContentParent->GetRemoteType(remoteType);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  aServiceWorkerURIs = std::move(RemoteWorkerManager::GetScriptURIsThread(pid, remoteType));
+  aServiceWorkerURIs = std::move(RemoteWorkerManager::GetScriptURIs(pid, remoteType));
 
   return NS_OK;
 }
@@ -7366,16 +7366,29 @@ mozilla::ipc::IPCResult ContentParent::RecvDiscardBrowsingContext(
   return IPC_OK();
 }
 
-void ContentParent::RegisterRemoteWorkerActor() {
+void ContentParent::RegisterRemoteWorkerActor(nsIURI* aScriptURL) {
   auto lock = mRemoteWorkerActorData.Lock();
   ++lock->mCount;
+
+  lock->mScriptURLs.EmplaceBack(aScriptURL);
 }
 
-void ContentParent::UnregisterRemoveWorkerActor() {
+void ContentParent::UnregisterRemoveWorkerActor(nsIURI* aScriptURL) {
   MOZ_ASSERT(NS_IsMainThread());
 
   {
     auto lock = mRemoteWorkerActorData.Lock();
+
+    auto index = lock->mScriptURLs.IndexOf(aScriptURL,
+                                           0,
+                                           [](nsIURI* a, nsIURI* b) {
+                                             bool eq = false;
+                                             a->Equals(b, &eq);
+                                             return eq ? 0 : -1;
+                                           });
+    MOZ_ASSERT(index != nsTArray<nsCString>::NoIndex);
+    lock->mScriptURLs.RemoveElementAt(index);
+
     if (--lock->mCount) {
       return;
     }
