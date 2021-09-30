@@ -1622,8 +1622,9 @@ bool CompositorOGL::Resume() {
 
   // RenewSurface internally calls MakeCurrent.
   return gl()->RenewSurface(GetWidget());
-#endif
+#else
   return true;
+#endif
 }
 
 already_AddRefed<DataTextureSource> CompositorOGL::CreateDataTextureSource(
