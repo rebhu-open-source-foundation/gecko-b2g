@@ -38,6 +38,7 @@ XPCOMUtils.defineLazyServiceGetter(
 XPCOMUtils.defineLazyModuleGetters(this, {
   GeckoBridge: "resource://gre/modules/GeckoBridge.jsm",
   SafeBrowsing: "resource://gre/modules/SafeBrowsing.jsm",
+  SettingsPrefsSync: "resource://gre/modules/SettingsPrefsSync.jsm",
 });
 
 const isGonk = AppConstants.platform === "gonk";
@@ -318,6 +319,15 @@ document.addEventListener(
       }
     }
 
+    // Wait for the the on-boot-done event to start the shell.
+    // If the on-boot-done is not reported,
+    // the shell will be started by the following timeout handler.
+    let onBootDone = new Promise(resolve => {
+      Services.obs.addObserver(() => {
+        resolve();
+      }, "on-boot-done");
+    });
+
     // Start the SIDL <-> Gecko bridge.
     GeckoBridge.start();
     // Init SafeBrowsing prefs.
@@ -326,22 +336,18 @@ document.addEventListener(
     shell.createSystemAppFrame();
 
     // Start the Settings <-> Preferences synchronizer.
-    const { SettingsPrefsSync } = ChromeUtils.import(
-      "resource://gre/modules/SettingsPrefsSync.jsm"
-    );
-    SettingsPrefsSync.start(window).then(() => {
+    let languageReady = SettingsPrefsSync.start(window).then(() => {
       // TODO: check if there is a better time to run delayedInit()
       // for the overall OS startup, like when the homescreen is ready.
       window.setTimeout(() => {
         SettingsPrefsSync.delayedInit();
       }, 10000);
+    });
 
-      // Wait for the the on-boot-done event to start the shell.
-      // If the on-boot-done is not reported,
-      // the shell will be started by the following timeout handler.
-      Services.obs.addObserver(() => {
-        shell.start();
-      }, "on-boot-done");
+    // As soon as apps boot is done and the locale is configured,
+    // start loading the system app.
+    Promise.allSettled([onBootDone, languageReady]).then(() => {
+      shell.start();
     });
 
     // Force startup if we didn't get the settings ready under 3s.
