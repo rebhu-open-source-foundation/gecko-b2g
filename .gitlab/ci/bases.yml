@@ -83,7 +83,7 @@ variables:
 
 .precautions_base:
   stage: .pre
-  image: ${CI_REGISTRY}/kaios/gecko-dev/lint:3d9d58d5_2
+  image: ${CI_REGISTRY}/kaios/gecko-dev/lint:3d9d58d5_1
   tags:
     - gecko-lint
   variables:
@@ -147,8 +147,8 @@ variables:
   # since this is basically built by `mach taskcluster-build-image lint` command,
   # hence probably needs update due to upstream changes.
   # 3d9d58d5 is the commit of gecko in which this image was built.
-  # 3d9d58d5_2 is a newer build on 09/30 with the same commit.
-  image: ${CI_REGISTRY}/kaios/gecko-dev/lint:3d9d58d5_2
+  # 3d9d58d5_1 add a layer of packages update base on 3d9d58d5.
+  image: ${CI_REGISTRY}/kaios/gecko-dev/lint:3d9d58d5_1
   tags:
     - gecko-lint
   variables:
