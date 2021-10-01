@@ -6,6 +6,13 @@
 
 const EXPORTED_SYMBOLS = ["LocationHelper"];
 
+// This check is added because nsIWifiListener may report invalid scan results
+function isValid(ap) {
+  // 6 bytes MAC address stored as pairs of hex characters separated by ':'
+  // 12 hex characters separated by 5 ':'
+  return ap.mac.length == 17;
+}
+
 function isPublic(ap) {
   let mask = "_nomap";
   let result = ap.ssid.indexOf(mask, ap.ssid.length - mask.length);
@@ -17,7 +24,10 @@ function sort(a, b) {
 }
 
 function encode(ap) {
-  return { macAddress: ap.mac, signalStrength: ap.signal };
+  // convert xx-xx-xx-xx-xx-xx to xx:xx:xx:xx:xx:xx
+  let macAddr = ap.mac.replace(/-/g, ":");
+
+  return { macAddress: macAddr, signalStrength: ap.signal };
 }
 
 /**
@@ -28,6 +38,7 @@ function encode(ap) {
 class LocationHelper {
   static formatWifiAccessPoints(accessPoints) {
     return accessPoints
+      .filter(isValid)
       .filter(isPublic)
       .sort(sort)
       .map(encode);
