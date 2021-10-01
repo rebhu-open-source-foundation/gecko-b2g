@@ -228,8 +228,8 @@ CameraPermissionRequest::GetDelegatePrincipal(
 }
 
 NS_IMETHODIMP
-CameraPermissionRequest::GetMaybeUnsafePermissionDelegate(
-    bool* aMaybeUnsafePermissionDelegate) {
+CameraPermissionRequest::GetIsRequestDelegatedToUnsafeThirdParty(
+    bool* aIsRequestDelegatedToUnsafeThirdParty) {
   return NS_OK;
 }
 

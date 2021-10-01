@@ -748,15 +748,6 @@ bool nsNativeBasicThemeGonk::GetWidgetPadding(nsDeviceContext* aContext,
       break;
   }
 
-  // Respect author padding.
-  //
-  // TODO(emilio): Consider just unconditionally returning false, so that the
-  // default size of all elements matches other platforms and the UA stylesheet.
-  if (aFrame->PresContext()->HasAuthorSpecifiedRules(
-          aFrame, NS_AUTHOR_SPECIFIED_PADDING)) {
-    return false;
-  }
-
   uint32_t dpi = GetDPIRatio(aFrame);
   switch (aAppearance) {
     case StyleAppearance::Textarea:

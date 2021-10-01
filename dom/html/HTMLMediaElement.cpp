@@ -559,7 +559,7 @@ class HTMLMediaElement::MediaControlKeyListener final
   RefPtr<ContentMediaAgent> mControlAgent;
   bool mIsPictureInPictureEnabled = false;
   bool mIsOwnerAudible = false;
-  uint64_t mOwnerBrowsingContextId;
+  MOZ_INIT_OUTSIDE_CTOR uint64_t mOwnerBrowsingContextId;
 };
 
 class HTMLMediaElement::MediaStreamTrackListener
@@ -1564,7 +1564,7 @@ class HTMLMediaElement::AudioChannelAgentCallback final
 
   float GetEffectiveVolume() const {
     MOZ_ASSERT(!mIsShutDown);
-    return mOwner->Volume() * mAudioChannelVolume;
+    return static_cast<float>(mOwner->Volume()) * mAudioChannelVolume;
   }
 
   bool IsStoppedOrSuspended() const {
@@ -2219,7 +2219,6 @@ void HTMLMediaElement::SetDecodeError(const nsAString& aError,
     }
   }
   aRv.Throw(NS_ERROR_FAILURE);
-  return;
 }
 
 void HTMLMediaElement::SetAudioSinkFailedStartup() {
@@ -3465,15 +3464,15 @@ void HTMLMediaElement::SetVolume(double aVolume, ErrorResult& aRv) {
   PauseIfShouldNotBePlaying();
 }
 
-void HTMLMediaElement::MozGetMetadata(JSContext* cx,
-                                      JS::MutableHandle<JSObject*> aRetval,
+void HTMLMediaElement::MozGetMetadata(JSContext* aCx,
+                                      JS::MutableHandle<JSObject*> aResult,
                                       ErrorResult& aRv) {
   if (mReadyState < HAVE_METADATA) {
     aRv.Throw(NS_ERROR_DOM_INVALID_STATE_ERR);
     return;
   }
 
-  JS::Rooted<JSObject*> tags(cx, JS_NewPlainObject(cx));
+  JS::Rooted<JSObject*> tags(aCx, JS_NewPlainObject(aCx));
   if (!tags) {
     aRv.Throw(NS_ERROR_FAILURE);
     return;
@@ -3482,10 +3481,10 @@ void HTMLMediaElement::MozGetMetadata(JSContext* cx,
     for (const auto& entry : *mTags) {
       nsString wideValue;
       CopyUTF8toUTF16(entry.GetData(), wideValue);
-      JS::Rooted<JSString*> string(cx,
-                                   JS_NewUCStringCopyZ(cx, wideValue.Data()));
-      if (!string || !JS_DefineProperty(cx, tags, entry.GetKey().Data(), string,
-                                        JSPROP_ENUMERATE)) {
+      JS::Rooted<JSString*> string(aCx,
+                                   JS_NewUCStringCopyZ(aCx, wideValue.Data()));
+      if (!string || !JS_DefineProperty(aCx, tags, entry.GetKey().Data(),
+                                        string, JSPROP_ENUMERATE)) {
         NS_WARNING("couldn't create metadata object!");
         aRv.Throw(NS_ERROR_FAILURE);
         return;
@@ -3493,7 +3492,7 @@ void HTMLMediaElement::MozGetMetadata(JSContext* cx,
     }
   }
 
-  aRetval.set(tags);
+  aResult.set(tags);
 }
 
 void HTMLMediaElement::SetMutedInternal(uint32_t aMuted) {
@@ -3740,7 +3739,7 @@ void HTMLMediaElement::UpdateOutputTrackSources() {
   }
 
   // Then update finish-when-ended output streams as needed.
-  for (int32_t i = mOutputStreams.Length() - 1; i >= 0; --i) {
+  for (size_t i = mOutputStreams.Length(); i-- > 0;) {
     if (!mOutputStreams[i].mFinishWhenEnded) {
       continue;
     }
@@ -4063,7 +4062,7 @@ already_AddRefed<DOMMediaStream> HTMLMediaElement::MozCaptureStreamUntilEnded(
 class MediaElementSetForURI : public nsURIHashKey {
  public:
   explicit MediaElementSetForURI(const nsIURI* aKey) : nsURIHashKey(aKey) {}
-  MediaElementSetForURI(MediaElementSetForURI&& aOther)
+  MediaElementSetForURI(MediaElementSetForURI&& aOther) noexcept
       : nsURIHashKey(std::move(aOther)),
         mElements(std::move(aOther.mElements)) {}
   nsTArray<HTMLMediaElement*> mElements;
@@ -4165,7 +4164,7 @@ HTMLMediaElement* HTMLMediaElement::LookupMediaElementURITable(nsIURI* aURI) {
         equal && elem->mCORSMode == mCORSMode) {
       // See SetupDecoder() below. We only add a element to the table when
       // mDecoder is a ChannelMediaDecoder.
-      auto decoder = static_cast<ChannelMediaDecoder*>(elem->mDecoder.get());
+      auto* decoder = static_cast<ChannelMediaDecoder*>(elem->mDecoder.get());
       NS_ASSERTION(decoder, "Decoder gone");
       if (decoder->CanClone()) {
         return elem;
@@ -5860,7 +5859,7 @@ void HTMLMediaElement::CheckProgress(bool aHaveNewProgress) {
 
 /* static */
 void HTMLMediaElement::ProgressTimerCallback(nsITimer* aTimer, void* aClosure) {
-  auto decoder = static_cast<HTMLMediaElement*>(aClosure);
+  auto* decoder = static_cast<HTMLMediaElement*>(aClosure);
   decoder->CheckProgress(false);
 }
 
@@ -6391,9 +6390,8 @@ void HTMLMediaElement::UpdateSrcStreamVideoPrincipal(
   nsTArray<RefPtr<VideoStreamTrack>> videoTracks;
   mSrcStream->GetVideoTracks(videoTracks);
 
-  PrincipalHandle handle(aPrincipalHandle);
   for (const RefPtr<VideoStreamTrack>& track : videoTracks) {
-    if (PrincipalHandleMatches(handle, track->GetPrincipal()) &&
+    if (PrincipalHandleMatches(aPrincipalHandle, track->GetPrincipal()) &&
         !track->Ended()) {
       // When the PrincipalHandle for the VideoFrameContainer changes to that of
       // a live track in mSrcStream we know that a removed track was displayed
@@ -6483,11 +6481,11 @@ bool HTMLMediaElement::IsPlaybackEnded() const {
   //   resource. See bug 449157.
   if (mDecoder) {
     return mReadyState >= HAVE_METADATA && mDecoder->IsEnded();
-  } else if (mSrcStream) {
-    return mReadyState >= HAVE_METADATA && mSrcStreamPlaybackEnded;
-  } else {
-    return false;
   }
+  if (mSrcStream) {
+    return mReadyState >= HAVE_METADATA && mSrcStreamPlaybackEnded;
+  }
+  return false;
 }
 
 already_AddRefed<nsIPrincipal> HTMLMediaElement::GetCurrentPrincipal() {
@@ -7221,7 +7219,7 @@ bool HTMLMediaElement::AttachNewMediaKeys() {
 
   // 5.3. If mediaKeys is not null, run the following steps:
   if (mIncomingMediaKeys) {
-    auto cdmProxy = mIncomingMediaKeys->GetCDMProxy();
+    auto* cdmProxy = mIncomingMediaKeys->GetCDMProxy();
     if (!cdmProxy) {
       SetCDMProxyFailure(MediaResult(
           NS_ERROR_DOM_INVALID_STATE_ERR,
@@ -7441,7 +7439,7 @@ void HTMLMediaElement::SetDecoder(MediaDecoder* aDecoder) {
 float HTMLMediaElement::ComputedVolume() const {
   return mMuted                 ? 0.0f
          : mAudioChannelWrapper ? mAudioChannelWrapper->GetEffectiveVolume()
-                                : mVolume;
+                                : static_cast<float>(mVolume);
 }
 
 bool HTMLMediaElement::ComputedMuted() const {
