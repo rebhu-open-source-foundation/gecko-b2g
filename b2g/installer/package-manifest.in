@@ -86,7 +86,6 @@
 #endif
 #ifdef MOZ_GTK
 @BINPATH@/@DLL_PREFIX@mozgtk@DLL_SUFFIX@
-@BINPATH@/gtk2/@DLL_PREFIX@mozgtk@DLL_SUFFIX@
 #endif
 #ifdef MOZ_WAYLAND
 @BINPATH@/@DLL_PREFIX@mozwayland@DLL_SUFFIX@
@@ -288,7 +287,6 @@
 #ifdef MOZ_DEBUG
 @RESPATH@/components/TestInterfaceJS.js
 @RESPATH@/components/TestInterfaceJS.manifest
-@RESPATH@/components/TestInterfaceJSMaplike.js
 #endif
 
 ; Modules
@@ -362,6 +360,10 @@
 @RESPATH@/res/fonts/*
 @RESPATH@/res/dtd/*
 @RESPATH@/res/language.properties
+@RESPATH@/res/locale/layout/HtmlForm.properties
+@RESPATH@/res/locale/layout/MediaDocument.properties
+@RESPATH@/res/locale/layout/xmlparser.properties
+@RESPATH@/res/locale/dom/dom.properties
 #ifdef XP_MACOSX
 @RESPATH@/res/MainMenu.nib/
 #endif
@@ -429,7 +431,6 @@ bin/libfreebl_32int64_3.so
 @BINPATH@/crashreporter.app/
 #else
 @BINPATH@/crashreporter@BIN_SUFFIX@
-@RESPATH@/crashreporter.crt
 @RESPATH@/crashreporter.ini
 #ifdef XP_UNIX
 @RESPATH@/Throbber-small.gif
@@ -451,8 +452,6 @@ bin/libfreebl_32int64_3.so
 @RESPATH@/chrome/chrome.manifest
 @RESPATH@/components/B2GComponents.manifest
 #if defined(ENABLE_WEBDRIVER) || !defined(MOZ_WIDGET_GONK)
-@RESPATH@/components/marionette.manifest
-@RESPATH@/components/marionette.js
 @RESPATH@/chrome/remote@JAREXT@
 @RESPATH@/chrome/remote.manifest
 #endif
