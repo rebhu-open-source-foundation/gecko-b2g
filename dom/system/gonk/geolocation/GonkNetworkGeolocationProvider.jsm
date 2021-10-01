@@ -24,9 +24,21 @@ XPCOMUtils.defineLazyServiceGetter(
   "nsIMobileConnectionService"
 );
 
+XPCOMUtils.defineLazyServiceGetter(
+  this,
+  "gNetworkManager",
+  "@mozilla.org/network/manager;1",
+  "nsINetworkManager"
+);
+
 // GeolocationPositionError has no interface object, so we can't use that here.
 const POSITION_UNAVAILABLE = 2;
 const TELEMETRY_KEY = "REGION_LOCATION_SERVICES_DIFFERENCE";
+const NETWORK_CHANGED_TOPIC = "network-active-changed";
+
+// The confidence of estimate horizontal positioning error
+// 95 means 95% uncertainty
+const HPE_CONFIDENCE = 95;
 
 XPCOMUtils.defineLazyPreferenceGetter(
   this,
@@ -288,9 +300,17 @@ function GonkNetworkGeolocationProvider() {
     null
   );
 
+  XPCOMUtils.defineLazyPreferenceGetter(
+    this,
+    "_considerIp",
+    "geo.provider.network.considerIp",
+    true
+  );
+
   this.wifiService = null;
   this.timer = null;
   this.started = false;
+  this.hasNetwork = false;
 }
 
 GonkNetworkGeolocationProvider.prototype = {
@@ -303,6 +323,32 @@ GonkNetworkGeolocationProvider.prototype = {
   ]),
   listener: null,
 
+  observe(aSubject, aTopic, aData) {
+    switch (aTopic) {
+      case NETWORK_CHANGED_TOPIC:
+        // aSubject will be a nsINetworkInfo if network is connected,
+        // otherwise, aSubject should be null.
+        if (aSubject) {
+          this.hasNetwork = true;
+          if (this.isWifiScanningEnabled && !this.wifiService) {
+            this.wifiService = Cc["@mozilla.org/wifi/monitor;1"].getService(
+              Ci.nsIWifiMonitor
+            );
+            this.wifiService.startWatching(this);
+          }
+
+          this.resetTimer();
+        } else {
+          this.hasNetwork = false;
+          if (this.wifiService) {
+            this.wifiService.stopWatching(this);
+            this.wifiService = null;
+          }
+        }
+        break;
+    }
+  },
+
   get isWifiScanningEnabled() {
     return Cc["@mozilla.org/wifi/monitor;1"] && this._wifiScanningEnabled;
   },
@@ -312,6 +358,12 @@ GonkNetworkGeolocationProvider.prototype = {
       this.timer.cancel();
       this.timer = null;
     }
+
+    // Stop the timer if network isn't available
+    if (!this.hasNetwork) {
+      return;
+    }
+
     // Wifi thread triggers GonkNetworkGeolocationProvider to proceed. With no wifi,
     // do manual timeout.
     this.timer = Cc["@mozilla.org/timer;1"].createInstance(Ci.nsITimer);
@@ -329,7 +381,15 @@ GonkNetworkGeolocationProvider.prototype = {
 
     this.started = true;
 
-    if (this.isWifiScanningEnabled) {
+    // Check whether there are any active network
+    if (gNetworkManager && gNetworkManager.activeNetworkInfo) {
+      this.hasNetwork = true;
+    } else {
+      this.hasNetwork = false;
+      LOG("startup: has no active network.");
+    }
+
+    if (this.hasNetwork && this.isWifiScanningEnabled) {
       if (this.wifiService) {
         this.wifiService.stopWatching(this);
       }
@@ -443,6 +503,12 @@ GonkNetworkGeolocationProvider.prototype = {
               break;
             // CDMA cases to be handled in bug 1010282
           }
+
+          // Skip this cell if the cell id is invalid
+          if (cell.gsmCellId == -1) {
+            ERR("The cell id of slot:" + i + " is abnormal.");
+            continue;
+          }
           result.push({
             radioType: radioTechFamily,
             mobileCountryCode: parseInt(voice.network.mcc, 10),
@@ -503,7 +569,13 @@ GonkNetworkGeolocationProvider.prototype = {
    *                          </code>
    */
   async sendLocationRequest(wifiData) {
-    let data = { cellTowers: undefined, wifiAccessPoints: undefined };
+    let data = {
+      cellTowers: undefined,
+      wifiAccessPoints: undefined,
+      considerIp: this._considerIp,
+      hpeConfidence: HPE_CONFIDENCE,
+    };
+
     if (wifiData && wifiData.length >= 2) {
       data.wifiAccessPoints = wifiData;
     }
@@ -528,13 +600,23 @@ GonkNetworkGeolocationProvider.prototype = {
       return;
     }
 
+    if (!data.cellTowers && !data.wifiAccessPoints) {
+      ERR("have no network positioning data.");
+      return;
+    }
+
     // From here on, do a network geolocation request //
     let url = Services.urlFormatter.formatURLPref("geo.provider.network.url");
     LOG("Sending request");
 
     let result;
     try {
-      result = await this.makeRequest(url, wifiData);
+      result = await this.makeRequest(url, data);
+      if (!result.location) {
+        ERR("Unable to determine location with request provided.");
+        this.onStatus(true, "xhr-error");
+        return;
+      }
       LOG(
         `geo provider reported: ${result.location.lng}:${result.location.lat}`
       );
@@ -579,7 +661,7 @@ GonkNetworkGeolocationProvider.prototype = {
     }
   },
 
-  async makeRequest(url, wifiData) {
+  async makeRequest(url, data) {
     this.onStatus(false, "xhr-start");
 
     let fetchController = new AbortController();
@@ -588,11 +670,8 @@ GonkNetworkGeolocationProvider.prototype = {
       headers: { "Content-Type": "application/json; charset=UTF-8" },
       credentials: "omit",
       signal: fetchController.signal,
+      body: JSON.stringify(data),
     };
-
-    if (wifiData) {
-      fetchOpts.body = JSON.stringify({ wifiAccessPoints: wifiData });
-    }
 
     let timeoutId = setTimeout(
       () => fetchController.abort(),

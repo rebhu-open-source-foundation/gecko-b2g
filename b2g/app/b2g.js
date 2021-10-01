@@ -186,16 +186,13 @@ pref("geo.cell.scan", true);
 // URL for geolocating service, the original URL of B2G OS is
 // "https://location.services.mozilla.com/v1/geolocate?key=%MOZILLA_API_KEY%"
 // Empty string would disable WiFi/cell geolocating service
-pref("geo.wifi.uri", "");
+pref("geo.provider.network.url", "https://global.skyhookwireless.com/wps2/json/location?key=%GONK_GEOLOCATION_API_KEY%");
 
-// whether the network geolocation provider need authorization header or not
-pref("geo.provider.need_authorization", false);
+// whether to ask location provider to use IP address to determine location
+pref("geo.provider.network.considerIp", false);
 
 // the secret API key of location service
 pref("geo.authorization.key", "%GONK_GEOLOCATION_API_KEY%");
-
-// URL for geolocation crowdsourcing
-pref("geo.stumbler.url", "https://location.services.mozilla.com/v1/geosubmit?key=%MOZILLA_API_KEY%");
 
 // Whether to clean up location provider when Geolocation setting is turned off.
 pref("geo.provider.ondemand_cleanup", true);

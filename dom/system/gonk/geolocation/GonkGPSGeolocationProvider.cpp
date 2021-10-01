@@ -21,6 +21,7 @@
 #include "mozilla/dom/GeolocationPosition.h"
 #include "mozilla/Preferences.h"
 #include "mozilla/Services.h"
+#include "mozilla/Unused.h"
 #include "nsComponentManagerUtils.h"
 #include "nsIRunnable.h"
 #include "nsThreadUtils.h"
@@ -464,9 +465,8 @@ GonkGPSGeolocationProvider::Startup() {
 
   // Setup NetworkLocationProvider if the API key and server URI are available
   nsAutoString serverUri;
-  nsresult rv = Preferences::GetString("geo.wifi.uri", serverUri);
+  nsresult rv = Preferences::GetString("geo.provider.network.url", serverUri);
   if (NS_SUCCEEDED(rv) && !serverUri.IsEmpty()) {
-    // nsresult rv;
     nsCOMPtr<nsIURLFormatter> formatter =
         do_CreateInstance("@mozilla.org/toolkit/URLFormatterService;1", &rv);
     if (NS_SUCCEEDED(rv)) {
@@ -479,6 +479,7 @@ GonkGPSGeolocationProvider::Startup() {
           rv = mNetworkLocationProvider->Startup();
           if (NS_SUCCEEDED(rv)) {
             RefPtr<NetworkLocationUpdate> update = new NetworkLocationUpdate();
+            Unused << mNetworkLocationProvider->Watch(update);
           }
         }
       }
