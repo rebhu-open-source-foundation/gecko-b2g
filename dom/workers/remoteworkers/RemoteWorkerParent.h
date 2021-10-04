@@ -54,6 +54,7 @@ class RemoteWorkerParent final : public PRemoteWorkerParent {
 
   bool mDeleteSent = false;
   RefPtr<RemoteWorkerController> mController;
+  RefPtr<nsIURI> mScriptURL;
 };
 
 }  // namespace dom
