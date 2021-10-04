@@ -3269,8 +3269,8 @@ dependencies = [
 
 [[package]]
 name = "neqo-common"
-version = "0.5.0"
-source = "git+https://github.com/mozilla/neqo?tag=v0.5.0#40d8c760d0dd252c3f8c019c1cadfd4c4dad1e95"
+version = "0.5.3"
+source = "git+https://github.com/mozilla/neqo?tag=v0.5.3#ad9439a0c90422745c326c2147edf0997f614aac"
 dependencies = [
  "chrono",
  "env_logger",
@@ -3282,8 +3282,8 @@ dependencies = [
 
 [[package]]
 name = "neqo-crypto"
-version = "0.5.0"
-source = "git+https://github.com/mozilla/neqo?tag=v0.5.0#40d8c760d0dd252c3f8c019c1cadfd4c4dad1e95"
+version = "0.5.3"
+source = "git+https://github.com/mozilla/neqo?tag=v0.5.3#ad9439a0c90422745c326c2147edf0997f614aac"
 dependencies = [
  "bindgen",
  "log",
@@ -3295,8 +3295,8 @@ dependencies = [
 
 [[package]]
 name = "neqo-http3"
-version = "0.5.0"
-source = "git+https://github.com/mozilla/neqo?tag=v0.5.0#40d8c760d0dd252c3f8c019c1cadfd4c4dad1e95"
+version = "0.5.3"
+source = "git+https://github.com/mozilla/neqo?tag=v0.5.3#ad9439a0c90422745c326c2147edf0997f614aac"
 dependencies = [
  "log",
  "neqo-common",
@@ -3306,12 +3306,13 @@ dependencies = [
  "qlog",
  "sfv 0.9.1",
  "smallvec",
+ "url",
 ]
 
 [[package]]
 name = "neqo-qpack"
-version = "0.5.0"
-source = "git+https://github.com/mozilla/neqo?tag=v0.5.0#40d8c760d0dd252c3f8c019c1cadfd4c4dad1e95"
+version = "0.5.3"
+source = "git+https://github.com/mozilla/neqo?tag=v0.5.3#ad9439a0c90422745c326c2147edf0997f614aac"
 dependencies = [
  "lazy_static",
  "log",
@@ -3324,8 +3325,8 @@ dependencies = [
 
 [[package]]
 name = "neqo-transport"
-version = "0.5.0"
-source = "git+https://github.com/mozilla/neqo?tag=v0.5.0#40d8c760d0dd252c3f8c019c1cadfd4c4dad1e95"
+version = "0.5.3"
+source = "git+https://github.com/mozilla/neqo?tag=v0.5.3#ad9439a0c90422745c326c2147edf0997f614aac"
 dependencies = [
  "indexmap",
  "lazy_static",

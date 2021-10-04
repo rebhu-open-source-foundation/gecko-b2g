@@ -89,6 +89,7 @@ XPCOMUtils.defineLazyModuleGetters(this, {
   TelemetryUtils: "resource://gre/modules/TelemetryUtils.jsm",
   TRRRacer: "resource:///modules/TRRPerformance.jsm",
   UIState: "resource://services-sync/UIState.jsm",
+  UITour: "resource:///modules/UITour.jsm",
   UrlbarQuickSuggest: "resource:///modules/UrlbarQuickSuggest.jsm",
   UrlbarPrefs: "resource:///modules/UrlbarPrefs.jsm",
   WebChannel: "resource://gre/modules/WebChannel.jsm",
@@ -2892,27 +2893,22 @@ BrowserGlue.prototype = {
           ? "tabs.closeWindowsButtonWin"
           : "tabs.closeWindowsButton";
       buttonLabel = gTabbrowserBundle.GetStringFromName(buttonLabel);
+    } else if (shouldWarnForShortcut) {
+      let productName = gBrandBundle.GetStringFromName("brandShorterName");
+      title = gTabbrowserBundle.formatStringFromName(
+        "tabs.closeTabsWithKeyTitle",
+        [productName]
+      );
+      buttonLabel = gTabbrowserBundle.formatStringFromName(
+        "tabs.closeTabsWithKeyButton",
+        [productName]
+      );
     } else {
       title = gTabbrowserBundle.GetStringFromName("tabs.closeTabsTitle");
       title = PluralForm.get(pagecount, title).replace("#1", pagecount);
-
-      if (shouldWarnForShortcut) {
-        let productName = gBrandBundle.GetStringFromName("brandShorterName");
-        title = gTabbrowserBundle.formatStringFromName(
-          "tabs.closeTabsWithKeyTitle",
-          [productName]
-        );
-        buttonLabel = gTabbrowserBundle.formatStringFromName(
-          "tabs.closeTabsWithKeyButton",
-          [productName]
-        );
-      } else {
-        title = gTabbrowserBundle.GetStringFromName("tabs.closeTabsTitle");
-        title = PluralForm.get(pagecount, title).replace("#1", pagecount);
-        buttonLabel = gTabbrowserBundle.GetStringFromName(
-          "tabs.closeButtonMultiple"
-        );
-      }
+      buttonLabel = gTabbrowserBundle.GetStringFromName(
+        "tabs.closeButtonMultiple"
+      );
     }
 
     // The checkbox label is different depending on whether the shortcut
@@ -3986,15 +3982,17 @@ BrowserGlue.prototype = {
     );
   },
 
+  // Helper to check for windows 7 that can be stubbed by tests.
+  _onWindows7() {
+    return AppConstants.isPlatformAndVersionAtMost("win", "6.1");
+  },
+
   async _maybeShowDefaultBrowserPrompt() {
     // Highest priority is the upgrade dialog, which can include a "primary
     // browser" request and is limited in various ways, e.g., major upgrades.
-    const dialogVersion = 89;
+    const dialogVersion = 94;
     const dialogVersionPref = "browser.startup.upgradeDialog.version";
     const dialogReason = await (async () => {
-      if (!Services.prefs.getBoolPref("browser.proton.enabled", true)) {
-        return "no-proton";
-      }
       if (!BrowserHandler.majorUpgrade) {
         return "not-major";
       }
@@ -4022,6 +4020,9 @@ BrowserGlue.prototype = {
       if (!Services.policies.isAllowed("postUpdateCustomPage")) {
         return "disallow-postUpdate";
       }
+      if (this._onWindows7()) {
+        return "win7";
+      }
 
       return NimbusFeatures.upgradeDialog.isEnabled() ? "" : "disabled";
     })();
@@ -4038,6 +4039,10 @@ BrowserGlue.prototype = {
     // Show the upgrade dialog if allowed and remember the version.
     if (!dialogReason) {
       Services.prefs.setIntPref(dialogVersionPref, dialogVersion);
+
+      // Show Firefox Home behind the upgrade dialog to see theme changes.
+      const { gBrowser } = BrowserWindowTracker.getTopWindow();
+      gBrowser.selectedTab = gBrowser.addTrustedTab("about:home");
       this._showUpgradeDialog();
       return;
     }
@@ -4107,7 +4112,11 @@ BrowserGlue.prototype = {
       {
         "l10n-id": "restore-session-startup-suggestion-button",
         callback: () => {
-          win.PanelUI.show();
+          UITour.getTarget(win, "history").then(historyMenu => {
+            UITour.showHighlight(win, historyMenu, "focus-outline", {
+              autohide: true,
+            });
+          });
         },
       },
     ];

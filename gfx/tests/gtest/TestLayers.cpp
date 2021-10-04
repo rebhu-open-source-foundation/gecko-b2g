@@ -43,9 +43,6 @@ class TestLayerManager : public LayerManager {
   virtual void GetBackendName(nsAString& aName) {}
   virtual LayersBackend GetBackendType() { return LayersBackend::LAYERS_BASIC; }
   virtual bool BeginTransaction(const nsCString& = nsCString()) { return true; }
-  virtual already_AddRefed<ColorLayer> CreateColorLayer() {
-    MOZ_CRASH("Not implemented.");
-  }
   virtual void SetRoot(Layer* aLayer) {}
   virtual bool BeginTransactionWithTarget(gfxContext* aTarget,
                                           const nsCString& = nsCString()) {
@@ -87,13 +84,6 @@ TEST(Layers, Transform)
   ASSERT_EQ(true, identity.IsIdentity());
 
   ASSERT_EQ(identity, layer.GetTransform());
-}
-
-TEST(Layers, Type)
-{
-  TestContainerLayer layer(nullptr);
-  ASSERT_EQ(nullptr, layer.AsRefLayer());
-  ASSERT_EQ(nullptr, layer.AsColorLayer());
 }
 
 TEST(Layers, UserData)
