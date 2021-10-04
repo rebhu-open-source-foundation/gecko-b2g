@@ -334,6 +334,7 @@ pub type PendingListeners = Shared<Vec<(i32, ThreadPtrHandle<nsISidlEventListene
 pub trait ServiceClientImpl<T> {
     fn new(transport: UdsTransport, service_id: TrackerId) -> Self;
     fn dispatch_queue(&mut self, task_queue: &Shared<Vec<T>>, pending_listeners: &PendingListeners);
+    fn run_task(&mut self, task: T) -> Result<(), nsresult>;
 }
 
 pub struct GetServiceDelegate<I, T> {
@@ -523,19 +524,30 @@ where
 
 // Extracts commononly used boilerplate.
 
-macro_rules! ensure_service_and_queue {
+macro_rules! task_runner {
     ($tasks:ty, $service_name:expr, $fingerprint:expr) => {
-        // Returns true if the service is available.
-        fn ensure_service(&self) -> bool {
-            if self.inner.lock().is_some() {
+        // Runs the given task right away or queue it and kick off the service getter.
+        fn run_or_queue_task(&self, task: Option<$tasks>) {
+            if let Some(inner) = self.inner.lock().as_ref() {
                 self.getting_service.store(false, Ordering::Relaxed);
-                return true;
+                // Run the task right away.
+                if let Some(task) = task {
+                    let _ = inner.lock().run_task(task);
+                }
+                return;
             }
 
-            // Return false when we already started the get_service requests but haven't received the response yet
+            // Queue the task since we can't run it yet.
+            if let Some(task) = task {
+                let mut queue = self.pending_tasks.lock();
+                queue.push(task);
+                debug!("New task added to the queue, length is now {}", queue.len());
+            }
+
+            // Return early when we already started the get_service request but haven't received the response yet
             // to prevent fetching of multiple instances.
             if self.getting_service.load(Ordering::Relaxed) == true {
-                return false;
+                return;
             }
 
             let receiver = CoreGetServiceReceiver::new(Box::new(GetServiceDelegate::new(
@@ -550,14 +562,6 @@ macro_rules! ensure_service_and_queue {
             } else {
                 self.getting_service.store(true, Ordering::Relaxed);
             }
-            false
-        }
-
-        // Add a new task to the queue of pending tasks.
-        fn queue_task(&self, task: $tasks) {
-            let mut queue = self.pending_tasks.lock();
-            queue.push(task);
-            debug!("New task added to the queue, length is now {}", queue.len());
         }
     };
 }

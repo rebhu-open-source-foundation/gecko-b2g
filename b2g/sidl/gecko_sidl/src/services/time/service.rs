@@ -121,6 +121,16 @@ impl ServiceClientImpl<TimeTask> for TimeImpl {
         }
     }
 
+    fn run_task(&mut self, task: TimeTask) -> Result<(), nsresult> {
+        match task {
+            TimeTask::SetTimezone(task) => self.set_timezone(task),
+            TimeTask::SetTime(task) => self.set_time(task),
+            TimeTask::AddObserver(task) => self.add_observer(task),
+            TimeTask::RemoveObserver(task) => self.remove_observer(task),
+            TimeTask::GetElapsedRealTime(task) => self.get_elapse_realtime(task),
+        }
+    }
+
     fn dispatch_queue(
         &mut self,
         task_queue: &Shared<Vec<TimeTask>>,
@@ -131,23 +141,7 @@ impl ServiceClientImpl<TimeTask> for TimeImpl {
 
         // drain the queue.
         for task in task_queue.drain(..) {
-            match task {
-                TimeTask::SetTimezone(task) => {
-                    let _ = self.set_timezone(task);
-                }
-                TimeTask::SetTime(task) => {
-                    let _ = self.set_time(task);
-                }
-                TimeTask::AddObserver(task) => {
-                    let _ = self.add_observer(task);
-                }
-                TimeTask::RemoveObserver(task) => {
-                    let _ = self.remove_observer(task);
-                }
-                TimeTask::GetElapsedRealTime(task) => {
-                    let _ = self.get_elapse_realtime(task);
-                }
-            }
+            let _ = self.run_task(task);
         }
     }
 }
@@ -399,17 +393,7 @@ impl TimeXpcom {
             ThreadPtrHolder::new(cstr!("nsISidlDefaultResponse"), RefPtr::new(callback))?;
         let task = (SidlCallTask::new(callback), (reason, observer, key));
 
-        if !self.ensure_service() {
-            self.queue_task(TimeTask::AddObserver(task));
-            return Ok(());
-        }
-
-        if let Some(inner) = self.inner.lock().as_ref() {
-            return inner.lock().add_observer(task);
-        } else {
-            error!("Unable to get TimeImpl");
-        }
-
+        self.run_or_queue_task(Some(TimeTask::AddObserver(task)));
         Ok(())
     }
 
@@ -428,17 +412,7 @@ impl TimeXpcom {
             ThreadPtrHolder::new(cstr!("nsISidlDefaultResponse"), RefPtr::new(callback))?;
         let task = (SidlCallTask::new(callback), (reason, key));
 
-        if !self.ensure_service() {
-            self.queue_task(TimeTask::RemoveObserver(task));
-            return Ok(());
-        }
-
-        if let Some(inner) = self.inner.lock().as_ref() {
-            return inner.lock().remove_observer(task);
-        } else {
-            error!("Unable to get TimeImpl");
-        }
-
+        self.run_or_queue_task(Some(TimeTask::RemoveObserver(task)));
         Ok(())
     }
 
@@ -454,19 +428,7 @@ impl TimeXpcom {
             ThreadPtrHolder::new(cstr!("nsISidlDefaultResponse"), RefPtr::new(callback))?;
         let task = (SidlCallTask::new(callback), timezone.to_string());
 
-        if !self.ensure_service() {
-            self.queue_task(TimeTask::SetTimezone(task));
-            return Ok(());
-        }
-
-        // The service is ready, send the request right away.
-        debug!("Time::set_timezone direct call");
-        if let Some(inner) = self.inner.lock().as_ref() {
-            return inner.lock().set_timezone(task);
-        } else {
-            error!("Unable to get TimeImpl");
-        }
-
+        self.run_or_queue_task(Some(TimeTask::SetTimezone(task)));
         Ok(())
     }
 
@@ -483,19 +445,7 @@ impl TimeXpcom {
 
         let task = (SidlCallTask::new(callback), SystemTime(duration));
 
-        if !self.ensure_service() {
-            self.queue_task(TimeTask::SetTime(task));
-            return Ok(());
-        }
-
-        // The service is ready, send the request right away.
-        debug!("Time::set direct call");
-        if let Some(inner) = self.inner.lock().as_ref() {
-            return inner.lock().set_time(task);
-        } else {
-            error!("Unable to get TimeImpl");
-        }
-
+        self.run_or_queue_task(Some(TimeTask::SetTime(task)));
         Ok(())
     }
 
@@ -507,23 +457,11 @@ impl TimeXpcom {
             ThreadPtrHolder::new(cstr!("nsITimeGetElapsedRealTime"), RefPtr::new(callback))?;
         let task = SidlCallTask::new(callback);
 
-        if !self.ensure_service() {
-            self.queue_task(TimeTask::GetElapsedRealTime(task));
-            return Ok(());
-        }
-
-        // The service is ready, send the request right away.
-        debug!("Time::get_elapse_realtime direct call");
-        if let Some(inner) = self.inner.lock().as_ref() {
-            return inner.lock().get_elapse_realtime(task);
-        } else {
-            error!("Unable to get TimeImpl");
-        }
-
+        self.run_or_queue_task(Some(TimeTask::GetElapsedRealTime(task)));
         Ok(())
     }
 
-    ensure_service_and_queue!(TimeTask, "TimeService", SERVICE_FINGERPRINT);
+    task_runner!(TimeTask, "TimeService", SERVICE_FINGERPRINT);
 }
 
 #[no_mangle]

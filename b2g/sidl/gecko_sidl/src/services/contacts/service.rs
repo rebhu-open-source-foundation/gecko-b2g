@@ -144,6 +144,13 @@ impl ServiceClientImpl<ContactsTask> for ContactsManagerImpl {
         }
     }
 
+    fn run_task(&mut self, task: ContactsTask) -> Result<(), nsresult> {
+        match task {
+            ContactsTask::Matches(task) => self.matches(task),
+            ContactsTask::FindBlockedNumbers(task) => self.find_blocked_numbers(task),
+        }
+    }
+
     fn dispatch_queue(
         &mut self,
         task_queue: &Shared<Vec<ContactsTask>>,
@@ -154,14 +161,7 @@ impl ServiceClientImpl<ContactsTask> for ContactsManagerImpl {
 
         // drain the queue.
         for task in task_queue.drain(..) {
-            match task {
-                ContactsTask::Matches(task) => {
-                    let _ = self.matches(task);
-                }
-                ContactsTask::FindBlockedNumbers(task) => {
-                    let _ = self.find_blocked_numbers(task);
-                }
-            }
+            let _ = self.run_task(task);
         }
     }
 }
@@ -296,17 +296,7 @@ impl ContactsManagerXpcom {
             value.to_string(),
         );
 
-        if !self.ensure_service() {
-            self.queue_task(ContactsTask::Matches(task));
-            return Ok(());
-        }
-
-        if let Some(inner) = self.inner.lock().as_ref() {
-            return inner.lock().matches(task);
-        } else {
-            error!("Unable to get ContactsManagerImpl");
-        }
-
+        self.run_or_queue_task(Some(ContactsTask::Matches(task)));
         Ok(())
     }
 
@@ -345,21 +335,11 @@ impl ContactsManagerXpcom {
         )?;
         let task = (SidlCallTask::new(callback), (find_options));
 
-        if !self.ensure_service() {
-            self.queue_task(ContactsTask::FindBlockedNumbers(task));
-            return Ok(());
-        }
-
-        if let Some(inner) = self.inner.lock().as_ref() {
-            return inner.lock().find_blocked_numbers(task);
-        } else {
-            error!("Unable to get ContactsManagerImpl");
-        }
-
+        self.run_or_queue_task(Some(ContactsTask::FindBlockedNumbers(task)));
         Ok(())
     }
 
-    ensure_service_and_queue!(ContactsTask, "ContactsManager", SERVICE_FINGERPRINT);
+    task_runner!(ContactsTask, "ContactsManager", SERVICE_FINGERPRINT);
 }
 
 impl Drop for ContactsManagerXpcom {

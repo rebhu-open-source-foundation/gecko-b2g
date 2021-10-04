@@ -32,7 +32,7 @@ macro_rules! implement_connection_observer {
         // Start the process of getting a service instance. This will drain the queue
         // of pending tasks and attach pending listeners if any are available.
         *self.core_service.lock() = CoreService::new(&self.transport);
-        self.ensure_service();
+        self.run_or_queue_task(None);
 
         Ok(())
     }
