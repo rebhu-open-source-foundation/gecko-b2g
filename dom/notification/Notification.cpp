@@ -530,7 +530,7 @@ NotificationPermissionRequest::Run() {
       break;
   }
 
-  if (!mIsHandlingUserInput &&
+  if (!mHasValidTransientUserGestureActivation &&
       !StaticPrefs::dom_webnotifications_requireuserinteraction()) {
     nsCOMPtr<Document> doc = mWindow->GetExtantDoc();
     if (doc) {
@@ -598,7 +598,7 @@ nsresult NotificationPermissionRequest::ResolvePromise() {
     // automatically and we are not handling user input, then log a
     // warning in the current document that this happened because
     // Notifications require a user gesture.
-    if (!mIsHandlingUserInput &&
+    if (!mHasValidTransientUserGestureActivation &&
         StaticPrefs::dom_webnotifications_requireuserinteraction()) {
       nsCOMPtr<Document> doc = mWindow->GetExtantDoc();
       if (doc) {
