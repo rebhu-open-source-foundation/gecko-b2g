@@ -63,7 +63,6 @@ void RemoteWorkerParent::Initialize(nsIURI* aScriptURL,
   // Parent is null if the child actor runs on the parent process.
   if (parent) {
     if (!aAlreadyRegistered) {
-      mScriptURL = aScriptURL;
       parent->RegisterRemoteWorkerActor(aScriptURL);
     }
 
@@ -98,7 +97,7 @@ void RemoteWorkerParent::ActorDestroy(IProtocol::ActorDestroyReason) {
   if (parent) {
     RefPtr<UnregisterActorRunnable> r =
         new UnregisterActorRunnable(parent.forget(),
-                                    mScriptURL.get());
+                                    mController->GetScriptURI().get());
 
     SchedulerGroup::Dispatch(TaskCategory::Other, r.forget());
   }
