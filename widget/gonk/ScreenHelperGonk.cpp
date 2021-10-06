@@ -477,7 +477,8 @@ nsresult nsScreenGonk::MakeSnapshot(ANativeWindowBuffer* aBuffer) {
   }
 
   gfx::IntRect rect = GetRect().ToUnknownRect();
-  compositorParent->ForceComposeToTarget(mTarget, &rect);
+  compositorParent->ForceComposeToTarget(wr::RenderReasons::SNAPSHOT, mTarget,
+                                         &rect);
 
   // Convert from BGR to RGB
   // XXX this is a temporary solution. It consumes extra cpu cycles,
@@ -811,12 +812,14 @@ void ScreenHelperGonk::Refresh() {
   manager.Refresh(std::move(screenList));
 }
 
-void ScreenHelperGonk::AddDisplay(uint32_t aScreenId, nsScreenGonk* screenGonk) {
-  VsyncSource::VsyncType vsyncType = (screenGonk->IsVsyncSupported()) ?
-      VsyncSource::VsyncType::HARDWARE_VYSNC :
-      VsyncSource::VsyncType::SOFTWARE_VSYNC;
+void ScreenHelperGonk::AddDisplay(uint32_t aScreenId,
+                                  nsScreenGonk* screenGonk) {
+  VsyncSource::VsyncType vsyncType =
+      (screenGonk->IsVsyncSupported()) ? VsyncSource::VsyncType::HARDWARE_VYSNC
+                                       : VsyncSource::VsyncType::SOFTWARE_VSYNC;
 
-  gfxPlatform::GetPlatform()->GetHardwareVsync()->AddDisplay(aScreenId, vsyncType);
+  gfxPlatform::GetPlatform()->GetHardwareVsync()->AddDisplay(aScreenId,
+                                                             vsyncType);
 }
 
 void ScreenHelperGonk::AddScreen(uint32_t aScreenId, DisplayType aDisplayType,

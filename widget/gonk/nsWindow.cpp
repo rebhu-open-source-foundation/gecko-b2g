@@ -272,7 +272,7 @@ class DispatchTouchInputOnMainThread : public mozilla::Runnable {
 /*static*/ void nsWindow::KickOffCompositionImpl(
     CompositorBridgeParent* aCompositorBridge) {
   aCompositorBridge->Invalidate();
-  aCompositorBridge->ScheduleComposition();
+  aCompositorBridge->ScheduleComposition(wr::RenderReasons::FLUSH);
 }
 
 void nsWindow::DispatchTouchInputViaAPZ(MultiTouchInput& aInput) {

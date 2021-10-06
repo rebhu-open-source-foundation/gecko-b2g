@@ -191,7 +191,9 @@ void HwcComposer2D::Invalidate() {
 
   MutexAutoLock lock(mLock);
   if (mCompositorBridgeParent) {
-    mCompositorBridgeParent->ScheduleRenderOnCompositorThread();
+    // TODO: should we use a better reason?
+    mCompositorBridgeParent->ScheduleRenderOnCompositorThread(
+        wr::RenderReasons::OTHER);
   }
 }
 
@@ -934,9 +936,9 @@ bool HwcComposer2D::TryRenderWithHwc(Layer* aRoot, nsIWidget* aWidget,
     if (!TryHwComposition(screen)) {
         LOGD("Full HWC Composition failed. Fallback to GPU Composition or partial OVERLAY Composition");
 // TODO: FIXME
-#if 0
+#  if 0
         LayerScope::CleanLayer();
-#endif
+#  endif
         return false;
     }
 
