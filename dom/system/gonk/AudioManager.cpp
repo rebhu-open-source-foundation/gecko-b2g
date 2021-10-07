@@ -647,12 +647,19 @@ void AudioManager::HandleBluetoothStatusChanged(nsISupports* aSubject,
       SetParameters("BT_SCO=on");
       SetForceForUse(nsIAudioManager::USE_COMMUNICATION,
                      nsIAudioManager::FORCE_BT_SCO);
+      SetForceForUse(nsIAudioManager::USE_RECORD,
+                     nsIAudioManager::FORCE_BT_SCO);
     } else {
       SetParameters("BT_SCO=off");
       int32_t force;
       GetForceForUse(nsIAudioManager::USE_COMMUNICATION, &force);
       if (force == nsIAudioManager::FORCE_BT_SCO) {
         SetForceForUse(nsIAudioManager::USE_COMMUNICATION,
+                       nsIAudioManager::FORCE_NONE);
+      }
+      GetForceForUse(nsIAudioManager::USE_RECORD, &force);
+      if (force == nsIAudioManager::FORCE_BT_SCO) {
+        SetForceForUse(nsIAudioManager::USE_RECORD,
                        nsIAudioManager::FORCE_NONE);
       }
     }
