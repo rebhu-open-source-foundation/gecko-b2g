@@ -129,6 +129,9 @@ if CONFIG["MOZ_B2G_RIL"]:
     ]
 # MOZ_B2G_RIL_END
 
+if CONFIG["MOZ_DOM_STREAMS"]:
+    DIRS += ["streams"]
+
 TEST_DIRS += [
     "tests",
     "imptests",
