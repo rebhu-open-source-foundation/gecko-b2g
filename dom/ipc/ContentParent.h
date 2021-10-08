@@ -1579,6 +1579,9 @@ class ContentParent final
     return mIsUsed && ManagedPBrowserParent().Count() == 0;
   }
 
+  static already_AddRefed<nsIPrincipal> CreateRemoteTypeIsolationPrincipal(
+      const nsACString& aRemoteType);
+
  private:
   // Return an existing ContentParent if possible. Otherwise, `nullptr`.
   static already_AddRefed<ContentParent> GetUsedBrowserProcess(

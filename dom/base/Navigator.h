@@ -129,6 +129,7 @@ class Navigator final : public nsISupports, public nsWrapperCache {
   nsPluginArray* GetPlugins(ErrorResult& aRv);
   Permissions* GetPermissions(ErrorResult& aRv);
   void GetDoNotTrack(nsAString& aResult);
+  bool GlobalPrivacyControl();
   Geolocation* GetGeolocation(ErrorResult& aRv);
   B2G* B2g();
   Promise* GetBattery(ErrorResult& aRv);
@@ -299,6 +300,6 @@ class Navigator final : public nsISupports, public nsWrapperCache {
   RefPtr<dom::LockManager> mLocks;
 };
 
-}  // namespace mozilla
+}  // namespace mozilla::dom
 
 #endif  // mozilla_dom_Navigator_h
