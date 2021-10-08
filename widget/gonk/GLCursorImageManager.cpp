@@ -220,7 +220,7 @@ void GLCursorImageManager::PrepareCursorImage(nsCursor aCursor,
       const nsStyleUI* ui = frame->StyleUI();
 
       // Retrieve first cursor property from css.
-      MOZ_ASSERT(ui->mCursor.images.Length() > 0);
+      MOZ_ASSERT(ui->Cursor().images.Length() > 0);
       Span<const StyleCursorImage> item = ui->Cursor().images.AsSpan();
 
       nsIntPoint hotspot =
