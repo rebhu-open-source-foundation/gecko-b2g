@@ -202,4 +202,6 @@ SPHINX_TREES["performance"] = "docs/performance"
 
 SPHINX_TREES["metrics"] = "docs/metrics"
 
+SPHINX_TREES["gtest"] = "docs/gtest"
+
 include("build/templates.mozbuild")
