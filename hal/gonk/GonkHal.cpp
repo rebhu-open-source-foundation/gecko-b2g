@@ -69,6 +69,7 @@
 #include "mozilla/UniquePtrExtensions.h"
 #include "nsAlgorithm.h"
 #include "nsComponentManagerUtils.h"
+#include "nsNetCID.h"
 #include "nsPrintfCString.h"
 #include "nsINetworkInterface.h"
 #include "nsIObserver.h"
@@ -1343,6 +1344,16 @@ sp<IBinder> gBinder = nullptr;
 sp<hardware::ICameraService> gCameraService = nullptr;
 sp<FlashlightListener> gFlashlightListener = nullptr;
 
+static nsresult DispatchToIOThread(
+  already_AddRefed<nsIRunnable> aRunnable) {
+  nsCOMPtr<nsIEventTarget> target =
+    do_GetService(NS_STREAMTRANSPORTSERVICE_CONTRACTID);
+  MOZ_ASSERT(target);
+
+  nsCOMPtr<nsIRunnable> runnable(aRunnable);
+  return target->Dispatch(runnable.forget(), NS_DISPATCH_NORMAL);
+}
+
 static bool initCameraService() {
   Status res;
   sp<IServiceManager> sm = defaultServiceManager();
@@ -1374,11 +1385,18 @@ bool GetFlashlightEnabled() {
 
 void SetFlashlightEnabled(bool aEnabled) {
   if (gCameraService) {
-    Status res;
-    res = gCameraService->setTorchMode(String16("0"), aEnabled, gBinder);
-    if (!res.isOk()) {
-      HAL_ERR("Failed to get setTorchMode, early return!");
-    }
+    // Dispatch to IO thread for avoiding dead lock occurred betwwen this
+    // function and GonkCameraHardware::Connect in CameraService.
+    DispatchToIOThread(NS_NewRunnableFunction(
+      "mozilla::hal_impl::SetFlashlightEnabled",
+      [=]() -> void {
+        Status res;
+        res = gCameraService->setTorchMode(String16("0"), aEnabled, gBinder);
+        if (!res.isOk()) {
+          HAL_ERR("Failed to get setTorchMode, early return!");
+        }
+      }
+    ));
   } else {
     HAL_ERR("CameraService haven't initialized yet, return directly!");
   }
