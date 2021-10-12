@@ -208,6 +208,7 @@ class WebViewHandler {
       "securitychange",
       "visibilitychange",
       "error",
+      "showmodalprompt",
     ].forEach(event_name => {
       web_view.addEventListener(`${event_name}`, handler);
     });
@@ -261,6 +262,11 @@ class WebViewHandler {
         break;
       case "visibilitychange":
         this.update_ui();
+        break;
+      case "showmodalprompt":
+        let type = event.detail.promptType || event.detail.type;
+        console.log(`Handling ${type}`);
+        event.detail.unblock && event.detail.unblock();
         break;
     }
 

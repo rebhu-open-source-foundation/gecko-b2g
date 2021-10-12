@@ -12,6 +12,7 @@ let commands = [
   "action-go",
   "action-close",
   "action-get-bgcolor",
+  "action-show-prompt",
 ];
 
 function log(msg) {
@@ -38,6 +39,9 @@ class BrowserTab {
       .toggleAttribute("disabled", false);
     this.parentDocument
       .getElementById("action-get-bgcolor")
+      .toggleAttribute("disabled", false);
+    this.parentDocument
+      .getElementById("action-show-prompt")
       .toggleAttribute("disabled", false);
     this.show();
   }
@@ -180,6 +184,11 @@ class BrowserTab {
       log(`background color= ${bgcolor}`);
     });
   }
+
+  showPrompt() {
+    let name = prompt("Please enter your name", "Default");
+    console.log("showPrompt got name=" + name);
+  }
 }
 
 document.addEventListener(
@@ -221,6 +230,10 @@ document.addEventListener(
 
     this.getBgColor = function() {
       activatedTab.getBgColor();
+    };
+
+    this.showPrompt = function() {
+      activatedTab.showPrompt();
     };
 
     // Binding Actions
