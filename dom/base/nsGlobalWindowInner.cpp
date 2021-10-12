@@ -137,6 +137,7 @@
 #include "mozilla/dom/LocalStorage.h"
 #include "mozilla/dom/LocalStorageCommon.h"
 #include "mozilla/dom/Location.h"
+#include "mozilla/dom/MediaDevices.h"
 #include "mozilla/dom/MediaKeys.h"
 #include "mozilla/dom/NavigatorBinding.h"
 #include "mozilla/dom/Nullable.h"
@@ -2310,6 +2311,10 @@ Navigator* nsPIDOMWindowInner::Navigator() {
   }
 
   return mNavigator;
+}
+
+MediaDevices* nsPIDOMWindowInner::GetExtantMediaDevices() const {
+  return mNavigator ? mNavigator->GetExtantMediaDevices() : nullptr;
 }
 
 VisualViewport* nsGlobalWindowInner::VisualViewport() {
@@ -5578,6 +5583,10 @@ void nsGlobalWindowInner::Resume(bool aIncludeSubWindows) {
     mAudioContexts[i]->ResumeFromChrome();
   }
 
+  if (RefPtr<MediaDevices> devices = GetExtantMediaDevices()) {
+    devices->WindowResumed();
+  }
+
   mTimeoutManager->Resume();
 
   ResumeIdleRequests();
@@ -5727,6 +5736,13 @@ void nsGlobalWindowInner::SyncStateFromParentWindow() {
   for (uint32_t i = 0; i < (parentSuspendDepth - parentFreezeDepth); ++i) {
     Suspend();
   }
+}
+
+void nsGlobalWindowInner::UpdateBackgroundState() {
+  if (RefPtr<MediaDevices> devices = GetExtantMediaDevices()) {
+    devices->BackgroundStateChanged();
+  }
+  mTimeoutManager->UpdateBackgroundState();
 }
 
 template <typename Method, typename... Args>

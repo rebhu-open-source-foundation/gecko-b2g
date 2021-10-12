@@ -6758,7 +6758,7 @@ void nsGlobalWindowOuter::SetIsBackground(bool aIsBackground) {
   nsGlobalWindowInner* inner = GetCurrentInnerWindowInternal();
 
   if (inner && changed) {
-    inner->mTimeoutManager->UpdateBackgroundState();
+    inner->UpdateBackgroundState();
   }
 
   if (aIsBackground) {

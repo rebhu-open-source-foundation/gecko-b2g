@@ -301,6 +301,7 @@
 #include "nsICategoryManager.h"
 #include "nsICertOverrideService.h"
 #include "nsIContent.h"
+#include "nsIContentInlines.h"
 #include "nsIContentPolicy.h"
 #include "nsIContentSecurityPolicy.h"
 #include "nsIContentSink.h"
@@ -4396,7 +4397,7 @@ bool Document::HasFocus(ErrorResult& rv) const {
 }
 
 void Document::GetDesignMode(nsAString& aDesignMode) {
-  if (HasFlag(NODE_IS_EDITABLE)) {
+  if (IsInDesignMode()) {
     aDesignMode.AssignLiteral("on");
   } else {
     aDesignMode.AssignLiteral("off");
@@ -4429,7 +4430,7 @@ void Document::SetDesignMode(const nsAString& aDesignMode,
     rv.Throw(NS_ERROR_DOM_PROP_ACCESS_DENIED);
     return;
   }
-  bool editableMode = HasFlag(NODE_IS_EDITABLE);
+  const bool editableMode = IsInDesignMode();
   if (aDesignMode.LowerCaseEqualsASCII(editableMode ? "off" : "on")) {
     SetEditableFlag(!editableMode);
     // Changing the NODE_IS_EDITABLE flags on document changes the intrinsic
@@ -5931,7 +5932,7 @@ nsresult Document::EditingStateChanged() {
     return NS_OK;
   }
 
-  bool designMode = HasFlag(NODE_IS_EDITABLE);
+  const bool designMode = IsInDesignMode();
   EditingState newState =
       designMode ? EditingState::eDesignMode
                  : (mContentEditableCount > 0 ? EditingState::eContentEditable
@@ -7961,7 +7962,7 @@ void Document::DispatchContentLoadedEvents() {
 
 void Document::EndLoad() {
   bool turnOnEditing =
-      mParser && (HasFlag(NODE_IS_EDITABLE) || mContentEditableCount > 0);
+      mParser && (IsInDesignMode() || mContentEditableCount > 0);
 
 #if defined(DEBUG)
   // only assert if nothing stopped the load on purpose
