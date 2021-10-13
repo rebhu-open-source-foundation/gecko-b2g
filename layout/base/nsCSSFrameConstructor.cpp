@@ -4087,9 +4087,10 @@ nsresult nsCSSFrameConstructor::GetAnonymousContent(
             "would compute normally");
         // All overlay scrollbars start off as inactive, so we can rely on their
         // pointer-events value being always none.
+        auto pointerEvent = cs->StyleUI()->ComputedPointerEvents();
         MOZ_ASSERT(!mPresShell->GetPresContext()->UseOverlayScrollbars() ||
-                   cs->StyleUI()->ComputedPointerEvents() ==
-                       StylePointerEvents::None);
+                   pointerEvent == StylePointerEvents::None ||
+                   pointerEvent == StylePointerEvents::Auto);
 #endif
         Servo_SetExplicitStyle(elements[i], cachedStyles[i]);
       }
