@@ -376,6 +376,10 @@ nsresult nsLookAndFeel::NativeGetInt(IntID aID, int32_t& aResult) {
       aResult = 2;
       break;
 
+    case IntID::UseOverlayScrollbars:
+      aResult = 1;
+      break;
+
     default:
       aResult = 0;
       rv = NS_ERROR_FAILURE;

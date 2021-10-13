@@ -20,6 +20,10 @@ struct nsRect;
 
 namespace mozilla {
 
+namespace dom {
+class Text;
+}  // namespace dom
+
 enum LineBreakType { LINE_BREAK_TYPE_NATIVE, LINE_BREAK_TYPE_XP };
 
 /*
@@ -161,7 +165,8 @@ class MOZ_STACK_CLASS ContentEventHandler {
    * @param aNormalSelection    This must be a Selection instance whose type is
    *                            SelectionType::eNormal.
    */
-  MOZ_CAN_RUN_SCRIPT nsresult InitRootContent(Selection* aNormalSelection);
+  MOZ_CAN_RUN_SCRIPT nsresult
+  InitRootContent(const Selection& aNormalSelection);
 
  public:
   // FlatText means the text that is generated from DOM tree. The BR elements
@@ -243,12 +248,12 @@ class MOZ_STACK_CLASS ContentEventHandler {
                                            LineBreakType aLineBreakType,
                                            bool aIsRemovingNode = false);
   // Computes the native text length between aStartOffset and aEndOffset of
-  // aContent.  aContent must be a text node.
-  static uint32_t GetNativeTextLength(nsIContent* aContent,
+  // aTextNode.
+  static uint32_t GetNativeTextLength(const dom::Text& aTextNode,
                                       uint32_t aStartOffset,
                                       uint32_t aEndOffset);
-  // Get the native text length of aContent.  aContent must be a text node.
-  static uint32_t GetNativeTextLength(nsIContent* aContent,
+  // Get the native text length of aTextNode.
+  static uint32_t GetNativeTextLength(const dom::Text& aTextNode,
                                       uint32_t aMaxLength = UINT32_MAX);
   // Get the native text length which is inserted before aContent.
   // aContent should be an element.
@@ -256,8 +261,8 @@ class MOZ_STACK_CLASS ContentEventHandler {
                                             nsINode* aRootNode);
 
  protected:
-  // Get the text length of aContent.  aContent must be a text node.
-  static uint32_t GetTextLength(nsIContent* aContent,
+  // Get the text length of aTextNode.
+  static uint32_t GetTextLength(const dom::Text& aTextNode,
                                 LineBreakType aLineBreakType,
                                 uint32_t aMaxLength = UINT32_MAX);
   // Get the text length of a given range of a content node in

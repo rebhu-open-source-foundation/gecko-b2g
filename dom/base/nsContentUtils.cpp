@@ -7174,7 +7174,7 @@ EditorBase* nsContentUtils::GetActiveEditor(nsPIDOMWindowOuter* aWindow) {
 
 // static
 TextEditor* nsContentUtils::GetTextEditorFromAnonymousNodeWithoutCreation(
-    nsIContent* aAnonymousContent) {
+    const nsIContent* aAnonymousContent) {
   if (!aAnonymousContent) {
     return nullptr;
   }
