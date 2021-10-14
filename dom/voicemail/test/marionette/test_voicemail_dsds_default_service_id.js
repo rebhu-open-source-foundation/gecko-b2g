@@ -4,7 +4,9 @@
 MARIONETTE_TIMEOUT = 60000;
 MARIONETTE_CONTEXT = "chrome";
 
-Cu.import("resource://gre/modules/Promise.jsm");
+const { PromiseUtils } = ChromeUtils.import(
+  "resource://gre/modules/PromiseUtils.jsm"
+);
 
 const VOICEMAIL_SERVICE_CONTRACTID =
   "@mozilla.org/voicemail/gonkvoicemailservice;1";
@@ -27,7 +29,7 @@ function setPrefAndVerify(prefKey, setVal, service, expectedVal, deferred) {
 }
 
 function getNumRadioInterfaces() {
-  let deferred = Promise.defer();
+  let deferred = PromiseUtils.defer();
 
   window.setTimeout(function() {
     let numRil = Services.prefs.getIntPref(PREF_RIL_NUM_RADIO_INTERFACES);
@@ -40,7 +42,7 @@ function getNumRadioInterfaces() {
 }
 
 function getService(contractId, ifaceName) {
-  let deferred = Promise.defer();
+  let deferred = PromiseUtils.defer();
 
   window.setTimeout(function() {
     log("Getting service for " + ifaceName);
@@ -54,7 +56,7 @@ function getService(contractId, ifaceName) {
 }
 
 function checkInitialEquality(prefKey, service) {
-  let deferred = Promise.defer();
+  let deferred = PromiseUtils.defer();
 
   log("  Checking initial value for '" + prefKey + "'");
   let origPrefVal = Services.prefs.getIntPref(prefKey);
@@ -71,7 +73,7 @@ function checkInitialEquality(prefKey, service) {
 }
 
 function checkSetToNegtiveValue(prefKey, service) {
-  let deferred = Promise.defer();
+  let deferred = PromiseUtils.defer();
 
   // Set to -1 and verify defaultVal == 0.
   setPrefAndVerify(prefKey, -1, service, 0, deferred);
@@ -80,7 +82,7 @@ function checkSetToNegtiveValue(prefKey, service) {
 }
 
 function checkSetToOverflowedValue(prefKey, numRil, service) {
-  let deferred = Promise.defer();
+  let deferred = PromiseUtils.defer();
 
   // Set to larger-equal than numRil and verify defaultVal == 0.
   setPrefAndVerify(prefKey, numRil, service, 0, deferred);
@@ -89,7 +91,7 @@ function checkSetToOverflowedValue(prefKey, numRil, service) {
 }
 
 function checkValueChange(prefKey, numRil, service) {
-  let deferred = Promise.defer();
+  let deferred = PromiseUtils.defer();
 
   if (numRil > 1) {
     // Set to (numRil - 1) and verify defaultVal equals.
@@ -104,7 +106,7 @@ function checkValueChange(prefKey, numRil, service) {
 }
 
 function verify(contractId, ifaceName, prefKey, numRil) {
-  let deferred = Promise.defer();
+  let deferred = PromiseUtils.defer();
 
   getService(contractId, ifaceName)
     .then(checkInitialEquality.bind(null, prefKey))
@@ -122,6 +124,12 @@ function verify(contractId, ifaceName, prefKey, numRil) {
 }
 
 getNumRadioInterfaces()
-  .then(verify.bind(null, VOICEMAIL_SERVICE_CONTRACTID, "nsIVoicemailService",
-                    PREF_DEFAULT_SERVICE_ID))
+  .then(
+    verify.bind(
+      null,
+      VOICEMAIL_SERVICE_CONTRACTID,
+      "nsIVoicemailService",
+      PREF_DEFAULT_SERVICE_ID
+    )
+  )
   .then(finish);

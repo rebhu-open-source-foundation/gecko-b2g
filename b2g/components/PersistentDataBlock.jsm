@@ -40,11 +40,7 @@ const { XPCOMUtils } = ChromeUtils.import(
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
 ChromeUtils.defineModuleGetter(this, "OS", "resource://gre/modules/osfile.jsm");
-ChromeUtils.defineModuleGetter(
-  this,
-  "Promise",
-  "resource://gre/modules/Promise.jsm"
-);
+
 ChromeUtils.defineModuleGetter(
   this,
   "AppConstants",
@@ -152,7 +148,10 @@ this.PersistentDataBlock = {
     }
 
     if (!this.ctypes) {
-      ChromeUtils.import("resource://gre/modules/ctypes.jsm", this);
+      const { ctypes } = ChromeUtils.import(
+        "resource://gre/modules/ctypes.jsm"
+      );
+      this.ctypes = ctypes;
     }
 
     if (this._libc.handler === null) {

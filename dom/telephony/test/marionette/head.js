@@ -1,13 +1,17 @@
 /* Any copyright is dedicated to the Public Domain.
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
-// Emulate Promise.jsm semantics.
-Promise.defer = function() { return new Deferred(); };
-function Deferred()  {
-  this.promise = new Promise(function(resolve, reject) {
-    this.resolve = resolve;
-    this.reject = reject;
-  }.bind(this));
+// Emulate PromiseUtils.jsm semantics.
+Promise.defer = function() {
+  return new Deferred();
+};
+function Deferred() {
+  this.promise = new Promise(
+    function(resolve, reject) {
+      this.resolve = resolve;
+      this.reject = reject;
+    }.bind(this)
+  );
   Object.freeze(this);
 }
 
@@ -83,21 +87,24 @@ var emulator = (function() {
    */
   function waitFinish() {
     return new Promise(function(resolve, reject) {
-      waitFor(function() {
-        resolve();
-      }, function() {
-        return pendingCmdCount === 0 && pendingShellCount === 0;
-      });
+      waitFor(
+        function() {
+          resolve();
+        },
+        function() {
+          return pendingCmdCount === 0 && pendingShellCount === 0;
+        }
+      );
     });
   }
 
   return {
-    runCmd: runCmd,
-    runCmdWithCallback: runCmdWithCallback,
-    runShellCmd: runShellCmd,
-    waitFinish: waitFinish
+    runCmd,
+    runCmdWithCallback,
+    runShellCmd,
+    waitFinish,
   };
-}());
+})();
 
 /**
  * Modem Helper
@@ -112,8 +119,8 @@ function modemHelperGenerator() {
   Modem.prototype = {
     clientID: 0,
 
-    voiceTypeToTech: function(aVoiceType) {
-      switch(aVoiceType) {
+    voiceTypeToTech(aVoiceType) {
+      switch (aVoiceType) {
         case "gsm":
         case "gprs":
         case "edge":
@@ -147,13 +154,13 @@ function modemHelperGenerator() {
       }
     },
 
-    isCDMA: function() {
+    isCDMA() {
       var mobileConn = navigator.mozMobileConnections[this.clientID];
       var tech = mobileConn && this.voiceTypeToTech(mobileConn.voice.type);
       return tech === "cdma" || tech === "evdo" || tech == "ehrpd";
     },
 
-    isGSM: function() {
+    isGSM() {
       var mobileConn = navigator.mozMobileConnections[this.clientID];
       var tech = mobileConn && this.voiceTypeToTech(mobileConn.voice.type);
       return tech === "gsm" || tech === "wcdma" || tech === "lte";
@@ -162,23 +169,29 @@ function modemHelperGenerator() {
     /**
      * @return Promise:
      */
-    changeTech: function(aTech, aMask) {
+    changeTech(aTech, aMask) {
       let target = navigator.mozMobileConnections[this.clientID];
 
-      let mask = aMask || {
-        gsm:   "gsm",
-        wcdma: "gsm/wcdma",
-        cdma:  "cdma",
-        evdo:  "evdo0",
-        ehrpd: "ehrpd",
-        lte:   "lte"
-      }[aTech];
+      let mask =
+        aMask ||
+        {
+          gsm: "gsm",
+          wcdma: "gsm/wcdma",
+          cdma: "cdma",
+          evdo: "evdo0",
+          ehrpd: "ehrpd",
+          lte: "lte",
+        }[aTech];
 
       let waitForExpectedTech = () => {
         return new Promise((aResolve, aReject) => {
           let listener = aEvent => {
-            log("MobileConnection[" + this.clientID + "] " +
-                "received event 'voicechange'");
+            log(
+              "MobileConnection[" +
+                this.clientID +
+                "] " +
+                "received event 'voicechange'"
+            );
             if (aTech === this.voiceTypeToTech(target.voice.type)) {
               target.removeEventListener("voicechange", listener);
               aResolve();
@@ -194,14 +207,19 @@ function modemHelperGenerator() {
         return Promise.resolve()
           .then(() => emulator.runCmd("modem tech " + aTech + " " + mask))
           .then(() => emulator.runCmd("modem tech"))
-          .then(result => is(result[0], aTech + " " + mask,
-                             "Check modem 'tech/preferred mask'"));
-      }
+          .then(result =>
+            is(
+              result[0],
+              aTech + " " + mask,
+              "Check modem 'tech/preferred mask'"
+            )
+          );
+      };
 
       return aTech === this.voiceTypeToTech(target.voice.type)
-           ? Promise.resolve()
-           : Promise.all([waitForExpectedTech(), changeToExpectedTech()]);
-    }
+        ? Promise.resolve()
+        : Promise.all([waitForExpectedTech(), changeToExpectedTech()]);
+    },
   };
 
   let modems = [];
@@ -224,12 +242,15 @@ var Modem = Modems[0];
   function delay(ms) {
     return new Promise(function(resolve, reject) {
       let startTime = Date.now();
-      waitFor(function() {
-        resolve();
-      },function() {
-        let duration = Date.now() - startTime;
-        return (duration >= ms);
-      });
+      waitFor(
+        function() {
+          resolve();
+        },
+        function() {
+          let duration = Date.now() - startTime;
+          return duration >= ms;
+        }
+      );
     });
   }
 
@@ -252,13 +273,20 @@ var Modem = Modems[0];
   function waitForSystemMessage(aMessageName, aMatchFun = null) {
     // Current page may not register to receiving the message. We should
     // register it first.
-    let systemMessenger = SpecialPowers.Cc["@mozilla.org/system-message-internal;1"]
-                                       .getService(SpecialPowers.Ci.nsISystemMessagesInternal);
+    let systemMessenger = SpecialPowers.Cc[
+      "@mozilla.org/system-message-internal;1"
+    ].getService(SpecialPowers.Ci.nsISystemMessagesInternal);
 
     // TODO: Find a better way to get current pageURI and manifestURI.
-    systemMessenger.registerPage(aMessageName,
-                                 SpecialPowers.Services.io.newURI("app://system.gaiamobile.org/index.html", null, null),
-                                 SpecialPowers.Services.io.newURI("app://system.gaiamobile.org/manifest.webapp", null, null));
+    systemMessenger.registerPage(
+      aMessageName,
+      SpecialPowers.Services.io.newURI(
+        "app://system.gaiamobile.org/index.html"
+      ),
+      SpecialPowers.Services.io.newURI(
+        "app://system.gaiamobile.org/manifest.webapp"
+      )
+    );
 
     return new Promise(function(aResolve, aReject) {
       window.navigator.mozSetMessageHandler(aMessageName, function(aMessage) {
@@ -317,11 +345,12 @@ var Modem = Modems[0];
   function waitForCallsChangedEvent(aTarget, aExpectedCall) {
     if (aExpectedCall === undefined) {
       return waitForEvent(aTarget, "callschanged").then(event => event.call);
-    } else {
-      return waitForEvent(aTarget, "callschanged",
-                          event => event.call == aExpectedCall)
-               .then(event => event.call);
     }
+    return waitForEvent(
+      aTarget,
+      "callschanged",
+      event => event.call == aExpectedCall
+    ).then(event => event.call);
   }
 
   /**
@@ -334,14 +363,13 @@ var Modem = Modems[0];
    * @return Promise<TelephonyCall>
    */
   function waitForNamedStateEvent(aTarget, aState) {
-    return waitForEvent(aTarget, aState)
-      .then(event => {
-        if (aTarget instanceof TelephonyCall) {
-          is(aTarget, event.call, "event.call");
-        }
-        is(aTarget.state, aState, "check state");
-        return aTarget;
-      });
+    return waitForEvent(aTarget, aState).then(event => {
+      if (aTarget instanceof TelephonyCall) {
+        is(aTarget, event.call, "event.call");
+      }
+      is(aTarget.state, aState, "check state");
+      return aTarget;
+    });
   }
 
   /**
@@ -354,11 +382,10 @@ var Modem = Modems[0];
    * @return Promise<TelephonyCall>
    */
   function waitForGroupChangeEvent(aCall, aGroup) {
-    return waitForEvent(aCall, "groupchange")
-      .then(() => {
-        is(aCall.group, aGroup, "call group");
-        return aCall;
-      });
+    return waitForEvent(aCall, "groupchange").then(() => {
+      is(aCall.group, aGroup, "call group");
+      return aCall;
+    });
   }
 
   /**
@@ -371,11 +398,10 @@ var Modem = Modems[0];
    * @return Promise<DOMEvent>
    */
   function waitForStateChangeEvent(aTarget, aState) {
-    return waitForEvent(aTarget, "statechange")
-      .then(() => {
-        is(aTarget.state, aState);
-        return aTarget;
-      });
+    return waitForEvent(aTarget, "statechange").then(() => {
+      is(aTarget.state, aState);
+      return aTarget;
+    });
   }
 
   /**
@@ -383,11 +409,14 @@ var Modem = Modems[0];
    */
   function waitForNoCall() {
     return new Promise(function(resolve, reject) {
-      waitFor(function() {
-        resolve();
-      }, function() {
-        return telephony.calls.length === 0;
-      });
+      waitFor(
+        function() {
+          resolve();
+        },
+        function() {
+          return telephony.calls.length === 0;
+        }
+      );
     });
   }
 
@@ -469,11 +498,10 @@ var Modem = Modems[0];
 
   function checkInitialState() {
     log("Verify initial state.");
-    ok(telephony.calls, 'telephony.call');
-    ok(conference.calls, 'conference.calls');
+    ok(telephony.calls, "telephony.call");
+    ok(conference.calls, "conference.calls");
     checkState(null, [], "", []);
   }
-
 
   /****************************************************************************
    ****                           Check Functions                          ****
@@ -510,8 +538,14 @@ var Modem = Modems[0];
    * @param receivedName
    *        A string exposed by Telephony API.
    */
-  function checkCallId(number, numberPresentation, name, namePresentation,
-                       receivedNumber, receivedName) {
+  function checkCallId(
+    number,
+    numberPresentation,
+    name,
+    namePresentation,
+    receivedNumber,
+    receivedName
+  ) {
     let expectedNum = !numberPresentation ? number : "";
     is(receivedNumber, expectedNum, "check number per numberPresentation");
 
@@ -537,9 +571,11 @@ var Modem = Modems[0];
     return emulator.runCmd("telephony list").then(result => {
       log("Call list is now: " + result);
       // The last element of the result is "OK"
-      is(result.length - 1,
-         expectedCallList.length,
-         "Emulator call list length");
+      is(
+        result.length - 1,
+        expectedCallList.length,
+        "Emulator call list length"
+      );
 
       for (let i = 0; i < expectedCallList.length; ++i) {
         is(result[i], expectedCallList[i], "emulator calllist");
@@ -589,8 +625,12 @@ var Modem = Modems[0];
    */
   function checkAll(active, calls, conferenceState, conferenceCalls, callList) {
     // Check qualitey
-    telephony.calls.forEach(call => is(call.voiceQuality, "Normal", "check voice quality"));
-    conference.calls.forEach(call => is(call.voiceQuality, "Normal", "check voice quality"));
+    telephony.calls.forEach(call =>
+      is(call.voiceQuality, "Normal", "check voice quality")
+    );
+    conference.calls.forEach(call =>
+      is(call.voiceQuality, "Normal", "check voice quality")
+    );
 
     // Check call list
     checkState(active, calls, conferenceState, conferenceCalls);
@@ -615,16 +655,23 @@ var Modem = Modems[0];
    * @param aDisconnectedReason
    *        The disconnected reason if the call becomed disconnected.
    */
-  function createExptectedCall(aReference, aNumber, aConference, aDirection,
-                               aState, aEmulatorState, aDisconnectedReason) {
+  function createExptectedCall(
+    aReference,
+    aNumber,
+    aConference,
+    aDirection,
+    aState,
+    aEmulatorState,
+    aDisconnectedReason
+  ) {
     return {
-      reference:          aReference,
-      number:             aNumber,
-      conference:         aConference,
-      direction:          aDirection,
-      state:              aState,
-      emulatorState:      aEmulatorState,
-      disconnectedReason: aDisconnectedReason
+      reference: aReference,
+      number: aNumber,
+      conference: aConference,
+      direction: aDirection,
+      state: aState,
+      emulatorState: aEmulatorState,
+      disconnectedReason: aDisconnectedReason,
     };
   }
 
@@ -638,12 +685,15 @@ var Modem = Modems[0];
    */
   function checkActive(aExpectedCalls, aExpectedCallsInConference) {
     // Get the active call
-    let activeCalls = aExpectedCalls && aExpectedCalls.map(aExpectedCall => {
-      let isActive = aExpectedCall.state === "connected" ||
-                     aExpectedCall.state === "alerting" ||
-                     aExpectedCall.state === "dialing";
-      return isActive ? aExpectedCall.reference : null;
-    });
+    let activeCalls =
+      aExpectedCalls &&
+      aExpectedCalls.map(aExpectedCall => {
+        let isActive =
+          aExpectedCall.state === "connected" ||
+          aExpectedCall.state === "alerting" ||
+          aExpectedCall.state === "dialing";
+        return isActive ? aExpectedCall.reference : null;
+      });
 
     // Since a CDMA active call and a CDMA waiting call refer to the same
     // telephony call object, we remove duplicated elememts in activeCalls
@@ -656,14 +706,16 @@ var Modem = Modems[0];
 
     // Get the active conference
     let callsInConference = aExpectedCallsInConference || [];
-    let activeConference = callsInConference.length &&
-                           callsInConference[0].state === "connected"
-                           ? navigator.mozTelephony.conferenceGroup
-                           : null;
+    let activeConference =
+      callsInConference.length && callsInConference[0].state === "connected"
+        ? navigator.mozTelephony.conferenceGroup
+        : null;
 
     // Check telephony.active
-    ok(!(activeCall && activeConference),
-       "An active call cannot coexist with an active conference call.");
+    ok(
+      !(activeCall && activeConference),
+      "An active call cannot coexist with an active conference call."
+    );
     is(telephony.active, activeCall || activeConference, "check Active");
   }
 
@@ -690,14 +742,16 @@ var Modem = Modems[0];
    */
   function equals(aExpectedCalls) {
     // Classify calls
-    let callsInTelephony  = [];
+    let callsInTelephony = [];
     let CallsInConference = [];
 
     aExpectedCalls.forEach(function(aCall) {
       if (aCall.state === "disconnected") {
-        is(aCall.disconnectedReason,
-           aCall.reference.disconnectedReason,
-           "Check disconnectedReason");
+        is(
+          aCall.disconnectedReason,
+          aCall.reference.disconnectedReason,
+          "Check disconnectedReason"
+        );
         return;
       }
 
@@ -720,19 +774,29 @@ var Modem = Modems[0];
     callsInTelephony.forEach(aExpectedCall => {
       let number = aExpectedCall.number;
       let call = telephony.calls.find(aCall => {
-        return (aCall.id.number === number) ||
-               (Modem.isCDMA() ? (aCall.secondId && aCall.secondId.number === number) : false);
+        return (
+          aCall.id.number === number ||
+          (Modem.isCDMA()
+            ? aCall.secondId && aCall.secondId.number === number
+            : false)
+        );
       });
       if (!call) {
         ok(false, "telephony.calls lost the call(number: " + number + ")");
         return;
       }
 
-      is(call, aExpectedCall.reference,
-         "Check the object reference of number:" + number);
+      is(
+        call,
+        aExpectedCall.reference,
+        "Check the object reference of number:" + number
+      );
 
-      is(call.state, aExpectedCall.state,
-         "Check call.state of number:" + number);
+      is(
+        call.state,
+        aExpectedCall.state,
+        "Check call.state of number:" + number
+      );
     });
 
     // Check conference.calls
@@ -750,17 +814,16 @@ var Modem = Modems[0];
       }
 
       let state = {
-        alerting:  "ringing",
+        alerting: "ringing",
         connected: "active",
-        held:      "held",
-        incoming:  "incoming"
+        held: "held",
+        incoming: "incoming",
       }[aCall.state];
 
       state = aCall.emulatorState || state;
-      let prefix = (aCall.direction === "in") ? "inbound from "
-                                              : "outbound to  ";
+      let prefix = aCall.direction === "in" ? "inbound from " : "outbound to  ";
 
-      return state ? (prefix + aCall.number + " : " + state) : null;
+      return state ? prefix + aCall.number + " : " + state : null;
     });
 
     return checkEmulatorCallList(strings.filter(aString => aString));
@@ -785,8 +848,9 @@ var Modem = Modems[0];
 
     let outCall;
 
-    return telephony.dial(number, serviceId)
-      .then(call => outCall = call)
+    return telephony
+      .dial(number, serviceId)
+      .then(call => (outCall = call))
       .then(() => {
         ok(outCall instanceof TelephonyCall, "check instance");
         is(outCall.id.number, number);
@@ -822,8 +886,9 @@ var Modem = Modems[0];
 
     let outCall;
 
-    return telephony.dialEmergency(number)
-      .then(call => outCall = call)
+    return telephony
+      .dialEmergency(number)
+      .then(call => (outCall = call))
       .then(() => {
         ok(outCall instanceof TelephonyCall, "check instance");
         ok(outCall);
@@ -831,8 +896,9 @@ var Modem = Modems[0];
 
         // Similar to function |dial|, a CDMA call directly goes to connected
         // state  when the operator find its callee.
-        let state = Modems[outCall.serviceId].isGSM() ? "alerting"
-                                                      : "connected";
+        let state = Modems[outCall.serviceId].isGSM()
+          ? "alerting"
+          : "connected";
 
         // Sometimes the dialing state is missing, see Bug 1220548.
         if (outCall.state === state) {
@@ -863,23 +929,22 @@ var Modem = Modems[0];
     let p1 = waitForCallsChangedEvent(telephony);
     let p2 = emulator.runCmd("stk setupcall " + number);
 
-    return Promise.all([p1, p2])
-      .then(result => {
-        let call = result[0];
+    return Promise.all([p1, p2]).then(result => {
+      let call = result[0];
 
-        ok(call instanceof TelephonyCall, "check instance");
-        is(call.id.number, number, "check number");
+      ok(call instanceof TelephonyCall, "check instance");
+      is(call.id.number, number, "check number");
 
-        // Sometimes the dialing state is missing, see Bug 1220548.
-        if (call.state === "alerting") {
-          log("got alerting state, dialing is missing");
-          return;
-        }
+      // Sometimes the dialing state is missing, see Bug 1220548.
+      if (call.state === "alerting") {
+        log("got alerting state, dialing is missing");
+        return;
+      }
 
-        is(call.state, "dialing", "check call state");
+      is(call.state, "dialing", "check call state");
 
-        return waitForNamedStateEvent(call, "alerting");
-      });
+      return waitForNamedStateEvent(call, "alerting");
+    });
   }
 
   /**
@@ -901,12 +966,11 @@ var Modem = Modems[0];
     // |conference.onstatechange| before checking the state of the conference
     // call.
     if (conference.state === "connected") {
-      let promise = waitForStateChangeEvent(conference, "held")
-        .then(() => {
-          if (typeof conferenceStateChangeCallback === "function") {
-            conferenceStateChangeCallback();
-          }
-        });
+      let promise = waitForStateChangeEvent(conference, "held").then(() => {
+        if (typeof conferenceStateChangeCallback === "function") {
+          conferenceStateChangeCallback();
+        }
+      });
 
       promises.push(promise);
     }
@@ -1015,8 +1079,7 @@ var Modem = Modems[0];
 
     // Register listeners
     let promises = [waitForEvent(telephony, "callschanged")];
-    if (Modem.isGSM() ||
-        Modem.isCDMA() && telephony.calls.length == 0) {
+    if (Modem.isGSM() || (Modem.isCDMA() && telephony.calls.length == 0)) {
       promises.push(waitForEvent(telephony, "incoming"));
     }
 
@@ -1024,29 +1087,40 @@ var Modem = Modems[0];
     numberPresentation = numberPresentation || "";
     name = name || "";
     namePresentation = namePresentation || "";
-    promises.push(emulator.runCmd("telephony call " + number +
-                                  "," + numberPresentation +
-                                  "," + name +
-                                  "," + namePresentation));
+    promises.push(
+      emulator.runCmd(
+        "telephony call " +
+          number +
+          "," +
+          numberPresentation +
+          "," +
+          name +
+          "," +
+          namePresentation
+      )
+    );
 
     // Return the promise and check
-    return Promise.all(promises)
-      .then(aResult => {
-        let call = aResult[0].call;
-        ok(call);
+    return Promise.all(promises).then(aResult => {
+      let call = aResult[0].call;
+      ok(call);
 
-        let isCdmaSecondCall = Modem.isCDMA() &&
-                               navigator.mozTelephony.calls[0].secondId;
+      let isCdmaSecondCall =
+        Modem.isCDMA() && navigator.mozTelephony.calls[0].secondId;
 
-        is(call.state, isCdmaSecondCall ? "connected" : "incoming");
-        is(call.voiceQuality, "Normal","check voice quality");
-        checkCallId(number, numberPresentation,
-                    name, namePresentation,
-                    isCdmaSecondCall ? call.secondId.number : call.id.number,
-                    isCdmaSecondCall ? call.secondId.name : call.id.name);
+      is(call.state, isCdmaSecondCall ? "connected" : "incoming");
+      is(call.voiceQuality, "Normal", "check voice quality");
+      checkCallId(
+        number,
+        numberPresentation,
+        name,
+        namePresentation,
+        isCdmaSecondCall ? call.secondId.number : call.id.number,
+        isCdmaSecondCall ? call.secondId.name : call.id.name
+      );
 
-        return call;
-      });
+      return call;
+    });
   }
 
   /**
@@ -1065,8 +1139,9 @@ var Modem = Modems[0];
     // callee, which makes the "connected" state in CDMA calls behaves like the
     // "alerting" state in GSM calls, so we don't have to wait for the call to
     // change to "connected" state here for CDMA calls.
-    return Modem.isCDMA() ? Promise.resolve()
-                          : waitForNamedStateEvent(call, "connected");
+    return Modem.isCDMA()
+      ? Promise.resolve()
+      : waitForNamedStateEvent(call, "connected");
   }
 
   /**
@@ -1079,13 +1154,17 @@ var Modem = Modems[0];
   function remoteHangUp(aIdentifier, aWaitForEvent = true) {
     let call;
     let number;
-    if (typeof aIdentifier === "string") { // A number is passed in.
+    if (typeof aIdentifier === "string") {
+      // A number is passed in.
       number = aIdentifier;
       call = navigator.mozTelephony.calls.find(aCall => {
-        return aCall.id.number === number ||
-               aCall.secondId && aCall.secondId.number === number;
+        return (
+          aCall.id.number === number ||
+          (aCall.secondId && aCall.secondId.number === number)
+        );
       });
-    } else { // A Telephony call object is passed in.
+    } else {
+      // A Telephony call object is passed in.
       call = aIdentifier;
       number = aIdentifier.id.number;
     }
@@ -1136,12 +1215,11 @@ var Modem = Modems[0];
       promises.push(waitForStateChangeEvent(call, "connected"));
     }
 
-    let promise = waitForNamedStateEvent(conference, "connected")
-      .then(() => {
-        if (typeof connectedCallback === "function") {
-          connectedCallback();
-        }
-      });
+    let promise = waitForNamedStateEvent(conference, "connected").then(() => {
+      if (typeof connectedCallback === "function") {
+        connectedCallback();
+      }
+    });
     promises.push(promise);
 
     // Cannot use apply() through webidl, so just separate the cases to handle.
@@ -1175,12 +1253,11 @@ var Modem = Modems[0];
       promises.push(waitForNamedStateEvent(call, "held"));
     }
 
-    let promise = waitForNamedStateEvent(conference, "held")
-      .then(() => {
-        if (typeof heldCallback === "function") {
-          heldCallback();
-        }
-      });
+    let promise = waitForNamedStateEvent(conference, "held").then(() => {
+      if (typeof heldCallback === "function") {
+        heldCallback();
+      }
+    });
     promises.push(promise);
 
     promises.push(conference.hold());
@@ -1207,12 +1284,11 @@ var Modem = Modems[0];
       promises.push(waitForNamedStateEvent(call, "connected"));
     }
 
-    let promise = waitForNamedStateEvent(conference, "connected")
-      .then(() => {
-        if (typeof connectedCallback === "function") {
-          connectedCallback();
-        }
-      });
+    let promise = waitForNamedStateEvent(conference, "connected").then(() => {
+      if (typeof connectedCallback === "function") {
+        connectedCallback();
+      }
+    });
     promises.push(promise);
 
     promises.push(conference.resume());
@@ -1234,20 +1310,26 @@ var Modem = Modems[0];
    *        A callback function which is called when conference state changes.
    * @return Promise<[TelephonyCall ...]>
    */
-  function removeCallInConference(callToRemove, autoRemovedCalls, remainedCalls,
-                                  statechangeCallback) {
+  function removeCallInConference(
+    callToRemove,
+    autoRemovedCalls,
+    remainedCalls,
+    statechangeCallback
+  ) {
     log("Removing a participant from the conference call.");
 
-    is(conference.state, 'connected');
+    is(conference.state, "connected");
 
     let promises = [];
 
     // callToRemove.
     promises.push(waitForCallsChangedEvent(telephony, callToRemove));
     promises.push(waitForCallsChangedEvent(conference, callToRemove));
-    promises.push(waitForGroupChangeEvent(callToRemove, null).then(() => {
-      is(callToRemove.state, 'connected');
-    }));
+    promises.push(
+      waitForGroupChangeEvent(callToRemove, null).then(() => {
+        is(callToRemove.state, "connected");
+      })
+    );
 
     // When a call is removed from conference with 2 calls, another one will be
     // automatically removed from group and be put on hold.
@@ -1264,12 +1346,14 @@ var Modem = Modems[0];
     }
 
     let finalConferenceState = remainedCalls.length ? "held" : "";
-    let promise = waitForStateChangeEvent(conference, finalConferenceState)
-      .then(() => {
-        if (typeof statechangeCallback === 'function') {
-          statechangeCallback();
-        }
-      });
+    let promise = waitForStateChangeEvent(
+      conference,
+      finalConferenceState
+    ).then(() => {
+      if (typeof statechangeCallback === "function") {
+        statechangeCallback();
+      }
+    });
     promises.push(promise);
 
     promises.push(conference.remove(callToRemove));
@@ -1293,8 +1377,12 @@ var Modem = Modems[0];
    *        A callback function which is called when conference state changes.
    * @return Promise<[TelephonyCall ...]>
    */
-  function hangUpCallInConference(callToHangUp, autoRemovedCalls, remainedCalls,
-                                  statechangeCallback) {
+  function hangUpCallInConference(
+    callToHangUp,
+    autoRemovedCalls,
+    remainedCalls,
+    statechangeCallback
+  ) {
     log("Release one call in conference.");
 
     let promises = [];
@@ -1311,12 +1399,11 @@ var Modem = Modems[0];
     }
 
     if (remainedCalls.length === 0) {
-      let promise = waitForStateChangeEvent(conference, "")
-        .then(() => {
-          if (typeof statechangeCallback === 'function') {
-            statechangeCallback();
-          }
-        });
+      let promise = waitForStateChangeEvent(conference, "").then(() => {
+        if (typeof statechangeCallback === "function") {
+          statechangeCallback();
+        }
+      });
       promises.push(promise);
     }
 
@@ -1366,22 +1453,49 @@ var Modem = Modems[0];
     return Promise.resolve()
       .then(checkInitialState)
       .then(() => dial(outNumber))
-      .then(call => { outCall = call; })
-      .then(() => checkAll(outCall, [outCall], '', [], [outInfo.ringing]))
+      .then(call => {
+        outCall = call;
+      })
+      .then(() => checkAll(outCall, [outCall], "", [], [outInfo.ringing]))
       .then(() => remoteAnswer(outCall))
-      .then(() => checkAll(outCall, [outCall], '', [], [outInfo.active]))
+      .then(() => checkAll(outCall, [outCall], "", [], [outInfo.active]))
       .then(() => remoteDial(inNumber))
-      .then(call => { inCall = call; })
-      .then(() => checkAll(outCall, [outCall, inCall], '', [],
-                           [outInfo.active, inInfo.waiting]))
+      .then(call => {
+        inCall = call;
+      })
+      .then(() =>
+        checkAll(
+          outCall,
+          [outCall, inCall],
+          "",
+          [],
+          [outInfo.active, inInfo.waiting]
+        )
+      )
       .then(() => answer(inCall))
-      .then(() => checkAll(inCall, [outCall, inCall], '', [],
-                           [outInfo.held, inInfo.active]))
-      .then(() => addCallsToConference([outCall, inCall], function() {
-        checkState(conference, [], 'connected', [outCall, inCall]);
-      }))
-      .then(() => checkAll(conference, [], 'connected', [outCall, inCall],
-                           [outInfo.active, inInfo.active]))
+      .then(() =>
+        checkAll(
+          inCall,
+          [outCall, inCall],
+          "",
+          [],
+          [outInfo.held, inInfo.active]
+        )
+      )
+      .then(() =>
+        addCallsToConference([outCall, inCall], function() {
+          checkState(conference, [], "connected", [outCall, inCall]);
+        })
+      )
+      .then(() =>
+        checkAll(
+          conference,
+          [],
+          "connected",
+          [outCall, inCall],
+          [outInfo.active, inInfo.active]
+        )
+      )
       .then(() => {
         return [outCall, inCall];
       });
@@ -1399,17 +1513,20 @@ var Modem = Modems[0];
   function createCallAndAddToConference(inNumber, conferenceCalls) {
     // Create an info array. allInfo = [info1, info2, ...].
     let allInfo = conferenceCalls.map(function(call, i) {
-      return (i === 0) ? outCallStrPool(call.id.number)
-                       : inCallStrPool(call.id.number);
+      return i === 0
+        ? outCallStrPool(call.id.number)
+        : inCallStrPool(call.id.number);
     });
 
     // Define state property of the info array.
     // Ex: allInfo.active = [info1.active, info2.active, ...].
     function addInfoState(allInfo, state) {
       Object.defineProperty(allInfo, state, {
-        get: function() {
-          return allInfo.map(function(info) { return info[state]; });
-        }
+        get() {
+          return allInfo.map(function(info) {
+            return info[state];
+          });
+        },
       });
     }
 
@@ -1421,24 +1538,45 @@ var Modem = Modems[0];
     let newInfo = inCallStrPool(inNumber);
 
     return remoteDial(inNumber)
-      .then(call => { newCall = call; })
-      .then(() => checkAll(conference, [newCall], 'connected', conferenceCalls,
-                           allInfo.active.concat(newInfo.waiting)))
-      .then(() => answer(newCall, function() {
-        checkState(newCall, [newCall], 'held', conferenceCalls);
-      }))
-      .then(() => checkAll(newCall, [newCall], 'held', conferenceCalls,
-                           allInfo.held.concat(newInfo.active)))
+      .then(call => {
+        newCall = call;
+      })
+      .then(() =>
+        checkAll(
+          conference,
+          [newCall],
+          "connected",
+          conferenceCalls,
+          allInfo.active.concat(newInfo.waiting)
+        )
+      )
+      .then(() =>
+        answer(newCall, function() {
+          checkState(newCall, [newCall], "held", conferenceCalls);
+        })
+      )
+      .then(() =>
+        checkAll(
+          newCall,
+          [newCall],
+          "held",
+          conferenceCalls,
+          allInfo.held.concat(newInfo.active)
+        )
+      )
       .then(() => {
         // We are going to add the new call into the conference.
         conferenceCalls.push(newCall);
         allInfo.push(newInfo);
       })
-      .then(() => addCallsToConference([newCall], function() {
-        checkState(conference, [], 'connected', conferenceCalls);
-      }))
-      .then(() => checkAll(conference, [], 'connected', conferenceCalls,
-                           allInfo.active))
+      .then(() =>
+        addCallsToConference([newCall], function() {
+          checkState(conference, [], "connected", conferenceCalls);
+        })
+      )
+      .then(() =>
+        checkAll(conference, [], "connected", conferenceCalls, allInfo.active)
+      )
       .then(() => {
         return conferenceCalls;
       });
@@ -1496,7 +1634,7 @@ var Modem = Modems[0];
    * @return Promise
    */
   function setRadioEnabled(connection, enabled) {
-    let desiredRadioState = enabled ? 'enabled' : 'disabled';
+    let desiredRadioState = enabled ? "enabled" : "disabled";
     log("Set radio: " + desiredRadioState);
 
     if (connection.radioState === desiredRadioState) {
@@ -1505,19 +1643,23 @@ var Modem = Modems[0];
 
     let promises = [];
 
-    promises.push(gWaitForEvent(connection, "radiostatechange", event => {
-      let state = connection.radioState;
-      log("current radioState: " + state);
-      return state == desiredRadioState;
-    }));
+    promises.push(
+      gWaitForEvent(connection, "radiostatechange", event => {
+        let state = connection.radioState;
+        log("current radioState: " + state);
+        return state == desiredRadioState;
+      })
+    );
 
     // Wait for icc status to finish updating. Please see bug 1169504 for the
     // reason why we need this.
-    promises.push(gWaitForEvent(connection, "iccchange", event => {
-      let iccId = connection.iccId;
-      log("current iccId: " + iccId);
-      return !!iccId === enabled;
-    }));
+    promises.push(
+      gWaitForEvent(connection, "iccchange", event => {
+        let iccId = connection.iccId;
+        log("current iccId: " + iccId);
+        return !!iccId === enabled;
+      })
+    );
 
     promises.push(connection.setRadioEnabled(enabled));
 
@@ -1530,10 +1672,12 @@ var Modem = Modems[0];
 
     for (let i = 0; i < numOfSim; i++) {
       let connection = navigator.mozMobileConnections[i];
-      ok(connection instanceof MozMobileConnection,
-         "connection[" + i + "] is instanceof " + connection.constructor);
+      ok(
+        connection instanceof MozMobileConnection,
+        "connection[" + i + "] is instanceof " + connection.constructor
+      );
 
-         promises.push(setRadioEnabled(connection, enabled));
+      promises.push(setRadioEnabled(connection, enabled));
     }
 
     return Promise.all(promises);
@@ -1581,31 +1725,33 @@ var Modem = Modems[0];
 
   // Telephony helper
   this.TelephonyHelper = {
-    dial:   dial,
-    answer: answer,
-    hangUp: hangUp,
-    hold:   hold,
-    resume: resume,
-    equals: equals,
-    createExptectedCall: createExptectedCall
+    dial,
+    answer,
+    hangUp,
+    hold,
+    resume,
+    equals,
+    createExptectedCall,
   };
 
   // Remote Utils, TODO: This should be an array for multi-SIM scenarios
-  this.Remotes = [{
-    dial:   remoteDial,
-    answer: remoteAnswer,
-    hangUp: remoteHangUp
-  }];
+  this.Remotes = [
+    {
+      dial: remoteDial,
+      answer: remoteAnswer,
+      hangUp: remoteHangUp,
+    },
+  ];
   this.Remote = this.Remotes[0];
-}());
+})();
 
 function _startTest(permissions, test) {
   function typesToPermissions(types) {
     return types.map(type => {
       return {
-        "type": type,
-        "allow": 1,
-        "context": document
+        type,
+        allow: 1,
+        context: document,
       };
     });
   }
@@ -1613,13 +1759,16 @@ function _startTest(permissions, test) {
   function ensureRadio() {
     log("== Ensure Radio ==");
     return new Promise(function(resolve, reject) {
-      SpecialPowers.pushPermissions(typesToPermissions(["mobileconnection"]), () => {
-        gSetRadioEnabledAll(true).then(() => {
-          SpecialPowers.popPermissions(() => {
-            resolve();
+      SpecialPowers.pushPermissions(
+        typesToPermissions(["mobileconnection"]),
+        () => {
+          gSetRadioEnabledAll(true).then(() => {
+            SpecialPowers.popPermissions(() => {
+              resolve();
+            });
           });
-        });
-      });
+        }
+      );
     });
   }
 
@@ -1660,7 +1809,8 @@ function _startTest(permissions, test) {
 
     function tearDown() {
       log("== Test TearDown ==");
-      emulator.waitFinish()
+      emulator
+        .waitFinish()
         .then(() => {
           // Restore debugging pref.
           SpecialPowers.setBoolPref(kPrefRilDebuggingEnabled, debugPref);
@@ -1672,13 +1822,14 @@ function _startTest(permissions, test) {
     }
 
     return tearDown.bind(this);
-  }());
+  })();
 
-  setUp().then(() => {
-    log("== Test Start ==");
-    test();
-  })
-  .catch(error => ok(false, error));
+  setUp()
+    .then(() => {
+      log("== Test Start ==");
+      test();
+    })
+    .catch(error => ok(false, error));
 }
 
 function startTest(test) {
@@ -1694,14 +1845,14 @@ function startDSDSTest(test) {
   try {
     numRIL = SpecialPowers.getIntPref("ril.numRadioInterfaces");
   } catch (ex) {
-    numRIL = 1;  // Pref not set.
+    numRIL = 1; // Pref not set.
   }
 
   if (numRIL > 1) {
     startTest(test);
   } else {
     log("Not a DSDS environment. Test is skipped.");
-    ok(true);  // We should run at least one test.
+    ok(true); // We should run at least one test.
     finish();
   }
 }

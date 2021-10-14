@@ -7,7 +7,9 @@
 this.EXPORTED_SYMBOLS = ["DownloadsIPC"];
 
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
-const { Promise } = ChromeUtils.import("resource://gre/modules/Promise.jsm");
+const { PromiseUtils } = ChromeUtils.import(
+  "resource://gre/modules/PromiseUtils.jsm"
+);
 
 /**
  * This module lives in the child process and receives the ipc messages
@@ -180,7 +182,7 @@ this.DownloadsIPC = {
    */
   getDownloads() {
     DEBUG && debug("getDownloads");
-    let deferred = Promise.defer();
+    let deferred = PromiseUtils.defer();
     if (this.ready) {
       DEBUG && debug("Returning existing list.");
       deferred.resolve(this.downloads);
@@ -207,7 +209,7 @@ this.DownloadsIPC = {
     if (!this.downloads[aId]) {
       return Promise.reject("InvalidDownload");
     }
-    let deferred = Promise.defer();
+    let deferred = PromiseUtils.defer();
     let pId = this.generatePromiseId();
     this.downloadPromises[pId] = deferred;
     Services.cpmm.sendAsyncMessage("Downloads:Remove", {
@@ -222,7 +224,7 @@ this.DownloadsIPC = {
     if (!this.downloads[aId]) {
       return Promise.reject("InvalidDownload");
     }
-    let deferred = Promise.defer();
+    let deferred = PromiseUtils.defer();
     let pId = this.generatePromiseId();
     this.downloadPromises[pId] = deferred;
     Services.cpmm.sendAsyncMessage("Downloads:Pause", {
@@ -237,7 +239,7 @@ this.DownloadsIPC = {
     if (!this.downloads[aId]) {
       return Promise.reject("InvalidDownload");
     }
-    let deferred = Promise.defer();
+    let deferred = PromiseUtils.defer();
     let pId = this.generatePromiseId();
     this.downloadPromises[pId] = deferred;
     Services.cpmm.sendAsyncMessage("Downloads:Resume", {
@@ -249,7 +251,7 @@ this.DownloadsIPC = {
 
   adoptDownload(aJsonDownload) {
     DEBUG && debug("adoptDownload");
-    let deferred = Promise.defer();
+    let deferred = PromiseUtils.defer();
     let pId = this.generatePromiseId();
     this.downloadPromises[pId] = deferred;
     Services.cpmm.sendAsyncMessage("Downloads:Adopt", {

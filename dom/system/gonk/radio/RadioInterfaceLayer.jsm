@@ -30,7 +30,6 @@ const { libcutils } = ChromeUtils.import(
 );
 
 ChromeUtils.import("resource://gre/modules/systemlibs.js");
-const { Promise } = ChromeUtils.import("resource://gre/modules/Promise.jsm");
 
 XPCOMUtils.defineLazyGetter(this, "SIM", function() {
   return ChromeUtils.import("resource://gre/modules/simIOHelper.js");

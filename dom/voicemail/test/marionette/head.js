@@ -3,18 +3,22 @@
 
 "use strict";
 
-const {Cc: Cc, Ci: Ci, Cr: Cr, Cu: Cu} = SpecialPowers;
+const { Cc: Cc, Ci: Ci, Cr: Cr, Cu: Cu } = SpecialPowers;
 
 var RIL = SpecialPowers.wrap(SpecialPowers.createBlankObject());
 SpecialPowers.Cu.import("resource://gre/modules/ril_consts.js", RIL);
 
-// Emulate Promise.jsm semantics.
-Promise.defer = function() { return new Deferred(); }
-function Deferred()  {
-  this.promise = new Promise(function(resolve, reject) {
-    this.resolve = resolve;
-    this.reject = reject;
-  }.bind(this));
+// Emulate PromiseUtils.jsm semantics.
+Promise.defer = function() {
+  return new Deferred();
+};
+function Deferred() {
+  this.promise = new Promise(
+    function(resolve, reject) {
+      this.resolve = resolve;
+      this.reject = reject;
+    }.bind(this)
+  );
   Object.freeze(this);
 }
 
@@ -28,7 +32,7 @@ const MWI_TIMESTAMP = "00000000000000";
 // Only bring in what we need from ril_worker/RadioInterfaceLayer here. Reusing
 // that code turns out to be a nightmare, so there is some code duplication.
 var PDUBuilder = {
-  toHexString: function(n, length) {
+  toHexString(n, length) {
     let str = n.toString(16);
     if (str.length < length) {
       for (let i = 0; i < length - str.length; i++) {
@@ -38,18 +42,18 @@ var PDUBuilder = {
     return str.toUpperCase();
   },
 
-  writeUint16: function(value) {
+  writeUint16(value) {
     this.buf += (value & 0xff).toString(16).toUpperCase();
     this.buf += ((value >> 8) & 0xff).toString(16).toUpperCase();
   },
 
-  writeHexOctet: function(octet) {
+  writeHexOctet(octet) {
     this.buf += this.toHexString(octet, 2);
   },
 
-  writeSwappedNibbleBCD: function(data) {
+  writeSwappedNibbleBCD(data) {
     data = data.toString();
-    let zeroCharCode = '0'.charCodeAt(0);
+    let zeroCharCode = "0".charCodeAt(0);
 
     for (let i = 0; i < data.length; i += 2) {
       let low = data.charCodeAt(i) - zeroCharCode;
@@ -57,15 +61,14 @@ var PDUBuilder = {
       if (i + 1 < data.length) {
         high = data.charCodeAt(i + 1) - zeroCharCode;
       } else {
-        high = 0xF;
+        high = 0xf;
       }
 
       this.writeHexOctet((high << 4) | low);
     }
   },
 
-  writeStringAsSeptets: function(message, paddingBits, langIndex,
-                                 langShiftIndex) {
+  writeStringAsSeptets(message, paddingBits, langIndex, langShiftIndex) {
     const langTable = RIL.PDU_NL_LOCKING_SHIFT_TABLES[langIndex];
     const langShiftTable = RIL.PDU_NL_SINGLE_SHIFT_TABLES[langShiftIndex];
 
@@ -83,8 +86,14 @@ var PDUBuilder = {
       } else {
         septet = langShiftTable.indexOf(message[i]);
         if (septet == -1) {
-          throw new Error(message[i] + " not in 7 bit alphabet "
-                          + langIndex + ":" + langShiftIndex + "!");
+          throw new Error(
+            message[i] +
+              " not in 7 bit alphabet " +
+              langIndex +
+              ":" +
+              langShiftIndex +
+              "!"
+          );
         }
 
         if (septet == RIL.PDU_NL_RESERVED_CONTROL) {
@@ -98,19 +107,19 @@ var PDUBuilder = {
       }
 
       for (; dataBits >= 8; dataBits -= 8) {
-        this.writeHexOctet(data & 0xFF);
+        this.writeHexOctet(data & 0xff);
         data >>>= 8;
       }
     }
 
     if (dataBits != 0) {
-      this.writeHexOctet(data & 0xFF);
+      this.writeHexOctet(data & 0xff);
     }
   },
 
-  buildAddress: function(address) {
+  buildAddress(address) {
     let addressFormat = RIL.PDU_TOA_ISDN; // 81
-    if (address[0] == '+') {
+    if (address[0] == "+") {
       addressFormat = RIL.PDU_TOA_INTERNATIONAL | RIL.PDU_TOA_ISDN; // 91
       address = address.substring(1);
     }
@@ -124,7 +133,7 @@ var PDUBuilder = {
   },
 
   // assumes 7 bit encoding
-  buildUserData: function(options) {
+  buildUserData(options) {
     let headerLength = 0;
     this.buf = "";
     if (options.headers) {
@@ -133,15 +142,15 @@ var PDUBuilder = {
         if (header.octets) {
           headerLength += header.octets.length;
         }
-      };
+      }
     }
 
-    let encodedBodyLength = (options.body) ? options.body.length : 0;
-    let headerOctets = (headerLength ? headerLength + 1 : 0);
+    let encodedBodyLength = options.body ? options.body.length : 0;
+    let headerOctets = headerLength ? headerLength + 1 : 0;
 
     let paddingBits;
     let userDataLengthInSeptets;
-    let headerSeptets = Math.ceil(headerOctets * 8 / 7);
+    let headerSeptets = Math.ceil((headerOctets * 8) / 7);
     userDataLengthInSeptets = headerSeptets + encodedBodyLength;
     paddingBits = headerSeptets * 7 - headerOctets * 8;
 
@@ -162,42 +171,48 @@ var PDUBuilder = {
     }
 
     if (encodedBodyLength > 0) {
-      this.writeStringAsSeptets(options.body, paddingBits,
-                                RIL.PDU_NL_IDENTIFIER_DEFAULT,
-                                RIL.PDU_NL_IDENTIFIER_DEFAULT);
+      this.writeStringAsSeptets(
+        options.body,
+        paddingBits,
+        RIL.PDU_NL_IDENTIFIER_DEFAULT,
+        RIL.PDU_NL_IDENTIFIER_DEFAULT
+      );
     }
     return this.buf;
   },
 
-  buildLevel2DiscardMwi: function(aActive, aSender, aBody) {
-    return MWI_PDU_PREFIX +
-           this.buildAddress(aSender) +
-           MWI_PID_DEFAULT +
-           (aActive ? MWI_DCS_DISCARD_ACTIVE : MWI_DCS_DISCARD_INACTIVE) +
-           MWI_TIMESTAMP +
-           this.buildUserData({ body: aBody });
+  buildLevel2DiscardMwi(aActive, aSender, aBody) {
+    return (
+      MWI_PDU_PREFIX +
+      this.buildAddress(aSender) +
+      MWI_PID_DEFAULT +
+      (aActive ? MWI_DCS_DISCARD_ACTIVE : MWI_DCS_DISCARD_INACTIVE) +
+      MWI_TIMESTAMP +
+      this.buildUserData({ body: aBody })
+    );
   },
 
-  buildLevel3DiscardMwi: function(aMessageCount, aSender, aBody) {
+  buildLevel3DiscardMwi(aMessageCount, aSender, aBody) {
     let options = {
-      headers: [{
-        id: RIL.PDU_IEI_SPECIAL_SMS_MESSAGE_INDICATION,
-        length: 2,
-          octets: [
-          RIL.PDU_MWI_STORE_TYPE_DISCARD,
-          aMessageCount || 0
-        ]
-      }],
-      body: aBody
+      headers: [
+        {
+          id: RIL.PDU_IEI_SPECIAL_SMS_MESSAGE_INDICATION,
+          length: 2,
+          octets: [RIL.PDU_MWI_STORE_TYPE_DISCARD, aMessageCount || 0],
+        },
+      ],
+      body: aBody,
     };
 
-    return MWI_PDU_UDH_PREFIX +
-           this.buildAddress(aSender) +
-           MWI_PID_DEFAULT +
-           MWI_DCS_DISCARD_ACTIVE +
-           MWI_TIMESTAMP +
-           this.buildUserData(options);
-  }
+    return (
+      MWI_PDU_UDH_PREFIX +
+      this.buildAddress(aSender) +
+      MWI_PID_DEFAULT +
+      MWI_DCS_DISCARD_ACTIVE +
+      MWI_TIMESTAMP +
+      this.buildUserData(options)
+    );
+  },
 };
 
 var pendingEmulatorCmdCount = 0;
@@ -269,25 +284,26 @@ var voicemail;
  * @return A deferred promise.
  */
 function ensureVoicemail() {
-  let permissions = [{
-    "type": "voicemail",
-    "allow": 1,
-    "context": document,
-  }];
+  let permissions = [
+    {
+      type: "voicemail",
+      allow: 1,
+      context: document,
+    },
+  ];
 
-  return pushPermissions(permissions)
-    .then(function() {
-      voicemail = window.navigator.mozVoicemail;
-      if (voicemail == null) {
-        throw "navigator.mozVoicemail is undefined.";
-      }
+  return pushPermissions(permissions).then(function() {
+    voicemail = window.navigator.mozVoicemail;
+    if (voicemail == null) {
+      throw "navigator.mozVoicemail is undefined.";
+    }
 
-      if (!(voicemail instanceof MozVoicemail)) {
-        throw "navigator.mozVoicemail is instance of " + voicemail.constructor;
-      }
+    if (!(voicemail instanceof MozVoicemail)) {
+      throw "navigator.mozVoicemail is instance of " + voicemail.constructor;
+    }
 
-      return voicemail;
-    });
+    return voicemail;
+  });
 }
 
 /**
@@ -310,8 +326,13 @@ function waitForManagerEvent(aEventName, aMatchFunc) {
 
   voicemail.addEventListener(aEventName, function onevent(aEvent) {
     if (aMatchFunc && !aMatchFunc(aEvent)) {
-      ok(true, "MozVoicemail event '" + aEventName + "' got" +
-               " but is not interested.");
+      ok(
+        true,
+        "MozVoicemail event '" +
+          aEventName +
+          "' got" +
+          " but is not interested."
+      );
       return;
     }
 
@@ -360,23 +381,45 @@ function sendIndicatorPDUAndWait(aPDU) {
  */
 function compareVoicemailStatus(aStatus1, aStatus2) {
   is(aStatus1.serviceId, aStatus2.serviceId, "VoicemailStatus::serviceId");
-  is(aStatus1.hasMessages, aStatus2.hasMessages, "VoicemailStatus::hasMessages");
-  is(aStatus1.messageCount, aStatus2.messageCount, "VoicemailStatus::messageCount");
-  is(aStatus1.returnNumber, aStatus2.returnNumber, "VoicemailStatus::returnNumber");
-  is(aStatus1.returnMessage, aStatus2.returnMessage, "VoicemailStatus::returnMessage");
+  is(
+    aStatus1.hasMessages,
+    aStatus2.hasMessages,
+    "VoicemailStatus::hasMessages"
+  );
+  is(
+    aStatus1.messageCount,
+    aStatus2.messageCount,
+    "VoicemailStatus::messageCount"
+  );
+  is(
+    aStatus1.returnNumber,
+    aStatus2.returnNumber,
+    "VoicemailStatus::returnNumber"
+  );
+  is(
+    aStatus1.returnMessage,
+    aStatus2.returnMessage,
+    "VoicemailStatus::returnMessage"
+  );
 }
 
 /**
  * Check if attributs of a VoicemailStatus match our expectations.
  */
-function checkVoicemailStatus(aStatus, aServiceId, aHasMessages, aMessageCount,
-                              aReturnNumber, aReturnMessage) {
+function checkVoicemailStatus(
+  aStatus,
+  aServiceId,
+  aHasMessages,
+  aMessageCount,
+  aReturnNumber,
+  aReturnMessage
+) {
   compareVoicemailStatus(aStatus, {
     serviceId: aServiceId,
     hasMessages: aHasMessages,
     messageCount: aMessageCount,
     returnNumber: aReturnNumber,
-    returnMessage: aReturnMessage
+    returnMessage: aReturnMessage,
   });
 }
 
@@ -401,11 +444,11 @@ function cleanUp() {
  */
 function startTestBase(aTestCaseMain) {
   Promise.resolve()
-         .then(aTestCaseMain)
-         .then(cleanUp, function() {
-           ok(false, 'promise rejects during test.');
-           cleanUp();
-         });
+    .then(aTestCaseMain)
+    .then(cleanUp, function() {
+      ok(false, "promise rejects during test.");
+      cleanUp();
+    });
 }
 
 /**
@@ -419,7 +462,6 @@ function startTestBase(aTestCaseMain) {
  */
 function startTestCommon(aTestCaseMain) {
   startTestBase(function() {
-    return ensureVoicemail()
-      .then(aTestCaseMain);
+    return ensureVoicemail().then(aTestCaseMain);
   });
 }

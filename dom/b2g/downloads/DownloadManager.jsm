@@ -79,7 +79,7 @@ DownloadManager.prototype = {
   getDownloads() {
     DEBUG && debug("getDownloads");
 
-    return this.createPromise(
+    return new Promise(
       function(aResolve, aReject) {
         DownloadsIPC.getDownloads().then(
           function(aDownloads) {
@@ -108,7 +108,7 @@ DownloadManager.prototype = {
 
   remove(aDownload) {
     DEBUG && debug("remove " + aDownload.url + " " + aDownload.id);
-    return this.createPromise(
+    return new Promise(
       function(aResolve, aReject) {
         if (!downloadsCache.has(this._window, aDownload.id)) {
           DEBUG && debug("no download " + aDownload.id);
@@ -154,7 +154,7 @@ DownloadManager.prototype = {
     // We have no object/any types so we do not need to worry about invoking
     // JSON.stringify (and it inheriting our security privileges).
     DEBUG && debug("adoptDownload");
-    return this.createPromise(
+    return new Promise(
       function(aResolve, aReject) {
         if (!aAdoptDownloadDict) {
           debug("DownloadObject dictionary is required!");
@@ -310,16 +310,11 @@ function DownloadObject() {
 }
 
 DownloadObject.prototype = {
-  createPromise(aPromiseInit) {
-    return new this._window.Promise(aPromiseInit);
-  },
-
   pause() {
     DEBUG && debug("DownloadObject pause " + this.id);
     let id = this.id;
     let self = this;
-    // We need to wrap the Promise.jsm promise in a "real" DOM promise...
-    return this.createPromise(function(aResolve, aReject) {
+    return new Promise(function(aResolve, aReject) {
       DownloadsIPC.pause(id).then(function(aResult) {
         let domDownload = getOrCreateDownloadObject(self._window, aResult);
         aResolve(domDownload);
@@ -331,8 +326,7 @@ DownloadObject.prototype = {
     DEBUG && debug("DownloadObject resume " + this.id);
     let id = this.id;
     let self = this;
-    // We need to wrap the Promise.jsm promise in a "real" DOM promise...
-    return this.createPromise(function(aResolve, aReject) {
+    return new Promise(function(aResolve, aReject) {
       DownloadsIPC.resume(id).then(function(aResult) {
         let domDownload = getOrCreateDownloadObject(self._window, aResult);
         aResolve(domDownload);

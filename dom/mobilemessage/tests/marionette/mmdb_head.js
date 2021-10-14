@@ -3,7 +3,9 @@
 
 MARIONETTE_CONTEXT = "chrome";
 
-var Promise = Cu.import("resource://gre/modules/Promise.jsm").Promise;
+const { PromiseUtils } = ChromeUtils.import(
+  "resource://gre/modules/PromiseUtils.jsm"
+).Promise;
 
 /**
  * Name space for MobileMessageDB.jsm.  Only initialized after first call to
@@ -18,7 +20,7 @@ var MMDB;
  */
 function newMobileMessageDB() {
   if (!MMDB) {
-    MMDB = Cu.import("resource://gre/modules/MobileMessageDB.jsm", {});
+    MMDB = ChromeUtils.import("resource://gre/modules/MobileMessageDB.jsm", {});
     is(typeof MMDB.MobileMessageDB, "function", "MMDB.MobileMessageDB");
   }
 
@@ -45,7 +47,7 @@ function newMobileMessageDB() {
  * @return A deferred promise.
  */
 function initMobileMessageDB(aMmdb, aDbName, aDbVersion) {
-  let deferred = Promise.defer();
+  let deferred = PromiseUtils.defer();
 
   aMmdb.init(aDbName, aDbVersion, function(aError) {
     if (aError) {
@@ -95,11 +97,11 @@ function closeMobileMessageDB(aMmdb) {
  * @return A deferred promise.
  */
 function callMmdbMethod(aMmdb, aMethodName) {
-  let deferred = Promise.defer();
+  let deferred = PromiseUtils.defer();
 
   let args = Array.slice(arguments, 2);
   args.push({
-    notify: function(aRv) {
+    notify(aRv) {
       if (!Components.isSuccessCode(aRv)) {
         ok(true, aMethodName + " returns a unsuccessful code: " + aRv);
         deferred.reject(Array.slice(arguments));
@@ -107,7 +109,7 @@ function callMmdbMethod(aMmdb, aMethodName) {
         ok(true, aMethodName + " returns a successful code: " + aRv);
         deferred.resolve(Array.slice(arguments));
       }
-    }
+    },
   });
   aMmdb[aMethodName].apply(aMmdb, args);
 
@@ -146,10 +148,23 @@ function saveReceivedMessage(aMmdb, aMessage) {
  *
  * @return A deferred promise.
  */
-function setMessageDeliveryByMessageId(aMmdb, aMessageId, aReceiver, aDelivery,
-                                       aDeliveryStatus, aEnvelopeId) {
-  return callMmdbMethod(aMmdb, "setMessageDeliveryByMessageId", aMessageId,
-                        aReceiver, aDelivery, aDeliveryStatus, aEnvelopeId);
+function setMessageDeliveryByMessageId(
+  aMmdb,
+  aMessageId,
+  aReceiver,
+  aDelivery,
+  aDeliveryStatus,
+  aEnvelopeId
+) {
+  return callMmdbMethod(
+    aMmdb,
+    "setMessageDeliveryByMessageId",
+    aMessageId,
+    aReceiver,
+    aDelivery,
+    aDeliveryStatus,
+    aEnvelopeId
+  );
 }
 
 /**
@@ -161,10 +176,20 @@ function setMessageDeliveryByMessageId(aMmdb, aMessageId, aReceiver, aDelivery,
  *
  * @return A deferred promise.
  */
-function setMessageDeliveryStatusByEnvelopeId(aMmdb, aEnvelopeId, aReceiver,
-                                              aDeliveryStatus) {
-  return callMmdbMethod(aMmdb, "setMessageDeliveryStatusByEnvelopeId",
-                        aMmdb, aEnvelopeId, aReceiver, aDeliveryStatus);
+function setMessageDeliveryStatusByEnvelopeId(
+  aMmdb,
+  aEnvelopeId,
+  aReceiver,
+  aDeliveryStatus
+) {
+  return callMmdbMethod(
+    aMmdb,
+    "setMessageDeliveryStatusByEnvelopeId",
+    aMmdb,
+    aEnvelopeId,
+    aReceiver,
+    aDeliveryStatus
+  );
 }
 
 /**
@@ -176,10 +201,19 @@ function setMessageDeliveryStatusByEnvelopeId(aMmdb, aEnvelopeId, aReceiver,
  *
  * @return A deferred promise.
  */
-function setMessageReadStatusByEnvelopeId(aMmdb, aEnvelopeId, aReceiver,
-                                          aReadStatus) {
-  return callMmdbMethod(aMmdb, "setMessageReadStatusByEnvelopeId",
-                        aEnvelopeId, aReceiver, aReadStatus);
+function setMessageReadStatusByEnvelopeId(
+  aMmdb,
+  aEnvelopeId,
+  aReceiver,
+  aReadStatus
+) {
+  return callMmdbMethod(
+    aMmdb,
+    "setMessageReadStatusByEnvelopeId",
+    aEnvelopeId,
+    aReceiver,
+    aReadStatus
+  );
 }
 
 /**
@@ -192,8 +226,11 @@ function setMessageReadStatusByEnvelopeId(aMmdb, aEnvelopeId, aReceiver,
  * @return A deferred promise.
  */
 function getMessageRecordByTransactionId(aMmdb, aTransactionId) {
-  return callMmdbMethod(aMmdb, "getMessageRecordByTransactionId",
-                        aTransactionId);
+  return callMmdbMethod(
+    aMmdb,
+    "getMessageRecordByTransactionId",
+    aTransactionId
+  );
 }
 
 /**
@@ -217,18 +254,18 @@ function getMessageRecordById(aMmdb, aMessageId) {
  * @return A deferred promise.
  */
 function markMessageRead(aMmdb, aMessageId, aRead) {
-  let deferred = Promise.defer();
+  let deferred = PromiseUtils.defer();
 
   aMmdb.markMessageRead(aMessageId, aRead, false, {
-    notifyMarkMessageReadFailed: function(aRv) {
+    notifyMarkMessageReadFailed(aRv) {
       ok(true, "markMessageRead returns a unsuccessful code: " + aRv);
       deferred.reject(aRv);
     },
 
-    notifyMessageMarkedRead: function(aRead) {
+    notifyMessageMarkedRead(aRead) {
       ok(true, "markMessageRead returns a successful code: " + Cr.NS_OK);
       deferred.resolve(Ci.nsIMobileMessageCallback.SUCCESS_NO_ERROR);
-    }
+    },
   });
 
   return deferred.promise;
@@ -243,18 +280,18 @@ function markMessageRead(aMmdb, aMessageId, aRead) {
  * @return A deferred promise.
  */
 function deleteMessage(aMmdb, aMessageIds, aLength) {
-  let deferred = Promise.defer();
+  let deferred = PromiseUtils.defer();
 
   aMmdb.deleteMessage(aMessageIds, aLength, {
-    notifyDeleteMessageFailed: function(aRv) {
+    notifyDeleteMessageFailed(aRv) {
       ok(true, "deleteMessage returns a unsuccessful code: " + aRv);
       deferred.reject(aRv);
     },
 
-    notifyMessageDeleted: function(aDeleted, aLength) {
+    notifyMessageDeleted(aDeleted, aLength) {
       ok(true, "deleteMessage successfully!");
       deferred.resolve(aDeleted);
-    }
+    },
   });
 
   return deferred.promise;
@@ -292,27 +329,33 @@ function saveSmsSegment(aMmdb, aSmsSegment) {
  * @return A deferred promise.
  */
 function createMmdbCursor(aMmdb, aMethodName) {
-  let deferred = Promise.defer();
+  let deferred = PromiseUtils.defer();
 
   let cursor;
   let results = [];
   let args = Array.slice(arguments, 2);
   args.push({
-    notifyCursorError: function(aRv) {
+    notifyCursorError(aRv) {
       ok(true, "notifyCursorError: " + aRv);
       deferred.reject([aRv, results]);
     },
 
-    notifyCursorResult: function(aResults, aSize) {
-      ok(true, "notifyCursorResult: " + aResults.map(function(aElement) { return aElement.id; }));
+    notifyCursorResult(aResults, aSize) {
+      ok(
+        true,
+        "notifyCursorResult: " +
+          aResults.map(function(aElement) {
+            return aElement.id;
+          })
+      );
       results = results.concat(aResults);
       cursor.handleContinue();
     },
 
-    notifyCursorDone: function() {
+    notifyCursorDone() {
       ok(true, "notifyCursorDone");
       deferred.resolve([Ci.nsIMobileMessageCallback.SUCCESS_NO_ERROR, results]);
-    }
+    },
   });
 
   cursor = aMmdb[aMethodName].apply(aMmdb, args);
@@ -328,22 +371,32 @@ function createMmdbCursor(aMmdb, aMethodName) {
  *
  * @return A deferred promise.
  */
-function createMessageCursor(aMmdb, aStartDate = null, aEndDate = null,
-                             aNumbers = null, aDelivery = null, aRead = null,
-                             aThreadId = null, aReverse = false) {
-  return createMmdbCursor(aMmdb, "createMessageCursor",
-                          aStartDate !== null,
-                          aStartDate || 0,
-                          aEndDate !== null,
-                          aEndDate || 0,
-                          aNumbers || null,
-                          aNumbers && aNumbers.length || 0,
-                          aDelivery || null,
-                          aRead !== null,
-                          aRead || false,
-                          aThreadId !== null,
-                          aThreadId || 0,
-                          aReverse || false);
+function createMessageCursor(
+  aMmdb,
+  aStartDate = null,
+  aEndDate = null,
+  aNumbers = null,
+  aDelivery = null,
+  aRead = null,
+  aThreadId = null,
+  aReverse = false
+) {
+  return createMmdbCursor(
+    aMmdb,
+    "createMessageCursor",
+    aStartDate !== null,
+    aStartDate || 0,
+    aEndDate !== null,
+    aEndDate || 0,
+    aNumbers || null,
+    (aNumbers && aNumbers.length) || 0,
+    aDelivery || null,
+    aRead !== null,
+    aRead || false,
+    aThreadId !== null,
+    aThreadId || 0,
+    aReverse || false
+  );
 }
 
 /**
@@ -368,8 +421,9 @@ var _uuidGenerator;
  */
 function newUUID() {
   if (!_uuidGenerator) {
-    _uuidGenerator = Cc["@mozilla.org/uuid-generator;1"]
-                     .getService(Ci.nsIUUIDGenerator);
+    _uuidGenerator = Cc["@mozilla.org/uuid-generator;1"].getService(
+      Ci.nsIUUIDGenerator
+    );
     ok(_uuidGenerator, "uuidGenerator");
   }
 
@@ -398,7 +452,7 @@ function startTestBase(aTestCaseMain) {
   Promise.resolve()
     .then(aTestCaseMain)
     .then(null, function() {
-      ok(false, 'promise rejects during test.');
+      ok(false, "promise rejects during test.");
     })
     .then(cleanUp);
 }

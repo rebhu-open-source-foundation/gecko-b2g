@@ -1,8 +1,6 @@
 /* Any copyright is dedicated to the Public Domain.
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
-const {Cc: Cc, Ci: Ci, Cr: Cr, Cu: Cu} = SpecialPowers;
-
 const SETTINGS_KEY_DATA_ENABLED = "ril.data.enabled";
 const SETTINGS_KEY_DATA_ROAMING_ENABLED = "ril.data.roaming_enabled";
 const SETTINGS_KEY_DATA_APN_SETTINGS = "ril.data.apnSettings";
@@ -14,13 +12,17 @@ const DEFAULT_PIN = "0000";
 // The puk code hard coded in emulator is "12345678".
 const DEFAULT_PUK = "12345678";
 
-// Emulate Promise.jsm semantics.
-Promise.defer = function() { return new Deferred(); };
+// Emulate PromiseUtils.jsm semantics.
+Promise.defer = function() {
+  return new Deferred();
+};
 function Deferred() {
-  this.promise = new Promise(function(resolve, reject) {
-    this.resolve = resolve;
-    this.reject = reject;
-  }.bind(this));
+  this.promise = new Promise(
+    function(resolve, reject) {
+      this.resolve = resolve;
+      this.reject = reject;
+    }.bind(this)
+  );
   Object.freeze(this);
 }
 
@@ -53,8 +55,7 @@ function runEmulatorCmdSafe(aCommand) {
     --_pendingEmulatorCmdCount;
 
     log("Emulator response: " + JSON.stringify(aResult));
-    if (Array.isArray(aResult) &&
-        aResult[aResult.length - 1] === "OK") {
+    if (Array.isArray(aResult) && aResult[aResult.length - 1] === "OK") {
       deferred.resolve(aResult);
     } else {
       deferred.reject(aResult);
@@ -114,14 +115,18 @@ var workingFrame;
  * @return A deferred promise.
  */
 function getSettings(aKey, aAllowError) {
-  let request =
-    workingFrame.contentWindow.navigator.mozSettings.createLock().get(aKey);
-  return request.then(function resolve(aValue) {
+  let request = workingFrame.contentWindow.navigator.mozSettings
+    .createLock()
+    .get(aKey);
+  return request.then(
+    function resolve(aValue) {
       ok(true, "getSettings(" + aKey + ") - success");
       return aValue[aKey];
-    }, function reject(aError) {
+    },
+    function reject(aError) {
       ok(aAllowError, "getSettings(" + aKey + ") - error");
-    });
+    }
+  );
 }
 
 /**
@@ -145,12 +150,12 @@ function setSettings(aSettings, aAllowError) {
   let lock = window.navigator.mozSettings.createLock();
   let request = lock.set(aSettings);
   let deferred = Promise.defer();
-  lock.onsettingstransactionsuccess = function () {
-      ok(true, "setSettings(" + JSON.stringify(aSettings) + ")");
+  lock.onsettingstransactionsuccess = function() {
+    ok(true, "setSettings(" + JSON.stringify(aSettings) + ")");
     deferred.resolve();
   };
-  lock.onsettingstransactionfailure = function (aEvent) {
-      ok(aAllowError, "setSettings(" + JSON.stringify(aSettings) + ")");
+  lock.onsettingstransactionfailure = function(aEvent) {
+    ok(aAllowError, "setSettings(" + JSON.stringify(aSettings) + ")");
     deferred.reject();
   };
   return deferred.promise;
@@ -219,7 +224,11 @@ function getDataApnSettings(aAllowError) {
  * Convenient MozSettings setter for SETTINGS_KEY_DATA_APN_SETTINGS.
  */
 function setDataApnSettings(aApnSettings, aAllowError) {
-  return setSettings1(SETTINGS_KEY_DATA_APN_SETTINGS, aApnSettings, aAllowError);
+  return setSettings1(
+    SETTINGS_KEY_DATA_APN_SETTINGS,
+    aApnSettings,
+    aAllowError
+  );
 }
 
 var mobileConnection;
@@ -253,7 +262,7 @@ function ensureMobileConnection(aAdditionalPermissions, aServiceId) {
   }
   let permissions = [];
   for (let perm of aAdditionalPermissions) {
-    permissions.push({ "type": perm, "allow": 1, "context": document });
+    permissions.push({ type: perm, allow: 1, context: document });
   }
 
   SpecialPowers.pushPermissions(permissions, function() {
@@ -269,8 +278,12 @@ function ensureMobileConnection(aAdditionalPermissions, aServiceId) {
         workingFrame.contentWindow.navigator.mozMobileConnections[aServiceId];
 
       if (mobileConnection) {
-        log("navigator.mozMobileConnections[" + aServiceId + "] is instance of " +
-            mobileConnection.constructor);
+        log(
+          "navigator.mozMobileConnections[" +
+            aServiceId +
+            "] is instance of " +
+            mobileConnection.constructor
+        );
       } else {
         log("navigator.mozMobileConnections[" + aServiceId + "] is undefined");
       }
@@ -416,7 +429,9 @@ function getNetworks() {
  */
 function selectNetwork(aNetwork) {
   let request = mobileConnection.selectNetwork(aNetwork);
-  return request.then(null, () => { throw request.error });
+  return request.then(null, () => {
+    throw request.error;
+  });
 }
 
 /**
@@ -451,7 +466,9 @@ function selectNetworkAndWait(aNetwork) {
  */
 function selectNetworkAutomatically() {
   let request = mobileConnection.selectNetworkAutomatically();
-  return request.then(null, () => { throw request.error });
+  return request.then(null, () => {
+    throw request.error;
+  });
 }
 
 /**
@@ -484,9 +501,11 @@ function selectNetworkAutomaticallyAndWait() {
  *
  * @return A deferred promise.
  */
- function setRoamingPreference(aMode) {
+function setRoamingPreference(aMode) {
   let request = mobileConnection.setRoamingPreference(aMode);
-  return request.then(null, () => { throw request.error });
+  return request.then(null, () => {
+    throw request.error;
+  });
 }
 
 /**
@@ -504,9 +523,11 @@ function selectNetworkAutomaticallyAndWait() {
  *
  * @return A deferred promise.
  */
- function setPreferredNetworkType(aType) {
+function setPreferredNetworkType(aType) {
   let request = mobileConnection.setPreferredNetworkType(aType);
-  return request.then(null, () => { throw request.error });
+  return request.then(null, () => {
+    throw request.error;
+  });
 }
 
 /**
@@ -521,9 +542,14 @@ function selectNetworkAutomaticallyAndWait() {
  *
  * @return A deferred promise.
  */
- function getPreferredNetworkType() {
+function getPreferredNetworkType() {
   let request = mobileConnection.getPreferredNetworkType();
-  return request.then(() => request.result, () => { throw request.error });
+  return request.then(
+    () => request.result,
+    () => {
+      throw request.error;
+    }
+  );
 }
 
 /**
@@ -539,9 +565,11 @@ function selectNetworkAutomaticallyAndWait() {
  *
  * @return A deferred promise.
  */
- function setCallForwardingOption(aOptions) {
+function setCallForwardingOption(aOptions) {
   let request = mobileConnection.setCallForwardingOption(aOptions);
-  return request.then(null, () => { throw request.error });
+  return request.then(null, () => {
+    throw request.error;
+  });
 }
 
 /**
@@ -558,9 +586,14 @@ function selectNetworkAutomaticallyAndWait() {
  *
  * @return A deferred promise.
  */
- function getCallForwardingOption(aReason) {
+function getCallForwardingOption(aReason) {
   let request = mobileConnection.getCallForwardingOption(aReason);
-  return request.then(() => request.result, () => { throw request.error });
+  return request.then(
+    () => request.result,
+    () => {
+      throw request.error;
+    }
+  );
 }
 
 /**
@@ -575,9 +608,11 @@ function selectNetworkAutomaticallyAndWait() {
  *
  * @return A deferred promise.
  */
- function setVoicePrivacyMode(aEnabled) {
+function setVoicePrivacyMode(aEnabled) {
   let request = mobileConnection.setVoicePrivacyMode(aEnabled);
-  return request.then(null, () => { throw request.error });
+  return request.then(null, () => {
+    throw request.error;
+  });
 }
 
 /**
@@ -590,9 +625,14 @@ function selectNetworkAutomaticallyAndWait() {
  *
  * @return A deferred promise.
  */
- function getVoicePrivacyMode() {
+function getVoicePrivacyMode() {
   let request = mobileConnection.getVoicePrivacyMode();
-  return request.then(() => request.result, () => { throw request.error });
+  return request.then(
+    () => request.result,
+    () => {
+      throw request.error;
+    }
+  );
 }
 
 /**
@@ -605,9 +645,11 @@ function selectNetworkAutomaticallyAndWait() {
  *
  * @return A deferred promise.
  */
- function setCallBarringOption(aOptions) {
+function setCallBarringOption(aOptions) {
   let request = mobileConnection.setCallBarringOption(aOptions);
-  return request.then(null, () => { throw request.error });
+  return request.then(null, () => {
+    throw request.error;
+  });
 }
 
 /**
@@ -621,9 +663,14 @@ function selectNetworkAutomaticallyAndWait() {
  *
  * @return A deferred promise.
  */
- function getCallBarringOption(aOptions) {
+function getCallBarringOption(aOptions) {
   let request = mobileConnection.getCallBarringOption(aOptions);
-  return request.then(() => request.result, () => { throw request.error });
+  return request.then(
+    () => request.result,
+    () => {
+      throw request.error;
+    }
+  );
 }
 
 /**
@@ -635,9 +682,11 @@ function selectNetworkAutomaticallyAndWait() {
  *
  * @return A deferred promise.
  */
- function changeCallBarringPassword(aOptions) {
+function changeCallBarringPassword(aOptions) {
   let request = mobileConnection.changeCallBarringPassword(aOptions);
-  return request.then(null, () => { throw request.error });
+  return request.then(null, () => {
+    throw request.error;
+  });
 }
 
 /**
@@ -650,9 +699,11 @@ function selectNetworkAutomaticallyAndWait() {
  *
  * @return A deferred promise.
  */
- function setCallWaitingOption(aEnabled) {
+function setCallWaitingOption(aEnabled) {
   let request = mobileConnection.setCallWaitingOption(aEnabled);
-  return request.then(null, () => { throw request.error });
+  return request.then(null, () => {
+    throw request.error;
+  });
 }
 
 /**
@@ -666,9 +717,14 @@ function selectNetworkAutomaticallyAndWait() {
  *
  * @return A deferred promise.
  */
- function getCallWaitingOption() {
+function getCallWaitingOption() {
   let request = mobileConnection.getCallWaitingOption();
-  return request.then(() => request.result, () => { throw request.error });
+  return request.then(
+    () => request.result,
+    () => {
+      throw request.error;
+    }
+  );
 }
 
 /**
@@ -726,12 +782,25 @@ function setDataEnabledAndWait(aEnabled, aServiceId) {
 function setRadioEnabled(aEnabled, aServiceId) {
   let mobileConn = getMozMobileConnectionByServiceId(aServiceId);
   let request = mobileConn.setRadioEnabled(aEnabled);
-  return request.then(function onsuccess() {
-      ok(true, "setRadioEnabled " + aEnabled + " on " + aServiceId + " success.");
-    }, function onerror() {
-      ok(false, "setRadioEnabled " + aEnabled + " on " + aServiceId + " " +
-         request.error.name);
-    });
+  return request.then(
+    function onsuccess() {
+      ok(
+        true,
+        "setRadioEnabled " + aEnabled + " on " + aServiceId + " success."
+      );
+    },
+    function onerror() {
+      ok(
+        false,
+        "setRadioEnabled " +
+          aEnabled +
+          " on " +
+          aServiceId +
+          " " +
+          request.error.name
+      );
+    }
+  );
 }
 
 /**
@@ -756,8 +825,9 @@ function setRadioEnabledAndWait(aEnabled, aServiceId) {
     return Promise.resolve();
   }
 
-  let expectedSequence = aEnabled ? ["enabling", "enabled"] :
-                                    ["disabling", "disabled"];
+  let expectedSequence = aEnabled
+    ? ["enabling", "enabled"]
+    : ["disabling", "disabled"];
 
   let p1 = waitForManagerEvent("radiostatechange", aServiceId, function() {
     let mobileConn = getMozMobileConnectionByServiceId(aServiceId);
@@ -790,7 +860,9 @@ function setClir(aMode, aServiceId) {
   ok(true, "setClir(" + aMode + ", " + aServiceId + ")");
   let mobileConn = getMozMobileConnectionByServiceId(aServiceId);
   let request = mobileConn.setCallingLineIdRestriction(aMode);
-  return request.then(null, () => { throw request.error });
+  return request.then(null, () => {
+    throw request.error;
+  });
 }
 
 /**
@@ -811,7 +883,12 @@ function getClir(aServiceId) {
   ok(true, "getClir(" + aServiceId + ")");
   let mobileConn = getMozMobileConnectionByServiceId(aServiceId);
   let request = mobileConn.getCallingLineIdRestriction();
-  return request.then(() => request.result, () => { throw request.error });
+  return request.then(
+    () => request.result,
+    () => {
+      throw request.error;
+    }
+  );
 }
 
 /**
@@ -853,18 +930,19 @@ function setEmulatorVoiceDataStateAndWait(aWhich, aState, aServiceId) {
  */
 function setEmulatorRoamingAndWait(aRoaming, aServiceId) {
   function doSetAndWait(aWhich, aRoaming, aServiceId) {
-    let state = (aRoaming ? "roaming" : "home");
-    return setEmulatorVoiceDataStateAndWait(aWhich, state, aServiceId)
-      .then(() => {
+    let state = aRoaming ? "roaming" : "home";
+    return setEmulatorVoiceDataStateAndWait(aWhich, state, aServiceId).then(
+      () => {
         let mobileConn = getMozMobileConnectionByServiceId(aServiceId);
-        is(mobileConn[aWhich].roaming, aRoaming,
-                     aWhich + ".roaming")
-      });
+        is(mobileConn[aWhich].roaming, aRoaming, aWhich + ".roaming");
+      }
+    );
   }
 
   // Set voice registration state first and then data registration state.
-  return doSetAndWait("voice", aRoaming, aServiceId)
-    .then(() => doSetAndWait("data", aRoaming, aServiceId));
+  return doSetAndWait("voice", aRoaming, aServiceId).then(() =>
+    doSetAndWait("data", aRoaming, aServiceId)
+  );
 }
 
 /**
@@ -879,18 +957,17 @@ function setEmulatorRoamingAndWait(aRoaming, aServiceId) {
  */
 function getEmulatorGsmLocation() {
   let cmd = "gsm location";
-  return runEmulatorCmdSafe(cmd)
-    .then(function(aResults) {
-      // lac: <lac>
-      // ci: <cid>
-      // OK
-      is(aResults[0].substring(0,3), "lac", "lac output");
-      is(aResults[1].substring(0,2), "ci", "ci output");
+  return runEmulatorCmdSafe(cmd).then(function(aResults) {
+    // lac: <lac>
+    // ci: <cid>
+    // OK
+    is(aResults[0].substring(0, 3), "lac", "lac output");
+    is(aResults[1].substring(0, 2), "ci", "ci output");
 
-      let lac = parseInt(aResults[0].substring(5));
-      let cid = parseInt(aResults[1].substring(4));
-      return { lac: lac, cid: cid };
-    });
+    let lac = parseInt(aResults[0].substring(5));
+    let cid = parseInt(aResults[1].substring(4));
+    return { lac, cid };
+  });
 }
 
 /**
@@ -923,8 +1000,12 @@ function setEmulatorGsmLocation(aLac, aCid) {
  *
  * @return A deferred promise.
  */
-function setEmulatorGsmLocationAndWait(aLac, aCid,
-                                       aWaitVoice = true, aWaitData = false) {
+function setEmulatorGsmLocationAndWait(
+  aLac,
+  aCid,
+  aWaitVoice = true,
+  aWaitData = false
+) {
   let promises = [];
   if (aWaitVoice) {
     promises.push(waitForManagerEvent("voicechange"));
@@ -948,22 +1029,21 @@ function setEmulatorGsmLocationAndWait(aLac, aCid,
  */
 function getEmulatorOperatorNames() {
   let cmd = "operator dumpall";
-  return runEmulatorCmdSafe(cmd)
-    .then(function(aResults) {
-      let operators = [];
+  return runEmulatorCmdSafe(cmd).then(function(aResults) {
+    let operators = [];
 
-      for (let i = 0; i < aResults.length - 1; i++) {
-        let names = aResults[i].split(',');
-        operators.push({
-          longName: names[0],
-          shortName: names[1],
-          mccMnc: names[2],
-        });
-      }
+    for (let i = 0; i < aResults.length - 1; i++) {
+      let names = aResults[i].split(",");
+      operators.push({
+        longName: names[0],
+        shortName: names[1],
+        mccMnc: names[2],
+      });
+    }
 
-      ok(true, "emulator operators list: " + JSON.stringify(operators));
-      return operators;
-    });
+    ok(true, "emulator operators list: " + JSON.stringify(operators));
+    return operators;
+  });
 }
 
 /**
@@ -986,8 +1066,14 @@ function getEmulatorOperatorNames() {
  *
  * @return A deferred promise.
  */
-function setEmulatorOperatorNames(aOperator, aLongName, aShortName, aMcc, aMnc) {
-  const EMULATOR_OPERATORS = [ "home", "roaming" ];
+function setEmulatorOperatorNames(
+  aOperator,
+  aLongName,
+  aShortName,
+  aMcc,
+  aMnc
+) {
+  const EMULATOR_OPERATORS = ["home", "roaming"];
 
   let index = EMULATOR_OPERATORS.indexOf(aOperator);
   if (index < 0) {
@@ -998,17 +1084,18 @@ function setEmulatorOperatorNames(aOperator, aLongName, aShortName, aMcc, aMnc) 
   if (aMcc && aMnc) {
     cmd = cmd + "," + aMcc + aMnc;
   }
-  return runEmulatorCmdSafe(cmd)
-    .then(function(aResults) {
-      let exp = "^" + aLongName + "," + aShortName + ",";
-      if (aMcc && aMnc) {
-        cmd = cmd + aMcc + aMnc;
-      }
+  return runEmulatorCmdSafe(cmd).then(function(aResults) {
+    let exp = "^" + aLongName + "," + aShortName + ",";
+    if (aMcc && aMnc) {
+      cmd = cmd + aMcc + aMnc;
+    }
 
-      let re = new RegExp(exp);
-      ok(aResults[index].match(new RegExp(exp)),
-         "Long/short name and/or mcc/mnc should be changed.");
-    });
+    let re = new RegExp(exp);
+    ok(
+      aResults[index].match(new RegExp(exp)),
+      "Long/short name and/or mcc/mnc should be changed."
+    );
+  });
 }
 
 /**
@@ -1033,9 +1120,15 @@ function setEmulatorOperatorNames(aOperator, aLongName, aShortName, aMcc, aMnc) 
  *
  * @return A deferred promise.
  */
-function setEmulatorOperatorNamesAndWait(aOperator, aLongName, aShortName,
-                                         aMcc, aMnc,
-                                         aWaitVoice = true, aWaitData = false) {
+function setEmulatorOperatorNamesAndWait(
+  aOperator,
+  aLongName,
+  aShortName,
+  aMcc,
+  aMnc,
+  aWaitVoice = true,
+  aWaitData = false
+) {
   let promises = [];
   if (aWaitVoice) {
     promises.push(waitForManagerEvent("voicechange"));
@@ -1043,8 +1136,9 @@ function setEmulatorOperatorNamesAndWait(aOperator, aLongName, aShortName,
   if (aWaitData) {
     promises.push(waitForManagerEvent("datachange"));
   }
-  promises.push(setEmulatorOperatorNames(aOperator, aLongName, aShortName,
-                                         aMcc, aMnc));
+  promises.push(
+    setEmulatorOperatorNames(aOperator, aLongName, aShortName, aMcc, aMnc)
+  );
   return Promise.all(promises);
 }
 
@@ -1076,9 +1170,11 @@ function setEmulatorGsmSignalStrength(aRssi) {
  *
  * @return A deferred promise.
  */
-function setEmulatorGsmSignalStrengthAndWait(aRssi,
-                                             aWaitVoice = true,
-                                             aWaitData = false) {
+function setEmulatorGsmSignalStrengthAndWait(
+  aRssi,
+  aWaitVoice = true,
+  aWaitData = false
+) {
   let promises = [];
   if (aWaitVoice) {
     promises.push(waitForManagerEvent("voicechange"));
@@ -1122,9 +1218,13 @@ function setEmulatorLteSignalStrength(aRxlev, aRsrp, aRssnr) {
  *
  * @return A deferred promise.
  */
-function setEmulatorLteSignalStrengthAndWait(aRxlev, aRsrp, aRssnr,
-                                             aWaitVoice = true,
-                                             aWaitData = false) {
+function setEmulatorLteSignalStrengthAndWait(
+  aRxlev,
+  aRsrp,
+  aRssnr,
+  aWaitVoice = true,
+  aWaitData = false
+) {
   let promises = [];
   if (aWaitVoice) {
     promises.push(waitForManagerEvent("voicechange"));
@@ -1143,8 +1243,9 @@ var _networkManager;
  */
 function getNetworkManager() {
   if (!_networkManager) {
-    _networkManager = Cc["@mozilla.org/network/manager;1"]
-                    .getService(Ci.nsINetworkManager);
+    _networkManager = Cc["@mozilla.org/network/manager;1"].getService(
+      Ci.nsINetworkManager
+    );
     ok(_networkManager, "NetworkManager");
   }
 
@@ -1159,9 +1260,11 @@ var _numOfRadioInterfaces;
 function getNumOfRadioInterfaces() {
   if (!_numOfRadioInterfaces) {
     try {
-      _numOfRadioInterfaces = SpecialPowers.getIntPref("ril.numRadioInterfaces");
+      _numOfRadioInterfaces = SpecialPowers.getIntPref(
+        "ril.numRadioInterfaces"
+      );
     } catch (ex) {
-      _numOfRadioInterfaces = 1;  // Pref not set.
+      _numOfRadioInterfaces = 1; // Pref not set.
     }
   }
 
@@ -1176,8 +1279,9 @@ function cleanUp() {
   ok(true, ":: CLEANING UP ::");
 
   waitFor(finish, function() {
-    return _pendingEmulatorCmdCount === 0 &&
-           _pendingEmulatorShellCmdCount === 0;
+    return (
+      _pendingEmulatorCmdCount === 0 && _pendingEmulatorShellCmdCount === 0
+    );
   });
 }
 
@@ -1196,14 +1300,14 @@ function startTestBase(aTestCaseMain) {
 
   return Promise.resolve()
     .then(aTestCaseMain)
-    .catch((aError) => {
+    .catch(aError => {
       ok(false, "promise rejects during test: " + aError);
     })
     .then(() => {
       // Restore debugging pref.
       SpecialPowers.setBoolPref(PREF_KEY_RIL_DEBUGGING_ENABLED, debugPref);
       cleanUp();
-    })
+    });
 }
 
 /**
@@ -1222,8 +1326,9 @@ function startTestBase(aTestCaseMain) {
  */
 function startTestCommon(aTestCaseMain, aAdditionalPermissions, aServiceId) {
   startTestBase(function() {
-    return ensureMobileConnection(aAdditionalPermissions, aServiceId)
-      .then(aTestCaseMain);
+    return ensureMobileConnection(aAdditionalPermissions, aServiceId).then(
+      aTestCaseMain
+    );
   });
 }
 
@@ -1242,17 +1347,22 @@ function startTestCommon(aTestCaseMain, aAdditionalPermissions, aServiceId) {
  * @param aServiceId [optional]
  *        A numeric DSDS service id. Default: 0.
  */
-function startDSDSTestCommon(aTestCaseMain, aAdditionalPermissions, aServiceId) {
-    if (getNumOfRadioInterfaces() > 1) {
-      startTestBase(function() {
-        return ensureMobileConnection(aAdditionalPermissions, aServiceId)
-          .then(aTestCaseMain);
-      });
-    } else {
-      log("Skipping DSDS tests on single SIM device.");
-      ok(true);  // We should run at least one test.
-      cleanUp();
-    }
+function startDSDSTestCommon(
+  aTestCaseMain,
+  aAdditionalPermissions,
+  aServiceId
+) {
+  if (getNumOfRadioInterfaces() > 1) {
+    startTestBase(function() {
+      return ensureMobileConnection(aAdditionalPermissions, aServiceId).then(
+        aTestCaseMain
+      );
+    });
+  } else {
+    log("Skipping DSDS tests on single SIM device.");
+    ok(true); // We should run at least one test.
+    cleanUp();
+  }
 }
 
 /**
@@ -1268,7 +1378,8 @@ function getDeviceIdentities(aServiceId) {
   ok(true, "getDeviceIdentities(" + aServiceId + ")");
   let mobileConn = getMozMobileConnectionByServiceId(aServiceId);
   let request = mobileConn.getDeviceIdentities();
-  return request.then(function onsuccess() {
+  return request.then(
+    function onsuccess() {
       ok(true, "getDeviceIdentities success.");
       // Emualtor has 000000000000000 as IMEI.
       is(request.result.imei, "000000000000000", "Check IMEI");
@@ -1278,7 +1389,9 @@ function getDeviceIdentities(aServiceId) {
       is(request.result.esn, "", "Check ESN");
       // Emulator has empty MEID.
       is(request.result.meid, "", "Check MEID");
-    }, function onerror() {
+    },
+    function onerror() {
       ok(false, "getDeviceIdentities" + request.error.name);
-    });
+    }
+  );
 }

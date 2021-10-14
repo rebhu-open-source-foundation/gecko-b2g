@@ -4,7 +4,6 @@
 
 "use strict";
 
-ChromeUtils.import("resource://gre/modules/Promise.jsm");
 const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );

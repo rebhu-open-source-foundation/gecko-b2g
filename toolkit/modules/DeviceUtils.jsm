@@ -8,7 +8,9 @@ const { XPCOMUtils } = ChromeUtils.import(
   "resource://gre/modules/XPCOMUtils.jsm"
 );
 const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
-const { Promise } = ChromeUtils.import("resource://gre/modules/Promise.jsm");
+const { PromiseUtils } = ChromeUtils.import(
+  "resource://gre/modules/PromiseUtils.jsm"
+);
 const { AppConstants } = ChromeUtils.import(
   "resource://gre/modules/AppConstants.jsm"
 );
@@ -165,7 +167,7 @@ this.DeviceUtils = {
   },
 
   getDeviceId: function DeviceUtils_getDeviceId() {
-    let deferred = Promise.defer();
+    let deferred = PromiseUtils.defer();
     // TODO: need to check how to handle dual-SIM case.
     if (typeof gMobileConnectionService != "undefined") {
       let conn = gMobileConnectionService.getItemByServiceId(0);
@@ -219,7 +221,7 @@ this.DeviceUtils = {
   },
 
   getTDeviceObject: function DeviceUtils_getTDeviceObject() {
-    let deferred = Promise.defer();
+    let deferred = PromiseUtils.defer();
 
     // mobile network and language should be updated every time.
     let netInfoArray = this.getMobileNetworkInfoArray();
@@ -371,7 +373,7 @@ this.DeviceUtils = {
       return Promise.reject(REQUEST_REJECT);
     }
 
-    let deferred = Promise.defer();
+    let deferred = PromiseUtils.defer();
     this.getTDeviceObject().then(
       device_info => {
         let xhr = new XMLHttpRequest();

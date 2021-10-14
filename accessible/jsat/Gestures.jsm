@@ -65,9 +65,11 @@ XPCOMUtils.defineLazyGetter(this, "clearTimeout", function() {
   );
   return clearTimeout;
 });
-XPCOMUtils.defineLazyGetter(this, "Promise", function() {
-  const { Promise } = ChromeUtils.import("resource://gre/modules/Promise.jsm");
-  return Promise;
+XPCOMUtils.defineLazyGetter(this, "PromiseUtils", function() {
+  const { PromiseUtils } = ChromeUtils.import(
+    "resource://gre/modules/PromiseUtils.jsm"
+  );
+  return PromiseUtils;
 });
 
 // Default maximum duration of swipe
@@ -361,7 +363,7 @@ function Gesture(aTimeStamp, aPoints = {}, aLastEvent = undefined) {
   Logger.gesture("Creating", this.id, "gesture.");
   this.points = aPoints;
   this.lastEvent = aLastEvent;
-  this._deferred = Promise.defer();
+  this._deferred = PromiseUtils.defer();
   // Call this._handleResolve or this._handleReject when the promise is
   // fulfilled with either resolve or reject.
   this.promise = this._deferred.promise.then(

@@ -1,15 +1,19 @@
 /* Any copyright is dedicated to the Public Domain.
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
-const {Cc: Cc, Ci: Ci, Cr: Cr, Cu: Cu} = SpecialPowers;
+const { Cc: Cc, Ci: Ci, Cr: Cr, Cu: Cu } = SpecialPowers;
 
-// Emulate Promise.jsm semantics.
-Promise.defer = function() { return new Deferred(); }
-function Deferred()  {
-  this.promise = new Promise(function(resolve, reject) {
-    this.resolve = resolve;
-    this.reject = reject;
-  }.bind(this));
+// Emulate PromiseUtils.jsm semantics.
+Promise.defer = function() {
+  return new Deferred();
+};
+function Deferred() {
+  this.promise = new Promise(
+    function(resolve, reject) {
+      this.resolve = resolve;
+      this.reject = reject;
+    }.bind(this)
+  );
   Object.freeze(this);
 }
 
@@ -52,11 +56,13 @@ var manager;
 function ensureMobileMessage() {
   let deferred = Promise.defer();
 
-  let permissions = [{
-    "type": "sms",
-    "allow": 1,
-    "context": document,
-  }];
+  let permissions = [
+    {
+      type: "sms",
+      allow: 1,
+      context: document,
+    },
+  ];
   SpecialPowers.pushPermissions(permissions, function() {
     ok(true, "permissions pushed: " + JSON.stringify(permissions));
 
@@ -94,19 +100,25 @@ function ensureMobileMessage() {
 var mobileConnection;
 function ensureMobileConnection(aServiceId) {
   return new Promise(function(resolve, reject) {
-    let permissions = [{
-      "type": "mobileconnection",
-      "allow": 1,
-      "context": document,
-    }];
+    let permissions = [
+      {
+        type: "mobileconnection",
+        allow: 1,
+        context: document,
+      },
+    ];
     SpecialPowers.pushPermissions(permissions, function() {
       ok(true, "permissions pushed: " + JSON.stringify(permissions));
 
       let serviceId = aServiceId || 0;
       mobileConnection = window.navigator.mozMobileConnections[serviceId];
       if (mobileConnection) {
-        log("navigator.mozMobileConnections[" + serviceId + "] is instance of " +
-            mobileConnection.constructor);
+        log(
+          "navigator.mozMobileConnections[" +
+            serviceId +
+            "] is instance of " +
+            mobileConnection.constructor
+        );
       } else {
         log("navigator.mozMobileConnections[" + serviceId + "] is undefined");
       }
@@ -140,8 +152,13 @@ function waitForManagerEvent(aEventName, aMatchFunc) {
 
   manager.addEventListener(aEventName, function onevent(aEvent) {
     if (aMatchFunc && !aMatchFunc(aEvent)) {
-      ok(true, "MobileMessageManager event '" + aEventName + "' got" +
-               " but is not interested.");
+      ok(
+        true,
+        "MobileMessageManager event '" +
+          aEventName +
+          "' got" +
+          " but is not interested."
+      );
       return;
     }
 
@@ -191,15 +208,25 @@ function sendSmsWithSuccess(aReceiver, aText) {
  */
 function sendSmsWithFailure(aReceiver, aText) {
   let promises = [];
-  promises.push(waitForManagerEvent("failed")
-    .then((aEvent) => { return aEvent.message; }));
-  promises.push(manager.send(aReceiver, aText)
-    .then((aResult) => { throw aResult; },
-          (aError) => { return aError; }));
+  promises.push(
+    waitForManagerEvent("failed").then(aEvent => {
+      return aEvent.message;
+    })
+  );
+  promises.push(
+    manager.send(aReceiver, aText).then(
+      aResult => {
+        throw aResult;
+      },
+      aError => {
+        return aError;
+      }
+    )
+  );
 
-  return Promise.all(promises)
-    .then((aResults) => { return { message: aResults[0],
-                                   error: aResults[1] }; });
+  return Promise.all(promises).then(aResults => {
+    return { message: aResults[0], error: aResults[1] };
+  });
 }
 
 /**
@@ -222,15 +249,25 @@ function sendSmsWithFailure(aReceiver, aText) {
  */
 function sendMmsWithFailure(aMmsParameters, aSendParameters) {
   let promises = [];
-  promises.push(waitForManagerEvent("failed")
-    .then((aEvent) => { return aEvent.message; }));
-  promises.push(manager.sendMMS(aMmsParameters, aSendParameters)
-    .then((aResult) => { throw aResult; },
-          (aError) => { return aError; }));
+  promises.push(
+    waitForManagerEvent("failed").then(aEvent => {
+      return aEvent.message;
+    })
+  );
+  promises.push(
+    manager.sendMMS(aMmsParameters, aSendParameters).then(
+      aResult => {
+        throw aResult;
+      },
+      aError => {
+        return aError;
+      }
+    )
+  );
 
-  return Promise.all(promises)
-    .then((aResults) => { return { message: aResults[0],
-                                   error: aResults[1] }; });
+  return Promise.all(promises).then(aResults => {
+    return { message: aResults[0], error: aResults[1] };
+  });
 }
 
 /**
@@ -345,15 +382,14 @@ function getAllThreads() {
  * @return A deferred promise.
  */
 function getThreadById(aThreadId) {
-  return getAllThreads()
-    .then(function(aThreads) {
-      for (let thread of aThreads) {
-        if (thread.id === aThreadId) {
-          return thread;
-        }
+  return getAllThreads().then(function(aThreads) {
+    for (let thread of aThreads) {
+      if (thread.id === aThreadId) {
+        return thread;
       }
-      throw undefined;
-    });
+    }
+    throw undefined;
+  });
 }
 
 /**
@@ -380,11 +416,9 @@ function deleteMessagesById(aMessageIds) {
   promises.push(waitForManagerEvent("deleted"));
   promises.push(manager.delete(aMessageIds));
 
-  return Promise.all(promises)
-    .then((aResults) => {
-      return { deletedInfo: aResults[0],
-               deletedFlags: aResults[1] };
-    });
+  return Promise.all(promises).then(aResults => {
+    return { deletedInfo: aResults[0], deletedFlags: aResults[1] };
+  });
 }
 
 /**
@@ -554,13 +588,17 @@ function sendMultipleRawSmsToEmulatorAndWait(aPdus) {
  */
 function setEmulatorVoiceStateAndWait(aState) {
   let promises = [];
-  promises.push(new Promise(function(resolve, reject) {
-    mobileConnection.addEventListener("voicechange", function onevent(aEvent) {
-      log("voicechange: connected=" + mobileConnection.voice.connected);
-      mobileConnection.removeEventListener("voicechange", onevent);
-      resolve(aEvent);
+  promises.push(
+    new Promise(function(resolve, reject) {
+      mobileConnection.addEventListener("voicechange", function onevent(
+        aEvent
+      ) {
+        log("voicechange: connected=" + mobileConnection.voice.connected);
+        mobileConnection.removeEventListener("voicechange", onevent);
+        resolve(aEvent);
+      });
     })
-  }));
+  );
 
   promises.push(runEmulatorCmdSafe("gsm voice " + aState));
   return Promise.all(promises);
@@ -585,10 +623,21 @@ function messagesToIds(aMessages) {
  * Convenient function to compare two SMS messages.
  */
 function compareSmsMessage(aFrom, aTo) {
-  const FIELDS = ["id", "threadId", "iccId", "body", "delivery",
-                  "deliveryStatus", "read", "receiver", "sender",
-                  "messageClass", "timestamp", "deliveryTimestamp",
-                  "sentTimestamp"];
+  const FIELDS = [
+    "id",
+    "threadId",
+    "iccId",
+    "body",
+    "delivery",
+    "deliveryStatus",
+    "read",
+    "receiver",
+    "sender",
+    "messageClass",
+    "timestamp",
+    "deliveryTimestamp",
+    "sentTimestamp",
+  ];
 
   for (let field of FIELDS) {
     is(aFrom[field], aTo[field], "message." + field);
@@ -616,11 +665,11 @@ function cleanUp() {
  */
 function startTestBase(aTestCaseMain) {
   Promise.resolve()
-         .then(aTestCaseMain)
-         .then(cleanUp, function() {
-           ok(false, 'promise rejects during test.');
-           cleanUp();
-         });
+    .then(aTestCaseMain)
+    .then(cleanUp, function() {
+      ok(false, "promise rejects during test.");
+      cleanUp();
+    });
 }
 
 /**
@@ -653,15 +702,14 @@ function runIfMultiSIM(aTest) {
   try {
     numRIL = SpecialPowers.getIntPref("ril.numRadioInterfaces");
   } catch (ex) {
-    numRIL = 1;  // Pref not set.
+    numRIL = 1; // Pref not set.
   }
 
   if (numRIL > 1) {
     return aTest();
-  } else {
-    log("Not a Multi-SIM environment. Test is skipped.");
-    return Promise.resolve();
   }
+  log("Not a Multi-SIM environment. Test is skipped.");
+  return Promise.resolve();
 }
 
 /**
@@ -677,7 +725,7 @@ function setRadioEnabled(aConnection, aEnabled) {
   log("setRadioEnabled to " + aEnabled);
 
   let deferred = Promise.defer();
-  let finalState = (aEnabled) ? "enabled" : "disabled";
+  let finalState = aEnabled ? "enabled" : "disabled";
   if (aConnection.radioState == finalState) {
     return deferred.resolve(aConnection);
   }
@@ -713,10 +761,13 @@ function setRadioEnabled(aConnection, aEnabled) {
  * @return a Promise object.
  */
 function setAllRadioEnabled(aEnabled) {
-  let promises = []
+  let promises = [];
   for (let i = 0; i < window.navigator.mozMobileConnections.length; ++i) {
-    promises.push(ensureMobileConnection(i)
-      .then((connection) => setRadioEnabled(connection, aEnabled)));
+    promises.push(
+      ensureMobileConnection(i).then(connection =>
+        setRadioEnabled(connection, aEnabled)
+      )
+    );
   }
   return Promise.all(promises);
 }

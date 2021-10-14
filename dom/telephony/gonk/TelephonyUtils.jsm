@@ -6,36 +6,37 @@
 
 this.EXPORTED_SYMBOLS = ["TelephonyUtils"];
 
-const {classes: Cc, interfaces: Ci, utils: Cu, results: Cr} = Components;
+const { classes: Cc, interfaces: Ci, utils: Cu, results: Cr } = Components;
 
-Cu.import("resource://gre/modules/XPCOMUtils.jsm");
-Cu.import("resource://gre/modules/Promise.jsm");
+ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
 
 /* global TelephonyService */
-XPCOMUtils.defineLazyServiceGetter(this,
-                                   "TelephonyService",
-                                   "@mozilla.org/telephony/telephonyservice;1",
-                                   "nsITelephonyService");
+XPCOMUtils.defineLazyServiceGetter(
+  this,
+  "TelephonyService",
+  "@mozilla.org/telephony/telephonyservice;1",
+  "nsITelephonyService"
+);
 
 function getCurrentCalls(aFilter) {
- if (aFilter === undefined) {
-   aFilter = call => true;
- }
+  if (aFilter === undefined) {
+    aFilter = call => true;
+  }
 
- let calls = [];
+  let calls = [];
 
- // nsITelephonyService.enumerateCalls is synchronous.
- TelephonyService.enumerateCalls({
-   QueryInterface: ChromeUtils.generateQI([Ci.nsITelephonyListener]),
-   enumerateCallStateComplete: function() {},
-   enumerateCallState: function(call) {
-     if (aFilter(call)) {
-       calls.push(call);
-     }
-   },
- });
+  // nsITelephonyService.enumerateCalls is synchronous.
+  TelephonyService.enumerateCalls({
+    QueryInterface: ChromeUtils.generateQI([Ci.nsITelephonyListener]),
+    enumerateCallStateComplete() {},
+    enumerateCallState(call) {
+      if (aFilter(call)) {
+        calls.push(call);
+      }
+    },
+  });
 
- return calls;
+  return calls;
 }
 
 this.TelephonyUtils = {
@@ -45,7 +46,7 @@ this.TelephonyUtils = {
    * @param aClientId [optional] If provided, only check on aClientId
    * @return boolean
    */
-  hasAnyCalls: function(aClientId) {
+  hasAnyCalls(aClientId) {
     let calls = getCurrentCalls(call => {
       if (aClientId !== undefined && call.clientId !== aClientId) {
         return false;
@@ -62,7 +63,7 @@ this.TelephonyUtils = {
    * @param aClientId [optional] If provided, only check on aClientId
    * @return boolean
    */
-  hasConnectedCalls: function(aClientId) {
+  hasConnectedCalls(aClientId) {
     let calls = getCurrentCalls(call => {
       if (aClientId !== undefined && call.clientId !== aClientId) {
         return false;
@@ -79,7 +80,7 @@ this.TelephonyUtils = {
    * @param aClientId [optional] only check on aClientId if provided
    * @return Promise
    */
-  waitForNoCalls: function(aClientId) {
+  waitForNoCalls(aClientId) {
     if (!this.hasAnyCalls(aClientId)) {
       return Promise.resolve();
     }
@@ -89,21 +90,21 @@ this.TelephonyUtils = {
       let listener = {
         QueryInterface: ChromeUtils.generateQI([Ci.nsITelephonyListener]),
 
-        enumerateCallStateComplete: function() {},
-        enumerateCallState: function() {},
-        callStateChanged: function() {
+        enumerateCallStateComplete() {},
+        enumerateCallState() {},
+        callStateChanged() {
           if (!self.hasAnyCalls(aClientId)) {
             TelephonyService.unregisterListener(this);
             resolve();
           }
         },
-        supplementaryServiceNotification: function() {},
-        notifyError: function() {},
-        notifyCdmaCallWaiting: function() {},
-        notifyConferenceError: function() {}
+        supplementaryServiceNotification() {},
+        notifyError() {},
+        notifyCdmaCallWaiting() {},
+        notifyConferenceError() {},
       };
 
       TelephonyService.registerListener(listener);
     });
-  }
+  },
 };

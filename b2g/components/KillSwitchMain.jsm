@@ -16,11 +16,6 @@ const { AppConstants } = ChromeUtils.import(
 );
 
 ChromeUtils.defineModuleGetter(this, "OS", "resource://gre/modules/osfile.jsm");
-ChromeUtils.defineModuleGetter(
-  this,
-  "Promise",
-  "resource://gre/modules/Promise.jsm"
-);
 
 XPCOMUtils.defineLazyServiceGetter(
   this,

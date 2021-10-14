@@ -3,21 +3,25 @@
 
 MARIONETTE_TIMEOUT = 60000;
 MARIONETTE_CONTEXT = "chrome";
-MARIONETTE_HEAD_JS = 'head.js';
+MARIONETTE_HEAD_JS = "head.js";
 
-Cu.import("resource://gre/modules/XPCOMUtils.jsm");
-Cu.import("resource://gre/modules/Promise.jsm");
+ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
 
-XPCOMUtils.defineLazyServiceGetter(this,
-                                   "TelephonyService",
-                                   "@mozilla.org/telephony/telephonyservice;1",
-                                   "nsIGonkTelephonyService");
+XPCOMUtils.defineLazyServiceGetter(
+  this,
+  "TelephonyService",
+  "@mozilla.org/telephony/telephonyservice;1",
+  "nsIGonkTelephonyService"
+);
 
-XPCOMUtils.defineLazyModuleGetter(this, "TelephonyUtils",
-                                 "resource://gre/modules/TelephonyUtils.jsm");
+ChromeUtils.defineModuleGetter(
+  this,
+  "TelephonyUtils",
+  "resource://gre/modules/TelephonyUtils.jsm"
+);
 
-XPCOMUtils.defineLazyGetter(this, "RIL", function () {
-  let obj = Cu.import("resource://gre/modules/ril_consts.js", null);
+XPCOMUtils.defineLazyGetter(this, "RIL", function() {
+  let obj = ChromeUtils.import("resource://gre/modules/ril_consts.js", null);
   return obj;
 });
 
@@ -27,7 +31,9 @@ function dial() {
   return new Promise(resolve => {
     TelephonyService.dial(0, number, false, {
       QueryInterface: ChromeUtils.generateQI([Ci.nsITelephonyDialCallback]),
-      notifyDialCallSuccess: function() { resolve(); }
+      notifyDialCallSuccess() {
+        resolve();
+      },
     });
   });
 }
@@ -37,24 +43,24 @@ function waitForStateChanged(aPredicate) {
     let listener = {
       QueryInterface: ChromeUtils.generateQI([Ci.nsITelephonyListener]),
 
-      callStateChanged: function(length, allInfo) {
+      callStateChanged(length, allInfo) {
         if (aPredicate(allInfo)) {
           resolve(allInfo);
           TelephonyService.unregisterListener(listener);
         }
       },
 
-      supplementaryServiceNotification: function() {},
-      notifyError: function() {},
-      notifyCdmaCallWaiting: function() {},
-      notifyConferenceError: function() {}
+      supplementaryServiceNotification() {},
+      notifyError() {},
+      notifyCdmaCallWaiting() {},
+      notifyConferenceError() {},
     };
 
     TelephonyService.registerListener(listener);
   });
 }
 
-function test_noCall()   {
+function test_noCall() {
   log("== test_noCall ==");
   is(TelephonyUtils.hasAnyCalls(), false, "hasAnyCalls");
   is(TelephonyUtils.hasConnectedCalls(), false, "hasConnectedCalls");
@@ -69,12 +75,18 @@ function test_oneCall() {
       is(TelephonyUtils.hasAnyCalls(), true, "hasAnyCalls");
       is(TelephonyUtils.hasConnectedCalls(), false, "hasConnectedCalls");
     })
-    .then(() => waitForStateChanged(aAllInfo => {
-      return aAllInfo[0].callState === Ci.nsITelephonyService.CALL_STATE_ALERTING;
-    }))
+    .then(() =>
+      waitForStateChanged(aAllInfo => {
+        return (
+          aAllInfo[0].callState === Ci.nsITelephonyService.CALL_STATE_ALERTING
+        );
+      })
+    )
     .then(() => {
       let p = waitForStateChanged(aAllInfo => {
-        return aAllInfo[0].callState === Ci.nsITelephonyService.CALL_STATE_CONNECTED;
+        return (
+          aAllInfo[0].callState === Ci.nsITelephonyService.CALL_STATE_CONNECTED
+        );
       });
       emulator.runCmd("telephony accept " + number);
       return p;

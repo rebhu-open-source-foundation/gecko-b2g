@@ -3,14 +3,17 @@
 
 MARIONETTE_CONTEXT = "chrome";
 
-var XPCOMUtils = Cu.import("resource://gre/modules/XPCOMUtils.jsm").XPCOMUtils;
-var Promise = Cu.import("resource://gre/modules/Promise.jsm").Promise;
+var XPCOMUtils = ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm")
+  .XPCOMUtils;
 
-var mobileConnectionService =
-  Cc["@mozilla.org/mobileconnection/gonkmobileconnectionservice;1"]
-  .getService(Ci.nsIMobileConnectionService);
-ok(mobileConnectionService,
-   "mobileConnectionService.constructor is " + mobileConnectionService.constructor);
+var mobileConnectionService = Cc[
+  "@mozilla.org/mobileconnection/gonkmobileconnectionservice;1"
+].getService(Ci.nsIMobileConnectionService);
+ok(
+  mobileConnectionService,
+  "mobileConnectionService.constructor is " +
+    mobileConnectionService.constructor
+);
 
 var _pendingEmulatorShellCmdCount = 0;
 
@@ -51,8 +54,10 @@ function runEmulatorShellCmdSafe(aCommands) {
  */
 function getMobileConnection(aClientId = 0) {
   let mobileConnection = mobileConnectionService.getItemByServiceId(0);
-  ok(mobileConnection,
-     "mobileConnection.constructor is " + mobileConnection.constructor);
+  ok(
+    mobileConnection,
+    "mobileConnection.constructor is " + mobileConnection.constructor
+  );
   return mobileConnection;
 }
 
@@ -74,11 +79,13 @@ function getNeighboringCellIds(aClientId = 0) {
   return new Promise(function(aResolve, aReject) {
     ok(true, "getNeighboringCellIds");
     mobileConnection.getNeighboringCellIds({
-      QueryInterface: ChromeUtils.generateQI([Ci.nsINeighboringCellIdsCallback]),
-      notifyGetNeighboringCellIds: function(aCount, aResults) {
+      QueryInterface: ChromeUtils.generateQI([
+        Ci.nsINeighboringCellIdsCallback,
+      ]),
+      notifyGetNeighboringCellIds(aCount, aResults) {
         aResolve(aResults);
       },
-      notifyGetNeighboringCellIdsFailed: function(aErrorMsg) {
+      notifyGetNeighboringCellIdsFailed(aErrorMsg) {
         aReject(aErrorMsg);
       },
     });
@@ -104,10 +111,10 @@ function getCellInfoList(aClientId = 0) {
     ok(true, "getCellInfoList");
     mobileConnection.getCellInfoList({
       QueryInterface: ChromeUtils.generateQI([Ci.nsICellInfoListCallback]),
-      notifyGetCellInfoList: function(aCount, aResults) {
+      notifyGetCellInfoList(aCount, aResults) {
         aResolve(aResults);
       },
-      notifyGetCellInfoListFailed: function(aErrorMsg) {
+      notifyGetCellInfoListFailed(aErrorMsg) {
         aReject(aErrorMsg);
       },
     });
@@ -137,7 +144,7 @@ function cleanUp() {
 function startTestBase(aTestCaseMain) {
   return Promise.resolve()
     .then(aTestCaseMain)
-    .catch((aException) => {
+    .catch(aException => {
       ok(false, "promise rejects during test: " + aException);
     })
     .then(cleanUp);
