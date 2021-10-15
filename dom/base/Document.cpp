@@ -16598,15 +16598,24 @@ already_AddRefed<mozilla::dom::Promise> Document::RequestStorageAccess(
     return nullptr;
   }
 
-  // Propagate user input event handling to the resolve handler
-  RefPtr<Promise> promise =
-      Promise::Create(global, aRv, Promise::ePropagateUserInteraction);
+  RefPtr<Promise> promise = Promise::Create(global, aRv);
   if (aRv.Failed()) {
     return nullptr;
   }
 
+  // Window doesn't have user activation, reject.
+  if (!this->HasValidTransientUserGestureActivation()) {
+    nsContentUtils::ReportToConsole(nsIScriptError::errorFlag,
+                                    nsLiteralCString("requestStorageAccess"),
+                                    this, nsContentUtils::eDOM_PROPERTIES,
+                                    "RequestStorageAccessUserGesture");
+    promise->MaybeRejectWithUndefined();
+    return promise.forget();
+  }
+
   nsCOMPtr<nsPIDOMWindowInner> inner = GetInnerWindow();
   if (!inner) {
+    this->ConsumeTransientUserGestureActivation();
     promise->MaybeRejectWithUndefined();
     return promise.forget();
   }
@@ -16615,6 +16624,7 @@ already_AddRefed<mozilla::dom::Promise> Document::RequestStorageAccess(
   RefPtr<nsGlobalWindowOuter> outer =
       nsGlobalWindowOuter::Cast(inner->GetOuterWindow());
   if (!outer) {
+    this->ConsumeTransientUserGestureActivation();
     promise->MaybeRejectWithUndefined();
     return promise.forget();
   }
@@ -16630,12 +16640,14 @@ already_AddRefed<mozilla::dom::Promise> Document::RequestStorageAccess(
                                     nsLiteralCString("requestStorageAccess"),
                                     this, nsContentUtils::eDOM_PROPERTIES,
                                     "RequestStorageAccessNullPrincipal");
+    this->ConsumeTransientUserGestureActivation();
     promise->MaybeRejectWithUndefined();
     return promise.forget();
   }
 
   RefPtr<BrowsingContext> bc = GetBrowsingContext();
   if (!bc) {
+    this->ConsumeTransientUserGestureActivation();
     promise->MaybeRejectWithUndefined();
     return promise.forget();
   }
@@ -16658,12 +16670,14 @@ already_AddRefed<mozilla::dom::Promise> Document::RequestStorageAccess(
     if (bc->Top()->IsInProcess()) {
       nsCOMPtr<nsPIDOMWindowOuter> topOuter = bc->Top()->GetDOMWindow();
       if (!topOuter) {
+        this->ConsumeTransientUserGestureActivation();
         promise->MaybeRejectWithUndefined();
         return promise.forget();
       }
 
       nsCOMPtr<Document> topLevelDoc = topOuter->GetExtantDoc();
       if (!topLevelDoc) {
+        this->ConsumeTransientUserGestureActivation();
         promise->MaybeRejectWithUndefined();
         return promise.forget();
       }
@@ -16682,6 +16696,7 @@ already_AddRefed<mozilla::dom::Promise> Document::RequestStorageAccess(
     nsContentUtils::ReportToConsole(
         nsIScriptError::errorFlag, nsLiteralCString("requestStorageAccess"),
         this, nsContentUtils::eDOM_PROPERTIES, "RequestStorageAccessSandboxed");
+    this->ConsumeTransientUserGestureActivation();
     promise->MaybeRejectWithUndefined();
     return promise.forget();
   }
@@ -16692,16 +16707,7 @@ already_AddRefed<mozilla::dom::Promise> Document::RequestStorageAccess(
     nsContentUtils::ReportToConsole(
         nsIScriptError::errorFlag, nsLiteralCString("requestStorageAccess"),
         this, nsContentUtils::eDOM_PROPERTIES, "RequestStorageAccessNested");
-    promise->MaybeRejectWithUndefined();
-    return promise.forget();
-  }
-
-  // Step 8. If the browser is not processing a user gesture, reject.
-  if (!UserActivation::IsHandlingUserInput()) {
-    nsContentUtils::ReportToConsole(nsIScriptError::errorFlag,
-                                    nsLiteralCString("requestStorageAccess"),
-                                    this, nsContentUtils::eDOM_PROPERTIES,
-                                    "RequestStorageAccessUserGesture");
+    this->ConsumeTransientUserGestureActivation();
     promise->MaybeRejectWithUndefined();
     return promise.forget();
   }
@@ -16719,6 +16725,7 @@ already_AddRefed<mozilla::dom::Promise> Document::RequestStorageAccess(
       // site, reject.
       if (antiTrackingRejectedReason ==
           nsIWebProgressListener::STATE_COOKIES_BLOCKED_BY_PERMISSION) {
+        this->ConsumeTransientUserGestureActivation();
         promise->MaybeRejectWithUndefined();
         return promise.forget();
       }
@@ -16813,17 +16820,23 @@ already_AddRefed<mozilla::dom::Promise> Document::RequestStorageAccess(
 
         return p;
       };
+
+      // Consume user activation before entering the async part of this method.
+      // This prevents usage of other transient activation-gated APIs.
+      this->ConsumeTransientUserGestureActivation();
+
       ContentBlocking::AllowAccessFor(
           NodePrincipal(), bc, ContentBlockingNotifier::eStorageAccessAPI,
           performFinalChecks)
           ->Then(
               GetCurrentSerialEventTarget(), __func__,
-              [outer, promise] {
+              [self, outer, promise] {
                 // Step 10. Grant the document access to cookies and store
                 // that fact for
                 //          the purposes of future calls to
                 //          hasStorageAccess() and requestStorageAccess().
                 outer->SetStorageAccessPermissionGranted(true);
+                self->NotifyUserGestureActivation();
                 promise->MaybeResolveWithUndefined();
               },
               [outer, promise] {
@@ -16848,14 +16861,24 @@ already_AddRefed<mozilla::dom::Promise> Document::RequestStorageAccessForOrigin(
     return nullptr;
   }
 
-  RefPtr<Promise> promise =
-      Promise::Create(global, aRv, Promise::ePropagateUserInteraction);
+  RefPtr<Promise> promise = Promise::Create(global, aRv);
   if (aRv.Failed()) {
     return nullptr;
   }
 
+  // Window doesn't have user activation, reject.
+  if (!this->HasValidTransientUserGestureActivation()) {
+    nsContentUtils::ReportToConsole(nsIScriptError::errorFlag,
+                                    nsLiteralCString("requestStorageAccess"),
+                                    this, nsContentUtils::eDOM_PROPERTIES,
+                                    "RequestStorageAccessUserGesture");
+    promise->MaybeRejectWithUndefined();
+    return promise.forget();
+  }
+
   nsCOMPtr<nsPIDOMWindowInner> inner = GetInnerWindow();
   if (!inner) {
+    this->ConsumeTransientUserGestureActivation();
     promise->MaybeRejectWithUndefined();
     return promise.forget();
   }
@@ -16863,6 +16886,7 @@ already_AddRefed<mozilla::dom::Promise> Document::RequestStorageAccessForOrigin(
   // We only allow request storage access for third-party origin from the
   // first-party context.
   if (AntiTrackingUtils::IsThirdPartyWindow(inner, nullptr)) {
+    this->ConsumeTransientUserGestureActivation();
     promise->MaybeRejectWithUndefined();
     return promise.forget();
   }
@@ -16873,6 +16897,7 @@ already_AddRefed<mozilla::dom::Promise> Document::RequestStorageAccessForOrigin(
                                     nsLiteralCString("requestStorageAccess"),
                                     this, nsContentUtils::eDOM_PROPERTIES,
                                     "RequestStorageAccessNullPrincipal");
+    this->ConsumeTransientUserGestureActivation();
     promise->MaybeRejectWithUndefined();
     return promise.forget();
   }
@@ -16897,20 +16922,11 @@ already_AddRefed<mozilla::dom::Promise> Document::RequestStorageAccessForOrigin(
     }
   }
 
-  // If the browser is not processing a user gesture, reject.
-  if (!UserActivation::IsHandlingUserInput()) {
-    nsContentUtils::ReportToConsole(nsIScriptError::errorFlag,
-                                    nsLiteralCString("requestStorageAccess"),
-                                    this, nsContentUtils::eDOM_PROPERTIES,
-                                    "RequestStorageAccessUserGesture");
-    promise->MaybeRejectWithUndefined();
-    return promise.forget();
-  }
-
   // Check any additional rules that the browser has.
   if (CookieJarSettings()->GetRejectThirdPartyContexts()) {
     RefPtr<BrowsingContext> bc = GetBrowsingContext();
     if (!bc) {
+      this->ConsumeTransientUserGestureActivation();
       promise->MaybeRejectWithUndefined();
       return promise.forget();
     }
@@ -16919,11 +16935,16 @@ already_AddRefed<mozilla::dom::Promise> Document::RequestStorageAccessForOrigin(
         thirdPartyURI, NodePrincipal()->OriginAttributesRef());
 
     if (!principal) {
+      this->ConsumeTransientUserGestureActivation();
       promise->MaybeRejectWithUndefined();
       return promise.forget();
     }
 
     RefPtr<Document> self(this);
+
+    // Consume user activation before entering the async part of this method.
+    // This prevents usage of other transient activation-gated APIs.
+    this->ConsumeTransientUserGestureActivation();
 
     auto performFinalChecks = [inner, self, principal]() {
       RefPtr<ContentBlocking::StorageAccessFinalCheckPromise::Private> p =
@@ -17044,7 +17065,10 @@ already_AddRefed<mozilla::dom::Promise> Document::RequestStorageAccessForOrigin(
             })
         ->Then(
             GetCurrentSerialEventTarget(), __func__,
-            [promise] { promise->MaybeResolveWithUndefined(); },
+            [self, promise] {
+              self->NotifyUserGestureActivation();
+              promise->MaybeResolveWithUndefined();
+            },
             [promise] { promise->MaybeRejectWithUndefined(); });
 
     return promise.forget();

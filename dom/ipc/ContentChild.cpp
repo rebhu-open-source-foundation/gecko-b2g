@@ -106,7 +106,6 @@
 #include "mozilla/ipc/FileDescriptorSetChild.h"
 #include "mozilla/ipc/FileDescriptorUtils.h"
 #include "mozilla/ipc/GeckoChildProcessHost.h"
-#include "mozilla/ipc/LibrarySandboxPreload.h"
 #include "mozilla/ipc/PChildToParentStreamChild.h"
 #include "mozilla/ipc/PParentToChildStreamChild.h"
 #include "mozilla/ipc/ProcessChild.h"
@@ -1798,10 +1797,6 @@ mozilla::ipc::IPCResult ContentChild::RecvSetProcessSandbox(
   // at some point; see bug 880808.
 #if defined(MOZ_SANDBOX)
 
-#  ifdef MOZ_USING_WASM_SANDBOXING
-  mozilla::ipc::PreloadSandboxedDynamicLibrary();
-#  endif
-
   bool sandboxEnabled = true;
 #  if defined(XP_LINUX)
 #    if defined(MOZ_WIDGET_GONK) && ANDROID_VERSION >= 19
@@ -2961,7 +2956,7 @@ mozilla::ipc::IPCResult ContentChild::RecvCycleCollect() {
   if (obs) {
     obs->NotifyObservers(nullptr, "child-cc-request", nullptr);
   }
-  nsJSContext::CycleCollectNow();
+  nsJSContext::CycleCollectNow(CCReason::IPC_MESSAGE);
   return IPC_OK();
 }
 

@@ -1288,7 +1288,9 @@ void gfxPlatform::InitLayersIPC() {
 
   if (XRE_IsParentProcess()) {
 #if defined(XP_WIN)
-    widget::WinWindowOcclusionTracker::Start();
+    if (gfxConfig::IsEnabled(gfx::Feature::WINDOW_OCCLUSION)) {
+      widget::WinWindowOcclusionTracker::Start();
+    }
 #endif
     if (!gfxConfig::IsEnabled(Feature::GPU_PROCESS) && UseWebRender()) {
       wr::RenderThread::Start();
