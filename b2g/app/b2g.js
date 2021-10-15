@@ -1271,6 +1271,10 @@ pref("dom.hand-held-friendly.forceEnable", true);
 
 pref("dom.webshare.enabled", true);
 
-// Workardound https://bugzilla.mozilla.org/show_bug.cgi?id=1725339 until
+// Workaround https://bugzilla.mozilla.org/show_bug.cgi?id=1725339 until
 // a better solution for b2g system app is found.
 pref("security.disallow_privileged_https_subdocuments_loads", false);
+
+// Workaround https://bugzilla.mozilla.org/show_bug.cgi?id=1735117 since
+// the system app needs to load resources from http://shared.localhost
+pref("security.disallow_privileged_https_stylesheet_loads", false);
