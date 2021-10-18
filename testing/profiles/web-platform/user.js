@@ -67,5 +67,7 @@ user_pref("browser.cache.offline.enable", true);
 // Enable blocking access to storage from tracking resources by default.
 // We don't want to run WPT using BEHAVIOR_REJECT_TRACKER_AND_PARTITION_FOREIGN (5 - aka Dynamic First Party Isolation) yet.
 user_pref("network.cookie.cookieBehavior", 4);
+// Force a light color scheme unless explicitly overriden by pref.
+user_pref("layout.css.prefers-color-scheme.content-override", 1);
 // system app url for b2g wpt tests
 user_pref("b2g.system_startup_url", "chrome://b2g/content/system/marionette.html");

@@ -335,6 +335,11 @@ nsresult nsAppShell::Init() {
   // NSApplicationMain() is running).
   NSAutoreleasePool* localPool = [[NSAutoreleasePool alloc] init];
 
+  char* mozAppNoDock = PR_GetEnv("MOZ_APP_NO_DOCK");
+  if (mozAppNoDock && strcmp(mozAppNoDock, "") != 0) {
+    [NSApp setActivationPolicy:NSApplicationActivationPolicyAccessory];
+  }
+
   // mAutoreleasePools is used as a stack of NSAutoreleasePool objects created
   // by |this|.  CFArray is used instead of NSArray because NSArray wants to
   // retain each object you add to it, and you can't retain an
@@ -698,7 +703,7 @@ bool nsAppShell::ProcessNextNativeEvent(bool aMayWait) {
       // events and native events.  Without CGEvent coalescing, the native
       // event events can accumulate in the Carbon event queue which will
       // manifest as laggy scrolling.
-#ifdef EARLY_BETA_OR_EARLIER
+#if 1
       eventProcessed = false;
       break;
 #else

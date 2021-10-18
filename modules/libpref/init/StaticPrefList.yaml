@@ -1215,7 +1215,7 @@
   value: false
   mirror: always
 
-# Controls @media -moz-toolbar-prefers-color-scheme.
+# Communicates the toolbar color to platform (for e.g., prefers-color-scheme).
 #
 # Returns whether the toolbar is dark (0), light (1), or system (2).
 #
@@ -6271,6 +6271,11 @@
     value: true
     mirror: always
 
+- name: javascript.options.wasm_caching
+  type: bool
+  value: true
+  mirror: always
+
 # The amount of time we wait between a request to GC (due to leaving a page) and doing the actual GC, in ms.
 - name: javascript.options.gc_delay
   type: uint32_t
@@ -6433,7 +6438,7 @@
 #if defined(ENABLE_WASM_MEMORY64)
 -   name: javascript.options.wasm_memory64
     type: bool
-    value: true
+    value: false
     mirror: always
 #endif  // defined(ENABLE_WASM_MEMORY64)
 
@@ -7347,10 +7352,10 @@
 
 # An override for prefers-color-scheme for content documents.
 #
-# Dark (0), light (1), or system (2).
+# Dark (0), light (1), system (2) or browser (3).
 - name: layout.css.prefers-color-scheme.content-override
   type: RelaxedAtomicInt32
-  value: 2
+  value: 3
   mirror: always
 
 # Dictates whether or not the forced-colors media query is enabled.
@@ -12167,15 +12172,6 @@
   value: false
   mirror: always
 
-# Whether system colors honor the Firefox toolbar theme.
-#
-# On macOS this might want to be in sync with
-# widget.macos.support-dark-appearance.
-- name: widget.color-scheme.follow-firefox-theme
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-
 #ifdef XP_MACOSX
 - name: widget.macos.native-context-menus
   type: RelaxedAtomicBool
@@ -12183,11 +12179,6 @@
   mirror: always
 
 - name: widget.macos.enable-pre-bigsur-workaround-for-dark-mode-context-menus
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-
-- name: widget.macos.support-dark-appearance
   type: RelaxedAtomicBool
   value: true
   mirror: always

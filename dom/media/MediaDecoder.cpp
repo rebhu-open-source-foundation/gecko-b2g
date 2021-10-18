@@ -36,6 +36,7 @@
 #include "nsPrintfCString.h"
 #include "nsServiceManagerUtils.h"
 #include "nsTArray.h"
+#include "WindowRenderer.h"
 #include <algorithm>
 #include <limits>
 

@@ -93,6 +93,7 @@
 #include "mozilla/Unused.h"
 #include "MobileViewportManager.h"
 #include "VisualViewport.h"
+#include "WindowRenderer.h"
 #include <algorithm>
 #include <cstdlib>  // for std::abs(int/long)
 #include <cmath>    // for std::abs(float/double)
@@ -2249,19 +2250,6 @@ ScrollFrameHelper::ScrollFrameHelper(nsContainerFrame* aOuter, bool aIsRoot)
 
   if (UsesOverlayScrollbars()) {
     mScrollbarActivity = new ScrollbarActivity(do_QueryFrame(aOuter));
-  }
-
-  if (IsAlwaysActive() && StaticPrefs::layers_enable_tiles_AtStartup() &&
-      !nsLayoutUtils::UsesAsyncScrolling(mOuter) && mOuter->GetContent()) {
-    // If we have tiling but no APZ, then set a 0-margin display port on
-    // active scroll containers so that we paint by whole tile increments
-    // when scrolling.
-    DisplayPortUtils::SetDisplayPortMargins(
-        mOuter->GetContent(), mOuter->PresShell(),
-        DisplayPortMargins::Empty(mOuter->GetContent()),
-        DisplayPortUtils::ClearMinimalDisplayPortProperty::Yes, 0);
-    DisplayPortUtils::SetZeroMarginDisplayPortOnAsyncScrollableAncestors(
-        mOuter);
   }
 
   if (mIsRoot) {

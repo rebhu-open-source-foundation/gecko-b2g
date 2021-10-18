@@ -75,6 +75,7 @@ using mozilla::gfx::SurfaceFormat;
 #include "GLContext.h"
 #include "GLContextProvider.h"
 #include "Layers.h"
+#include "WindowRenderer.h"
 #include "ScopedGLHelpers.h"
 #include "mozilla/layers/APZEventState.h"
 #include "mozilla/layers/APZInputBridge.h"
@@ -2223,7 +2224,7 @@ void nsWindow::CreateLayerManager() {
 
   if (!ComputeShouldAccelerate() || sFailedToCreateGLContext) {
     printf_stderr(" -- creating basic, not accelerated\n");
-    mWindowRenderer = CreateBasicLayerManager();
+    mWindowRenderer = CreateFallbackRenderer();
   }
 }
 
