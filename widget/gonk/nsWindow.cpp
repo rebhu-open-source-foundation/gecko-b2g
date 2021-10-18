@@ -143,14 +143,6 @@ void nsWindow::DoDraw(void) {
 
     listener = targetWindow->GetWidgetListener();
     if (listener) {
-      mozilla::layers::LayersBackend backendType =
-          targetWindow->GetWindowRenderer()->GetBackendType();
-      if (mozilla::layers::LayersBackend::LAYERS_CLIENT == backendType ||
-          mozilla::layers::LayersBackend::LAYERS_WR == backendType) {
-        // No need to do anything, the compositor will handle drawing
-      } else {
-        MOZ_CRASH("Unexpected layer manager type");
-      }
       listener->DidPaintWindow();
     }
   }
@@ -817,8 +809,7 @@ void nsWindow::UserActivity() {
 }
 
 uint32_t nsWindow::GetGLFrameBufferFormat() {
-  if (mWindowRenderer && mWindowRenderer->GetBackendType() ==
-                             mozilla::layers::LayersBackend::LAYERS_OPENGL) {
+  if (mWindowRenderer) {
     // We directly map the hardware fb on Gonk.  The hardware fb
     // has RGB format.
     return LOCAL_GL_RGB;

@@ -20,6 +20,7 @@ using android::GraphicBuffer;
 using android::sp;
 using dom::MediaTrackConstraints;
 using gfx::IntSize;
+using mozilla::layers::ImageContainer;
 
 extern LazyLogModule gMediaManagerLog;
 #define LOG(...) MOZ_LOG(gMediaManagerLog, LogLevel::Debug, (__VA_ARGS__))
@@ -316,7 +317,7 @@ MediaEngineGonkVideoSource::MediaEngineGonkVideoSource(int aIndex)
   Init();
 }
 
-MediaEngineGonkVideoSource::~MediaEngineGonkVideoSource() { }
+MediaEngineGonkVideoSource::~MediaEngineGonkVideoSource() {}
 
 size_t MediaEngineGonkVideoSource::NumCapabilities() const {
   AssertIsOnOwningThread();
@@ -551,8 +552,8 @@ nsresult MediaEngineGonkVideoSource::Reconfigure(
   return NS_OK;
 }
 
-void MediaEngineGonkVideoSource::SetTrack(
-    const RefPtr<MediaTrack>& aTrack, const PrincipalHandle& aPrincipal) {
+void MediaEngineGonkVideoSource::SetTrack(const RefPtr<MediaTrack>& aTrack,
+                                          const PrincipalHandle& aPrincipal) {
   LOG("%s", __PRETTY_FUNCTION__);
   AssertIsOnOwningThread();
 
@@ -568,7 +569,8 @@ void MediaEngineGonkVideoSource::SetTrack(
   }
 
   if (!mImageContainer) {
-    mImageContainer = layers::LayerManager::CreateImageContainer();
+    mImageContainer =
+        MakeAndAddRef<ImageContainer>(ImageContainer::ASYNCHRONOUS);
   }
 
   {

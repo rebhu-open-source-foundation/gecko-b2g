@@ -94,7 +94,7 @@ nsGonkCameraControl::nsGonkCameraControl(uint32_t aCameraId)
       mReentrantMonitor("GonkCameraControl::OnTakePicture.Monitor") {
   // Constructor runs on the main thread...
   DOM_CAMERA_LOGT("%s:%d : this=%p\n", __func__, __LINE__, this);
-  mImageContainer = LayerManager::CreateImageContainer();
+  mImageContainer = MakeAndAddRef<ImageContainer>(ImageContainer::ASYNCHRONOUS);
 
   mAutoFocusCompleteTimer = do_CreateInstance(NS_TIMER_CONTRACTID);
   if (NS_WARN_IF(!mAutoFocusCompleteTimer)) {
@@ -2094,7 +2094,8 @@ nsresult nsGonkCameraControl::LoadRecorderProfiles() {
       for (nsTArray<Size>::size_type n = 0; n < sizes.Length(); ++n) {
         if (static_cast<uint32_t>(width) == sizes[n].width &&
             static_cast<uint32_t>(height) == sizes[n].height) {
-          mRecorderProfiles.InsertOrUpdate(profiles[i]->GetName(), RefPtr{profiles[i]});
+          mRecorderProfiles.InsertOrUpdate(profiles[i]->GetName(),
+                                           RefPtr{profiles[i]});
 
           // "Best" or default profile is the one with the lowest priority
           // value and largest area.
