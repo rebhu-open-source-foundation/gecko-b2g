@@ -59,14 +59,10 @@ ImeBootstrap::Observe(nsISupports* aSubject, const char* aTopic,
 
   if (XRE_IsParentProcess() && outer->GetBrowsingContext()->IsTop()) {
     nsBaseWidget* widget = static_cast<nsBaseWidget*>(domWidget.get());
-    RefPtr<TextEventDispatcherListener> listener =
-        widget->GetNativeTextEventDispatcherListener();
-    if (!listener) {
-      RefPtr<GeckoEditableSupport> editableSupport =
-          new GeckoEditableSupport(outer);
-      widget->SetNativeTextEventDispatcherListener(editableSupport);
-      IME_LOGD("GeckoEditableSupport set on widget");
-    }
+    RefPtr<GeckoEditableSupport> editableSupport =
+        new GeckoEditableSupport(outer);
+    widget->SetNativeTextEventDispatcherListener(editableSupport);
+    IME_LOGD("GeckoEditableSupport set on widget");
   } else if (XRE_IsContentProcess() &&
              outer->GetBrowsingContext()->IsTopContent()) {
     // Associate the PuppetWidget of the newly-created BrowserChild with a
