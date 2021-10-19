@@ -525,11 +525,6 @@ void nsWindow::SetFocus(Raise aRaise, mozilla::dom::CallerType aCallerType) {
   }
 }
 
-NS_IMETHODIMP
-nsWindow::ConfigureChildren(const nsTArray<nsIWidget::Configuration>&) {
-  return NS_OK;
-}
-
 void nsWindow::Invalidate(const LayoutDeviceIntRect& aRect) {
   nsWindow* top = mParent;
   while (top && top->mParent) {
