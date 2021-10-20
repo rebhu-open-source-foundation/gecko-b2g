@@ -628,7 +628,7 @@ void nsScreenGonk::UpdateMirroringWidget(already_AddRefed<nsWindow>& aWindow) {
 
   if (mMirroringWidget) {
     nsCOMPtr<nsIWidget> widget = mMirroringWidget.forget();
-    NS_ReleaseOnMainThread(widget.forget());
+    NS_ReleaseOnMainThread("nsScreenGonk::UpdateMirroringWidget", widget.forget());
   }
   mMirroringWidget = aWindow;
 }
