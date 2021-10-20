@@ -58,6 +58,8 @@ class BrowserTab {
     this.webview.addEventListener("iconchange", this.setupIcon);
     this.webview.addEventListener("titlechange", this.updateTitle);
     this.webview.addEventListener("opensearch", this.updateSearch);
+    this.webview.addEventListener("loadstart", this.updateLoadState);
+    this.webview.addEventListener("loadend", this.updateLoadState);
 
     this.parentDocument.getElementById("url").value = this.webview.src;
     this.parentDocument
@@ -70,6 +72,7 @@ class BrowserTab {
     this.setupIcon({});
     this.updateTitle({});
     this.updateSearch({});
+    this.updateLoadState({});
   }
 
   hide() {
@@ -80,6 +83,8 @@ class BrowserTab {
     this.webview.removeEventListener("locationchange", this.updateActionsUI);
     this.webview.removeEventListener("openwindow", this.openWindow);
     this.webview.removeEventListener("iconchange", this.setupIcon);
+    this.webview.removeEventListener("loadstart", this.updateLoadState);
+    this.webview.removeEventListener("loadend", this.updateLoadState);
 
     this.parentDocument.getElementById("url").value = "";
     this.parentDocument
@@ -91,6 +96,7 @@ class BrowserTab {
     this.setupIcon({});
     this.updateTitle({});
     this.updateSearch({});
+    this.updateLoadState({});
     activatedTab = null;
   }
 
@@ -152,6 +158,15 @@ class BrowserTab {
       .getElementById("action-forward")
       .toggleAttribute("disabled", !aEvent.detail.canGoForward);
     activatedTab.parentDocument.getElementById("url").value = aEvent.detail.url;
+  }
+
+  updateLoadState(aEvent) {
+    if (activatedTab) {
+      activatedTab.parentDocument.querySelector(
+        "#tabs > .loadstate"
+      ).innerText =
+        aEvent && aEvent.type == "loadstart" ? "loading" : "finished";
+    }
   }
 
   go() {
