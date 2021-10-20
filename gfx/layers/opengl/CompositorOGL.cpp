@@ -1788,7 +1788,7 @@ void CompositorOGL::DrawGLCursor(
         SamplingFilter::POINT,
         true);
   auto rect = gfx::Rect(aCursorPos.x - aHotspot.x, aCursorPos.y - aHotspot.y, aImgSize.width, aImgSize.height);
-  Compositor::DrawQuad(
+  DrawQuad(
       rect,
       gfx::IntRect(aRect.x, aRect.y, aRect.width, aRect.height),
       effects,
