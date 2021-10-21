@@ -4752,29 +4752,13 @@ void nsDisplayOpacity::Paint(nsDisplayListBuilder* aBuilder, gfxContext* aCtx) {
   aCtx->GetDrawTarget()->PopLayer();
 }
 
-/**
- * This doesn't take into account layer scaling --- the layer may be
- * rendered at a higher (or lower) resolution, affecting the retained layer
- * size --- but this should be good enough.
- */
-static bool IsItemTooSmallForActiveLayer(nsIFrame* aFrame) {
-  nsIntRect visibleDevPixels =
-      aFrame->InkOverflowRectRelativeToSelf().ToOutsidePixels(
-          aFrame->PresContext()->AppUnitsPerDevPixel());
-  return visibleDevPixels.Size() <
-         nsIntSize(StaticPrefs::layout_min_active_layer_size(),
-                   StaticPrefs::layout_min_active_layer_size());
-}
-
 /* static */
 bool nsDisplayOpacity::NeedsActiveLayer(nsDisplayListBuilder* aBuilder,
-                                        nsIFrame* aFrame,
-                                        bool aEnforceMinimumSize) {
+                                        nsIFrame* aFrame) {
   return EffectCompositor::HasAnimationsForCompositor(
              aFrame, DisplayItemType::TYPE_OPACITY) ||
          (ActiveLayerTracker::IsStyleAnimated(
-              aBuilder, aFrame, nsCSSPropertyIDSet::OpacityProperties()) &&
-          !(aEnforceMinimumSize && IsItemTooSmallForActiveLayer(aFrame)));
+             aBuilder, aFrame, nsCSSPropertyIDSet::OpacityProperties()));
 }
 
 bool nsDisplayOpacity::CanApplyOpacity(WebRenderLayerManager* aManager,
@@ -6884,8 +6868,7 @@ void nsDisplayTransform::Paint(nsDisplayListBuilder* aBuilder, gfxContext* aCtx,
   aCtx->GetDrawTarget()->Draw3DTransformedSurface(untransformedSurf, trans);
 }
 
-bool nsDisplayTransform::MayBeAnimated(nsDisplayListBuilder* aBuilder,
-                                       bool aEnforceMinimumSize) const {
+bool nsDisplayTransform::MayBeAnimated(nsDisplayListBuilder* aBuilder) const {
   // If EffectCompositor::HasAnimationsForCompositor() is true then we can
   // completely bypass the main thread for this animation, so it is always
   // worthwhile.
@@ -6895,8 +6878,7 @@ bool nsDisplayTransform::MayBeAnimated(nsDisplayListBuilder* aBuilder,
   // big enough to justify an active layer.
   return EffectCompositor::HasAnimationsForCompositor(
              mFrame, DisplayItemType::TYPE_TRANSFORM) ||
-         (ActiveLayerTracker::IsTransformAnimated(aBuilder, mFrame) &&
-          !(aEnforceMinimumSize && IsItemTooSmallForActiveLayer(mFrame)));
+         (ActiveLayerTracker::IsTransformAnimated(aBuilder, mFrame));
 }
 
 nsRect nsDisplayTransform::TransformUntransformedBounds(
