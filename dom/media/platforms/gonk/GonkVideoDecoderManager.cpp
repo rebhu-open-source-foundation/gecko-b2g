@@ -522,7 +522,7 @@ GonkVideoDecoderManager::CreateVideoDataFromDataBuffer(
       media::TimeUnit::FromMicroseconds(1),  // We don't know the duration.
       b,
       0,  // Filled later by caller.
-      media::TimeUnit::FromMicroseconds(-1), aPicture);
+      media::TimeUnit::FromMicroseconds(-1), aPicture, nullptr);
 
   return data.forget();
 }
