@@ -704,8 +704,8 @@ status_t GonkCameraSource::start(MetaData* meta) {
 
 void GonkCameraSource::stopCameraRecording() {
   CS_LOGV("stopCameraRecording");
-  mCameraHw->SetListener(NULL);
   mCameraHw->StopRecording();
+  mCameraHw->SetListener(NULL);
 }
 
 void GonkCameraSource::releaseCamera() { CS_LOGV("releaseCamera"); }
