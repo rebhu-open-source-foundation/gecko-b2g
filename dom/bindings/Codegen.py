@@ -9923,7 +9923,7 @@ class CGMethodCall(CGThing):
         argDesc = "argument %d"
 
         if method.getExtendedAttribute("UseCounter"):
-            useCounterName = methodName.replace(".", "_")
+            useCounterName = methodName.replace(".", "_").replace(" ", "_")
         else:
             useCounterName = None
 

@@ -6537,6 +6537,7 @@ class IDLConstructor(IDLMethod):
             or identifier == "Throws"
             or identifier == "Func"
             or identifier == "Pref"
+            or identifier == "UseCounter"
         ):
             IDLMethod.handleExtendedAttribute(self, attr)
         elif identifier == "HTMLConstructor":
