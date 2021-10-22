@@ -27,12 +27,33 @@ var log = DEBUG
     }
   : function log_noop(msg) {};
 
+const inParent =
+  Services.appinfo.processType === Ci.nsIXULRuntime.PROCESS_TYPE_DEFAULT;
+
 function AppsServiceDelegate() {}
 
 AppsServiceDelegate.prototype = {
   classID: Components.ID("{a4a8d542-c877-11ea-81c6-87c0ade42646}"),
   QueryInterface: ChromeUtils.generateQI([Ci.nsIAppsServiceDelegate]),
   _xpcom_factory: ComponentUtils.generateSingletonFactory(AppsServiceDelegate),
+
+  apps_list: new Map(),
+
+  _addOrUpdateAppsList(aManifestUrl, aManifest) {
+    // Will add PWA app into the list only.
+    if (Services.io.newURI(aManifestUrl).host.endsWith(".localhost")) {
+      return;
+    }
+    // A quick check if the manifest is valid.
+    if (!aManifest.start_url && !aManifest.scope) {
+      return;
+    }
+    this.apps_list.set(aManifestUrl, aManifest.scope);
+  },
+
+  _removeFromAppsList(aManifestUrl) {
+    this.apps_list.delete(aManifestUrl);
+  },
 
   _installPermissions(aFeatures, aManifestUrl, aReinstall, aState) {
     try {
@@ -66,13 +87,34 @@ AppsServiceDelegate.prototype = {
     }
   },
 
-  onBoot(aManifestUrl, aFeatures) {
+  getManifestUrlByScopeUrl(aUrl) {
+    if (!inParent) {
+      log("Return call from non-parent process.");
+      return null;
+    }
+    let found = null;
+    this.apps_list.forEach((scope, key, map) => {
+      // If there are multiple scopes for the same origin,
+      // try to match the longer one.
+      if (
+        aUrl.startsWith(scope) &&
+        (!found || scope.length > map[found].length)
+      ) {
+        found = key;
+      }
+    });
+    return found;
+  },
+
+  onBoot(aManifestUrl, aManifest) {
     log(`onBoot: ${aManifestUrl}`);
-    log(aFeatures);
     try {
-      let features = JSON.parse(aFeatures);
+      let manifest = JSON.parse(aManifest);
+      // To compatible with when b2g_features only is passed.
+      let features = manifest.b2g_features || manifest;
       this._installPermissions(features, aManifestUrl, false, "onBoot");
       this._processServiceWorker(aManifestUrl, features, "onBoot");
+      this._addOrUpdateAppsList(aManifestUrl, manifest);
     } catch (e) {
       log(`Error in onBoot: ${e}`);
     }
@@ -84,9 +126,8 @@ AppsServiceDelegate.prototype = {
     ServiceWorkerAssistant.waitForRegistrations();
   },
 
-  onClear(aManifestUrl, aType, aFeatures) {
+  onClear(aManifestUrl, aType, aManifest) {
     log(`onClear: ${aManifestUrl}: clear type: ${aType}`);
-    log(aFeatures);
     switch (aType) {
       case "Browser":
         AppsUtils.clearBrowserData(aManifestUrl);
@@ -99,9 +140,11 @@ AppsServiceDelegate.prototype = {
 
     // clearStorage removes everything stores per origin, re-register service
     // worker to create the cache db back for used by service worker.
-    if (aFeatures) {
+    if (aManifest) {
       try {
-        let features = JSON.parse(aFeatures);
+        let manifest = JSON.parse(aManifest);
+        // To compatible with when b2g_features only is passed.
+        let features = manifest.b2g_features || manifest;
         ServiceWorkerAssistant.register(
           aManifestUrl,
           features,
@@ -113,25 +156,29 @@ AppsServiceDelegate.prototype = {
     }
   },
 
-  onInstall(aManifestUrl, aFeatures) {
+  onInstall(aManifestUrl, aManifest) {
     log(`onInstall: ${aManifestUrl}`);
-    log(aFeatures);
     try {
-      let features = JSON.parse(aFeatures);
+      let manifest = JSON.parse(aManifest);
+      // To compatible with when b2g_features only is passed.
+      let features = manifest.b2g_features || manifest;
       this._installPermissions(features, aManifestUrl, false, "onInstall");
       this._processServiceWorker(aManifestUrl, features, "onInstall");
+      this._addOrUpdateAppsList(aManifestUrl, manifest);
     } catch (e) {
       log(`Error in onInstall: ${e}`);
     }
   },
 
-  onUpdate(aManifestUrl, aFeatures) {
+  onUpdate(aManifestUrl, aManifest) {
     log(`onUpdate: ${aManifestUrl}`);
-    log(aFeatures);
     try {
-      let features = JSON.parse(aFeatures);
+      let manifest = JSON.parse(aManifest);
+      // To compatible with when b2g_features only is passed.
+      let features = manifest.b2g_features || manifest;
       this._installPermissions(features, aManifestUrl, true, "onUpdate");
       this._processServiceWorker(aManifestUrl, features, "onUpdate");
+      this._addOrUpdateAppsList(aManifestUrl, manifest);
     } catch (e) {
       log(`Error in onUpdate: ${e}`);
     }
@@ -143,6 +190,7 @@ AppsServiceDelegate.prototype = {
     this._processServiceWorker(aManifestUrl, undefined, "onUninstall");
     AppsUtils.clearBrowserData(aManifestUrl);
     AppsUtils.clearStorage(aManifestUrl);
+    this._removeFromAppsList(aManifestUrl);
   },
 };
 
