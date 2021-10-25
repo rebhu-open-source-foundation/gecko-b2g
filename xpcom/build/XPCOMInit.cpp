@@ -739,6 +739,8 @@ nsresult ShutdownXPCOM(nsIServiceManager* aServMgr) {
     sInitializedJS = false;
   }
 
+  mozilla::KillClearOnShutdown(ShutdownPhase::JSPostShutDown);
+
   // Release shared memory which might be borrowed by the JS engine.
   xpc::SelfHostedShmem::Shutdown();
 
