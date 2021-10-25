@@ -580,6 +580,14 @@ pref("dom.forms.color", false);
 // fail.
 pref("javascript.options.discardSystemSource", true);
 
+// nsJSEnvironmentObserver observes the memory-pressure notifications and
+// forces a garbage collection and cycle collection when it happens.
+// The preference is false on ANDROID macro, because android already handles
+// `memory-pressure` elsewhere.
+// This overrides the value in StaticPrefs, in the circumstance that gonk defines
+// ANDROID, but should set the value different from android.
+pref("javascript.options.gc_on_memory_pressure", true);
+
 // XXXX REMOVE FOR PRODUCTION. Turns on GC and CC logging
 pref("javascript.options.mem.log", false);
 
