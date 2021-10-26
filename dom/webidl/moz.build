@@ -1012,7 +1012,6 @@ WEBIDL_FILES = [
     "WebActivity.webidl",
     "WebActivityRequestHandler.webidl",
     "WebAuthentication.webidl",
-    "WebComponents.webidl",
     "WebGL2RenderingContext.webidl",
     "WebGLRenderingContext.webidl",
     "WebGPU.webidl",

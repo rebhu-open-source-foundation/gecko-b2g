@@ -200,8 +200,6 @@
 #include "mozilla/gfx/Point.h"
 #include "mozilla/gfx/Rect.h"
 #include "mozilla/gfx/Types.h"
-#include "mozilla/intl/LineBreaker.h"
-#include "mozilla/intl/WordBreaker.h"
 #include "mozilla/ipc/ProtocolUtils.h"
 #include "mozilla/ipc/SharedMemory.h"
 #include "mozilla/ipc/Shmem.h"
@@ -428,8 +426,6 @@ nsIStringBundleService* nsContentUtils::sStringBundleService;
 nsIStringBundle* nsContentUtils::sStringBundles[PropertiesFile_COUNT];
 nsIContentPolicy* nsContentUtils::sContentPolicyService;
 bool nsContentUtils::sTriedToGetContentPolicy = false;
-RefPtr<mozilla::intl::LineBreaker> nsContentUtils::sLineBreaker;
-RefPtr<mozilla::intl::WordBreaker> nsContentUtils::sWordBreaker;
 StaticRefPtr<nsIBidiKeyboard> nsContentUtils::sBidiKeyboard;
 uint32_t nsContentUtils::sScriptBlockerCount = 0;
 uint32_t nsContentUtils::sDOMNodeRemovedSuppressCount = 0;
@@ -774,10 +770,6 @@ nsresult nsContentUtils::Init() {
 
     sIOService = nullptr;
   }
-
-  sLineBreaker = mozilla::intl::LineBreaker::Create();
-
-  sWordBreaker = mozilla::intl::WordBreaker::Create();
 
   if (!InitializeEventTable()) return NS_ERROR_FAILURE;
 
@@ -1907,8 +1899,6 @@ void nsContentUtils::Shutdown() {
   NS_IF_RELEASE(sNullSubjectPrincipal);
   NS_IF_RELEASE(sIOService);
   NS_IF_RELEASE(sUUIDGenerator);
-  sLineBreaker = nullptr;
-  sWordBreaker = nullptr;
   sBidiKeyboard = nullptr;
 
   delete sAtomEventTable;
@@ -9630,16 +9620,14 @@ void nsContentUtils::EnqueueUpgradeReaction(
 /* static */
 void nsContentUtils::EnqueueLifecycleCallback(
     ElementCallbackType aType, Element* aCustomElement,
-    LifecycleCallbackArgs* aArgs,
-    LifecycleAdoptedCallbackArgs* aAdoptedCallbackArgs,
-    CustomElementDefinition* aDefinition) {
+    const LifecycleCallbackArgs& aArgs, CustomElementDefinition* aDefinition) {
   // No DocGroup means no custom element reactions stack.
   if (!aCustomElement->OwnerDoc()->GetDocGroup()) {
     return;
   }
 
-  CustomElementRegistry::EnqueueLifecycleCallback(
-      aType, aCustomElement, aArgs, aAdoptedCallbackArgs, aDefinition);
+  CustomElementRegistry::EnqueueLifecycleCallback(aType, aCustomElement, aArgs,
+                                                  aDefinition);
 }
 
 /* static */
