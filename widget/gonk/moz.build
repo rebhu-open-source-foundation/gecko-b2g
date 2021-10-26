@@ -97,7 +97,6 @@ SOURCES += [
     "nsWindow.cpp",
     "OrientationObserver.cpp",
     "ProcessOrientation.cpp",
-    "ProcInfo.cpp",
     "ScreenHelperGonk.cpp",
 ]
 
