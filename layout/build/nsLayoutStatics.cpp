@@ -129,6 +129,7 @@
 #include "mozilla/css/ImageLoader.h"
 #include "gfxUserFontSet.h"
 #include "RestoreTabContentObserver.h"
+#include "mozilla/intl/nsComplexBreaker.h"
 
 #if defined(MOZ_WIDGET_GONK)
 #  include "nsVolumeService.h"
@@ -302,6 +303,8 @@ nsresult nsLayoutStatics::Initialize() {
 
   RestoreTabContentObserver::Initialize();
 
+  ComplexBreaker::Initialize();
+
   return NS_OK;
 }
 
@@ -418,4 +421,6 @@ void nsLayoutStatics::Shutdown() {
   mozilla::net::UrlClassifierFeatureFactory::Shutdown();
 
   RestoreTabContentObserver::Shutdown();
+
+  ComplexBreaker::Shutdown();
 }

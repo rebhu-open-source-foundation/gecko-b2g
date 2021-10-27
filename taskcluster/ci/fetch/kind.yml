@@ -18,4 +18,5 @@ jobs-from:
     - resource-monitor.yml
     - toolchain-clang-tidy-external.yml
     - toolchains.yml
+    - updatebot.yml
     - visual-metrics.yml
