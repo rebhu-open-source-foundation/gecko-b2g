@@ -840,6 +840,8 @@ void MediaTrackGraphImpl::OpenAudioInputImpl(CubebUtils::AudioDeviceID aID,
         ("%p OpenAudioInput: starting new AudioCallbackDriver(input) %p", this,
          driver));
     SwitchAtNextIteration(driver);
+  } else {
+    ReevaluateInputDevice();
   }
 }
 
@@ -917,6 +919,7 @@ void MediaTrackGraphImpl::CloseAudioInputImpl(CubebUtils::AudioDeviceID aID,
     LOG(LogLevel::Debug,
         ("%p NativeInputTrack %p for device %p still has consumer", this, track,
          aID));
+    ReevaluateInputDevice();
     return;
   }
 
