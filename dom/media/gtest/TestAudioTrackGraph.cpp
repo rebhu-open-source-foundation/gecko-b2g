@@ -732,8 +732,9 @@ TEST(TestAudioTrackGraph, SetRequestedInputChannelCount)
   CubebUtils::ForceSetCubebContext(cubeb->AsCubebContext());
 
   MediaTrackGraph* graph = MediaTrackGraph::GetInstance(
-      MediaTrackGraph::SYSTEM_THREAD_DRIVER, /*window*/ nullptr,
-      MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE, nullptr);
+      MediaTrackGraph::SYSTEM_THREAD_DRIVER, mozilla::dom::AudioChannel::Normal,
+      /*window*/ nullptr, MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE,
+      nullptr);
 
   const CubebUtils::AudioDeviceID deviceId = (void*)1;
 
@@ -806,8 +807,9 @@ TEST(TestAudioTrackGraph, SwitchingDriverIfMaxChannelCountChanged)
   Unused << unforcer;
 
   MediaTrackGraph* graph = MediaTrackGraph::GetInstance(
-      MediaTrackGraph::SYSTEM_THREAD_DRIVER, /*window*/ nullptr,
-      MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE, nullptr);
+      MediaTrackGraph::SYSTEM_THREAD_DRIVER, mozilla::dom::AudioChannel::Normal,
+      /*window*/ nullptr, MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE,
+      nullptr);
 
   const CubebUtils::AudioDeviceID deviceId = (void*)1;
 
