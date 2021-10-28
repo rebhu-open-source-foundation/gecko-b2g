@@ -2666,6 +2666,12 @@ void nsDocShell::StoreWindowNameToSHEntries() {
 
 NS_IMETHODIMP
 nsDocShell::GetInProcessSameTypeParent(nsIDocShellTreeItem** aParent) {
+  // if this is the nsDocShell of a nested web-view, we shall pretend it's the
+  // root to avoid using the info of its parent.
+  if (mBrowsingContext->IsTopContentOfNestedWebView()) {
+    return NS_OK;
+  }
+
   if (BrowsingContext* parentBC = mBrowsingContext->GetParent()) {
     *aParent = do_AddRef(parentBC->GetDocShell()).take();
   }
