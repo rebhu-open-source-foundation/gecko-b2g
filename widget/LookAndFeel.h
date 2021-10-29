@@ -343,6 +343,9 @@ class LookAndFeel {
     /** GTK titlebar radius */
     TitlebarRadius,
 
+    /** GTK menu radius */
+    GtkMenuRadius,
+
     /*
      * Not an ID; used to define the range of valid IDs.  Must be last.
      */
@@ -402,6 +405,9 @@ class LookAndFeel {
 
     // GTK text scale factor.
     TextScaleFactor,
+
+    // Mouse pointer scaling factor.
+    CursorScale,
 
     // Not an ID; used to define the range of valid IDs.  Must be last.
     End,
