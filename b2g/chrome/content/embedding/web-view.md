@@ -83,6 +83,28 @@ All events are CustomEvents, with an event payload specific to each type.
 - `resize` : `{ width: int, height: int}`
 - `scroll` : `{ top: int, left: int}`
 - `securitychange` : `{ state: string, mixedState: string, extendedValidation: boolean, mixedContent: boolean }`
+- `showmodalprompt` : `{ type: string, detail: {} }`
+  - `type` : A custom event named `showmodalprompt`.
+  - `detail` object of the custom event.
+    - `promptType` : string type, refer to `Prompter.jsm`, value could be `alert`, `alertCheck`, `confirm`, `confirmCheck`, `prompt`
+    - `title` : string type, title of dialog.
+    - `text` : string type, text context in dialog.
+    - `unblock` : function, app need to call this function to unblock waiting response after `returnValue` is set. 
+    - `returnValue` : type depends on promptType. app need to fill value correspondingly.
+      +----------------------------+-------------------------------------------------+
+      | prompType                  | returnValue                                     |
+      +============================+=================================================+
+      | `alert`                    | N/A                                             |
+      +----------------------------+-------------------------------------------------+
+      | `alertCheck`               | N/A                                             |
+      +----------------------------+-------------------------------------------------+
+      | `confirm`                  | boolean: true for `OK`, false for `Cancel`.     |
+      +----------------------------+-------------------------------------------------+
+      | `confirmCheck`             | boolean: true for `OK`, false for `Cancel`.     |
+      +----------------------------+-------------------------------------------------+
+      | `prompt`                   | string: user input string.                      |
+      +----------------------------+-------------------------------------------------+
+
 - `titlechange` : `{ title: string }`
 - `visibilitychange` : `{ visible: boolean }`
 - `httponmodifyrequest` : `{ uri: string, host: string }`
