@@ -130,6 +130,8 @@ static uint32_t encodeToPng(FILE *dstFp, uint32_t w, uint32_t h,
 
     /* end write */
     png_write_end(png_ptr, NULL);
+    /* free write and info structure */
+    png_destroy_write_struct(&png_ptr, &info_ptr);
 
     return 0;
 }
