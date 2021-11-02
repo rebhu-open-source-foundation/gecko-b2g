@@ -10,9 +10,9 @@
 #include "MediaEngine.h"
 #include "VideoFrameUtils.h"
 #include "mozilla/media/MediaUtils.h"
-#include "webrtc/modules/video_capture/video_capture_impl.h"
-#include "webrtc/modules/video_capture/video_capture_defines.h"
-#include "webrtc/modules/video_capture/video_capture_factory.h"
+#include "modules/video_capture/video_capture_impl.h"
+#include "modules/video_capture/video_capture_defines.h"
+#include "modules/video_capture/video_capture_factory.h"
 #include <memory>
 #include <functional>
 
@@ -39,7 +39,8 @@ class VideoEngine {
 #if defined(ANDROID) && !defined(MOZ_WIDGET_GONK)
   static int SetAndroidObjects();
 #endif
-  void CreateVideoCapture(int32_t& id, const char* deviceUniqueIdUTF8);
+  // Returns a non-negative capture identifier or -1 on failure.
+  int32_t CreateVideoCapture(const char* deviceUniqueIdUTF8);
 
   int ReleaseVideoCapture(const int32_t id);
 
@@ -88,7 +89,6 @@ class VideoEngine {
   // The validity period for non-camera capture device infos`
   int64_t mExpiryTimeInMs = 0;
   int32_t GenerateId();
-  static int32_t sId;
 };
 }  // namespace camera
 }  // namespace mozilla

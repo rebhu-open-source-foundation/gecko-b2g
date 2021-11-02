@@ -9,7 +9,7 @@
 
 #include "MediaEngineSource.h"
 #include "mozilla/media/CamerasTypes.h"
-#include "webrtc/modules/video_capture/video_capture_defines.h"
+#include "modules/video_capture/video_capture_defines.h"
 
 namespace webrtc {
 using CaptureCapability = VideoCaptureCapability;

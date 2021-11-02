@@ -3917,6 +3917,10 @@ void MediaDecoderStateMachine::SuspendMediaSink() {
   AUTO_PROFILER_LABEL("MediaDecoderStateMachine::SuspendMediaSink",
                       MEDIA_PLAYBACK);
   MOZ_ASSERT(OnTaskQueue());
+  if (mIsMediaSinkSuspended) {
+    return;
+  }
+  LOG("SuspendMediaSink");
   mIsMediaSinkSuspended = true;
   StopMediaSink();
   mMediaSink->Shutdown();
@@ -3936,6 +3940,11 @@ void MediaDecoderStateMachine::ResumeMediaSink() {
   AUTO_PROFILER_LABEL("MediaDecoderStateMachine::ResumeMediaSink",
                       MEDIA_PLAYBACK);
   MOZ_ASSERT(OnTaskQueue());
+  if (!mIsMediaSinkSuspended) {
+    return;
+  }
+  LOG("ResumeMediaSink");
+  MOZ_ASSERT_IF(mMediaSink, !mMediaSink->IsStarted());
   mMediaSink = CreateMediaSink();
   mIsMediaSinkSuspended = false;
   MaybeStartPlayback();

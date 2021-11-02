@@ -9,11 +9,9 @@
 #include <media/stagefright/MediaCodec.h>
 #include <utils/Mutex.h>
 #include <utils/RefBase.h>
+#include "modules/include/module_common_types_public.h"
 
 #include "GonkNativeWindow.h"
-#include "webrtc/api/video/video_frame.h"
-#include "webrtc/common_video/include/video_frame.h"
-#include "webrtc/modules/include/module_common_types_public.h"
 
 namespace android {
 

@@ -12,7 +12,6 @@
 
 #include "common/browser_logging/CSFLog.h"
 #include "OMXCodecWrapper.h"
-#include "webrtc/modules/video_coding/include/video_error_codes.h"
 #include "WebrtcGonkVideoCodec.h"
 
 #undef LOG_TAG

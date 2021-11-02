@@ -432,8 +432,8 @@ AudioPlaybackConfig AudioChannelService::GetMediaConfig(
     }
 
     config.mMuted = config.mMuted || window->GetAudioMuted();
-    if (window->GetMediaSuspend() != nsISuspendedTypes::NONE_SUSPENDED) {
-      config.mSuspend = window->GetMediaSuspend();
+    if (window->ShouldDelayMediaFromStart()) {
+      config.mSuspend = nsISuspendedTypes::SUSPENDED_BLOCK;
     }
 
     nsCOMPtr<nsPIDOMWindowOuter> win =
@@ -1018,7 +1018,7 @@ void AudioChannelService::ChildStatusReceived(uint64_t aChildID,
   data->mActiveContentOrNormalChannel = aContentOrNormalChannel;
 }
 
-void AudioChannelService::NotifyMediaResumedFromBlock(
+void AudioChannelService::NotifyResumingDelayedMedia(
     nsPIDOMWindowOuter* aWindow) {
   MOZ_ASSERT(aWindow);
 
@@ -1033,6 +1033,8 @@ void AudioChannelService::NotifyMediaResumedFromBlock(
   }
 
   winData->NotifyMediaBlockStop(aWindow);
+  // FIXME: don't hardcode audio channel
+  RefreshAgentsSuspend(aWindow, AudioChannel::Normal, nsISuspendedTypes::NONE_SUSPENDED);
 }
 
 /* static */
@@ -1208,8 +1210,7 @@ void AudioChannelService::AudioChannelWindow::MaybeNotifyMediaBlockStart(
     return;
   }
 
-  if (window->GetMediaSuspend() != nsISuspendedTypes::SUSPENDED_BLOCK ||
-      !doc->Hidden()) {
+  if (!window->ShouldDelayMediaFromStart() || !doc->Hidden()) {
     return;
   }
 

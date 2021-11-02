@@ -8,7 +8,6 @@
 #include <utils/RefBase.h>
 
 #include "VideoConduit.h"
-#include "webrtc/modules/include/module_common_types_public.h"
 #include "WebrtcGonkVideoCodec.h"
 
 namespace android {

@@ -8,7 +8,7 @@
 #include "MediaEngineCameraVideoSource.h"
 #include "mozilla/Hal.h"
 #include "mozilla/layers/TextureClientRecycleAllocator.h"
-#include "webrtc/common_video/include/i420_buffer_pool.h"
+#include "common_video/include/i420_buffer_pool.h"
 
 namespace mozilla {
 

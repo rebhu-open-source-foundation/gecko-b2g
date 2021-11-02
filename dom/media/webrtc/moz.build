@@ -64,7 +64,7 @@ if CONFIG["MOZ_WEBRTC"]:
         "/dom/media/webrtc/common/browser_logging",
         "/media/libyuv/libyuv/include",
         "/third_party/libwebrtc",
-        "/third_party/libwebrtc/webrtc",
+        "/third_party/libwebrtc/third_party/abseil-cpp",
     ]
     # Gonk camera source.
     if CONFIG["MOZ_B2G_CAMERA"] and CONFIG["MOZ_WIDGET_TOOLKIT"] == "gonk":
