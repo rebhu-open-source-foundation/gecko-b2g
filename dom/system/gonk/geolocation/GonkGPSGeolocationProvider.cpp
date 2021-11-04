@@ -48,6 +48,12 @@
 #  include "nsPrintfCString.h"
 #endif
 
+#ifdef HAS_KOOST_MODULES
+#  include "nsIGnssMonitor.h"
+#  include "b2g/GnssNmea.h"
+#  include "b2g/GnssSvInfo.h"
+#endif
+
 #undef LOG
 #undef ERR
 #undef DBG
@@ -115,6 +121,11 @@ struct GnssCallback : public IGnssCallback {
   Return<void> gnssLocationCb_2_0(const GnssLocation_V2_0& location) override;
   Return<void> gnssSvStatusCb_2_0(
       const hidl_vec<IGnssCallback::GnssSvInfo>& svInfoList) override;
+
+#ifdef HAS_KOOST_MODULES
+ private:
+  nsCOMPtr<nsIGnssMonitor> mGnssMonitor;
+#endif
 };
 static android::sp<IGnssCallback> gnssCbIface = nullptr;
 
@@ -164,6 +175,11 @@ static const char* kNetworkConnStateChangedTopic =
     "network-connection-state-changed";
 static const char* kPrefRilNumRadioInterfaces = "ril.numRadioInterfaces";
 static const auto kSettingRilDefaultServiceId = u"ril.data.defaultServiceId"_ns;
+#endif
+
+#ifdef HAS_KOOST_MODULES
+static const char* kPrefGnssMonitorEnabled = "geo.gnssMonitor.enabled";
+static bool gGnssMonitorEnabled = false;
 #endif
 
 NS_IMPL_ISUPPORTS(GonkGPSGeolocationProvider::NetworkLocationUpdate,
@@ -494,6 +510,10 @@ GonkGPSGeolocationProvider::Startup() {
   } else {
     ERR("Startup without initialization.");
   }
+
+#ifdef HAS_KOOST_MODULES
+  gGnssMonitorEnabled = Preferences::GetBool(kPrefGnssMonitorEnabled);
+#endif
 
   mStarted = true;
   return NS_OK;
@@ -857,6 +877,24 @@ Return<void> GnssCallback::gnssStatusCb(
       break;
   }
   DBG("%s", msgStream);
+
+#ifdef HAS_KOOST_MODULES
+  if (gGnssMonitorEnabled && !mGnssMonitor) {
+    mGnssMonitor = do_GetService("@mozilla.org/b2g/gnssmonitor;1");
+  }
+  if (mGnssMonitor) {
+    mGnssMonitor->UpdateGnssStatus(
+        static_cast<nsIGnssMonitor::GnssStatusValue>(status));
+
+    if (status == IGnssCallback::GnssStatusValue::SESSION_END) {
+      // clear SvInfo and NMEA when GNSS session is ended
+      nsTArray<RefPtr<nsIGnssSvInfo>> emptySvList;
+      mGnssMonitor->UpdateSvInfo(emptySvList);
+      mGnssMonitor->UpdateNmea(nullptr);
+    }
+  }
+#endif
+
   return Void();
 }
 
@@ -869,6 +907,17 @@ Return<void> GnssCallback::gnssSvStatusCb(
 Return<void> GnssCallback::gnssNmeaCb(
     int64_t timestamp, const ::android::hardware::hidl_string& nmea) {
   DBG("%s: timestamp: %lld", __FUNCTION__, timestamp);
+
+#ifdef HAS_KOOST_MODULES
+  if (gGnssMonitorEnabled && !mGnssMonitor) {
+    mGnssMonitor = do_GetService("@mozilla.org/b2g/gnssmonitor;1");
+  }
+  if (mGnssMonitor) {
+    nsCString msg(nmea.c_str(), nmea.size());
+    mGnssMonitor->UpdateNmea(new b2g::GnssNmea(timestamp, msg));
+  }
+#endif
+
   return Void();
 }
 
@@ -932,6 +981,24 @@ Return<void> GnssCallback::gnssLocationCb_2_0(
 Return<void> GnssCallback::gnssSvStatusCb_2_0(
     const hidl_vec<IGnssCallback::GnssSvInfo>& svInfoList) {
   DBG("%s: numSvs: %u", __FUNCTION__, svInfoList.size());
+
+#ifdef HAS_KOOST_MODULES
+  if (gGnssMonitorEnabled && !mGnssMonitor) {
+    mGnssMonitor = do_GetService("@mozilla.org/b2g/gnssmonitor;1");
+  }
+  if (mGnssMonitor) {
+    nsTArray<RefPtr<nsIGnssSvInfo>> svList;
+    for (const GnssSvInfo& sv : svInfoList) {
+      svList.AppendElement(new b2g::GnssSvInfo(
+          sv.v1_0.svid,
+          static_cast<nsIGnssSvInfo::GnssConstellationType>(sv.constellation),
+          sv.v1_0.cN0Dbhz, sv.v1_0.elevationDegrees, sv.v1_0.azimuthDegrees,
+          sv.v1_0.carrierFrequencyHz, sv.v1_0.svFlag));
+    }
+    mGnssMonitor->UpdateSvInfo(svList);
+  }
+#endif
+
   return Void();
 }
 
