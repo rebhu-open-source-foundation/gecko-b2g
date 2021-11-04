@@ -344,8 +344,10 @@ already_AddRefed<Event> Event::Constructor(EventTarget* aEventTarget,
 }
 
 uint16_t Event::EventPhase() const {
+  // Note, remember to check that this works also
+  // if or when Bug 235441 is fixed.
   if ((mEvent->mCurrentTarget && mEvent->mCurrentTarget == mEvent->mTarget) ||
-      mEvent->mFlags.mInTargetPhase) {
+      mEvent->mFlags.InTargetPhase()) {
     return Event_Binding::AT_TARGET;
   }
   if (mEvent->mFlags.mInCapturePhase) {
@@ -412,7 +414,8 @@ void Event::PreventDefaultInternal(bool aCalledByDefaultHandler,
   }
 
   nsIPrincipal* principal = nullptr;
-  nsCOMPtr<nsINode> node = do_QueryInterface(mEvent->mCurrentTarget);
+  nsCOMPtr<nsINode> node =
+      nsINode::FromEventTargetOrNull(mEvent->mCurrentTarget);
   if (node) {
     principal = node->NodePrincipal();
   } else {
@@ -445,8 +448,7 @@ already_AddRefed<EventTarget> Event::EnsureWebAccessibleRelatedTarget(
     EventTarget* aRelatedTarget) {
   nsCOMPtr<EventTarget> relatedTarget = aRelatedTarget;
   if (relatedTarget) {
-    nsCOMPtr<nsIContent> content = do_QueryInterface(relatedTarget);
-
+    nsIContent* content = nsIContent::FromEventTarget(relatedTarget);
     if (content && content->ChromeOnlyAccess() &&
         !nsContentUtils::CanAccessNativeAnon()) {
       content = content->FindFirstNonChromeOnlyAccessContent();
@@ -624,7 +626,7 @@ CSSIntPoint Event::GetOffsetCoords(nsPresContext* aPresContext,
   if (!aEvent->mTarget) {
     return GetPageCoords(aPresContext, aEvent, aPoint, aDefaultPoint);
   }
-  nsCOMPtr<nsIContent> content = do_QueryInterface(aEvent->mTarget);
+  nsCOMPtr<nsIContent> content = nsIContent::FromEventTarget(aEvent->mTarget);
   if (!content || !aPresContext) {
     return CSSIntPoint();
   }

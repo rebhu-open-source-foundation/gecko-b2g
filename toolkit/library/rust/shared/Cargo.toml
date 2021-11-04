@@ -9,7 +9,7 @@ description = "Shared Rust code for libxul"
 geckoservo = { path = "../../../../servo/ports/geckolib" }
 kvstore = { path = "../../../components/kvstore" }
 lmdb-rkv-sys = { version = "0.11", features = ["mdb_idl_logn_9"] }
-mp4parse_capi = { git = "https://github.com/mozilla/mp4parse-rust", rev = "72eb355ddeada541d7e57dbe5fb60eb5124dea0d", features = ["mp4v", "3gpp", "missing-pixi-permitted"] }
+mp4parse_capi = { git = "https://github.com/mozilla/mp4parse-rust", rev = "a25713781eac774c531af43ba833ef86cb920889", features = ["mp4v", "3gpp", "missing-pixi-permitted"] }
 nserror = { path = "../../../../xpcom/rust/nserror" }
 nsstring = { path = "../../../../xpcom/rust/nsstring" }
 netwerk_helper = { path = "../../../../netwerk/base/rust-helper" }
@@ -23,8 +23,8 @@ cubeb-coreaudio = { git = "https://github.com/mozilla/cubeb-coreaudio-rs", rev =
 cubeb-pulse = { git = "https://github.com/mozilla/cubeb-pulse-rs", rev="9695281319fcb3e40db6a32cc0661548d6192f4d", optional = true, features=["pulse-dlopen"] }
 cubeb-sys = { version = "0.9", optional = true, features=["gecko-in-tree"] }
 encoding_glue = { path = "../../../../intl/encoding_glue" }
-audioipc-client = { git = "https://github.com/mozilla/audioipc-2", rev = "03868a0eaf1d46e895353fa6e1f5bcaf7e588e62", optional = true }
-audioipc-server = { git = "https://github.com/mozilla/audioipc-2", rev = "03868a0eaf1d46e895353fa6e1f5bcaf7e588e62", optional = true }
+audioipc-client = { git = "https://github.com/mozilla/audioipc-2", rev = "470320364f59672c0e1ee60240f2cd15f0e5b52f", optional = true }
+audioipc-server = { git = "https://github.com/mozilla/audioipc-2", rev = "470320364f59672c0e1ee60240f2cd15f0e5b52f", optional = true }
 authenticator = "0.3.1"
 gkrust_utils = { path = "../../../../xpcom/rust/gkrust_utils" }
 gecko_logger = { path = "../../../../xpcom/rust/gecko_logger" }

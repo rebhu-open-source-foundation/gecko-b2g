@@ -359,6 +359,7 @@ LOCAL_INCLUDES += [
     "/docshell/base",
     "/dom/b2g/camera",
     "/dom/base",
+    "/dom/media/webrtc",
     "/layout/generic",
     "/layout/xul",
     "/media/libyuv/libyuv/include",

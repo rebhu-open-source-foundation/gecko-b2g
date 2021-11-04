@@ -1089,14 +1089,12 @@ void WebrtcVideoConduit::UnsetRemoteSSRC(uint32_t ssrc) {
   SetRemoteSSRCAndRestartAsNeeded(our_ssrc, 0);
 }
 
-bool WebrtcVideoConduit::GetRemoteSSRC(uint32_t* aSsrc) const {
+Maybe<Ssrc> WebrtcVideoConduit::GetRemoteSSRC() const {
   MOZ_ASSERT(mCallThread->IsOnCurrentThread());
-  if (!mRecvStream) {
-    return false;
-  }
   // libwebrtc uses 0 to mean a lack of SSRC. That is not to spec.
-  *aSsrc = mRecvStreamConfig.rtp.remote_ssrc;
-  return true;
+  return mRecvStreamConfig.rtp.remote_ssrc == 0
+             ? Nothing()
+             : Some(mRecvStreamConfig.rtp.remote_ssrc);
 }
 
 Maybe<webrtc::VideoReceiveStream::Stats> WebrtcVideoConduit::GetReceiverStats()
@@ -1328,7 +1326,7 @@ void WebrtcVideoConduit::RemoveSink(
 }
 
 MediaConduitErrorCode WebrtcVideoConduit::SendVideoFrame(
-    const webrtc::VideoFrame& frame) {
+    webrtc::VideoFrame aFrame) {
   // XXX Google uses a "timestamp_aligner" to translate timestamps from the
   // camera via TranslateTimestamp(); we should look at doing the same.  This
   // avoids sampling error when capturing frames, but google had to deal with
@@ -1355,18 +1353,18 @@ MediaConduitErrorCode WebrtcVideoConduit::SendVideoFrame(
                   mSendStreamConfig.rtp.ssrcs.front());
 
     bool updateSendResolution = mUpdateSendResolution.exchange(false);
-    if (updateSendResolution || frame.width() != mLastWidth ||
-        frame.height() != mLastHeight) {
+    if (updateSendResolution || aFrame.width() != mLastWidth ||
+        aFrame.height() != mLastHeight) {
       // See if we need to recalculate what we're sending.
       CSFLogVerbose(LOGTAG, "%s: call SelectSendResolution with %ux%u",
-                    __FUNCTION__, frame.width(), frame.height());
-      MOZ_ASSERT(frame.width() != 0 && frame.height() != 0);
+                    __FUNCTION__, aFrame.width(), aFrame.height());
+      MOZ_ASSERT(aFrame.width() != 0 && aFrame.height() != 0);
       // Note coverity will flag this since it thinks they can be 0
       MOZ_ASSERT(mCurSendCodecConfig);
 
-      mLastWidth = frame.width();
-      mLastHeight = frame.height();
-      SelectSendResolution(frame.width(), frame.height());
+      mLastWidth = aFrame.width();
+      mLastHeight = aFrame.height();
+      SelectSendResolution(aFrame.width(), aFrame.height());
     }
 
     // adapt input video to wants of sink
@@ -1375,8 +1373,8 @@ MediaConduitErrorCode WebrtcVideoConduit::SendVideoFrame(
     }
 
     if (!mVideoAdapter->AdaptFrameResolution(
-            frame.width(), frame.height(),
-            frame.timestamp_us() * rtc::kNumNanosecsPerMicrosec, &cropWidth,
+            aFrame.width(), aFrame.height(),
+            aFrame.timestamp_us() * rtc::kNumNanosecsPerMicrosec, &cropWidth,
             &cropHeight, &adaptedWidth, &adaptedHeight)) {
       // VideoAdapter dropped the frame.
       return kMediaConduitNoError;
@@ -1398,13 +1396,13 @@ MediaConduitErrorCode WebrtcVideoConduit::SendVideoFrame(
     return kMediaConduitNoError;
   }
 
-  int cropX = (frame.width() - cropWidth) / 2;
-  int cropY = (frame.height() - cropHeight) / 2;
+  int cropX = (aFrame.width() - cropWidth) / 2;
+  int cropY = (aFrame.height() - cropHeight) / 2;
 
   rtc::scoped_refptr<webrtc::VideoFrameBuffer> buffer;
-  if (adaptedWidth == frame.width() && adaptedHeight == frame.height()) {
+  if (adaptedWidth == aFrame.width() && adaptedHeight == aFrame.height()) {
     // No adaption - optimized path.
-    buffer = frame.video_frame_buffer();
+    buffer = aFrame.video_frame_buffer();
   } else {
     // Adapted I420 frame.
     rtc::scoped_refptr<webrtc::I420Buffer> i420Buffer =
@@ -1413,13 +1411,20 @@ MediaConduitErrorCode WebrtcVideoConduit::SendVideoFrame(
       CSFLogWarn(LOGTAG, "Creating a buffer for scaling failed, pool is empty");
       return kMediaConduitNoError;
     }
-    i420Buffer->CropAndScaleFrom(*frame.video_frame_buffer()->GetI420(), cropX,
+    i420Buffer->CropAndScaleFrom(*aFrame.video_frame_buffer()->GetI420(), cropX,
                                  cropY, cropWidth, cropHeight);
     buffer = i420Buffer;
   }
 
-  mVideoBroadcaster.OnFrame(webrtc::VideoFrame(
-      buffer, frame.timestamp(), frame.render_time_ms(), frame.rotation()));
+  MOZ_ASSERT(!aFrame.color_space(), "Unexpected use of color space");
+  MOZ_ASSERT(!aFrame.has_update_rect(), "Unexpected use of update rect");
+
+  mVideoBroadcaster.OnFrame(webrtc::VideoFrame::Builder()
+                                .set_video_frame_buffer(buffer)
+                                .set_timestamp_us(aFrame.timestamp_us())
+                                .set_timestamp_rtp(aFrame.timestamp())
+                                .set_rotation(aFrame.rotation())
+                                .build());
 
   return kMediaConduitNoError;
 }
@@ -1493,17 +1498,6 @@ void WebrtcVideoConduit::OnRtcpReceived(MediaPacket&& aPacket) {
 
   DeliverPacket(rtc::CopyOnWriteBuffer(aPacket.data(), aPacket.len()),
                 PacketType::RTCP);
-
-  // TODO(bug 1496533): We will need to keep separate timestamps for each SSRC,
-  // and for each SSRC we will need to keep a timestamp for SR and RR.
-  mLastRtcpReceived = Some(GetNow());
-}
-
-// TODO(bug 1496533): We will need to add a type (ie; SR or RR) param here, or
-// perhaps break this function into two functions, one for each type.
-Maybe<DOMHighResTimeStamp> WebrtcVideoConduit::LastRtcpReceived() const {
-  MOZ_ASSERT(mCallThread->IsOnCurrentThread());
-  return mLastRtcpReceived;
 }
 
 Maybe<uint16_t> WebrtcVideoConduit::RtpSendBaseSeqFor(uint32_t aSsrc) const {
@@ -1515,8 +1509,9 @@ Maybe<uint16_t> WebrtcVideoConduit::RtpSendBaseSeqFor(uint32_t aSsrc) const {
   return Some(it->second);
 }
 
-DOMHighResTimeStamp WebrtcVideoConduit::GetNow() const {
-  return mCall->GetNow();
+const dom::RTCStatsTimestampMaker& WebrtcVideoConduit::GetTimestampMaker()
+    const {
+  return mCall->GetTimestampMaker();
 }
 
 void WebrtcVideoConduit::StopTransmitting() {
@@ -1711,7 +1706,7 @@ void WebrtcVideoConduit::OnFrame(const webrtc::VideoFrame& video_frame) {
   }
 
   // Record frame history
-  const auto historyNow = mCall->GetNow();
+  const auto historyNow = mCall->GetTimestampMaker().GetNow();
   if (needsNewHistoryElement) {
     dom::RTCVideoFrameHistoryEntryInternal frameHistoryElement;
     frameHistoryElement.mConsecutiveFrames = 0;

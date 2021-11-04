@@ -4762,9 +4762,6 @@ void HTMLMediaElement::GetEventTargetParent(EventChainPreVisitor& aVisitor) {
     return;
   }
 
-  HTMLInputElement* el = nullptr;
-  nsCOMPtr<nsINode> node;
-
   // We will need to trap pointer, touch, and mouse events within the media
   // element, allowing media control exclusive consumption on these events,
   // and preventing the content from handling them.
@@ -4786,12 +4783,17 @@ void HTMLMediaElement::GetEventTargetParent(EventChainPreVisitor& aVisitor) {
     // The *move events however are only comsumed when the range input is being
     // dragged.
     case ePointerMove:
-    case eMouseMove:
-      node = do_QueryInterface(aVisitor.mEvent->mOriginalTarget);
+    case eMouseMove: {
+      nsINode* node =
+          nsINode::FromEventTargetOrNull(aVisitor.mEvent->mOriginalTarget);
+      if (MOZ_UNLIKELY(!node)) {
+        return;
+      }
+      HTMLInputElement* el = nullptr;
       if (node->IsInNativeAnonymousSubtree() || node->IsInUAWidget()) {
         if (node->IsHTMLElement(nsGkAtoms::input)) {
           // The node is a <input type="range">
-          el = static_cast<HTMLInputElement*>(node.get());
+          el = static_cast<HTMLInputElement*>(node);
         } else if (node->GetParentNode() &&
                    node->GetParentNode()->IsHTMLElement(nsGkAtoms::input)) {
           // The node is a child of <input type="range">
@@ -4804,7 +4806,7 @@ void HTMLMediaElement::GetEventTargetParent(EventChainPreVisitor& aVisitor) {
       }
       nsGenericHTMLElement::GetEventTargetParent(aVisitor);
       return;
-
+    }
     default:
       nsGenericHTMLElement::GetEventTargetParent(aVisitor);
       return;

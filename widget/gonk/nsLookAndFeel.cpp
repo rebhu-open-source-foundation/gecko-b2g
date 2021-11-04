@@ -54,38 +54,6 @@ nsresult nsLookAndFeel::NativeGetColor(ColorID aID, ColorScheme,
       // These colors don't seem to be used for anything anymore in Mozilla
       // (except here at least TextSelectBackground and TextSelectForeground)
       // The CSS2 colors below are used.
-    case ColorID::WindowBackground:
-      aColor = BASE_NORMAL_COLOR;
-      break;
-    case ColorID::WindowForeground:
-      aColor = TEXT_NORMAL_COLOR;
-      break;
-    case ColorID::WidgetBackground:
-      aColor = BG_NORMAL_COLOR;
-      break;
-    case ColorID::WidgetForeground:
-      aColor = FG_NORMAL_COLOR;
-      break;
-    case ColorID::WidgetSelectBackground:
-      aColor = BG_SELECTED_COLOR;
-      break;
-    case ColorID::WidgetSelectForeground:
-      aColor = FG_SELECTED_COLOR;
-      break;
-    case ColorID::Widget3DHighlight:
-      aColor = NS_RGB(0xa0, 0xa0, 0xa0);
-      break;
-    case ColorID::Widget3DShadow:
-      aColor = NS_RGB(0x40, 0x40, 0x40);
-      break;
-    case ColorID::TextBackground:
-      // not used?
-      aColor = BASE_NORMAL_COLOR;
-      break;
-    case ColorID::TextForeground:
-      // not used?
-      aColor = TEXT_NORMAL_COLOR;
-      break;
     case ColorID::IMESelectedRawTextBackground:
     case ColorID::IMESelectedConvertedTextBackground:
       // still used

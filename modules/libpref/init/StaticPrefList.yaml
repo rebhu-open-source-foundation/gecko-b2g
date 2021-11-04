@@ -4602,6 +4602,22 @@
   value: 2592000   # 30 days (in seconds)
   mirror: always
 
+# Time in seconds before a site are considered high-value by the login detection
+# service is no longer considered high-value and isolated in the "highValueHasSavedLogin"
+# or "highValueIsLoggedIn" configuration.
+- name: fission.highValue.login.expiration
+  type: uint32_t
+  value: 2592000   # 30 days (in seconds)
+  mirror: always
+
+# If true, capture login attemp, and add "highValueIsLoggedIn" permission to
+# the permission manager no matter whether fission is enabled and
+# WebContentIsolationStrateg is set to IsolateHighvalue.
+- name: fission.highValue.login.monitor
+  type: bool
+  value: false
+  mirror: always
+
 #---------------------------------------------------------------------------
 # Prefs starting with "font."
 #---------------------------------------------------------------------------
@@ -5547,6 +5563,15 @@
 - name: gfx.webrender.blob-tile-size
   type: uint32_t
   value: 256
+  mirror: always
+
+- name: gfx.webrender.batched-upload-threshold
+  type: int32_t
+#if defined(MOZ_WIDGET_ANDROID)
+  value: 262144
+#else
+  value: 65536
+#endif
   mirror: always
 
 - name: gfx.webrender.compositor
@@ -7085,7 +7110,7 @@
 # Whether the `color-scheme` css property and meta tags are enabled.
 - name: layout.css.color-scheme.enabled
   type: RelaxedAtomicBool
-  value: @EARLY_BETA_OR_EARLIER@
+  value: @IS_EARLY_BETA_OR_EARLIER@
   mirror: always
   rust: true
 
@@ -7131,6 +7156,12 @@
 - name: layout.css.computed-style.new-invalid-pseudo-element-behavior
   type: bool
   value: true
+  mirror: always
+
+# Whether we should expose all shorthands in getComputedStyle().
+- name: layout.css.computed-style.shorthands
+  type: bool
+  value: false
   mirror: always
 
 # Are implicit tracks in computed grid templates serialized?
@@ -7412,7 +7443,7 @@
 # Enables support for the size property inside of CSS @page rules.
 - name: layout.css.page-size.enabled
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
   rust: true
 
@@ -12387,7 +12418,7 @@
 
 - name: widget.windows.window_occlusion_tracking.enabled
   type: bool
-  value: @IS_NIGHTLY_BUILD@
+  value: false
   mirror: always
 
 - name: widget.windows.window_occlusion_tracking_display_state.enabled
