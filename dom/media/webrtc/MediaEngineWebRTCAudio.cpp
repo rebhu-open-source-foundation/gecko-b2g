@@ -497,9 +497,10 @@ AudioInputProcessing::AudioInputProcessing(
       mRequestedInputChannelCount(aMaxChannelCount),
       mSkipProcessing(false),
 #ifdef B2G_VOICE_PROCESSING
-      mEnableAec(false),
-      mEnableAgc(false),
-      mEnableNs(false),
+      mIsVoiceInput(false),
+      mEnableGonkAec(false),
+      mEnableGonkAgc(false),
+      mEnableGonkNs(false),
 #endif
       mInputDownmixBuffer(MAX_SAMPLING_FREQ * MAX_CHANNELS / 100),
       mLiveBufferingAppended(Nothing()),
@@ -948,7 +949,37 @@ void AudioInputProcessing::DeviceChanged(MediaTrackGraphImpl* aGraph) {
 void AudioInputProcessing::ApplyConfig(MediaTrackGraphImpl* aGraph,
                                        const AudioProcessing::Config& aConfig) {
   MOZ_ASSERT(aGraph->OnGraphThread());
+#ifdef B2G_VOICE_PROCESSING
+  // Make a copy of |aConfig| since it is const and we need to overwrite its
+  // settings.
+  AudioProcessing::Config config(aConfig);
+
+  mIsVoiceInput =
+      config.echo_canceller.enabled || config.gain_controller1.enabled ||
+      config.gain_controller2.enabled || config.noise_suppression.enabled;
+
+  // If any of the voice processing is enabled by the config and it is supported
+  // by Gonk audio framework (usually a hardware feature), then disable its
+  // setting in the config and let Gonk platforma handle it.
+  if (CubebUtils::IsAecSupported()) {
+    mEnableGonkAec = config.echo_canceller.enabled;
+    config.echo_canceller.enabled = false;
+  }
+  if (CubebUtils::IsAgcSupported()) {
+    mEnableGonkAgc =
+        config.gain_controller1.enabled || config.gain_controller2.enabled;
+    config.gain_controller1.enabled = false;
+    config.gain_controller2.enabled = false;
+  }
+  if (CubebUtils::IsNsSupported()) {
+    mEnableGonkNs = config.noise_suppression.enabled;
+    config.noise_suppression.enabled = false;
+  }
+
+  mAudioProcessing->ApplyConfig(config);
+#else
   mAudioProcessing->ApplyConfig(aConfig);
+#endif
 }
 
 void AudioInputProcessing::End() {

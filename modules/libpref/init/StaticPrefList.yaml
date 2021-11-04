@@ -9168,6 +9168,13 @@
 #endif
   mirror: always
 
+#if defined(MOZ_WIDGET_GONK)
+-   name: media.webrtc.hw.vpx.enabled
+    type: bool
+    value: true
+    mirror: always
+#endif
+
  # If true, then we require explicit approval from the embedding app (ex. Fenix)
  # on GeckoView to know if we can allow audible, inaudible media or both kinds
  # of media to autoplay.

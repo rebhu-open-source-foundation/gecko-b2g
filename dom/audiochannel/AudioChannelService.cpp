@@ -1033,8 +1033,11 @@ void AudioChannelService::NotifyResumingDelayedMedia(
   }
 
   winData->NotifyMediaBlockStop(aWindow);
-  // FIXME: don't hardcode audio channel
-  RefreshAgentsSuspend(aWindow, AudioChannel::Normal, nsISuspendedTypes::NONE_SUSPENDED);
+  // B2G audio channel should be always controlled by system app.
+#ifndef MOZ_WIDGET_GONK
+  RefreshAgentsSuspend(aWindow, AudioChannel::Normal,
+                       nsISuspendedTypes::NONE_SUSPENDED);
+#endif
 }
 
 /* static */

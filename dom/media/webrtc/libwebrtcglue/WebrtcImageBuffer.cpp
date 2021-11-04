@@ -54,14 +54,12 @@ rtc::scoped_refptr<webrtc::I420BufferInterface> ImageBuffer::GrallocToI420() {
       new rtc::RefCountedObject<GraphicBufferHolder>(graphicBuffer));
   MOZ_ASSERT(ycbcr.chroma_step == 1);
 
-  rtc::scoped_refptr<webrtc::I420BufferInterface> buf(
-      new rtc::RefCountedObject<webrtc::WrappedI420Buffer>(
-          graphicBuffer->getWidth(), graphicBuffer->getHeight(),
-          static_cast<uint8_t*>(ycbcr.y), ycbcr.ystride,
-          static_cast<uint8_t*>(ycbcr.cb), ycbcr.cstride,
-          static_cast<uint8_t*>(ycbcr.cr), ycbcr.cstride,
-          rtc::KeepRefUntilDone(holder)));
-  return buf;
+  return webrtc::WrapI420Buffer(graphicBuffer->getWidth(),
+                                graphicBuffer->getHeight(),
+                                static_cast<uint8_t*>(ycbcr.y), ycbcr.ystride,
+                                static_cast<uint8_t*>(ycbcr.cb), ycbcr.cstride,
+                                static_cast<uint8_t*>(ycbcr.cr), ycbcr.cstride,
+                                rtc::KeepRefUntilDone(holder));
 }
 #endif
 

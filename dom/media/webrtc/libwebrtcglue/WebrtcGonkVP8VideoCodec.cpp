@@ -54,10 +54,8 @@ int32_t WebrtcGonkVP8VideoDecoder::InitDecode(
 
 int32_t WebrtcGonkVP8VideoDecoder::Decode(
     const webrtc::EncodedImage& aInputImage, bool aMissingFrames,
-    const webrtc::RTPFragmentationHeader* aFragmentation,
-    const webrtc::CodecSpecificInfo* aCodecSpecificInfo,
     int64_t aRenderTimeMs) {
-  if (aInputImage._length == 0 || !aInputImage._buffer) {
+  if (aInputImage.size() == 0 || !aInputImage.data()) {
     LOGW("Decoder:%p empty input data, dropping", this);
     return WEBRTC_VIDEO_CODEC_ERROR;
   }

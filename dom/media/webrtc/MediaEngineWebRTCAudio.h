@@ -144,7 +144,7 @@ class AudioInputProcessing : public AudioDataListener {
     // If platform voice processing is available, we should not use
     // PassThrough() to check if it's voice input, because PassThrough() only
     // indicates whether software voice processing is disabled or not.
-    return mEnableAec || mEnableAgc || mEnableNs;
+    return mIsVoiceInput;
 #else
     // If we're passing data directly without AEC or any other process, this
     // means that all voice-processing has been disabled intentionaly. In this
@@ -167,9 +167,9 @@ class AudioInputProcessing : public AudioDataListener {
 #ifdef B2G_VOICE_PROCESSING
   void GetVoiceInputSettings(MediaTrackGraphImpl* aGraph, bool* aEnableAec,
                              bool* aEnableAgc, bool* aEnableNs) override {
-    *aEnableAec = mEnableAec;
-    *aEnableAgc = mEnableAgc;
-    *aEnableNs = mEnableNs;
+    *aEnableAec = mEnableGonkAec;
+    *aEnableAgc = mEnableGonkAgc;
+    *aEnableNs = mEnableGonkNs;
   }
 #endif
 
@@ -222,9 +222,10 @@ class AudioInputProcessing : public AudioDataListener {
   bool mSkipProcessing;
 
 #ifdef B2G_VOICE_PROCESSING
-  bool mEnableAec;
-  bool mEnableAgc;
-  bool mEnableNs;
+  bool mIsVoiceInput;
+  bool mEnableGonkAec;
+  bool mEnableGonkAgc;
+  bool mEnableGonkNs;
 #endif
 
   // Stores the mixed audio output for the reverse-stream of the AEC (the

@@ -24,33 +24,26 @@ class WebrtcGonkH264VideoEncoder
  public:
   WebrtcGonkH264VideoEncoder();
 
-  virtual ~WebrtcGonkH264VideoEncoder();
+  ~WebrtcGonkH264VideoEncoder();
 
-  // Implement VideoEncoder interface.
-  virtual uint64_t PluginID() const override { return 0; }
+  int32_t InitEncode(const webrtc::VideoCodec* aCodecSettings,
+                     int32_t aNumOfCores, size_t aMaxPayloadSize) override;
 
-  virtual int32_t InitEncode(const webrtc::VideoCodec* aCodecSettings,
-                             int32_t aNumOfCores,
-                             size_t aMaxPayloadSize) override;
-
-  virtual int32_t Encode(
+  int32_t Encode(
       const webrtc::VideoFrame& aInputImage,
-      const webrtc::CodecSpecificInfo* aCodecSpecificInfo,
-      const std::vector<webrtc::FrameType>* aFrameTypes) override;
+      const std::vector<webrtc::VideoFrameType>* aFrameTypes) override;
 
-  virtual int32_t RegisterEncodeCompleteCallback(
+  int32_t RegisterEncodeCompleteCallback(
       webrtc::EncodedImageCallback* aCallback) override;
 
-  virtual int32_t Release() override;
+  int32_t Release() override;
 
-  virtual int32_t SetChannelParameters(uint32_t aPacketLossRate,
-                                       int64_t aRoundTripTimeMs) override;
+  void SetRates(
+      const webrtc::VideoEncoder::RateControlParameters& aParameters) override;
 
-  virtual int32_t SetRates(uint32_t aBitRate, uint32_t aFrameRate) override;
+  webrtc::VideoEncoder::EncoderInfo GetEncoderInfo() const override;
 
-  virtual bool SupportsNativeHandle() const override { return true; }
-
-  virtual void OnEncoded(webrtc::EncodedImage& aEncodedImage) override;
+  void OnEncoded(webrtc::EncodedImage& aEncodedImage) override;
 
  private:
   android::sp<android::WebrtcGonkVideoEncoder> mEncoder;
@@ -59,10 +52,10 @@ class WebrtcGonkH264VideoEncoder
   webrtc::EncodedImageCallback* mCallback = nullptr;
   uint32_t mWidth = 0;
   uint32_t mHeight = 0;
-  uint32_t mFrameRate = 0;
-  uint32_t mBitRateKbps = 0;
+  double mFrameRate = 0;
+  uint32_t mBitrateBps = 0;
 #ifdef OMX_IDR_NEEDED_FOR_BITRATE
-  uint32_t mBitRateAtLastIDR = 0;
+  uint32_t mBitrateAtLastIDR = 0;
   TimeStamp mLastIDRTime;
 #endif
   bool mOMXConfigured = false;
@@ -75,24 +68,24 @@ class WebrtcGonkH264VideoDecoder
  public:
   WebrtcGonkH264VideoDecoder();
 
-  virtual ~WebrtcGonkH264VideoDecoder();
+  ~WebrtcGonkH264VideoDecoder();
 
-  // Implement VideoDecoder interface.
-  virtual uint64_t PluginID() const override { return 0; }
+  int32_t InitDecode(const webrtc::VideoCodec* aCodecSettings,
+                     int32_t aNumOfCores) override;
 
-  virtual int32_t InitDecode(const webrtc::VideoCodec* aCodecSettings,
-                             int32_t aNumOfCores) override;
-  virtual int32_t Decode(
-      const webrtc::EncodedImage& aInputImage, bool aMissingFrames,
-      const webrtc::RTPFragmentationHeader* aFragmentation,
-      const webrtc::CodecSpecificInfo* aCodecSpecificInfo = nullptr,
-      int64_t aRenderTimeMs = -1) override;
-  virtual int32_t RegisterDecodeCompleteCallback(
-      webrtc::DecodedImageCallback* callback) override;
+  int32_t Decode(const webrtc::EncodedImage& aInputImage, bool aMissingFrames,
+                 int64_t aRenderTimeMs = -1) override;
 
-  virtual int32_t Release() override;
+  int32_t RegisterDecodeCompleteCallback(
+      webrtc::DecodedImageCallback* aCallback) override;
 
-  virtual void OnDecoded(webrtc::VideoFrame& aVideoFrame) override {
+  int32_t Release() override;
+
+  bool PrefersLateDecoding() const override { return true; }
+
+  const char* ImplementationName() const override { return "Gonk"; }
+
+  void OnDecoded(webrtc::VideoFrame& aVideoFrame) override {
     if (mCallback) {
       mCallback->Decoded(aVideoFrame);
     }

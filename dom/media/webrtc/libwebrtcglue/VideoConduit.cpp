@@ -922,16 +922,6 @@ void WebrtcVideoConduit::CreateSendStream() {
   Telemetry::ScalarAdd(Telemetry::ScalarID::WEBRTC_VIDEO_SEND_CODEC_USED,
                        codecName, 1);
 
-// FIXME: Gonk support
-#ifdef MOZ_WIDGET_GONK__
-  // Allow 100% encoding time utilization for HW encoders. This can avoid
-  // unnecessary image scaling down caused by incorrectly detecting CPU
-  // overusing on HW encoders.
-  if (encoder->SupportsNativeHandle()) {
-    mSendStreamConfig.encoder_settings.full_overuse_time = true;
-  }
-#endif
-
   mSendStreamConfig.encoder_settings.encoder_factory = mEncoderFactory.get();
   mSendStreamConfig.encoder_settings.bitrate_allocator_factory =
       mCall->mVideoBitrateAllocatorFactory.get();

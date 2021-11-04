@@ -61,7 +61,7 @@ int32_t WebrtcGonkH264VideoEncoder::InitEncode(
   mWidth = aCodecSettings->width;
   mHeight = aCodecSettings->height;
   mFrameRate = aCodecSettings->maxFramerate;
-  mBitRateKbps = aCodecSettings->startBitrate;
+  mBitrateBps = aCodecSettings->startBitrate * 1000;
   // XXX handle maxpayloadsize (aka mode 0/1)
 
   return WEBRTC_VIDEO_CODEC_OK;
@@ -69,8 +69,7 @@ int32_t WebrtcGonkH264VideoEncoder::InitEncode(
 
 int32_t WebrtcGonkH264VideoEncoder::Encode(
     const webrtc::VideoFrame& aInputImage,
-    const webrtc::CodecSpecificInfo* aCodecSpecificInfo,
-    const std::vector<webrtc::FrameType>* aFrameTypes) {
+    const std::vector<webrtc::VideoFrameType>* aFrameTypes) {
   MOZ_ASSERT(mEncoder);
 
   // Have to reconfigure for resolution or framerate changes :-(
@@ -124,10 +123,10 @@ int32_t WebrtcGonkH264VideoEncoder::Encode(
     format->setInt32("stride", mWidth);
     format->setInt32("slice-height", mHeight);
     format->setInt32("frame-rate", mFrameRate);
-    format->setInt32("bitrate", mBitRateKbps * 1000);
+    format->setInt32("bitrate", mBitrateBps);
 
-    LOGI("Encoder:%p configuring %dx%d @ %d fps, rate %d kbps", this, mWidth,
-         mHeight, mFrameRate, mBitRateKbps);
+    LOGI("Encoder:%p configuring %dx%d @ %d fps, rate %d bps", this, mWidth,
+         mHeight, mFrameRate, mBitrateBps);
     if (mEncoder->Configure(format) != android::OK) {
       LOGE("Encoder:%p failed to configure", this);
       return WEBRTC_VIDEO_CODEC_ERROR;
@@ -135,17 +134,17 @@ int32_t WebrtcGonkH264VideoEncoder::Encode(
     mOMXConfigured = true;
 #ifdef OMX_IDR_NEEDED_FOR_BITRATE
     mLastIDRTime = TimeStamp::Now();
-    mBitRateAtLastIDR = mBitRateKbps;
+    mBitrateAtLastIDR = mBitrateBps;
 #endif
   }
 
   if (aFrameTypes && aFrameTypes->size() &&
-      ((*aFrameTypes)[0] == webrtc::kVideoFrameKey)) {
+      ((*aFrameTypes)[0] == webrtc::VideoFrameType::kVideoFrameKey)) {
     mEncoder->RequestIDRFrame();
 #ifdef OMX_IDR_NEEDED_FOR_BITRATE
     mLastIDRTime = TimeStamp::Now();
-    mBitRateAtLastIDR = mBitRateKbps;
-  } else if (mBitRateKbps != mBitRateAtLastIDR) {
+    mBitrateAtLastIDR = mBitrateBps;
+  } else if (mBitrateBps != mBitrateAtLastIDR) {
     // 8x10 OMX codec requires a keyframe to shift bitrates!
     TimeStamp now = TimeStamp::Now();
     if (mLastIDRTime.IsNull()) {
@@ -161,26 +160,26 @@ int32_t WebrtcGonkH264VideoEncoder::Encode(
     // errors if you go too long without an IDR.  In normal use, bitrate will
     // change often enough to never hit this time limit.
     if ((timeSinceLastIDR > 3000) ||
-        (mBitRateKbps < (mBitRateAtLastIDR * 8) / 10) ||
+        (mBitrateBps < (mBitrateAtLastIDR * 8) / 10) ||
         (timeSinceLastIDR < 300 &&
-         mBitRateKbps < (mBitRateAtLastIDR * 9) / 10) ||
+         mBitrateBps < (mBitrateAtLastIDR * 9) / 10) ||
         (timeSinceLastIDR < 1000 &&
-         mBitRateKbps < (mBitRateAtLastIDR * 97) / 100) ||
-        (timeSinceLastIDR >= 1000 && mBitRateKbps < mBitRateAtLastIDR) ||
-        (mBitRateKbps > (mBitRateAtLastIDR * 15) / 10) ||
+         mBitrateBps < (mBitrateAtLastIDR * 97) / 100) ||
+        (timeSinceLastIDR >= 1000 && mBitrateBps < mBitrateAtLastIDR) ||
+        (mBitrateBps > (mBitrateAtLastIDR * 15) / 10) ||
         (timeSinceLastIDR < 500 &&
-         mBitRateKbps > (mBitRateAtLastIDR * 13) / 10) ||
+         mBitrateBps > (mBitrateAtLastIDR * 13) / 10) ||
         (timeSinceLastIDR < 1000 &&
-         mBitRateKbps > (mBitRateAtLastIDR * 11) / 10) ||
-        (timeSinceLastIDR >= 1000 && mBitRateKbps > mBitRateAtLastIDR)) {
+         mBitrateBps > (mBitrateAtLastIDR * 11) / 10) ||
+        (timeSinceLastIDR >= 1000 && mBitrateBps > mBitrateAtLastIDR)) {
       LOGI(
           "Requesting IDR for bitrate change from %u to %u (time since last "
           "IDR %d ms)",
-          mBitRateAtLastIDR, mBitRateKbps, timeSinceLastIDR);
+          mBitrateAtLastIDR, mBitrateBps, timeSinceLastIDR);
 
       mEncoder->RequestIDRFrame();
       mLastIDRTime = now;
-      mBitRateAtLastIDR = mBitRateKbps;
+      mBitrateAtLastIDR = mBitrateBps;
     }
 #endif
   }
@@ -202,42 +201,12 @@ int32_t WebrtcGonkH264VideoEncoder::RegisterEncodeCompleteCallback(
 
 void WebrtcGonkH264VideoEncoder::OnEncoded(
     webrtc::EncodedImage& aEncodedImage) {
-  struct nal_entry {
-    uint32_t offset;
-    uint32_t size;
-  };
-  AutoTArray<nal_entry, 1> nals;
-
-  // Break input encoded data into NALUs and send each one to callback.
-  const uint8_t* data = aEncodedImage._buffer;
-  size_t size = aEncodedImage._length;
-  const uint8_t* nalStart = nullptr;
-  size_t nalSize = 0;
-  while (android::getNextNALUnit(&data, &size, &nalStart, &nalSize, true) ==
-         android::OK) {
-    // XXX optimize by making buffer an offset
-    nal_entry nal = {((uint32_t)(nalStart - aEncodedImage._buffer)),
-                     (uint32_t)nalSize};
-    nals.AppendElement(nal);
-  }
-
-  size_t num_nals = nals.Length();
-  if (num_nals > 0) {
-    webrtc::RTPFragmentationHeader fragmentation;
-    fragmentation.VerifyAndAllocateFragmentationHeader(num_nals);
-    for (size_t i = 0; i < num_nals; i++) {
-      fragmentation.fragmentationOffset[i] = nals[i].offset;
-      fragmentation.fragmentationLength[i] = nals[i].size;
-    }
-    webrtc::EncodedImage unit(aEncodedImage);
-    unit._completeFrame = true;
-
+  if (mCallback) {
     webrtc::CodecSpecificInfo info;
     info.codecType = webrtc::kVideoCodecH264;
     info.codecSpecific.H264.packetization_mode =
         webrtc::H264PacketizationMode::NonInterleaved;
-
-    mCallback->OnEncodedImage(unit, &info, &fragmentation);
+    mCallback->OnEncodedImage(aEncodedImage, &info);
   }
 }
 
@@ -258,23 +227,14 @@ WebrtcGonkH264VideoEncoder::~WebrtcGonkH264VideoEncoder() {
   Release();
 }
 
-// Inform the encoder of the new packet loss rate and the round-trip time of
-// the network. aPacketLossRate is fraction lost and can be 0~255
-// (255 means 100% lost).
-// Note: stagefright doesn't handle these parameters.
-int32_t WebrtcGonkH264VideoEncoder::SetChannelParameters(
-    uint32_t aPacketLossRate, int64_t aRoundTripTimeMs) {
-  LOGD("Encoder:%p set channel packet loss:%u, rtt:%" PRIi64, this,
-       aPacketLossRate, aRoundTripTimeMs);
-
-  return WEBRTC_VIDEO_CODEC_OK;
-}
-
 // TODO: Bug 997567. Find the way to support frame rate change.
-int32_t WebrtcGonkH264VideoEncoder::SetRates(uint32_t aBitRateKbps,
-                                             uint32_t aFrameRate) {
-  LOGI("Encoder:%p set bitrate:%u, frame rate:%u (%u))", this, aBitRateKbps,
-       aFrameRate, mFrameRate);
+void WebrtcGonkH264VideoEncoder::SetRates(
+    const webrtc::VideoEncoder::RateControlParameters& aParameters) {
+  const double frameRate = aParameters.framerate_fps;
+  const uint32_t bitrateBps = aParameters.bitrate.GetBitrate(0, 0);
+
+  LOGI("Encoder:%p set bitrate:%u, frame rate:%f (%f)", this, bitrateBps,
+       frameRate, mFrameRate);
   MOZ_ASSERT(mEncoder);
 
   // XXX Should use StageFright framerate change, perhaps only on major changes
@@ -288,20 +248,20 @@ int32_t WebrtcGonkH264VideoEncoder::SetRates(uint32_t aBitRateKbps,
   //   change config to next step up that includes current framerate
   // }
 #if !defined(TEST_OMX_FRAMERATE_CHANGES)
-  if (aFrameRate > mFrameRate || aFrameRate < mFrameRate / 2) {
+  if (frameRate > mFrameRate || frameRate < mFrameRate / 2) {
     uint32_t old_rate = mFrameRate;
-    if (aFrameRate >= 15) {
+    if (frameRate >= 15) {
       mFrameRate = 30;
-    } else if (aFrameRate >= 10) {
+    } else if (frameRate >= 10) {
       mFrameRate = 20;
-    } else if (aFrameRate >= 8) {
+    } else if (frameRate >= 8) {
       mFrameRate = 15;
-    } else /* if (aFrameRate >= 5)*/ {
+    } else /* if (frameRate >= 5)*/ {
       // don't go lower; encoder may not be stable
       mFrameRate = 10;
     }
-    if (mFrameRate < aFrameRate) {  // safety
-      mFrameRate = aFrameRate;
+    if (mFrameRate < frameRate) {  // safety
+      mFrameRate = frameRate;
     }
     if (old_rate != mFrameRate) {
       mOMXReconfigure = true;  // force re-configure on next frame
@@ -309,17 +269,26 @@ int32_t WebrtcGonkH264VideoEncoder::SetRates(uint32_t aBitRateKbps,
   }
 #else
   // XXX for testing, be wild!
-  if (aFrameRate != mFrameRate) {
-    mFrameRate = aFrameRate;
+  if (frameRate != mFrameRate) {
+    mFrameRate = frameRate;
     mOMXReconfigure = true;  // force re-configure on next frame
   }
 #endif
 
-  mBitRateKbps = aBitRateKbps;
-  if (mEncoder->SetBitrate(mBitRateKbps) != android::OK) {
-    return WEBRTC_VIDEO_CODEC_ERROR;
-  }
-  return WEBRTC_VIDEO_CODEC_OK;
+  mBitrateBps = bitrateBps;
+  mEncoder->SetBitrate(mBitrateBps);
+}
+
+webrtc::VideoEncoder::EncoderInfo WebrtcGonkH264VideoEncoder::GetEncoderInfo()
+    const {
+  webrtc::VideoEncoder::EncoderInfo info;
+  info.requested_resolution_alignment = 2;
+  info.supports_native_handle = true;
+  info.implementation_name = "Gonk";
+  info.is_hardware_accelerated = true;
+  info.has_internal_source = false;
+  info.supports_simulcast = false;
+  return info;
 }
 
 // Decoder.
@@ -350,10 +319,8 @@ int32_t WebrtcGonkH264VideoDecoder::InitDecode(
 
 int32_t WebrtcGonkH264VideoDecoder::Decode(
     const webrtc::EncodedImage& aInputImage, bool aMissingFrames,
-    const webrtc::RTPFragmentationHeader* aFragmentation,
-    const webrtc::CodecSpecificInfo* aCodecSpecificInfo,
     int64_t aRenderTimeMs) {
-  if (aInputImage._length == 0 || !aInputImage._buffer) {
+  if (aInputImage.size() == 0 || !aInputImage.data()) {
     LOGW("Decoder:%p empty input data, dropping", this);
     return WEBRTC_VIDEO_CODEC_ERROR;
   }
@@ -361,18 +328,18 @@ int32_t WebrtcGonkH264VideoDecoder::Decode(
   if (!mCodecConfigSubmitted) {
     using android::ABuffer;
     int32_t width, height;
-    sp<ABuffer> au = new ABuffer(aInputImage._buffer, aInputImage._length);
+    sp<ABuffer> au =
+        ABuffer::CreateAsCopy(aInputImage.data(), aInputImage.size());
     sp<ABuffer> csd = android::MakeAVCCodecSpecificData(au, &width, &height);
     if (!csd) {
       LOGW("Decoder:%p missing codec config, dropping", this);
       return WEBRTC_VIDEO_CODEC_ERROR;
     }
 
-    // Inherits metadata from input image.
+    // Make a copy of CSD data and inherits metadata from input image.
+    auto csdData = webrtc::EncodedImageBuffer::Create(csd->data(), csd->size());
     webrtc::EncodedImage codecConfig(aInputImage);
-    codecConfig._buffer = csd->data();
-    codecConfig._length = csd->size();
-    codecConfig._size = csd->size();
+    codecConfig.SetEncodedData(csdData);
     if (mDecoder->Decode(codecConfig, true, aRenderTimeMs) != android::OK) {
       LOGE("Decoder:%p failed to send codec config, dropping", this);
       return WEBRTC_VIDEO_CODEC_ERROR;

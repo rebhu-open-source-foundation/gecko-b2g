@@ -224,13 +224,13 @@ status_t WebrtcGonkVideoEncoder::RequestIDRFrame() {
   return mCodec->requestIDRFrame();
 }
 
-status_t WebrtcGonkVideoEncoder::SetBitrate(int32_t aKbps) {
+status_t WebrtcGonkVideoEncoder::SetBitrate(int32_t aBps) {
   if (!mCodec) {
     return INVALID_OPERATION;
   }
-  LOGV("WebrtcGonkVideoDecoder:%p setting bitrate to %d kbps", this, aKbps);
+  LOGV("WebrtcGonkVideoDecoder:%p setting bitrate to %d bps", this, aBps);
   sp<AMessage> msg = new AMessage();
-  msg->setInt32("video-bitrate", aKbps * 1000);
+  msg->setInt32("video-bitrate", aBps);
   return mCodec->setParameters(msg);
 }
 
@@ -467,14 +467,14 @@ void WebrtcGonkVideoEncoder::OnDrainOutputBuffer(size_t aIndex, size_t aOffset,
   webrtc::EncodedImage encoded(buffer->data(), buffer->size(), buffer->size());
   encoded._encodedWidth = frameInfo->mWidth;
   encoded._encodedHeight = frameInfo->mHeight;
-  encoded._timeStamp = frameInfo->mTimestamp;
+  encoded.SetTimestamp(frameInfo->mTimestamp);
   encoded.capture_time_ms_ = frameInfo->mRenderTimeMs;
   encoded._completeFrame = true;
 
   if (aFlags & MediaCodec::BUFFER_FLAG_SYNCFRAME) {
-    encoded._frameType = webrtc::kVideoFrameKey;
+    encoded._frameType = webrtc::VideoFrameType::kVideoFrameKey;
   } else {
-    encoded._frameType = webrtc::kVideoFrameDelta;
+    encoded._frameType = webrtc::VideoFrameType::kVideoFrameDelta;
   }
 
   int64_t latency = (systemTime() - frameInfo->mInputTimeNs) / 1000000;
@@ -605,23 +605,23 @@ sp<Surface> WebrtcGonkVideoDecoder::InitBufferQueue() {
 status_t WebrtcGonkVideoDecoder::Decode(const webrtc::EncodedImage& aEncoded,
                                         bool aIsCodecConfig,
                                         int64_t aRenderTimeMs) {
-  if (!mCodec || !aEncoded._buffer || !aEncoded._length) {
+  if (!mCodec || !aEncoded.data() || !aEncoded.size()) {
     return INVALID_OPERATION;
   }
 
   sp<FrameInfo> frameInfo = new FrameInfo();
   frameInfo->mWidth = aEncoded._encodedWidth;
   frameInfo->mHeight = aEncoded._encodedHeight;
-  frameInfo->mTimestamp = aEncoded._timeStamp;
+  frameInfo->mTimestamp = aEncoded.Timestamp();
   // Unwrap RTP timestamp and convert it from 90kHz clock to micro seconds.
-  frameInfo->mTimestampUs = mUnwrapper.Unwrap(aEncoded._timeStamp) * 1000 / 90;
+  frameInfo->mTimestampUs = mUnwrapper.Unwrap(aEncoded.Timestamp()) * 1000 / 90;
   frameInfo->mRenderTimeMs = aRenderTimeMs;
   frameInfo->mIsCodecConfig = aIsCodecConfig;
   frameInfo->mInputTimeNs = systemTime();
 
   // We cannot take ownership of |aEncoded|, so make a copy of it.
   sp<ABuffer> frameData =
-      ABuffer::CreateAsCopy(aEncoded._buffer, aEncoded._length);
+      ABuffer::CreateAsCopy(aEncoded.data(), aEncoded.size());
 
   sp<AMessage> msg = new AMessage(kWhatQueueInputData, this);
   msg->setObject("frame-info", frameInfo.get());

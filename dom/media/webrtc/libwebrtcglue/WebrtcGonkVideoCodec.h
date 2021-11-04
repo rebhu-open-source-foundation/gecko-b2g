@@ -51,7 +51,7 @@ class WebrtcGonkVideoEncoder final : public AHandler {
 
   status_t RequestIDRFrame();
 
-  status_t SetBitrate(int32_t aKbps);
+  status_t SetBitrate(int32_t aBps);
 
  private:
   class FrameBufferGrip;

@@ -17,6 +17,10 @@
 #include "modules/video_coding/codecs/vp8/include/vp8.h"
 #include "modules/video_coding/codecs/vp9/include/vp9.h"
 
+#ifdef MOZ_WIDGET_GONK
+#  include "GonkVideoCodec.h"
+#endif
+
 namespace mozilla {
 
 std::unique_ptr<webrtc::VideoDecoder>
@@ -24,6 +28,13 @@ WebrtcVideoDecoderFactory::CreateVideoDecoder(
     const webrtc::SdpVideoFormat& aFormat) {
   std::unique_ptr<webrtc::VideoDecoder> decoder;
   auto type = webrtc::PayloadStringToCodecType(aFormat.name);
+
+#ifdef MOZ_WIDGET_GONK
+  decoder.reset(GonkVideoCodec::CreateDecoder(type));
+  if (decoder) {
+    return decoder;
+  }
+#endif
 
   // Attempt to create a decoder using MediaDataDecoder.
   decoder.reset(MediaDataCodec::CreateDecoder(type));
@@ -93,6 +104,14 @@ WebrtcVideoEncoderFactory::InternalFactory::CreateVideoEncoder(
     const webrtc::SdpVideoFormat& aFormat) {
   MOZ_ASSERT(Supports(aFormat));
   std::unique_ptr<webrtc::VideoEncoder> encoder;
+
+#ifdef MOZ_WIDGET_GONK
+  auto type = webrtc::PayloadStringToCodecType(aFormat.name);
+  encoder.reset(GonkVideoCodec::CreateEncoder(type));
+  if (encoder) {
+    return encoder;
+  }
+#endif
 
   encoder.reset(MediaDataCodec::CreateEncoder(aFormat));
   if (encoder) {

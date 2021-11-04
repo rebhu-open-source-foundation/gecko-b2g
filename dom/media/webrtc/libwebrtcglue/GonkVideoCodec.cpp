@@ -41,9 +41,7 @@ bool GonkVideoCodec::CodecEnabled(webrtc::VideoCodecType aCodecType,
   if (aCodecType == webrtc::VideoCodecType::kVideoCodecH264) {
     prefName = "media.webrtc.hw.h264.enabled";
   } else if (aCodecType == webrtc::VideoCodecType::kVideoCodecVP8) {
-    prefName = aIsEncoder
-                   ? "media.navigator.hardware.vp8_encode.acceleration_enabled"
-                   : "media.navigator.hardware.vp8_decode.acceleration_enabled";
+    prefName = "media.webrtc.hw.vpx.enabled";
   } else {
     return false;
   }

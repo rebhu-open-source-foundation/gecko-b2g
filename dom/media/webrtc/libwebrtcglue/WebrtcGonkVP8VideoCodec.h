@@ -22,24 +22,24 @@ class WebrtcGonkVP8VideoDecoder
  public:
   WebrtcGonkVP8VideoDecoder();
 
-  virtual ~WebrtcGonkVP8VideoDecoder();
+  ~WebrtcGonkVP8VideoDecoder();
 
-  // Implement VideoDecoder interface.
-  virtual uint64_t PluginID() const override { return 0; }
+  int32_t InitDecode(const webrtc::VideoCodec* aCodecSettings,
+                     int32_t aNumOfCores) override;
 
-  virtual int32_t InitDecode(const webrtc::VideoCodec* aCodecSettings,
-                             int32_t aNumOfCores) override;
-  virtual int32_t Decode(
-      const webrtc::EncodedImage& aInputImage, bool aMissingFrames,
-      const webrtc::RTPFragmentationHeader* aFragmentation,
-      const webrtc::CodecSpecificInfo* aCodecSpecificInfo = nullptr,
-      int64_t aRenderTimeMs = -1) override;
-  virtual int32_t RegisterDecodeCompleteCallback(
-      webrtc::DecodedImageCallback* callback) override;
+  int32_t Decode(const webrtc::EncodedImage& aInputImage, bool aMissingFrames,
+                 int64_t aRenderTimeMs = -1) override;
 
-  virtual int32_t Release() override;
+  int32_t RegisterDecodeCompleteCallback(
+      webrtc::DecodedImageCallback* aCallback) override;
 
-  virtual void OnDecoded(webrtc::VideoFrame& aVideoFrame) override {
+  int32_t Release() override;
+
+  bool PrefersLateDecoding() const override { return true; }
+
+  const char* ImplementationName() const override { return "Gonk"; }
+
+  void OnDecoded(webrtc::VideoFrame& aVideoFrame) override {
     if (mCallback) {
       mCallback->Decoded(aVideoFrame);
     }
