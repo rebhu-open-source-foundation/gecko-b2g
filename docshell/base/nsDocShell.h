@@ -968,6 +968,7 @@ class nsDocShell final : public nsDocLoader,
   bool NavigationBlockedByPrinting(bool aDisplayErrorDialog = true);
   bool IsNavigationAllowed(bool aDisplayPrintErrorDialog = true,
                            bool aCheckIfUnloadFired = true);
+  bool GetIsApp();
   nsIScrollableFrame* GetRootScrollFrame();
   nsIChannel* GetCurrentDocChannel();
   nsresult EnsureScriptEnvironment();

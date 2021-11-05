@@ -4773,7 +4773,9 @@ void nsDocShell::ActivenessMaybeChanged() {
     mScriptGlobal->SetIsBackground(!isActive);
     if (RefPtr<Document> doc = mScriptGlobal->GetExtantDoc()) {
       // Update orientation when the top-level browsing context becomes active.
-      if (isActive && mBrowsingContext->IsTop()) {
+      // We make an exception for apps because they currently rely on
+      // orientation locks persisting across browsing contexts.
+      if (isActive && mBrowsingContext->IsTop() && !GetIsApp()) {
         // We only care about the top-level browsing context.
         uint16_t orientation = mBrowsingContext->GetOrientationLock();
         ScreenOrientation::UpdateActiveOrientationLock(orientation);
@@ -4820,6 +4822,16 @@ NS_IMETHODIMP
 nsDocShell::GetIsAppTab(bool* aIsAppTab) {
   *aIsAppTab = mIsAppTab;
   return NS_OK;
+}
+
+// Check is App or not through ScreenOrientation permission check.
+bool
+nsDocShell::GetIsApp()
+{
+  if (RefPtr<Document> doc = mScriptGlobal->GetExtantDoc()) {
+    return ScreenOrientation::CheckPermission(doc->GetInnerWindow());
+  }
+  return false;
 }
 
 NS_IMETHODIMP
@@ -9371,7 +9383,8 @@ nsresult nsDocShell::InternalLoad(nsDocShellLoadState* aLoadState,
   // lock the orientation of the document to the document's default
   // orientation. We don't explicitly check for a top-level browsing context
   // here because orientation is only set on top-level browsing contexts.
-  if (mBrowsingContext->GetOrientationLock() != hal::eScreenOrientation_None) {
+  if (mBrowsingContext->GetOrientationLock() != hal::eScreenOrientation_None
+    && !GetIsApp()) {
     MOZ_ASSERT(mBrowsingContext->IsTop());
     MOZ_ALWAYS_SUCCEEDS(
         mBrowsingContext->SetOrientationLock(hal::eScreenOrientation_None));
