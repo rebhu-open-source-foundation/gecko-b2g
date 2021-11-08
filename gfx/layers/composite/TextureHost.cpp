@@ -434,8 +434,7 @@ void TextureHost::MaybeDestroyRenderTexture() {
 
 void TextureHost::DestroyRenderTexture(
     const wr::ExternalImageId& aExternalImageId) {
-  wr::RenderThread::Get()->UnregisterExternalImage(
-      wr::AsUint64(aExternalImageId));
+  wr::RenderThread::Get()->UnregisterExternalImage(aExternalImageId);
 }
 
 void TextureHost::EnsureRenderTexture(
@@ -599,7 +598,7 @@ void BufferTextureHost::CreateRenderTexture(
         new wr::RenderBufferTextureHost(GetBuffer(), GetBufferDescriptor());
   }
 
-  wr::RenderThread::Get()->RegisterExternalImage(wr::AsUint64(aExternalImageId),
+  wr::RenderThread::Get()->RegisterExternalImage(aExternalImageId,
                                                  texture.forget());
 }
 

@@ -295,8 +295,8 @@ void GrallocTextureHostOGL::CreateEGLImage() {
   if (mExternalImageId.isSome()) {
     RefPtr<wr::RenderTextureHost> texture =
         new wr::RenderEGLImageTextureHost(mEGLImage, nullptr, cropSize);
-    wr::RenderThread::Get()->RegisterExternalImage(
-        wr::AsUint64(mExternalImageId.ref()), texture.forget());
+    wr::RenderThread::Get()->RegisterExternalImage(mExternalImageId.ref(),
+                                                   texture.forget());
   }
 }
 
@@ -499,13 +499,13 @@ void GrallocTextureHostOGL::PushResourceUpdates(
 void GrallocTextureHostOGL::PushDisplayItems(
     wr::DisplayListBuilder& aBuilder, const wr::LayoutRect& aBounds,
     const wr::LayoutRect& aClip, wr::ImageRendering aFilter,
-    const Range<wr::ImageKey>& aImageKeys,
-    PushDisplayItemFlagSet aFlags) {
+    const Range<wr::ImageKey>& aImageKeys, PushDisplayItemFlagSet aFlags) {
   MOZ_ASSERT(aImageKeys.length() == 1);
-  aBuilder.PushImage(aBounds, aClip, true, aFilter, aImageKeys[0],
-                     !(mFlags & TextureFlags::NON_PREMULTIPLIED),
-                     wr::ColorF{1.0f, 1.0f, 1.0f, 1.0f},
-                     aFlags.contains(PushDisplayItemFlag::PREFER_COMPOSITOR_SURFACE));
+  aBuilder.PushImage(
+      aBounds, aClip, true, aFilter, aImageKeys[0],
+      !(mFlags & TextureFlags::NON_PREMULTIPLIED),
+      wr::ColorF{1.0f, 1.0f, 1.0f, 1.0f},
+      aFlags.contains(PushDisplayItemFlag::PREFER_COMPOSITOR_SURFACE));
 }
 
 }  // namespace layers
