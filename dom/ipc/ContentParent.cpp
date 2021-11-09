@@ -1103,7 +1103,7 @@ already_AddRefed<ContentParent> ContentParent::GetUsedBrowserProcess(
     // If the provider returned an existing ContentParent, use that one.
     if (0 <= index && static_cast<uint32_t>(index) <= aMaxContentParents) {
       RefPtr<ContentParent> retval = aContentParents[index];
-      if (profiler_thread_is_being_profiled()) {
+      if (profiler_thread_is_being_profiled_for_markers()) {
         nsPrintfCString marker("Reused process %u",
                                (unsigned int)retval->ChildID());
         PROFILER_MARKER_TEXT("Process", DOM, {}, marker);
@@ -1140,7 +1140,7 @@ already_AddRefed<ContentParent> ContentParent::GetUsedBrowserProcess(
     recycled->AssertAlive();
     recycled->StopRecycling();
 
-    if (profiler_thread_is_being_profiled()) {
+    if (profiler_thread_is_being_profiled_for_markers()) {
       nsPrintfCString marker("Recycled process %u (%p)",
                              (unsigned int)recycled->ChildID(), recycled.get());
       PROFILER_MARKER_TEXT("Process", DOM, {}, marker);
@@ -1162,7 +1162,7 @@ already_AddRefed<ContentParent> ContentParent::GetUsedBrowserProcess(
     MOZ_DIAGNOSTIC_ASSERT(sRecycledE10SProcess != preallocated);
     preallocated->AssertAlive();
 
-    if (profiler_thread_is_being_profiled()) {
+    if (profiler_thread_is_being_profiled_for_markers()) {
       nsPrintfCString marker(
           "Assigned preallocated process %u%s",
           (unsigned int)preallocated->ChildID(),
@@ -2812,7 +2812,7 @@ bool ContentParent::LaunchSubprocessResolve(bool aIsSync,
   mPrefSerializer = nullptr;
 
   const auto launchResumeTS = TimeStamp::Now();
-  if (profiler_thread_is_being_profiled()) {
+  if (profiler_thread_is_being_profiled_for_markers()) {
     nsPrintfCString marker("Process start%s for %u",
                            mIsAPreallocBlocker ? " (immediate)" : "",
                            (unsigned int)ChildID());

@@ -2640,8 +2640,9 @@ bool GCMarker::processDelayedMarkingList(MarkColor color, SliceBudget& budget) {
 
 bool GCMarker::markAllDelayedChildren(SliceBudget& budget,
                                       ShouldReportMarkTime reportTime) {
-  MOZ_ASSERT(!hasBlackEntries());
+  MOZ_ASSERT(isMarkStackEmpty());
   MOZ_ASSERT(markColor() == MarkColor::Black);
+  MOZ_ASSERT(delayedMarkingList);
 
   GCRuntime& gc = runtime()->gc;
   mozilla::Maybe<gcstats::AutoPhase> ap;
@@ -2650,28 +2651,21 @@ bool GCMarker::markAllDelayedChildren(SliceBudget& budget,
   }
 
   // We have a list of arenas containing marked cells with unmarked children
-  // where we ran out of stack space during marking.
-  //
-  // Both black and gray cells in these arenas may have unmarked children, and
-  // we must mark gray children first as gray entries always sit before black
-  // entries on the mark stack. Therefore the list is processed in two stages.
+  // where we ran out of stack space during marking. Both black and gray cells
+  // in these arenas may have unmarked children. Mark black children first.
 
-  MOZ_ASSERT(delayedMarkingList);
-
-  bool finished;
-  finished = processDelayedMarkingList(MarkColor::Gray, budget);
-  rebuildDelayedMarkingList();
-  if (!finished) {
-    return false;
+  const MarkColor colors[] = {MarkColor::Black, MarkColor::Gray};
+  for (MarkColor color : colors) {
+    bool finished = processDelayedMarkingList(color, budget);
+    rebuildDelayedMarkingList();
+    if (!finished) {
+      return false;
+    }
   }
 
-  finished = processDelayedMarkingList(MarkColor::Black, budget);
-  rebuildDelayedMarkingList();
-
-  MOZ_ASSERT_IF(finished, !delayedMarkingList);
-  MOZ_ASSERT_IF(finished, !markLaterArenas);
-
-  return finished;
+  MOZ_ASSERT(!delayedMarkingList);
+  MOZ_ASSERT(!markLaterArenas);
+  return true;
 }
 
 void GCMarker::rebuildDelayedMarkingList() {
@@ -2879,8 +2873,9 @@ namespace js {
 namespace gc {
 
 template <typename T>
-JS_PUBLIC_API bool EdgeNeedsSweep(JS::Heap<T>* thingp) {
-  return IsAboutToBeFinalizedInternal(ConvertToBase(thingp->unsafeGet()));
+JS_PUBLIC_API bool TraceWeakEdge(JSTracer* trc, JS::Heap<T>* thingp) {
+  return TraceEdgeInternal(trc, gc::ConvertToBase(thingp->unsafeGet()),
+                           "JS::Heap edge");
 }
 
 template <typename T>
@@ -2889,8 +2884,9 @@ JS_PUBLIC_API bool EdgeNeedsSweepUnbarrieredSlow(T* thingp) {
 }
 
 // Instantiate a copy of the Tracing templates for each public GC type.
-#define INSTANTIATE_ALL_VALID_HEAP_TRACE_FUNCTIONS(type)             \
-  template JS_PUBLIC_API bool EdgeNeedsSweep<type>(JS::Heap<type>*); \
+#define INSTANTIATE_ALL_VALID_HEAP_TRACE_FUNCTIONS(type)            \
+  template JS_PUBLIC_API bool TraceWeakEdge<type>(JSTracer * trc,   \
+                                                  JS::Heap<type>*); \
   template JS_PUBLIC_API bool EdgeNeedsSweepUnbarrieredSlow<type>(type*);
 JS_FOR_EACH_PUBLIC_GC_POINTER_TYPE(INSTANTIATE_ALL_VALID_HEAP_TRACE_FUNCTIONS)
 JS_FOR_EACH_PUBLIC_TAGGED_GC_POINTER_TYPE(

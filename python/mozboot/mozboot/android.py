@@ -24,6 +24,11 @@ NDK_VERSION = "r20b"
 CMDLINE_TOOLS_VERSION_STRING = "4.0"
 CMDLINE_TOOLS_VERSION = "7302050"
 
+# On Gonk we need a special NDK, so keep r20b until we can't.
+# NDK_VERSION = "r21d"
+# CMDLINE_TOOLS_VERSION_STRING = "5.0"
+# CMDLINE_TOOLS_VERSION = "7583922"
+
 BUNDLETOOL_VERSION = "1.8.0"
 
 # We expect the emulator AVD definitions to be platform agnostic

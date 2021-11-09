@@ -72,20 +72,11 @@ void RemoteWorkerParent::Initialize(nsIURI* aScriptURL,
   }
 }
 
-PFetchEventOpProxyParent* RemoteWorkerParent::AllocPFetchEventOpProxyParent(
+already_AddRefed<PFetchEventOpProxyParent>
+RemoteWorkerParent::AllocPFetchEventOpProxyParent(
     const ServiceWorkerFetchEventOpArgs& aArgs) {
   MOZ_CRASH("PFetchEventOpProxyParent actors must be manually constructed!");
   return nullptr;
-}
-
-bool RemoteWorkerParent::DeallocPFetchEventOpProxyParent(
-    PFetchEventOpProxyParent* aActor) {
-  MOZ_ASSERT(XRE_IsParentProcess());
-  AssertIsOnBackgroundThread();
-  MOZ_ASSERT(aActor);
-
-  delete aActor;
-  return true;
 }
 
 void RemoteWorkerParent::ActorDestroy(IProtocol::ActorDestroyReason) {

@@ -4233,19 +4233,14 @@ already_AddRefed<nsIContent> HTMLEditor::SplitNodeWithTransaction(
     // XXX Some other transactions manage range updater by themselves.
     //     Why doesn't SplitNodeTransaction do it?
     DebugOnly<nsresult> rvIgnored = RangeUpdaterRef().SelAdjSplitNode(
-        *aStartOfRightNode.GetContainerAsContent(), *newLeftContent);
+        *aStartOfRightNode.GetContainerAsContent(), aStartOfRightNode.Offset(),
+        *newLeftContent, SplitNodeDirection::LeftNodeIsNewOne);
     NS_WARNING_ASSERTION(NS_SUCCEEDED(rvIgnored),
                          "RangeUpdater::SelAdjSplitNode() failed, but ignored");
   }
   if (newLeftContent) {
     TopLevelEditSubActionDataRef().DidSplitContent(
         *this, *aStartOfRightNode.GetContainerAsContent(), *newLeftContent);
-  }
-
-  if (mInlineSpellChecker) {
-    RefPtr<mozInlineSpellChecker> spellChecker = mInlineSpellChecker;
-    spellChecker->DidSplitNode(aStartOfRightNode.GetContainer(),
-                               newLeftContent);
   }
 
   if (aError.Failed()) {
@@ -4611,34 +4606,46 @@ nsresult HTMLEditor::JoinNodesWithTransaction(nsIContent& aLeftContent,
                          "EditorBase::DoTransactionInternal() failed");
   }
 
+  // If joined node is moved to different place, offset may not have any
+  // meaning.  In this case, the web app modified the DOM tree takes on the
+  // responsibility for the remaning things.
+  if (MOZ_UNLIKELY(NS_WARN_IF(aRightContent.GetParentNode() !=
+                              atRightContent.GetContainer()))) {
+    return NS_ERROR_EDITOR_UNEXPECTED_DOM_TREE;
+  }
+
+  // Be aware, the joined point should be created for each call because
+  // they may refer the child node, but some of them may change the DOM tree
+  // after that, thus we need to avoid invalid point (Although it shouldn't
+  // occur).
   // XXX Some other transactions manage range updater by themselves.
   //     Why doesn't JoinNodeTransaction do it?
   DebugOnly<nsresult> rvIgnored = RangeUpdaterRef().SelAdjJoinNodes(
-      aLeftContent, aRightContent, *atRightContent.GetContainer(),
-      atRightContent.Offset(), oldLeftNodeLen);
+      EditorRawDOMPoint(&aRightContent, oldLeftNodeLen), aLeftContent,
+      atRightContent.Offset(), JoinNodesDirection::LeftNodeIntoRightNode);
   NS_WARNING_ASSERTION(NS_SUCCEEDED(rvIgnored),
                        "RangeUpdater::SelAdjJoinNodes() failed, but ignored");
 
   TopLevelEditSubActionDataRef().DidJoinContents(
       *this, EditorRawDOMPoint(&aRightContent, oldLeftNodeLen));
 
-  if (mInlineSpellChecker) {
-    RefPtr<mozInlineSpellChecker> spellChecker = mInlineSpellChecker;
-    spellChecker->DidJoinNodes(aLeftContent, aRightContent);
-  }
-
-  if (mTextServicesDocument && NS_SUCCEEDED(rv)) {
-    RefPtr<TextServicesDocument> textServicesDocument = mTextServicesDocument;
-    textServicesDocument->DidJoinNodes(aLeftContent, aRightContent);
+  if (NS_SUCCEEDED(rv)) {
+    if (RefPtr<TextServicesDocument> textServicesDocument =
+            mTextServicesDocument) {
+      textServicesDocument->DidJoinContents(
+          EditorRawDOMPoint(&aRightContent, oldLeftNodeLen), aLeftContent,
+          JoinNodesDirection::LeftNodeIntoRightNode);
+    }
   }
 
   if (!mActionListeners.IsEmpty()) {
     for (auto& listener : mActionListeners.Clone()) {
-      DebugOnly<nsresult> rvIgnored = listener->DidJoinNodes(
-          &aLeftContent, &aRightContent, atRightContent.GetContainer(), rv);
+      DebugOnly<nsresult> rvIgnored = listener->DidJoinContents(
+          EditorRawDOMPoint(&aRightContent, oldLeftNodeLen), &aLeftContent,
+          true);
       NS_WARNING_ASSERTION(
           NS_SUCCEEDED(rvIgnored),
-          "nsIEditActionListener::DidJoinNodes() failed, but ignored");
+          "nsIEditActionListener::DidJoinContents() failed, but ignored");
     }
   }
 
