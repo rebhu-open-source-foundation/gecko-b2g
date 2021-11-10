@@ -36,7 +36,7 @@ using namespace android;
 using namespace mozilla::layers;
 using namespace mozilla::gl;
 
-using base::FileDescriptor;
+using mozilla::UniqueFileHandle;
 
 namespace IPC {
 
@@ -96,7 +96,7 @@ ParamTraits<MagicGrallocBufferHandle>::Write(Message* aMsg,
     // These buffers can't die in transit because they're created
     // synchonously and the parent-side buffer can only be dropped if
     // there's a crash.
-    aMsg->WriteFileDescriptor(FileDescriptor(fds[n], false));
+    aMsg->WriteFileHandle(UniqueFileHandle(fds[n]));
   }
 }
 
@@ -127,12 +127,12 @@ ParamTraits<MagicGrallocBufferHandle>::Read(const Message* aMsg,
     return false;
   }
 
-  size_t nfds = aMsg->num_fds();
+  size_t nfds = aMsg->num_handles();
   int fds[nfds];
 
   for (size_t n = 0; n < nfds; ++n) {
-    FileDescriptor fd;
-    if (!aMsg->ReadFileDescriptor(aIter, &fd)) {
+    UniqueFileHandle fd;
+    if (!aMsg->ConsumeFileHandle(aIter, &fd)) {
       printf_stderr("ParamTraits<MagicGrallocBufferHandle>::Read() failed to read file descriptors\n");
       return false;
     }
@@ -142,7 +142,7 @@ ParamTraits<MagicGrallocBufferHandle>::Read(const Message* aMsg,
     // But in shared cross-thread, dup fd is not necessary because we get
     // a pointer to the GraphicBuffer directly from SharedBufferManagerParent
     // and don't create a new GraphicBuffer around the fd.
-    fds[n] = fd.fd;
+    fds[n] = fd.release();
   }
 
   aResult->mRef.mOwner = owner;

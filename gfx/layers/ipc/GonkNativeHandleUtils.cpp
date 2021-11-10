@@ -43,7 +43,7 @@ ParamTraits<GonkNativeHandle>::Write(Message* aMsg,
   aMsg->WriteBytes((nativeHandle->data + nativeHandle->numFds), nbytes);
 
   for (size_t i = 0; i < static_cast<size_t>(nativeHandle->numFds); ++i) {
-    aMsg->WriteFileDescriptor(base::FileDescriptor(nativeHandle->data[i], true));
+    aMsg->WriteFileHandle(mozilla::UniqueFileHandle(nativeHandle->data[i]));
   }
 }
 
@@ -62,7 +62,7 @@ ParamTraits<GonkNativeHandle>::Read(const Message* aMsg,
   }
 
   size_t numInts = nbytes / sizeof(int);
-  size_t numFds = aMsg->num_fds();
+  size_t numFds = aMsg->num_handles();
   mozilla::UniquePtr<native_handle, native_handle_Delete> nativeHandle(
     native_handle_create(numFds, numInts));
   if (!nativeHandle) {
@@ -76,11 +76,11 @@ ParamTraits<GonkNativeHandle>::Read(const Message* aMsg,
   }
 
   for (size_t i = 0; i < numFds; ++i) {
-    base::FileDescriptor fd;
-    if (!aMsg->ReadFileDescriptor(aIter, &fd)) {
+    mozilla::UniqueFileHandle fd;
+    if (!aMsg->ConsumeFileHandle(aIter, &fd)) {
       return false;
     }
-    nativeHandle->data[i] = fd.fd;
+    nativeHandle->data[i] = fd.release();
     nativeHandle->numFds = i + 1; // set number of valid file descriptors
   }
 

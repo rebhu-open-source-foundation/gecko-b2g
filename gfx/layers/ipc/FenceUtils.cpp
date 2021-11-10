@@ -27,7 +27,7 @@ ParamTraits<FenceHandle>::Write(Message* aMsg,
 
 #if defined(MOZ_WIDGET_GONK)
   RefPtr<FenceHandle::FdObj> fence = handle.GetAndResetFdObj();
-  aMsg->WriteFileDescriptor(base::FileDescriptor(fence->GetAndResetFd(), true));
+  aMsg->WriteFileHandle(mozilla::UniqueFileHandle(fence->GetAndResetFd()));
 #endif
 }
 
@@ -36,9 +36,9 @@ ParamTraits<FenceHandle>::Read(const Message* aMsg,
                                PickleIterator* aIter, paramType* aResult)
 {
 #if defined(MOZ_WIDGET_GONK)
-  base::FileDescriptor fd;
-  if (aMsg->ReadFileDescriptor(aIter, &fd)) {
-    aResult->Merge(FenceHandle(new FenceHandle::FdObj(fd.fd)));
+  mozilla::UniqueFileHandle fd;
+  if (aMsg->ConsumeFileHandle(aIter, &fd)) {
+    aResult->Merge(FenceHandle(new FenceHandle::FdObj(fd.release())));
   }
 #endif
   return true;
