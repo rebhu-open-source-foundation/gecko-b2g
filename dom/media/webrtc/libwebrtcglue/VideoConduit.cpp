@@ -870,6 +870,9 @@ void WebrtcVideoConduit::OnControlConfigChange() {
   // codecs to dispatch sync runnables to main, and main may grab the lock.
 
   if (mSendStream && encoderReconfigureNeeded) {
+    MOZ_DIAGNOSTIC_ASSERT(
+        mSendStreamConfig.rtp.ssrcs.size() == mEncoderConfig.number_of_streams,
+        "Each video substream must have a corresponding ssrc.");
     mSendStream->ReconfigureVideoEncoder(mEncoderConfig.Copy());
   }
 
@@ -926,7 +929,7 @@ void WebrtcVideoConduit::CreateSendStream() {
   mSendStreamConfig.encoder_settings.bitrate_allocator_factory =
       mCall->mVideoBitrateAllocatorFactory.get();
 
-  MOZ_ASSERT(
+  MOZ_DIAGNOSTIC_ASSERT(
       mSendStreamConfig.rtp.ssrcs.size() == mEncoderConfig.number_of_streams,
       "Each video substream must have a corresponding ssrc.");
 

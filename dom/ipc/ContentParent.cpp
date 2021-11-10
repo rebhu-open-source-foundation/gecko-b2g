@@ -1834,7 +1834,8 @@ void ContentParent::BroadcastShmBlockAdded(uint32_t aGeneration,
       // request the block as needed, at some performance cost.
       continue;
     }
-    Unused << cp->SendFontListShmBlockAdded(aGeneration, aIndex, handle);
+    Unused << cp->SendFontListShmBlockAdded(aGeneration, aIndex,
+                                            std::move(handle));
   }
 }
 
@@ -3189,14 +3190,14 @@ bool ContentParent::InitInternal(ProcessPriority aInitialPriority) {
 
   SharedMemoryHandle handle;
   if (sheetCache->ShareToProcess(OtherPid(), &handle)) {
-    sharedUASheetHandle.emplace(handle);
+    sharedUASheetHandle.emplace(std::move(handle));
   } else {
     sharedUASheetAddress = 0;
   }
 
   Unused << SendSetXPCOMProcessAttributes(
-      xpcomInit, initialData, lnf, fontList, sharedUASheetHandle,
-      sharedUASheetAddress, sharedFontListBlocks);
+      xpcomInit, initialData, lnf, fontList, std::move(sharedUASheetHandle),
+      sharedUASheetAddress, std::move(sharedFontListBlocks));
 
   ipc::WritableSharedMap* sharedData =
       nsFrameMessageManager::sParentProcessManager->SharedData();

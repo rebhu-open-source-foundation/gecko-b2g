@@ -1345,10 +1345,11 @@ void gfxPlatform::ShutdownLayersIPC() {
     layers::SharedBufferManagerChild::ShutDown();
 #endif
 
+    // This could be running on either the Compositor or the Renderer thread.
+    gfx::CanvasManagerParent::Shutdown();
     // This has to happen after shutting down the child protocols.
     layers::CompositorThreadHolder::Shutdown();
     image::ImageMemoryReporter::ShutdownForWebRender();
-    gfx::CanvasManagerParent::Shutdown();
     // There is a case that RenderThread exists when UseWebRender() is
     // false. This could happen when WebRender was fallbacked to compositor.
     if (wr::RenderThread::Get()) {
@@ -2752,6 +2753,11 @@ void gfxPlatform::InitWebGLConfig() {
   bool allowWebGLOop =
       IsFeatureOk(nsIGfxInfo::FEATURE_ALLOW_WEBGL_OUT_OF_PROCESS);
   gfxVars::SetAllowWebglOop(allowWebGLOop);
+
+  bool threadsafeGL = IsFeatureOk(nsIGfxInfo::FEATURE_THREADSAFE_GL);
+  threadsafeGL |= StaticPrefs::webgl_threadsafe_gl_force_enabled_AtStartup();
+  threadsafeGL &= !StaticPrefs::webgl_threadsafe_gl_force_disabled_AtStartup();
+  gfxVars::SetSupportsThreadsafeGL(threadsafeGL);
 
   if (kIsAndroid) {
     // Don't enable robust buffer access on Adreno 630 devices.

@@ -1066,8 +1066,9 @@ bool TextureClient::InitIPDLActor(CompositableForwarder* aForwarder) {
   }
 
   PTextureChild* actor = aForwarder->GetTextureForwarder()->CreateTexture(
-      desc, readLockDescriptor, aForwarder->GetCompositorBackendType(),
-      GetFlags(), mSerial, mExternalImageId, nullptr);
+      desc, std::move(readLockDescriptor),
+      aForwarder->GetCompositorBackendType(), GetFlags(), mSerial,
+      mExternalImageId, nullptr);
 
   if (!actor) {
     gfxCriticalNote << static_cast<int32_t>(desc.type()) << ", "
@@ -1132,9 +1133,10 @@ bool TextureClient::InitIPDLActor(KnowsCompositor* aKnowsCompositor) {
     mReadLock->Serialize(readLockDescriptor, GetAllocator()->GetParentPid());
   }
 
-  PTextureChild* actor = fwd->CreateTexture(
-      desc, readLockDescriptor, aKnowsCompositor->GetCompositorBackendType(),
-      GetFlags(), mSerial, mExternalImageId);
+  PTextureChild* actor =
+      fwd->CreateTexture(desc, std::move(readLockDescriptor),
+                         aKnowsCompositor->GetCompositorBackendType(),
+                         GetFlags(), mSerial, mExternalImageId);
   if (!actor) {
     gfxCriticalNote << static_cast<int32_t>(desc.type()) << ", "
                     << static_cast<int32_t>(
@@ -1531,7 +1533,8 @@ class CrossProcessSemaphoreReadLock : public TextureReadLock {
       : mSemaphore(CrossProcessSemaphore::Create("TextureReadLock", 1)),
         mShared(false) {}
   explicit CrossProcessSemaphoreReadLock(CrossProcessSemaphoreHandle aHandle)
-      : mSemaphore(CrossProcessSemaphore::Create(aHandle)), mShared(false) {}
+      : mSemaphore(CrossProcessSemaphore::Create(std::move(aHandle))),
+        mShared(false) {}
 
   bool ReadLock() override {
     if (!IsValid()) {
@@ -1564,7 +1567,7 @@ class CrossProcessSemaphoreReadLock : public TextureReadLock {
 
 // static
 already_AddRefed<TextureReadLock> TextureReadLock::Deserialize(
-    const ReadLockDescriptor& aDescriptor, ISurfaceAllocator* aAllocator) {
+    ReadLockDescriptor&& aDescriptor, ISurfaceAllocator* aAllocator) {
   switch (aDescriptor.type()) {
     case ReadLockDescriptor::TShmemSection: {
       const ShmemSection& section = aDescriptor.get_ShmemSection();
@@ -1593,7 +1596,7 @@ already_AddRefed<TextureReadLock> TextureReadLock::Deserialize(
     }
     case ReadLockDescriptor::TCrossProcessSemaphoreDescriptor: {
       return MakeAndAddRef<CrossProcessSemaphoreReadLock>(
-          aDescriptor.get_CrossProcessSemaphoreDescriptor().sem());
+          std::move(aDescriptor.get_CrossProcessSemaphoreDescriptor().sem()));
     }
     case ReadLockDescriptor::Tnull_t: {
       return nullptr;
