@@ -71,6 +71,7 @@ class nsDOMWindowUtils final : public nsIDOMWindowUtils,
   ~nsDOMWindowUtils();
 
   nsWeakPtr mWindow;
+  uint8_t mOldOrientation;
 
   // If aOffset is non-null, it gets filled in with the offset of the root
   // frame of our window to the nearest widget in the app units of our window.

@@ -3604,6 +3604,8 @@ nsDOMWindowUtils::HandleFullscreenRequests(bool* aRetVal) {
   nsSize oldSize;
   PrepareForFullscreenChange(GetDocShell(), screenRect.Size(), &oldSize);
   OldWindowSize::Set(mWindow, oldSize);
+  mOldOrientation =
+    (uint8_t)doc->GetBrowsingContext()->GetCurrentOrientationType();
 
   *aRetVal = Document::HandlePendingFullscreenRequests(doc);
   return NS_OK;
@@ -3619,6 +3621,14 @@ nsresult nsDOMWindowUtils::ExitFullscreen() {
   nsSize oldSize = OldWindowSize::GetAndRemove(mWindow);
   if (!doc->GetFullscreenElement()) {
     return NS_OK;
+  }
+
+  // If orientation changes during enter fullscreen and exit fullscreen,
+  // need to swap width and height of oldSize for ensuring orientation
+  // sync with window size.
+  if (mOldOrientation !=
+    (uint8_t)doc->GetBrowsingContext()->GetCurrentOrientationType()) {
+    oldSize = nsSize(oldSize.Height(), oldSize.Width());
   }
 
   // Notify the pres shell that we are starting fullscreen change, and
