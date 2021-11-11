@@ -5,9 +5,8 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 include("/dom/media/webrtc/third_party_build/webrtc.mozbuild")
 
-EXPORTS += [
-    "WebrtcImageBuffer.h",
-]
+# Allow outputing trace points from the libwebrtc glue code
+DEFINES["TRACING"] = True
 
 LOCAL_INCLUDES += [
     "!/ipc/ipdl/_ipdlheaders",
@@ -43,6 +42,9 @@ if CONFIG["MOZ_WIDGET_TOOLKIT"] == "gonk":
         "WebrtcGonkH264VideoCodec.cpp",
         "WebrtcGonkVideoCodec.cpp",
         "WebrtcGonkVP8VideoCodec.cpp",
+    ]
+    EXPORTS += [
+        "WebrtcImageBuffer.h",
     ]
 
 
