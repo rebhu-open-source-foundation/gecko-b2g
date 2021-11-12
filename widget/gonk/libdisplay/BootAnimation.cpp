@@ -846,7 +846,10 @@ static void* AnimationThread(void*) {
                           DisplayType::DISPLAY_EXTERNAL);
     }
   }
-
+  if (animPlayed && display->IsExtFBDeviceEnabled() && numAnim > 1) {
+    usleep(500000);
+    setBacklight(0, true);
+  }
   return nullptr;
 }
 
