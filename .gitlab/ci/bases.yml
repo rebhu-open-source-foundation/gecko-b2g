@@ -165,7 +165,7 @@ variables:
 # it's worth noting that the following jobs don't directly extend ".build:rules" because
 # they're extended in other projects, e.g. re/kaios-build
 .build_desktop:
-  image: ${CI_REGISTRY}/re/kaios-build/next/desktop:1.53.0_6_1
+  image: ${CI_REGISTRY}/re/kaios-build/next/desktop:1.56.1_6_0
   tags:
     - gecko-dev
   variables:
