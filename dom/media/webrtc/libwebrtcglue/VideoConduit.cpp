@@ -53,7 +53,7 @@
 #  include <netinet/in.h>
 #endif
 
-#define DEFAULT_VIDEO_MAX_FRAMERATE 30
+#define DEFAULT_VIDEO_MAX_FRAMERATE 30u
 #define INVALID_RTP_PAYLOAD 255  // valid payload types are 0 to 127
 
 namespace mozilla {
@@ -680,7 +680,7 @@ void WebrtcVideoConduit::OnControlConfigChange() {
                     this, streamCount);
 
         {
-          const int max_framerate =
+          const unsigned max_framerate =
               codecConfig->mEncodingConstraints.maxFps > 0
                   ? codecConfig->mEncodingConstraints.maxFps
                   : DEFAULT_VIDEO_MAX_FRAMERATE;
@@ -691,7 +691,8 @@ void WebrtcVideoConduit::OnControlConfigChange() {
 
         // So we can comply with b=TIAS/b=AS/maxbr=X when input resolution
         // changes
-        mNegotiatedMaxBitrate = codecConfig->mTias;
+        MOZ_ASSERT(codecConfig->mTias < INT_MAX);
+        mNegotiatedMaxBitrate = static_cast<int>(codecConfig->mTias);
 
         if (mLastWidth == 0 && mMinBitrateEstimate != 0) {
           // Only do this at the start; use "have we sent a frame" as a
@@ -798,7 +799,7 @@ void WebrtcVideoConduit::OnControlConfigChange() {
           newRtp.rids.clear();
           bool has_rid = false;
           for (size_t idx = 0; idx < streamCount; idx++) {
-            auto& encoding = codecConfig->mEncodings[idx];
+            const auto& encoding = codecConfig->mEncodings[idx];
             if (encoding.rid[0]) {
               has_rid = true;
               break;
@@ -806,7 +807,7 @@ void WebrtcVideoConduit::OnControlConfigChange() {
           }
           if (has_rid) {
             for (size_t idx = streamCount; idx > 0; idx--) {
-              auto& encoding = codecConfig->mEncodings[idx - 1];
+              const auto& encoding = codecConfig->mEncodings[idx - 1];
               newRtp.rids.push_back(encoding.rid);
             }
           }
@@ -1176,31 +1177,31 @@ void WebrtcVideoConduit::Shutdown() {
   using namespace Telemetry;
   if (mSendBitrate.NumDataValues() > 0) {
     Accumulate(WEBRTC_VIDEO_ENCODER_BITRATE_AVG_PER_CALL_KBPS,
-               mSendBitrate.Mean() / 1000);
+               static_cast<unsigned>(mSendBitrate.Mean() / 1000));
     Accumulate(WEBRTC_VIDEO_ENCODER_BITRATE_STD_DEV_PER_CALL_KBPS,
-               mSendBitrate.StandardDeviation() / 1000);
+               static_cast<unsigned>(mSendBitrate.StandardDeviation() / 1000));
     mSendBitrate.Clear();
   }
   if (mSendFramerate.NumDataValues() > 0) {
     Accumulate(WEBRTC_VIDEO_ENCODER_FRAMERATE_AVG_PER_CALL,
-               mSendFramerate.Mean());
+               static_cast<unsigned>(mSendFramerate.Mean()));
     Accumulate(WEBRTC_VIDEO_ENCODER_FRAMERATE_10X_STD_DEV_PER_CALL,
-               mSendFramerate.StandardDeviation() * 10);
+               static_cast<unsigned>(mSendFramerate.StandardDeviation() * 10));
     mSendFramerate.Clear();
   }
 
   if (mRecvBitrate.NumDataValues() > 0) {
     Accumulate(WEBRTC_VIDEO_DECODER_BITRATE_AVG_PER_CALL_KBPS,
-               mRecvBitrate.Mean() / 1000);
+               static_cast<unsigned>(mRecvBitrate.Mean() / 1000));
     Accumulate(WEBRTC_VIDEO_DECODER_BITRATE_STD_DEV_PER_CALL_KBPS,
-               mRecvBitrate.StandardDeviation() / 1000);
+               static_cast<unsigned>(mRecvBitrate.StandardDeviation() / 1000));
     mRecvBitrate.Clear();
   }
   if (mRecvFramerate.NumDataValues() > 0) {
     Accumulate(WEBRTC_VIDEO_DECODER_FRAMERATE_AVG_PER_CALL,
-               mRecvFramerate.Mean());
+               static_cast<unsigned>(mRecvFramerate.Mean()));
     Accumulate(WEBRTC_VIDEO_DECODER_FRAMERATE_10X_STD_DEV_PER_CALL,
-               mRecvFramerate.StandardDeviation() * 10);
+               static_cast<unsigned>(mRecvFramerate.StandardDeviation() * 10));
     mRecvFramerate.Clear();
   }
 
@@ -1797,7 +1798,7 @@ bool WebrtcVideoConduit::AddFrameHistory(
 void WebrtcVideoConduit::DumpCodecDB() const {
   MOZ_ASSERT(mCallThread->IsOnCurrentThread());
 
-  for (auto& entry : mControl.mConfiguredRecvCodecs) {
+  for (const auto& entry : mControl.mConfiguredRecvCodecs) {
     CSFLogDebug(LOGTAG, "Payload Name: %s", entry.mName.c_str());
     CSFLogDebug(LOGTAG, "Payload Type: %d", entry.mType);
     CSFLogDebug(LOGTAG, "Payload Max Frame Size: %d",
@@ -1807,11 +1808,12 @@ void WebrtcVideoConduit::DumpCodecDB() const {
   }
 }
 
-void WebrtcVideoConduit::VideoLatencyUpdate(uint64_t newSample) {
+void WebrtcVideoConduit::VideoLatencyUpdate(uint64_t aNewSample) {
   mRendererMonitor.AssertCurrentThreadIn();
 
   mVideoLatencyAvg =
-      (sRoundingPadding * newSample + sAlphaNum * mVideoLatencyAvg) / sAlphaDen;
+      (sRoundingPadding * aNewSample + sAlphaNum * mVideoLatencyAvg) /
+      sAlphaDen;
 }
 
 uint64_t WebrtcVideoConduit::MozVideoLatencyAvg() {

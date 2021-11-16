@@ -8808,7 +8808,6 @@ class Parser(Tokenizer):
 
     # Builtin IDL defined by WebIDL
     _builtins = """
-        typedef unsigned long long DOMTimeStamp;
         typedef (ArrayBufferView or ArrayBuffer) BufferSource;
     """
 

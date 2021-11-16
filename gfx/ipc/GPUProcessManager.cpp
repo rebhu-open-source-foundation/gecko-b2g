@@ -62,6 +62,10 @@
 #  include "mozilla/layers/SharedBufferManagerParent.h"
 #endif
 
+#if defined(XP_WIN)
+#  include "gfxWindowsPlatform.h"
+#endif
+
 namespace mozilla {
 namespace gfx {
 
@@ -628,7 +632,11 @@ void GPUProcessManager::OnInProcessDeviceReset(bool aTrackThreshold) {
     DisableWebRenderConfig(wr::WebRenderError::EXCESSIVE_RESETS, nsCString());
 #endif
   }
-
+#ifdef XP_WIN
+  // Ensure device reset handling before re-creating in process sessions.
+  // Normally nsWindow::OnPaint() already handled it.
+  gfxWindowsPlatform::GetPlatform()->HandleDeviceReset();
+#endif
   RebuildInProcessSessions();
   NotifyListenersOnCompositeDeviceReset();
 }
