@@ -92,7 +92,6 @@ SOURCES += [
     "nsClipboard.cpp",
     "nsIdleServiceGonk.cpp",
     "nsLookAndFeel.cpp",
-    "nsNativeBasicThemeGonk.cpp",
     "nsWidgetFactory.cpp",
     "nsWindow.cpp",
     "OrientationObserver.cpp",
