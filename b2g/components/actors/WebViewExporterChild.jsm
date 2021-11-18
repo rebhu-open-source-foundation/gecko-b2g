@@ -118,6 +118,15 @@ class WebViewExporterChild extends JSWindowActorChild {
       });
     };
 
+    // Remove the APIs which aren't supported in the nested web-view.
+    delete classWebView.prototype.enableCursor;
+    delete classWebView.prototype.disableCursor;
+    delete classWebView.prototype.getCursorEnabled;
+    delete classWebView.prototype.activateKeyForwarding;
+    delete classWebView.prototype.deactivateKeyForwarding;
+    delete classWebView.prototype.enterModalState;
+    delete classWebView.prototype.leaveModalState;
+
     // Now nested webview is inprocess and doesn't own a message manager.
     // Instead of messages, we use events when using a nested web-view.
     classBrowser.prototype.webViewGetBackgroundColor = function() {
