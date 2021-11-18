@@ -246,7 +246,7 @@
 #include "nsIWebBrowserChrome.h"
 #include "nsIX509Cert.h"
 #include "nsIXULRuntime.h"
-#ifdef MOZ_WIDGET_GTK
+#if defined(MOZ_WIDGET_GTK) || defined(XP_WIN)
 #  include "nsIconChannel.h"
 #endif
 #include "nsMemoryInfoDumper.h"
@@ -1253,7 +1253,7 @@ ContentParent::GetNewOrUsedLaunchingBrowserProcess(
              PromiseFlatCString(aRemoteType).get()));
 
     contentParent = new ContentParent(aRemoteType);
-    if (!contentParent->BeginSubprocessLaunch(aPriority)) {
+    if (NS_WARN_IF(!contentParent->BeginSubprocessLaunch(aPriority))) {
       // Launch aborted because of shutdown. Bailout.
       contentParent->LaunchSubprocessReject();
       return nullptr;
@@ -2715,7 +2715,8 @@ bool ContentParent::BeginSubprocessLaunch(ProcessPriority aPriority) {
   AUTO_PROFILER_LABEL("ContentParent::LaunchSubprocess", OTHER);
 
   if (!ContentProcessManager::GetSingleton()) {
-    // Shutdown has begun, we shouldn't spawn any more child processes.
+    NS_WARNING(
+        "Shutdown has begun, we shouldn't spawn any more child processes");
     return false;
   }
 
@@ -2731,6 +2732,7 @@ bool ContentParent::BeginSubprocessLaunch(ProcessPriority aPriority) {
   // `LaunchSubprocessReject`/`LaunchSubprocessResolve`.
   mPrefSerializer = MakeUnique<mozilla::ipc::SharedPreferenceSerializer>();
   if (!mPrefSerializer->SerializeToSharedMemory()) {
+    NS_WARNING("SharedPreferenceSerializer::SerializeToSharedMemory failed");
     MarkAsDead();
     return false;
   }
@@ -2778,7 +2780,7 @@ bool ContentParent::BeginSubprocessLaunch(ProcessPriority aPriority) {
 }
 
 void ContentParent::LaunchSubprocessReject() {
-  NS_ERROR("failed to launch child in the parent");
+  NS_WARNING("failed to launch child in the parent");
   MOZ_LOG(ContentParent::GetLog(), LogLevel::Verbose,
           ("failed to launch child in the parent"));
   // Now that communication with the child is complete, we can cleanup
@@ -2840,6 +2842,7 @@ bool ContentParent::LaunchSubprocessResolve(bool aIsSync,
   // marked as DEAD, fail the process launch, and immediately begin tearing down
   // the content process.
   if (IsDead()) {
+    NS_WARNING("immediately shutting-down already-dead process");
     ShutDownProcess(SEND_SHUTDOWN_MESSAGE);
     return false;
   }
@@ -8311,7 +8314,7 @@ void ContentParent::DidLaunchSubprocess() {
 
 IPCResult ContentParent::RecvGetSystemIcon(nsIURI* aURI,
                                            GetSystemIconResolver&& aResolver) {
-#ifdef MOZ_WIDGET_GTK
+#if defined(MOZ_WIDGET_GTK)
   Maybe<ByteBuf> bytebuf = Some(ByteBuf{});
   nsresult rv = nsIconChannel::GetIcon(aURI, bytebuf.ptr());
   if (NS_WARN_IF(NS_FAILED(rv))) {
@@ -8320,8 +8323,23 @@ IPCResult ContentParent::RecvGetSystemIcon(nsIURI* aURI,
   using ResolverArgs = Tuple<const nsresult&, mozilla::Maybe<ByteBuf>&&>;
   aResolver(ResolverArgs(rv, std::move(bytebuf)));
   return IPC_OK();
+#elif defined(XP_WIN)
+  using ResolverArgs = Tuple<const nsresult&, mozilla::Maybe<ByteBuf>&&>;
+  nsIconChannel::GetIconAsync(aURI)->Then(
+      GetCurrentSerialEventTarget(), __func__,
+      [aResolver](ByteBuf&& aByteBuf) {
+        Maybe<ByteBuf> bytebuf = Some(std::move(aByteBuf));
+        aResolver(ResolverArgs(NS_OK, std::move(bytebuf)));
+      },
+      [aResolver](nsresult aErr) {
+        Maybe<ByteBuf> bytebuf = Nothing();
+        aResolver(ResolverArgs(aErr, std::move(bytebuf)));
+      });
+  return IPC_OK();
 #else
-  MOZ_CRASH("This message is currently implemented only on GTK platforms");
+  MOZ_CRASH(
+      "This message is currently implemented only on GTK and Windows "
+      "platforms");
 #endif
 }
 

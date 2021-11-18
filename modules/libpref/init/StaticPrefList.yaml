@@ -8986,7 +8986,7 @@
   mirror: always
 
 - name: media.flac.enabled
-  type: bool
+  type: RelaxedAtomicBool
   value: true
   mirror: always
 
