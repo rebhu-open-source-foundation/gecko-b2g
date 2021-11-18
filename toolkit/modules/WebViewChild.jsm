@@ -633,7 +633,7 @@ WebViewChild.prototype = {
     this._ctxCounter++;
     this._ctxHandlers = {};
 
-    let elem = event.target;
+    let elem = event.composedTarget;
     let menuData = { systemTargets: [], contextmenu: null };
     let ctxMenuId = null;
     let clipboardPlainTextOnly = Services.prefs.getBoolPref(
