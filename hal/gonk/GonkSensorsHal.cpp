@@ -498,6 +498,18 @@ GonkSensorsHal::DeactivateSensor(const SensorType aSensorType) {
 }
 
 void
+GonkSensorsHal::GetSensorVendor(const SensorType aSensorType, nsACString& aRetval) {
+  SensorInfo& sensorInfo = mSensorInfoList[aSensorType];
+  aRetval.AssignASCII(sensorInfo.vendor.c_str(), sensorInfo.vendor.size());
+}
+
+void
+GonkSensorsHal::GetSensorName(const SensorType aSensorType, nsACString& aRetval) {
+  SensorInfo& sensorInfo = mSensorInfoList[aSensorType];
+  aRetval.AssignASCII(sensorInfo.name.c_str(), sensorInfo.name.size());
+}
+
+void
 GonkSensorsHal::PrepareForReconnect() {
   mToReconnect = true;
   if (mSensors->supportsMessageQueues()) {

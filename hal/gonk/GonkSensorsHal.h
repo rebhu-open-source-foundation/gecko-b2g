@@ -60,6 +60,8 @@ public:
   bool RegisterSensorDataCallback(const SensorDataCallback aCallback);
   bool ActivateSensor(const SensorType aSensorType);
   bool DeactivateSensor(const SensorType aSensorType);
+  void GetSensorVendor(const SensorType aSensorType, nsACString& aRetval);
+  void GetSensorName(const SensorType aSensorType, nsACString& aRetval);
   void PrepareForReconnect();
   void Reconnect();
 private:
