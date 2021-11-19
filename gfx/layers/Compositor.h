@@ -43,8 +43,6 @@
  *
  * # Main interfaces and abstractions
  *
- *  - Layer, ShadowableLayer and LayerComposite
- *    (see Layers.h and ipc/ShadowLayers.h)
  *  - CompositableClient and CompositableHost
  *    (client/CompositableClient.h composite/CompositableHost.h)
  *  - TextureClient and TextureHost
@@ -75,7 +73,6 @@
  * are also platform-independent. Examples of compositable classes are:
  *  - ImageClient
  *  - CanvasClient
- *  - ContentHost
  *  - etc.
  * Texture classes (TextureClient and TextureHost) are thin abstractions over
  * platform-dependent texture memory. They are maniplulated by compositables
@@ -302,8 +299,6 @@ class Compositor : public TextureSourceProvider {
 #ifdef MOZ_DUMP_PAINTING
   virtual const char* Name() const = 0;
 #endif  // MOZ_DUMP_PAINTING
-
-  virtual LayersBackend GetBackendType() const = 0;
 
   virtual CompositorD3D11* AsCompositorD3D11() { return nullptr; }
 
