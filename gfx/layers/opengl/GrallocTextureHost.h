@@ -24,13 +24,6 @@ public:
 
   virtual ~GrallocTextureHostOGL();
 
-  virtual bool Lock() override;
-
-  virtual void Unlock() override;
-
-  virtual void SetTextureSourceProvider(
-      TextureSourceProvider* aProvider) override;
-
   virtual void DeallocateSharedData() override;
 
   virtual void ForgetSharedData() override;
@@ -41,8 +34,6 @@ public:
 
   virtual void CreateRenderTexture(
       const wr::ExternalImageId& aExternalImageId) override;
-
-  virtual bool AcquireTextureSource(CompositableTextureSourceRef& aTexture) override;
 
   virtual void PushResourceUpdates(
       wr::TransactionBuilder& aResources,
@@ -60,12 +51,6 @@ public:
   virtual gfx::IntSize GetSize() const override { return mCropSize; }
 
   virtual LayerRenderState GetRenderState() override;
-
-  virtual void PrepareTextureSource(CompositableTextureSourceRef& aTextureSource) override;
-
-  virtual bool BindTextureSource(CompositableTextureSourceRef& aTextureSource) override;
-
-  virtual void UnbindTextureSource() override;
 
   virtual already_AddRefed<gfx::DataSourceSurface> GetAsSurface() override;
 

@@ -107,8 +107,6 @@ EXPORTS.mozilla.layers += [
     "AtomicRefCountedWithFinalize.h",
     "AxisPhysicsModel.h",
     "AxisPhysicsMSDModel.h",
-    "basic/BasicCompositor.h",
-    "basic/TextureHostBasic.h",
     "BSPTree.h",
     "BufferTexture.h",
     "BuildConstants.h",
@@ -295,12 +293,10 @@ if CONFIG["MOZ_WIDGET_TOOLKIT"] == "android":
 # has full system permissions there.
 if CONFIG["MOZ_WIDGET_TOOLKIT"] == "gonk":
     EXPORTS.mozilla.layers += [
-        "basic/GrallocTextureHostBasic.h",
         "ipc/ShadowLayerUtilsGralloc.h",
         "LayerRenderState.h",
     ]
     UNIFIED_SOURCES += [
-        "basic/GrallocTextureHostBasic.cpp",
         "GrallocImages.cpp",
         "opengl/EGLImageHelpers.cpp",
         "opengl/GrallocTextureClient.cpp",
@@ -367,7 +363,6 @@ UNIFIED_SOURCES += [
     "apz/util/TouchCounter.cpp",
     "AxisPhysicsModel.cpp",
     "AxisPhysicsMSDModel.cpp",
-    "basic/TextureHostBasic.cpp",
     "BSPTree.cpp",
     "BufferTexture.cpp",
     "CanvasDrawEventRecorder.cpp",

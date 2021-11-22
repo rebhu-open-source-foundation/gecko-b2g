@@ -127,28 +127,6 @@ GrallocTextureHostOGL::GrallocTextureHostOGL(
 
 GrallocTextureHostOGL::~GrallocTextureHostOGL() { DestroyEGLImage(); }
 
-void GrallocTextureHostOGL::SetTextureSourceProvider(
-    TextureSourceProvider* aProvider) {
-  if (mCompositor == aProvider) {
-    return;
-  }
-
-  if (mGLTextureSource) {
-    mGLTextureSource->SetTextureSourceProvider(aProvider);
-  }
-
-  if (mCompositor) {
-    DestroyEGLImage();
-  }
-  mCompositor = aProvider ? aProvider->AsCompositorOGL() : nullptr;
-}
-
-bool GrallocTextureHostOGL::Lock() { return IsValid(); }
-
-void GrallocTextureHostOGL::Unlock() {
-  // Unlock is done internally by binding the texture to another gralloc buffer
-}
-
 bool GrallocTextureHostOGL::IsValid() const {
   android::GraphicBuffer* graphicBuffer =
       GetGraphicBufferFromDesc(mGrallocHandle).get();
@@ -250,21 +228,6 @@ already_AddRefed<gfx::DataSourceSurface> GrallocTextureHostOGL::GetAsSurface() {
   return surf.forget();
 }
 
-void GrallocTextureHostOGL::UnbindTextureSource() {
-  TextureHost::UnbindTextureSource();
-  // Clear the reference to the TextureSource (if any), because we know that
-  // another TextureHost is being bound to the TextureSource. This means that
-  // we will have to re-do gl->fEGLImageTargetTexture2D next time we go through
-  // BindTextureSource (otherwise we would have skipped it).
-  // Note that this doesn't "unlock" the gralloc buffer or force it to be
-  // detached, Although decreasing the refcount of the TextureSource may lead
-  // to the gl handle being destroyed, which would unlock the gralloc buffer.
-  // That said, this method is called before another TextureHost attaches to the
-  // TextureSource, which has the effect of unlocking the gralloc buffer. So
-  // when this is called we know we are going to be unlocked soon.
-  mGLTextureSource = nullptr;
-}
-
 GLenum GetTextureTarget(gl::GLContext* aGL, android::PixelFormat aFormat) {
   MOZ_ASSERT(aGL);
   if (aGL->Renderer() == gl::GLRenderer::SGX530 ||
@@ -306,95 +269,6 @@ void GrallocTextureHostOGL::DestroyEGLImage() {
   if (mEGLImage != EGL_NO_IMAGE) {
     EGLImageDestroy(nullptr, mEGLImage);
     mEGLImage = EGL_NO_IMAGE;
-  }
-}
-
-void GrallocTextureHostOGL::PrepareTextureSource(
-    CompositableTextureSourceRef& aTextureSource) {
-  // This happens during the layers transaction.
-  // All of the gralloc magic goes here. The only thing that happens externally
-  // and that is good to keep in mind is that when the TextureSource is deleted,
-  // it destroys its gl texture handle which is important for genlock.
-
-  // If this TextureHost's mGLTextureSource member is non-null, it means we are
-  // still bound to the TextureSource, in which case we can skip the driver
-  // overhead of binding the texture again (fEGLImageTargetTexture2D)
-  // As a result, if the TextureHost is used with several CompositableHosts,
-  // it will be bound to only one TextureSource, and we'll do the driver work
-  // only once, which is great. This means that all of the compositables that
-  // use this TextureHost will keep a reference to this TextureSource at least
-  // for the duration of this frame.
-
-  // If the compositable already has a TextureSource (the aTextureSource
-  // parameter), that is compatible and is not in use by several compositable,
-  // we try to attach to it. This has the effect of unlocking the previous
-  // TextureHost that we attached to the TextureSource (the previous frame)
-
-  // If the TextureSource used by the compositable is also used by other
-  // compositables (see NumCompositableRefs), we have to create a new
-  // TextureSource, because otherwise we would be modifying the content of every
-  // layer that uses the TextureSource in question, even thoug they don't use
-  // this TextureHost.
-
-  android::GraphicBuffer* graphicBuffer =
-      GetGraphicBufferFromDesc(mGrallocHandle).get();
-
-  MOZ_ASSERT(graphicBuffer);
-  if (!graphicBuffer) {
-    mGLTextureSource = nullptr;
-    return;
-  }
-
-  if (mGLTextureSource && !mGLTextureSource->IsValid()) {
-    mGLTextureSource = nullptr;
-  }
-
-  if (mGLTextureSource) {
-    // We are already attached to a TextureSource, nothing to do except tell
-    // the compositable to use it.
-    aTextureSource = mGLTextureSource.get();
-    return;
-  }
-
-  gl::GLContext* gl = GetGLContext();
-  if (!gl || !gl->MakeCurrent()) {
-    mGLTextureSource = nullptr;
-    return;
-  }
-
-  CreateEGLImage();
-
-  GLenum textureTarget = GetTextureTarget(gl, graphicBuffer->getPixelFormat());
-
-  GLTextureSource* glSource =
-      aTextureSource.get() ? aTextureSource->AsSourceOGL()->AsGLTextureSource()
-                           : nullptr;
-
-  bool shouldCreateTextureSource =
-      !glSource || !glSource->IsValid() ||
-      glSource->NumCompositableRefs() > 1 ||
-      glSource->GetTextureTarget() != textureTarget;
-
-  if (shouldCreateTextureSource) {
-    GLuint textureHandle;
-    gl->fGenTextures(1, &textureHandle);
-    gl->fBindTexture(textureTarget, textureHandle);
-    gl->fTexParameteri(textureTarget, LOCAL_GL_TEXTURE_WRAP_T,
-                       LOCAL_GL_CLAMP_TO_EDGE);
-    gl->fTexParameteri(textureTarget, LOCAL_GL_TEXTURE_WRAP_S,
-                       LOCAL_GL_CLAMP_TO_EDGE);
-    gl->fEGLImageTargetTexture2D(textureTarget, mEGLImage);
-
-    mGLTextureSource = new GLTextureSource(mCompositor, textureHandle,
-                                           textureTarget, mSize, mFormat);
-    aTextureSource = mGLTextureSource.get();
-  } else {
-    gl->fBindTexture(textureTarget, glSource->GetTextureHandle());
-
-    gl->fEGLImageTargetTexture2D(textureTarget, mEGLImage);
-    glSource->SetSize(mSize);
-    glSource->SetFormat(mFormat);
-    mGLTextureSource = glSource;
   }
 }
 
@@ -448,37 +322,6 @@ void GrallocTextureHostOGL::SetCropRect(nsIntRect aCropRect) {
     DestroyEGLImage();
     CreateEGLImage();
   }
-}
-
-bool GrallocTextureHostOGL::BindTextureSource(
-    CompositableTextureSourceRef& aTextureSource) {
-  // This happens at composition time.
-
-  // If mGLTextureSource is null it means PrepareTextureSource failed.
-  if (!mGLTextureSource) {
-    return false;
-  }
-
-  // If Prepare didn't fail, we expect our TextureSource to be the same as
-  // aTextureSource, otherwise it means something has fiddled with the
-  // TextureSource between Prepare and now.
-  MOZ_ASSERT(mGLTextureSource == aTextureSource);
-  aTextureSource = mGLTextureSource.get();
-
-#if defined(MOZ_WIDGET_GONK)
-  // Wait until it's ready.
-  WaitAcquireFenceHandleSyncComplete();
-#endif
-  return true;
-}
-
-bool GrallocTextureHostOGL::AcquireTextureSource(
-    CompositableTextureSourceRef& aTexture) {
-  if (!mGLTextureSource) {
-    return false;
-  }
-  aTexture = mGLTextureSource.get();
-  return true;
 }
 
 void GrallocTextureHostOGL::PushResourceUpdates(
