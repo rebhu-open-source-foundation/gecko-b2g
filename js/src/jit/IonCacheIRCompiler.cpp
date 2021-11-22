@@ -10,6 +10,7 @@
 #include <algorithm>
 
 #include "jit/CacheIRCompiler.h"
+#include "jit/CacheIRWriter.h"
 #include "jit/IonIC.h"
 #include "jit/JitFrames.h"
 #include "jit/JitZone.h"
@@ -20,6 +21,7 @@
 #include "proxy/DeadObjectProxy.h"
 #include "proxy/Proxy.h"
 #include "util/Memory.h"
+#include "vm/StaticStrings.h"
 
 #include "jit/JSJitFrameIter-inl.h"
 #include "jit/MacroAssembler-inl.h"

@@ -7,6 +7,7 @@
 #include "jit/BaselineCacheIRCompiler.h"
 
 #include "jit/CacheIR.h"
+#include "jit/CacheIRWriter.h"
 #include "jit/JitFrames.h"
 #include "jit/JitRuntime.h"
 #include "jit/JitZone.h"
@@ -19,6 +20,7 @@
 #include "proxy/Proxy.h"
 #include "util/Unicode.h"
 #include "vm/JSAtom.h"
+#include "vm/StaticStrings.h"
 
 #include "jit/MacroAssembler-inl.h"
 #include "jit/SharedICHelpers-inl.h"

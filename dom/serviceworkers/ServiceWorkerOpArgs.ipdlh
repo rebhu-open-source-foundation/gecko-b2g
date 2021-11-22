@@ -70,7 +70,7 @@ struct ServiceWorkerMessageEventOpArgs {
   ClonedOrErrorMessageData clonedData;
 };
 
-struct ServiceWorkerFetchEventOpArgs {
+struct ServiceWorkerFetchEventOpArgsCommon {
   nsCString workerScriptSpec;
   IPCInternalRequest internalRequest;
   nsString clientId;
@@ -80,10 +80,6 @@ struct ServiceWorkerFetchEventOpArgs {
   // preloadResponse was not already provided in this structure, then it's
   // expected that a PreloadResponse message will eventually be sent.
   bool preloadNavigation;
-  // For the case the preload response is ready before fetch event is created,
-  // the preload response is sent with this parameter for initializing
-  // FetchEvent.preloadResponse.
-  IPCInternalResponse? preloadResponse;
   // Failure injection helper; non-NS_OK values indicate that the event, instead
   // of dispatching should instead return a `CancelInterceptionArgs` response
   // with this nsresult.  This value originates from
@@ -97,6 +93,16 @@ struct ServiceWorkerSystemMessageEventOpArgs {
   uint32_t disableOpenClickDelay;
 };
 
+struct ParentToParentServiceWorkerFetchEventOpArgs {
+  ServiceWorkerFetchEventOpArgsCommon common;
+  ParentToParentInternalResponse? preloadResponse;
+};
+
+struct ParentToChildServiceWorkerFetchEventOpArgs {
+  ServiceWorkerFetchEventOpArgsCommon common;
+  ParentToChildInternalResponse? preloadResponse;
+};
+
 union ServiceWorkerOpArgs {
   ServiceWorkerCheckScriptEvaluationOpArgs;
   ServiceWorkerUpdateStateOpArgs;
@@ -106,8 +112,8 @@ union ServiceWorkerOpArgs {
   ServiceWorkerPushSubscriptionChangeEventOpArgs;
   ServiceWorkerNotificationEventOpArgs;
   ServiceWorkerMessageEventOpArgs;
-  ServiceWorkerFetchEventOpArgs;
   ServiceWorkerSystemMessageEventOpArgs;
+  ParentToChildServiceWorkerFetchEventOpArgs;
 };
 
 /**
@@ -124,8 +130,14 @@ struct FetchEventTimeStamps {
   TimeStamp fetchHandlerFinish;
 };
 
-struct IPCSynthesizeResponseArgs {
-  IPCInternalResponse internalResponse;
+struct ChildToParentSynthesizeResponseArgs {
+  ChildToParentInternalResponse internalResponse;
+  FetchEventRespondWithClosure closure;
+  FetchEventTimeStamps timeStamps;
+};
+
+struct ParentToParentSynthesizeResponseArgs {
+  ParentToParentInternalResponse internalResponse;
   FetchEventRespondWithClosure closure;
   FetchEventTimeStamps timeStamps;
 };
@@ -139,8 +151,14 @@ struct CancelInterceptionArgs {
   FetchEventTimeStamps timeStamps;
 };
 
-union IPCFetchEventRespondWithResult {
-  IPCSynthesizeResponseArgs;
+union ChildToParentFetchEventRespondWithResult {
+  ChildToParentSynthesizeResponseArgs;
+  ResetInterceptionArgs;
+  CancelInterceptionArgs;
+};
+
+union ParentToParentFetchEventRespondWithResult {
+  ParentToParentSynthesizeResponseArgs;
   ResetInterceptionArgs;
   CancelInterceptionArgs;
 };

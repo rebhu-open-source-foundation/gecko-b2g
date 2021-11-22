@@ -721,6 +721,7 @@ nsresult ShutdownXPCOM(nsIServiceManager* aServMgr) {
       mozilla::ShutdownPhase::CCPostLastCycleCollection);
 
   mozilla::scache::StartupCache::DeleteSingleton();
+  mozilla::ScriptPreloader::DeleteSingleton();
 
   PROFILER_MARKER_UNTYPED("Shutdown xpcom", OTHER);
 
@@ -739,7 +740,7 @@ nsresult ShutdownXPCOM(nsIServiceManager* aServMgr) {
     sInitializedJS = false;
   }
 
-  mozilla::KillClearOnShutdown(ShutdownPhase::JSPostShutDown);
+  mozilla::ScriptPreloader::DeleteCacheDataSingleton();
 
   // Release shared memory which might be borrowed by the JS engine.
   xpc::SelfHostedShmem::Shutdown();

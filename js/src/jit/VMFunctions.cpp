@@ -20,6 +20,8 @@
 #include "jit/JitRuntime.h"
 #include "jit/mips32/Simulator-mips32.h"
 #include "jit/mips64/Simulator-mips64.h"
+#include "jit/Simulator.h"
+#include "js/experimental/JitInfo.h"
 #include "js/friend/ErrorMessages.h"  // js::GetErrorMessage, JSMSG_*
 #include "js/friend/StackLimits.h"    // js::AutoCheckRecursionLimit
 #include "js/friend/WindowProxy.h"    // js::IsWindow
@@ -29,6 +31,7 @@
 #include "vm/Interpreter.h"
 #include "vm/PlainObject.h"  // js::PlainObject
 #include "vm/SelfHosting.h"
+#include "vm/StaticStrings.h"
 #include "vm/TraceLogging.h"
 #include "vm/TypedArrayObject.h"
 #include "wasm/TypedObject.h"

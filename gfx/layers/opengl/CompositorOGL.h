@@ -124,12 +124,6 @@ class CompositorOGL final : public Compositor {
   already_AddRefed<DataTextureSource> CreateDataTextureSource(
       TextureFlags aFlags = TextureFlags::NO_FLAGS) override;
 
-  already_AddRefed<DataTextureSource> CreateDataTextureSourceAroundYCbCr(
-      TextureHost* aTexture) override;
-
-  already_AddRefed<DataTextureSource> CreateDataTextureSourceAround(
-      gfx::DataSourceSurface* aSurface) override;
-
   bool Initialize(GLContext* aGLContext,
                   RefPtr<ShaderProgramOGLsHolder> aProgramsHolder,
                   nsCString* const out_failureReason);
@@ -191,11 +185,6 @@ class CompositorOGL final : public Compositor {
 
   GLContext* gl() const { return mGLContext; }
   GLContext* GetGLContext() const override { return mGLContext; }
-
-#ifdef XP_DARWIN
-  void MaybeUnlockBeforeNextComposition(TextureHost* aTextureHost) override;
-  void TryUnlockTextures() override;
-#endif
 
   /**
    * Clear the program state. This must be called
@@ -265,10 +254,6 @@ class CompositorOGL final : public Compositor {
   RefPtr<SurfacePoolHandle> mSurfacePoolHandle;
   gfx::Matrix4x4 mProjMatrix;
   bool mCanRenderToDefaultFramebuffer = true;
-
-#ifdef XP_DARWIN
-  nsTArray<RefPtr<BufferTextureHost>> mMaybeUnlockBeforeNextComposition;
-#endif
 
   /** The size of the surface we are rendering to */
   gfx::IntSize mSurfaceSize;

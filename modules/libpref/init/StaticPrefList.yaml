@@ -2411,7 +2411,7 @@
 - name: dom.image-lazy-loading.root-margin.top
   type: float
 #if defined(EARLY_BETA_OR_EARLIER)
-  value: 800
+  value: 500
 #else
   value: 300
 #endif
@@ -2425,7 +2425,7 @@
 - name: dom.image-lazy-loading.root-margin.bottom
   type: float
 #if defined(EARLY_BETA_OR_EARLIER)
-  value: 800
+  value: 500
 #else
   value: 300
 #endif
@@ -2439,7 +2439,7 @@
 - name: dom.image-lazy-loading.root-margin.left
   type: float
 #if defined(EARLY_BETA_OR_EARLIER)
-  value: 800
+  value: 500
 #else
   value: 300
 #endif
@@ -2453,7 +2453,7 @@
 - name: dom.image-lazy-loading.root-margin.right
   type: float
 #if defined(EARLY_BETA_OR_EARLIER)
-  value: 800
+  value: 500
 #else
   value: 300
 #endif
@@ -7189,7 +7189,7 @@
 # Whether the `color-scheme` css property and meta tags are enabled.
 - name: layout.css.color-scheme.enabled
   type: RelaxedAtomicBool
-  value: @IS_EARLY_BETA_OR_EARLIER@
+  value: true
   mirror: always
   rust: true
 
