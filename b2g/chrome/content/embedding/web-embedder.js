@@ -15,6 +15,7 @@ const { XPCOMUtils } = ChromeUtils.import(
 XPCOMUtils.defineLazyModuleGetters(this, {
   ChromeNotifications: "resource://gre/modules/ChromeNotifications.jsm",
   SelectionActionParent: "resource://gre/actors/SelectionActionParent.jsm",
+  embeddableProcessInfo: "resource://gre/moduels/B2GProcessSelector.jsm",
 });
 
 XPCOMUtils.defineLazyGetter(this, "Screenshot", function() {
@@ -611,7 +612,7 @@ XPCOMUtils.defineLazyServiceGetter(
     }
 
     getContentProcesses() {
-      return Services.appinfo.getContentProcesses();
+      return Services.appinfo.getContentProcesses().map(embeddableProcessInfo);
     }
   }
 

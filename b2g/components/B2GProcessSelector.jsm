@@ -22,7 +22,11 @@ B2GProcessSelector.prototype = {
     if (!this.embedderSelector) {
       return Ci.nsIContentProcessProvider.NEW_PROCESS;
     }
-    return this.embedderSelector.provideProcess(aType, aProcesses, aMaxCount);
+    return this.embedderSelector.provideProcess(
+      aType,
+      aProcesses.map(embeddableProcessInfo),
+      aMaxCount
+    );
   },
 
   suggestServiceWorkerProcess(aScope) {
@@ -35,4 +39,34 @@ B2GProcessSelector.prototype = {
   },
 };
 
-var EXPORTED_SYMBOLS = ["B2GProcessSelector"];
+// Provides an xpcom-free version of a nsIContentProcessInfo instance:
+// - Don't expose messageManager
+// - Turn nsIURI into a web compatible URL()
+function embeddableProcessInfo(processInfo) {
+  let safeInfo = {
+    isAlive: processInfo.isAlive,
+    tabCount: processInfo.tabCount,
+    willShutDown: processInfo.willShutDown,
+    serviceWorkerCount: processInfo.serviceWorkerCount,
+  };
+
+  try {
+    safeInfo.processId = processInfo.processId;
+  } catch (e) {
+    safeInfo.processId = -1;
+  }
+
+  safeInfo.tabURIs = [];
+  processInfo.tabURIs.forEach(uri => {
+    safeInfo.tabURIs.push(new URL(uri.spec));
+  });
+
+  safeInfo.serviceWorkerURIs = [];
+  processInfo.serviceWorkerURIs.forEach(uri => {
+    safeInfo.serviceWorkerURIs.push(new URL(uri.spec));
+  });
+
+  return safeInfo;
+}
+
+var EXPORTED_SYMBOLS = ["B2GProcessSelector", "embeddableProcessInfo"];
