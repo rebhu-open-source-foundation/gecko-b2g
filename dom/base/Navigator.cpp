@@ -1567,8 +1567,7 @@ already_AddRefed<LegacyMozTCPSocket> Navigator::MozTCPSocket() {
 
 void Navigator::GetGamepads(nsTArray<RefPtr<Gamepad>>& aGamepads,
                             ErrorResult& aRv) {
-  if (!mWindow || !mWindow->GetExtantDoc()) {
-    aRv.Throw(NS_ERROR_UNEXPECTED);
+  if (!mWindow || !mWindow->IsFullyActive()) {
     return;
   }
   NS_ENSURE_TRUE_VOID(mWindow->GetDocShell());

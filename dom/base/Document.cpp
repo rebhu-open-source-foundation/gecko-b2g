@@ -16902,7 +16902,7 @@ already_AddRefed<mozilla::dom::Promise> Document::RequestStorageAccess(
               Telemetry::LABELS_STORAGE_ACCESS_API_UI::Request);
         }
 
-        self->AutomaticStorageAccessPermissionCanBeGranted()->Then(
+        self->AutomaticStorageAccessPermissionCanBeGranted(true)->Then(
             GetCurrentSerialEventTarget(), __func__,
             [p, pr, sapr,
              inner](const AutomaticStorageAccessPermissionGrantPromise::
@@ -16989,7 +16989,8 @@ already_AddRefed<mozilla::dom::Promise> Document::RequestStorageAccess(
 }
 
 already_AddRefed<mozilla::dom::Promise> Document::RequestStorageAccessForOrigin(
-    const nsAString& aThirdPartyOrigin, mozilla::ErrorResult& aRv) {
+    const nsAString& aThirdPartyOrigin, const bool aRequireUserActivation,
+    mozilla::ErrorResult& aRv) {
   nsIGlobalObject* global = GetScopeObject();
   if (!global) {
     aRv.Throw(NS_ERROR_NOT_AVAILABLE);
@@ -17002,7 +17003,8 @@ already_AddRefed<mozilla::dom::Promise> Document::RequestStorageAccessForOrigin(
   }
 
   // Window doesn't have user activation, reject.
-  if (!this->HasValidTransientUserGestureActivation()) {
+  bool hasUserActivation = this->HasValidTransientUserGestureActivation();
+  if (aRequireUserActivation && !hasUserActivation) {
     nsContentUtils::ReportToConsole(nsIScriptError::errorFlag,
                                     nsLiteralCString("requestStorageAccess"),
                                     this, nsContentUtils::eDOM_PROPERTIES,
@@ -17095,7 +17097,7 @@ already_AddRefed<mozilla::dom::Promise> Document::RequestStorageAccessForOrigin(
     // This prevents usage of other transient activation-gated APIs.
     this->ConsumeTransientUserGestureActivation();
 
-    auto performFinalChecks = [inner, self, principal]() {
+    auto performFinalChecks = [inner, self, principal, hasUserActivation]() {
       RefPtr<ContentBlocking::StorageAccessFinalCheckPromise::Private> p =
           new ContentBlocking::StorageAccessFinalCheckPromise::Private(
               __func__);
@@ -17124,55 +17126,56 @@ already_AddRefed<mozilla::dom::Promise> Document::RequestStorageAccessForOrigin(
             Telemetry::LABELS_STORAGE_ACCESS_API_UI::Request);
       }
 
-      self->AutomaticStorageAccessPermissionCanBeGranted()->Then(
-          GetCurrentSerialEventTarget(), __func__,
-          [p, pr, sapr,
-           inner](const AutomaticStorageAccessPermissionGrantPromise::
-                      ResolveOrRejectValue& aValue) -> void {
-            // Make a copy because we can't modified copy-captured lambda
-            // variables.
-            PromptResult pr2 = pr;
+      self->AutomaticStorageAccessPermissionCanBeGranted(hasUserActivation)
+          ->Then(GetCurrentSerialEventTarget(), __func__,
+                 [p, pr, sapr,
+                  inner](const AutomaticStorageAccessPermissionGrantPromise::
+                             ResolveOrRejectValue& aValue) -> void {
+                   // Make a copy because we can't modified copy-captured lambda
+                   // variables.
+                   PromptResult pr2 = pr;
 
-            bool storageAccessCanBeGrantedAutomatically =
-                aValue.IsResolve() && aValue.ResolveValue();
+                   bool storageAccessCanBeGrantedAutomatically =
+                       aValue.IsResolve() && aValue.ResolveValue();
 
-            bool autoGrant = false;
-            if (pr2 == PromptResult::Pending &&
-                storageAccessCanBeGrantedAutomatically) {
-              pr2 = PromptResult::Granted;
-              autoGrant = true;
+                   bool autoGrant = false;
+                   if (pr2 == PromptResult::Pending &&
+                       storageAccessCanBeGrantedAutomatically) {
+                     pr2 = PromptResult::Granted;
+                     autoGrant = true;
 
-              Telemetry::AccumulateCategorical(
-                  Telemetry::LABELS_STORAGE_ACCESS_API_UI::AllowAutomatically);
-            }
+                     Telemetry::AccumulateCategorical(
+                         Telemetry::LABELS_STORAGE_ACCESS_API_UI::
+                             AllowAutomatically);
+                   }
 
-            if (pr2 != PromptResult::Pending) {
-              MOZ_ASSERT_IF(pr2 != PromptResult::Granted,
-                            pr2 == PromptResult::Denied);
-              if (pr2 == PromptResult::Granted) {
-                ContentBlocking::StorageAccessPromptChoices choice =
-                    ContentBlocking::eAllow;
-                if (autoGrant) {
-                  choice = ContentBlocking::eAllowAutoGrant;
-                }
-                if (!autoGrant) {
-                  p->Resolve(choice, __func__);
-                } else {
-                  sapr->MaybeDelayAutomaticGrants()->Then(
-                      GetCurrentSerialEventTarget(), __func__,
-                      [p, choice] { p->Resolve(choice, __func__); },
-                      [p] { p->Reject(false, __func__); });
-                }
-                return;
-              }
-              p->Reject(false, __func__);
-              return;
-            }
+                   if (pr2 != PromptResult::Pending) {
+                     MOZ_ASSERT_IF(pr2 != PromptResult::Granted,
+                                   pr2 == PromptResult::Denied);
+                     if (pr2 == PromptResult::Granted) {
+                       ContentBlocking::StorageAccessPromptChoices choice =
+                           ContentBlocking::eAllow;
+                       if (autoGrant) {
+                         choice = ContentBlocking::eAllowAutoGrant;
+                       }
+                       if (!autoGrant) {
+                         p->Resolve(choice, __func__);
+                       } else {
+                         sapr->MaybeDelayAutomaticGrants()->Then(
+                             GetCurrentSerialEventTarget(), __func__,
+                             [p, choice] { p->Resolve(choice, __func__); },
+                             [p] { p->Reject(false, __func__); });
+                       }
+                       return;
+                     }
+                     p->Reject(false, __func__);
+                     return;
+                   }
 
-            sapr->RequestDelayedTask(
-                inner->EventTargetFor(TaskCategory::Other),
-                ContentPermissionRequestBase::DelayedTaskType::Request);
-          });
+                   sapr->RequestDelayedTask(
+                       inner->EventTargetFor(TaskCategory::Other),
+                       ContentPermissionRequestBase::DelayedTaskType::Request);
+                 });
 
       return p;
     };
@@ -17228,8 +17231,11 @@ already_AddRefed<mozilla::dom::Promise> Document::RequestStorageAccessForOrigin(
 }
 
 RefPtr<Document::AutomaticStorageAccessPermissionGrantPromise>
-Document::AutomaticStorageAccessPermissionCanBeGranted() {
-  if (!StaticPrefs::privacy_antitracking_enableWebcompat()) {
+Document::AutomaticStorageAccessPermissionCanBeGranted(bool hasUserActivation) {
+  // requestStorageAccessForOrigin may not require user activation. If we don't
+  // have user activation at this point we should always show the prompt.
+  if (!hasUserActivation ||
+      !StaticPrefs::privacy_antitracking_enableWebcompat()) {
     return AutomaticStorageAccessPermissionGrantPromise::CreateAndResolve(
         false, __func__);
   }
