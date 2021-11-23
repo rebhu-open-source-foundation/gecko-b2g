@@ -305,13 +305,6 @@ nsresult nsConsoleService::LogMessageWithMode(
   RefPtr<LogMessageRunnable> r;
   nsCOMPtr<nsIConsoleMessage> retiredMessage;
 
-  /*
-   * Lock while updating buffer, and while taking snapshot of
-   * listeners array.
-   */
-  {
-    MutexAutoLock lock(mLock);
-
 #if defined(ANDROID)
     if (StaticPrefs::consoleservice_logcat() && aOutputMode == OutputToLog) {
       nsCString msg;
@@ -357,6 +350,13 @@ nsresult nsConsoleService::LogMessageWithMode(
       OutputDebugStringW(msg.get());
     }
 #endif
+
+  /*
+   * Lock while updating buffer, and while taking snapshot of
+   * listeners array.
+   */
+  {
+    MutexAutoLock lock(mLock);
 
     if (gLoggingBuffered) {
       MessageElement* e = new MessageElement(aMessage);
