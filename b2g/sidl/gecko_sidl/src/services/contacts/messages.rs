@@ -12,7 +12,7 @@ use crate::common::{JsonValue, ObjectRef, SystemTime};
 use serde::{Deserialize, Serialize};
 
 pub static SERVICE_FINGERPRINT: &str =
-    "e5f8aa2c9d393471e2421562517c3acd9526ebb32fdcb5265668ad8eacf2ff";
+    "a7ab5919f6ff24f594d94ce1e98aae136fb19fbc4c11af93c51b76bb8453d";
 
 #[derive(Clone, PartialEq, Deserialize, Serialize, Debug)]
 pub enum ChangeReason {
@@ -67,6 +67,14 @@ pub struct Address {
     pub postal_code: Option<String>,
     pub country_name: Option<String>,
     pub pref: Option<bool>,
+}
+
+#[derive(Clone, Deserialize, Serialize, Debug)]
+pub struct AlphabetSearchOptions {
+    pub filter_value: String,
+    pub batch_size: i64,
+    pub filter_limit: Option<i64>,
+    pub only_main_data: Option<bool>,
 }
 
 #[derive(Clone, Deserialize, Serialize, Debug)]
@@ -206,28 +214,29 @@ pub enum ContactsManagerFromClient {
     ContactsFactoryAddBlockedNumber(String),                      // 2
     ContactsFactoryAddGroup(String),                              // 3
     ContactsFactoryAddSpeedDial(String, String, String),          // 4
-    ContactsFactoryClearContacts,                                 // 5
-    ContactsFactoryFind(ContactFindSortOptions, i64),             // 6
-    ContactsFactoryFindBlockedNumbers(BlockedNumberFindOptions),  // 7
-    ContactsFactoryGet(String, bool),                             // 8
-    ContactsFactoryGetAll(ContactSortOptions, i64, bool),         // 9
-    ContactsFactoryGetAllBlockedNumbers,                          // 10
-    ContactsFactoryGetAllGroups,                                  // 11
-    ContactsFactoryGetAllIce,                                     // 12
-    ContactsFactoryGetContactidsFromGroup(String),                // 13
-    ContactsFactoryGetCount,                                      // 14
-    ContactsFactoryGetSpeedDials,                                 // 15
-    ContactsFactoryImportVcf(String),                             // 16
-    ContactsFactoryMatches(FilterByOption, FilterOption, String), // 17
-    ContactsFactoryRemove(Vec<String>),                           // 18
-    ContactsFactoryRemoveBlockedNumber(String),                   // 19
-    ContactsFactoryRemoveGroup(String),                           // 20
-    ContactsFactoryRemoveIce(String),                             // 21
-    ContactsFactoryRemoveSpeedDial(String),                       // 22
-    ContactsFactorySetIce(String, i64),                           // 23
-    ContactsFactoryUpdate(Vec<ContactInfo>),                      // 24
-    ContactsFactoryUpdateGroup(String, String),                   // 25
-    ContactsFactoryUpdateSpeedDial(String, String, String),       // 26
+    ContactsFactoryAlphabetSearch(AlphabetSearchOptions),         // 5
+    ContactsFactoryClearContacts,                                 // 6
+    ContactsFactoryFind(ContactFindSortOptions, i64),             // 7
+    ContactsFactoryFindBlockedNumbers(BlockedNumberFindOptions),  // 8
+    ContactsFactoryGet(String, bool),                             // 9
+    ContactsFactoryGetAll(ContactSortOptions, i64, bool),         // 10
+    ContactsFactoryGetAllBlockedNumbers,                          // 11
+    ContactsFactoryGetAllGroups,                                  // 12
+    ContactsFactoryGetAllIce,                                     // 13
+    ContactsFactoryGetContactidsFromGroup(String),                // 14
+    ContactsFactoryGetCount,                                      // 15
+    ContactsFactoryGetSpeedDials,                                 // 16
+    ContactsFactoryImportVcf(String),                             // 17
+    ContactsFactoryMatches(FilterByOption, FilterOption, String), // 18
+    ContactsFactoryRemove(Vec<String>),                           // 19
+    ContactsFactoryRemoveBlockedNumber(String),                   // 20
+    ContactsFactoryRemoveGroup(String),                           // 21
+    ContactsFactoryRemoveIce(String),                             // 22
+    ContactsFactoryRemoveSpeedDial(String),                       // 23
+    ContactsFactorySetIce(String, i64),                           // 24
+    ContactsFactoryUpdate(Vec<ContactInfo>),                      // 25
+    ContactsFactoryUpdateGroup(String, String),                   // 26
+    ContactsFactoryUpdateSpeedDial(String, String, String),       // 27
 }
 
 #[derive(Debug, Deserialize)]
@@ -242,53 +251,55 @@ pub enum ContactsManagerToClient {
     ContactsFactoryAddGroupError,               // 7
     ContactsFactoryAddSpeedDialSuccess,         // 8
     ContactsFactoryAddSpeedDialError,           // 9
-    ContactsFactoryClearContactsSuccess,        // 10
-    ContactsFactoryClearContactsError,          // 11
-    ContactsFactoryFindSuccess(u32),            // 12
-    ContactsFactoryFindError,                   // 13
-    ContactsFactoryFindBlockedNumbersSuccess(Option<Vec<String>>), // 14
-    ContactsFactoryFindBlockedNumbersError,     // 15
-    ContactsFactoryGetSuccess(ContactInfo),     // 16
-    ContactsFactoryGetError,                    // 17
-    ContactsFactoryGetAllSuccess(u32),          // 18
-    ContactsFactoryGetAllError,                 // 19
-    ContactsFactoryGetAllBlockedNumbersSuccess(Option<Vec<String>>), // 20
-    ContactsFactoryGetAllBlockedNumbersError,   // 21
-    ContactsFactoryGetAllGroupsSuccess(Option<Vec<GroupInfo>>), // 22
-    ContactsFactoryGetAllGroupsError,           // 23
-    ContactsFactoryGetAllIceSuccess(Option<Vec<IceInfo>>), // 24
-    ContactsFactoryGetAllIceError,              // 25
-    ContactsFactoryGetContactidsFromGroupSuccess(Option<Vec<String>>), // 26
-    ContactsFactoryGetContactidsFromGroupError, // 27
-    ContactsFactoryGetCountSuccess(i64),        // 28
-    ContactsFactoryGetCountError,               // 29
-    ContactsFactoryGetSpeedDialsSuccess(Option<Vec<SpeedDialInfo>>), // 30
-    ContactsFactoryGetSpeedDialsError,          // 31
-    ContactsFactoryImportVcfSuccess(i64),       // 32
-    ContactsFactoryImportVcfError,              // 33
-    ContactsFactoryMatchesSuccess(bool),        // 34
-    ContactsFactoryMatchesError,                // 35
-    ContactsFactoryRemoveSuccess,               // 36
-    ContactsFactoryRemoveError,                 // 37
-    ContactsFactoryRemoveBlockedNumberSuccess,  // 38
-    ContactsFactoryRemoveBlockedNumberError,    // 39
-    ContactsFactoryRemoveGroupSuccess,          // 40
-    ContactsFactoryRemoveGroupError,            // 41
-    ContactsFactoryRemoveIceSuccess,            // 42
-    ContactsFactoryRemoveIceError,              // 43
-    ContactsFactoryRemoveSpeedDialSuccess,      // 44
-    ContactsFactoryRemoveSpeedDialError,        // 45
-    ContactsFactorySetIceSuccess,               // 46
-    ContactsFactorySetIceError,                 // 47
-    ContactsFactoryUpdateSuccess,               // 48
-    ContactsFactoryUpdateError,                 // 49
-    ContactsFactoryUpdateGroupSuccess,          // 50
-    ContactsFactoryUpdateGroupError,            // 51
-    ContactsFactoryUpdateSpeedDialSuccess,      // 52
-    ContactsFactoryUpdateSpeedDialError,        // 53
-    ContactsFactoryBlockednumberChangeEvent(BlockedNumberChangeEvent), // 54
-    ContactsFactoryContactsChangeEvent(ContactsChangeEvent), // 55
-    ContactsFactoryGroupChangeEvent(GroupChangeEvent), // 56
-    ContactsFactorySimContactLoadedEvent(SimContactLoadedEvent), // 57
-    ContactsFactorySpeeddialChangeEvent(SpeedDialChangeEvent), // 58
+    ContactsFactoryAlphabetSearchSuccess(u32),  // 10
+    ContactsFactoryAlphabetSearchError,         // 11
+    ContactsFactoryClearContactsSuccess,        // 12
+    ContactsFactoryClearContactsError,          // 13
+    ContactsFactoryFindSuccess(u32),            // 14
+    ContactsFactoryFindError,                   // 15
+    ContactsFactoryFindBlockedNumbersSuccess(Option<Vec<String>>), // 16
+    ContactsFactoryFindBlockedNumbersError,     // 17
+    ContactsFactoryGetSuccess(ContactInfo),     // 18
+    ContactsFactoryGetError,                    // 19
+    ContactsFactoryGetAllSuccess(u32),          // 20
+    ContactsFactoryGetAllError,                 // 21
+    ContactsFactoryGetAllBlockedNumbersSuccess(Option<Vec<String>>), // 22
+    ContactsFactoryGetAllBlockedNumbersError,   // 23
+    ContactsFactoryGetAllGroupsSuccess(Option<Vec<GroupInfo>>), // 24
+    ContactsFactoryGetAllGroupsError,           // 25
+    ContactsFactoryGetAllIceSuccess(Option<Vec<IceInfo>>), // 26
+    ContactsFactoryGetAllIceError,              // 27
+    ContactsFactoryGetContactidsFromGroupSuccess(Option<Vec<String>>), // 28
+    ContactsFactoryGetContactidsFromGroupError, // 29
+    ContactsFactoryGetCountSuccess(i64),        // 30
+    ContactsFactoryGetCountError,               // 31
+    ContactsFactoryGetSpeedDialsSuccess(Option<Vec<SpeedDialInfo>>), // 32
+    ContactsFactoryGetSpeedDialsError,          // 33
+    ContactsFactoryImportVcfSuccess(i64),       // 34
+    ContactsFactoryImportVcfError,              // 35
+    ContactsFactoryMatchesSuccess(bool),        // 36
+    ContactsFactoryMatchesError,                // 37
+    ContactsFactoryRemoveSuccess,               // 38
+    ContactsFactoryRemoveError,                 // 39
+    ContactsFactoryRemoveBlockedNumberSuccess,  // 40
+    ContactsFactoryRemoveBlockedNumberError,    // 41
+    ContactsFactoryRemoveGroupSuccess,          // 42
+    ContactsFactoryRemoveGroupError,            // 43
+    ContactsFactoryRemoveIceSuccess,            // 44
+    ContactsFactoryRemoveIceError,              // 45
+    ContactsFactoryRemoveSpeedDialSuccess,      // 46
+    ContactsFactoryRemoveSpeedDialError,        // 47
+    ContactsFactorySetIceSuccess,               // 48
+    ContactsFactorySetIceError,                 // 49
+    ContactsFactoryUpdateSuccess,               // 50
+    ContactsFactoryUpdateError,                 // 51
+    ContactsFactoryUpdateGroupSuccess,          // 52
+    ContactsFactoryUpdateGroupError,            // 53
+    ContactsFactoryUpdateSpeedDialSuccess,      // 54
+    ContactsFactoryUpdateSpeedDialError,        // 55
+    ContactsFactoryBlockednumberChangeEvent(BlockedNumberChangeEvent), // 56
+    ContactsFactoryContactsChangeEvent(ContactsChangeEvent), // 57
+    ContactsFactoryGroupChangeEvent(GroupChangeEvent), // 58
+    ContactsFactorySimContactLoadedEvent(SimContactLoadedEvent), // 59
+    ContactsFactorySpeeddialChangeEvent(SpeedDialChangeEvent), // 60
 }
