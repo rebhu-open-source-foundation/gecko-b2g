@@ -67,7 +67,7 @@ fi
 
 export MOZCONFIG=`pwd`/mozconfig-b2g
 
-ANDROID_NDK=${ANDROID_NDK:-$HOME/.mozbuild/android-ndk-r20b-canary}
+ANDROID_NDK=${ANDROID_NDK:-$HOME/.mozbuild/android-ndk-r21d}
 export ANDROID_NDK="${ANDROID_NDK/#\~/$HOME}"
 
 TARGET_GCC_VERSION=${TARGET_GCC_VERSION:-4.9}

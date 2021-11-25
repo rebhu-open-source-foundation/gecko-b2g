@@ -258,7 +258,6 @@ if CONFIG["MOZ_WIDGET_TOOLKIT"] == "cocoa":
     EXPORTS.mozilla.layers += [
         "NativeLayerCA.h",
         "SurfacePoolCA.h",
-        "TextureSync.h",
     ]
     EXPORTS += [
         "MacIOSurfaceHelpers.h",
@@ -267,7 +266,6 @@ if CONFIG["MOZ_WIDGET_TOOLKIT"] == "cocoa":
     UNIFIED_SOURCES += [
         "NativeLayerCA.mm",
         "SurfacePoolCA.mm",
-        "TextureSync.cpp",
     ]
     SOURCES += [
         "MacIOSurfaceHelpers.cpp",
