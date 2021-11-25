@@ -241,8 +241,6 @@ class CompositorOGL final : public Compositor {
 
   void PrepareViewport(CompositingRenderTargetOGL* aRenderTarget);
 
-  bool SupportsTextureDirectMapping();
-
   void InsertFrameDoneSync();
 
   bool NeedToRecreateFullWindowRenderTarget() const;
