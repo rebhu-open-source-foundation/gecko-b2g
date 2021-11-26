@@ -4,7 +4,6 @@ ac_add_options --enable-debug
 ac_add_options --enable-debug-symbols
 ac_add_options --disable-strip
 ac_add_options --with-app-name=kaiosrt
-ac_add_options --enable-touch-support
 
 # Disable telemetry
 ac_add_options MOZ_TELEMETRY_REPORTING=

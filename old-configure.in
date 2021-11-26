@@ -2140,6 +2140,18 @@ AC_SUBST(DISABLE_WIFI)
 
 
 dnl ========================================================
+dnl = Enable Touch Support
+dnl ========================================================
+MOZ_ARG_ENABLE_BOOL(touch-support,
+[  --enable-touch-support     Enable Touch Support],
+    ENABLE_TOUCH_SUPPORT=1,
+    ENABLE_TOUCH_SUPPORT= )
+if test -n "$ENABLE_TOUCH_SUPPORT"; then
+   AC_DEFINE(ENABLE_TOUCH_SUPPORT)
+fi
+AC_SUBST(ENABLE_TOUCH_SUPPORT)
+
+dnl ========================================================
 dnl = Enable TouchPal Library Support
 dnl ========================================================
 MOZ_ARG_ENABLE_BOOL(touchpal,

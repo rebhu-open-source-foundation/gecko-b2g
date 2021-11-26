@@ -113,6 +113,7 @@ def old_configure_options(*options):
     "--enable-sandbox",
     "--enable-system-extension-dirs",
     "--enable-system-pixman",
+    "--enable-touch-support",
     "--enable-touchpal",
     "--enable-universalchardet",
     "--enable-updater",
