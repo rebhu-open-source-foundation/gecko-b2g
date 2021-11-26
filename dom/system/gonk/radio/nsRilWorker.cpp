@@ -19,10 +19,10 @@
   __android_log_print(ANDROID_LOG_INFO, RILWORKER_LOG_TAG, ##args)
 #define ERROR(args...) \
   __android_log_print(ANDROID_LOG_ERROR, RILWORKER_LOG_TAG, ##args)
-#define ERROR_NS_OK(args...) \
-  { \
-   __android_log_print(ANDROID_LOG_ERROR, RILWORKER_LOG_TAG, ##args); \
-   return NS_OK; \
+#define ERROR_NS_OK(args...)                                           \
+  {                                                                    \
+    __android_log_print(ANDROID_LOG_ERROR, RILWORKER_LOG_TAG, ##args); \
+    return NS_OK;                                                      \
   }
 #define DEBUG(args...)                                                   \
   do {                                                                   \
@@ -73,7 +73,11 @@ NS_IMETHODIMP nsRilWorker::SetRadioPower(int32_t serial, bool enabled) {
   if (mRadioProxy == nullptr) {
     ERROR_NS_OK("No Radio HAL exist");
   }
-  mRadioProxy->setRadioPower(serial, enabled);
+  Return<void> ret = mRadioProxy->setRadioPower(serial, enabled);
+
+  if (!ret.isOk()) {
+    ERROR_NS_OK("SetRadioPower Error.");
+  }
 
   return NS_OK;
 }
@@ -85,7 +89,11 @@ NS_IMETHODIMP nsRilWorker::GetDeviceIdentity(int32_t serial) {
   if (mRadioProxy == nullptr) {
     ERROR_NS_OK("No Radio HAL exist");
   }
-  mRadioProxy->getDeviceIdentity(serial);
+  Return<void> ret = mRadioProxy->getDeviceIdentity(serial);
+
+  if (!ret.isOk()) {
+    ERROR_NS_OK("getDeviceIdentity Error.");
+  }
 
   return NS_OK;
 }
@@ -97,7 +105,11 @@ NS_IMETHODIMP nsRilWorker::GetVoiceRegistrationState(int32_t serial) {
   if (mRadioProxy == nullptr) {
     ERROR_NS_OK("No Radio HAL exist");
   }
-  mRadioProxy->getVoiceRegistrationState(serial);
+  Return<void> ret = mRadioProxy->getVoiceRegistrationState(serial);
+
+  if (!ret.isOk()) {
+    ERROR_NS_OK("getVoiceRegistrationState Error.");
+  }
 
   return NS_OK;
 }
@@ -109,7 +121,11 @@ NS_IMETHODIMP nsRilWorker::GetDataRegistrationState(int32_t serial) {
   if (mRadioProxy == nullptr) {
     ERROR_NS_OK("No Radio HAL exist");
   }
-  mRadioProxy->getDataRegistrationState(serial);
+  Return<void> ret = mRadioProxy->getDataRegistrationState(serial);
+
+  if (!ret.isOk()) {
+    ERROR_NS_OK("getDataRegistrationState Error.");
+  }
 
   return NS_OK;
 }
@@ -121,7 +137,11 @@ NS_IMETHODIMP nsRilWorker::GetOperator(int32_t serial) {
   if (mRadioProxy == nullptr) {
     ERROR_NS_OK("No Radio HAL exist");
   }
-  mRadioProxy->getOperator(serial);
+  Return<void> ret = mRadioProxy->getOperator(serial);
+
+  if (!ret.isOk()) {
+    ERROR_NS_OK("getOperator Error.");
+  }
 
   return NS_OK;
 }
@@ -133,7 +153,11 @@ NS_IMETHODIMP nsRilWorker::GetNetworkSelectionMode(int32_t serial) {
   if (mRadioProxy == nullptr) {
     ERROR_NS_OK("No Radio HAL exist");
   }
-  mRadioProxy->getNetworkSelectionMode(serial);
+  Return<void> ret = mRadioProxy->getNetworkSelectionMode(serial);
+
+  if (!ret.isOk()) {
+    ERROR_NS_OK("getNetworkSelectionMode Error.");
+  }
 
   return NS_OK;
 }
@@ -145,7 +169,11 @@ NS_IMETHODIMP nsRilWorker::GetSignalStrength(int32_t serial) {
   if (mRadioProxy == nullptr) {
     ERROR_NS_OK("No Radio HAL exist");
   }
-  mRadioProxy->getSignalStrength(serial);
+  Return<void> ret = mRadioProxy->getSignalStrength(serial);
+
+  if (!ret.isOk()) {
+    ERROR_NS_OK("getSignalStrength Error.");
+  }
 
   return NS_OK;
 }
@@ -157,7 +185,11 @@ NS_IMETHODIMP nsRilWorker::GetVoiceRadioTechnology(int32_t serial) {
   if (mRadioProxy == nullptr) {
     ERROR_NS_OK("No Radio HAL exist");
   }
-  mRadioProxy->getVoiceRadioTechnology(serial);
+  Return<void> ret = mRadioProxy->getVoiceRadioTechnology(serial);
+
+  if (!ret.isOk()) {
+    ERROR_NS_OK("getVoiceRadioTechnology Error.");
+  }
 
   return NS_OK;
 }
@@ -169,7 +201,11 @@ NS_IMETHODIMP nsRilWorker::GetIccCardStatus(int32_t serial) {
   if (mRadioProxy == nullptr) {
     ERROR_NS_OK("No Radio HAL exist");
   }
-  mRadioProxy->getIccCardStatus(serial);
+  Return<void> ret = mRadioProxy->getIccCardStatus(serial);
+
+  if (!ret.isOk()) {
+    ERROR_NS_OK("getIccCardStatus Error.");
+  }
 
   return NS_OK;
 }
@@ -184,7 +220,11 @@ NS_IMETHODIMP nsRilWorker::ReportSmsMemoryStatus(int32_t serial,
   if (mRadioProxy == nullptr) {
     ERROR_NS_OK("No Radio HAL exist");
   }
-  mRadioProxy->reportSmsMemoryStatus(serial, available);
+  Return<void> ret = mRadioProxy->reportSmsMemoryStatus(serial, available);
+
+  if (!ret.isOk()) {
+    ERROR_NS_OK("reportSmsMemoryStatus Error.");
+  }
 
   return NS_OK;
 }
@@ -204,8 +244,11 @@ NS_IMETHODIMP nsRilWorker::SetCellInfoListRate(int32_t serial,
   if (rateInMillis == 0) {
     rateInMillis = INT32_MAX;
   }
+  Return<void> ret = mRadioProxy->setCellInfoListRate(serial, rateInMillis);
 
-  mRadioProxy->setCellInfoListRate(serial, rateInMillis);
+  if (!ret.isOk()) {
+    ERROR_NS_OK("setCellInfoListRate Error.");
+  }
 
   return NS_OK;
 }
@@ -218,7 +261,11 @@ NS_IMETHODIMP nsRilWorker::SetDataAllowed(int32_t serial, bool allowed) {
   if (mRadioProxy == nullptr) {
     ERROR_NS_OK("No Radio HAL exist");
   }
-  mRadioProxy->setDataAllowed(serial, allowed);
+  Return<void> ret = mRadioProxy->setDataAllowed(serial, allowed);
+
+  if (!ret.isOk()) {
+    ERROR_NS_OK("setDataAllowed Error.");
+  }
 
   return NS_OK;
 }
@@ -230,7 +277,11 @@ NS_IMETHODIMP nsRilWorker::GetBasebandVersion(int32_t serial) {
   if (mRadioProxy == nullptr) {
     ERROR_NS_OK("No Radio HAL exist");
   }
-  mRadioProxy->getBasebandVersion(serial);
+  Return<void> ret = mRadioProxy->getBasebandVersion(serial);
+
+  if (!ret.isOk()) {
+    ERROR_NS_OK("getBasebandVersion Error.");
+  }
 
   return NS_OK;
 }
@@ -254,7 +305,11 @@ NS_IMETHODIMP nsRilWorker::SetUiccSubscription(int32_t serial, int32_t slotId,
   info.subType = SubscriptionType(subId);
   info.actStatus = UiccSubActStatus(subStatus);
 
-  mRadioProxy->setUiccSubscription(serial, info);
+  Return<void> ret = mRadioProxy->setUiccSubscription(serial, info);
+
+  if (!ret.isOk()) {
+    ERROR_NS_OK("setUiccSubscription Error.");
+  }
 
   return NS_OK;
 }
@@ -267,7 +322,11 @@ NS_IMETHODIMP nsRilWorker::SetMute(int32_t serial, bool enableMute) {
   if (mRadioProxy == nullptr) {
     ERROR_NS_OK("No Radio HAL exist");
   }
-  mRadioProxy->setMute(serial, enableMute);
+  Return<void> ret = mRadioProxy->setMute(serial, enableMute);
+
+  if (!ret.isOk()) {
+    ERROR_NS_OK("setMute Error.");
+  }
 
   return NS_OK;
 }
@@ -279,7 +338,11 @@ NS_IMETHODIMP nsRilWorker::GetMute(int32_t serial) {
   if (mRadioProxy == nullptr) {
     ERROR_NS_OK("No Radio HAL exist");
   }
-  mRadioProxy->getMute(serial);
+  Return<void> ret = mRadioProxy->getMute(serial);
+
+  if (!ret.isOk()) {
+    ERROR_NS_OK("getMute Error.");
+  }
 
   return NS_OK;
 }
@@ -291,7 +354,11 @@ NS_IMETHODIMP nsRilWorker::GetSmscAddress(int32_t serial) {
   if (mRadioProxy == nullptr) {
     ERROR_NS_OK("No Radio HAL exist");
   }
-  mRadioProxy->getSmscAddress(serial);
+  Return<void> ret = mRadioProxy->getSmscAddress(serial);
+
+  if (!ret.isOk()) {
+    ERROR_NS_OK("getSmscAddress Error.");
+  }
 
   return NS_OK;
 }
@@ -322,7 +389,11 @@ NS_IMETHODIMP nsRilWorker::RequestDial(int32_t serial, const nsAString& address,
   dialInfo.address = NS_ConvertUTF16toUTF8(address).get();
   dialInfo.clir = Clir(clirMode);
   dialInfo.uusInfo = uusInfo;
-  mRadioProxy->dial(serial, dialInfo);
+  Return<void> ret = mRadioProxy->dial(serial, dialInfo);
+
+  if (!ret.isOk()) {
+    ERROR_NS_OK("dial Error.");
+  }
 
   return NS_OK;
 }
@@ -334,7 +405,11 @@ NS_IMETHODIMP nsRilWorker::GetCurrentCalls(int32_t serial) {
   if (mRadioProxy == nullptr) {
     ERROR_NS_OK("No Radio HAL exist");
   }
-  mRadioProxy->getCurrentCalls(serial);
+  Return<void> ret = mRadioProxy->getCurrentCalls(serial);
+
+  if (!ret.isOk()) {
+    ERROR_NS_OK("getCurrentCalls Error.");
+  }
 
   return NS_OK;
 }
@@ -347,7 +422,11 @@ NS_IMETHODIMP nsRilWorker::HangupConnection(int32_t serial, int32_t callIndex) {
   if (mRadioProxy == nullptr) {
     ERROR_NS_OK("No Radio HAL exist");
   }
-  mRadioProxy->hangup(serial, callIndex);
+  Return<void> ret = mRadioProxy->hangup(serial, callIndex);
+
+  if (!ret.isOk()) {
+    ERROR_NS_OK("hangup Error.");
+  }
 
   return NS_OK;
 }
@@ -359,7 +438,11 @@ NS_IMETHODIMP nsRilWorker::HangupWaitingOrBackground(int32_t serial) {
   if (mRadioProxy == nullptr) {
     ERROR_NS_OK("No Radio HAL exist");
   }
-  mRadioProxy->hangupWaitingOrBackground(serial);
+  Return<void> ret = mRadioProxy->hangupWaitingOrBackground(serial);
+
+  if (!ret.isOk()) {
+    ERROR_NS_OK("hangupWaitingOrBackground Error.");
+  }
 
   return NS_OK;
 }
@@ -372,7 +455,11 @@ NS_IMETHODIMP nsRilWorker::HangupForegroundResumeBackground(int32_t serial) {
   if (mRadioProxy == nullptr) {
     ERROR_NS_OK("No Radio HAL exist");
   }
-  mRadioProxy->hangupForegroundResumeBackground(serial);
+  Return<void> ret = mRadioProxy->hangupForegroundResumeBackground(serial);
+
+  if (!ret.isOk()) {
+    ERROR_NS_OK("hangupForegroundResumeBackground Error.");
+  }
 
   return NS_OK;
 }
@@ -385,7 +472,11 @@ NS_IMETHODIMP nsRilWorker::SwitchWaitingOrHoldingAndActive(int32_t serial) {
   if (mRadioProxy == nullptr) {
     ERROR_NS_OK("No Radio HAL exist");
   }
-  mRadioProxy->switchWaitingOrHoldingAndActive(serial);
+  Return<void> ret = mRadioProxy->switchWaitingOrHoldingAndActive(serial);
+
+  if (!ret.isOk()) {
+    ERROR_NS_OK("switchWaitingOrHoldingAndActive Error.");
+  }
 
   return NS_OK;
 }
@@ -397,7 +488,11 @@ NS_IMETHODIMP nsRilWorker::Conference(int32_t serial) {
   if (mRadioProxy == nullptr) {
     ERROR_NS_OK("No Radio HAL exist");
   }
-  mRadioProxy->conference(serial);
+  Return<void> ret = mRadioProxy->conference(serial);
+
+  if (!ret.isOk()) {
+    ERROR_NS_OK("conference Error.");
+  }
 
   return NS_OK;
 }
@@ -408,7 +503,11 @@ NS_IMETHODIMP nsRilWorker::GetLastCallFailCause(int32_t serial) {
   if (mRadioProxy == nullptr) {
     ERROR_NS_OK("No Radio HAL exist");
   }
-  mRadioProxy->getLastCallFailCause(serial);
+  Return<void> ret = mRadioProxy->getLastCallFailCause(serial);
+
+  if (!ret.isOk()) {
+    ERROR_NS_OK("getLastCallFailCause Error.");
+  }
 
   return NS_OK;
 }
@@ -419,7 +518,11 @@ NS_IMETHODIMP nsRilWorker::AcceptCall(int32_t serial) {
   if (mRadioProxy == nullptr) {
     ERROR_NS_OK("No Radio HAL exist");
   }
-  mRadioProxy->acceptCall(serial);
+  Return<void> ret = mRadioProxy->acceptCall(serial);
+
+  if (!ret.isOk()) {
+    ERROR_NS_OK("acceptCall Error.");
+  }
 
   return NS_OK;
 }
@@ -434,8 +537,12 @@ NS_IMETHODIMP nsRilWorker::SetPreferredNetworkType(int32_t serial,
   if (mRadioProxy == nullptr) {
     ERROR_NS_OK("No Radio HAL exist");
   }
-  mRadioProxy->setPreferredNetworkType(serial,
-                                       PreferredNetworkType(networkType));
+  Return<void> ret = mRadioProxy->setPreferredNetworkType(
+      serial, PreferredNetworkType(networkType));
+
+  if (!ret.isOk()) {
+    ERROR_NS_OK("setPreferredNetworkType Error.");
+  }
 
   return NS_OK;
 }
@@ -446,7 +553,11 @@ NS_IMETHODIMP nsRilWorker::GetPreferredNetworkType(int32_t serial) {
   if (mRadioProxy == nullptr) {
     ERROR_NS_OK("No Radio HAL exist");
   }
-  mRadioProxy->getPreferredNetworkType(serial);
+  Return<void> ret = mRadioProxy->getPreferredNetworkType(serial);
+
+  if (!ret.isOk()) {
+    ERROR_NS_OK("getPreferredNetworkType Error.");
+  }
 
   return NS_OK;
 }
@@ -458,7 +569,11 @@ NS_IMETHODIMP nsRilWorker::SetNetworkSelectionModeAutomatic(int32_t serial) {
   if (mRadioProxy == nullptr) {
     ERROR_NS_OK("No Radio HAL exist");
   }
-  mRadioProxy->setNetworkSelectionModeAutomatic(serial);
+  Return<void> ret = mRadioProxy->setNetworkSelectionModeAutomatic(serial);
+
+  if (!ret.isOk()) {
+    ERROR_NS_OK("setNetworkSelectionModeAutomatic Error.");
+  }
 
   return NS_OK;
 }
@@ -473,8 +588,12 @@ NS_IMETHODIMP nsRilWorker::SetNetworkSelectionModeManual(
   if (mRadioProxy == nullptr) {
     ERROR_NS_OK("No Radio HAL exist");
   }
-  mRadioProxy->setNetworkSelectionModeManual(
+  Return<void> ret = mRadioProxy->setNetworkSelectionModeManual(
       serial, NS_ConvertUTF16toUTF8(operatorNumeric).get());
+
+  if (!ret.isOk()) {
+    ERROR_NS_OK("setNetworkSelectionModeManual Error.");
+  }
 
   return NS_OK;
 }
@@ -485,7 +604,11 @@ NS_IMETHODIMP nsRilWorker::GetAvailableNetworks(int32_t serial) {
   if (mRadioProxy == nullptr) {
     ERROR_NS_OK("No Radio HAL exist");
   }
-  mRadioProxy->getAvailableNetworks(serial);
+  Return<void> ret = mRadioProxy->getAvailableNetworks(serial);
+
+  if (!ret.isOk()) {
+    ERROR_NS_OK("getAvailableNetworks Error.");
+  }
 
   return NS_OK;
 }
@@ -502,8 +625,12 @@ NS_IMETHODIMP nsRilWorker::SetInitialAttachApn(int32_t serial,
   bool modemCognitive;
   profile->GetModemCognitive(&modemCognitive);
 
-  mRadioProxy->setInitialAttachApn(serial, convertToHalDataProfile(profile),
-                                   modemCognitive, isRoaming);
+  Return<void> ret = mRadioProxy->setInitialAttachApn(
+      serial, convertToHalDataProfile(profile), modemCognitive, isRoaming);
+
+  if (!ret.isOk()) {
+    ERROR_NS_OK("setInitialAttachApn Error.");
+  }
 
   return NS_OK;
 }
@@ -522,7 +649,12 @@ NS_IMETHODIMP nsRilWorker::SetDataProfile(
     DataProfileInfo profile = convertToHalDataProfile(profileList[i]);
     dataProfileInfoList.push_back(profile);
   }
-  mRadioProxy->setDataProfile(serial, dataProfileInfoList, isRoaming);
+  Return<void> ret =
+      mRadioProxy->setDataProfile(serial, dataProfileInfoList, isRoaming);
+
+  if (!ret.isOk()) {
+    ERROR_NS_OK("setDataProfile Error.");
+  }
 
   return NS_OK;
 }
@@ -540,9 +672,14 @@ NS_IMETHODIMP nsRilWorker::SetupDataCall(int32_t serial,
   bool modemCognitive;
   profile->GetModemCognitive(&modemCognitive);
 
-  mRadioProxy->setupDataCall(serial, RadioTechnology(radioTechnology),
-                             convertToHalDataProfile(profile), modemCognitive,
-                             allowRoaming, isRoaming);
+  Return<void> ret =
+      mRadioProxy->setupDataCall(serial, RadioTechnology(radioTechnology),
+                                 convertToHalDataProfile(profile),
+                                 modemCognitive, allowRoaming, isRoaming);
+
+  if (!ret.isOk()) {
+    ERROR_NS_OK("setupDataCall Error.");
+  }
 
   return NS_OK;
 }
@@ -554,7 +691,13 @@ NS_IMETHODIMP nsRilWorker::DeactivateDataCall(int32_t serial, int32_t cid,
   if (mRadioProxy == nullptr) {
     ERROR_NS_OK("No Radio HAL exist");
   }
-  mRadioProxy->deactivateDataCall(serial, cid, (reason == 0 ? false : true));
+
+  Return<void> ret = mRadioProxy->deactivateDataCall(
+      serial, cid, (reason == 0 ? false : true));
+
+  if (!ret.isOk()) {
+    ERROR_NS_OK("deactivateDataCall Error.");
+  }
 
   return NS_OK;
 }
@@ -565,7 +708,11 @@ NS_IMETHODIMP nsRilWorker::GetDataCallList(int32_t serial) {
   if (mRadioProxy == nullptr) {
     ERROR_NS_OK("No Radio HAL exist");
   }
-  mRadioProxy->getDataCallList(serial);
+  Return<void> ret = mRadioProxy->getDataCallList(serial);
+
+  if (!ret.isOk()) {
+    ERROR_NS_OK("getDataCallList Error.");
+  }
 
   return NS_OK;
 }
@@ -576,7 +723,11 @@ NS_IMETHODIMP nsRilWorker::GetCellInfoList(int32_t serial) {
   if (mRadioProxy == nullptr) {
     ERROR_NS_OK("No Radio HAL exist");
   }
-  mRadioProxy->getCellInfoList(serial);
+  Return<void> ret = mRadioProxy->getCellInfoList(serial);
+
+  if (!ret.isOk()) {
+    ERROR_NS_OK("getCellInfoList Error.");
+  }
 
   return NS_OK;
 }
@@ -588,7 +739,12 @@ NS_IMETHODIMP nsRilWorker::GetIMSI(int32_t serial, const nsAString& aid) {
   if (mRadioProxy == nullptr) {
     ERROR_NS_OK("No Radio HAL exist");
   }
-  mRadioProxy->getImsiForApp(serial, NS_ConvertUTF16toUTF8(aid).get());
+  Return<void> ret =
+      mRadioProxy->getImsiForApp(serial, NS_ConvertUTF16toUTF8(aid).get());
+
+  if (!ret.isOk()) {
+    ERROR_NS_OK("getImsiForApp Error.");
+  }
 
   return NS_OK;
 }
@@ -621,7 +777,11 @@ NS_IMETHODIMP nsRilWorker::IccIOForApp(int32_t serial, int32_t command,
   iccIo.pin2 = NS_ConvertUTF16toUTF8(pin2).get();
   iccIo.aid = NS_ConvertUTF16toUTF8(aid).get();
 
-  mRadioProxy->iccIOForApp(serial, iccIo);
+  Return<void> ret = mRadioProxy->iccIOForApp(serial, iccIo);
+
+  if (!ret.isOk()) {
+    ERROR_NS_OK("iccIOForApp Error.");
+  }
 
   return NS_OK;
 }
@@ -633,7 +793,11 @@ NS_IMETHODIMP nsRilWorker::GetClir(int32_t serial) {
   if (mRadioProxy == nullptr) {
     ERROR_NS_OK("No Radio HAL exist");
   }
-  mRadioProxy->getClir(serial);
+  Return<void> ret = mRadioProxy->getClir(serial);
+
+  if (!ret.isOk()) {
+    ERROR_NS_OK("getClir Error.");
+  }
 
   return NS_OK;
 }
@@ -646,7 +810,11 @@ NS_IMETHODIMP nsRilWorker::SetClir(int32_t serial, int32_t clirMode) {
   if (mRadioProxy == nullptr) {
     ERROR_NS_OK("No Radio HAL exist");
   }
-  mRadioProxy->setClir(serial, clirMode);
+  Return<void> ret = mRadioProxy->setClir(serial, clirMode);
+
+  if (!ret.isOk()) {
+    ERROR_NS_OK("setClir Error.");
+  }
 
   return NS_OK;
 }
@@ -658,7 +826,12 @@ NS_IMETHODIMP nsRilWorker::SendDtmf(int32_t serial, const nsAString& dtmfChar) {
   if (mRadioProxy == nullptr) {
     ERROR_NS_OK("No Radio HAL exist");
   }
-  mRadioProxy->sendDtmf(serial, NS_ConvertUTF16toUTF8(dtmfChar).get());
+  Return<void> ret =
+      mRadioProxy->sendDtmf(serial, NS_ConvertUTF16toUTF8(dtmfChar).get());
+
+  if (!ret.isOk()) {
+    ERROR_NS_OK("sendDtmf Error.");
+  }
 
   return NS_OK;
 }
@@ -671,7 +844,12 @@ NS_IMETHODIMP nsRilWorker::StartDtmf(int32_t serial,
   if (mRadioProxy == nullptr) {
     ERROR_NS_OK("No Radio HAL exist");
   }
-  mRadioProxy->startDtmf(serial, NS_ConvertUTF16toUTF8(dtmfChar).get());
+  Return<void> ret =
+      mRadioProxy->startDtmf(serial, NS_ConvertUTF16toUTF8(dtmfChar).get());
+
+  if (!ret.isOk()) {
+    ERROR_NS_OK("startDtmf Error.");
+  }
 
   return NS_OK;
 }
@@ -683,7 +861,11 @@ NS_IMETHODIMP nsRilWorker::StopDtmf(int32_t serial) {
   if (mRadioProxy == nullptr) {
     ERROR_NS_OK("No Radio HAL exist");
   }
-  mRadioProxy->stopDtmf(serial);
+  Return<void> ret = mRadioProxy->stopDtmf(serial);
+
+  if (!ret.isOk()) {
+    ERROR_NS_OK("stopDtmf Error.");
+  }
 
   return NS_OK;
 }
@@ -695,7 +877,11 @@ NS_IMETHODIMP nsRilWorker::RejectCall(int32_t serial) {
   if (mRadioProxy == nullptr) {
     ERROR_NS_OK("No Radio HAL exist");
   }
-  mRadioProxy->rejectCall(serial);
+  Return<void> ret = mRadioProxy->rejectCall(serial);
+
+  if (!ret.isOk()) {
+    ERROR_NS_OK("rejectCall Error.");
+  }
 
   return NS_OK;
 }
@@ -707,7 +893,12 @@ NS_IMETHODIMP nsRilWorker::SendUssd(int32_t serial, const nsAString& ussd) {
   if (mRadioProxy == nullptr) {
     ERROR_NS_OK("No Radio HAL exist");
   }
-  mRadioProxy->sendUssd(serial, NS_ConvertUTF16toUTF8(ussd).get());
+  Return<void> ret =
+      mRadioProxy->sendUssd(serial, NS_ConvertUTF16toUTF8(ussd).get());
+
+  if (!ret.isOk()) {
+    ERROR_NS_OK("sendUssd Error.");
+  }
 
   return NS_OK;
 }
@@ -718,7 +909,11 @@ NS_IMETHODIMP nsRilWorker::CancelPendingUssd(int32_t serial) {
   if (mRadioProxy == nullptr) {
     ERROR_NS_OK("No Radio HAL exist");
   }
-  mRadioProxy->cancelPendingUssd(serial);
+  Return<void> ret = mRadioProxy->cancelPendingUssd(serial);
+
+  if (!ret.isOk()) {
+    ERROR_NS_OK("cancelPendingUssd Error.");
+  }
 
   return NS_OK;
 }
@@ -744,17 +939,18 @@ NS_IMETHODIMP nsRilWorker::GetCallForwardStatus(int32_t serial,
   cfInfo.number = NS_ConvertUTF16toUTF8(number).get();
   cfInfo.timeSeconds = 0;
 
-  mRadioProxy->getCallForwardStatus(serial, cfInfo);
+  Return<void> ret = mRadioProxy->getCallForwardStatus(serial, cfInfo);
+
+  if (!ret.isOk()) {
+    ERROR_NS_OK("getCallForwardStatus Error.");
+  }
 
   return NS_OK;
 }
 
-NS_IMETHODIMP nsRilWorker::SetCallForwardStatus(int32_t serial, int32_t action,
-                                                int32_t cfReason,
-                                                int32_t serviceClass,
-                                                const nsAString& number,
-                                                int32_t toaNumber,
-                                                int32_t timeSeconds) {
+NS_IMETHODIMP nsRilWorker::SetCallForwardStatus(
+    int32_t serial, int32_t action, int32_t cfReason, int32_t serviceClass,
+    const nsAString& number, int32_t toaNumber, int32_t timeSeconds) {
   DEBUG(
       "nsRilWorker: [%d] > RIL_REQUEST_SET_CALL_FORWARD action = %d, cfReason "
       "= %d , serviceClass = %d, number = %s, timeSeconds = %d",
@@ -773,7 +969,11 @@ NS_IMETHODIMP nsRilWorker::SetCallForwardStatus(int32_t serial, int32_t action,
   cfInfo.number = NS_ConvertUTF16toUTF8(number).get();
   cfInfo.timeSeconds = timeSeconds;
 
-  mRadioProxy->setCallForward(serial, cfInfo);
+  Return<void> ret = mRadioProxy->setCallForward(serial, cfInfo);
+
+  if (!ret.isOk()) {
+    ERROR_NS_OK("setCallForward Error.");
+  }
 
   return NS_OK;
 }
@@ -786,7 +986,11 @@ NS_IMETHODIMP nsRilWorker::GetCallWaiting(int32_t serial,
   if (mRadioProxy == nullptr) {
     ERROR_NS_OK("No Radio HAL exist");
   }
-  mRadioProxy->getCallWaiting(serial, serviceClass);
+  Return<void> ret = mRadioProxy->getCallWaiting(serial, serviceClass);
+
+  if (!ret.isOk()) {
+    ERROR_NS_OK("getCallWaiting Error.");
+  }
 
   return NS_OK;
 }
@@ -801,7 +1005,11 @@ NS_IMETHODIMP nsRilWorker::SetCallWaiting(int32_t serial, bool enable,
   if (mRadioProxy == nullptr) {
     ERROR_NS_OK("No Radio HAL exist");
   }
-  mRadioProxy->setCallWaiting(serial, enable, serviceClass);
+  Return<void> ret = mRadioProxy->setCallWaiting(serial, enable, serviceClass);
+
+  if (!ret.isOk()) {
+    ERROR_NS_OK("setCallWaiting Error.");
+  }
 
   return NS_OK;
 }
@@ -819,9 +1027,13 @@ NS_IMETHODIMP nsRilWorker::SetBarringPassword(int32_t serial,
   if (mRadioProxy == nullptr) {
     ERROR_NS_OK("No Radio HAL exist");
   }
-  mRadioProxy->setBarringPassword(serial, NS_ConvertUTF16toUTF8(facility).get(),
-                                  NS_ConvertUTF16toUTF8(oldPwd).get(),
-                                  NS_ConvertUTF16toUTF8(newPwd).get());
+  Return<void> ret = mRadioProxy->setBarringPassword(
+      serial, NS_ConvertUTF16toUTF8(facility).get(),
+      NS_ConvertUTF16toUTF8(oldPwd).get(), NS_ConvertUTF16toUTF8(newPwd).get());
+
+  if (!ret.isOk()) {
+    ERROR_NS_OK("setBarringPassword Error.");
+  }
 
   return NS_OK;
 }
@@ -834,7 +1046,11 @@ NS_IMETHODIMP nsRilWorker::SeparateConnection(int32_t serial,
   if (mRadioProxy == nullptr) {
     ERROR_NS_OK("No Radio HAL exist");
   }
-  mRadioProxy->separateConnection(serial, gsmIndex);
+  Return<void> ret = mRadioProxy->separateConnection(serial, gsmIndex);
+
+  if (!ret.isOk()) {
+    ERROR_NS_OK("separateConnection Error.");
+  }
 
   return NS_OK;
 }
@@ -845,7 +1061,11 @@ NS_IMETHODIMP nsRilWorker::GetClip(int32_t serial) {
   if (mRadioProxy == nullptr) {
     ERROR_NS_OK("No Radio HAL exist");
   }
-  mRadioProxy->getClip(serial);
+  Return<void> ret = mRadioProxy->getClip(serial);
+
+  if (!ret.isOk()) {
+    ERROR_NS_OK("getClip Error.");
+  }
 
   return NS_OK;
 }
@@ -856,7 +1076,11 @@ NS_IMETHODIMP nsRilWorker::ExplicitCallTransfer(int32_t serial) {
   if (mRadioProxy == nullptr) {
     ERROR_NS_OK("No Radio HAL exist");
   }
-  mRadioProxy->explicitCallTransfer(serial);
+  Return<void> ret = mRadioProxy->explicitCallTransfer(serial);
+
+  if (!ret.isOk()) {
+    ERROR_NS_OK("explicitCallTransfer Error.");
+  }
 
   return NS_OK;
 }
@@ -867,7 +1091,11 @@ NS_IMETHODIMP nsRilWorker::GetNeighboringCids(int32_t serial) {
   if (mRadioProxy == nullptr) {
     ERROR_NS_OK("No Radio HAL exist");
   }
-  mRadioProxy->getNeighboringCids(serial);
+  Return<void> ret = mRadioProxy->getNeighboringCids(serial);
+
+  if (!ret.isOk()) {
+    ERROR_NS_OK("getNeighboringCids Error.");
+  }
 
   return NS_OK;
 }
@@ -879,7 +1107,11 @@ NS_IMETHODIMP nsRilWorker::SetTTYMode(int32_t serial, int32_t ttyMode) {
   if (mRadioProxy == nullptr) {
     ERROR_NS_OK("No Radio HAL exist");
   }
-  mRadioProxy->setTTYMode(serial, TtyMode(ttyMode));
+  Return<void> ret = mRadioProxy->setTTYMode(serial, TtyMode(ttyMode));
+
+  if (!ret.isOk()) {
+    ERROR_NS_OK("setTTYMode Error.");
+  }
 
   return NS_OK;
 }
@@ -890,7 +1122,11 @@ NS_IMETHODIMP nsRilWorker::QueryTTYMode(int32_t serial) {
   if (mRadioProxy == nullptr) {
     ERROR_NS_OK("No Radio HAL exist");
   }
-  mRadioProxy->getTTYMode(serial);
+  Return<void> ret = mRadioProxy->getTTYMode(serial);
+
+  if (!ret.isOk()) {
+    ERROR_NS_OK("getTTYMode Error.");
+  }
 
   return NS_OK;
 }
@@ -902,7 +1138,11 @@ NS_IMETHODIMP nsRilWorker::ExitEmergencyCallbackMode(int32_t serial) {
   if (mRadioProxy == nullptr) {
     ERROR_NS_OK("No Radio HAL exist");
   }
-  mRadioProxy->exitEmergencyCallbackMode(serial);
+  Return<void> ret = mRadioProxy->exitEmergencyCallbackMode(serial);
+
+  if (!ret.isOk()) {
+    ERROR_NS_OK("exitEmergencyCallbackMode Error.");
+  }
 
   return NS_OK;
 }
@@ -917,8 +1157,13 @@ NS_IMETHODIMP nsRilWorker::SupplyIccPinForApp(int32_t serial,
   if (mRadioProxy == nullptr) {
     ERROR_NS_OK("No Radio HAL exist");
   }
-  mRadioProxy->supplyIccPinForApp(serial, NS_ConvertUTF16toUTF8(pin).get(),
-                                  NS_ConvertUTF16toUTF8(aid).get());
+  Return<void> ret =
+      mRadioProxy->supplyIccPinForApp(serial, NS_ConvertUTF16toUTF8(pin).get(),
+                                      NS_ConvertUTF16toUTF8(aid).get());
+
+  if (!ret.isOk()) {
+    ERROR_NS_OK("supplyIccPinForApp Error.");
+  }
 
   return NS_OK;
 }
@@ -933,8 +1178,13 @@ NS_IMETHODIMP nsRilWorker::SupplyIccPin2ForApp(int32_t serial,
   if (mRadioProxy == nullptr) {
     ERROR_NS_OK("No Radio HAL exist");
   }
-  mRadioProxy->supplyIccPin2ForApp(serial, NS_ConvertUTF16toUTF8(pin).get(),
-                                   NS_ConvertUTF16toUTF8(aid).get());
+  Return<void> ret =
+      mRadioProxy->supplyIccPin2ForApp(serial, NS_ConvertUTF16toUTF8(pin).get(),
+                                       NS_ConvertUTF16toUTF8(aid).get());
+
+  if (!ret.isOk()) {
+    ERROR_NS_OK("supplyIccPin2ForApp Error.");
+  }
 
   return NS_OK;
 }
@@ -952,9 +1202,13 @@ NS_IMETHODIMP nsRilWorker::SupplyIccPukForApp(int32_t serial,
   if (mRadioProxy == nullptr) {
     ERROR_NS_OK("No Radio HAL exist");
   }
-  mRadioProxy->supplyIccPukForApp(serial, NS_ConvertUTF16toUTF8(puk).get(),
-                                  NS_ConvertUTF16toUTF8(newPin).get(),
-                                  NS_ConvertUTF16toUTF8(aid).get());
+  Return<void> ret = mRadioProxy->supplyIccPukForApp(
+      serial, NS_ConvertUTF16toUTF8(puk).get(),
+      NS_ConvertUTF16toUTF8(newPin).get(), NS_ConvertUTF16toUTF8(aid).get());
+
+  if (!ret.isOk()) {
+    ERROR_NS_OK("supplyIccPukForApp Error.");
+  }
 
   return NS_OK;
 }
@@ -972,9 +1226,13 @@ NS_IMETHODIMP nsRilWorker::SupplyIccPuk2ForApp(int32_t serial,
   if (mRadioProxy == nullptr) {
     ERROR_NS_OK("No Radio HAL exist");
   }
-  mRadioProxy->supplyIccPuk2ForApp(serial, NS_ConvertUTF16toUTF8(puk).get(),
-                                   NS_ConvertUTF16toUTF8(newPin).get(),
-                                   NS_ConvertUTF16toUTF8(aid).get());
+  Return<void> ret = mRadioProxy->supplyIccPuk2ForApp(
+      serial, NS_ConvertUTF16toUTF8(puk).get(),
+      NS_ConvertUTF16toUTF8(newPin).get(), NS_ConvertUTF16toUTF8(aid).get());
+
+  if (!ret.isOk()) {
+    ERROR_NS_OK("supplyIccPuk2ForApp Error.");
+  }
 
   return NS_OK;
 }
@@ -987,10 +1245,14 @@ NS_IMETHODIMP nsRilWorker::SetFacilityLockForApp(
   if (mRadioProxy == nullptr) {
     ERROR_NS_OK("No Radio HAL exist");
   }
-  mRadioProxy->setFacilityLockForApp(
+  Return<void> ret = mRadioProxy->setFacilityLockForApp(
       serial, NS_ConvertUTF16toUTF8(facility).get(), lockState,
       NS_ConvertUTF16toUTF8(password).get(), serviceClass,
       NS_ConvertUTF16toUTF8(aid).get());
+
+  if (!ret.isOk()) {
+    ERROR_NS_OK("setFacilityLockForApp Error.");
+  }
 
   return NS_OK;
 }
@@ -1005,10 +1267,14 @@ NS_IMETHODIMP nsRilWorker::GetFacilityLockForApp(int32_t serial,
   if (mRadioProxy == nullptr) {
     ERROR_NS_OK("No Radio HAL exist");
   }
-  mRadioProxy->getFacilityLockForApp(
+  Return<void> ret = mRadioProxy->getFacilityLockForApp(
       serial, NS_ConvertUTF16toUTF8(facility).get(),
       NS_ConvertUTF16toUTF8(password).get(), serviceClass,
       NS_ConvertUTF16toUTF8(aid).get());
+
+  if (!ret.isOk()) {
+    ERROR_NS_OK("getFacilityLockForApp Error.");
+  }
 
   return NS_OK;
 }
@@ -1026,9 +1292,13 @@ NS_IMETHODIMP nsRilWorker::ChangeIccPinForApp(int32_t serial,
   if (mRadioProxy == nullptr) {
     ERROR_NS_OK("No Radio HAL exist");
   }
-  mRadioProxy->changeIccPinForApp(serial, NS_ConvertUTF16toUTF8(oldPin).get(),
-                                  NS_ConvertUTF16toUTF8(newPin).get(),
-                                  NS_ConvertUTF16toUTF8(aid).get());
+  Return<void> ret = mRadioProxy->changeIccPinForApp(
+      serial, NS_ConvertUTF16toUTF8(oldPin).get(),
+      NS_ConvertUTF16toUTF8(newPin).get(), NS_ConvertUTF16toUTF8(aid).get());
+
+  if (!ret.isOk()) {
+    ERROR_NS_OK("changeIccPinForApp Error.");
+  }
 
   return NS_OK;
 }
@@ -1046,9 +1316,13 @@ NS_IMETHODIMP nsRilWorker::ChangeIccPin2ForApp(int32_t serial,
   if (mRadioProxy == nullptr) {
     ERROR_NS_OK("No Radio HAL exist");
   }
-  mRadioProxy->changeIccPin2ForApp(serial, NS_ConvertUTF16toUTF8(oldPin).get(),
-                                   NS_ConvertUTF16toUTF8(newPin).get(),
-                                   NS_ConvertUTF16toUTF8(aid).get());
+  Return<void> ret = mRadioProxy->changeIccPin2ForApp(
+      serial, NS_ConvertUTF16toUTF8(oldPin).get(),
+      NS_ConvertUTF16toUTF8(newPin).get(), NS_ConvertUTF16toUTF8(aid).get());
+
+  if (!ret.isOk()) {
+    ERROR_NS_OK("changeIccPin2ForApp Error.");
+  }
 
   return NS_OK;
 }
@@ -1060,7 +1334,11 @@ NS_IMETHODIMP nsRilWorker::ReportStkServiceIsRunning(int32_t serial) {
   if (mRadioProxy == nullptr) {
     ERROR_NS_OK("No Radio HAL exist");
   }
-  mRadioProxy->reportStkServiceIsRunning(serial);
+  Return<void> ret = mRadioProxy->reportStkServiceIsRunning(serial);
+
+  if (!ret.isOk()) {
+    ERROR_NS_OK("reportStkServiceIsRunning Error.");
+  }
 
   return NS_OK;
 }
@@ -1072,7 +1350,12 @@ NS_IMETHODIMP nsRilWorker::SetGsmBroadcastActivation(int32_t serial,
   if (mRadioProxy == nullptr) {
     ERROR_NS_OK("No Radio HAL exist");
   }
-  mRadioProxy->setGsmBroadcastActivation(serial, activate);
+  Return<void> ret = mRadioProxy->setGsmBroadcastActivation(serial, activate);
+
+  if (!ret.isOk()) {
+    ERROR_NS_OK("setGsmBroadcastActivation Error.");
+  }
+
   return NS_OK;
 }
 
@@ -1095,8 +1378,12 @@ NS_IMETHODIMP nsRilWorker::SetGsmBroadcastConfig(
     info.selected = 1;
     broadcastInfo.push_back(info);
   }
+  Return<void> ret = mRadioProxy->setGsmBroadcastConfig(serial, broadcastInfo);
 
-  mRadioProxy->setGsmBroadcastConfig(serial, broadcastInfo);
+  if (!ret.isOk()) {
+    ERROR_NS_OK("setGsmBroadcastConfig Error.");
+  }
+
   return NS_OK;
 }
 
@@ -1109,8 +1396,12 @@ NS_IMETHODIMP nsRilWorker::GetPreferredVoicePrivacy(int32_t serial) {
   if (mRadioProxy == nullptr) {
     ERROR_NS_OK("No Radio HAL exist");
   }
+  Return<void> ret = mRadioProxy->getPreferredVoicePrivacy(serial);
 
-  mRadioProxy->getPreferredVoicePrivacy(serial);
+  if (!ret.isOk()) {
+    ERROR_NS_OK("getPreferredVoicePrivacy Error.");
+  }
+
   return NS_OK;
 }
 
@@ -1124,8 +1415,12 @@ NS_IMETHODIMP nsRilWorker::SetPreferredVoicePrivacy(int32_t serial,
   if (mRadioProxy == nullptr) {
     ERROR_NS_OK("No Radio HAL exist");
   }
+  Return<void> ret = mRadioProxy->setPreferredVoicePrivacy(serial, enable);
 
-  mRadioProxy->setPreferredVoicePrivacy(serial, enable);
+  if (!ret.isOk()) {
+    ERROR_NS_OK("setPreferredVoicePrivacy Error.");
+  }
+
   return NS_OK;
 }
 
@@ -1138,16 +1433,19 @@ NS_IMETHODIMP nsRilWorker::RequestIccSimAuthentication(int32_t serial,
   if (mRadioProxy == nullptr) {
     ERROR_NS_OK("No Radio HAL exist");
   }
+  Return<void> ret = mRadioProxy->requestIccSimAuthentication(
+      serial, authContext, NS_ConvertUTF16toUTF8(data).get(),
+      NS_ConvertUTF16toUTF8(aid).get());
 
-  mRadioProxy->requestIccSimAuthentication(serial, authContext,
-                                           NS_ConvertUTF16toUTF8(data).get(),
-                                           NS_ConvertUTF16toUTF8(aid).get());
+  if (!ret.isOk()) {
+    ERROR_NS_OK("requestIccSimAuthentication Error.");
+  }
+
   return NS_OK;
 }
 
 NS_IMETHODIMP nsRilWorker::SendSMS(int32_t serial, const nsAString& smsc,
                                    const nsAString& pdu) {
-  DEBUG("nsRilWorker: [%d] > RIL_REQUEST_SEND_SMS ", serial);
   GetRadioProxy();
   if (mRadioProxy == nullptr) {
     ERROR_NS_OK("No Radio HAL exist");
@@ -1158,8 +1456,12 @@ NS_IMETHODIMP nsRilWorker::SendSMS(int32_t serial, const nsAString& smsc,
   smsMessage.pdu = NS_ConvertUTF16toUTF8(pdu).get();
   DEBUG("nsRilWorker: [%d] > RIL_REQUEST_SEND_SMS %s", serial,
         NS_ConvertUTF16toUTF8(pdu).get());
+  Return<void> ret = mRadioProxy->sendSms(serial, smsMessage);
 
-  mRadioProxy->sendSms(serial, smsMessage);
+  if (!ret.isOk()) {
+    ERROR_NS_OK("sendSms Error.");
+  }
+
   return NS_OK;
 }
 
@@ -1171,14 +1473,18 @@ NS_IMETHODIMP nsRilWorker::AcknowledgeLastIncomingGsmSms(int32_t serial,
   if (mRadioProxy == nullptr) {
     ERROR_NS_OK("No Radio HAL exist");
   }
+  Return<void> ret = mRadioProxy->acknowledgeLastIncomingGsmSms(
+      serial, success, SmsAcknowledgeFailCause(cause));
 
-  mRadioProxy->acknowledgeLastIncomingGsmSms(serial, success,
-                                             SmsAcknowledgeFailCause(cause));
+  if (!ret.isOk()) {
+    ERROR_NS_OK("acknowledgeLastIncomingGsmSms Error.");
+  }
+
   return NS_OK;
 }
 
 NS_IMETHODIMP nsRilWorker::SetSuppServiceNotifications(int32_t serial,
-                                                    bool enable) {
+                                                       bool enable) {
   DEBUG(
       "nsRilWorker: [%d] > RIL_REQUEST_SET_SUPP_SVC_NOTIFICATION "
       "enable = %d",
@@ -1187,7 +1493,12 @@ NS_IMETHODIMP nsRilWorker::SetSuppServiceNotifications(int32_t serial,
   if (mRadioProxy == nullptr) {
     ERROR_NS_OK("No Radio HAL exist");
   }
-  mRadioProxy->setSuppServiceNotifications(serial, enable);
+  Return<void> ret = mRadioProxy->setSuppServiceNotifications(serial, enable);
+
+  if (!ret.isOk()) {
+    ERROR_NS_OK("setSuppServiceNotifications Error.");
+  }
+
   return NS_OK;
 }
 
@@ -1202,7 +1513,12 @@ NS_IMETHODIMP nsRilWorker::HandleStkCallSetupRequestFromSim(int32_t serial,
   if (mRadioProxy == nullptr) {
     ERROR_NS_OK("No Radio HAL exist");
   }
-  mRadioProxy->handleStkCallSetupRequestFromSim(serial, accept);
+  Return<void> ret =
+      mRadioProxy->handleStkCallSetupRequestFromSim(serial, accept);
+
+  if (!ret.isOk()) {
+    ERROR_NS_OK("handleStkCallSetupRequestFromSim Error.");
+  }
 
   return NS_OK;
 }
@@ -1217,14 +1533,18 @@ NS_IMETHODIMP nsRilWorker::SendTerminalResponseToSim(
   if (mRadioProxy == nullptr) {
     ERROR_NS_OK("No Radio HAL exist");
   }
-  mRadioProxy->sendTerminalResponseToSim(serial,
-                                         NS_ConvertUTF16toUTF8(contents).get());
+  Return<void> ret = mRadioProxy->sendTerminalResponseToSim(
+      serial, NS_ConvertUTF16toUTF8(contents).get());
+
+  if (!ret.isOk()) {
+    ERROR_NS_OK("sendTerminalResponseToSim Error.");
+  }
 
   return NS_OK;
 }
 
-NS_IMETHODIMP nsRilWorker::SendEnvelope(
-    int32_t serial, const nsAString& contents) {
+NS_IMETHODIMP nsRilWorker::SendEnvelope(int32_t serial,
+                                        const nsAString& contents) {
   DEBUG(
       "nsRilWorker: [%d] > RIL_REQUEST_STK_SEND_ENVELOPE_COMMAND contents = "
       "%s",
@@ -1233,8 +1553,60 @@ NS_IMETHODIMP nsRilWorker::SendEnvelope(
   if (mRadioProxy == nullptr) {
     ERROR_NS_OK("No Radio HAL exist");
   }
-  mRadioProxy->sendEnvelope(serial,
-                            NS_ConvertUTF16toUTF8(contents).get());
+  Return<void> ret =
+      mRadioProxy->sendEnvelope(serial, NS_ConvertUTF16toUTF8(contents).get());
+
+  if (!ret.isOk()) {
+    ERROR_NS_OK("sendEnvelope Error.");
+  }
+
+  return NS_OK;
+}
+
+NS_IMETHODIMP nsRilWorker::GetRadioCapability(int32_t serial) {
+  DEBUG("nsRilWorker: [%d] > RIL_REQUEST_GET_RADIO_CAPABILITY", serial);
+
+  GetRadioProxy();
+  if (mRadioProxy == nullptr) {
+    ERROR_NS_OK("No Radio HAL exist");
+  }
+  Return<void> ret = mRadioProxy->getRadioCapability(serial);
+
+  if (!ret.isOk()) {
+    ERROR_NS_OK("getRadioCapability Error.");
+  }
+
+  return NS_OK;
+}
+
+NS_IMETHODIMP nsRilWorker::StopNetworkScan(int32_t serial) {
+  DEBUG("nsRilWorker: [%d] > RIL_REQUEST_STOP_NETWORK_SCAN", serial);
+  GetRadioProxy();
+  if (mRadioProxy == nullptr) {
+    ERROR_NS_OK("No Radio HAL exist");
+  }
+  Return<void> ret = mRadioProxy->stopNetworkScan(serial);
+
+  if (!ret.isOk()) {
+    ERROR_NS_OK("stopNetworkScan Error.");
+  }
+
+  return NS_OK;
+}
+
+NS_IMETHODIMP nsRilWorker::SetUnsolResponseFilter(int32_t serial,
+                                                  int32_t filter) {
+  DEBUG("nsRilWorker: [%d] > RIL_REQUEST_SET_UNSOLICITED_RESPONSE_FILTER",
+        serial);
+  GetRadioProxy();
+  if (mRadioProxy == nullptr) {
+    ERROR_NS_OK("No Radio HAL exist");
+  }
+  Return<void> ret = mRadioProxy->setIndicationFilter(serial, filter);
+
+  if (!ret.isOk()) {
+    ERROR_NS_OK("setIndicationFilter Error.");
+  }
 
   return NS_OK;
 }
@@ -1309,6 +1681,42 @@ void nsRilWorker::sendAck() {
     mRadioProxy->responseAcknowledgement();
   } else {
     ERROR("sendAck mRadioProxy == nullptr");
+  }
+}
+
+void nsRilWorker::sendRilIndicationResult(nsRilIndicationResult* aIndication) {
+  DEBUG("nsRilWorker: [USOL]< %s",
+        NS_LossyConvertUTF16toASCII(aIndication->mRilMessageType).get());
+
+  RefPtr<nsRilIndicationResult> indication = aIndication;
+  nsCOMPtr<nsIRunnable> r = NS_NewRunnableFunction(
+      "nsRilWorker::sendRilIndicationResult", [this, indication]() {
+        if (mRilCallback) {
+          mRilCallback->HandleRilIndication(indication);
+        } else {
+          DEBUG("sendRilIndicationResult: no callback");
+        }
+      });
+  NS_DispatchToMainThread(r);
+}
+
+void nsRilWorker::sendRilResponseResult(nsRilResponseResult* aResponse) {
+  DEBUG("nsRilWorker: [%d] < %s", aResponse->mRilMessageToken,
+        NS_LossyConvertUTF16toASCII(aResponse->mRilMessageType).get());
+
+  if (aResponse->mRilMessageToken > 0) {
+    RefPtr<nsRilResponseResult> response = aResponse;
+    nsCOMPtr<nsIRunnable> r = NS_NewRunnableFunction(
+        "nsRilWorker::sendRilResponseResult", [this, response]() {
+          if (mRilCallback) {
+            mRilCallback->HandleRilResponse(response);
+          } else {
+            DEBUG("sendRilResponseResult: no callback");
+          }
+        });
+    NS_DispatchToMainThread(r);
+  } else {
+    DEBUG("ResponseResult internal reqeust.");
   }
 }
 
@@ -1399,74 +1807,4 @@ DataProfileInfo nsRilWorker::convertToHalDataProfile(nsIDataProfile* profile) {
   dataProfileInfo.mvnoMatchData = NS_ConvertUTF16toUTF8(mvnoMatchData).get();
 
   return dataProfileInfo;
-}
-
-NS_IMETHODIMP nsRilWorker::GetRadioCapability(int32_t serial) {
-  DEBUG("nsRilWorker: [%d] > RIL_REQUEST_GET_RADIO_CAPABILITY", serial);
-
-  GetRadioProxy();
-  if (mRadioProxy == nullptr) {
-    ERROR_NS_OK("No Radio HAL exist");
-  }
-  mRadioProxy->getRadioCapability(serial);
-
-  return NS_OK;
-}
-
-NS_IMETHODIMP nsRilWorker::StopNetworkScan(int32_t serial) {
-  DEBUG("nsRilWorker: [%d] > RIL_REQUEST_STOP_NETWORK_SCAN", serial);
-  GetRadioProxy();
-  if (mRadioProxy == nullptr) {
-    ERROR_NS_OK("No Radio HAL exist");
-  }
-  mRadioProxy->stopNetworkScan(serial);
-
-  return NS_OK;
-}
-
-NS_IMETHODIMP nsRilWorker::SetUnsolResponseFilter(int32_t serial, int32_t filter) {
-  DEBUG("nsRilWorker: [%d] > RIL_REQUEST_SET_UNSOLICITED_RESPONSE_FILTER", serial);
-  GetRadioProxy();
-  if (mRadioProxy == nullptr) {
-    ERROR_NS_OK("No Radio HAL exist");
-  }
-  mRadioProxy->setIndicationFilter(serial, filter);
-
-  return NS_OK;
-}
-
-void nsRilWorker::sendRilIndicationResult(nsRilIndicationResult* aIndication) {
-  DEBUG("nsRilWorker: [USOL]< %s",
-        NS_LossyConvertUTF16toASCII(aIndication->mRilMessageType).get());
-
-  RefPtr<nsRilIndicationResult> indication = aIndication;
-  nsCOMPtr<nsIRunnable> r = NS_NewRunnableFunction(
-      "nsRilWorker::sendRilIndicationResult", [this, indication]() {
-        if (mRilCallback) {
-          mRilCallback->HandleRilIndication(indication);
-        } else {
-          DEBUG("sendRilIndicationResult: no callback");
-        }
-      });
-  NS_DispatchToMainThread(r);
-}
-
-void nsRilWorker::sendRilResponseResult(nsRilResponseResult* aResponse) {
-  DEBUG("nsRilWorker: [%d] < %s", aResponse->mRilMessageToken,
-        NS_LossyConvertUTF16toASCII(aResponse->mRilMessageType).get());
-
-  if (aResponse->mRilMessageToken > 0) {
-    RefPtr<nsRilResponseResult> response = aResponse;
-    nsCOMPtr<nsIRunnable> r = NS_NewRunnableFunction(
-        "nsRilWorker::sendRilResponseResult", [this, response]() {
-          if (mRilCallback) {
-            mRilCallback->HandleRilResponse(response);
-          } else {
-            DEBUG("sendRilResponseResult: no callback");
-          }
-        });
-    NS_DispatchToMainThread(r);
-  } else {
-    DEBUG("ResponseResult internal reqeust.");
-  }
 }
