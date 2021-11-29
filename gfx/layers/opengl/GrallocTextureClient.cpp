@@ -140,7 +140,6 @@ GrallocTextureData::FillInfo(TextureData::Info& aInfo) const
 {
   aInfo.size = mSize;
   aInfo.format = mFormat;
-  aInfo.hasIntermediateBuffer = false;
   aInfo.hasSynchronization = true;
   aInfo.supportsMoz2D = true;
   aInfo.canExposeMappedData = true;
