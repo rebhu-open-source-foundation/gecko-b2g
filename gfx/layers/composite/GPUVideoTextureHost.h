@@ -39,8 +39,6 @@ class GPUVideoTextureHost : public TextureHost {
   const char* Name() override { return "GPUVideoTextureHost"; }
 #endif
 
-  bool HasIntermediateBuffer() const override;
-
   void CreateRenderTexture(
       const wr::ExternalImageId& aExternalImageId) override;
 
@@ -60,6 +58,8 @@ class GPUVideoTextureHost : public TextureHost {
                         PushDisplayItemFlagSet aFlags) override;
 
   bool SupportsExternalCompositing(WebRenderBackend aBackend) override;
+
+  void UnbindTextureSource() override;
 
   void NotifyNotUsed() override;
 

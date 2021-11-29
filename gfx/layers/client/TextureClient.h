@@ -233,7 +233,6 @@ class TextureData {
   struct Info {
     gfx::IntSize size;
     gfx::SurfaceFormat format;
-    bool hasIntermediateBuffer;
     bool hasSynchronization;
     bool supportsMoz2D;
     bool canExposeMappedData;
@@ -241,7 +240,6 @@ class TextureData {
 
     Info()
         : format(gfx::SurfaceFormat::UNKNOWN),
-          hasIntermediateBuffer(false),
           hasSynchronization(false),
           supportsMoz2D(false),
           canExposeMappedData(false),
@@ -437,13 +435,6 @@ class TextureClient : public AtomicRefCountedWithFinalize<TextureClient> {
    * to be used appropriately since the latter are also there to map/numap data.
    */
   bool HasSynchronization() const { return mInfo.hasSynchronization; }
-
-  /**
-   * Indicates whether the TextureClient implementation is backed by an
-   * in-memory buffer. The consequence of this is that locking the
-   * TextureClient does not contend with locking the texture on the host side.
-   */
-  bool HasIntermediateBuffer() const { return mInfo.hasIntermediateBuffer; }
 
   bool CanExposeDrawTarget() const { return mInfo.supportsMoz2D; }
 

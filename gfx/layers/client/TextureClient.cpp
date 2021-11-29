@@ -1709,7 +1709,7 @@ bool CrossProcessSemaphoreReadLock::Serialize(ReadLockDescriptor& aOutput,
                                               base::ProcessId aOther) {
   if (!mShared && IsValid()) {
     aOutput = ReadLockDescriptor(
-        CrossProcessSemaphoreDescriptor(mSemaphore->ShareToProcess(aOther)));
+        CrossProcessSemaphoreDescriptor(mSemaphore->CloneHandle()));
     mSemaphore->CloseHandle();
     mShared = true;
     return true;

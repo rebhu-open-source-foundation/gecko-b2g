@@ -67,6 +67,14 @@ wr::ExternalImageId WebRenderTextureHost::GetExternalImageKey() {
 
 bool WebRenderTextureHost::IsValid() { return mWrappedTextureHost->IsValid(); }
 
+void WebRenderTextureHost::UnbindTextureSource() {
+  if (mWrappedTextureHost->AsBufferTextureHost()) {
+    mWrappedTextureHost->UnbindTextureSource();
+  }
+  // Handle read unlock
+  TextureHost::UnbindTextureSource();
+}
+
 already_AddRefed<gfx::DataSourceSurface> WebRenderTextureHost::GetAsSurface() {
   return mWrappedTextureHost->GetAsSurface();
 }
@@ -128,10 +136,6 @@ int32_t WebRenderTextureHost::GetRGBStride() {
         GetSize().width, BytesPerPixel(gfx::SurfaceFormat::B8G8R8A8));
   }
   return ImageDataSerializer::ComputeRGBStride(format, GetSize().width);
-}
-
-bool WebRenderTextureHost::HasIntermediateBuffer() const {
-  return mWrappedTextureHost->HasIntermediateBuffer();
 }
 
 bool WebRenderTextureHost::NeedsDeferredDeletion() const {

@@ -172,6 +172,7 @@ const kObserverTopics = [
   "network:offline-about-to-go-offline",
   "network:offline-status-changed",
   "xpcom-will-shutdown",
+  "blocked-automatic-download",
 ];
 
 /**
@@ -701,9 +702,12 @@ var DownloadIntegration = {
       let isTemporaryDownload =
         aDownload.launchWhenSucceeded &&
         (aDownload.source.isPrivate ||
-          Services.prefs.getBoolPref(
+          (Services.prefs.getBoolPref(
             "browser.helperApps.deleteTempFileOnExit"
-          ));
+          ) &&
+            !Services.prefs.getBoolPref(
+              "browser.download.improvements_to_download_panel"
+            )));
       // Permanently downloaded files are made accessible by other users on
       // this system, while temporary downloads are marked as read-only.
       let unixMode;
@@ -1017,14 +1021,11 @@ var DownloadIntegration = {
     return Services.dirsvc.get(name, Ci.nsIFile).path;
   },
   /**
-   * Returns the DownloadSpamProtection instance.
+   * Initializes the DownloadSpamProtection instance.
    * This is used to observe and group multiple automatic downloads.
    */
-  getDownloadSpamProtection() {
-    if (!this._downloadSpamProtection) {
-      this._downloadSpamProtection = new DownloadSpamProtection();
-    }
-    return this._downloadSpamProtection;
+  _initializeDownloadSpamProtection() {
+    this.downloadSpamProtection = new DownloadSpamProtection();
   },
 
   /**
@@ -1044,12 +1045,6 @@ var DownloadIntegration = {
       DownloadObserver.observersAdded = true;
       for (let topic of kObserverTopics) {
         Services.obs.addObserver(DownloadObserver, topic);
-      }
-      if (AppConstants.MOZ_BUILD_APP == "browser") {
-        Services.obs.addObserver(
-          this.getDownloadSpamProtection(),
-          DownloadSpamProtection.TOPIC
-        );
       }
     }
     return Promise.resolve();
@@ -1280,12 +1275,15 @@ var DownloadObserver = {
         for (let topic of kObserverTopics) {
           Services.obs.removeObserver(this, topic);
         }
-        if (AppConstants.MOZ_BUILD_APP == "browser") {
-          Services.obs.removeObserver(
-            DownloadIntegration.getDownloadSpamProtection(),
-            DownloadSpamProtection.TOPIC
-          );
+        break;
+      case "blocked-automatic-download":
+        if (
+          AppConstants.MOZ_BUILD_APP == "browser" &&
+          !DownloadIntegration.downloadSpamProtection
+        ) {
+          DownloadIntegration._initializeDownloadSpamProtection();
         }
+        DownloadIntegration.downloadSpamProtection.update(aData);
         break;
     }
   },

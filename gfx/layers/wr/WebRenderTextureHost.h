@@ -30,6 +30,8 @@ class WebRenderTextureHost : public TextureHost {
 
   void DeallocateDeviceData() override {}
 
+  void UnbindTextureSource() override;
+
   gfx::SurfaceFormat GetFormat() const override;
 
   virtual void NotifyNotUsed() override;
@@ -60,8 +62,6 @@ class WebRenderTextureHost : public TextureHost {
   wr::ExternalImageId GetExternalImageKey();
 
   int32_t GetRGBStride();
-
-  bool HasIntermediateBuffer() const override;
 
   bool NeedsDeferredDeletion() const override;
 

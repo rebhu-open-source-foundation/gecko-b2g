@@ -2099,8 +2099,7 @@ def repackage_msi(
 @CommandArgument(
     "--input",
     type=str,
-    required=True,
-    help="Package (ZIP) or directory to repackage.",
+    help="Package (ZIP) or directory to repackage. Defaults to $OBJDIR/dist/bin",
 )
 @CommandArgument(
     "--version",
@@ -2110,7 +2109,7 @@ def repackage_msi(
 )
 @CommandArgument(
     "--channel",
-    required=True,
+    type=str,
     choices=["official", "beta", "aurora", "nightly", "unofficial"],
     help="Release channel.",
 )
@@ -2125,8 +2124,8 @@ def repackage_msi(
 @CommandArgument(
     "--arch",
     type=str,
-    required=True,
-    help="The architecture you are building (Choices: 'x86', 'x86_64', 'aarch64').",
+    choices=["x86", "x86_64", "aarch64"],
+    help="The architecture you are building.",
 )
 @CommandArgument(
     "--vendor",
@@ -2203,6 +2202,65 @@ def repackage_msix(
     from mozbuild.repackaging.msix import repackage_msix
 
     command_context._set_log_level(verbose)
+
+    firefox_to_msix_channel = {
+        "release": "official",
+        "beta": "beta",
+        "aurora": "aurora",
+        "nightly": "nightly",
+    }
+
+    if not input:
+        if os.path.exists(command_context.get("bindir")):
+            input = command_context["bindir"]
+        else:
+            command_context.log(
+                logging.ERROR,
+                "repackage-msix-no-input",
+                {},
+                "No build found in objdir, please run ./mach build or pass --input",
+            )
+            return 1
+
+    if not os.path.exists(input):
+        command_context.log(
+            logging.ERROR,
+            "repackage-msix-invalid-input",
+            {"input": input},
+            "Input file or directory for msix repackaging does not exist: {input}",
+        )
+        return 1
+
+    if not channel:
+        # Only try to guess the channel when this is clearly a local build.
+        if input.endswith("bin"):
+            channel = firefox_to_msix_channel.get(
+                command_context.defines.get("MOZ_UPDATE_CHANNEL"), "unofficial"
+            )
+        else:
+            command_context.log(
+                logging.ERROR,
+                "repackage-msix-invalid-channel",
+                {},
+                "Could not determine channel, please set --channel",
+            )
+            return 1
+
+    if not arch:
+        # Only try to guess the arch when this is clearly a local build.
+        if input.endswith("bin"):
+            if command_context.substs["TARGET_CPU"] in ("i686", "x86_64", "aarch64"):
+                arch = command_context.substs["TARGET_CPU"].replace("i686", "x86")
+
+        if not arch:
+            command_context.log(
+                logging.ERROR,
+                "repackage-msix-couldnt-detect-arch",
+                {},
+                "Could not automatically detect architecture for msix repackaging. "
+                "Please pass --arch",
+            )
+            return 1
 
     template = os.path.join(
         command_context.topsrcdir, "browser", "installer", "windows", "msix"
@@ -2442,34 +2500,6 @@ def package_l10n(command_context, verbose=False, locales=[]):
         )
 
     return 0
-
-
-@Command(
-    "create-mach-environment",
-    category="devenv",
-    description="Create the `mach` virtualenv.",
-)
-@CommandArgument(
-    "-f",
-    "--force",
-    action="store_true",
-    help=("Force re-creating the virtualenv even if it is already up-to-date."),
-)
-def create_mach_environment(command_context, force=False):
-    """Create the mach virtualenv."""
-    from mozboot.util import get_state_dir
-    from mach.site import MachSiteManager
-
-    manager = MachSiteManager.from_environment(
-        command_context.topsrcdir,
-        get_state_dir(),
-        is_mach_create_mach_env_command=True,
-    )
-
-    if manager.ensure(force=force):
-        print("Mach environment is already up to date.")
-    else:
-        print("Mach environment created.")
 
 
 def _prepend_debugger_args(args, debugger, debugger_args):

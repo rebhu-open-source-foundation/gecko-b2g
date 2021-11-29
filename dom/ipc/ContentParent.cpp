@@ -2835,7 +2835,7 @@ bool ContentParent::LaunchSubprocessResolve(bool aIsSync,
 
 #ifdef MOZ_CODE_COVERAGE
   Unused << SendShareCodeCoverageMutex(
-      CodeCoverageHandler::Get()->GetMutexHandle(procId));
+      CodeCoverageHandler::Get()->GetMutexHandle());
 #endif
 
   // We must be in the LAUNCHING state still. If we've somehow already been
@@ -3187,8 +3187,7 @@ bool ContentParent::InitInternal(ProcessPriority aInitialPriority) {
   Maybe<SharedMemoryHandle> sharedUASheetHandle;
   uintptr_t sharedUASheetAddress = sheetCache->GetSharedMemoryAddress();
 
-  SharedMemoryHandle handle;
-  if (sheetCache->ShareToProcess(OtherPid(), &handle)) {
+  if (SharedMemoryHandle handle = sheetCache->CloneHandle()) {
     sharedUASheetHandle.emplace(std::move(handle));
   } else {
     sharedUASheetAddress = 0;

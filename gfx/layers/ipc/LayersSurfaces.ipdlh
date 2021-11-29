@@ -140,7 +140,6 @@ struct OverlaySource {
 [Comparable] struct RGBDescriptor {
   IntSize size;
   SurfaceFormat format;
-  bool hasIntermediateBuffer;
 };
 
 [Comparable] struct YCbCrDescriptor {
@@ -156,7 +155,6 @@ struct OverlaySource {
   ColorDepth colorDepth;
   YUVColorSpace yUVColorSpace;
   ColorRange colorRange;
-  bool hasIntermediateBuffer;
 };
 
 [Comparable] union BufferDescriptor {

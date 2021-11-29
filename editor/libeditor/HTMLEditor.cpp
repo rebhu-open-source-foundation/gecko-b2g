@@ -12,6 +12,7 @@
 #include "EditorUtils.h"
 #include "HTMLEditorEventListener.h"
 #include "HTMLEditUtils.h"
+#include "InsertNodeTransaction.h"
 #include "JoinNodeTransaction.h"
 #include "ReplaceTextTransaction.h"
 #include "SplitNodeTransaction.h"
@@ -23,6 +24,7 @@
 #include "mozilla/DebugOnly.h"
 #include "mozilla/Encoding.h"  // for Encoding
 #include "mozilla/EventStates.h"
+#include "mozilla/IntegerRange.h"  // for IntegerRange
 #include "mozilla/InternalMutationEvent.h"
 #include "mozilla/mozInlineSpellChecker.h"
 #include "mozilla/Preferences.h"
@@ -2967,20 +2969,49 @@ HTMLEditor::CreateAndInsertElementWithTransaction(
   //       CreatElementTransaction since we can use InsertNodeTransaction
   //       instead.
 
-  RefPtr<CreateElementTransaction> transaction =
-      CreateElementTransaction::Create(*this, aTagName, aPointToInsert);
-  nsresult rv = DoTransactionInternal(transaction);
-  if (NS_WARN_IF(Destroyed())) {
+  RefPtr<Element> newElement;
+  nsresult rv;
+  if (StaticPrefs::editor_create_element_transaction_enabled()) {
+    RefPtr<CreateElementTransaction> transaction =
+        CreateElementTransaction::Create(*this, aTagName, aPointToInsert);
+    rv = DoTransactionInternal(transaction);
+    if (MOZ_LIKELY(NS_SUCCEEDED(rv))) {
+      newElement = transaction->GetNewElement();
+      MOZ_ASSERT(newElement);
+    }
+  } else {
+    newElement = CreateHTMLContent(&aTagName);
+    NS_WARNING_ASSERTION(newElement, "EditorBase::CreateHTMLContent() failed");
+    if (MOZ_LIKELY(newElement)) {
+      rv = MarkElementDirty(*newElement);
+      if (MOZ_UNLIKELY(rv == NS_ERROR_EDITOR_DESTROYED)) {
+        NS_WARNING(
+            "EditorBase::MarkElementDirty() caused destroying the editor");
+        rv = NS_ERROR_EDITOR_DESTROYED;
+      } else {
+        NS_WARNING_ASSERTION(
+            NS_SUCCEEDED(rv),
+            "EditorBase::MarkElementDirty() failed, but ignored");
+        RefPtr<InsertNodeTransaction> transaction =
+            InsertNodeTransaction::Create(*this, *newElement, aPointToInsert);
+        rv = DoTransactionInternal(transaction);
+      }
+      if (MOZ_UNLIKELY(NS_FAILED(rv))) {
+        newElement = nullptr;
+      }
+    } else {
+      rv = NS_ERROR_FAILURE;
+    }
+  }
+  if (MOZ_UNLIKELY(NS_WARN_IF(Destroyed()))) {
     rv = NS_ERROR_EDITOR_DESTROYED;
-  } else if (transaction->GetNewElement() &&
-             transaction->GetNewElement()->GetParentNode() !=
-                 aPointToInsert.GetContainer()) {
+  } else if (MOZ_UNLIKELY(newElement && newElement->GetParentNode() !=
+                                            aPointToInsert.GetContainer())) {
     NS_WARNING("The new element was not inserted into the expected node");
     rv = NS_ERROR_EDITOR_UNEXPECTED_DOM_TREE;
   }
 
-  RefPtr<Element> newElement;
-  if (NS_FAILED(rv)) {
+  if (MOZ_UNLIKELY(NS_FAILED(rv))) {
     NS_WARNING("EditorBase::DoTransactionInternal() failed");
     // XXX Why do we do this even when DoTransaction() returned error?
     DebugOnly<nsresult> rvIgnored =
@@ -2989,9 +3020,6 @@ HTMLEditor::CreateAndInsertElementWithTransaction(
         NS_SUCCEEDED(rvIgnored),
         "Rangeupdater::SelAdjCreateNode() failed, but ignored");
   } else {
-    newElement = transaction->GetNewElement();
-    MOZ_ASSERT(newElement);
-
     // If we succeeded to create and insert new element, we need to adjust
     // ranges in RangeUpdaterRef().  It currently requires offset of the new
     // node.  So, let's call it with original offset.  Note that if
@@ -4132,29 +4160,32 @@ nsresult HTMLEditor::CollapseAdjacentTextNodes(nsRange& aInRange) {
       textNodes);
 
   // now that I have a list of text nodes, collapse adjacent text nodes
-  // NOTE: assumption that JoinNodes keeps the righthand node
-  while (textNodes.Length() > 1) {
-    // we assume a textNodes entry can't be nullptr
-    Text* leftTextNode = textNodes[0];
-    Text* rightTextNode = textNodes[1];
-    NS_ASSERTION(leftTextNode && rightTextNode,
-                 "left or rightTextNode null in CollapseAdjacentTextNodes");
+  while (textNodes.Length() > 1u) {
+    OwningNonNull<Text>& leftTextNode = textNodes[0u];
+    OwningNonNull<Text>& rightTextNode = textNodes[1u];
 
-    // get the prev sibling of the right node, and see if its leftTextNode
-    nsIContent* previousSiblingOfRightTextNode =
-        rightTextNode->GetPreviousSibling();
-    if (previousSiblingOfRightTextNode &&
-        previousSiblingOfRightTextNode == leftTextNode) {
-      nsresult rv = JoinNodesWithTransaction(MOZ_KnownLive(*leftTextNode),
-                                             MOZ_KnownLive(*rightTextNode));
-      if (NS_FAILED(rv)) {
-        NS_WARNING("HTMLEditor::JoinNodesWithTransaction() failed");
-        return rv;
-      }
+    // If the text nodes are not direct siblings, we shouldn't join them, and
+    // we don't need to handle the left one anymore.
+    if (rightTextNode->GetPreviousSibling() != leftTextNode) {
+      textNodes.RemoveElementAt(0u);
+      continue;
     }
 
-    // remove the leftmost text node from the list
-    textNodes.RemoveElementAt(0);
+    JoinNodesResult result = JoinNodesWithTransaction(
+        MOZ_KnownLive(*leftTextNode), MOZ_KnownLive(*rightTextNode));
+    if (MOZ_UNLIKELY(result.Failed())) {
+      NS_WARNING("HTMLEditor::JoinNodesWithTransaction() failed");
+      return result.Rv();
+    }
+    if (MOZ_LIKELY(result.RemovedContent() == leftTextNode)) {
+      textNodes.RemoveElementAt(0u);
+    } else if (MOZ_LIKELY(result.RemovedContent() == rightTextNode)) {
+      textNodes.RemoveElementAt(1u);
+    } else {
+      MOZ_ASSERT_UNREACHABLE(
+          "HTMLEditor::JoinNodesWithTransaction() removed unexpected node");
+      return NS_ERROR_UNEXPECTED;
+    }
   }
 
   return NS_OK;
@@ -4436,17 +4467,12 @@ SplitNodeResult HTMLEditor::SplitNodeDeepWithTransaction(
   // Not reached because while (true) loop never breaks.
 }
 
-void HTMLEditor::DoSplitNode(const EditorDOMPoint& aStartOfRightNode,
-                             nsIContent& aNewLeftNode, ErrorResult& aError) {
-  if (NS_WARN_IF(aError.Failed())) {
-    return;
-  }
-
+SplitNodeResult HTMLEditor::DoSplitNode(const EditorDOMPoint& aStartOfRightNode,
+                                        nsIContent& aNewLeftNode) {
   // XXX Perhaps, aStartOfRightNode may be invalid if this is a redo
   //     operation after modifying DOM node with JS.
-  if (NS_WARN_IF(!aStartOfRightNode.IsSet())) {
-    aError.Throw(NS_ERROR_INVALID_ARG);
-    return;
+  if (MOZ_UNLIKELY(NS_WARN_IF(!aStartOfRightNode.IsInContentNode()))) {
+    return SplitNodeResult(NS_ERROR_INVALID_ARG);
   }
   MOZ_ASSERT(aStartOfRightNode.IsSetAndValid());
 
@@ -4455,18 +4481,17 @@ void HTMLEditor::DoSplitNode(const EditorDOMPoint& aStartOfRightNode,
   for (SelectionType selectionType : kPresentSelectionTypes) {
     SavedRange range;
     range.mSelection = GetSelection(selectionType);
-    if (NS_WARN_IF(!range.mSelection &&
-                   selectionType == SelectionType::eNormal)) {
-      aError.Throw(NS_ERROR_FAILURE);
-      return;
+    if (MOZ_UNLIKELY(NS_WARN_IF(!range.mSelection &&
+                                selectionType == SelectionType::eNormal))) {
+      return SplitNodeResult(NS_ERROR_FAILURE);
     }
     if (!range.mSelection) {
       // For non-normal selections, skip over the non-existing ones.
       continue;
     }
 
-    for (uint32_t j = 0; j < range.mSelection->RangeCount(); ++j) {
-      RefPtr<const nsRange> r = range.mSelection->GetRangeAt(j);
+    for (uint32_t j : IntegerRange(range.mSelection->RangeCount())) {
+      const nsRange* r = range.mSelection->GetRangeAt(j);
       MOZ_ASSERT(r->IsPositioned());
       // XXX Looks like that SavedRange should have mStart and mEnd which
       //     are RangeBoundary.  Then, we can avoid to compute offset here.
@@ -4480,17 +4505,20 @@ void HTMLEditor::DoSplitNode(const EditorDOMPoint& aStartOfRightNode,
   }
 
   nsCOMPtr<nsINode> parent = aStartOfRightNode.GetContainerParent();
-  if (NS_WARN_IF(!parent)) {
-    aError.Throw(NS_ERROR_FAILURE);
-    return;
+  if (MOZ_UNLIKELY(NS_WARN_IF(!parent))) {
+    return SplitNodeResult(NS_ERROR_FAILURE);
   }
 
   // Fix the child before mutation observer may touch the DOM tree.
   nsIContent* firstChildOfRightNode = aStartOfRightNode.GetChild();
-  parent->InsertBefore(aNewLeftNode, aStartOfRightNode.GetContainer(), aError);
-  if (aError.Failed()) {
+  ErrorResult error;
+  parent->InsertBefore(aNewLeftNode, aStartOfRightNode.GetContainer(), error);
+  // InsertBefore() may call MightThrowJSException() even if there is no
+  // error. We don't need the flag here.
+  error.WouldReportJSException();
+  if (MOZ_UNLIKELY(error.Failed())) {
     NS_WARNING("nsINode::InsertBefore() failed");
-    return;
+    return SplitNodeResult(error.StealNSResult());
   }
 
   // At this point, the existing right node has all the children.  Move all
@@ -4526,30 +4554,34 @@ void HTMLEditor::DoSplitNode(const EditorDOMPoint& aStartOfRightNode,
       // Otherwise it's an interior node, so shuffle around the children. Go
       // through list backwards so deletes don't interfere with the iteration.
       if (!firstChildOfRightNode) {
+        // XXX Why do we ignore an error while moving nodes from the right node
+        //     to the left node?
+        IgnoredErrorResult ignoredError;
         MoveAllChildren(*aStartOfRightNode.GetContainer(),
-                        EditorRawDOMPoint(&aNewLeftNode, 0), aError);
-        NS_WARNING_ASSERTION(!aError.Failed(),
-                             "HTMLEditor::MoveAllChildren() failed");
+                        EditorRawDOMPoint(&aNewLeftNode, 0), ignoredError);
+        NS_WARNING_ASSERTION(
+            !ignoredError.Failed(),
+            "HTMLEditor::MoveAllChildren() failed, but ignored");
       } else if (NS_WARN_IF(aStartOfRightNode.GetContainer() !=
                             firstChildOfRightNode->GetParentNode())) {
         // firstChildOfRightNode has been moved by mutation observer.
         // In this case, we what should we do?  Use offset?  But we cannot
         // check if the offset is still expected.
       } else {
+        // XXX Why do we ignore an error while moving nodes from the right node
+        //     to the left node?
+        IgnoredErrorResult ignoredError;
         MovePreviousSiblings(*firstChildOfRightNode,
-                             EditorRawDOMPoint(&aNewLeftNode, 0), aError);
-        NS_WARNING_ASSERTION(!aError.Failed(),
-                             "HTMLEditor::MovePreviousSiblings() failed");
+                             EditorRawDOMPoint(&aNewLeftNode, 0), ignoredError);
+        NS_WARNING_ASSERTION(
+            !ignoredError.Failed(),
+            "HTMLEditor::MovePreviousSiblings() failed, but ignored");
       }
     }
   }
 
-  // XXX Why do we ignore an error while moving nodes from the right node to
-  //     the left node?
-  NS_WARNING_ASSERTION(!aError.Failed(), "The previous error is ignored");
-  aError.SuppressException();
-
   // Handle selection
+  // TODO: Stop doing this, this shouldn't be necessary to update selection.
   if (RefPtr<PresShell> presShell = GetPresShell()) {
     presShell->FlushPendingNotifications(FlushType::Frames);
   }
@@ -4566,10 +4598,10 @@ void HTMLEditor::DoSplitNode(const EditorDOMPoint& aStartOfRightNode,
 
     // If we have not seen the selection yet, clear all of its ranges.
     if (range.mSelection != previousSelection) {
-      MOZ_KnownLive(range.mSelection)->RemoveAllRanges(aError);
-      if (aError.Failed()) {
+      MOZ_KnownLive(range.mSelection)->RemoveAllRanges(error);
+      if (MOZ_UNLIKELY(error.Failed())) {
         NS_WARNING("Selection::RemoveAllRanges() failed");
-        return;
+        return SplitNodeResult(error.StealNSResult());
       }
       previousSelection = range.mSelection;
     }
@@ -4611,20 +4643,20 @@ void HTMLEditor::DoSplitNode(const EditorDOMPoint& aStartOfRightNode,
 
     RefPtr<nsRange> newRange =
         nsRange::Create(range.mStartContainer, range.mStartOffset,
-                        range.mEndContainer, range.mEndOffset, aError);
-    if (aError.Failed()) {
+                        range.mEndContainer, range.mEndOffset, error);
+    if (MOZ_UNLIKELY(error.Failed())) {
       NS_WARNING("nsRange::Create() failed");
-      return;
+      return SplitNodeResult(error.StealNSResult());
     }
     // The `MOZ_KnownLive` annotation is only necessary because of a bug
     // (https://bugzilla.mozilla.org/show_bug.cgi?id=1622253) in the
     // static analyzer.
     MOZ_KnownLive(range.mSelection)
-        ->AddRangeAndSelectFramesAndNotifyListeners(*newRange, aError);
-    if (aError.Failed()) {
+        ->AddRangeAndSelectFramesAndNotifyListeners(*newRange, error);
+    if (MOZ_UNLIKELY(error.Failed())) {
       NS_WARNING(
           "Selection::AddRangeAndSelectFramesAndNotifyListeners() failed");
-      return;
+      return SplitNodeResult(error.StealNSResult());
     }
   }
 
@@ -4640,16 +4672,21 @@ void HTMLEditor::DoSplitNode(const EditorDOMPoint& aStartOfRightNode,
   // XXX We cannot check all descendants in the right node and the new left
   //     node for performance reason.  I think that if caller needs to access
   //     some of the descendants, they should check by themselves.
-  if (NS_WARN_IF(parent != aStartOfRightNode.GetContainer()->GetParentNode()) ||
-      NS_WARN_IF(parent != aNewLeftNode.GetParentNode()) ||
-      NS_WARN_IF(aNewLeftNode.GetNextSibling() !=
-                 aStartOfRightNode.GetContainer())) {
-    aError.Throw(NS_ERROR_EDITOR_UNEXPECTED_DOM_TREE);
+  if (MOZ_UNLIKELY(
+          NS_WARN_IF(parent !=
+                     aStartOfRightNode.GetContainer()->GetParentNode()) ||
+          NS_WARN_IF(parent != aNewLeftNode.GetParentNode()) ||
+          NS_WARN_IF(aNewLeftNode.GetNextSibling() !=
+                     aStartOfRightNode.GetContainer()))) {
+    return SplitNodeResult(NS_ERROR_EDITOR_UNEXPECTED_DOM_TREE);
   }
+
+  return SplitNodeResult(&aNewLeftNode, aStartOfRightNode.ContainerAsContent(),
+                         SplitNodeDirection::LeftNodeIsNewOne);
 }
 
-nsresult HTMLEditor::JoinNodesWithTransaction(nsIContent& aLeftContent,
-                                              nsIContent& aRightContent) {
+JoinNodesResult HTMLEditor::JoinNodesWithTransaction(
+    nsIContent& aLeftContent, nsIContent& aRightContent) {
   MOZ_ASSERT(IsEditActionDataAvailable());
   MOZ_ASSERT(&aLeftContent != &aRightContent);
   MOZ_ASSERT(aLeftContent.GetParentNode());
@@ -4660,7 +4697,7 @@ nsresult HTMLEditor::JoinNodesWithTransaction(nsIContent& aLeftContent,
   AutoEditSubActionNotifier startToHandleEditSubAction(
       *this, EditSubAction::eJoinNodes, nsIEditor::ePrevious, ignoredError);
   if (NS_WARN_IF(ignoredError.ErrorCodeIs(NS_ERROR_EDITOR_DESTROYED))) {
-    return ignoredError.StealNSResult();
+    return JoinNodesResult(ignoredError.StealNSResult());
   }
   NS_WARNING_ASSERTION(
       !ignoredError.Failed(),
@@ -4670,7 +4707,7 @@ nsresult HTMLEditor::JoinNodesWithTransaction(nsIContent& aLeftContent,
   // Find the offset between the nodes to be joined.
   EditorDOMPoint atRightContent(&aRightContent);
   if (MOZ_UNLIKELY(NS_WARN_IF(!atRightContent.IsSet()))) {
-    return NS_ERROR_FAILURE;
+    return JoinNodesResult(NS_ERROR_FAILURE);
   }
   Unused << atRightContent.Offset();  // Compute the offset first.
 
@@ -4681,7 +4718,7 @@ nsresult HTMLEditor::JoinNodesWithTransaction(nsIContent& aLeftContent,
       JoinNodeTransaction::MaybeCreate(*this, aLeftContent, aRightContent);
   if (MOZ_UNLIKELY(!transaction)) {
     NS_WARNING("JoinNodeTransaction::MaybeCreate() failed");
-    return NS_ERROR_FAILURE;
+    return JoinNodesResult(NS_ERROR_FAILURE);
   }
 
   nsresult rv;
@@ -4700,7 +4737,7 @@ nsresult HTMLEditor::JoinNodesWithTransaction(nsIContent& aLeftContent,
   // responsibility for the remaning things.
   if (MOZ_UNLIKELY(NS_WARN_IF(aRightContent.GetParentNode() !=
                               atRightContent.GetContainer()))) {
-    return NS_ERROR_EDITOR_UNEXPECTED_DOM_TREE;
+    return JoinNodesResult(NS_ERROR_EDITOR_UNEXPECTED_DOM_TREE);
   }
 
   // Be aware, the joined point should be created for each call because
@@ -4738,7 +4775,16 @@ nsresult HTMLEditor::JoinNodesWithTransaction(nsIContent& aLeftContent,
     }
   }
 
-  return MOZ_UNLIKELY(NS_WARN_IF(Destroyed())) ? NS_ERROR_EDITOR_DESTROYED : rv;
+  if (MOZ_UNLIKELY(NS_WARN_IF(Destroyed()))) {
+    return JoinNodesResult(NS_ERROR_EDITOR_DESTROYED);
+  }
+  if (MOZ_UNLIKELY(NS_FAILED(rv))) {
+    return JoinNodesResult(rv);
+  }
+  return JoinNodesResult(
+      EditorDOMPoint(&aRightContent,
+                     std::min(oldLeftNodeLen, aRightContent.Length())),
+      aLeftContent, JoinNodesDirection::LeftNodeIntoRightNode);
 }
 
 nsresult HTMLEditor::DoJoinNodes(nsIContent& aContentToKeep,

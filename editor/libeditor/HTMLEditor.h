@@ -973,16 +973,9 @@ class HTMLEditor final : public EditorBase,
    * @param aNewLeftNode        The new node called as left node, so, this
    *                            becomes the container of aPointToSplit's
    *                            previous sibling.
-   * @param aError              Must have not already failed.
-   *                            If succeed to insert aLeftNode before the
-   *                            right node and remove unnecessary contents
-   *                            (and collapse selection at end of the left
-   *                            node if necessary), returns no error.
-   *                            Otherwise, an error.
    */
-  MOZ_CAN_RUN_SCRIPT void DoSplitNode(const EditorDOMPoint& aStartOfRightNode,
-                                      nsIContent& aNewLeftNode,
-                                      ErrorResult& aError);
+  MOZ_CAN_RUN_SCRIPT SplitNodeResult DoSplitNode(
+      const EditorDOMPoint& aStartOfRightNode, nsIContent& aNewLeftNode);
 
   /**
    * DoJoinNodes() merges contents in aContentToJoin to aContentToKeep and
@@ -1821,7 +1814,7 @@ class HTMLEditor final : public EditorBase,
    * @param aRightContent  The node which will be new container of the content
    *                       of aLeftContent.
    */
-  [[nodiscard]] MOZ_CAN_RUN_SCRIPT nsresult
+  [[nodiscard]] MOZ_CAN_RUN_SCRIPT JoinNodesResult
   JoinNodesWithTransaction(nsIContent& aLeftContent, nsIContent& aRightContent);
 
   /**

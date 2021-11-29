@@ -1330,6 +1330,7 @@ nsXULAppInfo::GetRestartedByOS(bool* aResult) {
 
 NS_IMETHODIMP
 nsXULAppInfo::GetChromeColorSchemeIsDark(bool* aResult) {
+  LookAndFeel::EnsureColorSchemesInitialized();
   *aResult = LookAndFeel::ColorSchemeForChrome() == ColorScheme::Dark;
   return NS_OK;
 }

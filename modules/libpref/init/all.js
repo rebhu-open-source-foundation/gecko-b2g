@@ -663,6 +663,7 @@ pref("gfx.webrender.debug.obscure-images", false);
 pref("gfx.webrender.debug.glyph-flashing", false);
 pref("gfx.webrender.debug.capture-profiler", false);
 pref("gfx.webrender.debug.profiler-ui", "Default");
+pref("gfx.webrender.debug.window-visibility", false);
 
 pref("gfx.webrender.multithreading", true);
 #ifdef XP_WIN
@@ -1005,11 +1006,6 @@ pref("print.print_edge_bottom", 0);
   // This is the default. Probably just remove this.
   pref("print.print_in_color", true);
 #endif
-
-// Pref used by the spellchecker extension to control the
-// maximum number of misspelled words that will be underlined
-// in a document.
-pref("extensions.spellcheck.inline.max-misspellings", 500);
 
 // Whether inserting <div> when typing Enter in a block element which can
 // contain <div>.  If false, inserts <br> instead.

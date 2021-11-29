@@ -36,6 +36,7 @@
 
 #include "nsThreadUtils.h"
 #include "mozilla/ClearOnShutdown.h"
+#include "mozilla/RLBoxUtils.h"
 #include "mozilla/UniquePtr.h"
 
 #include "mozilla/Logging.h"
@@ -106,34 +107,12 @@ static const XML_Char* unverified_xml_string(uintptr_t ptr) {
 }
 
 /* The TransferBuffer class is used to copy (or directly expose in the
- * noop-sandbox case) buffers into the sandbox that are automatically freed
- * when the TransferBuffer is out of scope.  NOTE: The sandbox lifetime must
- * outlive all of its TransferBuffers.
+ * noop-sandbox case) buffers into the expat sandbox (and automatically
+ * when out of scope).
  */
 template <typename T>
-class MOZ_STACK_CLASS TransferBuffer {
- public:
-  TransferBuffer() = delete;
-  TransferBuffer(rlbox_sandbox_expat* aSandbox, const T* aBuf,
-                 const size_t aLen)
-      : mSandbox(aSandbox), mCopied(false), mBuf(nullptr) {
-    if (aBuf) {
-      mBuf = rlbox::copy_memory_or_grant_access(
-          *mSandbox, aBuf, aLen * sizeof(T), false, mCopied);
-    }
-  };
-  ~TransferBuffer() {
-    if (mCopied) {
-      mSandbox->free_in_sandbox(mBuf);
-    }
-  };
-  tainted_expat<const T*> operator*() const { return mBuf; };
-
- private:
-  rlbox_sandbox_expat* mSandbox;
-  bool mCopied;
-  tainted_expat<const T*> mBuf;
-};
+using TransferBuffer =
+    mozilla::RLBoxTransferBufferToSandbox<T, rlbox_expat_sandbox_type>;
 
 /*************************** END RLBOX HELPERS ******************************/
 
@@ -1631,7 +1610,11 @@ void nsExpatDriver::MaybeStopParser(nsresult aState) {
     // with false as the last argument). If the parser should be blocked or
     // interrupted we need to pause Expat (by calling XML_StopParser with
     // true as the last argument).
-    RLBOX_EXPAT_MCALL(MOZ_XML_StopParser, BlockedOrInterrupted());
+
+    // Note that due to Bug 1742913, we need to explicitly cast the parameter to
+    // an int so that the value is correctly zero extended.
+    int resumable = BlockedOrInterrupted();
+    RLBOX_EXPAT_MCALL(MOZ_XML_StopParser, resumable);
   } else if (NS_SUCCEEDED(mInternalState)) {
     // Only clobber mInternalState with the success code if we didn't block or
     // interrupt before.

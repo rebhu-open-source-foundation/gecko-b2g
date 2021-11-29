@@ -698,7 +698,7 @@ Maybe<nscolor> nsXPLookAndFeel::GenericDarkColor(ColorID aID) {
       color = NS_RGB(91, 91, 102);
       break;
     case ColorID::Highlight:
-      color = NS_RGBA(0, 221, 255, 153);
+      color = NS_RGBA(0, 221, 255, 78);
       break;
     case ColorID::Highlighttext:
       color = NS_SAME_AS_FOREGROUND_COLOR;
@@ -1091,6 +1091,7 @@ static bool ShouldUseStandinsForNativeColorForNonNativeTheme(
 
 ColorScheme LookAndFeel::sChromeColorScheme;
 ColorScheme LookAndFeel::sContentColorScheme;
+bool LookAndFeel::sColorSchemeInitialized;
 
 auto LookAndFeel::ColorSchemeSettingForChrome() -> ChromeColorSchemeSetting {
   switch (StaticPrefs::browser_theme_toolbar_theme()) {
@@ -1104,6 +1105,8 @@ auto LookAndFeel::ColorSchemeSettingForChrome() -> ChromeColorSchemeSetting {
 }
 
 void LookAndFeel::RecomputeColorSchemes() {
+  sColorSchemeInitialized = true;
+
   sChromeColorScheme = [] {
     switch (ColorSchemeSettingForChrome()) {
       case ChromeColorSchemeSetting::Light:

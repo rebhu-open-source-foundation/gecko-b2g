@@ -218,7 +218,7 @@ class nsPIDOMWindowInner : public mozIDOMWindow {
    * Call this to check whether some node (this window, its document,
    * or content in that document) has a mouseenter/leave event listener.
    */
-  bool HasMouseEnterLeaveEventListeners() {
+  bool HasMouseEnterLeaveEventListeners() const {
     return mMayHaveMouseEnterLeaveEventListener;
   }
 
@@ -234,7 +234,7 @@ class nsPIDOMWindowInner : public mozIDOMWindow {
    * Call this to check whether some node (this window, its document,
    * or content in that document) has a Pointerenter/leave event listener.
    */
-  bool HasPointerEnterLeaveEventListeners() {
+  bool HasPointerEnterLeaveEventListeners() const {
     return mMayHavePointerEnterLeaveEventListener;
   }
 
@@ -475,8 +475,24 @@ class nsPIDOMWindowInner : public mozIDOMWindow {
    * Call this to check whether some node (this window, its document,
    * or content in that document) has a selectionchange event listener.
    */
-  bool HasSelectionChangeEventListeners() {
+  bool HasSelectionChangeEventListeners() const {
     return mMayHaveSelectionChangeEventListener;
+  }
+
+  /**
+   * Call this to indicate that some node (this window, its document,
+   * or content in that document) has a select event listener of form controls.
+   */
+  void SetHasFormSelectEventListeners() {
+    mMayHaveFormSelectEventListener = true;
+  }
+
+  /**
+   * Call this to check whether some node (this window, its document,
+   * or content in that document) has a select event listener of form controls.
+   */
+  bool HasFormSelectEventListeners() const {
+    return mMayHaveFormSelectEventListener;
   }
 
   /*
@@ -609,6 +625,13 @@ class nsPIDOMWindowInner : public mozIDOMWindow {
 
   bool HasStorageAccessPermissionGranted();
 
+  uint32_t UpdateLockCount(bool aIncrement) {
+    MOZ_ASSERT_IF(!aIncrement, mLockCount > 0);
+    mLockCount += aIncrement ? 1 : -1;
+    return mLockCount;
+  };
+  bool HasActiveLocks() { return mLockCount > 0; }
+
  protected:
   void CreatePerformanceObjectIfNeeded();
 
@@ -651,6 +674,7 @@ class nsPIDOMWindowInner : public mozIDOMWindow {
   bool mMayHavePaintEventListener;
   bool mMayHaveTouchEventListener;
   bool mMayHaveSelectionChangeEventListener;
+  bool mMayHaveFormSelectEventListener;
   bool mMayHaveMouseEnterLeaveEventListener;
   bool mMayHavePointerEnterLeaveEventListener;
   // Only used for telemetry probes.  This may be wrong if some nodes have
@@ -723,6 +747,12 @@ class nsPIDOMWindowInner : public mozIDOMWindow {
   RefPtr<mozilla::dom::WindowGlobalChild> mWindowGlobalChild;
 
   bool mWasSuspendedByGroup;
+
+  /**
+   * Count of the number of active LockRequest objects, including ones from
+   * workers.
+   */
+  uint32_t mLockCount = 0;
 };
 
 NS_DEFINE_STATIC_IID_ACCESSOR(nsPIDOMWindowInner, NS_PIDOMWINDOWINNER_IID)

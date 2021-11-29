@@ -365,6 +365,13 @@ void TextureHost::Finalize() {
   }
 }
 
+void TextureHost::UnbindTextureSource() {
+  if (mReadLocked) {
+    ReadUnlock();
+    MaybeNotifyUnlocked();
+  }
+}
+
 void TextureHost::RecycleTexture(TextureFlags aFlags) {
   MOZ_ASSERT(GetFlags() & TextureFlags::RECYCLE);
   MOZ_ASSERT(aFlags & TextureFlags::RECYCLE);
@@ -448,14 +455,12 @@ BufferTextureHost::BufferTextureHost(const BufferDescriptor& aDesc,
       const YCbCrDescriptor& ycbcr = mDescriptor.get_YCbCrDescriptor();
       mSize = ycbcr.display().Size();
       mFormat = gfx::SurfaceFormat::YUV;
-      mHasIntermediateBuffer = ycbcr.hasIntermediateBuffer();
       break;
     }
     case BufferDescriptor::TRGBDescriptor: {
       const RGBDescriptor& rgb = mDescriptor.get_RGBDescriptor();
       mSize = rgb.size();
       mFormat = rgb.format();
-      mHasIntermediateBuffer = rgb.hasIntermediateBuffer();
       break;
     }
     default:
@@ -628,6 +633,14 @@ bool TextureHost::NeedsYFlip() const {
 }
 
 void BufferTextureHost::MaybeNotifyUnlocked() {}
+
+void BufferTextureHost::UnbindTextureSource() {
+  // This texture is not used by any layer anymore.
+  // If the texture has an intermediate buffer we don't care either because
+  // texture uploads are also performed synchronously for BufferTextureHost.
+  ReadUnlock();
+  MaybeNotifyUnlocked();
+}
 
 gfx::SurfaceFormat BufferTextureHost::GetFormat() const { return mFormat; }
 

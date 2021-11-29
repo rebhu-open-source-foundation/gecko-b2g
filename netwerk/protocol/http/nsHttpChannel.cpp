@@ -1591,8 +1591,7 @@ nsresult nsHttpChannel::CallOnStartRequest() {
     if (mustRunStreamFilterInParent) {
       mozilla::ipc::Endpoint<extensions::PStreamFilterParent> parent;
       mozilla::ipc::Endpoint<extensions::PStreamFilterChild> child;
-      nsresult rv = extensions::PStreamFilter::CreateEndpoints(
-          base::GetCurrentProcId(), request.mChildProcessId, &parent, &child);
+      nsresult rv = extensions::PStreamFilter::CreateEndpoints(&parent, &child);
       if (NS_FAILED(rv)) {
         request.mPromise->Reject(false, __func__);
       } else {
@@ -6059,8 +6058,20 @@ nsresult nsHttpChannel::BeginConnect() {
   gHttpHandler->MaybeAddAltSvcForTesting(mURI, mUsername, mPrivateBrowsing,
                                          mCallbacks, originAttributes);
 
-  RefPtr<nsHttpConnectionInfo> connInfo = new nsHttpConnectionInfo(
-      host, port, ""_ns, mUsername, proxyInfo, originAttributes, isHttps);
+  RefPtr<nsHttpConnectionInfo> connInfo;
+#ifdef FUZZING
+  if (StaticPrefs::fuzzing_necko_http3()) {
+    connInfo =
+        new nsHttpConnectionInfo(host, port, "h3"_ns, mUsername, proxyInfo,
+                                 originAttributes, host, port, true);
+  } else {
+#endif
+    connInfo = new nsHttpConnectionInfo(host, port, ""_ns, mUsername, proxyInfo,
+                                        originAttributes, isHttps);
+#ifdef FUZZING
+  }
+#endif
+
   bool http2Allowed = !gHttpHandler->IsHttp2Excluded(connInfo);
 
   bool http3Allowed = Http3Allowed();
@@ -6403,8 +6414,7 @@ auto nsHttpChannel::AttachStreamFilter(base::ProcessId aChildProcessId)
 
   mozilla::ipc::Endpoint<extensions::PStreamFilterParent> parent;
   mozilla::ipc::Endpoint<extensions::PStreamFilterChild> child;
-  nsresult rv = extensions::PStreamFilter::CreateEndpoints(
-      ProcessId(), aChildProcessId, &parent, &child);
+  nsresult rv = extensions::PStreamFilter::CreateEndpoints(&parent, &child);
   if (NS_FAILED(rv)) {
     return ChildEndpointPromise::CreateAndReject(false, __func__);
   }

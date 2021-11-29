@@ -4163,7 +4163,7 @@
 # Whether the Web Locks API is enabled
 - name: dom.weblocks.enabled
   type: RelaxedAtomicBool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
 
 # Whether the WebMIDI API is enabled
@@ -4421,6 +4421,14 @@
 # Prefs starting with "editor"
 #---------------------------------------------------------------------------
 
+# Use CreateElementTransaction or not.  This is available only in a couple of
+# release cycles to make it possible to cancel stopping using
+# CreateElementTransaction.
+- name: editor.create_element_transaction.enabled
+  type: bool
+  value: false
+  mirror: always
+
 # Allow or disallow to delete `<hr>` element when caret is at start of
 # following line of the element.  If false, Backspace from start of following
 # line of an `<hr>` element causes moving caret to immediatly after the `<hr>`
@@ -4503,6 +4511,12 @@
   type: bool
   value: false
   mirror: once
+
+# Maximum number of misspelled words in a text.
+- name: extensions.spellcheck.inline.max-misspellings
+  type: int32_t
+  value: 500
+  mirror: always
 
 # Whether the extensions can register a service worker on its own.
 # NOTE: WebExtensions Framework ability to register a background service worker
@@ -4835,6 +4849,12 @@
     type: RelaxedAtomicBool
     value: false
     mirror: always
+
+-   name: fuzzing.necko.http3
+    type: RelaxedAtomicBool
+    value: false
+    mirror: always
+    rust: true
 #endif
 
 #---------------------------------------------------------------------------
@@ -7800,6 +7820,12 @@
 # Enables the <input type=search> custom layout frame with a clear icon.
 # Still needs tests and a web-exposed way to remove that icon, see bug 1654288.
 - name: layout.forms.input-type-search.enabled
+  type: bool
+  value: false
+  mirror: always
+
+# Enables the Show Password button inside a <input type=password>.
+- name: layout.forms.input-type-show-password-button.enabled
   type: bool
   value: false
   mirror: always

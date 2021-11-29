@@ -452,6 +452,11 @@ class TextureHost : public AtomicRefCountedWithFinalize<TextureHost> {
     return gfx::ColorRange::LIMITED;
   }
 
+  /**
+   * Called when another TextureHost will take over.
+   */
+  virtual void UnbindTextureSource();
+
   virtual bool IsValid() { return true; }
 
   /**
@@ -557,19 +562,10 @@ class TextureHost : public AtomicRefCountedWithFinalize<TextureHost> {
   virtual const char* Name() { return "TextureHost"; }
 
   /**
-   * Indicates whether the TextureHost implementation is backed by an
-   * in-memory buffer. The consequence of this is that locking the
-   * TextureHost does not contend with locking the texture on the client side.
-   */
-  virtual bool HasIntermediateBuffer() const { return false; }
-
-  /**
    * Returns true if the TextureHost can be released before the rendering is
    * completed, otherwise returns false.
    */
-  virtual bool NeedsDeferredDeletion() const {
-    return !HasIntermediateBuffer();
-  }
+  virtual bool NeedsDeferredDeletion() const { return true; }
 
   void AddCompositableRef() {
     ++mCompositableCount;
@@ -582,6 +578,7 @@ class TextureHost : public AtomicRefCountedWithFinalize<TextureHost> {
     --mCompositableCount;
     MOZ_ASSERT(mCompositableCount >= 0);
     if (mCompositableCount == 0) {
+      UnbindTextureSource();
       // Send mFwdTransactionId to client side if necessary.
       NotifyNotUsed();
     }
@@ -792,6 +789,8 @@ class BufferTextureHost : public TextureHost {
 
   virtual size_t GetBufferSize() = 0;
 
+  void UnbindTextureSource() override;
+
   void DeallocateDeviceData() override;
 
   /**
@@ -812,8 +811,6 @@ class BufferTextureHost : public TextureHost {
   gfx::IntSize GetSize() const override { return mSize; }
 
   already_AddRefed<gfx::DataSourceSurface> GetAsSurface() override;
-
-  bool HasIntermediateBuffer() const override { return mHasIntermediateBuffer; }
 
   bool NeedsDeferredDeletion() const override {
     return TextureHost::NeedsDeferredDeletion() || UseExternalTextures();
@@ -858,7 +855,6 @@ class BufferTextureHost : public TextureHost {
   uint32_t mUpdateSerial;
   bool mLocked;
   bool mNeedsFullUpdate;
-  bool mHasIntermediateBuffer;
   bool mUseExternalTextures;
 
   class DataTextureSourceYCbCrBasic;

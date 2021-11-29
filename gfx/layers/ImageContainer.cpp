@@ -28,7 +28,6 @@
 #include "mozilla/layers/LayersMessages.h"
 #include "mozilla/layers/SharedPlanarYCbCrImage.h"
 #include "mozilla/layers/SharedRGBImage.h"
-#include "mozilla/layers/SharedSurfacesChild.h"  // for SharedSurfacesAnimation
 #include "mozilla/layers/TextureClientRecycleAllocator.h"
 #include "nsProxyRelease.h"
 #include "nsISupportsUtils.h"  // for NS_IF_ADDREF
@@ -182,13 +181,6 @@ void ImageContainer::EnsureImageClient() {
   }
 }
 
-SharedSurfacesAnimation* ImageContainer::EnsureSharedSurfacesAnimation() {
-  if (!mSharedAnimation) {
-    mSharedAnimation = new SharedSurfacesAnimation();
-  }
-  return mSharedAnimation;
-}
-
 ImageContainer::ImageContainer(Mode flag)
     : mRecursiveMutex("ImageContainer.mRecursiveMutex"),
       mGenerationCounter(++sGenerationCounter),
@@ -226,9 +218,6 @@ ImageContainer::~ImageContainer() {
             ImageBridgeChild::GetSingleton()) {
       imageBridge->ForgetImageContainer(mAsyncContainerHandle);
     }
-  }
-  if (mSharedAnimation) {
-    mSharedAnimation->Destroy();
   }
 }
 
@@ -543,8 +532,7 @@ nsresult PlanarYCbCrImage::BuildSurfaceDescriptorBuffer(
   aSdBuffer.desc() = YCbCrDescriptor(
       pdata->GetPictureRect(), pdata->mYSize, pdata->mYStride, pdata->mCbCrSize,
       pdata->mCbCrStride, yOffset, cbOffset, crOffset, pdata->mStereoMode,
-      pdata->mColorDepth, pdata->mYUVColorSpace, pdata->mColorRange,
-      /*hasIntermediateBuffer*/ false);
+      pdata->mColorDepth, pdata->mYUVColorSpace, pdata->mColorRange);
 
   CopyPlane(buffer + yOffset, pdata->mYChannel, pdata->mYSize, pdata->mYStride,
             pdata->mYSkip);

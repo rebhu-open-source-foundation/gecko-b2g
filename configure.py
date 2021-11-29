@@ -22,7 +22,14 @@ sys.path.insert(0, os.path.join(base_dir, "python", "mozbuild"))
 sys.path.insert(0, os.path.join(base_dir, "third_party", "python", "packaging"))
 sys.path.insert(0, os.path.join(base_dir, "third_party", "python", "pyparsing"))
 sys.path.insert(0, os.path.join(base_dir, "third_party", "python", "six"))
-from mach.site import CommandSiteManager
+from mach.site import (
+    CommandSiteManager,
+    ExternalPythonSite,
+    MachSiteManager,
+    MozSiteMetadata,
+    SitePackagesSource,
+)
+from mach.requirements import MachEnvRequirements
 from mozbuild.configure import (
     ConfigureSandbox,
     TRACE,
@@ -226,16 +233,43 @@ def config_status(config, execute=True):
 
 
 def _activate_build_virtualenv():
+    """Ensure that the build virtualenv is activated
+
+    configure.py may be executed through Mach, or via "./configure, make".
+    In the first case, the build virtualenv should already be activated.
+    In the second case, we're likely being executed with the system Python, and must
+    prepare the virtualenv and activate it ourselves.
+    """
+
     version = ".".join(str(i) for i in sys.version_info[0:3])
     print(f"Using Python {version} from {sys.executable}")
+
+    active_site = MozSiteMetadata.from_runtime()
+    if active_site and active_site.site_name == "build":
+        # We're already running within the "build" virtualenv, no additional work is
+        # needed.
+        return
+
+    # We're using the system python (or are nested within a non-build mach-managed
+    # virtualenv), so we should activate the build virtualenv as expected by the rest of
+    # configure.
 
     topobjdir = os.path.realpath(".")
     topsrcdir = os.path.realpath(os.path.dirname(__file__))
 
-    build_site = CommandSiteManager(
+    mach_site = MachSiteManager(
         topsrcdir,
-        os.path.join(topobjdir, "_virtualenvs"),
+        None,
+        MachEnvRequirements(),
+        ExternalPythonSite(sys.executable),
+        SitePackagesSource.NONE,
+    )
+    mach_site.activate()
+    build_site = CommandSiteManager.from_environment(
+        topsrcdir,
+        None,
         "build",
+        os.path.join(topobjdir, "_virtualenvs"),
     )
     if not build_site.ensure():
         print("Created Python 3 virtualenv")

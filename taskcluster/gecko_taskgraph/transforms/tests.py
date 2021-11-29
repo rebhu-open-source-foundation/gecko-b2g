@@ -976,63 +976,31 @@ def setup_browsertime(config, tasks):
         cd_fetches = {
             "android.*": [
                 "linux64-chromedriver-87",
-                "linux64-chromedriver-89",
-                "linux64-chromedriver-90",
-                "linux64-chromedriver-91",
-                "linux64-chromedriver-92",
-                "linux64-chromedriver-93",
-                "linux64-chromedriver-94",
-                "linux64-chromedriver-95",
             ],
             "linux.*": [
-                "linux64-chromedriver-87",
-                "linux64-chromedriver-89",
-                "linux64-chromedriver-90",
-                "linux64-chromedriver-91",
-                "linux64-chromedriver-92",
-                "linux64-chromedriver-93",
                 "linux64-chromedriver-94",
                 "linux64-chromedriver-95",
+                "linux64-chromedriver-96",
             ],
             "macosx.*": [
-                "mac64-chromedriver-87",
-                "mac64-chromedriver-89",
-                "mac64-chromedriver-90",
-                "mac64-chromedriver-91",
-                "mac64-chromedriver-92",
-                "mac64-chromedriver-93",
                 "mac64-chromedriver-94",
                 "mac64-chromedriver-95",
+                "mac64-chromedriver-96",
             ],
             "windows.*aarch64.*": [
-                "win32-chromedriver-87",
-                "win32-chromedriver-89",
-                "win32-chromedriver-90",
-                "win32-chromedriver-91",
-                "win32-chromedriver-92",
-                "win32-chromedriver-93",
                 "win32-chromedriver-94",
                 "win32-chromedriver-95",
+                "win32-chromedriver-96",
             ],
             "windows.*-32.*": [
-                "win32-chromedriver-87",
-                "win32-chromedriver-89",
-                "win32-chromedriver-90",
-                "win32-chromedriver-91",
-                "win32-chromedriver-92",
-                "win32-chromedriver-93",
                 "win32-chromedriver-94",
                 "win32-chromedriver-95",
+                "win32-chromedriver-96",
             ],
             "windows.*-64.*": [
-                "win32-chromedriver-87",
-                "win32-chromedriver-89",
-                "win32-chromedriver-90",
-                "win32-chromedriver-91",
-                "win32-chromedriver-92",
-                "win32-chromedriver-93",
                 "win32-chromedriver-94",
                 "win32-chromedriver-95",
+                "win32-chromedriver-96",
             ],
         }
 
@@ -1216,6 +1184,7 @@ def enable_code_coverage(config, tasks):
                 task.setdefault("fetches", {})
                 task["fetches"].setdefault("fetch", [])
                 task["fetches"].setdefault("toolchain", [])
+                task["fetches"].setdefault("build", [])
 
             if "linux" in task["build-platform"]:
                 task["fetches"]["toolchain"].append("linux64-grcov")
@@ -1223,6 +1192,8 @@ def enable_code_coverage(config, tasks):
                 task["fetches"]["fetch"].append("grcov-osx-x86_64")
             elif "win" in task["build-platform"]:
                 task["fetches"]["toolchain"].append("win64-grcov")
+
+            task["fetches"]["build"].append({"artifact": "target.mozinfo.json"})
 
             if "talos" in task["test-name"]:
                 task["max-run-time"] = 7200

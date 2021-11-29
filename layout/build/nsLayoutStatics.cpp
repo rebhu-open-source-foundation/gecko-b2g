@@ -131,6 +131,7 @@
 #include "RestoreTabContentObserver.h"
 #include "mozilla/intl/nsComplexBreaker.h"
 #include "nsRLBoxExpatDriver.h"
+#include "RLBoxWOFF2Types.h"
 
 #if defined(MOZ_WIDGET_GONK)
 #  include "nsVolumeService.h"
@@ -307,6 +308,8 @@ nsresult nsLayoutStatics::Initialize() {
   ComplexBreaker::Initialize();
 
   RLBoxExpatSandboxPool::Initialize();
+
+  RLBoxWOFF2SandboxPool::Initalize();
 
   return NS_OK;
 }

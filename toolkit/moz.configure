@@ -2113,6 +2113,8 @@ def wasm_sandboxing_libraries():
         "graphite",
         "ogg",
         "hunspell",
+        "expat",
+        "woff2",
     )
 
 
