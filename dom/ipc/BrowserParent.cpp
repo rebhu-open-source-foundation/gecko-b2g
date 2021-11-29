@@ -481,7 +481,9 @@ ParentShowInfo BrowserParent::GetShowInfo() {
     mFrameElement->GetAttr(kNameSpaceID_None, nsGkAtoms::name, name);
     bool isTransparent =
         nsContentUtils::IsChromeDoc(mFrameElement->OwnerDoc()) &&
-        mFrameElement->HasAttr(kNameSpaceID_None, nsGkAtoms::transparent);
+        mFrameElement->HasAttr(kNameSpaceID_None, nsGkAtoms::transparent) &&
+        mFrameElement->GetAttrInfo(kNameSpaceID_None, nsGkAtoms::transparent)
+                .mValue->GetAtomValue() == nsGkAtoms::_true;
     return ParentShowInfo(name, false, isTransparent, mDPI, mRounding,
                           mDefaultScale.scale);
   }

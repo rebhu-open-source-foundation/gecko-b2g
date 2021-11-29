@@ -412,6 +412,7 @@ class nsFrameLoader final : public nsStubMutationObserver,
                           mozilla::ipc::MessageChannel* aChannel);
 
   void FireErrorEvent();
+  void SetTransparent(bool aIsTransparent);
 
  private:
   nsFrameLoader(mozilla::dom::Element* aOwner,

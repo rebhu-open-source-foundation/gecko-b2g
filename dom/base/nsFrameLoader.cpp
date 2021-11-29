@@ -3967,3 +3967,11 @@ void nsFrameLoader::InvokeBrowsingContextReadyCallback() {
     }
   }
 }
+
+void nsFrameLoader::SetTransparent(bool aIsTransparent) {
+  auto* browserParent = GetBrowserParent();
+  if (!browserParent) {
+    return;
+  }
+  Unused << browserParent->SendTransparentChanged(aIsTransparent);
+}

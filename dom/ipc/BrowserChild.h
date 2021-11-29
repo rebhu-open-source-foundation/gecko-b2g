@@ -757,6 +757,8 @@ class BrowserChild final : public nsMessageManagerScriptExecutor,
 
   mozilla::ipc::IPCResult RecvReleaseAllPointerCapture();
 
+  mozilla::ipc::IPCResult RecvTransparentChanged(const bool& aIsTransparent);
+
   PKeyboardEventForwarderChild* AllocPKeyboardEventForwarderChild();
   bool DeallocPKeyboardEventForwarderChild(
       PKeyboardEventForwarderChild* aActor);

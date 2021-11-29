@@ -5324,8 +5324,12 @@ static bool IsTransparentContainerElement(nsPresContext* aPresContext) {
     }
   }
 
-  return (containerElement && containerElement->HasAttr(
-                                  kNameSpaceID_None, nsGkAtoms::transparent)) ||
+  return (containerElement &&
+          containerElement->HasAttr(kNameSpaceID_None,
+                                    nsGkAtoms::transparent) &&
+          containerElement
+                  ->GetAttrInfo(kNameSpaceID_None, nsGkAtoms::transparent)
+                  .mValue->GetAtomValue() == nsGkAtoms::_true) ||
          (tab && tab->IsTransparent());
 }
 

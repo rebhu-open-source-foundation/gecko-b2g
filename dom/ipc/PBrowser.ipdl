@@ -1052,6 +1052,8 @@ child:
 
     async WillChangeProcess();
 
+    async TransparentChanged(bool isTransparent);
+
 parent:
     /**
      * Fetches whether this window supports protected media, which is sent back in response.

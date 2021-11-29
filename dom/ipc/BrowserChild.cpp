@@ -4399,3 +4399,20 @@ bool BrowserChild::DeallocPKeyboardEventForwarderChild(
   delete aActor;
   return true;
 }
+
+mozilla::ipc::IPCResult BrowserChild::RecvTransparentChanged(
+    const bool& aIsTransparent) {
+  mIsTransparent = aIsTransparent;
+  nsCOMPtr<nsIDocShell> docShell = do_GetInterface(WebNavigation());
+  if (!docShell) {
+    return IPC_OK();
+  }
+  RefPtr<PresShell> presShell = docShell->GetPresShell();
+  if (!presShell) {
+    return IPC_OK();
+  }
+  if (nsIFrame* root = presShell->GetRootFrame()) {
+    root->SchedulePaint();
+  }
+  return IPC_OK();
+}

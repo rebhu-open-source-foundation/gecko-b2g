@@ -193,6 +193,11 @@ nsresult XULFrameElement::AfterSetAttr(int32_t aNamespaceID, nsAtom* aName,
       if (auto* bc = mFrameLoader->GetExtantBrowsingContext()) {
         MOZ_ALWAYS_SUCCEEDS(bc->SetFullscreenAllowedByOwner(!aValue));
       }
+    } else if (aName == nsGkAtoms::transparent) {
+      if (RefPtr<nsFrameLoader> frameLoader = GetFrameLoader()) {
+        frameLoader->SetTransparent(aValue &&
+                                    aValue->GetAtomValue() == nsGkAtoms::_true);
+      }
     }
   }
 
