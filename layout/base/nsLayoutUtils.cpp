@@ -3367,6 +3367,7 @@ void nsLayoutUtils::PaintFrame(gfxContext* aRenderingContext, nsIFrame* aFrame,
         metrics->EndPartialBuild(updateState);
       } else {
         // Partial updates are disabled.
+        DL_LOGI("Partial updates are disabled");
         metrics->mPartialUpdateResult = PartialUpdateResult::Failed;
         metrics->mPartialUpdateFailReason = PartialUpdateFailReason::Disabled;
       }
@@ -3382,6 +3383,8 @@ void nsLayoutUtils::PaintFrame(gfxContext* aRenderingContext, nsIFrame* aFrame,
       }
 
       if (doFullRebuild) {
+        DL_LOGI("Starting full display list build, root frame: %p",
+                builder->RootReferenceFrame());
         list->DeleteAll(builder);
         list->RestoreState();
 
@@ -3397,6 +3400,7 @@ void nsLayoutUtils::PaintFrame(gfxContext* aRenderingContext, nsIFrame* aFrame,
         builder->LeavePresShell(aFrame, list);
         metrics->EndFullBuild();
 
+        DL_LOGI("Finished full display list build");
         updateState = PartialUpdateResult::Updated;
       }
     }

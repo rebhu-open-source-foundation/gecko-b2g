@@ -102,7 +102,6 @@
 #include "mozilla/dom/Nullable.h"
 #include "mozilla/dom/PBackgroundMutableFileParent.h"
 #include "mozilla/dom/PContentParent.h"
-#include "mozilla/dom/QMResultInlines.h"
 #include "mozilla/dom/ScriptSettings.h"
 #include "mozilla/dom/filehandle/ActorsParent.h"
 #include "mozilla/dom/indexedDB/IDBResult.h"
@@ -136,6 +135,7 @@
 #include "mozilla/dom/quota/QuotaCommon.h"
 #include "mozilla/dom/quota/QuotaManager.h"
 #include "mozilla/dom/quota/QuotaObject.h"
+#include "mozilla/dom/quota/ResultExtensions.h"
 #include "mozilla/dom/quota/UsageInfo.h"
 #include "mozilla/fallible.h"
 #include "mozilla/ipc/BackgroundParent.h"
@@ -600,7 +600,7 @@ Result<nsCOMPtr<nsIFileURL>, nsresult> GetDatabaseFileURL(
                                          MOZ_SELECT_OVERLOAD(do_QueryInterface),
                                          protocolHandler));
 
-  QM_TRY_INSPECT(const auto& mutator, MOZ_TO_RESULT_INVOKE_TYPED(
+  QM_TRY_INSPECT(const auto& mutator, MOZ_TO_RESULT_INVOKE_MEMBER_TYPED(
                                           nsCOMPtr<nsIURIMutator>, fileHandler,
                                           NewFileURIMutator, &aDatabaseFile));
 
@@ -707,7 +707,7 @@ nsresult SetJournalMode(mozIStorageConnection& aConnection) {
 
   QM_TRY_INSPECT(
       const auto& journalMode,
-      MOZ_TO_RESULT_INVOKE_TYPED(nsCString, *stmt, GetUTF8String, 0));
+      MOZ_TO_RESULT_INVOKE_MEMBER_TYPED(nsCString, *stmt, GetUTF8String, 0));
 
   if (journalMode.Equals(journalModeWAL)) {
     // WAL mode successfully enabled. Maybe set limits on its size here.
@@ -735,7 +735,7 @@ Result<MovingNotNull<nsCOMPtr<mozIStorageConnection>>, nsresult> OpenDatabase(
                    : nsAutoCString();
 
   QM_TRY_UNWRAP(auto connection,
-                MOZ_TO_RESULT_INVOKE_TYPED(
+                MOZ_TO_RESULT_INVOKE_MEMBER_TYPED(
                     nsCOMPtr<mozIStorageConnection>, aStorageService,
                     OpenDatabaseWithFileURL, &aFileURL, telemetryFilename));
 
@@ -809,11 +809,12 @@ OpenDatabaseAndHandleBusy(mozIStorageService& aStorageService,
 // it doesn't exist. Returns an error if it exists, but is not a directory, or
 // any other error occurs.
 Result<bool, nsresult> ExistsAsDirectory(nsIFile& aDirectory) {
-  QM_TRY_INSPECT(const bool& exists, MOZ_TO_RESULT_INVOKE(aDirectory, Exists));
+  QM_TRY_INSPECT(const bool& exists,
+                 MOZ_TO_RESULT_INVOKE_MEMBER(aDirectory, Exists));
 
   if (exists) {
     QM_TRY_INSPECT(const bool& isDirectory,
-                   MOZ_TO_RESULT_INVOKE(aDirectory, IsDirectory));
+                   MOZ_TO_RESULT_INVOKE_MEMBER(aDirectory, IsDirectory));
 
     QM_TRY(OkIf(isDirectory), Err(NS_ERROR_FAILURE));
   }
@@ -904,7 +905,7 @@ CreateStorageConnection(nsIFile& aDBFile, nsIFile& aFMDirectory,
 
   // Check to make sure that the database schema is correct.
   QM_TRY_INSPECT(const int32_t& schemaVersion,
-                 MOZ_TO_RESULT_INVOKE(connection, GetSchemaVersion));
+                 MOZ_TO_RESULT_INVOKE_MEMBER(connection, GetSchemaVersion));
 
   // Unknown schema will fail origin initialization too.
   QM_TRY(OkIf(schemaVersion || !aName.IsVoid()),
@@ -933,7 +934,7 @@ CreateStorageConnection(nsIFile& aDBFile, nsIFile& aFMDirectory,
       }
 
       // We have to set the auto_vacuum mode before opening a transaction.
-      QM_TRY((MOZ_TO_RESULT_INVOKE(
+      QM_TRY((MOZ_TO_RESULT_INVOKE_MEMBER(
                   connection, ExecuteSimpleSQL,
 #ifdef IDB_MOBILE
                   // Turn on full auto_vacuum mode to reclaim disk space on
@@ -970,9 +971,10 @@ CreateStorageConnection(nsIFile& aDBFile, nsIFile& aFMDirectory,
 
 #ifdef DEBUG
       {
-        QM_TRY_INSPECT(const int32_t& schemaVersion,
-                       MOZ_TO_RESULT_INVOKE(connection, GetSchemaVersion),
-                       QM_ASSERT_UNREACHABLE);
+        QM_TRY_INSPECT(
+            const int32_t& schemaVersion,
+            MOZ_TO_RESULT_INVOKE_MEMBER(connection, GetSchemaVersion),
+            QM_ASSERT_UNREACHABLE);
         MOZ_ASSERT(schemaVersion == kSQLiteSchemaVersion);
       }
 #endif
@@ -981,10 +983,10 @@ CreateStorageConnection(nsIFile& aDBFile, nsIFile& aFMDirectory,
       // locally in the same function.
       QM_TRY_INSPECT(
           const auto& stmt,
-          MOZ_TO_RESULT_INVOKE_TYPED(nsCOMPtr<mozIStorageStatement>, connection,
-                                     CreateStatement,
-                                     "INSERT INTO database (name, origin) "
-                                     "VALUES (:name, :origin)"_ns));
+          MOZ_TO_RESULT_INVOKE_MEMBER_TYPED(
+              nsCOMPtr<mozIStorageStatement>, connection, CreateStatement,
+              "INSERT INTO database (name, origin) "
+              "VALUES (:name, :origin)"_ns));
 
       QM_TRY(MOZ_TO_RESULT(stmt->BindStringByIndex(0, aName)));
       QM_TRY(MOZ_TO_RESULT(stmt->BindUTF8StringByIndex(1, aOrigin)));
@@ -994,7 +996,7 @@ CreateStorageConnection(nsIFile& aDBFile, nsIFile& aFMDirectory,
                                                      aFMDirectory, aOrigin));
     }
 
-    QM_TRY(MOZ_TO_RESULT_INVOKE(transaction, Commit)
+    QM_TRY(MOZ_TO_RESULT_INVOKE_MEMBER(transaction, Commit)
                .mapErr(mapNoDeviceSpaceError));
 
 #ifdef DEBUG
@@ -1019,7 +1021,7 @@ CreateStorageConnection(nsIFile& aDBFile, nsIFile& aFMDirectory,
                          *connection, "PRAGMA page_size;"_ns));
 
       QM_TRY_INSPECT(const int32_t& pageSize,
-                     MOZ_TO_RESULT_INVOKE(*stmt, GetInt32, 0));
+                     MOZ_TO_RESULT_INVOKE_MEMBER(*stmt, GetInt32, 0));
       MOZ_ASSERT(pageSize >= 512 && pageSize <= 65536);
 
       if (kSQLitePageSizeOverride != uint32_t(pageSize)) {
@@ -1031,9 +1033,9 @@ CreateStorageConnection(nsIFile& aDBFile, nsIFile& aFMDirectory,
                        CreateAndExecuteSingleStepStatement(
                            *connection, "PRAGMA journal_mode;"_ns));
 
-        QM_TRY_INSPECT(
-            const auto& journalMode,
-            MOZ_TO_RESULT_INVOKE_TYPED(nsCString, *stmt, GetUTF8String, 0));
+        QM_TRY_INSPECT(const auto& journalMode,
+                       MOZ_TO_RESULT_INVOKE_MEMBER_TYPED(nsCString, *stmt,
+                                                         GetUTF8String, 0));
 
         if (journalMode.EqualsLiteral("delete")) {
           // Successfully set to rollback journal mode so changing the page size
@@ -1063,7 +1065,7 @@ CreateStorageConnection(nsIFile& aDBFile, nsIFile& aFMDirectory,
       }
 
       QM_TRY_INSPECT(const int64_t& fileSize,
-                     MOZ_TO_RESULT_INVOKE(aDBFile, GetFileSize));
+                     MOZ_TO_RESULT_INVOKE_MEMBER(aDBFile, GetFileSize));
       MOZ_ASSERT(fileSize > 0);
 
       PRTime vacuumTime = PR_Now();
@@ -1073,11 +1075,11 @@ CreateStorageConnection(nsIFile& aDBFile, nsIFile& aFMDirectory,
       // locally in the same function.
       QM_TRY_INSPECT(
           const auto& vacuumTimeStmt,
-          MOZ_TO_RESULT_INVOKE_TYPED(nsCOMPtr<mozIStorageStatement>, connection,
-                                     CreateStatement,
-                                     "UPDATE database "
-                                     "SET last_vacuum_time = :time"
-                                     ", last_vacuum_size = :size;"_ns));
+          MOZ_TO_RESULT_INVOKE_MEMBER_TYPED(nsCOMPtr<mozIStorageStatement>,
+                                            connection, CreateStatement,
+                                            "UPDATE database "
+                                            "SET last_vacuum_time = :time"
+                                            ", last_vacuum_size = :size;"_ns));
 
       QM_TRY(MOZ_TO_RESULT(vacuumTimeStmt->BindInt64ByIndex(0, vacuumTime)));
       QM_TRY(MOZ_TO_RESULT(vacuumTimeStmt->BindInt64ByIndex(1, fileSize)));
@@ -1109,7 +1111,7 @@ GetStorageConnection(nsIFile& aDatabaseFile, const int64_t aDirectoryLockId,
   AUTO_PROFILER_LABEL("GetStorageConnection", DOM);
 
   QM_TRY_INSPECT(const bool& exists,
-                 MOZ_TO_RESULT_INVOKE(aDatabaseFile, Exists));
+                 MOZ_TO_RESULT_INVOKE_MEMBER(aDatabaseFile, Exists));
 
   QM_TRY(OkIf(exists), Err(NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR),
          IDB_REPORT_INTERNAL_ERR_LAMBDA);
@@ -5561,7 +5563,7 @@ class EncryptedFileBlobImpl final : public FileBlobImpl {
 
     MOZ_ASSERT(inputStream);
 
-    QM_TRY_RETURN(MOZ_TO_RESULT_INVOKE(inputStream, Available), 0,
+    QM_TRY_RETURN(MOZ_TO_RESULT_INVOKE_MEMBER(inputStream, Available), 0,
                   [&aRv](const nsresult rv) { aRv = rv; });
   }
 
@@ -5761,7 +5763,7 @@ nsresult DeleteFile(nsIFile& aFile, QuotaManager* const aQuotaManager,
               const Maybe<int64_t>& fileSize,
               QM_OR_ELSE_LOG_VERBOSE_IF(
                   // Expression.
-                  MOZ_TO_RESULT_INVOKE(aFile, GetFileSize)
+                  MOZ_TO_RESULT_INVOKE_MEMBER(aFile, GetFileSize)
                       .map([](const int64_t val) { return Some(val); }),
                   // Predicate.
                   isIgnorableError,
@@ -5954,7 +5956,8 @@ Result<Ok, nsresult> DeleteFileManagerDirectory(
                        aOriginMetadata, Idempotency::Yes)));
       }));
 
-  QM_TRY_RETURN(MOZ_TO_RESULT_INVOKE(aFileManagerDirectory, Remove, false));
+  QM_TRY_RETURN(
+      MOZ_TO_RESULT_INVOKE_MEMBER(aFileManagerDirectory, Remove, false));
 }
 
 // Idempotently delete all the parts of an IndexedDB database including its
@@ -6008,11 +6011,12 @@ nsresult RemoveDatabaseFilesAndDirectory(nsIFile& aBaseDirectory,
       CloneFileAndAppend(aBaseDirectory, aDatabaseFilenameBase +
                                              kFileManagerDirectoryNameSuffix));
 
-  QM_TRY_INSPECT(const bool& exists, MOZ_TO_RESULT_INVOKE(fmDirectory, Exists));
+  QM_TRY_INSPECT(const bool& exists,
+                 MOZ_TO_RESULT_INVOKE_MEMBER(fmDirectory, Exists));
 
   if (exists) {
     QM_TRY_INSPECT(const bool& isDirectory,
-                   MOZ_TO_RESULT_INVOKE(fmDirectory, IsDirectory));
+                   MOZ_TO_RESULT_INVOKE_MEMBER(fmDirectory, IsDirectory));
 
     QM_TRY(OkIf(isDirectory), NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR);
 
@@ -7335,12 +7339,12 @@ Result<uint32_t, nsresult> DatabaseConnection::GetFreelistCount(
   const auto borrowedStatement = aCachedStatement.Borrow();
 
   QM_TRY_UNWRAP(const DebugOnly<bool> hasResult,
-                MOZ_TO_RESULT_INVOKE(&*borrowedStatement, ExecuteStep));
+                MOZ_TO_RESULT_INVOKE_MEMBER(&*borrowedStatement, ExecuteStep));
 
   MOZ_ASSERT(hasResult);
 
   QM_TRY_INSPECT(const int32_t& freelistCount,
-                 MOZ_TO_RESULT_INVOKE(*borrowedStatement, GetInt32, 0));
+                 MOZ_TO_RESULT_INVOKE_MEMBER(*borrowedStatement, GetInt32, 0));
 
   MOZ_ASSERT(freelistCount >= 0);
 
@@ -7421,10 +7425,10 @@ Result<int64_t, nsresult> DatabaseConnection::GetFileSize(
   MOZ_ASSERT(!aPath.IsEmpty());
 
   QM_TRY_INSPECT(const auto& file, QM_NewLocalFile(aPath));
-  QM_TRY_INSPECT(const bool& exists, MOZ_TO_RESULT_INVOKE(file, Exists));
+  QM_TRY_INSPECT(const bool& exists, MOZ_TO_RESULT_INVOKE_MEMBER(file, Exists));
 
   if (exists) {
-    QM_TRY_RETURN(MOZ_TO_RESULT_INVOKE(file, GetFileSize));
+    QM_TRY_RETURN(MOZ_TO_RESULT_INVOKE_MEMBER(file, GetFileSize));
   }
 
   return 0;
@@ -7550,9 +7554,10 @@ nsresult DatabaseConnection::UpdateRefcountFunction::WillCommit() {
       QM_TRY(MOZ_TO_RESULT(borrowedUpdateStatement->Execute()));
     }
 
-    QM_TRY_INSPECT(const int32_t& rows,
-                   MOZ_TO_RESULT_INVOKE(mConnection->MutableStorageConnection(),
-                                        GetAffectedRows));
+    QM_TRY_INSPECT(
+        const int32_t& rows,
+        MOZ_TO_RESULT_INVOKE_MEMBER(mConnection->MutableStorageConnection(),
+                                    GetAffectedRows));
 
     if (rows > 0) {
       QM_TRY_INSPECT(
@@ -7692,13 +7697,13 @@ nsresult DatabaseConnection::UpdateRefcountFunction::ProcessValue(
       "DatabaseConnection::UpdateRefcountFunction::ProcessValue", DOM);
 
   QM_TRY_INSPECT(const int32_t& type,
-                 MOZ_TO_RESULT_INVOKE(aValues, GetTypeOfIndex, aIndex));
+                 MOZ_TO_RESULT_INVOKE_MEMBER(aValues, GetTypeOfIndex, aIndex));
 
   if (type == mozIStorageValueArray::VALUE_TYPE_NULL) {
     return NS_OK;
   }
 
-  QM_TRY_INSPECT(const auto& ids, MOZ_TO_RESULT_INVOKE_TYPED(
+  QM_TRY_INSPECT(const auto& ids, MOZ_TO_RESULT_INVOKE_MEMBER_TYPED(
                                       nsString, aValues, GetString, aIndex));
 
   QM_TRY_INSPECT(const auto& files,
@@ -7790,17 +7795,17 @@ DatabaseConnection::UpdateRefcountFunction::OnFunctionCall(
 #ifdef DEBUG
   {
     QM_TRY_INSPECT(const uint32_t& numEntries,
-                   MOZ_TO_RESULT_INVOKE(aValues, GetNumEntries),
+                   MOZ_TO_RESULT_INVOKE_MEMBER(aValues, GetNumEntries),
                    QM_ASSERT_UNREACHABLE);
 
     MOZ_ASSERT(numEntries == 2);
 
     QM_TRY_INSPECT(const int32_t& type1,
-                   MOZ_TO_RESULT_INVOKE(aValues, GetTypeOfIndex, 0),
+                   MOZ_TO_RESULT_INVOKE_MEMBER(aValues, GetTypeOfIndex, 0),
                    QM_ASSERT_UNREACHABLE);
 
     QM_TRY_INSPECT(const int32_t& type2,
-                   MOZ_TO_RESULT_INVOKE(aValues, GetTypeOfIndex, 1),
+                   MOZ_TO_RESULT_INVOKE_MEMBER(aValues, GetTypeOfIndex, 1),
                    QM_ASSERT_UNREACHABLE);
 
     MOZ_ASSERT(!(type1 == mozIStorageValueArray::VALUE_TYPE_NULL &&
@@ -12234,8 +12239,8 @@ nsresult DatabaseFileManager::Init(nsIFile* aDirectory,
       QM_TRY(MOZ_TO_RESULT(aDirectory->Create(nsIFile::DIRECTORY_TYPE, 0755)));
     }
 
-    QM_TRY_UNWRAP(auto path,
-                  MOZ_TO_RESULT_INVOKE_TYPED(nsString, aDirectory, GetPath));
+    QM_TRY_UNWRAP(auto path, MOZ_TO_RESULT_INVOKE_MEMBER_TYPED(
+                                 nsString, aDirectory, GetPath));
 
     mDirectoryPath.init(std::move(path));
   }
@@ -12250,23 +12255,23 @@ nsresult DatabaseFileManager::Init(nsIFile* aDirectory,
   Unused << existsAsDirectory;
 
   {
-    QM_TRY_UNWRAP(auto path, MOZ_TO_RESULT_INVOKE_TYPED(
+    QM_TRY_UNWRAP(auto path, MOZ_TO_RESULT_INVOKE_MEMBER_TYPED(
                                  nsString, journalDirectory, GetPath));
 
     mJournalDirectoryPath.init(std::move(path));
   }
 
   QM_TRY_INSPECT(const auto& stmt,
-                 MOZ_TO_RESULT_INVOKE_TYPED(
+                 MOZ_TO_RESULT_INVOKE_MEMBER_TYPED(
                      nsCOMPtr<mozIStorageStatement>, aConnection,
                      CreateStatement, "SELECT id, refcount FROM file"_ns));
 
   QM_TRY(
       CollectWhileHasResult(*stmt, [this](auto& stmt) -> Result<Ok, nsresult> {
         QM_TRY_INSPECT(const int64_t& id,
-                       MOZ_TO_RESULT_INVOKE(stmt, GetInt64, 0));
+                       MOZ_TO_RESULT_INVOKE_MEMBER(stmt, GetInt64, 0));
         QM_TRY_INSPECT(const int32_t& dbRefCnt,
-                       MOZ_TO_RESULT_INVOKE(stmt, GetInt32, 1));
+                       MOZ_TO_RESULT_INVOKE_MEMBER(stmt, GetInt32, 1));
 
         // We put a raw pointer into the hash table, so the memory refcount will
         // be 0, but the dbRefCnt is non-zero, which will keep the
@@ -12326,11 +12331,12 @@ nsCOMPtr<nsIFile> DatabaseFileManager::EnsureJournalDirectory() {
   QM_TRY(OkIf(journalDirectory), nullptr);
 
   QM_TRY_INSPECT(const bool& exists,
-                 MOZ_TO_RESULT_INVOKE(journalDirectory, Exists), nullptr);
+                 MOZ_TO_RESULT_INVOKE_MEMBER(journalDirectory, Exists),
+                 nullptr);
 
   if (exists) {
     QM_TRY_INSPECT(const bool& isDirectory,
-                   MOZ_TO_RESULT_INVOKE(journalDirectory, IsDirectory),
+                   MOZ_TO_RESULT_INVOKE_MEMBER(journalDirectory, IsDirectory),
                    nullptr);
 
     QM_TRY(OkIf(isDirectory), nullptr);
@@ -12380,14 +12386,14 @@ nsresult DatabaseFileManager::InitDirectory(nsIFile& aDirectory,
 
   {
     QM_TRY_INSPECT(const bool& exists,
-                   MOZ_TO_RESULT_INVOKE(aDirectory, Exists));
+                   MOZ_TO_RESULT_INVOKE_MEMBER(aDirectory, Exists));
 
     if (!exists) {
       return NS_OK;
     }
 
     QM_TRY_INSPECT(const bool& isDirectory,
-                   MOZ_TO_RESULT_INVOKE(aDirectory, IsDirectory));
+                   MOZ_TO_RESULT_INVOKE_MEMBER(aDirectory, IsDirectory));
     QM_TRY(OkIf(isDirectory), NS_ERROR_FAILURE);
   }
 
@@ -12395,11 +12401,11 @@ nsresult DatabaseFileManager::InitDirectory(nsIFile& aDirectory,
                  CloneFileAndAppend(aDirectory, kJournalDirectoryName));
 
   QM_TRY_INSPECT(const bool& exists,
-                 MOZ_TO_RESULT_INVOKE(journalDirectory, Exists));
+                 MOZ_TO_RESULT_INVOKE_MEMBER(journalDirectory, Exists));
 
   if (exists) {
     QM_TRY_INSPECT(const bool& isDirectory,
-                   MOZ_TO_RESULT_INVOKE(journalDirectory, IsDirectory));
+                   MOZ_TO_RESULT_INVOKE_MEMBER(journalDirectory, IsDirectory));
     QM_TRY(OkIf(isDirectory), NS_ERROR_FAILURE);
 
     bool hasJournals = false;
@@ -12409,7 +12415,7 @@ nsresult DatabaseFileManager::InitDirectory(nsIFile& aDirectory,
         [&hasJournals](const nsCOMPtr<nsIFile>& file) -> Result<Ok, nsresult> {
           QM_TRY_INSPECT(
               const auto& leafName,
-              MOZ_TO_RESULT_INVOKE_TYPED(nsString, file, GetLeafName));
+              MOZ_TO_RESULT_INVOKE_MEMBER_TYPED(nsString, file, GetLeafName));
 
           nsresult rv;
           leafName.ToInteger64(&rv);
@@ -12439,13 +12445,13 @@ nsresult DatabaseFileManager::InitDirectory(nsIFile& aDirectory,
       // locally in the same function.
       QM_TRY_INSPECT(
           const auto& stmt,
-          MOZ_TO_RESULT_INVOKE_TYPED(
+          MOZ_TO_RESULT_INVOKE_MEMBER_TYPED(
               nsCOMPtr<mozIStorageStatement>, *connection, CreateStatement,
               "SELECT name, (name IN (SELECT id FROM file)) FROM fs WHERE path = :path"_ns));
 
-      QM_TRY_INSPECT(
-          const auto& path,
-          MOZ_TO_RESULT_INVOKE_TYPED(nsString, journalDirectory, GetPath));
+      QM_TRY_INSPECT(const auto& path,
+                     MOZ_TO_RESULT_INVOKE_MEMBER_TYPED(
+                         nsString, journalDirectory, GetPath));
 
       QM_TRY(MOZ_TO_RESULT(stmt->BindStringByIndex(0, path)));
 
@@ -12514,7 +12520,7 @@ Result<FileUsageType, nsresult> DatabaseFileManager::GetUsage(
         QM_TRY_INSPECT(const auto& thisUsage,
                        QM_OR_ELSE_WARN_IF(
                            // Expression.
-                           MOZ_TO_RESULT_INVOKE(file, GetFileSize)
+                           MOZ_TO_RESULT_INVOKE_MEMBER(file, GetFileSize)
                                .map([](const int64_t fileSize) {
                                  return FileUsageType(Some(uint64_t(fileSize)));
                                }),
@@ -12734,7 +12740,7 @@ nsresult QuotaClient::UpgradeStorageFrom1_0To2_0(nsIFile* aDirectory) {
                        CloneFileAndAppend(*aDirectory, subdirNameWithSuffix));
 
         QM_TRY_INSPECT(const bool& exists,
-                       MOZ_TO_RESULT_INVOKE(subdirWithSuffix, Exists));
+                       MOZ_TO_RESULT_INVOKE_MEMBER(subdirWithSuffix, Exists));
 
         if (exists) {
           IDB_WARNING("Deleting old %s files directory!",
@@ -12769,7 +12775,7 @@ nsresult QuotaClient::UpgradeStorageFrom2_1To2_2(nsIFile* aDirectory) {
           case nsIFileKind::ExistsAsFile: {
             QM_TRY_INSPECT(
                 const auto& leafName,
-                MOZ_TO_RESULT_INVOKE_TYPED(nsString, file, GetLeafName));
+                MOZ_TO_RESULT_INVOKE_MEMBER_TYPED(nsString, file, GetLeafName));
 
             // It's reported that files ending with ".tmp" somehow live in the
             // indexedDB directories in Bug 1503883. Such files shouldn't exist
@@ -12799,10 +12805,10 @@ Result<UsageInfo, nsresult> QuotaClient::InitOrigin(
     const AtomicBool& aCanceled) {
   AssertIsOnIOThread();
 
-  QM_TRY_RETURN(MOZ_TO_RESULT_INVOKE(this, GetUsageForOriginInternal,
-                                     aPersistenceType, aOriginMetadata,
-                                     aCanceled,
-                                     /* aInitializing*/ true));
+  QM_TRY_RETURN(MOZ_TO_RESULT_INVOKE_MEMBER(this, GetUsageForOriginInternal,
+                                            aPersistenceType, aOriginMetadata,
+                                            aCanceled,
+                                            /* aInitializing*/ true));
 }
 
 nsresult QuotaClient::InitOriginWithoutTracking(
@@ -12819,10 +12825,10 @@ Result<UsageInfo, nsresult> QuotaClient::GetUsageForOrigin(
     const AtomicBool& aCanceled) {
   AssertIsOnIOThread();
 
-  QM_TRY_RETURN(MOZ_TO_RESULT_INVOKE(this, GetUsageForOriginInternal,
-                                     aPersistenceType, aOriginMetadata,
-                                     aCanceled,
-                                     /* aInitializing*/ false));
+  QM_TRY_RETURN(MOZ_TO_RESULT_INVOKE_MEMBER(this, GetUsageForOriginInternal,
+                                            aPersistenceType, aOriginMetadata,
+                                            aCanceled,
+                                            /* aInitializing*/ false));
 }
 
 nsresult QuotaClient::GetUsageForOriginInternal(
@@ -12935,7 +12941,7 @@ nsresult QuotaClient::GetUsageForOriginInternal(
     if (aUsageInfo) {
       {
         QM_TRY_INSPECT(const int64_t& fileSize,
-                       MOZ_TO_RESULT_INVOKE(databaseFile, GetFileSize));
+                       MOZ_TO_RESULT_INVOKE_MEMBER(databaseFile, GetFileSize));
 
         MOZ_ASSERT(fileSize >= 0);
 
@@ -12954,7 +12960,7 @@ nsresult QuotaClient::GetUsageForOriginInternal(
         QM_TRY_INSPECT(const int64_t& walFileSize,
                        QM_OR_ELSE_LOG_VERBOSE_IF(
                            // Expression.
-                           MOZ_TO_RESULT_INVOKE(walFile, GetFileSize),
+                           MOZ_TO_RESULT_INVOKE_MEMBER(walFile, GetFileSize),
                            // Predicate.
                            ([](const nsresult rv) {
                              return rv == NS_ERROR_FILE_NOT_FOUND ||
@@ -13201,8 +13207,8 @@ QuotaClient::GetDatabaseFilenames(nsIFile& aDirectory,
   QM_TRY(CollectEachFileAtomicCancelable(
       aDirectory, aCanceled,
       [&result](const nsCOMPtr<nsIFile>& file) -> Result<Ok, nsresult> {
-        QM_TRY_INSPECT(const auto& leafName,
-                       MOZ_TO_RESULT_INVOKE_TYPED(nsString, file, GetLeafName));
+        QM_TRY_INSPECT(const auto& leafName, MOZ_TO_RESULT_INVOKE_MEMBER_TYPED(
+                                                 nsString, file, GetLeafName));
 
         QM_TRY_INSPECT(const auto& dirEntryKind, GetDirEntryKind(*file));
 
@@ -13594,7 +13600,7 @@ nsresult Maintenance::DirectoryWork() {
 
   {
     QM_TRY_INSPECT(const bool& exists,
-                   MOZ_TO_RESULT_INVOKE(storageDir, Exists));
+                   MOZ_TO_RESULT_INVOKE_MEMBER(storageDir, Exists));
 
     // XXX No warning here?
     if (!exists) {
@@ -13604,7 +13610,7 @@ nsresult Maintenance::DirectoryWork() {
 
   {
     QM_TRY_INSPECT(const bool& isDirectory,
-                   MOZ_TO_RESULT_INVOKE(storageDir, IsDirectory));
+                   MOZ_TO_RESULT_INVOKE_MEMBER(storageDir, IsDirectory));
 
     QM_TRY(OkIf(isDirectory), NS_ERROR_FAILURE);
   }
@@ -13650,14 +13656,14 @@ nsresult Maintenance::DirectoryWork() {
 
     {
       QM_TRY_INSPECT(const bool& exists,
-                     MOZ_TO_RESULT_INVOKE(persistenceDir, Exists));
+                     MOZ_TO_RESULT_INVOKE_MEMBER(persistenceDir, Exists));
 
       if (!exists) {
         continue;
       }
 
       QM_TRY_INSPECT(const bool& isDirectory,
-                     MOZ_TO_RESULT_INVOKE(persistenceDir, IsDirectory));
+                     MOZ_TO_RESULT_INVOKE_MEMBER(persistenceDir, IsDirectory));
 
       if (NS_WARN_IF(!isDirectory)) {
         continue;
@@ -13721,14 +13727,14 @@ nsresult Maintenance::DirectoryWork() {
                              CloneFileAndAppend(*originDir, idbDirName));
 
               QM_TRY_INSPECT(const bool& exists,
-                             MOZ_TO_RESULT_INVOKE(idbDir, Exists));
+                             MOZ_TO_RESULT_INVOKE_MEMBER(idbDir, Exists));
 
               if (!exists) {
                 return Ok{};
               }
 
               QM_TRY_INSPECT(const bool& isDirectory,
-                             MOZ_TO_RESULT_INVOKE(idbDir, IsDirectory));
+                             MOZ_TO_RESULT_INVOKE_MEMBER(idbDir, IsDirectory));
 
               QM_TRY(OkIf(isDirectory), Ok{});
 
@@ -13746,7 +13752,7 @@ nsresult Maintenance::DirectoryWork() {
                     }
 
                     QM_TRY_UNWRAP(auto idbFilePath,
-                                  MOZ_TO_RESULT_INVOKE_TYPED(
+                                  MOZ_TO_RESULT_INVOKE_MEMBER_TYPED(
                                       nsString, idbDirFile, GetPath));
 
                     if (!StringEndsWith(idbFilePath, kSQLiteSuffix)) {
@@ -14118,8 +14124,8 @@ nsresult DatabaseMaintenance::CheckIntegrity(mozIStorageConnection& aConnection,
                    CreateAndExecuteSingleStepStatement(
                        aConnection, "PRAGMA integrity_check(1);"_ns));
 
-    QM_TRY_INSPECT(const auto& result,
-                   MOZ_TO_RESULT_INVOKE_TYPED(nsString, *stmt, GetString, 0));
+    QM_TRY_INSPECT(const auto& result, MOZ_TO_RESULT_INVOKE_MEMBER_TYPED(
+                                           nsString, *stmt, GetString, 0));
 
     QM_TRY(OkIf(result.EqualsLiteral("ok")), NS_OK,
            [&aOk](const auto) { *aOk = false; });
@@ -14127,15 +14133,15 @@ nsresult DatabaseMaintenance::CheckIntegrity(mozIStorageConnection& aConnection,
 
   // Now enable and check for foreign key constraints.
   {
-    QM_TRY_INSPECT(const int32_t& foreignKeysWereEnabled,
-                   ([&aConnection]() -> Result<int32_t, nsresult> {
-                     QM_TRY_INSPECT(
-                         const auto& stmt,
+    QM_TRY_INSPECT(
+        const int32_t& foreignKeysWereEnabled,
+        ([&aConnection]() -> Result<int32_t, nsresult> {
+          QM_TRY_INSPECT(const auto& stmt,
                          CreateAndExecuteSingleStepStatement(
                              aConnection, "PRAGMA foreign_keys;"_ns));
 
-                     QM_TRY_RETURN(MOZ_TO_RESULT_INVOKE(*stmt, GetInt32, 0));
-                   }()));
+          QM_TRY_RETURN(MOZ_TO_RESULT_INVOKE_MEMBER(*stmt, GetInt32, 0));
+        }()));
 
     if (!foreignKeysWereEnabled) {
       QM_TRY(MOZ_TO_RESULT(
@@ -14176,7 +14182,7 @@ nsresult DatabaseMaintenance::DetermineMaintenanceAction(
   }
 
   QM_TRY_INSPECT(const int32_t& schemaVersion,
-                 MOZ_TO_RESULT_INVOKE(aConnection, GetSchemaVersion));
+                 MOZ_TO_RESULT_INVOKE_MEMBER(aConnection, GetSchemaVersion));
 
   // Don't do anything if the schema version is less than 18; before that
   // version no databases had |auto_vacuum == INCREMENTAL| set and we didn't
@@ -14218,10 +14224,10 @@ nsresult DatabaseMaintenance::DetermineMaintenanceAction(
                      "FROM database;"_ns));
 
   QM_TRY_INSPECT(const PRTime& lastVacuumTime,
-                 MOZ_TO_RESULT_INVOKE(*stmt, GetInt64, 0));
+                 MOZ_TO_RESULT_INVOKE_MEMBER(*stmt, GetInt64, 0));
 
   QM_TRY_INSPECT(const int64_t& lastVacuumSize,
-                 MOZ_TO_RESULT_INVOKE(*stmt, GetInt64, 1));
+                 MOZ_TO_RESULT_INVOKE_MEMBER(*stmt, GetInt64, 1));
 
   NS_ASSERTION(lastVacuumSize > 0,
                "Thy last vacuum size shall be greater than zero, less than "
@@ -14262,7 +14268,7 @@ nsresult DatabaseMaintenance::DetermineMaintenanceAction(
             "AND __ts1__.rowid = __ts2__.rowid + 1;"_ns));
 
     QM_TRY_INSPECT(const int32_t& percentUnordered,
-                   MOZ_TO_RESULT_INVOKE(*stmt, GetInt32, 0));
+                   MOZ_TO_RESULT_INVOKE_MEMBER(*stmt, GetInt32, 0));
 
     MOZ_ASSERT(percentUnordered >= 0);
     MOZ_ASSERT(percentUnordered <= 100);
@@ -14275,7 +14281,7 @@ nsresult DatabaseMaintenance::DetermineMaintenanceAction(
 
   // Don't try a full vacuum if the file hasn't grown by 10%.
   QM_TRY_INSPECT(const int64_t& currentFileSize,
-                 MOZ_TO_RESULT_INVOKE(aDatabaseFile, GetFileSize));
+                 MOZ_TO_RESULT_INVOKE_MEMBER(aDatabaseFile, GetFileSize));
 
   if (currentFileSize <= lastVacuumSize ||
       (((currentFileSize - lastVacuumSize) * 100 / currentFileSize) <
@@ -14290,7 +14296,7 @@ nsresult DatabaseMaintenance::DetermineMaintenanceAction(
                        aConnection, "PRAGMA freelist_count;"_ns));
 
     QM_TRY_INSPECT(const int32_t& freelistCount,
-                   MOZ_TO_RESULT_INVOKE(*stmt, GetInt32, 0));
+                   MOZ_TO_RESULT_INVOKE_MEMBER(*stmt, GetInt32, 0));
 
     MOZ_ASSERT(freelistCount >= 0);
 
@@ -14311,7 +14317,7 @@ nsresult DatabaseMaintenance::DetermineMaintenanceAction(
             "SELECT SUM(unused) * 100.0 / SUM(pgsize) FROM __temp_stats__;"_ns));
 
     QM_TRY_INSPECT(const int32_t& percentUnused,
-                   MOZ_TO_RESULT_INVOKE(*stmt, GetInt32, 0));
+                   MOZ_TO_RESULT_INVOKE_MEMBER(*stmt, GetInt32, 0));
 
     MOZ_ASSERT(percentUnused >= 0);
     MOZ_ASSERT(percentUnused <= 100);
@@ -14358,13 +14364,13 @@ void DatabaseMaintenance::FullVacuum(mozIStorageConnection& aConnection,
     MOZ_ASSERT(vacuumTime > 0);
 
     QM_TRY_INSPECT(const int64_t& fileSize,
-                   MOZ_TO_RESULT_INVOKE(aDatabaseFile, GetFileSize));
+                   MOZ_TO_RESULT_INVOKE_MEMBER(aDatabaseFile, GetFileSize));
 
     MOZ_ASSERT(fileSize > 0);
 
     // The parameter names are not used, parameters are bound by index only
     // locally in the same function.
-    QM_TRY_INSPECT(const auto& stmt, MOZ_TO_RESULT_INVOKE_TYPED(
+    QM_TRY_INSPECT(const auto& stmt, MOZ_TO_RESULT_INVOKE_MEMBER_TYPED(
                                          nsCOMPtr<mozIStorageStatement>,
                                          aConnection, CreateStatement,
                                          "UPDATE database "
@@ -15018,9 +15024,9 @@ nsresult DatabaseOperationBase::AutoSetProgressHandler::Register(
 
   QM_TRY_UNWRAP(
       const DebugOnly oldProgressHandler,
-      MOZ_TO_RESULT_INVOKE_TYPED(nsCOMPtr<mozIStorageProgressHandler>,
-                                 aConnection, SetProgressHandler,
-                                 kStorageProgressGranularity, aDatabaseOp));
+      MOZ_TO_RESULT_INVOKE_MEMBER_TYPED(
+          nsCOMPtr<mozIStorageProgressHandler>, aConnection, SetProgressHandler,
+          kStorageProgressGranularity, aDatabaseOp));
 
   MOZ_ASSERT(!oldProgressHandler.inspect());
 
@@ -15813,23 +15819,23 @@ nsresult FactoryOp::FinishOpen() {
 
   // Need to get database file path before opening the directory.
   // XXX: For what reason?
-  QM_TRY_UNWRAP(
-      mDatabaseFilePath,
-      ([this, quotaManager,
-        persistenceType]() -> mozilla::Result<nsString, nsresult> {
-        QM_TRY_INSPECT(const auto& dbFile,
-                       quotaManager->GetDirectoryForOrigin(
-                           persistenceType, mOriginMetadata.mOrigin));
+  QM_TRY_UNWRAP(mDatabaseFilePath,
+                ([this, quotaManager,
+                  persistenceType]() -> mozilla::Result<nsString, nsresult> {
+                  QM_TRY_INSPECT(const auto& dbFile,
+                                 quotaManager->GetDirectoryForOrigin(
+                                     persistenceType, mOriginMetadata.mOrigin));
 
-        QM_TRY(MOZ_TO_RESULT(dbFile->Append(
-            NS_LITERAL_STRING_FROM_CSTRING(IDB_DIRECTORY_NAME))));
+                  QM_TRY(MOZ_TO_RESULT(dbFile->Append(
+                      NS_LITERAL_STRING_FROM_CSTRING(IDB_DIRECTORY_NAME))));
 
-        QM_TRY(MOZ_TO_RESULT(dbFile->Append(
-            GetDatabaseFilenameBase(mCommonParams.metadata().name()) +
-            kSQLiteSuffix)));
+                  QM_TRY(MOZ_TO_RESULT(dbFile->Append(
+                      GetDatabaseFilenameBase(mCommonParams.metadata().name()) +
+                      kSQLiteSuffix)));
 
-        QM_TRY_RETURN(MOZ_TO_RESULT_INVOKE_TYPED(nsString, dbFile, GetPath));
-      }()));
+                  QM_TRY_RETURN(MOZ_TO_RESULT_INVOKE_MEMBER_TYPED(
+                      nsString, dbFile, GetPath));
+                }()));
 
   // Open directory
   RefPtr<DirectoryLock> directoryLock = quotaManager->CreateDirectoryLock(
@@ -16077,7 +16083,7 @@ nsresult OpenDatabaseOp::DoDatabaseWork() {
 
   {
     QM_TRY_INSPECT(const bool& exists,
-                   MOZ_TO_RESULT_INVOKE(dbDirectory, Exists));
+                   MOZ_TO_RESULT_INVOKE_MEMBER(dbDirectory, Exists));
 
     if (!exists) {
       QM_TRY(MOZ_TO_RESULT(dbDirectory->Create(nsIFile::DIRECTORY_TYPE, 0755)));
@@ -16097,7 +16103,8 @@ nsresult OpenDatabaseOp::DoDatabaseWork() {
                  CloneFileAndAppend(*dbDirectory, kIdbDeletionMarkerFilePrefix +
                                                       databaseFilenameBase));
 
-  QM_TRY_INSPECT(const bool& exists, MOZ_TO_RESULT_INVOKE(markerFile, Exists));
+  QM_TRY_INSPECT(const bool& exists,
+                 MOZ_TO_RESULT_INVOKE_MEMBER(markerFile, Exists));
 
   if (exists) {
     // Delete the database and directroy since they should be deleted in
@@ -16117,8 +16124,9 @@ nsresult OpenDatabaseOp::DoDatabaseWork() {
 
 #ifdef DEBUG
   {
-    QM_TRY_INSPECT(const auto& databaseFilePath,
-                   MOZ_TO_RESULT_INVOKE_TYPED(nsString, dbFile, GetPath));
+    QM_TRY_INSPECT(
+        const auto& databaseFilePath,
+        MOZ_TO_RESULT_INVOKE_MEMBER_TYPED(nsString, dbFile, GetPath));
 
     MOZ_ASSERT(databaseFilePath == mDatabaseFilePath);
   }
@@ -16226,13 +16234,13 @@ nsresult OpenDatabaseOp::LoadDatabaseInformation(
 
     QM_TRY(OkIf(stmt), NS_ERROR_FILE_CORRUPTED);
 
-    QM_TRY_INSPECT(const auto& databaseName,
-                   MOZ_TO_RESULT_INVOKE_TYPED(nsString, stmt, GetString, 0));
+    QM_TRY_INSPECT(const auto& databaseName, MOZ_TO_RESULT_INVOKE_MEMBER_TYPED(
+                                                 nsString, stmt, GetString, 0));
 
     QM_TRY(OkIf(mCommonParams.metadata().name() == databaseName),
            NS_ERROR_FILE_CORRUPTED);
 
-    QM_TRY_INSPECT(const auto& origin, MOZ_TO_RESULT_INVOKE_TYPED(
+    QM_TRY_INSPECT(const auto& origin, MOZ_TO_RESULT_INVOKE_MEMBER_TYPED(
                                            nsCString, stmt, GetUTF8String, 1));
 
     // We can't just compare these strings directly. See bug 1339081 comment 69.
@@ -16241,7 +16249,7 @@ nsresult OpenDatabaseOp::LoadDatabaseInformation(
            NS_ERROR_FILE_CORRUPTED);
 
     QM_TRY_INSPECT(const int64_t& version,
-                   MOZ_TO_RESULT_INVOKE(stmt, GetInt64, 2));
+                   MOZ_TO_RESULT_INVOKE_MEMBER(stmt, GetInt64, 2));
 
     mMetadata->mCommonMetadata.version() = uint64_t(version);
   }
@@ -16255,7 +16263,7 @@ nsresult OpenDatabaseOp::LoadDatabaseInformation(
         // Load object store names and ids.
         QM_TRY_INSPECT(
             const auto& stmt,
-            MOZ_TO_RESULT_INVOKE_TYPED(
+            MOZ_TO_RESULT_INVOKE_MEMBER_TYPED(
                 nsCOMPtr<mozIStorageStatement>, aConnection, CreateStatement,
                 "SELECT id, auto_increment, name, key_path "
                 "FROM object_store"_ns));
@@ -16269,7 +16277,7 @@ nsresult OpenDatabaseOp::LoadDatabaseInformation(
              usedNames = Maybe<nsTHashSet<nsString>>{}](
                 auto& stmt) mutable -> mozilla::Result<Ok, nsresult> {
               QM_TRY_INSPECT(const IndexOrObjectStoreId& objectStoreId,
-                             MOZ_TO_RESULT_INVOKE(stmt, GetInt64, 0));
+                             MOZ_TO_RESULT_INVOKE_MEMBER(stmt, GetInt64, 0));
 
               if (!usedIds) {
                 usedIds.emplace();
@@ -16299,8 +16307,9 @@ nsresult OpenDatabaseOp::LoadDatabaseInformation(
               commonMetadata.id() = objectStoreId;
               commonMetadata.name() = std::move(name);
 
-              QM_TRY_INSPECT(const int32_t& columnType,
-                             MOZ_TO_RESULT_INVOKE(stmt, GetTypeOfIndex, 3));
+              QM_TRY_INSPECT(
+                  const int32_t& columnType,
+                  MOZ_TO_RESULT_INVOKE_MEMBER(stmt, GetTypeOfIndex, 3));
 
               if (columnType == mozIStorageStatement::VALUE_TYPE_NULL) {
                 commonMetadata.keyPath() = KeyPath(0);
@@ -16317,7 +16326,7 @@ nsresult OpenDatabaseOp::LoadDatabaseInformation(
               }
 
               QM_TRY_INSPECT(const int64_t& nextAutoIncrementId,
-                             MOZ_TO_RESULT_INVOKE(stmt, GetInt64, 1));
+                             MOZ_TO_RESULT_INVOKE_MEMBER(stmt, GetInt64, 1));
 
               commonMetadata.autoIncrement() = !!nextAutoIncrementId;
 
@@ -16345,13 +16354,13 @@ nsresult OpenDatabaseOp::LoadDatabaseInformation(
         // Load index information
         QM_TRY_INSPECT(
             const auto& stmt,
-            MOZ_TO_RESULT_INVOKE_TYPED(nsCOMPtr<mozIStorageStatement>,
-                                       aConnection, CreateStatement,
-                                       "SELECT "
-                                       "id, object_store_id, name, key_path, "
-                                       "unique_index, multientry, "
-                                       "locale, is_auto_locale "
-                                       "FROM object_store_index"_ns));
+            MOZ_TO_RESULT_INVOKE_MEMBER_TYPED(
+                nsCOMPtr<mozIStorageStatement>, aConnection, CreateStatement,
+                "SELECT "
+                "id, object_store_id, name, key_path, "
+                "unique_index, multientry, "
+                "locale, is_auto_locale "
+                "FROM object_store_index"_ns));
 
         IndexOrObjectStoreId lastIndexId = 0;
 
@@ -16362,7 +16371,7 @@ nsresult OpenDatabaseOp::LoadDatabaseInformation(
              usedNames = Maybe<nsTHashSet<nsString>>{}](
                 auto& stmt) mutable -> mozilla::Result<Ok, nsresult> {
               QM_TRY_INSPECT(const IndexOrObjectStoreId& objectStoreId,
-                             MOZ_TO_RESULT_INVOKE(stmt, GetInt64, 1));
+                             MOZ_TO_RESULT_INVOKE_MEMBER(stmt, GetInt64, 1));
 
               // XXX Why does this return NS_ERROR_OUT_OF_MEMORY if we don't
               // know the object store id?
@@ -16494,10 +16503,10 @@ nsresult OpenDatabaseOp::UpdateLocaleAwareIndex(
   const nsCString readQuery = "SELECT value, object_data_key FROM "_ns +
                               indexTable + " WHERE index_id = :index_id"_ns;
 
-  QM_TRY_INSPECT(
-      const auto& readStmt,
-      MOZ_TO_RESULT_INVOKE_TYPED(nsCOMPtr<mozIStorageStatement>, aConnection,
-                                 CreateStatement, readQuery));
+  QM_TRY_INSPECT(const auto& readStmt,
+                 MOZ_TO_RESULT_INVOKE_MEMBER_TYPED(
+                     nsCOMPtr<mozIStorageStatement>, aConnection,
+                     CreateStatement, readQuery));
 
   QM_TRY(MOZ_TO_RESULT(readStmt->BindInt64ByIndex(0, aIndexMetadata.id())));
 
@@ -16509,7 +16518,7 @@ nsresult OpenDatabaseOp::UpdateLocaleAwareIndex(
         if (!writeStmt) {
           QM_TRY_UNWRAP(
               writeStmt,
-              MOZ_TO_RESULT_INVOKE_TYPED(
+              MOZ_TO_RESULT_INVOKE_MEMBER_TYPED(
                   nsCOMPtr<mozIStorageStatement>, aConnection, CreateStatement,
                   "UPDATE "_ns + indexTable + "SET value_locale = :"_ns +
                       kStmtParamNameValueLocale + " WHERE index_id = :"_ns +
@@ -16548,10 +16557,10 @@ nsresult OpenDatabaseOp::UpdateLocaleAwareIndex(
       "UPDATE object_store_index SET "
       "locale = :locale WHERE id = :id"_ns;
 
-  QM_TRY_INSPECT(
-      const auto& metaStmt,
-      MOZ_TO_RESULT_INVOKE_TYPED(nsCOMPtr<mozIStorageStatement>, aConnection,
-                                 CreateStatement, metaQuery));
+  QM_TRY_INSPECT(const auto& metaStmt,
+                 MOZ_TO_RESULT_INVOKE_MEMBER_TYPED(
+                     nsCOMPtr<mozIStorageStatement>, aConnection,
+                     CreateStatement, metaQuery));
 
   QM_TRY(MOZ_TO_RESULT(
       metaStmt->BindStringByIndex(0, NS_ConvertASCIItoUTF16(aLocale))));
@@ -17256,8 +17265,8 @@ nsresult DeleteDatabaseOp::DoDatabaseWork() {
   QM_TRY(MOZ_TO_RESULT(
       directory->Append(NS_LITERAL_STRING_FROM_CSTRING(IDB_DIRECTORY_NAME))));
 
-  QM_TRY_UNWRAP(mDatabaseDirectoryPath,
-                MOZ_TO_RESULT_INVOKE_TYPED(nsString, directory, GetPath));
+  QM_TRY_UNWRAP(mDatabaseDirectoryPath, MOZ_TO_RESULT_INVOKE_MEMBER_TYPED(
+                                            nsString, directory, GetPath));
 
   mDatabaseFilenameBase = GetDatabaseFilenameBase(databaseName);
 
@@ -17267,14 +17276,16 @@ nsresult DeleteDatabaseOp::DoDatabaseWork() {
 
 #ifdef DEBUG
   {
-    QM_TRY_INSPECT(const auto& databaseFilePath,
-                   MOZ_TO_RESULT_INVOKE_TYPED(nsString, dbFile, GetPath));
+    QM_TRY_INSPECT(
+        const auto& databaseFilePath,
+        MOZ_TO_RESULT_INVOKE_MEMBER_TYPED(nsString, dbFile, GetPath));
 
     MOZ_ASSERT(databaseFilePath == mDatabaseFilePath);
   }
 #endif
 
-  QM_TRY_INSPECT(const bool& exists, MOZ_TO_RESULT_INVOKE(dbFile, Exists));
+  QM_TRY_INSPECT(const bool& exists,
+                 MOZ_TO_RESULT_INVOKE_MEMBER(dbFile, Exists));
 
   if (exists) {
     // Parts of this function may fail but that shouldn't prevent us from
@@ -18833,7 +18844,7 @@ CreateIndexOp::UpdateIndexDataValuesFunction::OnFunctionCall(
 
     // No changes needed, just return the original value.
     QM_TRY_INSPECT(const int32_t& valueType,
-                   MOZ_TO_RESULT_INVOKE(aValues, GetTypeOfIndex, 1));
+                   MOZ_TO_RESULT_INVOKE_MEMBER(aValues, GetTypeOfIndex, 1));
 
     MOZ_ASSERT(valueType == mozIStorageValueArray::VALUE_TYPE_NULL ||
                valueType == mozIStorageValueArray::VALUE_TYPE_BLOB);
@@ -21101,7 +21112,7 @@ template <IDBCursorType CursorType>
 nsresult CommonOpenOpHelper<CursorType>::ProcessStatementSteps(
     mozIStorageStatement* const aStmt) {
   QM_TRY_INSPECT(const bool& hasResult,
-                 MOZ_TO_RESULT_INVOKE(aStmt, ExecuteStep));
+                 MOZ_TO_RESULT_INVOKE_MEMBER(aStmt, ExecuteStep));
 
   if (!hasResult) {
     SetResponse(void_t{});
@@ -21555,7 +21566,7 @@ nsresult Cursor<CursorType>::ContinueOp::DoDatabaseWork(
   // than using a OFFSET clause in the query?
   for (uint32_t index = 0; index < advanceCount; index++) {
     QM_TRY_INSPECT(const bool& hasResult,
-                   MOZ_TO_RESULT_INVOKE(&*stmt, ExecuteStep));
+                   MOZ_TO_RESULT_INVOKE_MEMBER(&*stmt, ExecuteStep));
 
     if (!hasResult) {
       mResponse = void_t();
@@ -21735,7 +21746,8 @@ nsresult FileHelper::CreateFileFromStream(nsIFile& aFile, nsIFile& aJournalFile,
                                           const Maybe<CipherKey>& aMaybeKey) {
   MOZ_ASSERT(!IsOnBackgroundThread());
 
-  QM_TRY_INSPECT(const auto& exists, MOZ_TO_RESULT_INVOKE(aFile, Exists));
+  QM_TRY_INSPECT(const auto& exists,
+                 MOZ_TO_RESULT_INVOKE_MEMBER(aFile, Exists));
 
   // DOM blobs that are being stored in IDB are cached by calling
   // IDBDatabase::GetOrCreateFileActorForBlob. So if the same DOM blob is stored
@@ -21750,17 +21762,18 @@ nsresult FileHelper::CreateFileFromStream(nsIFile& aFile, nsIFile& aJournalFile,
   // to just delete the orphaned file and start from scratch.
   // This corner case is partially simulated in test_file_copy_failure.js
   if (exists) {
-    QM_TRY_INSPECT(const auto& isFile, MOZ_TO_RESULT_INVOKE(aFile, IsFile));
+    QM_TRY_INSPECT(const auto& isFile,
+                   MOZ_TO_RESULT_INVOKE_MEMBER(aFile, IsFile));
 
     QM_TRY(OkIf(isFile), NS_ERROR_FAILURE);
 
     QM_TRY_INSPECT(const auto& journalExists,
-                   MOZ_TO_RESULT_INVOKE(aJournalFile, Exists));
+                   MOZ_TO_RESULT_INVOKE_MEMBER(aJournalFile, Exists));
 
     QM_TRY(OkIf(journalExists), NS_ERROR_FAILURE);
 
     QM_TRY_INSPECT(const auto& journalIsFile,
-                   MOZ_TO_RESULT_INVOKE(aJournalFile, IsFile));
+                   MOZ_TO_RESULT_INVOKE_MEMBER(aJournalFile, IsFile));
 
     QM_TRY(OkIf(journalIsFile), NS_ERROR_FAILURE);
 

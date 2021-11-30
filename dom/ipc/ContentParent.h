@@ -1703,8 +1703,6 @@ class ContentParent final
   uint8_t mIsInPool : 1;
   uint8_t mIsUsed : 1;
 
-  RefPtr<nsConsoleService> mConsoleService;
-  nsConsoleService* GetConsoleService();
   nsCOMPtr<nsIContentProcessInfo> mScriptableHelper;
 
   nsTArray<nsCOMPtr<nsIObserver>> mIdleListeners;

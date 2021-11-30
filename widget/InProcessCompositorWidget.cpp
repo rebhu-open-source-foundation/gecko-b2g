@@ -7,10 +7,6 @@
 #include "mozilla/VsyncDispatcher.h"
 #include "nsBaseWidget.h"
 
-#if defined(MOZ_WIDGET_ANDROID) && !defined(MOZ_WIDGET_SUPPORTS_OOP_COMPOSITING)
-#  include "mozilla/widget/AndroidCompositorWidget.h"
-#endif
-
 #if defined(MOZ_WIDGET_GONK) && !defined(MOZ_WIDGET_SUPPORTS_OOP_COMPOSITING)
 #  include "mozilla/widget/GonkCompositorWidget.h"
 #endif
@@ -31,9 +27,7 @@ RefPtr<CompositorWidget> CompositorWidget::CreateLocal(
   // do it after the static_cast.
   nsBaseWidget* widget = static_cast<nsBaseWidget*>(aWidget);
   MOZ_RELEASE_ASSERT(widget);
-#  ifdef MOZ_WIDGET_ANDROID
-  return new AndroidCompositorWidget(aOptions, widget);
-#elif defined(MOZ_WIDGET_GONK)
+#  if defined(MOZ_WIDGET_GONK)
   return new GonkCompositorWidget(aOptions, widget);
 #  else
   return new InProcessCompositorWidget(aOptions, widget);

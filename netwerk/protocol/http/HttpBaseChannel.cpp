@@ -5622,5 +5622,9 @@ void HttpBaseChannel::SetDummyChannelForImageCache() {
   mResponseHead = MakeUnique<nsHttpResponseHead>();
 }
 
+void HttpBaseChannel::SetConnectionInfo(nsHttpConnectionInfo* aCI) {
+  mConnectionInfo = aCI ? aCI->Clone() : nullptr;
+}
+
 }  // namespace net
 }  // namespace mozilla

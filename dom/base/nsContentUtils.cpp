@@ -10593,7 +10593,8 @@ nsContentUtils::GetSubresourceCacheValidationInfo(nsIRequest* aRequest,
     if (!aURI) {
       return false;
     }
-    if (aURI->SchemeIs("data")) {
+    if (aURI->SchemeIs("data") || aURI->SchemeIs("moz-page-thumb") ||
+        aURI->SchemeIs("moz-extension")) {
       return true;
     }
     if (dom::IsChromeURI(aURI)) {
