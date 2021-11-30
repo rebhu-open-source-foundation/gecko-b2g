@@ -86,7 +86,7 @@ int main(int argc, char* argv[], char* envp[]) {
   } else {
     // XXX: yes, the printf above says --profile and this execle uses -profile.
     // Bug 1088430 will change the execle to use --profile.
-#ifdef SIMULATOR
+#ifndef ENABLE_TOUCH_SUPPORT
     execle(full_path, full_path, "-profile", full_profile_path, "-type", "bartype", NULL, envp);
 #else
     execle(full_path, full_path, "-profile", full_profile_path, NULL, envp);

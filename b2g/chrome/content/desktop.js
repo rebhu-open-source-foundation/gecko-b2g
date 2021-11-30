@@ -122,8 +122,9 @@ window.addEventListener("systemappframeprepended", () => {
       systemAppFrame.style.height = "240px";
       break;
     default:
-      systemAppFrame.style.width = "360px";
-      systemAppFrame.style.height = "640px";
+      // FWVGA touch
+      systemAppFrame.style.width = "480px";
+      systemAppFrame.style.height = "854px";
       isKeypadEnabled = false;
   }
 

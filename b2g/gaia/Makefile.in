@@ -5,7 +5,7 @@ sinclude $(GAIADIR)/gaia.mk
 # As simulator_touch doesn't use PRODUCT_COPY_FILES during compiling
 # process, "gaia-icons.ttf" should be copied to the output directory
 # here.
-GAIA_ICONS_FILE ?= ./shared/elements/gaia-icons/fonts/gaia-icons.ttf
+GAIA_ICONS_FILE ?= ./shared/resources/gaia-icons-dist/fonts/gaia-icons.ttf
 GAIA_ICONS_PATH := $(GAIADIR)/$(GAIA_ICONS_FILE)
 
 sinclude $(B2G_DIR)/gecko/b2g/gaia/api-daemon.mk
