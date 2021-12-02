@@ -288,11 +288,6 @@ GonkGPSGeolocationProvider::NetworkLocationUpdate::Update(
 
   provider->InjectLocation(lat, lon, acc);
 
-  if (provider->mLocationCallback) {
-    LOG("Got network position");
-    provider->mLocationCallback->Update(position);
-  }
-
   return NS_OK;
 }
 
