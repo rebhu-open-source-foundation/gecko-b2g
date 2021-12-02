@@ -1331,5 +1331,11 @@ RefPtr<MemoryReportingProcess> GPUProcessManager::GetProcessMemoryReporter() {
   return new GPUMemoryReporter();
 }
 
+void GPUProcessManager::TestTriggerMetrics() {
+  if (!NS_WARN_IF(!mGPUChild)) {
+    mGPUChild->SendTestTriggerMetrics();
+  }
+}
+
 }  // namespace gfx
 }  // namespace mozilla

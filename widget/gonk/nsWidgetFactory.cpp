@@ -41,7 +41,6 @@ using namespace mozilla::widget;
 
 NS_GENERIC_FACTORY_SINGLETON_CONSTRUCTOR(ScreenManager,
                                          ScreenManager::GetAddRefedSingleton)
-NS_GENERIC_FACTORY_CONSTRUCTOR(PuppetScreenManager)
 NS_GENERIC_FACTORY_CONSTRUCTOR(nsHTMLFormatConverter)
 NS_GENERIC_FACTORY_SINGLETON_CONSTRUCTOR(nsIdleServiceGonk,
                                          nsIdleServiceGonk::GetInstance)
