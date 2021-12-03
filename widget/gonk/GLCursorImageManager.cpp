@@ -201,7 +201,7 @@ void GLCursorImageManager::PrepareCursorImage(nsCursor aCursor,
     ErrorResult rv;
     image->ClassList()->Add(u"b2g-cursor"_ns, rv);
     image->ClassList()->Add(GetCursorElementClassID(supportedCursor), rv);
-    cursorElementHolder = doc->InsertAnonymousContent(*image, rv);
+    cursorElementHolder = doc->InsertAnonymousContent(*image, /* aForce */ false, rv);
 
     if (cursorElementHolder) {
       dom::Element& element = cursorElementHolder->ContentNode();

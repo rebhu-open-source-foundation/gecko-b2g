@@ -79,6 +79,7 @@ struct OverlaySource {
   uint32_t[] strides;
   uint32_t[] offsets;
   YUVColorSpace yUVColorSpace;
+  ColorRange colorRange;
   FileDescriptor[] fence;
   uint32_t uid;
   FileDescriptor[] refCount;
