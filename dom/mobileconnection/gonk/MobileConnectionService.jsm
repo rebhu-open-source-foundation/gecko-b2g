@@ -2513,13 +2513,11 @@ MobileConnectionProvider.prototype = {
     }
     // If ImsReasonInfo object does not have a String error code, use a
     // Gecko default error string.
-    let errorMsg = aError.extraMessage ||
+    let errorMsg =
+      aError.extraMessage ||
       RIL.RIL_IMSCALL_FAILCAUSE_TO_GECKO_CALL_ERROR[aError.code];
 
-    this._dispatchNotifyError(
-      token.callback,
-      errorMsg
-    );
+    this._dispatchNotifyError(token.callback, errorMsg);
     delete this._tokenUtMap[aId];
   },
 
@@ -2663,13 +2661,11 @@ MobileConnectionProvider.prototype = {
     }
     // If ImsReasonInfo object does not have a String error code, use a
     // Gecko default error string.
-    let errorMsg = aError.extraMessage ||
+    let errorMsg =
+      aError.extraMessage ||
       RIL.RIL_IMSCALL_FAILCAUSE_TO_GECKO_CALL_ERROR[aError.code];
 
-    this._dispatchNotifyError(
-      token.callback,
-      errorMsg
-    );
+    this._dispatchNotifyError(token.callback, errorMsg);
   },
 
   // Helper functions
