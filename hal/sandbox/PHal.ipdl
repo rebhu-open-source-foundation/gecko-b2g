@@ -177,7 +177,7 @@ parent:
     async DisableScreenConfigurationNotifications();
     sync GetCurrentScreenConfiguration()
       returns (ScreenConfiguration aScreenConfiguration);
-    sync LockScreenOrientation(ScreenOrientation aOrientation)
+    async LockScreenOrientation(ScreenOrientation aOrientation)
       returns (bool allowed);
     async UnlockScreenOrientation();
     async EnableSwitchNotifications(SwitchDevice aDevice);
