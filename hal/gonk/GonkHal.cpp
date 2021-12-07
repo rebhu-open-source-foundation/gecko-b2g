@@ -290,7 +290,8 @@ class BatteryUpdater : public Runnable {
     char green_path[system::Property::VALUE_MAX_LENGTH];
 
     system::Property::Get("leds.red.brightness", red_path, LED_RED_BRIGHTNESS);
-    system::Property::Get("leds.red.brightness", green_path, LED_GREEN_BRIGHTNESS);
+    system::Property::Get("leds.red.brightness", green_path,
+                          LED_GREEN_BRIGHTNESS);
 
     if (info.charging() && (info.level() == 1)) {
       // Charging and battery full, it's green.
@@ -306,7 +307,6 @@ class BatteryUpdater : public Runnable {
       WriteSysFile(red_path, MINIMUM_BRIGHTNESS);
     }
 
-
     hal::NotifyBatteryChange(info);
 
     {
@@ -320,8 +320,7 @@ class BatteryUpdater : public Runnable {
       nsCOMPtr<nsIWritablePropertyBag2> propbag =
           do_CreateInstance("@mozilla.org/hash-property-bag;1");
       if (obsService && propbag) {
-        propbag->SetPropertyAsBool(u"charging"_ns,
-                                   info.charging());
+        propbag->SetPropertyAsBool(u"charging"_ns, info.charging());
         propbag->SetPropertyAsDouble(u"level"_ns, info.level());
 
         obsService->NotifyObservers(propbag, "gonkhal-battery-notifier",
@@ -910,19 +909,13 @@ void SetScreenEnabled(bool aEnabled) {
   sScreenEnabled = aEnabled;
 }
 
-bool
-GetExtScreenEnabled()
-{
-  return sExtScreenEnabled;
-}
+bool GetExtScreenEnabled() { return sExtScreenEnabled; }
 
-void
-SetExtScreenEnabled(bool aEnabled)
-{
+void SetExtScreenEnabled(bool aEnabled) {
   uint32_t screenId =
-    widget::ScreenHelperGonk::GetIdFromType(DisplayType::DISPLAY_EXTERNAL);
-  mozilla::gfx::VsyncSource::Display &display =
-    gfxPlatform::GetPlatform()->GetHardwareVsync()->GetDisplayById(screenId);
+      widget::ScreenHelperGonk::GetIdFromType(DisplayType::DISPLAY_EXTERNAL);
+  mozilla::gfx::VsyncSource::Display& display =
+      gfxPlatform::GetPlatform()->GetHardwareVsync()->GetDisplayById(screenId);
   SoftwareDisplay* softwareDisplay = display.AsSoftwareDisplay();
 
   if (!aEnabled && softwareDisplay) {
@@ -1094,35 +1087,26 @@ void DisableSystemTimezoneChangeNotifications() {}
 
 // Nothing to do here.  Gonk widgetry always listens for screen
 // orientation changes.
-void
-EnableScreenConfigurationNotifications()
-{
-}
+void EnableScreenConfigurationNotifications() {}
 
-void
-DisableScreenConfigurationNotifications()
-{
-}
+void DisableScreenConfigurationNotifications() {}
 
-void
-GetCurrentScreenConfiguration(hal::ScreenConfiguration* aScreenConfiguration)
-{
+void GetCurrentScreenConfiguration(
+    hal::ScreenConfiguration* aScreenConfiguration) {
   RefPtr<nsScreenGonk> screen = widget::ScreenHelperGonk::GetPrimaryScreen();
   *aScreenConfiguration = screen->GetConfiguration();
 }
 
-bool
-  LockScreenOrientation(const hal::ScreenOrientation& aOrientation)
-{
-  return OrientationObserver::GetInstance()->LockScreenOrientation(aOrientation);
+RefPtr<mozilla::MozPromise<bool, bool, false>> LockScreenOrientation(
+    const hal::ScreenOrientation& aOrientation) {
+  bool value =
+      OrientationObserver::GetInstance()->LockScreenOrientation(aOrientation);
+  return MozPromise<bool, bool, false>::CreateAndReject(value, __func__);
 }
 
-void
-UnlockScreenOrientation()
-{
+void UnlockScreenOrientation() {
   OrientationObserver::GetInstance()->UnlockScreenOrientation();
 }
-
 
 // This thread will wait for the alarm firing by a blocking IO.
 static pthread_t sAlarmFireWatcherThread;
@@ -1317,8 +1301,8 @@ class FlashlightListener : public BnCameraServiceListener {
     if (mTorchStatus != status) {
       hal::FlashlightInformation flashlightInfo;
       flashlightInfo.enabled() =
-        (status == ICameraServiceListener::TORCH_STATUS_AVAILABLE_ON) ? true
-                                                                      : false;
+          (status == ICameraServiceListener::TORCH_STATUS_AVAILABLE_ON) ? true
+                                                                        : false;
       flashlightInfo.present() = true;
       RefPtr<FlashlightStateEvent> runnable =
           new FlashlightStateEvent(flashlightInfo);
@@ -1344,10 +1328,9 @@ sp<IBinder> gBinder = nullptr;
 sp<hardware::ICameraService> gCameraService = nullptr;
 sp<FlashlightListener> gFlashlightListener = nullptr;
 
-static nsresult DispatchToIOThread(
-  already_AddRefed<nsIRunnable> aRunnable) {
+static nsresult DispatchToIOThread(already_AddRefed<nsIRunnable> aRunnable) {
   nsCOMPtr<nsIEventTarget> target =
-    do_GetService(NS_STREAMTRANSPORTSERVICE_CONTRACTID);
+      do_GetService(NS_STREAMTRANSPORTSERVICE_CONTRACTID);
   MOZ_ASSERT(target);
 
   nsCOMPtr<nsIRunnable> runnable(aRunnable);
@@ -1376,7 +1359,9 @@ static bool initCameraService() {
 bool GetFlashlightEnabled() {
   if (gFlashlightListener) {
     return (gFlashlightListener->getTorchStatus() ==
-      ICameraServiceListener::TORCH_STATUS_AVAILABLE_ON) ? true : false;
+            ICameraServiceListener::TORCH_STATUS_AVAILABLE_ON)
+               ? true
+               : false;
   } else {
     HAL_ERR("gFlashlightListener is not initialized yet!");
     return false;
@@ -1388,15 +1373,13 @@ void SetFlashlightEnabled(bool aEnabled) {
     // Dispatch to IO thread for avoiding dead lock occurred betwwen this
     // function and GonkCameraHardware::Connect in CameraService.
     DispatchToIOThread(NS_NewRunnableFunction(
-      "mozilla::hal_impl::SetFlashlightEnabled",
-      [=]() -> void {
-        Status res;
-        res = gCameraService->setTorchMode(String16("0"), aEnabled, gBinder);
-        if (!res.isOk()) {
-          HAL_ERR("Failed to get setTorchMode, early return!");
-        }
-      }
-    ));
+        "mozilla::hal_impl::SetFlashlightEnabled", [=]() -> void {
+          Status res;
+          res = gCameraService->setTorchMode(String16("0"), aEnabled, gBinder);
+          if (!res.isOk()) {
+            HAL_ERR("Failed to get setTorchMode, early return!");
+          }
+        }));
   } else {
     HAL_ERR("CameraService haven't initialized yet, return directly!");
   }
@@ -1408,7 +1391,9 @@ bool IsFlashlightPresent() {
     // invoked when flashlight unit is present. Otherwise mTorchStatus
     // will be default value.
     return (gFlashlightListener->getTorchStatus() !=
-      ICameraServiceListener::TORCH_STATUS_UNKNOWN) ? true : false;
+            ICameraServiceListener::TORCH_STATUS_UNKNOWN)
+               ? true
+               : false;
   } else {
     HAL_ERR("gFlashlightListener is not initialized yet!");
     return false;
@@ -1440,9 +1425,7 @@ void DisableFlashlightNotifications() {
   }
 }
 
-bool
-IsFlipOpened()
-{
+bool IsFlipOpened() {
   bool status;
   char propValue[PROPERTY_VALUE_MAX];
 
@@ -1457,30 +1440,20 @@ IsFlipOpened()
   return !status;
 }
 
-void
-NotifyFlipStateFromInputDevice(bool aFlipState)
-{
+void NotifyFlipStateFromInputDevice(bool aFlipState) {
   hal::UpdateFlipState(aFlipState);
 }
 
-void
-RequestCurrentFlipState()
-{
+void RequestCurrentFlipState() {
   bool flipState = IsFlipOpened();
   hal::UpdateFlipState(flipState);
 }
 
 // Main process receives notifications of flip state change from input device
 // directly.
-void
-EnableFlipNotifications()
-{
-}
+void EnableFlipNotifications() {}
 
-void
-DisableFlipNotifications()
-{
-}
+void DisableFlipNotifications() {}
 
 #if 0  // TODO: FIXME
 static int
