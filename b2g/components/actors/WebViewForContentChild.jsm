@@ -12,6 +12,7 @@ const { XPCOMUtils } = ChromeUtils.import(
 
 XPCOMUtils.defineLazyModuleGetters(this, {
   ContextMenuUtils: "resource://gre/modules/ContextMenuUtils.jsm",
+  ScreenshotUtils: "resource://gre/modules/ScreenshotUtils.jsm",
 });
 
 class WebViewForContentChild extends JSWindowActorChild {
@@ -62,6 +63,41 @@ class WebViewForContentChild extends JSWindowActorChild {
     }
   }
 
+  async getScreenshot(browser, event) {
+    let content = browser.contentWindow;
+    let eventName = event.detail.id;
+    const win = browser.ownerGlobal;
+    if (!content) {
+      browser.dispatchEvent(
+        new win.CustomEvent(eventName, {
+          success: false,
+        })
+      );
+      return;
+    }
+
+    let { maxWidth, maxHeight, mimeType } = event.detail;
+    let detail = { success: false };
+    try {
+      let blob = await ScreenshotUtils.getScreenshot(
+        content,
+        maxWidth,
+        maxHeight,
+        mimeType
+      );
+      detail = Cu.cloneInto(
+        {
+          detail: {
+            success: true,
+            result: blob,
+          },
+        },
+        win
+      );
+    } catch (e) {}
+    browser.dispatchEvent(new win.CustomEvent(eventName, detail));
+  }
+
   handleEvent(event) {
     const browser = this.browsingContext.embedderElement;
 
@@ -84,6 +120,10 @@ class WebViewForContentChild extends JSWindowActorChild {
       }
       case "webview-getbackgroundcolor": {
         this.getBackgroundColor(browser, event);
+        break;
+      }
+      case "webview-getscreenshot": {
+        this.getScreenshot(browser, event);
         break;
       }
       case "DOMMetaAdded":

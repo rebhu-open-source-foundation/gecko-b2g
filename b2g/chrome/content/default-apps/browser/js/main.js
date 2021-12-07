@@ -13,6 +13,7 @@ let commands = [
   "action-close",
   "action-get-bgcolor",
   "action-show-prompt",
+  "action-get-screenshot",
 ];
 
 function log(msg) {
@@ -42,6 +43,9 @@ class BrowserTab {
       .toggleAttribute("disabled", false);
     this.parentDocument
       .getElementById("action-show-prompt")
+      .toggleAttribute("disabled", false);
+    this.parentDocument
+      .getElementById("action-get-screenshot")
       .toggleAttribute("disabled", false);
     this.show();
   }
@@ -216,6 +220,20 @@ class BrowserTab {
     });
   }
 
+  getScreenshot() {
+    log(`get screenshot`);
+    this.webview.getScreenshot(100, 100, "image/jpeg").then(
+      blob => {
+        log(`got screenshot ${blob}`);
+        let imageUrl = URL.createObjectURL(blob);
+        this.parentDocument.querySelector("#tabs > .screenshot").src = imageUrl;
+      },
+      () => {
+        log(`got screenshot failed`);
+      }
+    );
+  }
+
   showPrompt() {
     let name = prompt("Please enter your name", "Default");
     console.log("showPrompt got name=" + name);
@@ -261,6 +279,10 @@ document.addEventListener(
 
     this.getBgColor = function() {
       activatedTab.getBgColor();
+    };
+
+    this.getScreenshot = function() {
+      activatedTab.getScreenshot();
     };
 
     this.showPrompt = function() {

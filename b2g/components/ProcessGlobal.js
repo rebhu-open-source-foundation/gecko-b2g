@@ -297,6 +297,7 @@ ProcessGlobal.prototype = {
             "webview-getbackgroundcolor": { capture: true },
             contextmenu: { mozSystemGroup: true },
             "webview-fire-ctx-callback": { capture: true },
+            "webview-getscreenshot": { capture: true },
           },
         },
         allFrames: true,
