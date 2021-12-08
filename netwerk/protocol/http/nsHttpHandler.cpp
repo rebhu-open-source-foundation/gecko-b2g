@@ -802,6 +802,10 @@ void nsHttpHandler::BuildUserAgent() {
     mUserAgent += mOscpu;
     mUserAgent.AppendLiteral("; ");
   }
+  // Add 'Touch' when dom.w3c_touch_events.enabled pref is set to 1.
+  if (StaticPrefs::dom_w3c_touch_events_enabled() == 1) {
+    mUserAgent.AppendLiteral("Touch; ");
+  }
   if (!mDeviceModelId.IsEmpty()) {
     mUserAgent += mDeviceModelId;
     mUserAgent.AppendLiteral("; ");
