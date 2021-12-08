@@ -1977,18 +1977,26 @@ NetworkManager.prototype = {
     ipAddresses.forEach(aIpAddress => {
       let gateway = this.selectGateway(gateways, aIpAddress);
       if (gateway) {
+        // For the clat 464 case.
+        let ifaceName = networkName;
+        if (aIpAddress.match(this.REGEXP_IPV4)) {
+          let clatIfaceLink = this.networkNat464Links[networkName];
+          ifaceName =
+            (clatIfaceLink != null && clatIfaceLink.nat464Iface) || networkName;
+        }
+
         promises.push(
           doAdd
             ? gNetworkService.modifyRoute(
                 Ci.nsINetworkService.MODIFY_ROUTE_ADD,
-                networkName,
+                ifaceName,
                 aIpAddress,
                 getMaxPrefixLength(aIpAddress),
                 gateway
               )
             : gNetworkService.modifyRoute(
                 Ci.nsINetworkService.MODIFY_ROUTE_REMOVE,
-                networkName,
+                ifaceName,
                 aIpAddress,
                 getMaxPrefixLength(aIpAddress),
                 gateway
