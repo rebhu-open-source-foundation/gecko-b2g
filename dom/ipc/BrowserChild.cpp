@@ -983,6 +983,7 @@ BrowserChild::ProvideWindow(nsIOpenWindowInfo* aOpenWindowInfo,
         detail.mName = aName;
         detail.mFeatures = NS_ConvertUTF8toUTF16(aFeatures);
         detail.mFrameElement = browserElement;
+        detail.mForceNoReferrer = aForceNoReferrer;
         AutoJSAPI jsapi;
         bool success = jsapi.Init(event->GetParentObject());
         if (!success) {

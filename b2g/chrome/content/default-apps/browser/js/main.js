@@ -101,7 +101,7 @@ class BrowserTab {
   }
 
   openWindow(aEvent) {
-    log("openWindow");
+    log(`openWindow noreferrer=${aEvent.detail.forceNoReferrer}`);
     tabs.push(
       new BrowserTab(
         activatedTab.parentDocument,
