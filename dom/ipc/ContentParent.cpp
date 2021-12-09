@@ -5659,22 +5659,16 @@ void ContentParent::NotifyUpdatedFonts(bool aFullRebuild) {
   }
 }
 
-PWebrtcGlobalParent* ContentParent::AllocPWebrtcGlobalParent() {
 #ifdef MOZ_WEBRTC
+PWebrtcGlobalParent* ContentParent::AllocPWebrtcGlobalParent() {
   return WebrtcGlobalParent::Alloc();
-#else
-  return nullptr;
-#endif
 }
 
 bool ContentParent::DeallocPWebrtcGlobalParent(PWebrtcGlobalParent* aActor) {
-#ifdef MOZ_WEBRTC
   WebrtcGlobalParent::Dealloc(static_cast<WebrtcGlobalParent*>(aActor));
   return true;
-#else
-  return false;
-#endif
 }
+#endif
 
 mozilla::ipc::IPCResult ContentParent::RecvSetOfflinePermission(
     const Principal& aPrincipal) {

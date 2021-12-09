@@ -108,9 +108,7 @@
 #include "nsIDragSession.h"
 #include "mozilla/dom/DataTransfer.h"
 #include "nsContentAreaDragDrop.h"
-#ifdef MOZ_XUL
-#  include "nsTreeBodyFrame.h"
-#endif
+#include "nsTreeBodyFrame.h"
 #include "nsIController.h"
 #include "mozilla/Services.h"
 #include "mozilla/dom/ContentParent.h"
@@ -3117,7 +3115,6 @@ void EventStateManager::DecideGestureEvent(WidgetGestureNotifyEvent* aEvent,
       break;
     }
 
-#ifdef MOZ_XUL
     // Special check for trees
     nsTreeBodyFrame* treeFrame = do_QueryFrame(current);
     if (treeFrame) {
@@ -3129,7 +3126,6 @@ void EventStateManager::DecideGestureEvent(WidgetGestureNotifyEvent* aEvent,
       }
       break;
     }
-#endif
 
     nsIScrollableFrame* scrollableFrame = do_QueryFrame(current);
     if (scrollableFrame) {

@@ -54,7 +54,9 @@ include protocol PVoicemail;
 include protocol PTestShell;
 include protocol PRemoteSpellcheckEngine;
 include protocol PWebBrowserPersistDocument;
+#ifdef MOZ_WEBRTC
 include protocol PWebrtcGlobal;
+#endif
 include protocol PWindowGlobal;
 include protocol PURLClassifier;
 include protocol PURLClassifierLocal;
@@ -679,7 +681,9 @@ sync protocol PContent
     manages PTestShell;
     manages PRemoteSpellcheckEngine;
     manages PWebBrowserPersistDocument;
+#ifdef MOZ_WEBRTC
     manages PWebrtcGlobal;
+#endif
     manages PURLClassifier;
     manages PURLClassifierLocal;
     manages PScriptCache;
@@ -1341,7 +1345,9 @@ parent:
     async PRSU();
 #endif
 
+#ifdef MOZ_WEBRTC
     async PWebrtcGlobal();
+#endif
 
     async CreateAudioIPCConnection() returns (FileDescOrError fd);
 

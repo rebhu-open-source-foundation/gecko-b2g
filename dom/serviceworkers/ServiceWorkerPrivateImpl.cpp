@@ -48,6 +48,7 @@
 #include "mozilla/dom/InternalHeaders.h"
 #include "mozilla/dom/InternalRequest.h"
 #include "mozilla/dom/ReferrerInfo.h"
+#include "mozilla/dom/RemoteType.h"
 #include "mozilla/dom/RemoteWorkerControllerChild.h"
 #include "mozilla/dom/RemoteWorkerManager.h"  // RemoteWorkerManager::GetRemoteType
 #include "mozilla/dom/ServiceWorkerBinding.h"
@@ -58,11 +59,34 @@
 #include "mozilla/net/CookieJarSettings.h"
 #include "mozilla/RemoteLazyInputStreamStorage.h"
 
+extern mozilla::LazyLogModule sWorkerTelemetryLog;
+
+#ifdef LOG
+#  undef LOG
+#endif
+#define LOG(_args) MOZ_LOG(sWorkerTelemetryLog, LogLevel::Debug, _args);
+
 namespace mozilla {
 
 using namespace ipc;
 
 namespace dom {
+
+uint32_t ServiceWorkerPrivateImpl::sRunningServiceWorkers = 0;
+uint32_t ServiceWorkerPrivateImpl::sRunningServiceWorkersFetch = 0;
+uint32_t ServiceWorkerPrivateImpl::sRunningServiceWorkersMax = 0;
+uint32_t ServiceWorkerPrivateImpl::sRunningServiceWorkersFetchMax = 0;
+
+/*static*/ void ServiceWorkerPrivateImpl::ReportRunning() {
+  if (sRunningServiceWorkers > 0) {
+    LOG(("ServiceWorkers running %d (%d Fetch)", sRunningServiceWorkers,
+         sRunningServiceWorkersFetch));
+  }
+  Telemetry::Accumulate(Telemetry::SERVICE_WORKER_RUNNING, "All"_ns,
+                        sRunningServiceWorkers);
+  Telemetry::Accumulate(Telemetry::SERVICE_WORKER_RUNNING, "Fetch"_ns,
+                        sRunningServiceWorkersFetch);
+}
 
 ServiceWorkerPrivateImpl::RAIIActorPtrHolder::RAIIActorPtrHolder(
     already_AddRefed<RemoteWorkerControllerChild> aActor)
@@ -248,6 +272,28 @@ nsresult ServiceWorkerPrivateImpl::Initialize() {
   return NS_OK;
 }
 
+void ServiceWorkerPrivateImpl::UpdateRunning(int32_t aDelta,
+                                             int32_t aFetchDelta) {
+  MOZ_ASSERT(((int64_t)sRunningServiceWorkers) + aDelta >= 0);
+  sRunningServiceWorkers += aDelta;
+  if (sRunningServiceWorkers > sRunningServiceWorkersMax) {
+    sRunningServiceWorkersMax = sRunningServiceWorkers;
+    LOG(("ServiceWorker max now %d", sRunningServiceWorkersMax));
+    Telemetry::ScalarSet(Telemetry::ScalarID::SERVICEWORKER_RUNNING_MAX,
+                         u"All"_ns, sRunningServiceWorkersMax);
+  }
+  MOZ_ASSERT(((int64_t)sRunningServiceWorkersFetch) + aFetchDelta >= 0);
+  sRunningServiceWorkersFetch += aFetchDelta;
+  if (sRunningServiceWorkersFetch > sRunningServiceWorkersFetchMax) {
+    sRunningServiceWorkersFetchMax = sRunningServiceWorkersFetch;
+    LOG(("ServiceWorker Fetch max now %d", sRunningServiceWorkersFetchMax));
+    Telemetry::ScalarSet(Telemetry::ScalarID::SERVICEWORKER_RUNNING_MAX,
+                         u"Fetch"_ns, sRunningServiceWorkersFetchMax);
+  }
+  LOG(("ServiceWorkers running now %d/%d", sRunningServiceWorkers,
+       sRunningServiceWorkersFetch));
+}
+
 RefPtr<GenericPromise> ServiceWorkerPrivateImpl::SetSkipWaitingFlag() {
   AssertIsOnMainThread();
   MOZ_ASSERT(mOuter);
@@ -353,7 +399,7 @@ nsresult ServiceWorkerPrivateImpl::SpawnWorkerIfNeeded() {
   }
 
   /**
-   * Manutally `AddRef()` because `DeallocPRemoteWorkerControllerChild()`
+   * Manually `AddRef()` because `DeallocPRemoteWorkerControllerChild()`
    * calls `Release()` and the `AllocPRemoteWorkerControllerChild()` function
    * is not called.
    */
@@ -361,6 +407,11 @@ nsresult ServiceWorkerPrivateImpl::SpawnWorkerIfNeeded() {
   controllerChild.get()->AddRef();
 
   mControllerChild = new RAIIActorPtrHolder(controllerChild.forget());
+
+  // Update Running count here because we may Terminate before we get
+  // CreationSucceeded().  We'll update if it handles Fetch if that changes
+  // (
+  UpdateRunning(1, mHandlesFetch == Enabled ? 1 : 0);
 
   return NS_OK;
 }
@@ -438,6 +489,15 @@ nsresult ServiceWorkerPrivateImpl::CheckScriptEvaluation(
           if (result.workerScriptExecutedSuccessfully()) {
             if (self->mOuter) {
               self->mOuter->SetHandlesFetch(result.fetchHandlerWasAdded());
+              if (self->mHandlesFetch == Unknown) {
+                self->mHandlesFetch =
+                    result.fetchHandlerWasAdded() ? Enabled : Disabled;
+                // Update telemetry for # of running SW - the already-running SW
+                // handles fetch
+                if (self->mHandlesFetch == Enabled) {
+                  self->UpdateRunning(0, 1);
+                }
+              }
             }
 
             Unused << NS_WARN_IF(!self->mOuter);
@@ -1106,6 +1166,9 @@ RefPtr<GenericNonExclusivePromise> ServiceWorkerPrivateImpl::ShutdownInternal(
    */
   mControllerChild = nullptr;
 
+  // Update here, since Evaluation failures directly call ShutdownInternal
+  UpdateRunning(-1, mHandlesFetch == Enabled ? -1 : 0);
+
   return promise;
 }
 
@@ -1152,8 +1215,15 @@ void ServiceWorkerPrivateImpl::CreationFailed() {
   MOZ_ASSERT(mOuter);
   MOZ_ASSERT(mControllerChild);
 
-  Telemetry::AccumulateTimeDelta(Telemetry::SERVICE_WORKER_LAUNCH_TIME_2,
-                                 mServiceWorkerLaunchTimeStart);
+  if (mRemoteWorkerData.remoteType().Find(SERVICEWORKER_REMOTE_TYPE) !=
+      kNotFound) {
+    Telemetry::AccumulateTimeDelta(
+        Telemetry::SERVICE_WORKER_ISOLATED_LAUNCH_TIME,
+        mServiceWorkerLaunchTimeStart);
+  } else {
+    Telemetry::AccumulateTimeDelta(Telemetry::SERVICE_WORKER_LAUNCH_TIME_2,
+                                   mServiceWorkerLaunchTimeStart);
+  }
 
   Shutdown();
 }
@@ -1164,10 +1234,38 @@ void ServiceWorkerPrivateImpl::CreationSucceeded() {
   MOZ_ASSERT(mOuter);
   MOZ_ASSERT(mControllerChild);
 
-  Telemetry::AccumulateTimeDelta(Telemetry::SERVICE_WORKER_LAUNCH_TIME_2,
-                                 mServiceWorkerLaunchTimeStart);
+  if (mRemoteWorkerData.remoteType().Find(SERVICEWORKER_REMOTE_TYPE) !=
+      kNotFound) {
+    Telemetry::AccumulateTimeDelta(
+        Telemetry::SERVICE_WORKER_ISOLATED_LAUNCH_TIME,
+        mServiceWorkerLaunchTimeStart);
+  } else {
+    Telemetry::AccumulateTimeDelta(Telemetry::SERVICE_WORKER_LAUNCH_TIME_2,
+                                   mServiceWorkerLaunchTimeStart);
+  }
 
   mOuter->RenewKeepAliveToken(ServiceWorkerPrivate::WakeUpReason::Unknown);
+
+  RefPtr<ServiceWorkerManager> swm = ServiceWorkerManager::GetInstance();
+  nsCOMPtr<nsIPrincipal> principal = mOuter->mInfo->Principal();
+  RefPtr<ServiceWorkerRegistrationInfo> regInfo =
+      swm->GetRegistration(principal, mOuter->mInfo->Scope());
+  if (regInfo) {
+    // If it's already set, we're done and the running count is already set
+    if (mHandlesFetch == Unknown) {
+      if (regInfo->GetActive()) {
+        mHandlesFetch =
+            regInfo->GetActive()->HandlesFetch() ? Enabled : Disabled;
+        if (mHandlesFetch == Enabled) {
+          UpdateRunning(0, 1);
+        }
+      }
+      // else we're likely still in Evaluating state, and don't know if it
+      // handles fetch.  If so, defer updating the counter for Fetch until we
+      // finish evaluation.  We already updated the Running count for All in
+      // SpawnWorkerIfNeeded().
+    }
+  }
 }
 
 void ServiceWorkerPrivateImpl::ErrorReceived(const ErrorValue& aError) {

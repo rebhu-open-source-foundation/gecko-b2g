@@ -311,10 +311,8 @@
 #include "xpcprivate.h"
 #include "xpcpublic.h"
 
-#ifdef MOZ_XUL
-#  include "nsIDOMXULControlElement.h"
-#  include "nsMenuPopupFrame.h"
-#endif
+#include "nsIDOMXULControlElement.h"
+#include "nsMenuPopupFrame.h"
 
 #ifdef NS_PRINTING
 #  include "nsIPrintSettings.h"
@@ -7189,7 +7187,6 @@ void nsGlobalWindowInner::SetBrowserDOMWindow(
 
 void nsGlobalWindowInner::NotifyDefaultButtonLoaded(Element& aDefaultButton,
                                                     ErrorResult& aError) {
-#ifdef MOZ_XUL
   // Don't snap to a disabled button.
   nsCOMPtr<nsIDOMXULControlElement> xulControl = aDefaultButton.AsXULControl();
   if (!xulControl) {
@@ -7226,9 +7223,6 @@ void nsGlobalWindowInner::NotifyDefaultButtonLoaded(Element& aDefaultButton,
   if (NS_FAILED(rv) && rv != NS_ERROR_NOT_IMPLEMENTED) {
     aError.Throw(rv);
   }
-#else
-  aError.Throw(NS_ERROR_NOT_IMPLEMENTED);
-#endif
 }
 
 ChromeMessageBroadcaster* nsGlobalWindowInner::MessageManager() {

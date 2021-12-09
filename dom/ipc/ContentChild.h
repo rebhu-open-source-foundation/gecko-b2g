@@ -551,9 +551,10 @@ class ContentChild final : public PContentChild,
 
   void GetAvailableDictionaries(nsTArray<nsCString>& aDictionaries);
 
+#ifdef MOZ_WEBRTC
   PWebrtcGlobalChild* AllocPWebrtcGlobalChild();
-
   bool DeallocPWebrtcGlobalChild(PWebrtcGlobalChild* aActor);
+#endif
 
   PContentPermissionRequestChild* AllocPContentPermissionRequestChild(
       const nsTArray<PermissionRequest>& aRequests,
