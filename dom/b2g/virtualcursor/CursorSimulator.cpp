@@ -485,7 +485,13 @@ nsresult CursorSimulator::Notify(nsITimer* aTimer) {
   double width, height;
   if (StaticPrefs::dom_meta_viewport_enabled()) {
     RefPtr<Document> doc = mOuterWindow->GetExtantDoc();
+    if (!doc) {
+      return NS_OK;
+    }
     PresShell* presShell = doc->GetPresShell();
+    if (!presShell) {
+      return NS_OK;
+    }
     width = nsPresContext::AppUnitsToIntCSSPixels(presShell->GetVisualViewportSize().width);
     height = nsPresContext::AppUnitsToIntCSSPixels(presShell->GetVisualViewportSize().height);
   } else {
