@@ -44,19 +44,10 @@ if CONFIG["MOZ_B2G_CAMERA"]:
     ]
 
     if CONFIG["MOZ_WIDGET_TOOLKIT"] == "gonk":
-        OS_LIBS += [
-            "camera_client",
-            "media",
-        ]
-
-    if CONFIG["MOZ_WIDGET_TOOLKIT"] == "gonk":
         UNIFIED_SOURCES += [
             "GonkCameraSource.cpp",
             "GonkMediaBuffer.cpp",
             "GonkRecorder.cpp",
-        ]
-        OS_LIBS += [
-            "stagefright_foundation",
         ]
     else:
         UNIFIED_SOURCES += [

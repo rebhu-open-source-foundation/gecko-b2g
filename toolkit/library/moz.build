@@ -127,6 +127,7 @@ def Libxul(name, output_category=None):
             "audioclient",
             "base",
             "binder",
+            "camera_client",
             "cutils",
             "dl",
             "fmq",
@@ -138,10 +139,14 @@ def Libxul(name, output_category=None):
             "hidltransport",
             "hwbinder",
             "log",
+            "media",
             "media_helper",
             "mtp",
             "nativewindow",
             "netdbpf",
+            "stagefright",
+            "stagefright_foundation",
+            "stagefright_omx",
             "stdc++",
             "suspend",
             "sync",
@@ -325,12 +330,6 @@ if CONFIG["OS_ARCH"] == "WINNT":
         "ole32",
         "version",
         "winspool",
-    ]
-
-if CONFIG["MOZ_B2G_CAMERA"] and CONFIG["MOZ_WIDGET_TOOLKIT"] == "gonk":
-    OS_LIBS += [
-        "stagefright",
-        "stagefright_omx",
     ]
 
 if CONFIG["OS_ARCH"] == "Linux" and CONFIG["OS_TARGET"] != "Android":
