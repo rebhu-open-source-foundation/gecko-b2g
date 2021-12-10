@@ -82,6 +82,7 @@ All events are CustomEvents, with an event payload specific to each type.
   - dispatched when the recording status of this page is updated. `detail.audio` is true when the page is capturing audio through `MediaDevices.getUserMedia()` or recording audio through camera API. Same goes for `detail.video`.
 - `resize` : `{ width: int, height: int}`
 - `scroll` : `{ top: int, left: int}`
+- `scrollareachanged` : `{ width: int, height: int}`
 - `securitychange` : `{ state: string, mixedState: string, extendedValidation: boolean, mixedContent: boolean }`
 - `showmodalprompt` : `{ type: string, detail: {} }`
   - `type` : A custom event named `showmodalprompt`.

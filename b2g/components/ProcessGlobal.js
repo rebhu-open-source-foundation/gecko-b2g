@@ -294,6 +294,8 @@ ProcessGlobal.prototype = {
             DOMMetaAdded: { capture: true },
             DOMMetaChanged: { capture: true },
             DOMMetaRemoved: { capture: true },
+            scroll: { capture: true },
+            MozScrolledAreaChanged: { capture: true },
             "webview-getbackgroundcolor": { capture: true },
             contextmenu: { mozSystemGroup: true },
             "webview-fire-ctx-callback": { capture: true },

@@ -96,6 +96,12 @@ WebViewChild.prototype = {
       this.scrollEventHandler.bind(this),
       /* useCapture = */ false
     );
+    els.addSystemEventListener(
+      global,
+      "MozScrolledAreaChanged",
+      this.scrollAreaChangedEventHandler.bind(this),
+      /* useCapture = */ false
+    );
 
     debugEvents(global, els);
 
@@ -623,6 +629,18 @@ WebViewChild.prototype = {
     this.global.sendAsyncMessage("WebView::scroll", {
       top: win.scrollY,
       left: win.scrollX,
+    });
+  },
+
+  scrollAreaChangedEventHandler(event) {
+    let doc = event.target;
+    if (doc != this.global.content.document || event.defaultPrevented) {
+      return;
+    }
+
+    this.global.sendAsyncMessage("WebView::scrollareachanged", {
+      width: event.width,
+      height: event.height,
     });
   },
 

@@ -14,6 +14,7 @@ let commands = [
   "action-get-bgcolor",
   "action-show-prompt",
   "action-get-screenshot",
+  "action-resize",
 ];
 
 function log(msg) {
@@ -47,6 +48,9 @@ class BrowserTab {
     this.parentDocument
       .getElementById("action-get-screenshot")
       .toggleAttribute("disabled", false);
+    this.parentDocument
+      .getElementById("action-resize")
+      .toggleAttribute("disabled", false);
     this.show();
   }
 
@@ -65,6 +69,8 @@ class BrowserTab {
     this.webview.addEventListener("loadstart", this.updateLoadState);
     this.webview.addEventListener("loadend", this.updateLoadState);
     this.webview.addEventListener("contextmenu", this.showContextMenu);
+    this.webview.addEventListener("scroll", this.updateScrollState);
+    this.webview.addEventListener("scrollareachanged", this.updateScrollArea);
 
     this.parentDocument.getElementById("url").value = this.webview.src;
     this.parentDocument
@@ -91,6 +97,11 @@ class BrowserTab {
     this.webview.removeEventListener("loadstart", this.updateLoadState);
     this.webview.removeEventListener("loadend", this.updateLoadState);
     this.webview.removeEventListener("contextmenu", this.showContextMenu);
+    this.webview.removeEventListener("scroll", this.updateScrollState);
+    this.webview.removeEventListener(
+      "scrollareachanged",
+      this.updateScrollArea
+    );
 
     this.parentDocument.getElementById("url").value = "";
     this.parentDocument
@@ -189,6 +200,14 @@ class BrowserTab {
     }
   }
 
+  updateScrollState(aEvent) {
+    log(`scroll ${aEvent.detail.top} ${aEvent.detail.left}`);
+  }
+
+  updateScrollArea(aEvent) {
+    log(`scrollareachanged ${aEvent.detail.width} ${aEvent.detail.height}`);
+  }
+
   go() {
     log("go " + this.parentDocument.getElementById("url").value);
     this.webview.src = this.parentDocument.getElementById("url").value;
@@ -237,6 +256,12 @@ class BrowserTab {
   showPrompt() {
     let name = prompt("Please enter your name", "Default");
     console.log("showPrompt got name=" + name);
+  }
+
+  resizeWebView() {
+    let rect = this.webview.getBoundingClientRect();
+    this.webview.style.width = rect.width * 0.9 + "px";
+    this.webview.style.height = rect.height * 0.9 + "px";
   }
 }
 
@@ -287,6 +312,10 @@ document.addEventListener(
 
     this.showPrompt = function() {
       activatedTab.showPrompt();
+    };
+
+    this.resizeWebView = function() {
+      activatedTab.resizeWebView();
     };
 
     // Binding Actions

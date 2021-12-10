@@ -148,6 +148,14 @@ class WebViewForContentChild extends JSWindowActorChild {
         );
         break;
       }
+      case "scroll": {
+        this.handleScroll(event);
+        break;
+      }
+      case "MozScrolledAreaChanged": {
+        this.handleScrollAreaChanged(event);
+        break;
+      }
     }
   }
 
@@ -211,6 +219,52 @@ class WebViewForContentChild extends JSWindowActorChild {
         handlers[token](event);
       }
     }, this);
+  }
+
+  handleScroll(event) {
+    let doc = event.target;
+    const browser = this.browsingContext.embedderElement;
+    if (doc != this.contentWindow.document || event.defaultPrevented) {
+      return;
+    }
+    const win = browser.ownerGlobal;
+    browser?.dispatchEvent(
+      new win.CustomEvent(
+        "scroll",
+        Cu.cloneInto(
+          {
+            detail: {
+              top: doc.ownerGlobal.scrollY,
+              left: doc.ownerGlobal.scrollX,
+            },
+          },
+          win
+        )
+      )
+    );
+  }
+
+  handleScrollAreaChanged(event) {
+    let doc = event.target;
+    const browser = this.browsingContext.embedderElement;
+    if (doc != this.contentWindow.document || event.defaultPrevented) {
+      return;
+    }
+    const win = browser.ownerGlobal;
+    browser?.dispatchEvent(
+      new win.CustomEvent(
+        "scrollareachanged",
+        Cu.cloneInto(
+          {
+            detail: {
+              height: event.height,
+              width: event.width,
+            },
+          },
+          win
+        )
+      )
+    );
   }
 
   maybeCopyAttribute(src, target, attribute) {
