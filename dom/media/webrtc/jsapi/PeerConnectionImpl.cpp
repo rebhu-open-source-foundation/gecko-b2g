@@ -2041,7 +2041,8 @@ bool PeerConnectionImpl::PluginCrash(uint32_t aPluginID,
   event->SetTrusted(true);
   event->WidgetEventPtr()->mFlags.mOnlyChromeDispatch = true;
 
-  EventDispatcher::DispatchDOMEvent(mWindow, nullptr, event, nullptr, nullptr);
+  nsCOMPtr<nsPIDOMWindowInner> window = mWindow;
+  EventDispatcher::DispatchDOMEvent(window, nullptr, event, nullptr, nullptr);
 
   return true;
 }

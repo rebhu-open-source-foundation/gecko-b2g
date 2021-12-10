@@ -2572,8 +2572,8 @@ nsresult nsContentUtils::GetInclusiveAncestors(nsINode* aNode,
 
 // static
 nsresult nsContentUtils::GetInclusiveAncestorsAndOffsets(
-    nsINode* aNode, int32_t aOffset, nsTArray<nsIContent*>* aAncestorNodes,
-    nsTArray<int32_t>* aAncestorOffsets) {
+    nsINode* aNode, uint32_t aOffset, nsTArray<nsIContent*>* aAncestorNodes,
+    nsTArray<Maybe<uint32_t>>* aAncestorOffsets) {
   NS_ENSURE_ARG_POINTER(aNode);
 
   if (!aNode->IsContent()) {
@@ -2593,14 +2593,14 @@ nsresult nsContentUtils::GetInclusiveAncestorsAndOffsets(
 
   // insert the node itself
   aAncestorNodes->AppendElement(content);
-  aAncestorOffsets->AppendElement(aOffset);
+  aAncestorOffsets->AppendElement(Some(aOffset));
 
   // insert all the ancestors
   nsIContent* child = content;
   nsIContent* parent = child->GetParent();
   while (parent) {
     aAncestorNodes->AppendElement(parent);
-    aAncestorOffsets->AppendElement(parent->ComputeIndexOf_Deprecated(child));
+    aAncestorOffsets->AppendElement(parent->ComputeIndexOf(child));
     child = parent;
     parent = parent->GetParent();
   }
