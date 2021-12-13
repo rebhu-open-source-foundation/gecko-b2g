@@ -4948,20 +4948,19 @@ RadioInterface.prototype = {
       return;
     }
 
-    let efId = aRefreshResult.efId;
-    if (!efId) {
-      if (DEBUG) {
-        this.debug("efId null.");
-      }
-      return;
-    }
-
     switch (aRefreshResult.type) {
       case RIL.SIM_FILE_UPDATE:
         if (DEBUG) {
           this.debug("handleSimRefresh with SIM_FILE_UPDATED");
         }
-        simRecord.handleFileUpdate(efId);
+        simRecord.handleFileUpdate(aRefreshResult.efId);
+        break;
+      case RIL.SIM_INIT:
+      case RIL.SIM_RESET:
+        if (DEBUG) {
+          this.debug("handleSimRefresh with SIM_FILE_INIT or SIM_FILE_RESET");
+        }
+        this.sendRilRequest("getICCStatus", null);
         break;
       default:
         if (DEBUG) {
