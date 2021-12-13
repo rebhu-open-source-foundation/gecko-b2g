@@ -32,21 +32,11 @@ class PromptParent extends JSWindowActorParent {
       case "Prompt:Open": {
         let evt = new window.CustomEvent("showmodalprompt", { detail: args });
         let promise = new Promise(resolve => {
-          function sendUnblockMsg() {
-            evt.detail.value =
-              evt.detail.returnValue === undefined
-                ? null
-                : evt.detail.returnValue;
-            evt.detail.ok = ["confirm", "confirmCheck"].includes(
-              evt.detail.promptType
-            )
-              ? evt.detail.value
-              : true;
-            let ret = JSON.parse(JSON.stringify(evt.detail));
+          function sendUnblockMsg(returnValue) {
             this.log(
-              `sendUnblockMsg evt.detail: ${JSON.stringify(evt.detail)}`
+              `sendUnblockMsg returnValue: ${JSON.stringify(returnValue)}`
             );
-            resolve(ret);
+            resolve(JSON.parse(JSON.stringify(returnValue)));
           }
           Cu.exportFunction(sendUnblockMsg.bind(this), evt.detail, {
             defineAs: "unblock",

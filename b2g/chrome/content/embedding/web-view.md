@@ -89,21 +89,38 @@ All events are CustomEvents, with an event payload specific to each type.
     - `promptType` : string type, refer to `Prompter.jsm`, value could be `alert`, `alertCheck`, `confirm`, `confirmCheck`, `prompt`
     - `title` : string type, title of dialog.
     - `text` : string type, text context in dialog.
-    - `unblock` : function, app need to call this function to unblock waiting response after `returnValue` is set. 
-    - `returnValue` : type depends on promptType. app need to fill value correspondingly.
-      +----------------------------+-------------------------------------------------+
-      | prompType                  | returnValue                                     |
-      +============================+=================================================+
-      | `alert`                    | N/A                                             |
-      +----------------------------+-------------------------------------------------+
-      | `alertCheck`               | N/A                                             |
-      +----------------------------+-------------------------------------------------+
-      | `confirm`                  | boolean: true for `OK`, false for `Cancel`.     |
-      +----------------------------+-------------------------------------------------+
-      | `confirmCheck`             | boolean: true for `OK`, false for `Cancel`.     |
-      +----------------------------+-------------------------------------------------+
-      | `prompt`                   | string: user input string.                      |
-      +----------------------------+-------------------------------------------------+
+    - `unblock(returnValue)` : function, app need to call this function to unblock waiting response after `returnValue` is set.
+                               App will set checkState if dialog has checkbox.
+      - `returnValue` : object of event.detail and app fill in dialog response including checkbox and if `OK` or `Cancel` clicked.
+      +----------------------------+------------------------------------------------------------------------------+
+      | prompType                  | value in returnValue should be filled.                                       |
+      +============================+==============================================================================+
+      | `alert`                    | N/A                                                                          |
+      +----------------------------+------------------------------------------------------------------------------+
+      | `alertCheck`               | boolean: `returnValue.checked` represent checkBox's state.                   |
+      +----------------------------+------------------------------------------------------------------------------+
+      | `confirm`                  | boolean: `returnValue.ok` true for `OK`, false for `Cancel`.                 |
+      +----------------------------+------------------------------------------------------------------------------+
+      | `confirmCheck`             | boolean: `returnValue.ok` true for `OK`, false for `Cancel`.                 |
+      |                            | boolean: `returnValue.checked` represent checkBox's state.                   |
+      +----------------------------+------------------------------------------------------------------------------+
+      | `confirmEx`                | boolean: `returnValue.checked` represent checkBox's state.                   |
+      |                            | int: `returnValue.buttonNumClicked` index of button pressed. 0-2, default 0. |
+      +----------------------------+------------------------------------------------------------------------------+
+      | `prompt`                   | boolean: `returnValue.ok` true for `OK`, false for `Cancel`.                 |
+      |                            | boolean: `returnValue.checked` represent checkBox's state.                   |
+      |                            | string: `returnValue.value` user input string.                               |
+      +----------------------------+------------------------------------------------------------------------------+
+      | `promptUsernameAndPassword`| boolean: `returnValue.ok` true for `OK`, false for `Cancel`.                 |
+      |                            | string: `returnValue.user` user input string.                                |
+      |                            | string: `returnValue.pass` user input string.                                |
+      +----------------------------+------------------------------------------------------------------------------+
+      | `promptPassword`           | boolean: `returnValue.ok` true for `OK`, false for `Cancel`.                 |
+      |                            | string: `returnValue.pass` user input string.                                |
+      +----------------------------+------------------------------------------------------------------------------+
+      | `select`                   | boolean: `returnValue.ok` true for `OK`, false for `Cancel`.                 |
+      |                            | int: `returnValue.selected` index of item been selected.                     |
+      +----------------------------+------------------------------------------------------------------------------+
 
 - `titlechange` : `{ title: string }`
 - `visibilitychange` : `{ visible: boolean }`
