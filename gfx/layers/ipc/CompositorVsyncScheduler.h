@@ -159,6 +159,9 @@ class CompositorVsyncScheduler {
 #endif
 
   class Observer final : public VsyncObserver {
+    NS_INLINE_DECL_THREADSAFE_REFCOUNTING(CompositorVsyncScheduler::Observer,
+                                          override)
+
    public:
     explicit Observer(CompositorVsyncScheduler* aOwner);
     bool NotifyVsync(const VsyncEvent& aVsync) override;
