@@ -5,6 +5,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "mozilla/dom/AnimationFrameProvider.h"
+#include "mozilla/dom/AnimationFrameProviderBinding.h"
 #include "nsThreadUtils.h"
 
 namespace mozilla::dom {

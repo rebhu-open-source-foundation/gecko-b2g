@@ -40,6 +40,7 @@
 #include "mozilla/TaskCategory.h"
 #include "mozilla/UniquePtr.h"
 #include "mozilla/Unused.h"
+#include "mozilla/dom/AnimationFrameProviderBinding.h"
 #include "mozilla/dom/AutoEntryScript.h"
 #include "mozilla/ipc/BackgroundChild.h"
 #include "mozilla/dom/BindingDeclarations.h"

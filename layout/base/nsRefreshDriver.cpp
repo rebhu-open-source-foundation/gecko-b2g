@@ -51,6 +51,7 @@
 #include "nsContentUtils.h"
 #include "mozilla/PendingAnimationTracker.h"
 #include "mozilla/PendingFullscreenEvent.h"
+#include "mozilla/dom/AnimationFrameProviderBinding.h"
 #include "mozilla/dom/PerformanceMainThread.h"
 #include "mozilla/Preferences.h"
 #include "mozilla/StaticPrefs_apz.h"

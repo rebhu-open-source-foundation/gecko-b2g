@@ -7,12 +7,13 @@
 #ifndef mozilla_dom_AnimationFrameProvider_h
 #define mozilla_dom_AnimationFrameProvider_h
 
-#include "mozilla/dom/AnimationFrameProviderBinding.h"
 #include "mozilla/HashTable.h"
 #include "mozilla/RefPtr.h"
 #include "nsTArray.h"
 
 namespace mozilla::dom {
+
+class FrameRequestCallback;
 
 struct FrameRequest {
   FrameRequest(FrameRequestCallback& aCallback, int32_t aHandle);
