@@ -14,6 +14,7 @@ dictionary OpenWindowEventDetail {
   DOMString features = "";
   Node? frameElement = null;
   boolean forceNoReferrer = false;
+  boolean forceNoOpener = false;
 };
 
 [GenerateConversionToJS]
