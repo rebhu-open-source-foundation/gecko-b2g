@@ -3323,7 +3323,7 @@
   value: false
   mirror: always
 
-- name: dom.securecontext.whitelist_onions
+- name: dom.securecontext.allowlist_onions
   type: bool
   value: false
   mirror: always
@@ -4593,7 +4593,7 @@
 # if fission is enabled by default.
 - name: fission.autostart
   type: bool
-  value: false
+  value: @IS_NOT_ANDROID@
   mirror: never
 
 # Prefs used by normandy to orchestrate the fission experiment. For more
@@ -7382,7 +7382,7 @@
 # Is support for d property for SVG path element?
 - name: layout.css.d-property.enabled
   type: bool
-  value: @IS_NIGHTLY_BUILD@
+  value: true
   mirror: always
 
 # Are we emulating -moz-{inline}-box layout using CSS flexbox?
@@ -10138,7 +10138,7 @@
 
 - name: network.proxy.parse_pac_on_socket_process
   type: RelaxedAtomicBool
-  value: false
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 - name: network.proxy.detect_system_proxy_changes
