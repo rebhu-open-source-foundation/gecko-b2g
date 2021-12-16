@@ -2026,6 +2026,7 @@ class ExtensionAPIEventOp final : public ServiceWorkerOp {
     case ServiceWorkerOpArgs::TServiceWorkerSystemMessageEventOpArgs:
       op = MakeRefPtr<SystemMessageEventOp>(std::move(aArgs),
                                             std::move(aCallback));
+      break;
     case ServiceWorkerOpArgs::TServiceWorkerExtensionAPIEventOpArgs:
       op = MakeRefPtr<ExtensionAPIEventOp>(std::move(aArgs),
                                            std::move(aCallback));
