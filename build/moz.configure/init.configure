@@ -1031,7 +1031,7 @@ def version_path(path):
 def milestone(build_env, build_project, version_path, _):
     versions = []
     paths = ["config/milestone.txt"]
-    if build_project == "js":
+    if build_project == "js" or build_project == "b2g":
         paths = paths * 3
     else:
         paths += [
