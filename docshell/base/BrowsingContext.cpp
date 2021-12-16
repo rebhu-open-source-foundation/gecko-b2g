@@ -1232,16 +1232,23 @@ BrowsingContext* BrowsingContext::FindWithSpecialName(
     return this;
   }
 
+  // When finding _parent/_top, we should only iterate the descendants of a
+  // web-view or a nested web-view. So we stop finding and return the BC if
+  // current BC is the top content of a nested web-view.
   if (aName.LowerCaseEqualsLiteral("_parent")) {
-    if (BrowsingContext* parent = GetParent()) {
-      return aRequestingContext.CanAccess(parent) ? parent : nullptr;
+    if (!GetIsTopOfNestedWebView()) {
+      if (BrowsingContext* parent = GetParent()) {
+        return aRequestingContext.CanAccess(parent) ? parent : nullptr;
+      }
     }
     return this;
   }
 
   if (aName.LowerCaseEqualsLiteral("_top")) {
-    BrowsingContext* top = Top();
-
+    BrowsingContext* top = this;
+    while (top->mParentWindow && !top->GetIsTopOfNestedWebView()) {
+      top = top->GetParent();
+    }
     return aRequestingContext.CanAccess(top) ? top : nullptr;
   }
 
