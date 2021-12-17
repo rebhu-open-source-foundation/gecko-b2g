@@ -858,7 +858,7 @@ NS_IMPL_ISUPPORTS(MediaDevice, nsIMediaDevice)
 
 MediaDevice::MediaDevice(const RefPtr<MediaEngineSource>& aSource,
                          const nsString& aName, const nsString& aID,
-                         const nsString& aGroupID, const nsString& aRawID)
+                         const nsString& aGroupID)
     : mSource(aSource),
       mSinkInfo(nullptr),
       mKind((mSource && MediaEngineSource::IsVideo(mSource->GetMediaSource()))
@@ -871,14 +871,12 @@ MediaDevice::MediaDevice(const RefPtr<MediaEngineSource>& aSource,
       mName(aName),
       mID(aID),
       mGroupID(aGroupID),
-      mRawID(aRawID),
       mRawName(aName) {
   MOZ_ASSERT(mSource);
 }
 
 MediaDevice::MediaDevice(const RefPtr<AudioDeviceInfo>& aAudioDeviceInfo,
-                         const nsString& aID, const nsString& aGroupID,
-                         const nsString& aRawID)
+                         const nsString& aID, const nsString& aGroupID)
     : mSource(nullptr),
       mSinkInfo(aAudioDeviceInfo),
       mKind(mSinkInfo->Type() == AudioDeviceInfo::TYPE_INPUT
@@ -891,7 +889,6 @@ MediaDevice::MediaDevice(const RefPtr<AudioDeviceInfo>& aAudioDeviceInfo,
       mName(mSinkInfo->Name()),
       mID(aID),
       mGroupID(aGroupID),
-      mRawID(aRawID),
       mRawName(mSinkInfo->Name()) {
   // For now this ctor is used only for Audiooutput.
   // It could be used for Audioinput and Videoinput
@@ -901,10 +898,12 @@ MediaDevice::MediaDevice(const RefPtr<AudioDeviceInfo>& aAudioDeviceInfo,
   MOZ_ASSERT(mSinkInfo);
 }
 
-MediaDevice::MediaDevice(const RefPtr<MediaDevice>& aOther, const nsString& aID,
-                         const nsString& aGroupID, const nsString& aRawID,
-                         const nsString& aRawGroupID)
-    : MediaDevice(aOther, aID, aGroupID, aRawID, aRawGroupID, aOther->mName) {}
+/* static */
+RefPtr<MediaDevice> MediaDevice::CopyWithNewGroupId(
+    const RefPtr<MediaDevice>& aOther, const nsString& aGroupID) {
+  return new MediaDevice(aOther, aOther->mID, aGroupID, aOther->mRawID,
+                         aOther->mRawGroupID, aOther->mName);
+}
 
 MediaDevice::MediaDevice(const RefPtr<MediaDevice>& aOther, const nsString& aID,
                          const nsString& aGroupID, const nsString& aRawID,
@@ -1001,11 +1000,9 @@ uint32_t MediaDevice::GetBestFitnessDistance(
   return std::min<uint64_t>(distance, UINT32_MAX);
 }
 
-NS_IMETHODIMP
-MediaDevice::GetName(nsAString& aName) {
+void MediaDevice::GetName(nsAString& aName) {
   MOZ_ASSERT(NS_IsMainThread());
   aName.Assign(mName);
-  return NS_OK;
 }
 
 NS_IMETHODIMP
@@ -1022,11 +1019,9 @@ MediaDevice::GetType(nsAString& aType) {
   return NS_OK;
 }
 
-NS_IMETHODIMP
-MediaDevice::GetId(nsAString& aID) {
+void MediaDevice::GetId(nsAString& aID) {
   MOZ_ASSERT(NS_IsMainThread());
   aID.Assign(mID);
-  return NS_OK;
 }
 
 NS_IMETHODIMP
@@ -1036,18 +1031,9 @@ MediaDevice::GetRawId(nsAString& aID) {
   return NS_OK;
 }
 
-NS_IMETHODIMP
-MediaDevice::GetGroupId(nsAString& aGroupID) {
+void MediaDevice::GetGroupId(nsAString& aGroupID) {
   MOZ_ASSERT(NS_IsMainThread());
   aGroupID.Assign(mGroupID);
-  return NS_OK;
-}
-
-NS_IMETHODIMP
-MediaDevice::GetRawGroupId(nsAString& aRawGroupID) {
-  MOZ_ASSERT(NS_IsMainThread());
-  aRawGroupID.Assign(mRawGroupID);
-  return NS_OK;
 }
 
 NS_IMETHODIMP
@@ -1773,8 +1759,7 @@ void MediaManager::GuessVideoDeviceGroupIDs(MediaDeviceSet& aDevices,
       }
     }
     if (updateGroupId) {
-      aVideo = new MediaDevice(aVideo, aVideo->mID, newVideoGroupID,
-                               aVideo->mRawID, aVideo->mRawGroupID);
+      aVideo = MediaDevice::CopyWithNewGroupId(aVideo, newVideoGroupID);
       return true;
     }
     return false;
@@ -1800,13 +1785,13 @@ void MediaManager::GuessVideoDeviceGroupIDs(MediaDeviceSet& aDevices,
 
 RefPtr<MediaManager::MgrPromise> MediaManager::EnumerateRawDevices(
     MediaSourceEnum aVideoInputType, MediaSourceEnum aAudioInputType,
-    MediaSinkEnum aAudioOutputType, DeviceEnumerationType aVideoInputEnumType,
-    DeviceEnumerationType aAudioInputEnumType, bool aForceNoPermRequest,
+    DeviceEnumerationType aVideoInputEnumType,
+    DeviceEnumerationType aAudioInputEnumType, EnumerationFlags aFlags,
     const RefPtr<MediaDeviceSetRefCnt>& aOutDevices) {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aVideoInputType != MediaSourceEnum::Other ||
              aAudioInputType != MediaSourceEnum::Other ||
-             aAudioOutputType != MediaSinkEnum::Other);
+             aFlags.contains(EnumerationFlag::EnumerateAudioOutputs));
   // Since the enums can take one of several values, the following asserts rely
   // on short circuting behavior. E.g. aVideoInputEnumType != Fake will be true
   // if the requested device is not fake and thus the assert will pass. However,
@@ -1837,7 +1822,8 @@ RefPtr<MediaManager::MgrPromise> MediaManager::EnumerateRawDevices(
 
   const bool hasVideo = aVideoInputType != MediaSourceEnum::Other;
   const bool hasAudio = aAudioInputType != MediaSourceEnum::Other;
-  const bool hasAudioOutput = aAudioOutputType == MediaSinkEnum::Speaker;
+  const bool hasAudioOutput =
+      aFlags.contains(EnumerationFlag::EnumerateAudioOutputs);
 
   // True of at least one of video input or audio input is a fake device
   const bool fakeDeviceRequested =
@@ -1951,7 +1937,8 @@ RefPtr<MediaManager::MgrPromise> MediaManager::EnumerateRawDevices(
         holder.Resolve(false, __func__);
       });
 
-  if (realDeviceRequested && aForceNoPermRequest &&
+  if (realDeviceRequested &&
+      aFlags.contains(EnumerationFlag::AllowPermissionRequest) &&
       Preferences::GetBool("media.navigator.permission.device", false)) {
     // Need to ask permission to retrieve list of all devices;
     // notify frontend observer and wait for callback notification to post task.
@@ -2365,8 +2352,8 @@ void MediaManager::DeviceListChanged() {
             }
             return EnumerateRawDevices(
                 MediaSourceEnum::Camera, MediaSourceEnum::Microphone,
-                MediaSinkEnum::Speaker, DeviceEnumerationType::Normal,
-                DeviceEnumerationType::Normal, false, devices);
+                DeviceEnumerationType::Normal, DeviceEnumerationType::Normal,
+                EnumerationFlag::EnumerateAudioOutputs, devices);
           },
           []() {
             // Timer was canceled by us, or we're in shutdown.
@@ -2839,8 +2826,8 @@ RefPtr<MediaManager::StreamPromise> MediaManager::GetUserMedia(
   RefPtr<MediaManager> self = this;
   auto devices = MakeRefPtr<MediaDeviceSetRefCnt>();
   return EnumerateDevicesImpl(aWindow, videoType, audioType,
-                              MediaSinkEnum::Other, videoEnumerationType,
-                              audioEnumerationType, true, devices)
+                              videoEnumerationType, audioEnumerationType,
+                              EnumerationFlag::AllowPermissionRequest, devices)
       ->Then(
           GetCurrentSerialEventTarget(), __func__,
           [self, windowID, c, windowListener, aCallerType, devices](bool) {
@@ -2982,31 +2969,30 @@ RefPtr<MediaManager::StreamPromise> MediaManager::GetUserMedia(
 void MediaManager::AnonymizeDevices(MediaDeviceSet& aDevices,
                                     const nsACString& aOriginKey,
                                     const uint64_t aWindowId) {
-  if (!aOriginKey.IsEmpty()) {
-    for (RefPtr<MediaDevice>& device : aDevices) {
-      nsString id;
-      device->GetId(id);
-      nsString rawId(id);
-      AnonymizeId(id, aOriginKey);
+  MOZ_ASSERT(!aOriginKey.IsEmpty());
+  for (RefPtr<MediaDevice>& device : aDevices) {
+    nsString id;
+    device->GetId(id);
+    nsString rawId(id);
+    AnonymizeId(id, aOriginKey);
 
-      nsString groupId;
-      device->GetGroupId(groupId);
-      nsString rawGroupId = groupId;
-      // Use window id to salt group id in order to make it session based as
-      // required by the spec. This does not provide unique group ids through
-      // out a browser restart. However, this is not agaist the spec.
-      // Furtermore, since device ids are the same after a browser restart the
-      // fingerprint is not bigger.
-      groupId.AppendInt(aWindowId);
-      AnonymizeId(groupId, aOriginKey);
+    nsString groupId;
+    device->GetGroupId(groupId);
+    nsString rawGroupId = groupId;
+    // Use window id to salt group id in order to make it session based as
+    // required by the spec. This does not provide unique group ids through
+    // out a browser restart. However, this is not agaist the spec.
+    // Furtermore, since device ids are the same after a browser restart the
+    // fingerprint is not bigger.
+    groupId.AppendInt(aWindowId);
+    AnonymizeId(groupId, aOriginKey);
 
-      nsString name;
-      device->GetName(name);
-      if (name.Find(u"AirPods"_ns) != -1) {
-        name = u"AirPods"_ns;
-      }
-      device = new MediaDevice(device, id, groupId, rawId, rawGroupId, name);
+    nsString name;
+    device->GetName(name);
+    if (name.Find(u"AirPods"_ns) != -1) {
+      name = u"AirPods"_ns;
     }
+    device = new MediaDevice(device, id, groupId, rawId, rawGroupId, name);
   }
 }
 
@@ -3058,9 +3044,8 @@ nsresult MediaManager::AnonymizeId(nsAString& aId,
 
 RefPtr<MediaManager::MgrPromise> MediaManager::EnumerateDevicesImpl(
     nsPIDOMWindowInner* aWindow, MediaSourceEnum aVideoInputType,
-    MediaSourceEnum aAudioInputType, MediaSinkEnum aAudioOutputType,
-    DeviceEnumerationType aVideoInputEnumType,
-    DeviceEnumerationType aAudioInputEnumType, bool aForceNoPermRequest,
+    MediaSourceEnum aAudioInputType, DeviceEnumerationType aVideoInputEnumType,
+    DeviceEnumerationType aAudioInputEnumType, EnumerationFlags aFlags,
     const RefPtr<MediaDeviceSetRefCnt>& aOutDevices) {
   MOZ_ASSERT(NS_IsMainThread());
 
@@ -3110,9 +3095,9 @@ RefPtr<MediaManager::MgrPromise> MediaManager::EnumerateDevicesImpl(
   return media::GetPrincipalKey(principalInfo, persist)
       ->Then(
           GetMainThreadSerialEventTarget(), __func__,
-          [windowId, aVideoInputType, aAudioInputType, aAudioOutputType,
-           aVideoInputEnumType, aAudioInputEnumType, aForceNoPermRequest,
-           aOutDevices, originKey](const nsCString& aOriginKey) {
+          [windowId, aVideoInputType, aAudioInputType, aVideoInputEnumType,
+           aAudioInputEnumType, aFlags, aOutDevices,
+           originKey](const nsCString& aOriginKey) {
             MOZ_ASSERT(NS_IsMainThread());
             originKey->Assign(aOriginKey);
             MediaManager* mgr = MediaManager::GetIfExists();
@@ -3123,9 +3108,8 @@ RefPtr<MediaManager::MgrPromise> MediaManager::EnumerateDevicesImpl(
                   __func__);
             }
             return mgr->EnumerateRawDevices(
-                aVideoInputType, aAudioInputType, aAudioOutputType,
-                aVideoInputEnumType, aAudioInputEnumType, aForceNoPermRequest,
-                aOutDevices);
+                aVideoInputType, aAudioInputType, aVideoInputEnumType,
+                aAudioInputEnumType, aFlags, aOutDevices);
           },
           [](nsresult rs) {
             NS_WARNING(
@@ -3201,16 +3185,15 @@ RefPtr<MediaManager::DeviceSetPromise> MediaManager::EnumerateDevices(
       FeaturePolicyUtils::IsFeatureAllowed(doc, u"microphone"_ns)
           ? MediaSourceEnum::Microphone
           : MediaSourceEnum::Other;
-  MediaSinkEnum audioOutputType =
-      Preferences::GetBool("media.setsinkid.enabled") &&
-              FeaturePolicyUtils::IsFeatureAllowed(doc, u"speaker-selection"_ns)
-          ? MediaSinkEnum::Speaker
-          : MediaSinkEnum::Other;
+  EnumerationFlags flags;
+  if (Preferences::GetBool("media.setsinkid.enabled") &&
+      FeaturePolicyUtils::IsFeatureAllowed(doc, u"speaker-selection"_ns)) {
+    flags += EnumerationFlag::EnumerateAudioOutputs;
+  }
 
   auto devices = MakeRefPtr<MediaDeviceSetRefCnt>();
   if (audioType == MediaSourceEnum::Other &&
-      videoType == MediaSourceEnum::Other &&
-      audioOutputType == MediaSinkEnum::Other) {
+      videoType == MediaSourceEnum::Other && flags.isEmpty()) {
     return DeviceSetPromise::CreateAndResolve(devices, __func__);
   }
 
@@ -3246,8 +3229,8 @@ RefPtr<MediaManager::DeviceSetPromise> MediaManager::EnumerateDevices(
     }
   }
 
-  return EnumerateDevicesImpl(aWindow, videoType, audioType, audioOutputType,
-                              videoEnumerationType, audioEnumerationType, false,
+  return EnumerateDevicesImpl(aWindow, videoType, audioType,
+                              videoEnumerationType, audioEnumerationType, flags,
                               devices)
       ->Then(
           GetCurrentSerialEventTarget(), __func__,
@@ -3294,10 +3277,12 @@ RefPtr<MediaManager::DevicePromise> MediaManager::SelectAudioOutput(
   }
   uint64_t windowID = aWindow->WindowID();
   auto devices = MakeRefPtr<MediaDeviceSetRefCnt>();
-  return EnumerateDevicesImpl(aWindow, MediaSourceEnum::Other,
-                              MediaSourceEnum::Other, MediaSinkEnum::Speaker,
-                              DeviceEnumerationType::Normal,
-                              DeviceEnumerationType::Normal, true, devices)
+  return EnumerateDevicesImpl(
+             aWindow, MediaSourceEnum::Other, MediaSourceEnum::Other,
+             DeviceEnumerationType::Normal, DeviceEnumerationType::Normal,
+             {EnumerationFlag::EnumerateAudioOutputs,
+              EnumerationFlag::AllowPermissionRequest},
+             devices)
       ->Then(
           GetCurrentSerialEventTarget(), __func__,
           [self = RefPtr<MediaManager>(this), windowID, devices, aOptions,

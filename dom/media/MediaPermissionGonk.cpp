@@ -42,8 +42,8 @@ static void CreateDeviceNameList(nsTArray<nsCOMPtr<nsIMediaDevice>>& aDevices,
                                  nsTArray<nsString>& aDeviceNameList) {
   for (uint32_t i = 0; i < aDevices.Length(); ++i) {
     nsString name;
-    nsresult rv = aDevices[i]->GetName(name);
-    NS_ENSURE_SUCCESS_VOID(rv);
+    nsCOMPtr<nsIMediaDevice> device = aDevices[i];
+    static_cast<MediaDevice*>(device.get())->GetName(name);
     aDeviceNameList.AppendElement(name);
   }
 }
@@ -54,7 +54,7 @@ static already_AddRefed<nsIMediaDevice> FindDeviceByName(
   for (uint32_t i = 0; i < aDevices.Length(); ++i) {
     nsCOMPtr<nsIMediaDevice> device = aDevices[i];
     nsString deviceName;
-    device->GetName(deviceName);
+    static_cast<MediaDevice*>(device.get())->GetName(deviceName);
     if (deviceName.Equals(aDeviceName)) {
       return device.forget();
     }
