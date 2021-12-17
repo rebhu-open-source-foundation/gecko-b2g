@@ -60,6 +60,7 @@ class BrowserTab {
     this.webview.addEventListener("opensearch", this.updateSearch);
     this.webview.addEventListener("loadstart", this.updateLoadState);
     this.webview.addEventListener("loadend", this.updateLoadState);
+    this.webview.addEventListener("contextmenu", this.showContextMenu);
 
     this.parentDocument.getElementById("url").value = this.webview.src;
     this.parentDocument
@@ -85,6 +86,7 @@ class BrowserTab {
     this.webview.removeEventListener("iconchange", this.setupIcon);
     this.webview.removeEventListener("loadstart", this.updateLoadState);
     this.webview.removeEventListener("loadend", this.updateLoadState);
+    this.webview.removeEventListener("contextmenu", this.showContextMenu);
 
     this.parentDocument.getElementById("url").value = "";
     this.parentDocument
@@ -168,6 +170,18 @@ class BrowserTab {
         "#tabs > .loadstate"
       ).innerText =
         aEvent && aEvent.type == "loadstart" ? "loading" : "finished";
+    }
+  }
+
+  showContextMenu(aEvent) {
+    let detail = aEvent.detail;
+    log(`showContextMenu`);
+    if (detail.contextmenu) {
+      detail.contextmenu.items.forEach(choice => {
+        log(`menu item ${choice.id}`);
+      });
+      log(`item 0 id= ${detail.contextmenu.items[0].id}`);
+      detail.contextMenuItemSelected(detail.contextmenu.items[0].id);
     }
   }
 

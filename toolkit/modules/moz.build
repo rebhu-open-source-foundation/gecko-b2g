@@ -160,6 +160,7 @@ EXTRA_JS_MODULES += [
     "Color.jsm",
     "Console.jsm",
     "ContentDOMReference.jsm",
+    "ContextMenuUtils.jsm",
     "CreditCard.jsm",
     "DateTimePickerPanel.jsm",
     "DeferredTask.jsm",

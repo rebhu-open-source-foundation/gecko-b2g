@@ -336,6 +336,7 @@
     "backgroundcolor",
     "close",
     "documentfirstpaint",
+    "contextmenu",
     "iconchange",
     "manifestchange",
     "metachange",

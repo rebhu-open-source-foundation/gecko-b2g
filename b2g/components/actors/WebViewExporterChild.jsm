@@ -111,7 +111,10 @@ class WebViewExporterChild extends JSWindowActorChild {
               bubbles: aEvent.bubbles,
               detail: aEvent.detail,
             },
-            window
+            window,
+            {
+              cloneFunctions: true,
+            }
           )
         );
         this.__dispatchEventImpl(event);

@@ -6,6 +6,14 @@
 
 var EXPORTED_SYMBOLS = ["WebViewForContentChild"];
 
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
+
+XPCOMUtils.defineLazyModuleGetters(this, {
+  ContextMenuUtils: "resource://gre/modules/ContextMenuUtils.jsm",
+});
+
 class WebViewForContentChild extends JSWindowActorChild {
   log(...args) {
     dump("WebViewForContentChild: ");
@@ -13,6 +21,10 @@ class WebViewForContentChild extends JSWindowActorChild {
       dump(a + " ");
     }
     dump("\n");
+  }
+
+  actorCreated() {
+    ContextMenuUtils.init(this);
   }
 
   getBackgroundColor(browser, event) {
@@ -82,6 +94,18 @@ class WebViewForContentChild extends JSWindowActorChild {
       }
       case "DOMLinkAdded": {
         this.handleLinkAdded(event);
+        break;
+      }
+      case "contextmenu": {
+        this.handleContextMenu(event);
+        break;
+      }
+      case "webview-fire-ctx-callback": {
+        ContextMenuUtils.handleContextMenuCallback(
+          this,
+          this.contentWindow,
+          event.detail.menuitem
+        );
         break;
       }
     }
@@ -190,5 +214,51 @@ class WebViewForContentChild extends JSWindowActorChild {
         },
       })
     );
+  }
+
+  handleContextMenu(event) {
+    if (event.defaultPrevented) {
+      return;
+    }
+    let menuData = ContextMenuUtils.generateMenu(
+      this,
+      this.contentWindow,
+      event
+    );
+    menuData.nested = true;
+    const browser = this.browsingContext.embedderElement;
+    const win = browser.ownerGlobal;
+
+    let ev = new win.CustomEvent("contextmenu", { detail: menuData });
+    if (menuData.contextmenu) {
+      let self = this.contentWindow;
+      Cu.exportFunction(
+        function(id) {
+          let evt = new self.CustomEvent(
+            "webview-fire-ctx-callback",
+            Cu.cloneInto(
+              {
+                bubbles: true,
+                cancelable: true,
+                detail: {
+                  menuitem: id,
+                },
+              },
+              self
+            )
+          );
+          self.dispatchEvent(evt);
+        },
+        ev.detail,
+        { defineAs: "contextMenuItemSelected" }
+      );
+    }
+
+    this.log(`dispatch ${event.type} ${JSON.stringify(ev.detail)}\n`);
+    if (browser.dispatchEvent(ev)) {
+      event.preventDefault();
+    } else {
+      ContextMenuUtils.cancel(this);
+    }
   }
 }
