@@ -143,7 +143,7 @@ impl SessionObject for GeckoBridgeImpl {
 
 impl ServiceClientImpl<GeckoBridgeTask> for GeckoBridgeImpl {
     fn new(transport: UdsTransport, service_id: TrackerId) -> Self {
-        let sender = TaskSender::new(transport.clone(), service_id, 0 /* service object */);
+        let sender = TaskSender::new(transport.clone(), service_id);
 
         Self {
             transport,

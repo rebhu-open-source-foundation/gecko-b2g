@@ -134,7 +134,7 @@ impl ServiceClientImpl<ContactsTask> for ContactsManagerImpl {
     fn new(mut transport: UdsTransport, service_id: TrackerId) -> Self {
         let core_service = Arc::new(Mutex::new(CoreService::new(&transport)));
         transport.register_session_object(core_service.clone());
-        let sender = TaskSender::new(transport.clone(), service_id, 0 /* service object */);
+        let sender = TaskSender::new(transport.clone(), service_id);
 
         Self {
             transport,

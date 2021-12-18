@@ -386,15 +386,13 @@ where
 #[derive(Clone)]
 pub struct TaskSender {
     service_id: TrackerId,
-    object_id: TrackerId,
     transport: UdsTransport,
 }
 
 impl TaskSender {
-    pub fn new(transport: UdsTransport, service_id: TrackerId, object_id: TrackerId) -> Self {
+    pub fn new(transport: UdsTransport, service_id: TrackerId) -> Self {
         Self {
             service_id,
-            object_id,
             transport,
         }
     }
