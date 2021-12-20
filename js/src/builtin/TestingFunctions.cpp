@@ -4031,13 +4031,15 @@ static bool DisplayName(JSContext* cx, unsigned argc, Value* vp) {
   return true;
 }
 
-#if defined(JS_CODEGEN_X64) || defined(JS_CODEGEN_X86)
 static bool IsAvxPresent(JSContext* cx, unsigned argc, Value* vp) {
   CallArgs args = CallArgsFromVp(argc, vp);
+#if defined(JS_CODEGEN_X64) || defined(JS_CODEGEN_X86)
   args.rval().setBoolean(jit::Assembler::HasAVX());
+#else
+  args.rval().setBoolean(false);
+#endif
   return true;
 }
-#endif
 
 class ShellAllocationMetadataBuilder : public AllocationMetadataBuilder {
  public:
@@ -5330,7 +5332,7 @@ static bool GetBacktrace(JSContext* cx, unsigned argc, Value* vp) {
   }
 
   JS::ConstUTF8CharsZ utf8chars(buf.get(), strlen(buf.get()));
-  JSString* str = NewStringCopyUTF8Z<CanGC>(cx, utf8chars);
+  JSString* str = NewStringCopyUTF8Z(cx, utf8chars);
   if (!str) {
     return false;
   }
@@ -8228,11 +8230,9 @@ gc::ZealModeHelpText),
 "  Returns whether the given value is a nested function in an asm.js module that has been\n"
 "  both compile- and link-time validated."),
 
-#if defined(JS_CODEGEN_X64) || defined(JS_CODEGEN_X86)
     JS_FN_HELP("isAvxPresent", IsAvxPresent, 0, 0,
 "isAvxPresent(fn)",
 "  Returns whether AVX is present and enabled."),
-#endif
 
     JS_FN_HELP("wasmIsSupported", WasmIsSupported, 0, 0,
 "wasmIsSupported()",

@@ -48,15 +48,16 @@ struct StartInputProcessing : public ControlMessage {
       : ControlMessage(aTrack),
         mInputTrack(aTrack),
         mInputProcessing(aInputProcessing) {}
-  void Run() override { mInputProcessing->Start(); }
+  void Run() override { mInputProcessing->Start(mTrack->GraphImpl()); }
 };
 
 struct StopInputProcessing : public ControlMessage {
   const RefPtr<AudioInputProcessing> mInputProcessing;
 
-  explicit StopInputProcessing(AudioInputProcessing* aInputProcessing)
-      : ControlMessage(nullptr), mInputProcessing(aInputProcessing) {}
-  void Run() override { mInputProcessing->Stop(); }
+  explicit StopInputProcessing(AudioInputTrack* aTrack,
+                               AudioInputProcessing* aInputProcessing)
+      : ControlMessage(aTrack), mInputProcessing(aInputProcessing) {}
+  void Run() override { mInputProcessing->Stop(mTrack->GraphImpl()); }
 };
 
 struct SetPassThrough : public ControlMessage {
@@ -281,7 +282,7 @@ TEST(TestAudioTrackGraph, ErrorCallback)
   // Clean up.
   DispatchFunction([&] {
     inputTrack->GraphImpl()->AppendMessage(
-        MakeUnique<StopInputProcessing>(listener));
+        MakeUnique<StopInputProcessing>(inputTrack, listener));
     inputTrack->CloseAudioInput();
     inputTrack->Destroy();
   });
@@ -351,7 +352,7 @@ TEST(TestAudioTrackGraph, AudioInputTrack)
     outputTrack->Destroy();
     port->Destroy();
     inputTrack->GraphImpl()->AppendMessage(
-        MakeUnique<StopInputProcessing>(listener));
+        MakeUnique<StopInputProcessing>(inputTrack, listener));
     inputTrack->CloseAudioInput();
     inputTrack->Destroy();
   });
@@ -366,7 +367,7 @@ TEST(TestAudioTrackGraph, AudioInputTrack)
 
   EXPECT_EQ(estimatedFreq, inputFrequency);
   std::cerr << "PreSilence: " << preSilenceSamples << std::endl;
-  // We buffer 128 frames in passthrough mode. See AudioInputProcessing::Pull.
+  // We buffer 128 frames. See DeviceInputTrack::ProcessInput.
   EXPECT_GE(preSilenceSamples, 128U);
   // If the fallback system clock driver is doing a graph iteration before the
   // first audio driver iteration comes in, that iteration is ignored and
@@ -489,7 +490,7 @@ TEST(TestAudioTrackGraph, ReOpenAudioInput)
     outputTrack->Destroy();
     port->Destroy();
     inputTrack->GraphImpl()->AppendMessage(
-        MakeUnique<StopInputProcessing>(listener));
+        MakeUnique<StopInputProcessing>(inputTrack, listener));
     inputTrack->CloseAudioInput();
     inputTrack->Destroy();
   });
@@ -505,7 +506,8 @@ TEST(TestAudioTrackGraph, ReOpenAudioInput)
   EXPECT_EQ(estimatedFreq, inputFrequency);
   std::cerr << "PreSilence: " << preSilenceSamples << std::endl;
   // We buffer 10ms worth of frames in non-passthrough mode, plus up to 128
-  // frames as we round up to the nearest block. See AudioInputProcessing::Pull.
+  // frames as we round up to the nearest block. See
+  // AudioInputProcessing::Process and DeviceInputTrack::PrcoessInput.
   EXPECT_GE(preSilenceSamples, 128U + inputRate / 100);
   // If the fallback system clock driver is doing a graph iteration before the
   // first audio driver iteration comes in, that iteration is ignored and
@@ -610,7 +612,7 @@ TEST(TestAudioTrackGraph, AudioInputTrackDisabling)
     outputTrack->Destroy();
     port->Destroy();
     inputTrack->GraphImpl()->AppendMessage(
-        MakeUnique<StopInputProcessing>(listener));
+        MakeUnique<StopInputProcessing>(inputTrack, listener));
     inputTrack->CloseAudioInput();
     inputTrack->Destroy();
   });
@@ -691,7 +693,7 @@ struct AudioTrackSet {
     mOutputTrack->Destroy();
     mPort->Destroy();
     mInputTrack->GraphImpl()->AppendMessage(
-        MakeUnique<StopInputProcessing>(mListener));
+        MakeUnique<StopInputProcessing>(mInputTrack, mListener));
     mInputTrack->CloseAudioInput();
     mInputTrack->Destroy();
 
@@ -1036,7 +1038,7 @@ void TestCrossGraphPort(uint32_t aInputRate, uint32_t aOutputRate,
     transmitter->Destroy();
     port->Destroy();
     inputTrack->GraphImpl()->AppendMessage(
-        MakeUnique<StopInputProcessing>(listener));
+        MakeUnique<StopInputProcessing>(inputTrack, listener));
     inputTrack->CloseAudioInput();
     inputTrack->Destroy();
   });

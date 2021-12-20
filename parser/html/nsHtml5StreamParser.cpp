@@ -251,7 +251,6 @@ nsHtml5StreamParser::nsHtml5StreamParser(nsHtml5TreeOpExecutor* aExecutor,
       mNumBytesBuffered(0),
       mTerminated(false),
       mInterrupted(false),
-      mTerminatedMutex("nsHtml5StreamParser mTerminatedMutex"),
       mEventTarget(nsHtml5Module::GetStreamParserThread()->SerialEventTarget()),
       mExecutorFlusher(new nsHtml5ExecutorFlusher(aExecutor)),
       mLoadFlusher(new nsHtml5LoadFlusher(aExecutor)),
@@ -1556,14 +1555,14 @@ nsresult nsHtml5StreamParser::OnDataAvailable(nsIRequest* aRequest,
                                               uint64_t aSourceOffset,
                                               uint32_t aLength) {
   nsresult rv;
-  if (NS_FAILED(rv = mExecutor->IsBroken())) {
-    return rv;
-  }
 
   MOZ_ASSERT(mRequest == aRequest, "Got data on wrong stream.");
   uint32_t totalRead;
   // Main thread to parser thread dispatch requires copying to buffer first.
   if (MOZ_UNLIKELY(NS_IsMainThread())) {
+    if (NS_FAILED(rv = mExecutor->IsBroken())) {
+      return rv;
+    }
     Maybe<Buffer<uint8_t>> maybe = Buffer<uint8_t>::Alloc(aLength);
     if (maybe.isNothing()) {
       return mExecutor->MarkAsBroken(NS_ERROR_OUT_OF_MEMORY);
@@ -1582,9 +1581,13 @@ nsresult nsHtml5StreamParser::OnDataAvailable(nsIRequest* aRequest,
     }
     return rv;
   }
+
   MOZ_ASSERT(IsParserThread(), "Wrong thread!");
   mozilla::MutexAutoLock autoLock(mTokenizerMutex);
 
+  if (NS_FAILED(rv = mTreeBuilder->IsBroken())) {
+    return rv;
+  }
   if (mBufferingBytes) {
     Maybe<Buffer<uint8_t>> maybe = Buffer<uint8_t>::Alloc(aLength);
     if (maybe.isNothing()) {
@@ -1606,6 +1609,7 @@ nsresult nsHtml5StreamParser::OnDataAvailable(nsIRequest* aRequest,
   return rv;
 }
 
+// Called under lock by function ptr
 /* static */
 nsresult nsHtml5StreamParser::CopySegmentsToParser(
     nsIInputStream* aInStream, void* aClosure, const char* aFromSegment,
@@ -2446,6 +2450,12 @@ void nsHtml5StreamParser::ContinueAfterScriptsOrEncodingCommitment(
       // We've got a failed speculation :-(
       MaybeDisableFutureSpeculation();
       Interrupt();  // Make the parser thread release the tokenizer mutex sooner
+      // Note that the interrupted state continues across possible intervening
+      // Necko events until the nsHtml5StreamParserContinuation posted at the
+      // end of this method runs. Therefore, this thread is guaranteed to
+      // acquire mTokenizerMutex soon even if an intervening Necko event grabbed
+      // it between now and the acquisition below.
+
       // now fall out of the speculationAutoLock into the tokenizerAutoLock
       // block
     } else {
@@ -2466,6 +2476,11 @@ void nsHtml5StreamParser::ContinueAfterScriptsOrEncodingCommitment(
       }
       // else
       Interrupt();  // Make the parser thread release the tokenizer mutex sooner
+      // Note that the interrupted state continues across possible intervening
+      // Necko events until the nsHtml5StreamParserContinuation posted at the
+      // end of this method runs. Therefore, this thread is guaranteed to
+      // acquire mTokenizerMutex soon even if an intervening Necko event grabbed
+      // it between now and the acquisition below.
 
       // now fall through
       // the first speculation is the current speculation. Need to
