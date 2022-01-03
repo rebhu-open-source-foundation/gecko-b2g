@@ -925,8 +925,7 @@ static void RemoveDuplicates(VectorOfIndirectStubTarget* vector) {
 bool Instance::ensureIndirectStubs(JSContext* cx,
                                    const Uint32Vector& elemFuncIndices,
                                    uint32_t srcOffset, uint32_t len,
-                                   const Tier tier,
-                                   const bool tableIsImportedOrExported) {
+                                   const Tier tier, const bool tableIsPublic) {
   const MetadataTier& metadataTier = metadata(tier);
   VectorOfIndirectStubTarget targets;
 
@@ -964,8 +963,7 @@ bool Instance::ensureIndirectStubs(JSContext* cx,
       continue;
     }
 
-    if (!tableIsImportedOrExported ||
-        getIndirectStub(funcIndex, tlsData(), tier)) {
+    if (!tableIsPublic || getIndirectStub(funcIndex, tlsData(), tier)) {
       continue;
     }
 
@@ -985,7 +983,7 @@ bool Instance::ensureIndirectStubs(JSContext* cx,
 }
 
 bool Instance::ensureIndirectStub(JSContext* cx, FuncRef* ref, const Tier tier,
-                                  const bool tableIsImportedOrExported) {
+                                  const bool tableIsPublic) {
   if (ref->isNull()) {
     return true;
   }
@@ -996,8 +994,7 @@ bool Instance::ensureIndirectStub(JSContext* cx, FuncRef* ref, const Tier tier,
     return false;
   }
 
-  return ensureIndirectStubs(cx, functionIndices, 0, 1u, tier,
-                             tableIsImportedOrExported);
+  return ensureIndirectStubs(cx, functionIndices, 0, 1u, tier, tableIsPublic);
 }
 
 bool Instance::initElems(JSContext* cx, uint32_t tableIndex,
@@ -1019,7 +1016,7 @@ bool Instance::initElems(JSContext* cx, uint32_t tableIndex,
     // code pointers in the table.  This ensures that either the table is
     // updated with all pointers, or with none.
     if (!ensureIndirectStubs(cx, elemFuncIndices, srcOffset, len, tier,
-                             table.isImportedOrExported())) {
+                             table.isPublic())) {
       return false;
     }
   }
@@ -1056,11 +1053,11 @@ bool Instance::initElems(JSContext* cx, uint32_t tableIndex,
       }
     } else {
       // The function is an internal wasm function that belongs to the current
-      // instance. If table is isImportedOrExported then some other module can
+      // instance. If table is isPublic then some other module can
       // import this table and call its functions so we have to use indirect
       // stub, otherwise we can use checked call entry because we don't cross
       // instance's borders.
-      if (table.isImportedOrExported()) {
+      if (table.isPublic()) {
         code = getIndirectStub(funcIndex, tlsData(), tier);
         MOZ_ASSERT(code);
       } else {
@@ -1175,9 +1172,9 @@ bool Instance::initElems(JSContext* cx, uint32_t tableIndex,
   return 0;
 }
 
-/* static */ void* Instance::tableGet(Instance* instance, uint32_t index,
-                                      uint32_t tableIndex) {
-  MOZ_ASSERT(SASigTableGet.failureMode == FailureMode::FailOnInvalidRef);
+/* static */ void* Instance::tableGetFunc(Instance* instance, uint32_t index,
+                                          uint32_t tableIndex) {
+  MOZ_ASSERT(SASigTableGetFunc.failureMode == FailureMode::FailOnInvalidRef);
 
   JSContext* cx = instance->tlsData()->cx;
   const Table& table = *instance->tables()[tableIndex];
@@ -1188,20 +1185,13 @@ bool Instance::initElems(JSContext* cx, uint32_t tableIndex,
     return AnyRef::invalid().forCompiledCode();
   }
 
-  switch (table.repr()) {
-    case TableRepr::Ref:
-      return table.getAnyRef(index).forCompiledCode();
-    case TableRepr::Func: {
-      MOZ_RELEASE_ASSERT(!table.isAsmJS());
-      RootedFunction fun(cx);
-      if (!table.getFuncRef(cx, index, &fun)) {
-        return AnyRef::invalid().forCompiledCode();
-      }
-      return FuncRef::fromJSFunction(fun).forCompiledCode();
-    }
+  MOZ_RELEASE_ASSERT(table.repr() == TableRepr::Func);
+  MOZ_RELEASE_ASSERT(!table.isAsmJS());
+  RootedFunction fun(cx);
+  if (!table.getFuncRef(cx, index, &fun)) {
+    return AnyRef::invalid().forCompiledCode();
   }
-
-  MOZ_CRASH("Should not happen");
+  return FuncRef::fromJSFunction(fun).forCompiledCode();
 }
 
 /* static */ uint32_t Instance::tableGrow(Instance* instance, void* initValue,
@@ -1231,7 +1221,7 @@ bool Instance::initElems(JSContext* cx, uint32_t tableIndex,
       // table, or the later call to fillFuncRef may want to create a new stub
       // for the better tier and may OOM anyway, and it must not.
       if (!instance->ensureIndirectStub(cx, functionForFill.address(), tier,
-                                        table.isImportedOrExported())) {
+                                        table.isPublic())) {
         return -1;
       }
 
@@ -1248,9 +1238,9 @@ bool Instance::initElems(JSContext* cx, uint32_t tableIndex,
   MOZ_CRASH("Should not happen");
 }
 
-/* static */ int32_t Instance::tableSet(Instance* instance, uint32_t index,
-                                        void* value, uint32_t tableIndex) {
-  MOZ_ASSERT(SASigTableSet.failureMode == FailureMode::FailOnNegI32);
+/* static */ int32_t Instance::tableSetFunc(Instance* instance, uint32_t index,
+                                            void* value, uint32_t tableIndex) {
+  MOZ_ASSERT(SASigTableSetFunc.failureMode == FailureMode::FailOnNegI32);
 
   JSContext* cx = instance->tlsData()->cx;
   Table& table = *instance->tables()[tableIndex];
@@ -1261,28 +1251,15 @@ bool Instance::initElems(JSContext* cx, uint32_t tableIndex,
     return -1;
   }
 
-  switch (table.repr()) {
-    case TableRepr::Ref:
-      table.fillAnyRef(index, 1, AnyRef::fromCompiledCode(value));
-      break;
-    case TableRepr::Func:
-      MOZ_RELEASE_ASSERT(!table.isAsmJS());
-      if (!table.fillFuncRef(Nothing(), index, 1,
-                             FuncRef::fromCompiledCode(value), cx)) {
-        ReportOutOfMemory(cx);
-        return -1;
-      }
-      break;
+  MOZ_RELEASE_ASSERT(table.repr() == TableRepr::Func);
+  MOZ_RELEASE_ASSERT(!table.isAsmJS());
+  if (!table.fillFuncRef(Nothing(), index, 1,
+                         FuncRef::fromCompiledCode(value), cx)) {
+    ReportOutOfMemory(cx);
+    return -1;
   }
 
   return 0;
-}
-
-/* static */ uint32_t Instance::tableSize(Instance* instance,
-                                          uint32_t tableIndex) {
-  MOZ_ASSERT(SASigTableSize.failureMode == FailureMode::Infallible);
-  Table& table = *instance->tables()[tableIndex];
-  return table.length();
 }
 
 /* static */ void* Instance::refFunc(Instance* instance, uint32_t funcIndex) {
@@ -1443,16 +1420,17 @@ bool Instance::initElems(JSContext* cx, uint32_t tableIndex,
       .forCompiledCode();
 }
 
-/* static */ void* Instance::throwException(Instance* instance, JSObject* exn) {
-  MOZ_ASSERT(SASigThrowException.failureMode == FailureMode::FailOnNullPtr);
+/* static */ int32_t Instance::throwException(Instance* instance,
+                                              JSObject* exn) {
+  MOZ_ASSERT(SASigThrowException.failureMode == FailureMode::FailOnNegI32);
 
   JSContext* cx = instance->tlsData()->cx;
   RootedValue exnVal(cx, UnboxAnyRef(AnyRef::fromJSObject(exn)));
   cx->setPendingException(exnVal, nullptr);
 
-  // By always returning a nullptr, we trigger a wasmTrap(Trap::ThrowReported),
+  // By always returning -1, we trigger a wasmTrap(Trap::ThrowReported),
   // and use that to trigger the stack walking for this exception.
-  return nullptr;
+  return -1;
 }
 
 /* static */ uint32_t Instance::consumePendingException(Instance* instance) {
@@ -1731,7 +1709,7 @@ bool Instance::init(JSContext* cx, const JSFunctionVector& funcImports,
     const TableDesc& td = metadata().tables[i];
     TableTls& table = tableTls(td);
     table.length = tables_[i]->length();
-    table.functionBase = tables_[i]->functionBase();
+    table.elements = tables_[i]->tlsElements();
   }
 
   // Add observer if our memory base may grow
@@ -2600,7 +2578,7 @@ void Instance::onMovingGrowTable(const Table* theTable) {
     if (tables_[i] == theTable) {
       TableTls& table = tableTls(metadata().tables[i]);
       table.length = tables_[i]->length();
-      table.functionBase = tables_[i]->functionBase();
+      table.elements = tables_[i]->tlsElements();
     }
   }
 }
