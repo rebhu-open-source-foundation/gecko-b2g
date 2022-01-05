@@ -83,36 +83,22 @@ void MediaEngineWebRTC::EnumerateVideoDevices(
   AssertIsOnOwningThread();
 
 #if defined(MOZ_B2G_CAMERA) && defined(MOZ_WIDGET_GONK)
-  /**
-   * We still enumerate every time, in case a new device was plugged in since
-   * the last call. TODO: Verify that WebRTC actually does deal with hotplugging
-   * new devices (with or without new engine creation) and accordingly adjust.
-   * Enumeration is not neccessary if GIPS reports the same set of devices
-   * for a given instance of the engine. Likewise, if a device was plugged out,
-   * mVideoSources must be updated.
-   */
-  int num = 0;
-  nsresult result;
-  result = ICameraControl::GetNumberOfCameras(num);
-  if (num <= 0 || result != NS_OK) {
+  // Currently B2G only supports camera source.
+  if (aMediaSource != MediaSourceEnum::Camera) {
     return;
   }
 
-  for (int i = 0; i < num; i++) {
-    nsCString cameraName;
-    result = ICameraControl::GetCameraName(i, cameraName);
-    if (result != NS_OK) {
-      continue;
-    }
-
-    RefPtr<MediaEngineSource> vSource = new MediaEngineGonkVideoSource(i);
-
-    aDevices->AppendElement(MakeRefPtr<MediaDevice>(
-        vSource, vSource->GetName(),
-        MediaEngineWebRTCAudioCaptureSource::GetUUID(),
-        MediaEngineWebRTCAudioCaptureSource::GetGroupId()));
+  nsTArray<nsString> cameraNames;
+  auto result = ICameraControl::GetListOfCameras(cameraNames);
+  if (NS_FAILED(result)) {
+    return;
   }
-
+  for (auto& name : cameraNames) {
+    // Camera UUID and group ID are not available on Gonk, use camera name
+    // instead.
+    aDevices->EmplaceBack(new MediaDevice(this, aMediaSource, name, name, name,
+                                          MediaDevice::IsScary::No));
+  }
   return;
 #else
   // flag sources with cross-origin exploit potential
@@ -318,7 +304,11 @@ RefPtr<MediaEngineSource> MediaEngineWebRTC::CreateSource(
     const MediaDevice* aMediaDevice) {
   MOZ_ASSERT(aMediaDevice->mEngine == this);
   if (MediaEngineSource::IsVideo(aMediaDevice->mMediaSource)) {
+#if defined(MOZ_B2G_CAMERA) && defined(MOZ_WIDGET_GONK)
+    return new MediaEngineGonkVideoSource(aMediaDevice);
+#else
     return new MediaEngineRemoteVideoSource(aMediaDevice);
+#endif
   }
   switch (aMediaDevice->mMediaSource) {
     case MediaSourceEnum::AudioCapture:
