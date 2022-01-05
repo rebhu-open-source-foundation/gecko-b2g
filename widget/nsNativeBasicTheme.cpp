@@ -914,13 +914,13 @@ void nsNativeBasicTheme::PaintProgress(nsIFrame* aFrame,
         if (!meter) {
           return 0.0;
         }
-        return meter->Value() / meter->Max();
+        return meter->Position();
       }
       auto* progress = dom::HTMLProgressElement::FromNode(aFrame->GetContent());
       if (!progress) {
         return 0.0;
       }
-      return progress->Value() / progress->Max();
+      return progress->Position();
     }();
     if (isHorizontal) {
       double clipWidth = rect.width * position;
@@ -1163,7 +1163,7 @@ bool nsNativeBasicTheme::DoDrawWidgetBackground(PaintBackendData& aPaintData,
           GetScrollbarDrawing().PaintScrollbarButton(
               aPaintData, aAppearance, devPxRect, aFrame,
               *nsLayoutUtils::StyleForScrollbar(aFrame), eventState, docState,
-              colors);
+              colors, dpiRatio);
         }
       }
       break;

@@ -90,6 +90,9 @@ extern crate gecko_sidl;
 #[cfg(feature = "oxidized_breakpad")]
 extern crate rust_minidump_writer_linux;
 
+#[cfg(feature = "webmidi_midir_impl")]
+extern crate midir_impl;
+
 extern crate log;
 use log::info;
 
