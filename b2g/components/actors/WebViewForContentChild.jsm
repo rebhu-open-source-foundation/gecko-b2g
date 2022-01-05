@@ -349,7 +349,10 @@ class WebViewForContentChild extends JSWindowActorChild {
     }
 
     this.log(`dispatch ${event.type} ${JSON.stringify(ev.detail)}\n`);
-    if (browser.dispatchEvent(ev)) {
+    if (!browser.dispatchEvent(ev)) {
+      // We call preventDefault() on our contextmenu event if the embedder
+      // called preventDefault() on /its/ contextmenu event to stop firing a
+      // click or long tap.
       event.preventDefault();
     } else {
       ContextMenuUtils.cancel(this);
