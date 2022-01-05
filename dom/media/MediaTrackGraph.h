@@ -734,6 +734,8 @@ class SourceMediaTrack : public MediaTrack {
   void SetVolume(float aVolume);
   float GetVolumeLocked();
 
+  Mutex& GetMutex() { return mMutex; }
+
   friend class MediaTrackGraphImpl;
 
  protected:

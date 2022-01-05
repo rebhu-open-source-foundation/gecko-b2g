@@ -4185,6 +4185,12 @@
   value: false
   mirror: always
 
+# midi permission is addon-gated
+- name: dom.webmidi.gated
+  type: bool
+  value: true
+  mirror: always
+
 - name: dom.webnotifications.allowinsecure
   type: RelaxedAtomicBool
   value: false
@@ -5239,7 +5245,7 @@
   # attempt to isolate video layers in fullscreen windows.
 -   name: gfx.core-animation.specialize-video
     type: RelaxedAtomicBool
-    value: true
+    value: @IS_EARLY_BETA_OR_EARLIER@
     mirror: always
 #endif
 
@@ -7786,16 +7792,6 @@
   mirror: always
   rust: true
 
-# W3C touch-action css property (related to touch and pointer events)
-# Note that we turn this on even on platforms/configurations where touch
-# events are not supported (e.g. OS X, or Windows with e10s disabled). For
-# those platforms we don't handle touch events anyway so it's conceptually
-# a no-op.
-- name: layout.css.touch_action.enabled
-  type: RelaxedAtomicBool
-  value: true
-  mirror: always
-
 # Are counters for implemented CSS properties enabled?
 - name: layout.css.use-counters.enabled
   type: bool
@@ -8353,6 +8349,16 @@
 #elif defined(XP_WIN) && !defined(_ARM64_)
   value: true
 #elif defined(XP_MACOSX)
+  value: true
+#else
+  value: false
+#endif
+
+# Whether cubeb sandbox (AudioIPC) is v2
+- name: media.cubeb.sandbox_v2
+  type: bool
+  mirror: always
+#if defined(XP_MACOSX)
   value: true
 #else
   value: false
@@ -10974,6 +10980,14 @@
 - name: print.cups.monochrome.enabled
   type: RelaxedAtomicBool
   value: true
+  mirror: always
+
+# The maximum amount of time CUPS should spend enumerating print destinations
+# (in milliseconds).
+# The default value chosen here is completely arbitrary.
+- name: print.cups.enum_dests_timeout_ms
+  type: RelaxedAtomicUint32
+  value: 150
   mirror: always
 
 #---------------------------------------------------------------------------

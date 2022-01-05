@@ -255,7 +255,7 @@ TEST(TestAudioTrackGraph, ErrorCallback)
     inputTrack->SetInputProcessing(listener);
     inputTrack->GraphImpl()->AppendMessage(
         MakeUnique<StartInputProcessing>(inputTrack, listener));
-    inputTrack->OpenAudioInput(deviceId, listener);
+    inputTrack->OpenAudioInput(deviceId, listener, PRINCIPAL_HANDLE_NONE);
     EXPECT_EQ(inputTrack->DeviceId().value(), deviceId);
     return graph->NotifyWhenDeviceStarted(inputTrack);
   });
@@ -324,7 +324,7 @@ TEST(TestAudioTrackGraph, AudioInputTrack)
     inputTrack->GraphImpl()->AppendMessage(
         MakeUnique<StartInputProcessing>(inputTrack, listener));
     // Device id does not matter. Ignore.
-    inputTrack->OpenAudioInput(deviceId, listener);
+    inputTrack->OpenAudioInput(deviceId, listener, PRINCIPAL_HANDLE_NONE);
     return graph->NotifyWhenDeviceStarted(inputTrack);
   });
 
@@ -410,7 +410,7 @@ TEST(TestAudioTrackGraph, ReOpenAudioInput)
     inputTrack->SetInputProcessing(listener);
     inputTrack->GraphImpl()->AppendMessage(
         MakeUnique<StartInputProcessing>(inputTrack, listener));
-    inputTrack->OpenAudioInput(deviceId, listener);
+    inputTrack->OpenAudioInput(deviceId, listener, PRINCIPAL_HANDLE_NONE);
     return graph->NotifyWhenDeviceStarted(inputTrack);
   });
 
@@ -463,7 +463,7 @@ TEST(TestAudioTrackGraph, ReOpenAudioInput)
   // Re-open the input to again see that no asserts go off due to bad state.
   DispatchFunction([&] {
     // Device id does not matter. Ignore.
-    inputTrack->OpenAudioInput(deviceId, listener);
+    inputTrack->OpenAudioInput(deviceId, listener, PRINCIPAL_HANDLE_NONE);
   });
 
   stream = WaitFor(cubeb->StreamInitEvent());
@@ -565,7 +565,7 @@ TEST(TestAudioTrackGraph, AudioInputTrackDisabling)
     inputTrack->GraphImpl()->AppendMessage(
         MakeUnique<SetPassThrough>(inputTrack, listener, true));
     inputTrack->SetInputProcessing(listener);
-    inputTrack->OpenAudioInput(deviceId, listener);
+    inputTrack->OpenAudioInput(deviceId, listener, PRINCIPAL_HANDLE_NONE);
     inputTrack->GraphImpl()->AppendMessage(
         MakeUnique<StartInputProcessing>(inputTrack, listener));
     return graph->NotifyWhenDeviceStarted(inputTrack);
@@ -685,7 +685,8 @@ struct AudioTrackSet {
     mInputTrack->SetInputProcessing(mListener);
     mInputTrack->GraphImpl()->AppendMessage(
         MakeUnique<StartInputProcessing>(mInputTrack, mListener));
-    mInputTrack->OpenAudioInput(mInputDeviceID, mListener);
+    mInputTrack->OpenAudioInput(mInputDeviceID, mListener,
+                                PRINCIPAL_HANDLE_NONE);
   }
 
   void Uninit() {
@@ -972,7 +973,7 @@ void TestCrossGraphPort(uint32_t aInputRate, uint32_t aOutputRate,
     inputTrack->SetInputProcessing(listener);
     inputTrack->GraphImpl()->AppendMessage(
         MakeUnique<StartInputProcessing>(inputTrack, listener));
-    inputTrack->OpenAudioInput(deviceId, listener);
+    inputTrack->OpenAudioInput(deviceId, listener, PRINCIPAL_HANDLE_NONE);
     return primary->NotifyWhenDeviceStarted(inputTrack);
   });
 
