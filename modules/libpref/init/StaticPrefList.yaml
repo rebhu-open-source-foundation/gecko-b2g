@@ -12076,6 +12076,13 @@
   value: false
   mirror: always
 
+#ifdef MOZ_B2G
+- name: touch.show_location
+  type: bool
+  value: false
+  mirror: always
+#endif
+
 #---------------------------------------------------------------------------
 # Prefs starting with "ui."
 #---------------------------------------------------------------------------
