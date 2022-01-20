@@ -1627,10 +1627,11 @@ set_config("LINKER_KIND", select_linker.KIND)
     target_multiarch_dir,
     android_platform,
     c_compiler,
+    gonkdir,
 )
 @imports("os")
 def linker_ldflags(
-    linker, target, sysroot, multiarch_dir, android_platform, c_compiler
+    linker, target, sysroot, multiarch_dir, android_platform, c_compiler, gonkdir
 ):
     flags = list((linker and linker.LINKER_FLAG) or [])
     # rpath-link is irrelevant to wasm, see for more info https://github.com/emscripten-core/emscripten/issues/11076.
@@ -1655,6 +1656,12 @@ def linker_ldflags(
         flags.append("-Wl,--rpath-link={}/usr/lib".format(android_platform))
         flags.append("--sysroot")
         flags.append(android_platform)
+
+    # Gonk specific flags
+    # LDFLAGS="-L$gonkdir/libs -Wl,-rpath-link=$gonkdir/libs $LDFLAGS"
+    if gonkdir:
+        flags.append("-L{}/libs".format(gonkdir))
+        flags.append("-Wl,-rpath-link={}/libs".format(gonkdir))
     return flags
 
 
