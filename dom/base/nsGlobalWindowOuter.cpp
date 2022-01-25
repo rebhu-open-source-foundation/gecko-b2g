@@ -4135,7 +4135,9 @@ uint32_t nsGlobalWindowOuter::Length() {
 
 Nullable<WindowProxyHolder> nsGlobalWindowOuter::GetTopOuter() {
   BrowsingContext* bc = GetBrowsingContext();
-  return bc ? bc->GetTop(IgnoreErrors()) : nullptr;
+  // We could get the top from the content inside a nested web-view. Return the
+  // nearest web-view or nested web-view.
+  return bc ? bc->GetTopOfNormalOrNestedWebView(IgnoreErrors()) : nullptr;
 }
 
 already_AddRefed<BrowsingContext> nsGlobalWindowOuter::GetChildWindow(
