@@ -144,8 +144,7 @@ dependencies = [
 [[package]]
 name = "async-task"
 version = "4.0.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e91831deabf0d6d7ec49552e489aed63b7456a7a3c46cff62adad428110b0af0"
+source = "git+https://github.com/smol-rs/async-task?rev=f6488e35beccb26eb6e85847b02aa78a42cd3d0e#f6488e35beccb26eb6e85847b02aa78a42cd3d0e"
 
 [[package]]
 name = "async-trait"
@@ -344,6 +343,7 @@ dependencies = [
  "cranelift-wasm",
  "env_logger",
  "log",
+ "mozbuild",
  "smallvec",
 ]
 
@@ -1665,6 +1665,7 @@ dependencies = [
  "glean",
  "inherent",
  "log",
+ "mozbuild",
  "nsstring",
  "once_cell",
  "serde",
@@ -1872,6 +1873,7 @@ dependencies = [
  "bincode",
  "bindgen",
  "lazy_static",
+ "mozbuild",
  "profiler-macros",
  "serde",
 ]
@@ -3231,6 +3233,9 @@ dependencies = [
 [[package]]
 name = "moz_asserts"
 version = "0.1.0"
+dependencies = [
+ "mozbuild",
+]
 
 [[package]]
 name = "moz_cbor"
@@ -3261,6 +3266,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "mozbuild"
+version = "0.1.0"
+dependencies = [
+ "once_cell",
+]
+
+[[package]]
 name = "mozdevice"
 version = "0.4.0"
 dependencies = [
@@ -3280,6 +3292,7 @@ version = "0.1.0"
 dependencies = [
  "arrayvec 0.5.2",
  "cc",
+ "mozbuild",
  "rustc_version",
 ]
 
@@ -3556,6 +3569,7 @@ dependencies = [
 name = "nserror"
 version = "0.1.0"
 dependencies = [
+ "mozbuild",
  "nsstring",
 ]
 
@@ -4787,6 +4801,9 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 [[package]]
 name = "static_prefs"
 version = "0.1.0"
+dependencies = [
+ "mozbuild",
+]
 
 [[package]]
 name = "storage"
@@ -4838,6 +4855,7 @@ dependencies = [
  "malloc_size_of",
  "malloc_size_of_derive",
  "matches",
+ "mozbuild",
  "new_debug_unreachable",
  "nsstring",
  "num-derive",
@@ -5963,6 +5981,7 @@ version = "0.1.0"
 dependencies = [
  "cstr",
  "libc",
+ "mozbuild",
  "nserror",
  "nsstring",
  "thin-vec",
@@ -5984,6 +6003,7 @@ name = "xpcom_macros"
 version = "0.1.0"
 dependencies = [
  "lazy_static",
+ "mozbuild",
  "proc-macro2",
  "quote",
  "syn",
